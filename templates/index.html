@@ -1833,6 +1833,120 @@
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 28px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            border-radius: 28px;
+            transition: 0.3s;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.3s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--primary);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        /* Channel Category Cards */
+        .channel-categories {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .channel-category-card {
+            background: white;
+            border: 1px solid rgba(0,0,0,0.06);
+            border-radius: var(--radius-sm);
+            padding: 20px 24px;
+            transition: all 0.3s ease;
+        }
+
+        .channel-category-card:hover {
+            border-color: rgba(90,84,189,0.2);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .category-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .category-icon {
+            font-size: 28px;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(90,84,189,0.06);
+            border-radius: 12px;
+            flex-shrink: 0;
+        }
+
+        .category-info h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 2px;
+        }
+
+        .category-info p {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* Nav buttons for step 3 */
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 24px;
+        }
+
     </style>
 </head>
 <body>
@@ -2101,52 +2215,144 @@
             </div>
         </div>
 
-        <!-- Step 3: Channel Selection -->
+        <!-- Step 3: Channel Categories -->
         <div class="wizard-step" id="step3">
             <div class="card">
-                <h2>Channel Selection</h2>
-                <p class="subtitle">Select the traditional channels to include in the media plan</p>
+                <h2>Channel Categories</h2>
+                <p class="subtitle">Select the types of recruitment channels to include in your media plan</p>
 
-                <div class="channel-category">Regional / Local Reach</div>
-                <div class="select-controls">
-                    <a onclick="toggleAll('regional', true)">Select All</a>
-                    <a onclick="toggleAll('regional', false)">Select None</a>
-                </div>
-                <div class="channel-grid" id="regionalChannels"></div>
-
-                <div class="channel-category">Industry-Specific / Niche</div>
-                <div class="select-controls">
-                    <a onclick="toggleAll('niche', true)">Select All</a>
-                    <a onclick="toggleAll('niche', false)">Select None</a>
-                </div>
-                <div class="channel-grid" id="nicheChannels"></div>
-
-                <div class="channel-category">Global Reach</div>
-                <div class="select-controls">
-                    <a onclick="toggleAll('global', true)">Select All</a>
-                    <a onclick="toggleAll('global', false)">Select None</a>
-                </div>
-                <div class="channel-grid" id="globalChannels"></div>
-
-                <div id="apacSection" style="display:none">
-                    <div class="channel-category">APAC Regional Boards</div>
-                    <div class="select-controls">
-                        <a onclick="toggleAll('apac', true)">Select All</a>
-                        <a onclick="toggleAll('apac', false)">Select None</a>
+                <div class="channel-categories">
+                    <div class="channel-category-card">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <div class="category-icon">📋</div>
+                                <div>
+                                    <h3>Regional & Local Job Boards</h3>
+                                    <p>Indeed, Craigslist, local job sites, and regional platforms</p>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="chRegionalBoards" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
                     </div>
-                    <div class="channel-grid" id="apacChannels"></div>
-                </div>
 
-                <div id="emeaSection" style="display:none">
-                    <div class="channel-category">EMEA / DACH Regional Boards</div>
-                    <div class="select-controls">
-                        <a onclick="toggleAll('emea', true)">Select All</a>
-                        <a onclick="toggleAll('emea', false)">Select None</a>
+                    <div class="channel-category-card">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <div class="category-icon">🌍</div>
+                                <div>
+                                    <h3>Global Reach Job Boards</h3>
+                                    <p>ZipRecruiter, Monster, LinkedIn, and international platforms</p>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="chGlobalBoards" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
                     </div>
-                    <div class="channel-grid" id="emeaChannels"></div>
+
+                    <div class="channel-category-card">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <div class="category-icon">🎯</div>
+                                <div>
+                                    <h3>Niche & Industry-Specific Boards</h3>
+                                    <p>Specialized job boards matching your industry (e.g., Dice for Tech, Health eCareers for Healthcare)</p>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="chNicheBoards" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="channel-category-card">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <div class="category-icon">📱</div>
+                                <div>
+                                    <h3>Social Media Channels</h3>
+                                    <p>LinkedIn Ads, Facebook Jobs, Instagram, TikTok recruitment, and social platforms</p>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="chSocial" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="channel-category-card">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <div class="category-icon">⚡</div>
+                                <div>
+                                    <h3>Programmatic & DSP Channels</h3>
+                                    <p>Automated job ad distribution via Joveo Mojo and programmatic platforms</p>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="chProgrammatic" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="channel-category-card">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <div class="category-icon">🏢</div>
+                                <div>
+                                    <h3>Employer Branding Platforms</h3>
+                                    <p>Glassdoor, Comparably, career site optimization, and brand-building channels</p>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="chEmployerBrand">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="channel-category-card" id="apacChannelCard" style="display:none">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <div class="category-icon">🌏</div>
+                                <div>
+                                    <h3>APAC Regional Channels</h3>
+                                    <p>Local job platforms for Japan, Korea, India, Singapore, Australia, and more</p>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="chApac" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="channel-category-card" id="emeaChannelCard" style="display:none">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <div class="category-icon">🌍</div>
+                                <div>
+                                    <h3>EMEA Regional Channels</h3>
+                                    <p>European and Middle East local job boards and recruitment platforms</p>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="chEmea" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="btn-row">
+
+            <div class="nav-buttons">
                 <button class="btn btn-secondary" onclick="prevStep()">&#8592; Back</button>
                 <button class="btn btn-primary" onclick="nextStep()">Continue &#8594;</button>
             </div>
@@ -2265,12 +2471,10 @@
 
                 <div class="review-section">
                     <div class="review-section-header">
-                        <h3>Channels Selected</h3>
+                        <h3>Channel Categories</h3>
                         <a class="review-edit-btn" onclick="goToStep(3)">Edit</a>
                     </div>
-                    <div class="review-item"><span class="label">Regional/Local</span><span class="value" id="reviewRegional"></span></div>
-                    <div class="review-item"><span class="label">Niche/Industry</span><span class="value" id="reviewNiche"></span></div>
-                    <div class="review-item"><span class="label">Global</span><span class="value" id="reviewGlobal"></span></div>
+                    <div class="chip-list" id="reviewChannelCategories"></div>
                 </div>
 
                 <div class="review-section">
@@ -2722,13 +2926,7 @@
         function populateChannels() {
             if (!channelsDB) return;
 
-            const regional = channelsDB.traditional_channels.regional_local;
-            const global = channelsDB.traditional_channels.global_reach;
-
-            populateChannelGrid('regionalChannels', regional, 'regional');
-            populateChannelGrid('globalChannels', global, 'global');
-
-            // Populate APAC/EMEA if available
+            // Update APAC/EMEA visibility based on locations
             updateRegionalSections();
 
             // Populate job categories
@@ -2736,7 +2934,6 @@
         }
 
         function updateRegionalSections() {
-            if (!channelsDB) return;
             // Check if locations contain APAC or EMEA countries
             const apacCountries = ['japan', 'south korea', 'korea', 'indonesia', 'malaysia', 'philippines', 'singapore', 'thailand', 'vietnam', 'taiwan', 'australia', 'india', 'china', 'hong kong', 'new zealand'];
             const emeaCountries = ['united kingdom', 'uk', 'germany', 'france', 'spain', 'portugal', 'poland', 'hungary', 'netherlands', 'belgium', 'austria', 'switzerland', 'ireland', 'italy', 'sweden', 'denmark', 'norway', 'finland', 'czech', 'uae', 'dubai', 'south africa', 'kenya', 'israel'];
@@ -2745,55 +2942,28 @@
             const hasApac = locsLower.some(l => apacCountries.some(c => l.includes(c)));
             const hasEmea = locsLower.some(l => emeaCountries.some(c => l.includes(c)));
 
-            // Show APAC section
-            const apacSection = document.getElementById('apacSection');
-            if (hasApac && channelsDB.traditional_channels.apac_regional) {
-                apacSection.style.display = 'block';
-                let apacBoards = [];
-                const apacData = channelsDB.traditional_channels.apac_regional;
-                for (const [country, boards] of Object.entries(apacData)) {
-                    if (locsLower.some(l => l.includes(country.replace('_', ' ')))) {
-                        apacBoards = apacBoards.concat(boards);
-                    }
-                }
-                if (apacBoards.length === 0) {
-                    for (const boards of Object.values(apacData)) apacBoards = apacBoards.concat(boards);
-                }
-                populateChannelGrid('apacChannels', [...new Set(apacBoards)], 'apac');
-            } else {
-                apacSection.style.display = 'none';
+            // Show/hide APAC channel category card
+            const apacCard = document.getElementById('apacChannelCard');
+            if (apacCard) {
+                apacCard.style.display = hasApac ? 'block' : 'none';
             }
 
-            // Show EMEA section
-            const emeaSection = document.getElementById('emeaSection');
-            if (hasEmea) {
-                emeaSection.style.display = 'block';
-                let emeaBoards = channelsDB.traditional_channels.dach_regional || [];
-                const emeaData = channelsDB.traditional_channels.emea_regional || {};
-                for (const [country, boards] of Object.entries(emeaData)) {
-                    if (locsLower.some(l => l.includes(country.replace('_', ' ')))) {
-                        emeaBoards = emeaBoards.concat(boards);
-                    }
-                }
-                if (emeaBoards.length <= (channelsDB.traditional_channels.dach_regional || []).length) {
-                    for (const boards of Object.values(emeaData)) emeaBoards = emeaBoards.concat(boards);
-                }
-                populateChannelGrid('emeaChannels', [...new Set(emeaBoards)], 'emea');
-            } else {
-                emeaSection.style.display = 'none';
+            // Show/hide EMEA channel category card
+            const emeaCard = document.getElementById('emeaChannelCard');
+            if (emeaCard) {
+                emeaCard.style.display = hasEmea ? 'block' : 'none';
             }
         }
 
         function populateNicheChannels() {
-            if (!channelsDB || !selectedIndustry) return;
-            const nicheKey = channelsDB.industries[selectedIndustry]?.niche_channel_key;
-            const niche = channelsDB.traditional_channels.niche_by_industry[nicheKey] || [];
-            populateChannelGrid('nicheChannels', niche, 'niche');
+            // No longer populating individual niche channel checkboxes;
+            // category-level toggle (chNicheBoards) is used instead.
         }
 
         // 30. Stagger animations for channel loading
         function populateChannelGrid(containerId, channels, group) {
             const container = document.getElementById(containerId);
+            if (!container) return;
             container.innerHTML = '';
             channels.forEach((ch, i) => {
                 const item = document.createElement('label');
@@ -2957,17 +3127,24 @@
             document.getElementById('reviewRoles').innerHTML = roles.map(r => `<span class="chip">${r}</span>`).join(' ');
             document.getElementById('reviewDemographic').textContent = document.getElementById('targetDemographic').value || 'Not specified';
 
-            const regionalCount = getSelectedChannels('regional').length;
-            const nicheCount = getSelectedChannels('niche').length;
-            const globalCount = getSelectedChannels('global').length;
-            const apacCount = getSelectedChannels('apac').length;
-            const emeaCount = getSelectedChannels('emea').length;
-            let channelSummary = `${regionalCount} regional, ${nicheCount} niche, ${globalCount} global`;
-            if (apacCount > 0) channelSummary += `, ${apacCount} APAC`;
-            if (emeaCount > 0) channelSummary += `, ${emeaCount} EMEA`;
-            document.getElementById('reviewRegional').textContent = `${regionalCount} channels selected`;
-            document.getElementById('reviewNiche').textContent = `${nicheCount} channels selected`;
-            document.getElementById('reviewGlobal').textContent = `${globalCount} channels${apacCount > 0 ? ` + ${apacCount} APAC` : ''}${emeaCount > 0 ? ` + ${emeaCount} EMEA` : ''} selected`;
+            const channelCategoryMap = {
+                'chRegionalBoards': 'Regional & Local Job Boards',
+                'chGlobalBoards': 'Global Reach Job Boards',
+                'chNicheBoards': 'Niche & Industry-Specific Boards',
+                'chSocial': 'Social Media Channels',
+                'chProgrammatic': 'Programmatic & DSP Channels',
+                'chEmployerBrand': 'Employer Branding Platforms',
+                'chApac': 'APAC Regional Channels',
+                'chEmea': 'EMEA Regional Channels',
+            };
+            const selectedCategories = [];
+            for (const [id, label] of Object.entries(channelCategoryMap)) {
+                const el = document.getElementById(id);
+                if (el && el.checked) selectedCategories.push(label);
+            }
+            document.getElementById('reviewChannelCategories').innerHTML = selectedCategories.length > 0
+                ? selectedCategories.map(c => `<span class="chip">${c}</span>`).join(' ')
+                : 'No channel categories selected';
 
             const sections = [];
             sections.push('Overview', 'Market Trends', 'Competitor Analysis', 'Channel Strategy', 'Traditional Channels', 'Non-Traditional Channels');
@@ -3012,11 +3189,16 @@
                 work_environment: getCheckboxGroupValues('workEnvironment'),
                 competitors: competitors,
                 experience_level: getCheckboxGroupValues('experienceLevel'),
-                selected_regional: getSelectedChannels('regional'),
-                selected_niche: getSelectedChannels('niche'),
-                selected_global: getSelectedChannels('global'),
-                selected_apac: getSelectedChannels('apac'),
-                selected_emea: getSelectedChannels('emea'),
+                channel_categories: {
+                    regional_boards: document.getElementById('chRegionalBoards').checked,
+                    global_boards: document.getElementById('chGlobalBoards').checked,
+                    niche_boards: document.getElementById('chNicheBoards').checked,
+                    social_media: document.getElementById('chSocial').checked,
+                    programmatic_dsp: document.getElementById('chProgrammatic').checked,
+                    employer_branding: document.getElementById('chEmployerBrand').checked,
+                    apac_regional: document.getElementById('chApac')?.checked || false,
+                    emea_regional: document.getElementById('chEmea')?.checked || false,
+                },
                 include_educational: document.getElementById('includeEducational').checked,
                 include_events: document.getElementById('includeEvents').checked,
                 include_radio_podcasts: document.getElementById('includeRadioPodcasts').checked,

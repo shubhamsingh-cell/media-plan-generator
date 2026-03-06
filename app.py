@@ -146,6 +146,24 @@ def generate_excel(data):
         return cell
 
     locations = data.get("locations", ["United States"])
+
+    # Determine display currency based on locations
+    # Single country = use that country's currency; multiple countries = default to USD
+    CURRENCY_SYMBOLS = {
+        "USD": "$", "GBP": "£", "EUR": "€", "JPY": "¥", "INR": "₹",
+        "AUD": "A$", "CAD": "C$", "SGD": "S$", "CHF": "CHF ", "AED": "AED ",
+        "ZAR": "R", "BRL": "R$", "MXN": "MX$", "PLN": "PLN ", "SEK": "SEK ",
+        "DKK": "DKK ", "NOK": "NOK ", "NZD": "NZ$", "HKD": "HK$", "KRW": "₩",
+        "ILS": "₪", "CNY": "¥", "PHP": "₱", "MYR": "RM ", "THB": "฿",
+    }
+    display_currency = "$"  # Default USD
+    display_currency_code = "USD"
+    if len(locations) == 1:
+        loc_info = research.get_location_info(locations[0])
+        loc_currency = loc_info.get("currency", "USD")
+        display_currency = CURRENCY_SYMBOLS.get(loc_currency, "$")
+        display_currency_code = loc_currency
+
     industry = data.get("industry", "general_entry_level")
     roles = data.get("target_roles", [])
     niche_key = db.get("industries", {}).get(industry, {}).get("niche_channel_key", "")
@@ -583,7 +601,7 @@ def generate_excel(data):
         exec_row += 1
 
         # Table headers
-        bench_headers = ["Region", "Avg CPA Range", "Avg CPC Range", "Market Notes"]
+        bench_headers = ["Region", f"Avg CPA Range ({display_currency_code})", f"Avg CPC Range ({display_currency_code})", "Market Notes"]
         for i, h in enumerate(bench_headers):
             cell = ws_exec.cell(row=exec_row, column=2 + i, value=h)
             cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
@@ -593,36 +611,28 @@ def generate_excel(data):
         exec_row += 1
 
         for region_name, region_data in ind_data["benchmarks"].items():
-            # Highlight relevant regions
-            is_relevant = region_name in relevant_regions
-            row_fill = PatternFill(start_color="E8F5E9", end_color="E8F5E9", fill_type="solid") if is_relevant else None
+            # Only show regions relevant to the client's target locations
+            if region_name not in relevant_regions:
+                continue
 
-            c1 = ws_exec.cell(row=exec_row, column=2, value=("★ " if is_relevant else "") + region_name)
-            c1.font = Font(name="Calibri", bold=is_relevant, size=10, color="1B2A4A" if is_relevant else "333333")
+            c1 = ws_exec.cell(row=exec_row, column=2, value=region_name)
+            c1.font = Font(name="Calibri", bold=True, size=10, color="1B2A4A")
             c1.border = thin_border
-            if row_fill:
-                c1.fill = row_fill
 
             c2 = ws_exec.cell(row=exec_row, column=3, value=region_data["cpa"])
-            c2.font = Font(name="Calibri", bold=is_relevant, size=10)
+            c2.font = Font(name="Calibri", bold=True, size=10)
             c2.border = thin_border
             c2.alignment = center_alignment
-            if row_fill:
-                c2.fill = row_fill
 
             c3 = ws_exec.cell(row=exec_row, column=4, value=region_data["cpc"])
-            c3.font = Font(name="Calibri", bold=is_relevant, size=10)
+            c3.font = Font(name="Calibri", bold=True, size=10)
             c3.border = thin_border
             c3.alignment = center_alignment
-            if row_fill:
-                c3.fill = row_fill
 
             c4 = ws_exec.cell(row=exec_row, column=5, value=region_data["notes"])
             c4.font = Font(name="Calibri", italic=True, size=9, color="596780")
             c4.border = thin_border
             c4.alignment = wrap_alignment
-            if row_fill:
-                c4.fill = row_fill
 
             exec_row += 1
 
@@ -631,7 +641,7 @@ def generate_excel(data):
     # Source attribution
     ws_exec.cell(row=exec_row, column=2, value="Sources: Joveo Platform Data, industry recruitment media benchmark reports, CPA/CPC aggregated from programmatic recruitment campaigns across 1,200+ publishers.").font = Font(name="Calibri", italic=True, size=8, color="999999")
     exec_row += 1
-    ws_exec.cell(row=exec_row, column=2, value="★ = Regions matching your target locations. Actual rates may vary based on job specificity, seasonality, and competition.").font = Font(name="Calibri", italic=True, size=8, color="999999")
+    ws_exec.cell(row=exec_row, column=2, value="Rates shown for your target regions. Actual rates may vary based on job specificity, seasonality, and competition.").font = Font(name="Calibri", italic=True, size=8, color="999999")
 
     # Move Executive Summary to first position
     wb.move_sheet("Executive Summary", offset=-(len(wb.sheetnames) - 1))
@@ -1279,357 +1289,378 @@ def generate_excel(data):
 
         # NOTE: Commission Tiers intentionally excluded — internal Joveo data, not for client-facing output
 
-    # ── Sheet 7: DEI & Diversity Channels ──
-    ws_dei = wb.create_sheet("DEI & Diversity Channels")
-    ws_dei.sheet_properties.tabColor = "7030A0"
-    ws_dei.column_dimensions["A"].width = 5
-    ws_dei.column_dimensions["B"].width = 30
-    ws_dei.column_dimensions["C"].width = 35
-    ws_dei.column_dimensions["D"].width = 25
-    ws_dei.column_dimensions["E"].width = 30
+    # ── Sheet 7: DEI & Diversity Channels (optional) ──
+    if data.get("include_dei"):
+        ws_dei = wb.create_sheet("DEI & Diversity Channels")
+        ws_dei.sheet_properties.tabColor = "7030A0"
+        ws_dei.column_dimensions["A"].width = 5
+        ws_dei.column_dimensions["B"].width = 30
+        ws_dei.column_dimensions["C"].width = 35
+        ws_dei.column_dimensions["D"].width = 25
+        ws_dei.column_dimensions["E"].width = 30
 
-    ws_dei.merge_cells("B2:E2")
-    ws_dei["B2"].value = "DEI & Diversity Channels"
-    ws_dei["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
-    ws_dei["B3"].value = f"Target Markets: {', '.join(locations)}"
-    ws_dei["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
+        ws_dei.merge_cells("B2:E2")
+        ws_dei["B2"].value = "DEI & Diversity Channels"
+        ws_dei["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+        ws_dei["B3"].value = f"Target Markets: {', '.join(locations)}"
+        ws_dei["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
 
-    row = 5
-    # DEI Boards by Region
-    cell = ws_dei.cell(row=row, column=2, value="DEI-Focused Job Boards by Region")
-    cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
-    cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-    for c in range(3, 6):
-        ws_dei.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-        ws_dei.cell(row=row, column=c).border = thin_border
-    row += 1
-
-    dei_headers = ["Board Name", "Focus Area", "Regions Covered"]
-    for i, h in enumerate(dei_headers):
-        cell = ws_dei.cell(row=row, column=2 + i, value=h)
-        cell.font = subheader_font
-        cell.fill = subheader_fill
-        cell.alignment = center_alignment
-        cell.border = thin_border
-    row += 1
-
-    dei_by_country = gs.get("dei_boards_by_country", {})
-    for region_name, boards in dei_by_country.items():
-        # Section header for each region
-        cell = ws_dei.cell(row=row, column=2, value=region_name)
-        cell.font = section_font
-        cell.fill = section_fill
-        cell.border = thin_border
-        for c in range(3, 5):
-            ws_dei.cell(row=row, column=c).fill = section_fill
+        row = 5
+        # DEI Boards by Region
+        cell = ws_dei.cell(row=row, column=2, value="DEI-Focused Job Boards by Region")
+        cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+        cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        for c in range(3, 6):
+            ws_dei.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
             ws_dei.cell(row=row, column=c).border = thin_border
         row += 1
 
-        board_list = boards if isinstance(boards, list) else boards.get("boards", boards) if isinstance(boards, dict) else []
-        if isinstance(board_list, list):
-            for board in board_list:
-                if isinstance(board, dict):
-                    style_body_cell(ws_dei, row, 2, board.get("name", ""))
-                    style_body_cell(ws_dei, row, 3, board.get("focus", ""))
-                    style_body_cell(ws_dei, row, 4, board.get("regions", region_name))
-                    if row % 2 == 0:
-                        for c in range(2, 5):
-                            ws_dei.cell(row=row, column=c).fill = accent_fill
-                    row += 1
-        row += 1  # gap between regions
-
-    # Women-Specific Boards
-    row += 1
-    cell = ws_dei.cell(row=row, column=2, value="Women-Specific Job Boards")
-    cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
-    cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-    for c in range(3, 6):
-        ws_dei.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-        ws_dei.cell(row=row, column=c).border = thin_border
-    row += 1
-
-    women_headers = ["Board Name", "Focus", "Regions"]
-    for i, h in enumerate(women_headers):
-        cell = ws_dei.cell(row=row, column=2 + i, value=h)
-        cell.font = subheader_font
-        cell.fill = subheader_fill
-        cell.alignment = center_alignment
-        cell.border = thin_border
-    row += 1
-
-    women_boards = gs.get("women_specific_boards", [])
-    for board in women_boards:
-        style_body_cell(ws_dei, row, 2, board.get("name", ""))
-        style_body_cell(ws_dei, row, 3, board.get("focus", ""))
-        style_body_cell(ws_dei, row, 4, board.get("regions", ""))
-        if row % 2 == 0:
-            for c in range(2, 5):
-                ws_dei.cell(row=row, column=c).fill = accent_fill
+        dei_headers = ["Board Name", "Focus Area", "Regions Covered"]
+        for i, h in enumerate(dei_headers):
+            cell = ws_dei.cell(row=row, column=2 + i, value=h)
+            cell.font = subheader_font
+            cell.fill = subheader_fill
+            cell.alignment = center_alignment
+            cell.border = thin_border
         row += 1
 
-    # Industry-Specific Diversity Channels from channels_db
-    row += 2
-    cell = ws_dei.cell(row=row, column=2, value="Industry-Specific Diversity Channels")
-    cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
-    cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-    for c in range(3, 6):
-        ws_dei.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-        ws_dei.cell(row=row, column=c).border = thin_border
-    row += 1
-
-    dei_channels = db.get("traditional_channels", {}).get("niche_by_industry", {}).get("diversity_dei", [])
-    for ch in dei_channels:
-        style_body_cell(ws_dei, row, 2, ch)
-        style_body_cell(ws_dei, row, 3, "Multi-diversity / DEI-focused")
-        style_body_cell(ws_dei, row, 4, "US / Global")
-        row += 1
-
-    # ── Sheet 8: Innovative Channels 2025+ (always) ──
-    ws_innov = wb.create_sheet("Innovative Channels 2025+")
-    ws_innov.sheet_properties.tabColor = "FF6600"
-    ws_innov.column_dimensions["A"].width = 5
-    ws_innov.column_dimensions["B"].width = 30
-    ws_innov.column_dimensions["C"].width = 50
-    ws_innov.column_dimensions["D"].width = 45
-    ws_innov.column_dimensions["E"].width = 20
-    ws_innov.column_dimensions["F"].width = 35
-
-    ws_innov.merge_cells("B2:F2")
-    ws_innov["B2"].value = "Innovative Channels 2025+"
-    ws_innov["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
-    ws_innov["B3"].value = "Emerging recruitment channels: CTV, DOOH, Retail Media, Gaming, Podcasts, Messaging Apps & more"
-    ws_innov["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
-
-    row = 5
-    innov_headers = ["Channel", "Description", "Best Use Case", "Billing Model", "Best For / Industries"]
-    for i, h in enumerate(innov_headers):
-        cell = ws_innov.cell(row=row, column=2 + i, value=h)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = center_alignment
-        cell.border = thin_border
-    row += 1
-
-    innovative = gs.get("innovative_channels_2025", {})
-    for channel_key, channel_data in innovative.items():
-        if isinstance(channel_data, dict):
-            style_body_cell(ws_innov, row, 2, channel_key.replace("_", " ").title())
-            ws_innov.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10)
-            style_body_cell(ws_innov, row, 3, channel_data.get("description", ""))
-            style_body_cell(ws_innov, row, 4, channel_data.get("use_case", ""))
-            style_body_cell(ws_innov, row, 5, channel_data.get("billing", ""))
-            best_for = channel_data.get("best_for", [])
-            style_body_cell(ws_innov, row, 6, ", ".join(best_for) if isinstance(best_for, list) else str(best_for))
-            ws_innov.row_dimensions[row].height = 50
-            if row % 2 == 0:
-                for c in range(2, 7):
-                    ws_innov.cell(row=row, column=c).fill = accent_fill
+        dei_by_country = gs.get("dei_boards_by_country", {})
+        for region_name, boards in dei_by_country.items():
+            # Section header for each region
+            cell = ws_dei.cell(row=row, column=2, value=region_name)
+            cell.font = section_font
+            cell.fill = section_fill
+            cell.border = thin_border
+            for c in range(3, 5):
+                ws_dei.cell(row=row, column=c).fill = section_fill
+                ws_dei.cell(row=row, column=c).border = thin_border
             row += 1
 
-    # Platforms sub-section
-    row += 2
-    cell = ws_innov.cell(row=row, column=2, value="Platform Details by Channel")
-    cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
-    cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-    for c in range(3, 7):
-        ws_innov.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-        ws_innov.cell(row=row, column=c).border = thin_border
-    row += 1
+            board_list = boards if isinstance(boards, list) else boards.get("boards", boards) if isinstance(boards, dict) else []
+            if isinstance(board_list, list):
+                for board in board_list:
+                    if isinstance(board, dict):
+                        style_body_cell(ws_dei, row, 2, board.get("name", ""))
+                        style_body_cell(ws_dei, row, 3, board.get("focus", ""))
+                        style_body_cell(ws_dei, row, 4, board.get("regions", region_name))
+                        if row % 2 == 0:
+                            for c in range(2, 5):
+                                ws_dei.cell(row=row, column=c).fill = accent_fill
+                        row += 1
+            row += 1  # gap between regions
 
-    for i, h in enumerate(["Channel", "Platforms"]):
-        cell = ws_innov.cell(row=row, column=2 + i, value=h)
-        cell.font = subheader_font
-        cell.fill = subheader_fill
-        cell.alignment = center_alignment
-        cell.border = thin_border
-    row += 1
+        # Women-Specific Boards
+        row += 1
+        cell = ws_dei.cell(row=row, column=2, value="Women-Specific Job Boards")
+        cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+        cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        for c in range(3, 6):
+            ws_dei.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+            ws_dei.cell(row=row, column=c).border = thin_border
+        row += 1
 
-    for channel_key, channel_data in innovative.items():
-        if isinstance(channel_data, dict):
-            platforms = channel_data.get("platforms", [])
-            if platforms:
+        women_headers = ["Board Name", "Focus", "Regions"]
+        for i, h in enumerate(women_headers):
+            cell = ws_dei.cell(row=row, column=2 + i, value=h)
+            cell.font = subheader_font
+            cell.fill = subheader_fill
+            cell.alignment = center_alignment
+            cell.border = thin_border
+        row += 1
+
+        women_boards = gs.get("women_specific_boards", [])
+        for board in women_boards:
+            style_body_cell(ws_dei, row, 2, board.get("name", ""))
+            style_body_cell(ws_dei, row, 3, board.get("focus", ""))
+            style_body_cell(ws_dei, row, 4, board.get("regions", ""))
+            if row % 2 == 0:
+                for c in range(2, 5):
+                    ws_dei.cell(row=row, column=c).fill = accent_fill
+            row += 1
+
+        # Industry-Specific Diversity Channels from channels_db
+        row += 2
+        cell = ws_dei.cell(row=row, column=2, value="Industry-Specific Diversity Channels")
+        cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+        cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        for c in range(3, 6):
+            ws_dei.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+            ws_dei.cell(row=row, column=c).border = thin_border
+        row += 1
+
+        dei_channels = db.get("traditional_channels", {}).get("niche_by_industry", {}).get("diversity_dei", [])
+        for ch in dei_channels:
+            style_body_cell(ws_dei, row, 2, ch)
+            style_body_cell(ws_dei, row, 3, "Multi-diversity / DEI-focused")
+            style_body_cell(ws_dei, row, 4, "US / Global")
+            row += 1
+
+    # ── Sheet 8: Innovative Channels 2025+ (optional) ──
+    if data.get("include_innovative"):
+        ws_innov = wb.create_sheet("Innovative Channels 2025+")
+        ws_innov.sheet_properties.tabColor = "FF6600"
+        ws_innov.column_dimensions["A"].width = 5
+        ws_innov.column_dimensions["B"].width = 30
+        ws_innov.column_dimensions["C"].width = 50
+        ws_innov.column_dimensions["D"].width = 45
+        ws_innov.column_dimensions["E"].width = 20
+        ws_innov.column_dimensions["F"].width = 35
+
+        ws_innov.merge_cells("B2:F2")
+        ws_innov["B2"].value = "Innovative Channels 2025+"
+        ws_innov["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+        ws_innov["B3"].value = "Emerging recruitment channels: CTV, DOOH, Retail Media, Gaming, Podcasts, Messaging Apps & more"
+        ws_innov["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
+
+        row = 5
+        innov_headers = ["Channel", "Description", "Best Use Case", "Billing Model", "Best For / Industries"]
+        for i, h in enumerate(innov_headers):
+            cell = ws_innov.cell(row=row, column=2 + i, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = center_alignment
+            cell.border = thin_border
+        row += 1
+
+        innovative = gs.get("innovative_channels_2025", {})
+        for channel_key, channel_data in innovative.items():
+            if isinstance(channel_data, dict):
                 style_body_cell(ws_innov, row, 2, channel_key.replace("_", " ").title())
                 ws_innov.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10)
-                style_body_cell(ws_innov, row, 3, ", ".join(platforms))
-                ws_innov.merge_cells(start_row=row, start_column=3, end_row=row, end_column=6)
+                style_body_cell(ws_innov, row, 3, channel_data.get("description", ""))
+                style_body_cell(ws_innov, row, 4, channel_data.get("use_case", ""))
+                style_body_cell(ws_innov, row, 5, channel_data.get("billing", ""))
+                best_for = channel_data.get("best_for", [])
+                style_body_cell(ws_innov, row, 6, ", ".join(best_for) if isinstance(best_for, list) else str(best_for))
+                ws_innov.row_dimensions[row].height = 50
+                if row % 2 == 0:
+                    for c in range(2, 7):
+                        ws_innov.cell(row=row, column=c).fill = accent_fill
                 row += 1
 
-    # ── Sheet 9: Budget & Pricing Guide (always) ──
-    ws_budget = wb.create_sheet("Budget & Pricing Guide")
-    ws_budget.sheet_properties.tabColor = "C00000"
-    ws_budget.column_dimensions["A"].width = 5
-    ws_budget.column_dimensions["B"].width = 25
-    ws_budget.column_dimensions["C"].width = 50
-    ws_budget.column_dimensions["D"].width = 25
-    ws_budget.column_dimensions["E"].width = 40
-
-    ws_budget.merge_cells("B2:E2")
-    ws_budget["B2"].value = "Budget & Pricing Guide"
-    ws_budget["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
-
-    row = 4
-    # Billing Models
-    cell = ws_budget.cell(row=row, column=2, value="Billing Models Explained")
-    cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
-    cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-    for c in range(3, 6):
-        ws_budget.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-        ws_budget.cell(row=row, column=c).border = thin_border
-    row += 1
-
-    billing_headers = ["Model", "Description", "Typical Rate Range"]
-    for i, h in enumerate(billing_headers):
-        cell = ws_budget.cell(row=row, column=2 + i, value=h)
-        cell.font = subheader_font
-        cell.fill = subheader_fill
-        cell.alignment = center_alignment
-        cell.border = thin_border
-    row += 1
-
-    billing_models = gs.get("billing_models", {})
-    for model_name, model_data in billing_models.items():
-        style_body_cell(ws_budget, row, 2, model_name)
-        ws_budget.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10)
-        style_body_cell(ws_budget, row, 3, model_data.get("description", ""))
-        style_body_cell(ws_budget, row, 4, model_data.get("typical_range", ""))
-        if row % 2 == 0:
-            for c in range(2, 5):
-                ws_budget.cell(row=row, column=c).fill = accent_fill
+        # Platforms sub-section
+        row += 2
+        cell = ws_innov.cell(row=row, column=2, value="Platform Details by Channel")
+        cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+        cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        for c in range(3, 7):
+            ws_innov.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+            ws_innov.cell(row=row, column=c).border = thin_border
         row += 1
 
-    # NOTE: Commission Tiers intentionally excluded — internal Joveo data, not for client-facing output
-
-    # Monthly Buying Recommendations by Region
-    row += 2
-    cell = ws_budget.cell(row=row, column=2, value="Monthly Buying by Region")
-    cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
-    cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-    for c in range(3, 6):
-        ws_budget.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-        ws_budget.cell(row=row, column=c).border = thin_border
-    row += 1
-
-    region_headers = ["Region", "Monthly Spend", "Top Countries"]
-    for i, h in enumerate(region_headers):
-        cell = ws_budget.cell(row=row, column=2 + i, value=h)
-        cell.font = subheader_font
-        cell.fill = subheader_fill
-        cell.alignment = center_alignment
-        cell.border = thin_border
-    row += 1
-
-    monthly_buying = gs.get("monthly_buying_by_region", {})
-    for region_name, region_data in monthly_buying.items():
-        style_body_cell(ws_budget, row, 2, region_name)
-        ws_budget.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10)
-        style_body_cell(ws_budget, row, 3, region_data.get("spend", ""))
-        top_countries = region_data.get("top_countries", [])
-        style_body_cell(ws_budget, row, 4, ", ".join(top_countries))
-        if row % 2 == 0:
-            for c in range(2, 5):
-                ws_budget.cell(row=row, column=c).fill = accent_fill
+        for i, h in enumerate(["Channel", "Platforms"]):
+            cell = ws_innov.cell(row=row, column=2 + i, value=h)
+            cell.font = subheader_font
+            cell.fill = subheader_fill
+            cell.alignment = center_alignment
+            cell.border = thin_border
         row += 1
 
-    # CPA Rate Benchmarks by region (sourced from channels_db channel_strategies)
-    row += 2
-    cell = ws_budget.cell(row=row, column=2, value="CPA Rate Benchmarks (Typical Ranges)")
-    cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
-    cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-    for c in range(3, 6):
-        ws_budget.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-        ws_budget.cell(row=row, column=c).border = thin_border
-    row += 1
+        for channel_key, channel_data in innovative.items():
+            if isinstance(channel_data, dict):
+                platforms = channel_data.get("platforms", [])
+                if platforms:
+                    style_body_cell(ws_innov, row, 2, channel_key.replace("_", " ").title())
+                    ws_innov.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10)
+                    style_body_cell(ws_innov, row, 3, ", ".join(platforms))
+                    ws_innov.merge_cells(start_row=row, start_column=3, end_row=row, end_column=6)
+                    row += 1
 
-    # Try to read CPA benchmarks from channels_db; fall back to hardcoded values
-    cpa_from_db = db.get("cpa_rate_benchmarks", {})
-    if cpa_from_db:
-        cpa_benchmarks = [
-            (region_name, region_info.get("range", "N/A"), region_info.get("notes", ""))
-            for region_name, region_info in cpa_from_db.items()
-            if isinstance(region_info, dict)
+    # ── Sheet 9: Budget & Pricing Guide (optional) ──
+    if data.get("include_budget_guide"):
+        ws_budget = wb.create_sheet("Budget & Pricing Guide")
+        ws_budget.sheet_properties.tabColor = "C00000"
+        ws_budget.column_dimensions["A"].width = 5
+        ws_budget.column_dimensions["B"].width = 25
+        ws_budget.column_dimensions["C"].width = 50
+        ws_budget.column_dimensions["D"].width = 25
+        ws_budget.column_dimensions["E"].width = 40
+
+        ws_budget.merge_cells("B2:E2")
+        ws_budget["B2"].value = "Budget & Pricing Guide"
+        ws_budget["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+
+        row = 4
+        # Billing Models
+        cell = ws_budget.cell(row=row, column=2, value="Billing Models Explained")
+        cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+        cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        for c in range(3, 6):
+            ws_budget.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+            ws_budget.cell(row=row, column=c).border = thin_border
+        row += 1
+
+        billing_headers = ["Model", "Description", "Typical Rate Range"]
+        for i, h in enumerate(billing_headers):
+            cell = ws_budget.cell(row=row, column=2 + i, value=h)
+            cell.font = subheader_font
+            cell.fill = subheader_fill
+            cell.alignment = center_alignment
+            cell.border = thin_border
+        row += 1
+
+        billing_models = gs.get("billing_models", {})
+        for model_name, model_data in billing_models.items():
+            style_body_cell(ws_budget, row, 2, model_name)
+            ws_budget.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10)
+            style_body_cell(ws_budget, row, 3, model_data.get("description", ""))
+            style_body_cell(ws_budget, row, 4, model_data.get("typical_range", ""))
+            if row % 2 == 0:
+                for c in range(2, 5):
+                    ws_budget.cell(row=row, column=c).fill = accent_fill
+            row += 1
+
+        # NOTE: Commission Tiers intentionally excluded — internal Joveo data, not for client-facing output
+
+        # Monthly Buying Recommendations by Region
+        row += 2
+        cell = ws_budget.cell(row=row, column=2, value="Monthly Buying by Region")
+        cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+        cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        for c in range(3, 6):
+            ws_budget.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+            ws_budget.cell(row=row, column=c).border = thin_border
+        row += 1
+
+        region_headers = ["Region", "Monthly Spend", "Top Countries"]
+        for i, h in enumerate(region_headers):
+            cell = ws_budget.cell(row=row, column=2 + i, value=h)
+            cell.font = subheader_font
+            cell.fill = subheader_fill
+            cell.alignment = center_alignment
+            cell.border = thin_border
+        row += 1
+
+        monthly_buying = gs.get("monthly_buying_by_region", {})
+        for region_name, region_data in monthly_buying.items():
+            style_body_cell(ws_budget, row, 2, region_name)
+            ws_budget.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10)
+            style_body_cell(ws_budget, row, 3, region_data.get("spend", ""))
+            top_countries = region_data.get("top_countries", [])
+            style_body_cell(ws_budget, row, 4, ", ".join(top_countries))
+            if row % 2 == 0:
+                for c in range(2, 5):
+                    ws_budget.cell(row=row, column=c).fill = accent_fill
+            row += 1
+
+        # CPA Rate Benchmarks by region (sourced from channels_db channel_strategies)
+        row += 2
+        cell = ws_budget.cell(row=row, column=2, value="CPA Rate Benchmarks (Typical Ranges)")
+        cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+        cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        for c in range(3, 6):
+            ws_budget.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+            ws_budget.cell(row=row, column=c).border = thin_border
+        row += 1
+
+        # Try to read CPA benchmarks from channels_db; fall back to hardcoded values
+        cpa_from_db = db.get("cpa_rate_benchmarks", {})
+        if cpa_from_db:
+            cpa_benchmarks = [
+                (region_name, region_info.get("range", "N/A"), region_info.get("notes", ""))
+                for region_name, region_info in cpa_from_db.items()
+                if isinstance(region_info, dict)
+            ]
+        else:
+            cpa_benchmarks = [
+                ("North America (US/Canada)", "$15 - $45", "High competition, strong CPC performance on Indeed/ZipRecruiter"),
+                ("Europe (UK/DE/FR/NL)", "$12 - $40", "Mixed CPC/Posting models; StepStone, Reed, Totaljobs common"),
+                ("APAC (India/Japan/AU/SG)", "$5 - $30", "Lower CPAs in India; premium in Japan/AU/Singapore"),
+                ("LATAM (Brazil/Mexico/Argentina)", "$3 - $20", "Cost-effective; CompuTrabajo, OCC Mundial popular"),
+                ("MEA (UAE/South Africa/Kenya)", "$5 - $25", "Growing market; Bayt.com, CareerJunction dominant"),
+            ]
+        for i, h in enumerate(["Region", f"CPA Range ({display_currency_code})", "Notes"]):
+            cell = ws_budget.cell(row=row, column=2 + i, value=h)
+            cell.font = subheader_font
+            cell.fill = subheader_fill
+            cell.alignment = center_alignment
+            cell.border = thin_border
+        row += 1
+
+        # Filter to only show regions relevant to client's locations
+        region_map = {
+            "North America": ["north america", "us", "united states", "america", "canada"],
+            "Europe": ["europe", "uk", "united kingdom", "germany", "france", "london", "berlin", "paris", "netherlands", "spain", "italy"],
+            "APAC": ["apac", "india", "australia", "singapore", "japan", "china", "asia", "hong kong", "korea"],
+            "LATAM": ["latam", "brazil", "mexico", "latin", "colombia", "argentina", "chile"],
+            "MEA": ["mea", "uae", "south africa", "kenya", "middle east", "africa"],
+        }
+        location_str = " ".join(locations).lower()
+        filtered_benchmarks = []
+        for region, cpa_range, notes in cpa_benchmarks:
+            region_key = region.split("(")[0].strip()
+            keywords = region_map.get(region_key, [])
+            if any(kw in location_str for kw in keywords):
+                filtered_benchmarks.append((region, cpa_range, notes))
+        # Default to North America if nothing matched
+        if not filtered_benchmarks:
+            filtered_benchmarks = [b for b in cpa_benchmarks if "North America" in b[0]]
+        for region, cpa_range, notes in filtered_benchmarks:
+            style_body_cell(ws_budget, row, 2, region)
+            ws_budget.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10)
+            style_body_cell(ws_budget, row, 3, cpa_range)
+            style_body_cell(ws_budget, row, 4, notes)
+            ws_budget.row_dimensions[row].height = 35
+            if row % 2 == 0:
+                for c in range(2, 5):
+                    ws_budget.cell(row=row, column=c).fill = accent_fill
+            row += 1
+
+        # ── Pie Chart: Recommended Budget Allocation ──
+        row += 2
+        cell = ws_budget.cell(row=row, column=2, value="Recommended Budget Allocation by Channel Type")
+        cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+        cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        for c in range(3, 6):
+            ws_budget.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+            ws_budget.cell(row=row, column=c).border = thin_border
+        row += 1
+
+        # Write pie chart data table
+        pie_data_start = row
+        pie_headers = ["Channel Type", "Allocation %"]
+        for i, h in enumerate(pie_headers):
+            cell = ws_budget.cell(row=row, column=2 + i, value=h)
+            cell.font = subheader_font
+            cell.fill = subheader_fill
+            cell.alignment = center_alignment
+            cell.border = thin_border
+        row += 1
+
+        pie_items = [
+            ("Job Boards (Programmatic)", 35),
+            ("Social Media Advertising", 20),
+            ("Niche/Industry Boards", 15),
+            ("Employer Branding", 10),
+            ("Events & Career Fairs", 8),
+            ("Innovative/Emerging", 7),
+            ("DEI Channels", 5),
         ]
-    else:
-        cpa_benchmarks = [
-            ("North America (US/Canada)", "$15 - $45", "High competition, strong CPC performance on Indeed/ZipRecruiter"),
-            ("Europe (UK/DE/FR/NL)", "$12 - $40", "Mixed CPC/Posting models; StepStone, Reed, Totaljobs common"),
-            ("APAC (India/Japan/AU/SG)", "$5 - $30", "Lower CPAs in India; premium in Japan/AU/Singapore"),
-            ("LATAM (Brazil/Mexico/Argentina)", "$3 - $20", "Cost-effective; CompuTrabajo, OCC Mundial popular"),
-            ("MEA (UAE/South Africa/Kenya)", "$5 - $25", "Growing market; Bayt.com, CareerJunction dominant"),
-        ]
-    for i, h in enumerate(["Region", "CPA Range", "Notes"]):
-        cell = ws_budget.cell(row=row, column=2 + i, value=h)
-        cell.font = subheader_font
-        cell.fill = subheader_fill
-        cell.alignment = center_alignment
-        cell.border = thin_border
-    row += 1
+        for label, pct in pie_items:
+            style_body_cell(ws_budget, row, 2, label)
+            style_body_cell(ws_budget, row, 3, pct)
+            row += 1
 
-    for region, cpa_range, notes in cpa_benchmarks:
-        style_body_cell(ws_budget, row, 2, region)
-        ws_budget.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10)
-        style_body_cell(ws_budget, row, 3, cpa_range)
-        style_body_cell(ws_budget, row, 4, notes)
-        ws_budget.row_dimensions[row].height = 35
-        if row % 2 == 0:
-            for c in range(2, 5):
-                ws_budget.cell(row=row, column=c).fill = accent_fill
-        row += 1
+        pie_data_end = row - 1
 
-    # ── Pie Chart: Recommended Budget Allocation ──
-    row += 2
-    cell = ws_budget.cell(row=row, column=2, value="Recommended Budget Allocation by Channel Type")
-    cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
-    cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-    for c in range(3, 6):
-        ws_budget.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-        ws_budget.cell(row=row, column=c).border = thin_border
-    row += 1
+        # Create PieChart
+        pie_chart = PieChart()
+        pie_chart.title = "Recommended Budget Allocation by Channel Type"
+        pie_chart.width = 18
+        pie_chart.height = 12
+        pie_chart.style = 10
 
-    # Write pie chart data table
-    pie_data_start = row
-    pie_headers = ["Channel Type", "Allocation %"]
-    for i, h in enumerate(pie_headers):
-        cell = ws_budget.cell(row=row, column=2 + i, value=h)
-        cell.font = subheader_font
-        cell.fill = subheader_fill
-        cell.alignment = center_alignment
-        cell.border = thin_border
-    row += 1
+        pie_labels = Reference(ws_budget, min_col=2, min_row=pie_data_start + 1, max_row=pie_data_end)
+        pie_values = Reference(ws_budget, min_col=3, min_row=pie_data_start, max_row=pie_data_end)
+        pie_chart.add_data(pie_values, titles_from_data=True)
+        pie_chart.set_categories(pie_labels)
 
-    pie_items = [
-        ("Job Boards (Programmatic)", 35),
-        ("Social Media Advertising", 20),
-        ("Niche/Industry Boards", 15),
-        ("Employer Branding", 10),
-        ("Events & Career Fairs", 8),
-        ("Innovative/Emerging", 7),
-        ("DEI Channels", 5),
-    ]
-    for label, pct in pie_items:
-        style_body_cell(ws_budget, row, 2, label)
-        style_body_cell(ws_budget, row, 3, pct)
-        row += 1
+        pie_chart.dataLabels = DataLabelList()
+        pie_chart.dataLabels.showPercent = True
+        pie_chart.dataLabels.showCatName = True
 
-    pie_data_end = row - 1
-
-    # Create PieChart
-    pie_chart = PieChart()
-    pie_chart.title = "Recommended Budget Allocation by Channel Type"
-    pie_chart.width = 18
-    pie_chart.height = 12
-    pie_chart.style = 10
-
-    pie_labels = Reference(ws_budget, min_col=2, min_row=pie_data_start + 1, max_row=pie_data_end)
-    pie_values = Reference(ws_budget, min_col=3, min_row=pie_data_start, max_row=pie_data_end)
-    pie_chart.add_data(pie_values, titles_from_data=True)
-    pie_chart.set_categories(pie_labels)
-
-    pie_chart.dataLabels = DataLabelList()
-    pie_chart.dataLabels.showPercent = True
-    pie_chart.dataLabels.showCatName = True
-
-    ws_budget.add_chart(pie_chart, f"B{row + 1}")
-    row += 20  # leave space for chart
+        ws_budget.add_chart(pie_chart, f"B{row + 1}")
+        row += 20  # leave space for chart
 
     # ── Job Category Insights Sheet (if categories selected) ──
     job_categories = data.get("job_categories", [])
@@ -2063,20 +2094,6 @@ def generate_excel(data):
                     style_body_cell(ws_media, row, 5, "US + Global")
                     row += 1
                 row += 1
-
-    # Remove optional sheets the user didn't request
-    # NOTE: "Executive Summary" and "Campaign Timeline" are ALWAYS included — never remove them.
-    always_keep = {"Executive Summary", "Campaign Timeline"}
-    optional_sheets = {
-        "DEI & Diversity Channels": data.get("include_dei", False),
-        "Innovative Channels 2025+": data.get("include_innovative", False),
-        "Budget & Pricing Guide": data.get("include_budget_guide", False),
-    }
-    for sheet_name, included in optional_sheets.items():
-        if sheet_name in always_keep:
-            continue
-        if not included and sheet_name in wb.sheetnames:
-            wb.remove(wb[sheet_name])
 
     output = io.BytesIO()
     wb.save(output)
