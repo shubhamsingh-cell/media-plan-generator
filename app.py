@@ -629,7 +629,7 @@ def generate_excel(data):
         exec_row += 1
 
     # Source attribution
-    ws_exec.cell(row=exec_row, column=2, value="Sources: Joveo Platform Data, Appcast Recruitment Media Benchmark Report, Recruitics Industry Analysis, CPA/CPC aggregated from programmatic recruitment campaigns across 1,200+ publishers.").font = Font(name="Calibri", italic=True, size=8, color="999999")
+    ws_exec.cell(row=exec_row, column=2, value="Sources: Joveo Platform Data, industry recruitment media benchmark reports, CPA/CPC aggregated from programmatic recruitment campaigns across 1,200+ publishers.").font = Font(name="Calibri", italic=True, size=8, color="999999")
     exec_row += 1
     ws_exec.cell(row=exec_row, column=2, value="★ = Regions matching your target locations. Actual rates may vary based on job specificity, seasonality, and competition.").font = Font(name="Calibri", italic=True, size=8, color="999999")
 

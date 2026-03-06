@@ -14,7 +14,7 @@
         {"name": "Clearance Jobs", "billing": "Slot", "category": "Government/Defense", "tier": "Niche"},
         {"name": "Snagajob", "billing": "CPC", "category": "Hourly", "tier": "Tier 2"},
         {"name": "Jobcase", "billing": "CPC", "category": "Blue Collar", "tier": "Tier 2"},
-        {"name": "Talroo", "billing": "CPC", "category": "Performance", "tier": "Tier 2"},
+        {"name": "Joveo Network Partner", "billing": "CPC", "category": "Performance", "tier": "Tier 2"},
         {"name": "Nexxt", "billing": "CPC", "category": "General", "tier": "Tier 2"},
         {"name": "Resume-Library", "billing": "CPC", "category": "General", "tier": "Tier 2"}
       ],
@@ -634,7 +634,7 @@
     "programmatic_recruitment_dsp": {
       "description": "AI-powered programmatic platforms that optimize job ad placement across channels",
       "use_case": "Automated multi-channel optimization for maximum ROI",
-      "platforms": ["Joveo (Mojo)", "Appcast", "PandoLogic", "Radancy", "Wonderkind", "Seeqle"],
+      "platforms": ["Joveo (Mojo)"],
       "billing": "CPC/CPA with optimization",
       "best_for": ["High-volume hiring", "Multi-market campaigns", "Performance optimization"]
     },

@@ -1107,7 +1107,7 @@ def get_market_trends(locations, industry, roles):
                         f"{'Well-developed digital media market with strong platform infrastructure.' if coli > 60 else 'Emerging digital market — mobile-first strategy recommended with local platform focus.'} "
                         f"{'LinkedIn is widely used for professional recruitment.' if info.get('region') in ['Europe', 'North America'] else 'Local platforms may outperform LinkedIn — prioritize regional job boards.'} "
                         f"Consider localized job descriptions in the native language and culturally appropriate employer branding. "
-                        f"Programmatic job advertising available via Joveo Mojo, Appcast, and regional DSPs."
+                        f"Programmatic job advertising available via Joveo Mojo and regional DSPs."
                     )
                 else:
                     descs[loc] = (

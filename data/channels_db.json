@@ -3,7 +3,7 @@
     "regional_local": [
       "Indeed, Inc", "LinkedIn", "Craigslist", "Jobcase Inc", "Snagajob", "Nexxt",
       "Resume-Library.com", "AllJobs", "MyJobHelper", "JobTraffic", "EarnBetter",
-      "Propel", "PostJobFree", "Jobing", "Dice", "BuiltIn", "Talroo",
+      "Propel", "PostJobFree", "Jobing", "Dice", "BuiltIn", "Jora",
       "Upward.net", "OnTimeHire", "Geographic Solutions", "Diversity Jobs",
       "Professional Diversity Network", "Ladders.com", "Arya by Leoforce",
       "Instawork", "SonicJobs", "OfferUp", "Botson.ai", "CMP Jobs",
@@ -155,7 +155,7 @@
       "Connected TV (Hulu, Roku, Tubi)", "DOOH (Vistar Media, Clear Channel)",
       "Retail Media (Walmart Connect, Amazon DSP)", "Podcast Ads (Spotify, Audacy)",
       "Gaming/Esports (Twitch, Discord)", "Messaging Apps (WhatsApp, Telegram, LINE)",
-      "Employee Referral Tech (Drafted, ERIN)", "Programmatic Recruitment DSP (Joveo Mojo, Appcast, PandoLogic)",
+      "Employee Referral Tech (Drafted, ERIN)", "Programmatic Recruitment DSP (Joveo Mojo)",
       "Housing Platforms (Zillow, Rightmove)", "Language Learning Apps (Duolingo, Babbel)"
     ],
     "alternate_supply": {
@@ -188,11 +188,9 @@
       }
     },
     "competitor_supply_channels": [
-      "Appcast (Programmatic DSP)", "PandoLogic (pandoIQ)", "Radancy (TalentBrew)",
-      "Recruitics (Programmatic Platform)", "Bayard Advertising", "TMP Worldwide (TalentBrew)",
-      "Perengo (Programmatic)", "Joveo Mojo", "Broadbean", "Multiposting",
+      "Joveo Mojo", "Broadbean", "Multiposting",
       "Textkernel", "Jobvite", "SmashFly (Symphony Talent)", "Phenom People",
-      "Wonderkind (Social Job Ads)", "Adstream (Job Ads via Display)", "Entelo",
+      "Adstream (Job Ads via Display)", "Entelo",
       "Hiretual (hireEZ)", "Gem", "Lever", "Greenhouse", "iCIMS",
       "Bullhorn", "CareerArc", "Talkpush", "Harver", "Paradox (Olivia AI)",
       "Brazen (Virtual Events)", "Handshake (Campus)", "Yello (Campus Recruiting)",
@@ -391,7 +389,7 @@
       "avg_time_to_fill": "30-45 days",
       "best_practices": ["LinkedIn Recruiter sourcing for passive candidates", "Employer branding on Glassdoor", "Google PMax for high-intent job seekers", "Professional association partnerships"],
       "joveo_supply_fit": ["Indeed", "LinkedIn", "ZipRecruiter", "Talent.com", "Jooble", "Monster"],
-      "competitor_channels": ["Appcast", "PandoLogic", "Recruitics", "Radancy", "Broadbean"]
+      "competitor_channels": []
     },
     "blue_collar_hourly": {
       "label": "Blue Collar / Hourly",
@@ -409,7 +407,7 @@
       "avg_time_to_fill": "7-21 days",
       "best_practices": ["Heavy social media presence on Facebook/TikTok", "Local classified boards and community groups", "Mobile-first apply experience critical", "Same-day or next-day interview scheduling", "WhatsApp/SMS campaigns for hourly workers"],
       "joveo_supply_fit": ["Indeed", "Snagajob", "Jobcase", "Talent.com", "Jooble", "JobRapido"],
-      "competitor_channels": ["Appcast", "PandoLogic", "Recruitics", "Talkpush", "Paradox (Olivia AI)"]
+      "competitor_channels": []
     },
     "healthcare_clinical": {
       "label": "Healthcare / Clinical",
@@ -427,7 +425,7 @@
       "avg_time_to_fill": "45-90 days",
       "best_practices": ["Niche clinical boards for specialized roles", "CME/CEU sponsorship as awareness strategy", "Travel nurse platforms for urgent needs", "Medical journal advertising for physicians", "Referral programs for clinical staff"],
       "joveo_supply_fit": ["Indeed", "Health eCareers", "Vivian Health", "Talent.com", "Monster"],
-      "competitor_channels": ["Radancy", "TMP Worldwide", "Bayard Advertising", "Recruitics", "Appcast"]
+      "competitor_channels": []
     },
     "technology_it": {
       "label": "Technology / IT",
@@ -445,7 +443,7 @@
       "avg_time_to_fill": "30-60 days",
       "best_practices": ["GitHub/Stack Overflow community engagement", "Tech blog content marketing", "Hackathon sponsorship", "Developer-focused employer branding", "Open source contributions as recruitment tool"],
       "joveo_supply_fit": ["Indeed", "LinkedIn", "Dice", "BuiltIn", "Talent.com", "Monster"],
-      "competitor_channels": ["Hired", "Toptal", "Triplebyte", "Appcast", "PandoLogic", "Phenom People"]
+      "competitor_channels": []
     },
     "executive_csuite": {
       "label": "Executive / C-Suite",
@@ -463,7 +461,7 @@
       "avg_time_to_fill": "60-120 days",
       "best_practices": ["Direct sourcing via LinkedIn Recruiter", "Executive search firm partnerships", "Discreet confidential searches", "Board-level networking events", "Thought leadership content marketing"],
       "joveo_supply_fit": ["LinkedIn", "Ladders.com", "Indeed", "eFinancialCareers"],
-      "competitor_channels": ["Spencer Stuart", "Korn Ferry", "Russell Reynolds", "Gem", "Lever"]
+      "competitor_channels": []
     },
     "sales_marketing": {
       "label": "Sales & Marketing",
@@ -481,7 +479,7 @@
       "avg_time_to_fill": "25-45 days",
       "best_practices": ["Commission/OTE transparency in job ads", "Video testimonials from top performers", "LinkedIn thought leadership campaigns", "Sales community engagement (Bravado, Pavilion)", "Performance-driven job descriptions"],
       "joveo_supply_fit": ["Indeed", "LinkedIn", "ZipRecruiter", "Talent.com", "Glassdoor"],
-      "competitor_channels": ["Appcast", "PandoLogic", "Recruitics", "Wonderkind", "Phenom People"]
+      "competitor_channels": []
     },
     "education_academia": {
       "label": "Education & Academia",
@@ -499,7 +497,7 @@
       "avg_time_to_fill": "30-60 days",
       "best_practices": ["Academic calendar-aligned campaigns", "Conference and journal advertising", "University career center partnerships", "Subject-specific community targeting", "Mission-driven employer branding"],
       "joveo_supply_fit": ["Indeed", "LinkedIn", "Talent.com", "Monster"],
-      "competitor_channels": ["Radancy", "TMP Worldwide", "Bayard Advertising"]
+      "competitor_channels": []
     },
     "government_public_sector": {
       "label": "Government & Public Sector",
@@ -517,7 +515,7 @@
       "avg_time_to_fill": "45-90 days",
       "best_practices": ["Security clearance targeting for cleared roles", "Veteran and military spouse outreach", "Public service mission-driven messaging", "Government-specific benefits highlighting", "Community event and career fair presence"],
       "joveo_supply_fit": ["Indeed", "LinkedIn", "ClearanceJobs", "Military.com", "Talent.com"],
-      "competitor_channels": ["Appcast", "Radancy", "Bayard Advertising", "Brazen (Virtual Events)"]
+      "competitor_channels": []
     },
     "skilled_trades": {
       "label": "Skilled Trades",
@@ -535,7 +533,7 @@
       "avg_time_to_fill": "14-30 days",
       "best_practices": ["Trade school and apprenticeship partnerships", "Union job board postings", "Local community and classified targeting", "Video content showing work environment", "Certification and license-based targeting"],
       "joveo_supply_fit": ["Indeed", "Snagajob", "Talent.com", "Jooble", "CDLlife"],
-      "competitor_channels": ["Appcast", "PandoLogic", "Recruitics", "Talkpush"]
+      "competitor_channels": []
     },
     "transportation_logistics": {
       "label": "Transportation & Logistics",
@@ -553,7 +551,7 @@
       "avg_time_to_fill": "14-30 days",
       "best_practices": ["CDL license-specific targeting", "Pay-per-mile/load transparency", "Home time and route details in ads", "Driver community engagement", "Referral bonus programs"],
       "joveo_supply_fit": ["Indeed", "CDLlife", "Talent.com", "Jooble", "Snagajob"],
-      "competitor_channels": ["Appcast", "PandoLogic", "Talkpush", "Recruitics"]
+      "competitor_channels": []
     },
     "hospitality_food_service": {
       "label": "Hospitality & Food Service",
@@ -571,7 +569,7 @@
       "avg_time_to_fill": "7-14 days",
       "best_practices": ["Mobile-first application experience", "Same-day interview and hire", "Location-based geofencing ads", "Seasonal hiring campaigns", "Employee referral incentives", "Social media video content"],
       "joveo_supply_fit": ["Indeed", "Snagajob", "Talent.com", "Jooble", "JobRapido"],
-      "competitor_channels": ["Appcast", "PandoLogic", "Talkpush", "Paradox (Olivia AI)"]
+      "competitor_channels": []
     },
     "creative_media": {
       "label": "Creative & Media",
@@ -589,7 +587,7 @@
       "avg_time_to_fill": "25-45 days",
       "best_practices": ["Portfolio-focused recruitment", "Instagram and Dribbble community engagement", "Creative challenge/contest recruitment", "Agency showcase and culture content", "Design community sponsorships"],
       "joveo_supply_fit": ["Indeed", "LinkedIn", "Glassdoor", "Talent.com", "The Muse"],
-      "competitor_channels": ["Appcast", "Wonderkind", "Phenom People", "SmashFly"]
+      "competitor_channels": []
     }
   },
   "cpa_rate_benchmarks": {
