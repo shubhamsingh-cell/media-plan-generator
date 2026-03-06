@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Plan Generator</title>
+    <title>AI Media Planner</title>
     <style>
         :root {
             --primary: #5A54BD;
@@ -1650,6 +1650,189 @@
             .app-header p { font-size: 11px; }
             .logo { width: 36px; height: 36px; font-size: 22px; }
         }
+
+        /* ============================================
+           ENTERPRISE AI ANIMATIONS
+           ============================================ */
+
+        /* Animated gradient border on cards */
+        .card {
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, transparent, rgba(90,84,189,0.1), transparent, rgba(107,179,205,0.1), transparent);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+            z-index: -1;
+            border-radius: var(--radius);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        /* Typing indicator animation for AI feel */
+        @keyframes typingDot {
+            0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+            30% { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Smooth section transitions */
+        @keyframes slideReveal {
+            from { opacity: 0; transform: translateY(20px) scale(0.98); filter: blur(4px); }
+            to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+        }
+
+        .wizard-step.active .card {
+            animation: slideReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Glowing AI indicator in header */
+        .ai-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(90, 84, 189, 0.2);
+            border: 1px solid rgba(90, 84, 189, 0.3);
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: rgba(255,255,255,0.9);
+            text-transform: uppercase;
+            margin-top: 4px;
+            animation: aiGlow 3s ease-in-out infinite;
+        }
+
+        .ai-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: aiPulse 2s ease-in-out infinite;
+            box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+        }
+
+        @keyframes aiPulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(74, 222, 128, 0.6); }
+            50% { opacity: 0.5; box-shadow: 0 0 16px rgba(74, 222, 128, 0.8); }
+        }
+
+        @keyframes aiGlow {
+            0%, 100% { border-color: rgba(90, 84, 189, 0.3); }
+            50% { border-color: rgba(107, 179, 205, 0.5); }
+        }
+
+        /* Enhanced step transitions with counter animation */
+        .step-circle {
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .step-indicator.active .step-circle {
+            animation: stepActivate 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes stepActivate {
+            0% { transform: scale(0.8); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+
+        /* Data loading shimmer for form sections */
+        @keyframes dataShimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .loading-shimmer {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: dataShimmer 1.5s ease infinite;
+            border-radius: 6px;
+        }
+
+        /* Floating particles in header */
+        .header-particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: rgba(255,255,255,0.4);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        @keyframes particleFloat {
+            0% { transform: translateY(0) translateX(0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-80px) translateX(30px); opacity: 0; }
+        }
+
+        /* Enhanced generate button */
+        .btn-success {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-success::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 200%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            animation: btnSheen 3s ease-in-out infinite;
+        }
+
+        @keyframes btnSheen {
+            0% { left: -100%; }
+            50% { left: 100%; }
+            100% { left: 100%; }
+        }
+
+        /* Input focus glow animation */
+        input:focus, select:focus, textarea:focus {
+            animation: inputFocus 0.3s ease forwards;
+        }
+
+        @keyframes inputFocus {
+            from { box-shadow: 0 0 0 0 rgba(90,84,189,0); }
+            to { box-shadow: 0 0 0 3px rgba(90,84,189,0.12); }
+        }
+
+        /* Smooth number counter for stats */
+        @keyframes countUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Page load animation */
+        .container {
+            animation: pageLoad 0.6s ease-out;
+        }
+
+        @keyframes pageLoad {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -1665,8 +1848,9 @@
         <div class="header-content">
             <div class="logo">&#9965;</div>
             <div>
-                <h1>Media Plan Generator</h1>
-                <p>Create comprehensive recruitment marketing media plans in minutes</p>
+                <h1>AI Media Planner</h1>
+                <p>Enterprise AI-powered recruitment media planning platform</p>
+                <div class="ai-badge">AI-Powered</div>
             </div>
         </div>
     </header>
@@ -2889,6 +3073,21 @@
                 btn.innerHTML = '&#128196; Generate Media Plan';
             }
         }
+        // Enterprise: Generate floating particles in header
+        function createHeaderParticles() {
+            const header = document.querySelector('.app-header');
+            if (!header) return;
+            setInterval(() => {
+                const particle = document.createElement('div');
+                particle.className = 'header-particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.bottom = '0';
+                particle.style.animation = `particleFloat ${3 + Math.random() * 4}s ease-out forwards`;
+                header.appendChild(particle);
+                setTimeout(() => particle.remove(), 7000);
+            }, 400);
+        }
+        createHeaderParticles();
     </script>
 </body>
 </html>

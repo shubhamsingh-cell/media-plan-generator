@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: media-plan-generator
+    name: ai-media-planner
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: python app.py
