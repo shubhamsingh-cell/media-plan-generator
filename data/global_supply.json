@@ -1,0 +1,774 @@
+{
+  "country_job_boards": {
+    "United States": {
+      "boards": [
+        {"name": "Indeed", "billing": "CPC/Sponsored", "category": "General", "tier": "Tier 1"},
+        {"name": "LinkedIn", "billing": "CPC/Slot", "category": "Professional", "tier": "Tier 1"},
+        {"name": "ZipRecruiter", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Glassdoor", "billing": "CPC/Branding", "category": "General", "tier": "Tier 1"},
+        {"name": "CareerBuilder", "billing": "CPC/Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "Monster", "billing": "CPC/Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Dice", "billing": "CPC/Slot", "category": "Tech", "tier": "Tier 2"},
+        {"name": "BuiltIn", "billing": "Slot/Posting", "category": "Tech", "tier": "Tier 2"},
+        {"name": "Handshake", "billing": "Slot", "category": "Early Career", "tier": "Tier 2"},
+        {"name": "Clearance Jobs", "billing": "Slot", "category": "Government/Defense", "tier": "Niche"},
+        {"name": "Snagajob", "billing": "CPC", "category": "Hourly", "tier": "Tier 2"},
+        {"name": "Jobcase", "billing": "CPC", "category": "Blue Collar", "tier": "Tier 2"},
+        {"name": "Talroo", "billing": "CPC", "category": "Performance", "tier": "Tier 2"},
+        {"name": "Nexxt", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "Resume-Library", "billing": "CPC", "category": "General", "tier": "Tier 2"}
+      ],
+      "monthly_spend": "$8,000,000+",
+      "key_metros": ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "San Francisco", "Seattle", "Dallas", "Boston", "Atlanta"]
+    },
+    "United Kingdom": {
+      "boards": [
+        {"name": "Reed.co.uk", "billing": "CPC/Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed UK", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Totaljobs", "billing": "CPC/Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "CV Library", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Jobsite", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "Guardian Jobs", "billing": "Posting", "category": "Professional", "tier": "Tier 2"},
+        {"name": "CWJobs", "billing": "CPC/Posting", "category": "Tech", "tier": "Tier 2"},
+        {"name": "Adzuna UK", "billing": "CPC", "category": "Aggregator", "tier": "Tier 2"},
+        {"name": "Gumtree Jobs", "billing": "CPC", "category": "Classifieds", "tier": "Tier 2"},
+        {"name": "NHS Jobs", "billing": "Free/Govt", "category": "Healthcare", "tier": "Niche"},
+        {"name": "Technojobs", "billing": "Posting", "category": "Tech", "tier": "Niche"},
+        {"name": "JobCentre Plus", "billing": "Free/Govt", "category": "Government", "tier": "Govt"}
+      ],
+      "monthly_spend": "$1,200,000+",
+      "key_metros": ["London", "Manchester", "Birmingham", "Leeds", "Edinburgh", "Bristol", "Glasgow"]
+    },
+    "Germany": {
+      "boards": [
+        {"name": "StepStone Germany", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Germany", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Xing", "billing": "Slot/Posting", "category": "Professional", "tier": "Tier 1"},
+        {"name": "Jobs.de", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Arbeitsagentur", "billing": "Free/Govt", "category": "Government", "tier": "Govt"},
+        {"name": "Kimeta", "billing": "CPC", "category": "Aggregator", "tier": "Tier 2"},
+        {"name": "Stellenanzeigen.de", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Berlin Startup Jobs", "billing": "Posting", "category": "Tech/Startup", "tier": "Niche"},
+        {"name": "GermanTechJobs", "billing": "Posting", "category": "Tech", "tier": "Niche"},
+        {"name": "Heyjobs", "billing": "CPC", "category": "Blue Collar", "tier": "Tier 2"},
+        {"name": "JOBworld", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "Arbeitnow", "billing": "Posting", "category": "Tech/English", "tier": "Niche"}
+      ],
+      "monthly_spend": "$1,500,000+",
+      "key_metros": ["Berlin", "Munich", "Hamburg", "Frankfurt", "Cologne", "Stuttgart", "Düsseldorf"]
+    },
+    "France": {
+      "boards": [
+        {"name": "Pôle Emploi", "billing": "Free/Govt", "category": "Government", "tier": "Govt"},
+        {"name": "Indeed France", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Monster France", "billing": "CPC/Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "APEC", "billing": "Posting", "category": "Professional/Executive", "tier": "Tier 1"},
+        {"name": "Welcome to the Jungle", "billing": "Slot/Posting", "category": "Tech/Startup", "tier": "Tier 2"},
+        {"name": "LesJeudis", "billing": "Posting", "category": "Tech", "tier": "Niche"},
+        {"name": "ChooseYourBoss", "billing": "Posting", "category": "Tech", "tier": "Niche"},
+        {"name": "Emploi Le Figaro", "billing": "Posting", "category": "Professional", "tier": "Tier 2"},
+        {"name": "Optioncarriere", "billing": "CPC", "category": "Aggregator", "tier": "Tier 2"},
+        {"name": "RegionsJob", "billing": "Posting", "category": "Regional", "tier": "Tier 2"}
+      ],
+      "monthly_spend": "$800,000+",
+      "key_metros": ["Paris", "Lyon", "Marseille", "Toulouse", "Bordeaux", "Lille", "Nice"]
+    },
+    "Netherlands": {
+      "boards": [
+        {"name": "Nationale Vacaturebank", "billing": "CPC/Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Netherlands", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Werkzoeken", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "deBanenSite.nl", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "Undutchables", "billing": "Posting", "category": "Expat/International", "tier": "Niche"},
+        {"name": "werk.nl", "billing": "Free/Govt", "category": "Government", "tier": "Govt"},
+        {"name": "Tweakers", "billing": "Posting", "category": "Tech", "tier": "Niche"},
+        {"name": "Retailbean", "billing": "Posting", "category": "Retail", "tier": "Niche"}
+      ],
+      "monthly_spend": "$600,000+",
+      "key_metros": ["Amsterdam", "Rotterdam", "The Hague", "Utrecht", "Eindhoven"]
+    },
+    "Japan": {
+      "boards": [
+        {"name": "Mynavi", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "DODA (doda.jp)", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Baitoru", "billing": "CPC", "category": "Part-time/Hourly", "tier": "Tier 1"},
+        {"name": "CareerCross", "billing": "Posting", "category": "Bilingual/International", "tier": "Tier 2"},
+        {"name": "GaijinPot", "billing": "Posting", "category": "Foreign Workers", "tier": "Niche"},
+        {"name": "Wantedly", "billing": "Subscription", "category": "Tech/Startup", "tier": "Tier 2"},
+        {"name": "Daijob.com", "billing": "Posting", "category": "Bilingual", "tier": "Niche"},
+        {"name": "YOLO JAPAN", "billing": "Posting", "category": "International/Tourism", "tier": "Niche"},
+        {"name": "Machbaito", "billing": "CPC", "category": "Part-time", "tier": "Tier 2"},
+        {"name": "WeXpats", "billing": "Posting", "category": "Foreign Workers", "tier": "Niche"}
+      ],
+      "monthly_spend": "$500,000+",
+      "key_metros": ["Tokyo", "Osaka", "Nagoya", "Yokohama", "Fukuoka", "Sapporo"]
+    },
+    "Italy": {
+      "boards": [
+        {"name": "InfoJobs Italy", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Italy", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "LinkedIn Italy", "billing": "CPC/Slot", "category": "Professional", "tier": "Tier 1"},
+        {"name": "Monster Italy", "billing": "CPC/Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Trovolavoro", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Lavoro Corriere IT", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Bakeca.it", "billing": "CPC", "category": "Classifieds", "tier": "Tier 2"},
+        {"name": "Universita Bocconi", "billing": "Posting", "category": "University", "tier": "Niche"},
+        {"name": "Universita di Milano", "billing": "Posting", "category": "University", "tier": "Niche"},
+        {"name": "Universita di Padova", "billing": "Posting", "category": "University", "tier": "Niche"},
+        {"name": "Universita Cattolica", "billing": "Posting", "category": "University", "tier": "Niche"},
+        {"name": "Reteinformaticalavoro", "billing": "Posting", "category": "Tech", "tier": "Niche"}
+      ],
+      "monthly_spend": "$400,000+",
+      "key_metros": ["Milan", "Rome", "Turin", "Bologna", "Florence", "Naples"]
+    },
+    "India": {
+      "boards": [
+        {"name": "Naukri.com", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed India", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "LinkedIn India", "billing": "CPC/Slot", "category": "Professional", "tier": "Tier 1"},
+        {"name": "Shine", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "TimesJobs", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Foundit (formerly Monster India)", "billing": "CPC/Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Hunar.ai", "billing": "CPC", "category": "Blue Collar", "tier": "Niche"},
+        {"name": "Apna", "billing": "CPC", "category": "Blue Collar/Gig", "tier": "Tier 2"},
+        {"name": "Internshala", "billing": "Posting", "category": "Internships", "tier": "Niche"},
+        {"name": "JobsForHer", "billing": "Posting", "category": "Women/DEI", "tier": "Niche"},
+        {"name": "WomenatWork", "billing": "Posting", "category": "Women/DEI", "tier": "Niche"}
+      ],
+      "monthly_spend": "$350,000+",
+      "key_metros": ["Bangalore", "Mumbai", "Delhi/NCR", "Hyderabad", "Chennai", "Pune", "Kolkata"]
+    },
+    "Australia": {
+      "boards": [
+        {"name": "SEEK", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Australia", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Jora Australia", "billing": "CPC", "category": "Aggregator", "tier": "Tier 2"},
+        {"name": "CareerOne", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Adzuna Australia", "billing": "CPC", "category": "Aggregator", "tier": "Tier 2"},
+        {"name": "Prosple Australia", "billing": "Posting", "category": "Graduate", "tier": "Niche"},
+        {"name": "Sportspeople", "billing": "Posting", "category": "Sports", "tier": "Niche"},
+        {"name": "OurMob", "billing": "Posting", "category": "Indigenous/DEI", "tier": "Niche"}
+      ],
+      "monthly_spend": "$450,000+",
+      "key_metros": ["Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide"]
+    },
+    "Canada": {
+      "boards": [
+        {"name": "Indeed Canada", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "LinkedIn Canada", "billing": "CPC/Slot", "category": "Professional", "tier": "Tier 1"},
+        {"name": "Job Bank (Government)", "billing": "Free/Govt", "category": "Government", "tier": "Govt"},
+        {"name": "Workopolis", "billing": "CPC/Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "CareerBeacon", "billing": "Posting", "category": "Regional", "tier": "Tier 2"},
+        {"name": "Eluta", "billing": "CPC", "category": "Aggregator", "tier": "Tier 2"},
+        {"name": "Jobillico", "billing": "Posting", "category": "Quebec/French", "tier": "Niche"},
+        {"name": "Hire Diverse", "billing": "Posting", "category": "DEI", "tier": "Niche"},
+        {"name": "ITjobs.ca", "billing": "Posting", "category": "Tech", "tier": "Niche"}
+      ],
+      "monthly_spend": "$600,000+",
+      "key_metros": ["Toronto", "Vancouver", "Montreal", "Calgary", "Ottawa"]
+    },
+    "Ireland": {
+      "boards": [
+        {"name": "IrishJobs.ie", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Jobs.ie", "billing": "Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Ireland", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "RecruitIreland", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Totaljobs Ireland", "billing": "CPC/Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "JobsIreland.ie", "billing": "Free/Govt", "category": "Government", "tier": "Govt"},
+        {"name": "Ni Jobs", "billing": "Posting", "category": "Northern Ireland", "tier": "Niche"},
+        {"name": "TheITJobBoard", "billing": "Posting", "category": "Tech", "tier": "Niche"},
+        {"name": "UCD Careers", "billing": "Posting", "category": "University", "tier": "Niche"},
+        {"name": "UCC Careers", "billing": "Posting", "category": "University", "tier": "Niche"}
+      ],
+      "monthly_spend": "$200,000+",
+      "key_metros": ["Dublin", "Cork", "Galway", "Limerick"]
+    },
+    "South Africa": {
+      "boards": [
+        {"name": "CareerJunction", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Pnet", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed South Africa", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Careers24", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Gumtree South Africa", "billing": "CPC", "category": "Classifieds", "tier": "Tier 2"},
+        {"name": "Find A Job in Africa", "billing": "Posting", "category": "Pan-Africa", "tier": "Niche"},
+        {"name": "StaffMine", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "Executive Placements", "billing": "Posting", "category": "Executive", "tier": "Niche"}
+      ],
+      "monthly_spend": "$150,000+",
+      "key_metros": ["Johannesburg", "Cape Town", "Durban", "Pretoria"]
+    },
+    "Kenya": {
+      "boards": [
+        {"name": "BrighterMonday Kenya", "billing": "Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "MyJobMag Kenya", "billing": "Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "Fuzu", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "KenyaJobs.com", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Career Point Kenya", "billing": "Posting", "category": "General", "tier": "Tier 2"}
+      ],
+      "monthly_spend": "$50,000+",
+      "key_metros": ["Nairobi", "Mombasa"]
+    },
+    "Argentina": {
+      "boards": [
+        {"name": "Bumeran", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "ZonaJobs", "billing": "Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "CompuTrabajo Argentina", "billing": "CPC/Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Argentina", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "Revista Empleo", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "iMineros", "billing": "Posting", "category": "Mining", "tier": "Niche"}
+      ],
+      "monthly_spend": "$100,000+",
+      "key_metros": ["Buenos Aires", "Córdoba", "Rosario", "Mendoza"]
+    },
+    "Brazil": {
+      "boards": [
+        {"name": "Vagas.com.br", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Catho", "billing": "Posting/Subscription", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Brazil", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "InfoJobs Brazil", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Trabalha Brasil", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "Empregos.com.br", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Revelo", "billing": "Staffing", "category": "Tech", "tier": "Niche"},
+        {"name": "BNE", "billing": "Posting", "category": "General", "tier": "Tier 2"}
+      ],
+      "monthly_spend": "$300,000+",
+      "key_metros": ["São Paulo", "Rio de Janeiro", "Belo Horizonte", "Brasília", "Curitiba"]
+    },
+    "Singapore": {
+      "boards": [
+        {"name": "JobStreet Singapore", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Singapore", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Jobsdb Singapore", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "MyCareersFuture (Govt)", "billing": "Free/Govt", "category": "Government", "tier": "Govt"},
+        {"name": "Grad Singapore", "billing": "Posting", "category": "Graduate", "tier": "Niche"},
+        {"name": "Bossjob", "billing": "CPC", "category": "Tech/Chat-based", "tier": "Niche"}
+      ],
+      "monthly_spend": "$200,000+",
+      "key_metros": ["Singapore"]
+    },
+    "Spain": {
+      "boards": [
+        {"name": "InfoJobs Spain", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Spain", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Talent.com Spain", "billing": "CPC", "category": "Aggregator", "tier": "Tier 2"},
+        {"name": "CornerJob", "billing": "CPC", "category": "Blue Collar", "tier": "Tier 2"},
+        {"name": "Tablondeanuncios", "billing": "CPC", "category": "Classifieds", "tier": "Tier 2"},
+        {"name": "TECHNOEMPLEO", "billing": "Posting", "category": "Tech", "tier": "Niche"},
+        {"name": "primerempleo", "billing": "Posting", "category": "Entry-Level", "tier": "Niche"},
+        {"name": "turijobs", "billing": "Posting", "category": "Tourism", "tier": "Niche"}
+      ],
+      "monthly_spend": "$300,000+",
+      "key_metros": ["Madrid", "Barcelona", "Valencia", "Seville", "Bilbao"]
+    },
+    "Mexico": {
+      "boards": [
+        {"name": "OCC Mundial", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "CompuTrabajo Mexico", "billing": "CPC/Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Mexico", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Talenteca", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "Hireline", "billing": "Posting", "category": "Tech", "tier": "Niche"},
+        {"name": "EmpleosMonterrey", "billing": "Posting", "category": "Regional", "tier": "Niche"}
+      ],
+      "monthly_spend": "$250,000+",
+      "key_metros": ["Mexico City", "Monterrey", "Guadalajara", "Puebla", "Tijuana"]
+    },
+    "Poland": {
+      "boards": [
+        {"name": "Pracuj.pl", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Poland", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "OLX.pl", "billing": "CPC", "category": "Classifieds", "tier": "Tier 2"},
+        {"name": "No Fluff Jobs", "billing": "Posting", "category": "Tech", "tier": "Tier 2"},
+        {"name": "Just Join IT", "billing": "Posting", "category": "Tech", "tier": "Tier 2"},
+        {"name": "rocketjobs.pl", "billing": "Posting", "category": "Creative", "tier": "Niche"},
+        {"name": "Careers in Poland", "billing": "Posting", "category": "International", "tier": "Niche"},
+        {"name": "GoWork.pl", "billing": "CPC", "category": "Reviews/Jobs", "tier": "Tier 2"}
+      ],
+      "monthly_spend": "$200,000+",
+      "key_metros": ["Warsaw", "Krakow", "Wroclaw", "Gdansk", "Poznan"]
+    },
+    "Switzerland": {
+      "boards": [
+        {"name": "Jobs.ch", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Switzerland", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "JobScout24", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Topjobs.ch", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "alpha.ch", "billing": "Posting", "category": "Professional", "tier": "Tier 2"},
+        {"name": "Freshjobs.ch", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "ICT Career", "billing": "Posting", "category": "Tech", "tier": "Niche"},
+        {"name": "INGJobs.ch", "billing": "Posting", "category": "Engineering", "tier": "Niche"},
+        {"name": "Financejobs", "billing": "Posting", "category": "Finance", "tier": "Niche"}
+      ],
+      "monthly_spend": "$300,000+",
+      "key_metros": ["Zurich", "Geneva", "Basel", "Bern", "Lausanne"]
+    },
+    "UAE": {
+      "boards": [
+        {"name": "Bayt.com", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "GulfTalent", "billing": "Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed UAE", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "dubizzle", "billing": "CPC", "category": "Classifieds", "tier": "Tier 2"},
+        {"name": "Total Dubai", "billing": "Posting", "category": "Regional", "tier": "Tier 2"},
+        {"name": "Opensooq", "billing": "CPC", "category": "Classifieds", "tier": "Tier 2"},
+        {"name": "Naukri Gulf", "billing": "Posting", "category": "Indian Expat", "tier": "Niche"}
+      ],
+      "monthly_spend": "$200,000+",
+      "key_metros": ["Dubai", "Abu Dhabi", "Sharjah"]
+    },
+    "Hong Kong": {
+      "boards": [
+        {"name": "JobsDB Hong Kong", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Hong Kong", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "LinkedIn Hong Kong", "billing": "CPC/Slot", "category": "Professional", "tier": "Tier 1"},
+        {"name": "jobs.gov.hk", "billing": "Free/Govt", "category": "Government", "tier": "Govt"},
+        {"name": "CTgoodjobs", "billing": "Posting", "category": "General", "tier": "Tier 2"}
+      ],
+      "monthly_spend": "$100,000+",
+      "key_metros": ["Hong Kong"]
+    },
+    "Belgium": {
+      "boards": [
+        {"name": "StepStone Belgium", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Belgium", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Le Forem", "billing": "Free/Govt", "category": "Government (Wallonia)", "tier": "Govt"},
+        {"name": "Actiris", "billing": "Free/Govt", "category": "Government (Brussels)", "tier": "Govt"},
+        {"name": "Belgievacature.be", "billing": "Posting", "category": "Flemish", "tier": "Tier 2"},
+        {"name": "Women Code(be)", "billing": "Posting", "category": "Women in Tech", "tier": "Niche"}
+      ],
+      "monthly_spend": "$200,000+",
+      "key_metros": ["Brussels", "Antwerp", "Ghent", "Liège"]
+    },
+    "Sweden": {
+      "boards": [
+        {"name": "Platsbanken (Arbetsförmedlingen)", "billing": "Free/Govt", "category": "Government", "tier": "Govt"},
+        {"name": "Indeed Sweden", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Blocket Jobb", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Jobbsafari.se", "billing": "CPC", "category": "Aggregator", "tier": "Tier 2"},
+        {"name": "Jobbland", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "ledigajobb.se", "billing": "Free", "category": "General", "tier": "Free"}
+      ],
+      "monthly_spend": "$150,000+",
+      "key_metros": ["Stockholm", "Gothenburg", "Malmö"]
+    },
+    "Denmark": {
+      "boards": [
+        {"name": "JobIndex", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Denmark", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Jobnet (Govt)", "billing": "Free/Govt", "category": "Government", "tier": "Govt"},
+        {"name": "StepStone Denmark", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Ofir", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "Jobfinder", "billing": "CPC", "category": "General", "tier": "Tier 2"}
+      ],
+      "monthly_spend": "$100,000+",
+      "key_metros": ["Copenhagen", "Aarhus", "Odense"]
+    },
+    "Czech Republic": {
+      "boards": [
+        {"name": "JOBS.CZ", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "PRACE.CZ", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Profesia.cz", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "No Fluff Jobs CZ", "billing": "Posting", "category": "Tech", "tier": "Niche"},
+        {"name": "Flek.cz", "billing": "CPC", "category": "General", "tier": "Tier 2"}
+      ],
+      "monthly_spend": "$100,000+",
+      "key_metros": ["Prague", "Brno", "Ostrava"]
+    },
+    "Philippines": {
+      "boards": [
+        {"name": "JobStreet Philippines", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Philippines", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Kalibrr", "billing": "CPC/Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Bossjob", "billing": "CPC", "category": "Tech", "tier": "Niche"},
+        {"name": "Joblu.io", "billing": "CPC", "category": "General", "tier": "Tier 2"}
+      ],
+      "monthly_spend": "$100,000+",
+      "key_metros": ["Manila", "Cebu", "Davao"]
+    },
+    "Malaysia": {
+      "boards": [
+        {"name": "JobStreet Malaysia", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Malaysia", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Hiredly", "billing": "Posting", "category": "Startup/Tech", "tier": "Tier 2"},
+        {"name": "A Job Thing", "billing": "CPC", "category": "Blue Collar", "tier": "Tier 2"},
+        {"name": "Fastjobs Malaysia", "billing": "CPC", "category": "Part-time", "tier": "Tier 2"}
+      ],
+      "monthly_spend": "$100,000+",
+      "key_metros": ["Kuala Lumpur", "Penang", "Johor Bahru"]
+    },
+    "New Zealand": {
+      "boards": [
+        {"name": "SEEK NZ", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Trade Me Jobs", "billing": "Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed New Zealand", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "Student Job Search", "billing": "Free/Govt", "category": "Student", "tier": "Niche"}
+      ],
+      "monthly_spend": "$80,000+",
+      "key_metros": ["Auckland", "Wellington", "Christchurch"]
+    },
+    "Austria": {
+      "boards": [
+        {"name": "StepStone Austria", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Karriere.at", "billing": "Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "Hokify", "billing": "CPC", "category": "Blue Collar", "tier": "Tier 2"},
+        {"name": "MeinJob.at", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "JobKrone", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "Laendlejob", "billing": "Posting", "category": "Regional (Vorarlberg)", "tier": "Niche"}
+      ],
+      "monthly_spend": "$150,000+",
+      "key_metros": ["Vienna", "Graz", "Linz", "Salzburg", "Innsbruck"]
+    },
+    "Portugal": {
+      "boards": [
+        {"name": "Indeed Portugal", "billing": "CPC", "category": "General", "tier": "Tier 1"},
+        {"name": "Sapo Emprego", "billing": "Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "Net Empregos", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "ITJobs.pt", "billing": "Posting", "category": "Tech", "tier": "Niche"},
+        {"name": "Expresso Emprego", "billing": "Posting", "category": "Professional", "tier": "Tier 2"},
+        {"name": "Talent Portugal", "billing": "Posting", "category": "International", "tier": "Niche"}
+      ],
+      "monthly_spend": "$100,000+",
+      "key_metros": ["Lisbon", "Porto", "Braga"]
+    },
+    "Colombia": {
+      "boards": [
+        {"name": "Elempleo Colombia", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "CompuTrabajo Colombia", "billing": "CPC/Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "Indeed Colombia", "billing": "CPC", "category": "General", "tier": "Tier 2"},
+        {"name": "ticjob", "billing": "Posting", "category": "Tech", "tier": "Niche"}
+      ],
+      "monthly_spend": "$80,000+",
+      "key_metros": ["Bogotá", "Medellín", "Cali", "Barranquilla"]
+    },
+    "Chile": {
+      "boards": [
+        {"name": "Trabajando Chile", "billing": "Posting/Slot", "category": "General", "tier": "Tier 1"},
+        {"name": "Laborum", "billing": "Posting", "category": "General", "tier": "Tier 1"},
+        {"name": "CompuTrabajo Chile", "billing": "CPC/Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "Chiletrabajos", "billing": "Posting", "category": "General", "tier": "Tier 2"},
+        {"name": "iMineros", "billing": "Posting", "category": "Mining", "tier": "Niche"}
+      ],
+      "monthly_spend": "$60,000+",
+      "key_metros": ["Santiago", "Valparaíso", "Concepción"]
+    }
+  },
+  "dei_boards_by_country": {
+    "Global": [
+      {"name": "Diversity Jobs", "focus": "General Diversity", "regions": "Global"},
+      {"name": "PowerToFly", "focus": "Women in Tech", "regions": "Global"},
+      {"name": "Jopwell", "focus": "Black, Latinx, Native American", "regions": "US"},
+      {"name": "Professional Diversity Network", "focus": "Multi-diversity", "regions": "US"},
+      {"name": "Idealist", "focus": "Non-profit/Social Impact", "regions": "Global"},
+      {"name": "EvenBreak", "focus": "Disability Inclusion", "regions": "UK, Canada, Global"}
+    ],
+    "United States": [
+      {"name": "BlackJobCenter", "focus": "Black Professionals", "regions": "US"},
+      {"name": "iHispano", "focus": "Hispanic/Latino", "regions": "US"},
+      {"name": "LatinXJobs", "focus": "Latinx Professionals", "regions": "US"},
+      {"name": "HACEOnline", "focus": "Hispanic Alliance for Career Enhancement", "regions": "US"},
+      {"name": "Blacks in Technology", "focus": "Black Tech Professionals", "regions": "US"},
+      {"name": "Womens Job List", "focus": "Women", "regions": "US"},
+      {"name": "Fairy God Boss", "focus": "Women", "regions": "US"},
+      {"name": "ForteFoundation", "focus": "Women in Business", "regions": "US"},
+      {"name": "OutInTech", "focus": "LGBTQ+ in Tech", "regions": "US"},
+      {"name": "Getting Hired", "focus": "Disability", "regions": "US"},
+      {"name": "Our Ability", "focus": "Disability", "regions": "US"},
+      {"name": "RecruitMilitary", "focus": "Veterans", "regions": "US"},
+      {"name": "Hire Heroes USA", "focus": "Veterans", "regions": "US"},
+      {"name": "CorporateGray", "focus": "Military Transition", "regions": "US"},
+      {"name": "VetJobs", "focus": "Veterans", "regions": "US"},
+      {"name": "CareerExposure", "focus": "Youth/Early Career Diversity", "regions": "US"},
+      {"name": "BeyondMotherhood", "focus": "Mothers returning to work", "regions": "US"}
+    ],
+    "United Kingdom": [
+      {"name": "Diverse Jobs Matter", "focus": "General Diversity", "regions": "UK"},
+      {"name": "She Can Code", "focus": "Women in Tech", "regions": "UK"},
+      {"name": "Women in Engineering Society", "focus": "Women in Engineering", "regions": "UK"},
+      {"name": "VoiceOnline", "focus": "Black & Minority Ethnic", "regions": "UK"},
+      {"name": "VetClick", "focus": "Veterans", "regions": "UK"},
+      {"name": "CTP (Career Transition Partnership)", "focus": "Military Transition", "regions": "UK"},
+      {"name": "myAbility.jobs", "focus": "Disability", "regions": "UK/Europe"},
+      {"name": "Workability", "focus": "Disability", "regions": "UK"},
+      {"name": "Diversifying", "focus": "General Diversity", "regions": "UK"}
+    ],
+    "France": {
+      "boards": [
+        {"name": "Handicap.fr", "focus": "Disability", "regions": "France"},
+        {"name": "Emploi et Handicap", "focus": "Disability", "regions": "France"}
+      ]
+    },
+    "Germany": [
+      {"name": "myAbility.jobs", "focus": "Disability", "regions": "DACH"},
+      {"name": "Work50", "focus": "50+ Age Group", "regions": "Germany"}
+    ],
+    "Australia": [
+      {"name": "OurMob", "focus": "Indigenous Australians", "regions": "Australia"},
+      {"name": "Women in Technology", "focus": "Women in Tech", "regions": "Australia"},
+      {"name": "Diversecitycareers", "focus": "Cultural Diversity", "regions": "Australia"},
+      {"name": "Workplace Diversity", "focus": "General Diversity", "regions": "Australia"}
+    ],
+    "India": [
+      {"name": "JobsForHer", "focus": "Women", "regions": "India"},
+      {"name": "WomenatWork", "focus": "Women", "regions": "India"},
+      {"name": "Investing in Women", "focus": "Women", "regions": "India/APAC"}
+    ],
+    "Canada": [
+      {"name": "Hire Diverse", "focus": "General Diversity", "regions": "Canada"},
+      {"name": "DisabledPersonCanada", "focus": "Disability", "regions": "Canada"},
+      {"name": "LGBTConnect", "focus": "LGBTQ+", "regions": "Canada"}
+    ],
+    "Singapore": [
+      {"name": "My Diversity", "focus": "General Diversity", "regions": "Singapore/APAC"}
+    ],
+    "Belgium": [
+      {"name": "Women Code(be)", "focus": "Women in Tech", "regions": "Belgium"}
+    ]
+  },
+  "women_specific_boards": [
+    {"name": "PowerToFly", "regions": "Global", "focus": "Women in tech and business"},
+    {"name": "Fairy God Boss", "regions": "US", "focus": "Career community for women"},
+    {"name": "Womens Job List", "regions": "US", "focus": "General women's jobs"},
+    {"name": "ForteFoundation", "regions": "US", "focus": "Women in business/MBA"},
+    {"name": "She Can Code", "regions": "UK", "focus": "Women in tech"},
+    {"name": "Women in Engineering Society", "regions": "UK", "focus": "Women in engineering"},
+    {"name": "Women in Technology", "regions": "Australia", "focus": "Women in tech"},
+    {"name": "Women Code(be)", "regions": "Belgium", "focus": "Women in tech"},
+    {"name": "JobsForHer", "regions": "India", "focus": "Women returning to work"},
+    {"name": "WomenatWork", "regions": "India/Australia", "focus": "Women's careers"},
+    {"name": "Investing in Women", "regions": "India/APAC", "focus": "Women's economic empowerment"},
+    {"name": "BeyondMotherhood", "regions": "US", "focus": "Mothers returning to work"},
+    {"name": "Women for Hire", "regions": "Global", "focus": "Women's recruitment events and boards"}
+  ],
+  "commission_tiers": {
+    "0_percent": {
+      "description": "No commission - Direct integration or free boards",
+      "examples": ["Government boards (USAJobs, Arbeitsagentur, Pôle Emploi)", "Free boards (Craigslist, AngelList)", "Direct API integrations"]
+    },
+    "6_percent": {
+      "description": "Standard commission tier - Most CPC publishers",
+      "examples": ["Indeed", "ZipRecruiter", "Talent.com", "Adzuna", "Jooble", "Jobtome", "Most aggregators"]
+    },
+    "13_percent": {
+      "description": "Premium commission tier - Niche and premium publishers",
+      "examples": ["LinkedIn", "Glassdoor", "Handshake", "BuiltIn", "Niche industry boards", "Most slot/posting boards"]
+    }
+  },
+  "billing_models": {
+    "CPC": {"description": "Cost Per Click - Pay for each click on job listing", "typical_range": "$0.15 - $2.50"},
+    "CPA": {"description": "Cost Per Application - Pay for each completed application", "typical_range": "$5.00 - $50.00"},
+    "tCPA": {"description": "Target Cost Per Application - Optimized CPA with target", "typical_range": "$8.00 - $75.00"},
+    "CPM": {"description": "Cost Per Thousand Impressions - Pay for visibility", "typical_range": "$2.00 - $15.00"},
+    "Posting": {"description": "Fixed fee per job post for a set period", "typical_range": "$100 - $500 per post"},
+    "Slot": {"description": "Annual/monthly subscription for fixed number of active jobs", "typical_range": "$3,000 - $25,000 per year"},
+    "Subscription": {"description": "Recurring access fee for platform", "typical_range": "$500 - $5,000 per month"}
+  },
+  "monthly_buying_by_region": {
+    "North America": {"spend": "$8,600,000", "top_countries": ["United States", "Canada", "Mexico"]},
+    "Europe": {"spend": "$5,200,000", "top_countries": ["United Kingdom", "Germany", "France", "Netherlands", "Ireland", "Belgium", "Switzerland"]},
+    "APAC": {"spend": "$1,500,000", "top_countries": ["India", "Japan", "Australia", "Singapore", "Philippines", "Malaysia"]},
+    "LATAM": {"spend": "$800,000", "top_countries": ["Brazil", "Argentina", "Colombia", "Chile", "Mexico"]},
+    "MEA": {"spend": "$400,000", "top_countries": ["UAE", "South Africa", "Kenya", "Israel"]}
+  },
+  "innovative_channels_2025": {
+    "connected_tv_ctv": {
+      "description": "Streaming TV ads on platforms like Hulu, Roku, Amazon Fire TV",
+      "use_case": "Brand awareness for employer branding, especially for high-volume hiring",
+      "platforms": ["Hulu Ads", "Roku Ads", "Amazon Fire TV", "Peacock", "Tubi", "Samsung TV Plus"],
+      "billing": "CPM ($15-$40)",
+      "best_for": ["Large enterprise employer branding", "Healthcare recruitment", "Military recruitment"]
+    },
+    "digital_out_of_home_dooh": {
+      "description": "Programmatic digital billboards, transit screens, gas station displays",
+      "use_case": "Hyperlocal awareness campaigns near target worker populations",
+      "platforms": ["Vistar Media", "Place Exchange", "Broadsign", "Clear Channel Outdoor", "JCDecaux"],
+      "billing": "CPM ($3-$12)",
+      "best_for": ["Blue collar hiring", "Retail/QSR", "Transportation/Logistics"]
+    },
+    "retail_media_networks": {
+      "description": "In-store and on-platform advertising on retail platforms",
+      "use_case": "Reach passive job seekers during shopping activities",
+      "platforms": ["Walmart Connect", "Amazon DSP", "Target Roundel", "Kroger Precision Marketing"],
+      "billing": "CPM/CPC",
+      "best_for": ["Retail hiring", "Warehouse/Fulfillment", "Delivery drivers"]
+    },
+    "gaming_esports": {
+      "description": "In-game advertising and esports sponsorships",
+      "use_case": "Reach younger demographics (18-35) in non-traditional environments",
+      "platforms": ["Twitch Ads", "Discord Ads", "Roblox Brand Partnerships", "In-game ads via Anzu/Bidstack"],
+      "billing": "CPM ($5-$20)",
+      "best_for": ["Tech recruitment", "Early career", "Creative roles"]
+    },
+    "podcast_advertising": {
+      "description": "Host-read and programmatic podcast ads",
+      "use_case": "Targeted reach during commute times and leisure, high engagement rates",
+      "platforms": ["Spotify Ad Studio", "Audacy", "SiriusXM/Pandora", "AdsWizz", "Megaphone"],
+      "billing": "CPM ($15-$50)",
+      "best_for": ["Professional roles", "Healthcare", "Tech", "Finance"]
+    },
+    "messaging_app_advertising": {
+      "description": "WhatsApp, Telegram, LINE, WeChat for job distribution",
+      "use_case": "Direct candidate engagement, especially in markets where messaging > email",
+      "platforms": ["WhatsApp Business", "Telegram Channels", "LINE (Japan/SE Asia)", "WeChat (China)"],
+      "billing": "Per message/CPC",
+      "best_for": ["Blue collar in LATAM/APAC", "International hiring", "Gig economy"]
+    },
+    "voice_smart_speaker": {
+      "description": "Voice-activated job search on smart speakers",
+      "use_case": "Emerging channel for hands-free job discovery",
+      "platforms": ["Amazon Alexa Skills", "Google Assistant Actions", "Apple Siri Shortcuts"],
+      "billing": "Free to build, paid promotion",
+      "best_for": ["Innovation showcase", "Tech companies", "Early adopters"]
+    },
+    "employee_referral_platforms": {
+      "description": "Technology-powered employee referral and advocacy programs",
+      "use_case": "Activate existing employees as recruiters, highest quality source of hire",
+      "platforms": ["Drafted", "RolePoint", "ERIN", "Boon", "Teamable"],
+      "billing": "SaaS subscription + referral bonuses",
+      "best_for": ["All industries", "Hard-to-fill roles", "Culture-fit hiring"]
+    },
+    "community_based_hiring": {
+      "description": "Hiring through online communities, forums, and professional groups",
+      "use_case": "Access passive candidates in their natural professional environments",
+      "platforms": ["Reddit (subreddits)", "Discord servers", "Slack communities", "Stack Overflow", "GitHub Jobs", "Fishbowl", "Blind"],
+      "billing": "CPC/Sponsored",
+      "best_for": ["Tech hiring", "Creative roles", "Remote work"]
+    },
+    "programmatic_recruitment_dsp": {
+      "description": "AI-powered programmatic platforms that optimize job ad placement across channels",
+      "use_case": "Automated multi-channel optimization for maximum ROI",
+      "platforms": ["Joveo (Mojo)", "Appcast", "PandoLogic", "Radancy", "Wonderkind", "Seeqle"],
+      "billing": "CPC/CPA with optimization",
+      "best_for": ["High-volume hiring", "Multi-market campaigns", "Performance optimization"]
+    },
+    "housing_platforms": {
+      "description": "Advertising on housing and relocation platforms",
+      "use_case": "Reach candidates who are already planning to relocate",
+      "platforms": ["Zillow", "Realtor.com", "Rightmove (UK)", "ImmobilienScout24 (DE)", "SeLoger (FR)"],
+      "billing": "CPM/CPC",
+      "best_for": ["Relocation-dependent roles", "Regional employers", "Remote-to-office transitions"]
+    },
+    "language_learning_apps": {
+      "description": "Job ads on language learning platforms",
+      "use_case": "Reach internationally mobile professionals learning new languages",
+      "platforms": ["Duolingo", "Babbel", "Busuu", "Rosetta Stone"],
+      "billing": "CPM/Sponsored",
+      "best_for": ["International hiring", "Bilingual roles", "Expat recruitment"]
+    },
+    "local_social_media": {
+      "description": "Country-specific social platforms for job advertising",
+      "use_case": "Reach audiences on platforms they use daily, beyond global social networks",
+      "platforms": ["VK (Russia)", "Xing (DACH)", "Mixi (Japan)", "Naver (South Korea)", "Line (Japan/SE Asia)"],
+      "billing": "CPC/CPM",
+      "best_for": ["Country-specific hiring", "Local market penetration"]
+    }
+  },
+  "niche_industry_boards": {
+    "legal": [
+      {"name": "LawJobs.com", "focus": "Legal professionals"},
+      {"name": "Robert Half Legal", "focus": "Legal staffing"},
+      {"name": "Above the Law", "focus": "Legal career community"},
+      {"name": "Martindale-Hubbell", "focus": "Attorney directory/jobs"},
+      {"name": "NALP Job Board", "focus": "Law school careers"},
+      {"name": "The Bar Association Job Boards", "focus": "State bar associations"},
+      {"name": "Lawcrossing.com", "focus": "Legal job aggregator"},
+      {"name": "Legal Jobs in Canada", "focus": "Canadian legal market"},
+      {"name": "Village de la Justice", "focus": "French legal market"},
+      {"name": "Attorney at Work", "focus": "Legal practice management"}
+    ],
+    "finance_banking": [
+      {"name": "eFinancialCareers", "focus": "Global finance careers"},
+      {"name": "Wall Street Oasis", "focus": "IB/PE/Finance community"},
+      {"name": "CFA Institute Career Center", "focus": "Investment management"},
+      {"name": "American Banker", "focus": "Banking careers"},
+      {"name": "Financial Times Job Board", "focus": "Senior finance roles"},
+      {"name": "Actuarial Careers (SOA)", "focus": "Actuarial positions"},
+      {"name": "WIBF Jobs", "focus": "Women in Banking/Finance"},
+      {"name": "Financejobs (Switzerland)", "focus": "Swiss finance market"}
+    ],
+    "mental_health_behavioral": [
+      {"name": "Psychology Today Jobs", "focus": "Therapists and psychologists"},
+      {"name": "NASW Career Center", "focus": "Social workers"},
+      {"name": "APA PsycCareers", "focus": "Psychology professionals"},
+      {"name": "SocialWorkJobBank", "focus": "Social work positions"},
+      {"name": "iHireTherapy", "focus": "Therapy professionals"},
+      {"name": "Behavioral Health Jobs", "focus": "Behavioral health specialists"},
+      {"name": "Mental Health America", "focus": "Mental health advocacy/careers"},
+      {"name": "SAMHSA Career Center", "focus": "Substance abuse and mental health"}
+    ],
+    "retail_consumer": [
+      {"name": "RetailCareersNow", "focus": "Retail management"},
+      {"name": "AllRetailJobs", "focus": "Retail positions"},
+      {"name": "RetailChoice", "focus": "UK retail"},
+      {"name": "Retailbean", "focus": "Netherlands retail"},
+      {"name": "FashionJobs", "focus": "Fashion industry"},
+      {"name": "Snagajob", "focus": "Hourly retail/QSR"},
+      {"name": "AppJobs", "focus": "Gig economy/retail"},
+      {"name": "CornerJob", "focus": "Spanish blue collar/retail"}
+    ],
+    "aerospace_defense": [
+      {"name": "ClearanceJobs", "focus": "Security-cleared positions"},
+      {"name": "ClearedJobs.Net", "focus": "Defense/Intel community"},
+      {"name": "Cleared Connections", "focus": "Cleared networking"},
+      {"name": "Aviation Job Search", "focus": "Aviation professionals"},
+      {"name": "SpaceCareers.uk", "focus": "Space industry"},
+      {"name": "Airswift", "focus": "Energy/Aerospace staffing"},
+      {"name": "Aviation CV", "focus": "European aviation"},
+      {"name": "Military.com", "focus": "Military transition"},
+      {"name": "Aerojobs.ca", "focus": "Canadian aerospace"}
+    ],
+    "pharma_biotech": [
+      {"name": "PharmiWeb.com", "focus": "Pharma/biotech global"},
+      {"name": "BioSpace", "focus": "Biotech careers"},
+      {"name": "MedReps", "focus": "Medical sales"},
+      {"name": "PharmaDEI", "focus": "Pharma diversity"},
+      {"name": "PharmaOpportunities", "focus": "Pharma in APAC"},
+      {"name": "ISPE", "focus": "Pharma engineering"},
+      {"name": "ClinChoice", "focus": "Clinical research"},
+      {"name": "Science Careers (AAAS)", "focus": "Scientific positions"},
+      {"name": "Springer Nature - Nature Careers", "focus": "Research positions"}
+    ],
+    "food_delivery_logistics": [
+      {"name": "AppJobs", "focus": "Gig/delivery economy"},
+      {"name": "Gridwise", "focus": "Gig driver community"},
+      {"name": "Instawork", "focus": "Hourly/hospitality"},
+      {"name": "Fastjobs", "focus": "Part-time/hourly APAC"},
+      {"name": "SonicJobs", "focus": "Hourly/local jobs"},
+      {"name": "Fleet Job Finder", "focus": "Delivery fleet"},
+      {"name": "CDLlife", "focus": "Truck drivers/logistics"}
+    ]
+  },
+  "push_vs_pull_strategy": {
+    "pull_advertising": {
+      "description": "Candidates actively searching for jobs find your listings",
+      "channels": ["Job Boards (Indeed, LinkedIn, ZipRecruiter)", "Google for Jobs", "Career Sites", "Aggregators (Talent.com, Jooble)"],
+      "best_for": "Active job seekers, high-intent candidates",
+      "kpis": ["CPC", "CPA", "Application Rate", "Quality Score"]
+    },
+    "push_advertising": {
+      "description": "Proactively reaching passive candidates who aren't actively searching",
+      "channels": ["Social Media Ads (Meta, Instagram, TikTok)", "Programmatic Display (DSPs)", "Email/SMS campaigns", "Influencer Marketing", "CTV/DOOH"],
+      "best_for": "Passive candidates, employer branding, hard-to-fill roles",
+      "kpis": ["CPM", "CTR", "Engagement Rate", "Brand Lift"]
+    }
+  },
+  "supplier_onboarding_checklist": {
+    "prerequisites": [
+      "Publisher must provide XML/JSON job feed endpoint",
+      "Minimum monthly volume commitment required",
+      "Brand safety and content policy agreement",
+      "Data privacy compliance (GDPR, CCPA as applicable)",
+      "Technical integration testing (staging environment)"
+    ],
+    "safeguards": [
+      "Traffic quality monitoring (bot detection)",
+      "Click fraud prevention system",
+      "Geo-targeting accuracy verification",
+      "Application quality scoring",
+      "Budget pacing and daily caps"
+    ],
+    "testing_phases": [
+      "Phase 1: Feed integration and job mapping (1-2 weeks)",
+      "Phase 2: Small-scale traffic test ($500-$1,000)",
+      "Phase 3: Performance validation against benchmarks",
+      "Phase 4: Scale-up with automatic optimization"
+    ]
+  }
+}

@@ -1,0 +1,612 @@
+{
+  "traditional_channels": {
+    "regional_local": [
+      "Indeed, Inc", "LinkedIn", "Craigslist", "Jobcase Inc", "Snagajob", "Nexxt",
+      "Resume-Library.com", "AllJobs", "MyJobHelper", "JobTraffic", "EarnBetter",
+      "Propel", "PostJobFree", "Jobing", "Dice", "BuiltIn", "Talroo",
+      "Upward.net", "OnTimeHire", "Geographic Solutions", "Diversity Jobs",
+      "Professional Diversity Network", "Ladders.com", "Arya by Leoforce",
+      "Instawork", "SonicJobs", "OfferUp", "Botson.ai", "CMP Jobs",
+      "JobHubCentral", "Search Party", "CollabWORK", "Nexustalentpartner"
+    ],
+    "global_reach": [
+      "ZipRecruiter", "Monster", "Talent.com", "Jooble", "JobGet", "JobRapido",
+      "Sercanto", "YadaJobs", "Allthetopbananas", "CV Library", "WhatJobs",
+      "Jora", "Adzuna", "Jobtome", "JobSwipe", "ClickaJobs", "AppJobs",
+      "Jobsora", "JobsInNetwork", "StellenSMS", "Women for Hire", "Mindmatch.ai",
+      "JVers", "Remote", "The Muse", "College Recruiter", "CareerJet", "beBee",
+      "Recruit.net", "Smart Recruiters", "Trovit", "Jobomas", "Mitula",
+      "Learn4Good", "BoostPoint", "Career Seeker", "JobisJob"
+    ],
+    "niche_by_industry": {
+      "healthcare_medical": [
+        "Vetted Health", "NurseRecruiter", "American Nurses Association",
+        "myHealthTalent", "Incredible Health", "HealthJobs.com", "JAMA Career Center",
+        "ACPonline.com", "IntelyCare", "Doximity", "MedJobCafe", "Health eCareers",
+        "AMN Healthcare", "Nurse.com", "CompHealth", "Vivian Health", "Goodwork",
+        "Wanderly", "Aya Healthcare", "HospitalRecruiting.com", "PracticeMatch",
+        "PracticeLink", "DocCafe", "MedResidency", "ANA Career Center",
+        "HealthcareJobSite", "HospitalJobSite", "Dental Post", "HealthJobsNationwide",
+        "Mayo Clinic Careers", "FREIDA (AMA)"
+      ],
+      "blue_collar_trades": [
+        "CDLlife", "CDL Jobs", "Class A Drivers", "Trucker's Report", "TransForce",
+        "ConstructionJobForce", "ManufacturingWorkers", "LogisticsJobSite",
+        "Fleet Job Finder", "Truck Driver Jobs 411", "DieselTechJobs.com",
+        "Heavy Equipment Jobs", "Roadtechs", "Mechanics Hub"
+      ],
+      "maritime_marine": [
+        "RigZone", "SeaCareer", "MarineLink Jobs", "AllMarinerJobs",
+        "Maritime Union Job Board", "gCaptain Jobs", "MaritimeJobs.com",
+        "Brunel", "NES Fircroft", "Atlas Professionals", "Faststream Recruitment Group",
+        "CraftHire", "Tradesmen International", "PeopleReady Skilled Trades", "Airswift"
+      ],
+      "military_government": [
+        "Clearance Jobs", "ClearedJobs.Net", "Cleared Connections",
+        "RecruitMilitary", "Military.com", "Hire Heroes United States",
+        "Hire a Hero", "Direct Employers Association", "USAJobs.gov"
+      ],
+      "tech_engineering": [
+        "TechCareers", "Remote.io", "IT Job Pro", "Vue Jobs", "Dice",
+        "BuiltIn", "eFinancialCareers", "Startup Jobs", "OutInTech"
+      ],
+      "early_career_campus": [
+        "Handshake", "12Twenty", "College Recruiter", "CollegeGrad",
+        "RippleMatch", "WayUp", "AfterCollege", "Tallo", "Forage",
+        "GradConnection", "Yello", "Fledglink", "newgrad-jobs.com",
+        "Symplicity", "JobzMall"
+      ],
+      "diversity_dei": [
+        "Diversity Jobs", "Professional Diversity Network", "Jopwell",
+        "Women for Hire", "Women's JobList", "HACE", "PowerToFly",
+        "OutInTech", "Getting Hired", "EmployDiversity", "All Diversity",
+        "Minority Nurse Magazine"
+      ],
+      "legal": [
+        "LawJobs.com", "Robert Half Legal", "Above the Law", "NALP Job Board",
+        "Lawcrossing.com", "Village de la Justice"
+      ],
+      "finance_banking": [
+        "eFinancialCareers", "Wall Street Oasis", "CFA Institute Career Center",
+        "American Banker", "WIBF Jobs", "Financejobs"
+      ],
+      "mental_health": [
+        "Psychology Today Jobs", "NASW Career Center", "APA PsycCareers",
+        "SocialWorkJobBank", "iHireTherapy", "Behavioral Health Jobs"
+      ],
+      "retail_consumer": [
+        "RetailCareersNow", "AllRetailJobs", "RetailChoice",
+        "Retailbean", "FashionJobs", "Snagajob"
+      ],
+      "aerospace_defense": [
+        "ClearanceJobs", "ClearedJobs.Net", "Aviation Job Search",
+        "SpaceCareers.uk", "Airswift", "Aviation CV"
+      ],
+      "pharma_biotech": [
+        "PharmiWeb.com", "BioSpace", "MedReps",
+        "ISPE", "Science Careers (AAAS)", "Springer Nature - Nature Careers"
+      ]
+    },
+    "apac_regional": {
+      "japan": ["Galois", "Daijob.com", "Mynavi", "DODA", "GaijinPot", "Kakaku", "CareerCross", "Wantedly", "YOLO JAPAN", "WeXpats", "Baitoru", "TownWork", "Jobtalk"],
+      "south_korea": ["Saramin", "JobKorea", "Albamon"],
+      "indonesia": ["Karir.com", "Glints Indonesia", "Jobs.id", "Bossjob", "JobStreet ID", "Kalibrr"],
+      "malaysia": ["Joblu.io", "JobStreet MY", "Cult Jobs", "A Job Thing", "Fastjobs", "WOBB", "Maukerja", "Ricebowl", "Mudah.my", "Hiredly"],
+      "philippines": ["JobsCloud", "Kalibrr", "JobStreet PH", "Joblu.io", "WorkAbroad", "BestJobs", "Jobs180"],
+      "singapore": ["Jobsdb SG", "Bossjob", "JobStreet SG", "Cult Jobs", "Grad Singapore", "MyCareersFuture", "Glints SG"],
+      "thailand": ["JobThai", "Jobsdb TH", "JobTopGun", "WorkVenture"],
+      "vietnam": ["JobStreet VN", "VietnamWorks", "TimViecNhanh", "MyWorks"],
+      "taiwan": ["1111 Human Bank", "518 Bear Class", "yourator", "104 Job Bank", "Bossjob TW"],
+      "australia": ["SEEK", "Jora", "CareerOne", "Adzuna AU", "Indeed AU", "Prosple"],
+      "india": ["Naukri.com", "Foundit (Monster India)", "Freshersworld", "JobsForHer", "Indeed India", "Shine", "TimesJobs"]
+    },
+    "dach_regional": [
+      "StepStone", "Kimeta", "meineStadt.de", "Kleinanzeigen", "AllesKralle", "Jobninja",
+      "Hokify", "Jobmesh.de", "Stellenonline", "Jobchannel", "Jobworld", "CH-Regionalmedien",
+      "Jobkicks.de", "Joblift", "Tideri", "Jobstoday", "arbeitsagentur.de", "Euraxess",
+      "Eurojobs", "Faz Jobs", "Personalwerk.de", "Salesjob.de", "jobanzeigen.de",
+      "Karriere.at", "Jobs.ch", "JobScout24"
+    ],
+    "emea_regional": {
+      "uk": ["Reed.co.uk", "Totaljobs", "CV Library", "Guardian Jobs", "CareerWallet", "Employment4Students", "Technojobs", "WomeninTech"],
+      "france": ["Welcome to the Jungle", "Pôle Emploi", "APEC", "Cadremploi"],
+      "spain": ["InfoJobs", "CornerJob", "CompuTrabajo ES"],
+      "portugal": ["Net Empregos", "ITJobs.pt", "Sapo Emprego"],
+      "poland": ["Pracuj.pl", "No Fluff Jobs", "Just Join IT", "Praca.pl", "GoWork"],
+      "hungary": ["Profession.hu"],
+      "netherlands": ["Nationale Vacaturebank", "werk.nl"],
+      "belgium": ["Jobat", "Le Forem", "Actiris", "StepStone BE"],
+      "gulf": ["Bayt.com", "GulfTalent", "Naukrigulf", "Qatar Living Jobs", "dubizzle"],
+      "italy": ["InfoJobs IT", "Bakeca.it", "Trovolavoro"],
+      "canada": ["Job Bank", "Workopolis", "CareerBeacon", "Jobillico"]
+    }
+  },
+  "non_traditional_channels": {
+    "cpqa": [
+      "High5hire", "1840", "Bluecrew", "FStaff", "Recruiter.com",
+      "Athyna", "INS Global", "Alliance Recruitment", "Visage Jobs",
+      "Search Solutions", "Teilur", "Qadvance"
+    ],
+    "data_partners": [
+      "JuiceBox", "Seekout", "Parker Dewey", "Exitem", "Boostpoint"
+    ],
+    "media_channels": [
+      "Meta Ads", "Google Ads", "LinkedIn Ads + InMails",
+      "WhatsApp Campaigns", "Reddit", "Discord", "TikTok", "Snapchat"
+    ],
+    "dsps": [
+      "InMobi", "StackAdapt", "Microsoft Bing", "Eskimi",
+      "Taboola", "Brandzooka", "Uber Ads", "Amazon Ads",
+      "Quora Ads", "Basis Technologies", "The Trade Desk"
+    ],
+    "gov_job_boards": [
+      "Geographic Solutions", "USAJobs.gov",
+      "Department of Labor / CareerOneStop"
+    ],
+    "early_career_channels": [
+      "Fishbowl", "Blind", "Guild", "Mighty Networks",
+      "Peerboard / Tribe", "Reddit communities"
+    ],
+    "employer_branding": [
+      "Glassdoor", "Payscale", "Google Display Network",
+      "Programmatic Audio (Spotify)", "Influencer Marketing"
+    ],
+    "innovative_2025": [
+      "Connected TV (Hulu, Roku, Tubi)", "DOOH (Vistar Media, Clear Channel)",
+      "Retail Media (Walmart Connect, Amazon DSP)", "Podcast Ads (Spotify, Audacy)",
+      "Gaming/Esports (Twitch, Discord)", "Messaging Apps (WhatsApp, Telegram, LINE)",
+      "Employee Referral Tech (Drafted, ERIN)", "Programmatic Recruitment DSP (Joveo Mojo, Appcast, PandoLogic)",
+      "Housing Platforms (Zillow, Rightmove)", "Language Learning Apps (Duolingo, Babbel)"
+    ],
+    "alternate_supply": {
+      "staffing_partners": ["Lundi", "1840", "Visage Jobs", "High5Hire", "Recruiter.com", "Landingjobs", "Athyna", "Q2HRS", "Trio", "Horizons", "Ozific"],
+      "dsps": ["InMobi", "StackAdapt", "Microsoft Bing", "Eskimi", "Taboola", "Brandzooka", "Uber Ads", "Amazon Ads", "Quora Ads", "Basis Technologies", "The Trade Desk"],
+      "influencer_marketing": ["Ubiquitous", "Influencity", "CreatorIQ", "Upfluence"],
+      "programmatic_audio": ["Spotify", "Audacy", "iHeartMedia", "Pandora", "SiriusXM"],
+      "social_media_ads": ["Meta (Facebook/Instagram)", "LinkedIn Ads", "Google Ads", "YouTube Ads", "Reddit Ads", "TikTok Ads", "Snapchat Ads", "X (Twitter) Ads", "Pinterest Ads"],
+      "local_social_platforms": {
+        "japan": ["LINE", "Mixi"],
+        "south_korea": ["KakaoTalk", "Naver"],
+        "indonesia": ["Tokopedia", "Bukalapak"],
+        "malaysia": ["WeChat Malaysia"],
+        "philippines": ["Viber", "Kumu"],
+        "singapore": ["Carousell"],
+        "thailand": ["LINE Thailand", "Pantip"],
+        "vietnam": ["Zalo", "Mocha"],
+        "taiwan": ["LINE Taiwan", "PTT"]
+      },
+      "local_classifieds": {
+        "japan": ["Rakuma", "Mercari"],
+        "south_korea": ["Joongonara", "Bunjang"],
+        "indonesia": ["OLX Indonesia", "Bukalapak"],
+        "malaysia": ["Mudah.my", "Carousell Malaysia"],
+        "philippines": ["OLX Philippines", "Carousell Philippines"],
+        "singapore": ["Carousell Singapore", "Gumtree Singapore"],
+        "thailand": ["Kaidee", "PantipMarket"],
+        "vietnam": ["Chotot", "Sendo"],
+        "taiwan": ["591", "Ruten"]
+      }
+    },
+    "competitor_supply_channels": [
+      "Appcast (Programmatic DSP)", "PandoLogic (pandoIQ)", "Radancy (TalentBrew)",
+      "Recruitics (Programmatic Platform)", "Bayard Advertising", "TMP Worldwide (TalentBrew)",
+      "Perengo (Programmatic)", "Joveo Mojo", "Broadbean", "Multiposting",
+      "Textkernel", "Jobvite", "SmashFly (Symphony Talent)", "Phenom People",
+      "Wonderkind (Social Job Ads)", "Adstream (Job Ads via Display)", "Entelo",
+      "Hiretual (hireEZ)", "Gem", "Lever", "Greenhouse", "iCIMS",
+      "Bullhorn", "CareerArc", "Talkpush", "Harver", "Paradox (Olivia AI)",
+      "Brazen (Virtual Events)", "Handshake (Campus)", "Yello (Campus Recruiting)",
+      "RippleMatch (Campus)", "Untapped (formerly Jumpstart)", "WayUp", "Forage"
+    ]
+  },
+  "channel_strategies": {
+    "awareness": [
+      {
+        "channel": "Meta (Facebook/Instagram)",
+        "reasoning": "Create audience for retargeting via multiple rounds of awareness campaigns",
+        "usage": "Brand awareness through broad targeting, video/image ads, retargeting engaged users"
+      },
+      {
+        "channel": "Google PMax + Display Network",
+        "reasoning": "Create audience for retargeting via multiple rounds of awareness campaigns",
+        "usage": "PMax campaigns, in-market and affinity audiences, YouTube video ads"
+      },
+      {
+        "channel": "DSPs (Digital Boards + Billboards)",
+        "reasoning": "Create awareness at hotspots frequented by target workers",
+        "usage": "Identify top locations, eye-catching creatives, geofencing, QR codes"
+      },
+      {
+        "channel": "Influencer Marketing",
+        "reasoning": "Macro, mid-scale, micro, nano influencer mix for authentic reach",
+        "usage": "Partner with industry influencers for credibility and reach"
+      },
+      {
+        "channel": "Programmatic Audio",
+        "reasoning": "Use podcasts and audio ads on platforms like Spotify",
+        "usage": "Audio ads on podcasts and music streams, sequential messaging"
+      },
+      {
+        "channel": "Non-Programmatic Audio (Radio)",
+        "reasoning": "Use radio and traditional audio channels for local reach",
+        "usage": "Local radio ads during drive times, sports and talk radio"
+      },
+      {
+        "channel": "Employer Review Websites",
+        "reasoning": "Create employer branding where audience researches employers",
+        "usage": "Glassdoor profile optimization, encourage reviews, employer branding products"
+      },
+      {
+        "channel": "Community Channels (Reddit, Forums)",
+        "reasoning": "Post favorable content to supplement traditional review websites",
+        "usage": "Identify subreddits, share authentic stories, host AMAs"
+      }
+    ],
+    "hiring": [
+      {
+        "channel": "Meta",
+        "reasoning": "High-impact warm-audience conversion engine from awareness campaigns",
+        "usage": "Application campaigns with dynamic ads, retarget awareness content viewers"
+      },
+      {
+        "channel": "Google",
+        "reasoning": "Captures high-intent candidates actively searching for jobs",
+        "usage": "Google Search & PMax campaigns across Search, Display, YouTube, Maps"
+      },
+      {
+        "channel": "LinkedIn",
+        "reasoning": "Precision targeting by job title, skills, companies, and industry groups",
+        "usage": "Job posts plus sponsored content for personalized outreach"
+      },
+      {
+        "channel": "Indeed",
+        "reasoning": "Largest job site by traffic, default search engine for jobs",
+        "usage": "Sponsored job listings to appear at top of relevant searches"
+      },
+      {
+        "channel": "Niche Publishers",
+        "reasoning": "Reach niche audiences not fully captured on major platforms",
+        "usage": "Industry-specific job boards, forums, and association sites"
+      },
+      {
+        "channel": "Direct Marketing",
+        "reasoning": "Proactive talent acquisition and nurturing pipeline",
+        "usage": "Email campaigns, LinkedIn Recruiter sourcing for passive candidates"
+      }
+    ]
+  },
+  "market_trend_factors": [
+    "Labor Supply & Demand",
+    "Median Salary / Compensation Benchmark",
+    "Cost of Living Index (COLI)",
+    "Labor Market & Demographic Trends",
+    "Media Infrastructure & Platform Access",
+    "Conversion Timeline Risk",
+    "Key Competitive Advantage"
+  ],
+  "competitor_categories": [
+    "Primary Direct Competitor",
+    "Federal/National Service Rival",
+    "Education & Training Programs",
+    "Private Sector / Specialized Companies",
+    "Public Sector / Government",
+    "Gig Economy & Flexible Work"
+  ],
+  "industries": {
+    "healthcare_medical": {
+      "label": "Healthcare & Medical",
+      "typical_roles": ["Physicians", "Nurses (RN)", "Nurse Practitioners", "Physician Assistants", "Behavioral Health Specialists", "Medical Students", "Residents"],
+      "niche_channel_key": "healthcare_medical",
+      "media_platforms": {
+        "print": ["Military Behavioral Health Journal", "Critical Care Nurse", "Journal of Hospital Medicine", "Journal of Trauma and Acute Care Surgery"],
+        "digital": ["Medscape", "Doximity", "Student Doctor Network", "Psychiatric Times", "Nurse.com", "Scrubs Magazine"],
+        "hybrid": ["JAMA Network", "NEJM", "American Family Physician", "Annals of Internal Medicine", "Annals of Emergency Medicine"]
+      }
+    },
+    "blue_collar_trades": {
+      "label": "Blue Collar / Skilled Trades",
+      "typical_roles": ["Diesel Mechanics", "Welders", "Electricians", "HVAC Technicians", "Heavy Equipment Operators", "Construction Workers", "Manufacturing Technicians"],
+      "niche_channel_key": "blue_collar_trades"
+    },
+    "maritime_marine": {
+      "label": "Maritime & Marine",
+      "typical_roles": ["Marine Diesel Mechanics", "Ship Repair Technicians", "Marine Engineers", "Marine Electricians", "Field Service Engineers"],
+      "niche_channel_key": "maritime_marine"
+    },
+    "military_recruitment": {
+      "label": "Military Recruitment",
+      "typical_roles": ["Infantry", "Artillery", "Combat Engineers", "Signal Corps", "Medical Corps", "Military Police", "Aviation"],
+      "niche_channel_key": "military_government"
+    },
+    "tech_engineering": {
+      "label": "Technology & Engineering",
+      "typical_roles": ["Software Engineers", "Data Scientists", "DevOps Engineers", "Product Managers", "UX Designers"],
+      "niche_channel_key": "tech_engineering"
+    },
+    "general_entry_level": {
+      "label": "General / Entry-Level",
+      "typical_roles": ["Customer Service", "Retail", "Administrative", "Sales", "Warehouse"],
+      "niche_channel_key": "early_career_campus"
+    },
+    "legal_services": {
+      "label": "Legal Services",
+      "typical_roles": ["Attorneys", "Paralegals", "Legal Assistants", "Compliance Officers", "Corporate Counsel", "Litigation Support"],
+      "niche_channel_key": "legal"
+    },
+    "finance_banking": {
+      "label": "Finance & Banking",
+      "typical_roles": ["Financial Analysts", "Investment Bankers", "Risk Managers", "Compliance Officers", "Portfolio Managers", "Actuaries"],
+      "niche_channel_key": "finance_banking",
+      "media_platforms": {
+        "print": ["Financial Times", "Wall Street Journal", "American Banker", "The Economist"],
+        "digital": ["Bloomberg", "Reuters Careers", "eFinancialCareers", "Wall Street Oasis", "Investopedia"],
+        "hybrid": ["Barron's", "Forbes", "Harvard Business Review"]
+      }
+    },
+    "mental_health": {
+      "label": "Mental Health & Behavioral",
+      "typical_roles": ["Psychologists", "Licensed Therapists (LCSW)", "Psychiatric Nurses", "Counselors", "Social Workers", "Behavioral Analysts"],
+      "niche_channel_key": "mental_health"
+    },
+    "retail_consumer": {
+      "label": "Retail & Consumer",
+      "typical_roles": ["Store Managers", "Sales Associates", "Merchandisers", "Inventory Managers", "District Managers", "Buyers"],
+      "niche_channel_key": "retail_consumer"
+    },
+    "aerospace_defense": {
+      "label": "Aerospace & Defense",
+      "typical_roles": ["Aerospace Engineers", "Systems Engineers", "Program Managers", "Test Engineers", "Quality Engineers", "Avionics Technicians"],
+      "niche_channel_key": "aerospace_defense",
+      "media_platforms": {
+        "print": ["Aviation Week", "Defense News", "Jane's Defence Weekly"],
+        "digital": ["Defense One", "SpaceNews", "Military.com", "The War Zone"],
+        "hybrid": ["AIAA Journal", "IEEE Aerospace"]
+      }
+    },
+    "pharma_biotech": {
+      "label": "Pharma & Biotech",
+      "typical_roles": ["Clinical Research Associates", "Biostatisticians", "Medical Science Liaisons", "Regulatory Affairs", "Lab Technicians", "Drug Safety Officers"],
+      "niche_channel_key": "pharma_biotech",
+      "media_platforms": {
+        "print": ["Nature", "The Lancet", "NEJM"],
+        "digital": ["PharmiWeb", "BioSpace", "Endpoints News", "STAT News"],
+        "hybrid": ["Science Magazine", "Cell", "BMJ"]
+      }
+    }
+  },
+  "job_categories": {
+    "professional_white_collar": {
+      "label": "Professional / White Collar",
+      "icon": "💼",
+      "description": "Office, management, administrative, and corporate roles",
+      "example_roles": ["Project Managers", "Business Analysts", "Account Executives", "Office Managers", "HR Generalists", "Administrative Assistants"],
+      "recommended_channels": {
+        "primary": ["LinkedIn", "Indeed", "ZipRecruiter", "Glassdoor", "The Muse"],
+        "secondary": ["Monster", "CareerBuilder", "Ladders.com", "BuiltIn", "Remote"],
+        "social": ["LinkedIn Ads", "Meta (Facebook/Instagram)", "Google Ads"],
+        "niche": ["FlexJobs", "Remote.co", "We Work Remotely"]
+      },
+      "strategy_emphasis": {"awareness": 30, "hiring": 70},
+      "avg_cpa_range": "$3.00 - $12.00",
+      "avg_time_to_fill": "30-45 days",
+      "best_practices": ["LinkedIn Recruiter sourcing for passive candidates", "Employer branding on Glassdoor", "Google PMax for high-intent job seekers", "Professional association partnerships"],
+      "joveo_supply_fit": ["Indeed", "LinkedIn", "ZipRecruiter", "Talent.com", "Jooble", "Monster"],
+      "competitor_channels": ["Appcast", "PandoLogic", "Recruitics", "Radancy", "Broadbean"]
+    },
+    "blue_collar_hourly": {
+      "label": "Blue Collar / Hourly",
+      "icon": "🔧",
+      "description": "Manufacturing, warehouse, construction, labor, and hourly roles",
+      "example_roles": ["Warehouse Workers", "Forklift Operators", "Assembly Line", "Janitors", "Security Guards", "Delivery Drivers"],
+      "recommended_channels": {
+        "primary": ["Indeed", "Snagajob", "Jobcase Inc", "JobGet", "Instawork"],
+        "secondary": ["Craigslist", "OfferUp", "SonicJobs", "PostJobFree", "MyJobHelper"],
+        "social": ["Meta (Facebook/Instagram)", "TikTok Ads", "Snapchat Ads"],
+        "niche": ["Wonolo", "Instawork", "Shiftsmart", "BlueCrew"]
+      },
+      "strategy_emphasis": {"awareness": 50, "hiring": 50},
+      "avg_cpa_range": "$1.50 - $6.00",
+      "avg_time_to_fill": "7-21 days",
+      "best_practices": ["Heavy social media presence on Facebook/TikTok", "Local classified boards and community groups", "Mobile-first apply experience critical", "Same-day or next-day interview scheduling", "WhatsApp/SMS campaigns for hourly workers"],
+      "joveo_supply_fit": ["Indeed", "Snagajob", "Jobcase", "Talent.com", "Jooble", "JobRapido"],
+      "competitor_channels": ["Appcast", "PandoLogic", "Recruitics", "Talkpush", "Paradox (Olivia AI)"]
+    },
+    "healthcare_clinical": {
+      "label": "Healthcare / Clinical",
+      "icon": "🏥",
+      "description": "Nurses, physicians, therapists, clinical and medical staff",
+      "example_roles": ["Registered Nurses", "Physicians", "Medical Assistants", "Pharmacists", "Physical Therapists", "Lab Technicians"],
+      "recommended_channels": {
+        "primary": ["Indeed", "Vivian Health", "Health eCareers", "Doximity", "Incredible Health"],
+        "secondary": ["NurseRecruiter", "AMN Healthcare", "CompHealth", "PracticeMatch", "HospitalRecruiting.com"],
+        "social": ["LinkedIn Ads", "Meta (Facebook/Instagram)", "Google Ads"],
+        "niche": ["Vetted Health", "IntelyCare", "Wanderly", "Aya Healthcare", "DocCafe"]
+      },
+      "strategy_emphasis": {"awareness": 40, "hiring": 60},
+      "avg_cpa_range": "$8.00 - $35.00",
+      "avg_time_to_fill": "45-90 days",
+      "best_practices": ["Niche clinical boards for specialized roles", "CME/CEU sponsorship as awareness strategy", "Travel nurse platforms for urgent needs", "Medical journal advertising for physicians", "Referral programs for clinical staff"],
+      "joveo_supply_fit": ["Indeed", "Health eCareers", "Vivian Health", "Talent.com", "Monster"],
+      "competitor_channels": ["Radancy", "TMP Worldwide", "Bayard Advertising", "Recruitics", "Appcast"]
+    },
+    "technology_it": {
+      "label": "Technology / IT",
+      "icon": "💻",
+      "description": "Software engineering, data science, cybersecurity, DevOps, and IT roles",
+      "example_roles": ["Software Engineers", "Data Scientists", "DevOps Engineers", "Cybersecurity Analysts", "IT Support", "Cloud Architects"],
+      "recommended_channels": {
+        "primary": ["LinkedIn", "Indeed", "Dice", "BuiltIn", "Glassdoor"],
+        "secondary": ["Stack Overflow Jobs", "GitHub Jobs", "AngelList", "Remote.io", "Hired"],
+        "social": ["LinkedIn Ads", "Reddit Ads", "Google Ads", "Discord"],
+        "niche": ["HackerNews Jobs", "No Fluff Jobs", "Just Join IT", "Toptal", "Gun.io"]
+      },
+      "strategy_emphasis": {"awareness": 35, "hiring": 65},
+      "avg_cpa_range": "$5.00 - $25.00",
+      "avg_time_to_fill": "30-60 days",
+      "best_practices": ["GitHub/Stack Overflow community engagement", "Tech blog content marketing", "Hackathon sponsorship", "Developer-focused employer branding", "Open source contributions as recruitment tool"],
+      "joveo_supply_fit": ["Indeed", "LinkedIn", "Dice", "BuiltIn", "Talent.com", "Monster"],
+      "competitor_channels": ["Hired", "Toptal", "Triplebyte", "Appcast", "PandoLogic", "Phenom People"]
+    },
+    "executive_csuite": {
+      "label": "Executive / C-Suite",
+      "icon": "👔",
+      "description": "VP, Director, C-level, and senior leadership roles",
+      "example_roles": ["CEO", "CFO", "VP of Engineering", "Director of Operations", "Chief Marketing Officer", "SVP Sales"],
+      "recommended_channels": {
+        "primary": ["LinkedIn", "Ladders.com", "ExecThread", "BlueSteps"],
+        "secondary": ["The Muse", "eFinancialCareers", "Glassdoor", "Harvard Business Review Jobs"],
+        "social": ["LinkedIn Ads + InMails", "Google Display Network"],
+        "niche": ["Spencer Stuart", "Korn Ferry", "Heidrick & Struggles", "Egon Zehnder"]
+      },
+      "strategy_emphasis": {"awareness": 25, "hiring": 75},
+      "avg_cpa_range": "$25.00 - $100.00+",
+      "avg_time_to_fill": "60-120 days",
+      "best_practices": ["Direct sourcing via LinkedIn Recruiter", "Executive search firm partnerships", "Discreet confidential searches", "Board-level networking events", "Thought leadership content marketing"],
+      "joveo_supply_fit": ["LinkedIn", "Ladders.com", "Indeed", "eFinancialCareers"],
+      "competitor_channels": ["Spencer Stuart", "Korn Ferry", "Russell Reynolds", "Gem", "Lever"]
+    },
+    "sales_marketing": {
+      "label": "Sales & Marketing",
+      "icon": "📈",
+      "description": "Sales representatives, marketing professionals, business development",
+      "example_roles": ["Sales Representatives", "Account Managers", "Marketing Managers", "SDRs/BDRs", "Digital Marketers", "Brand Managers"],
+      "recommended_channels": {
+        "primary": ["LinkedIn", "Indeed", "Glassdoor", "ZipRecruiter", "The Muse"],
+        "secondary": ["SalesGravy", "Bravado", "MarketingHire", "Built In", "Remote"],
+        "social": ["LinkedIn Ads", "Meta (Facebook/Instagram)", "Google Ads", "TikTok Ads"],
+        "niche": ["Rainmakers", "RepVue", "Sales Hacker", "MarketingJobs.com"]
+      },
+      "strategy_emphasis": {"awareness": 35, "hiring": 65},
+      "avg_cpa_range": "$4.00 - $15.00",
+      "avg_time_to_fill": "25-45 days",
+      "best_practices": ["Commission/OTE transparency in job ads", "Video testimonials from top performers", "LinkedIn thought leadership campaigns", "Sales community engagement (Bravado, Pavilion)", "Performance-driven job descriptions"],
+      "joveo_supply_fit": ["Indeed", "LinkedIn", "ZipRecruiter", "Talent.com", "Glassdoor"],
+      "competitor_channels": ["Appcast", "PandoLogic", "Recruitics", "Wonderkind", "Phenom People"]
+    },
+    "education_academia": {
+      "label": "Education & Academia",
+      "icon": "🎓",
+      "description": "Teachers, professors, researchers, and education staff",
+      "example_roles": ["Teachers (K-12)", "Professors", "Research Associates", "School Administrators", "Tutors", "Instructional Designers"],
+      "recommended_channels": {
+        "primary": ["Indeed", "HigherEdJobs", "SchoolSpring", "LinkedIn"],
+        "secondary": ["Chronicle of Higher Education", "Inside Higher Ed", "K12JobSpot", "Teach.org"],
+        "social": ["Meta (Facebook/Instagram)", "LinkedIn Ads", "Google Ads"],
+        "niche": ["HERC Jobs", "Academic Keys", "PhDs.org", "TeachAway"]
+      },
+      "strategy_emphasis": {"awareness": 40, "hiring": 60},
+      "avg_cpa_range": "$3.00 - $10.00",
+      "avg_time_to_fill": "30-60 days",
+      "best_practices": ["Academic calendar-aligned campaigns", "Conference and journal advertising", "University career center partnerships", "Subject-specific community targeting", "Mission-driven employer branding"],
+      "joveo_supply_fit": ["Indeed", "LinkedIn", "Talent.com", "Monster"],
+      "competitor_channels": ["Radancy", "TMP Worldwide", "Bayard Advertising"]
+    },
+    "government_public_sector": {
+      "label": "Government & Public Sector",
+      "icon": "🏛️",
+      "description": "Federal, state, local government, and public service roles",
+      "example_roles": ["Policy Analysts", "City Planners", "Social Workers", "Park Rangers", "Government IT", "Public Health Officers"],
+      "recommended_channels": {
+        "primary": ["USAJobs.gov", "GovernmentJobs.com", "Indeed", "LinkedIn"],
+        "secondary": ["ClearanceJobs", "Military.com", "RecruitMilitary", "Hire Heroes USA"],
+        "social": ["LinkedIn Ads", "Meta (Facebook/Instagram)", "Google Ads"],
+        "niche": ["USAJOBS", "Direct Employers Association", "CareerOneStop", "Geographic Solutions"]
+      },
+      "strategy_emphasis": {"awareness": 45, "hiring": 55},
+      "avg_cpa_range": "$4.00 - $18.00",
+      "avg_time_to_fill": "45-90 days",
+      "best_practices": ["Security clearance targeting for cleared roles", "Veteran and military spouse outreach", "Public service mission-driven messaging", "Government-specific benefits highlighting", "Community event and career fair presence"],
+      "joveo_supply_fit": ["Indeed", "LinkedIn", "ClearanceJobs", "Military.com", "Talent.com"],
+      "competitor_channels": ["Appcast", "Radancy", "Bayard Advertising", "Brazen (Virtual Events)"]
+    },
+    "skilled_trades": {
+      "label": "Skilled Trades",
+      "icon": "⚡",
+      "description": "Electricians, plumbers, welders, mechanics, and certified tradespeople",
+      "example_roles": ["Electricians", "Plumbers", "Welders", "HVAC Technicians", "Diesel Mechanics", "CNC Machinists"],
+      "recommended_channels": {
+        "primary": ["Indeed", "CDLlife", "ConstructionJobForce", "Roadtechs", "Snagajob"],
+        "secondary": ["Craigslist", "Facebook Groups", "DieselTechJobs.com", "Mechanics Hub", "Heavy Equipment Jobs"],
+        "social": ["Meta (Facebook/Instagram)", "TikTok Ads", "YouTube Ads", "Snapchat Ads"],
+        "niche": ["Tradesmen International", "PeopleReady Skilled Trades", "CraftHire", "iHireConstruction"]
+      },
+      "strategy_emphasis": {"awareness": 50, "hiring": 50},
+      "avg_cpa_range": "$2.00 - $8.00",
+      "avg_time_to_fill": "14-30 days",
+      "best_practices": ["Trade school and apprenticeship partnerships", "Union job board postings", "Local community and classified targeting", "Video content showing work environment", "Certification and license-based targeting"],
+      "joveo_supply_fit": ["Indeed", "Snagajob", "Talent.com", "Jooble", "CDLlife"],
+      "competitor_channels": ["Appcast", "PandoLogic", "Recruitics", "Talkpush"]
+    },
+    "transportation_logistics": {
+      "label": "Transportation & Logistics",
+      "icon": "🚛",
+      "description": "Truck drivers, dispatchers, supply chain, and delivery roles",
+      "example_roles": ["CDL Truck Drivers", "Dispatchers", "Supply Chain Managers", "Delivery Drivers", "Logistics Coordinators", "Fleet Managers"],
+      "recommended_channels": {
+        "primary": ["CDLlife", "CDL Jobs", "Indeed", "Class A Drivers", "Trucker's Report"],
+        "secondary": ["Fleet Job Finder", "Truck Driver Jobs 411", "Snagajob", "JobGet", "DriveMyWay"],
+        "social": ["Meta (Facebook/Instagram)", "TikTok Ads", "YouTube Ads"],
+        "niche": ["AllTruckJobs", "TruckingTruth", "EveryTruckJob", "TransForce"]
+      },
+      "strategy_emphasis": {"awareness": 45, "hiring": 55},
+      "avg_cpa_range": "$2.00 - $10.00",
+      "avg_time_to_fill": "14-30 days",
+      "best_practices": ["CDL license-specific targeting", "Pay-per-mile/load transparency", "Home time and route details in ads", "Driver community engagement", "Referral bonus programs"],
+      "joveo_supply_fit": ["Indeed", "CDLlife", "Talent.com", "Jooble", "Snagajob"],
+      "competitor_channels": ["Appcast", "PandoLogic", "Talkpush", "Recruitics"]
+    },
+    "hospitality_food_service": {
+      "label": "Hospitality & Food Service",
+      "icon": "🍽️",
+      "description": "Hotels, restaurants, tourism, food service, and event management",
+      "example_roles": ["Hotel Managers", "Chefs", "Servers", "Bartenders", "Housekeeping", "Event Coordinators"],
+      "recommended_channels": {
+        "primary": ["Indeed", "Snagajob", "Poached Jobs", "Hcareers", "Instawork"],
+        "secondary": ["Craigslist", "JobGet", "SonicJobs", "Harri", "Culinary Agents"],
+        "social": ["Meta (Facebook/Instagram)", "TikTok Ads", "Snapchat Ads", "Instagram"],
+        "niche": ["RestaurantJobs", "HospitalityOnline", "CatererSearch", "HotelCareer"]
+      },
+      "strategy_emphasis": {"awareness": 55, "hiring": 45},
+      "avg_cpa_range": "$1.00 - $5.00",
+      "avg_time_to_fill": "7-14 days",
+      "best_practices": ["Mobile-first application experience", "Same-day interview and hire", "Location-based geofencing ads", "Seasonal hiring campaigns", "Employee referral incentives", "Social media video content"],
+      "joveo_supply_fit": ["Indeed", "Snagajob", "Talent.com", "Jooble", "JobRapido"],
+      "competitor_channels": ["Appcast", "PandoLogic", "Talkpush", "Paradox (Olivia AI)"]
+    },
+    "creative_media": {
+      "label": "Creative & Media",
+      "icon": "🎨",
+      "description": "Design, content creation, media production, and creative roles",
+      "example_roles": ["Graphic Designers", "Content Writers", "Video Producers", "UX/UI Designers", "Art Directors", "Photographers"],
+      "recommended_channels": {
+        "primary": ["LinkedIn", "Indeed", "Dribbble", "Behance", "The Muse"],
+        "secondary": ["Glassdoor", "BuiltIn", "AIGA Design Jobs", "MediaBistro", "CreativePool"],
+        "social": ["LinkedIn Ads", "Instagram Ads", "Meta (Facebook/Instagram)", "Pinterest Ads"],
+        "niche": ["Coroflot", "Working Not Working", "If You Could Jobs", "Krop", "Authentic Jobs"]
+      },
+      "strategy_emphasis": {"awareness": 40, "hiring": 60},
+      "avg_cpa_range": "$4.00 - $15.00",
+      "avg_time_to_fill": "25-45 days",
+      "best_practices": ["Portfolio-focused recruitment", "Instagram and Dribbble community engagement", "Creative challenge/contest recruitment", "Agency showcase and culture content", "Design community sponsorships"],
+      "joveo_supply_fit": ["Indeed", "LinkedIn", "Glassdoor", "Talent.com", "The Muse"],
+      "competitor_channels": ["Appcast", "Wonderkind", "Phenom People", "SmashFly"]
+    }
+  },
+  "cpa_rate_benchmarks": {
+    "europe": {
+      "low_cpa": {"range": "2-4 EUR", "publishers": ["Jooble", "Matchit", "MyJobScanner"]},
+      "mid_cpa": {"range": "5-10 EUR", "publishers": ["Monster", "Tideri", "Talent", "Sercanto", "ATTB"]},
+      "high_cpa": {"range": "15-30 EUR", "publishers": ["Jobtome", "Many More Jobs"]}
+    },
+    "apac": {
+      "low_cpa": {"range": "$0.15-$0.50 CPC", "publishers": ["Regional boards", "Classifieds"]},
+      "mid_cpa": {"range": "$0.50-$2.00 CPC", "publishers": ["Indeed", "Talent.com", "JobStreet"]},
+      "high_cpa": {"range": "$2.00-$8.00 CPC/CPA", "publishers": ["LinkedIn", "Naukri", "SEEK"]}
+    },
+    "north_america": {
+      "low_cpa": {"range": "$0.20-$0.80 CPC", "publishers": ["Jooble", "Talent.com", "JobRapido"]},
+      "mid_cpa": {"range": "$0.80-$3.00 CPC", "publishers": ["Indeed", "ZipRecruiter", "Monster"]},
+      "high_cpa": {"range": "$3.00-$15.00 CPA", "publishers": ["LinkedIn", "Dice", "ClearanceJobs"]}
+    }
+  }
+}

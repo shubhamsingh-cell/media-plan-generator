@@ -1,0 +1,2894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Plan Generator</title>
+    <style>
+        :root {
+            --primary: #5A54BD;
+            --primary-dark: #202058;
+            --primary-light: #BAB4F6;
+            --accent: #6BB3CD;
+            --accent-warm: #CE9047;
+            --success: #438765;
+            --warning: #CE9047;
+            --bg: #FFFDF9;
+            --bg-dark: #202058;
+            --card: rgba(255,255,255,0.85);
+            --card-solid: #FFFFFF;
+            --text: #1A1818;
+            --text-secondary: #4A4A6A;
+            --text-light: #4A4A6A;
+            --text-muted: #7A7A9A;
+            --border: rgba(0,0,0,0.06);
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+            --shadow-lg: 0 12px 40px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+            --shadow-glow: 0 0 20px rgba(90,84,189,0.15);
+            --shadow: 0 4px 16px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --radius-xs: 6px;
+            --gradient-primary: linear-gradient(135deg, #5A54BD 0%, #BAB4F6 50%, #B3E0F0 100%);
+            --gradient-mesh: radial-gradient(at 27% 37%, hsla(244, 42%, 54%, 0.12) 0px, transparent 50%),
+                             radial-gradient(at 97% 21%, hsla(197, 52%, 62%, 0.08) 0px, transparent 50%),
+                             radial-gradient(at 52% 99%, hsla(316, 43%, 64%, 0.08) 0px, transparent 50%),
+                             radial-gradient(at 10% 29%, hsla(244, 42%, 54%, 0.06) 0px, transparent 50%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        ::selection {
+            background: var(--primary);
+            color: white;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            background-image: var(--gradient-mesh);
+            background-attachment: fixed;
+            color: var(--text);
+            min-height: 100vh;
+            font-size: 14px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ============================================
+           APP HEADER - Stripe dark with animated orbs
+           ============================================ */
+        .app-header {
+            background: var(--bg-dark);
+            color: white;
+            padding: 0 40px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            height: 80px;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            z-index: 10;
+        }
+
+        .app-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(90,84,189,0.4), rgba(107,179,205,0.3), transparent);
+        }
+
+        .header-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .header-orb-1 {
+            width: 300px;
+            height: 300px;
+            background: rgba(90, 84, 189, 0.3);
+            top: -120px;
+            left: 10%;
+            animation: orbFloat1 8s ease-in-out infinite;
+        }
+
+        .header-orb-2 {
+            width: 250px;
+            height: 250px;
+            background: rgba(107, 179, 205, 0.25);
+            top: -80px;
+            right: 15%;
+            animation: orbFloat2 10s ease-in-out infinite;
+        }
+
+        .header-orb-3 {
+            width: 200px;
+            height: 200px;
+            background: rgba(186, 180, 246, 0.25);
+            top: -60px;
+            left: 50%;
+            animation: orbFloat3 12s ease-in-out infinite;
+        }
+
+        .header-orb-4 {
+            width: 350px;
+            height: 350px;
+            background: rgba(206, 144, 71, 0.15);
+            top: -150px;
+            right: 40%;
+            animation: orbFloat4 14s ease-in-out infinite;
+        }
+
+        @keyframes orbFloat1 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, 15px) scale(1.1); }
+            66% { transform: translate(-20px, -10px) scale(0.95); }
+        }
+
+        @keyframes orbFloat2 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(-25px, 20px) scale(1.05); }
+            66% { transform: translate(15px, -15px) scale(1.1); }
+        }
+
+        @keyframes orbFloat3 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(40px, -20px) scale(1.15); }
+        }
+
+        @keyframes orbFloat4 {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(-30px, 10px); }
+            75% { transform: translate(20px, -15px); }
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .app-header h1 {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: white;
+        }
+
+        .app-header p {
+            font-size: 13px;
+            opacity: 0.65;
+            color: white;
+            font-weight: 400;
+        }
+
+        .logo {
+            font-size: 28px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+            z-index: 2;
+        }
+
+        /* ============================================
+           CONTAINER
+           ============================================ */
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        /* ============================================
+           PROGRESS STEPS - Minimalist Apple style
+           ============================================ */
+        .progress-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            position: relative;
+            padding: 0 20px;
+        }
+
+        .progress-bar::before {
+            content: '';
+            position: absolute;
+            top: 18px;
+            left: 60px;
+            right: 60px;
+            height: 2px;
+            background: rgba(0,0,0,0.06);
+            z-index: 0;
+            border-radius: 1px;
+        }
+
+        .progress-line-fill {
+            position: absolute;
+            top: 18px;
+            left: 60px;
+            height: 2px;
+            background: var(--gradient-primary);
+            z-index: 0;
+            border-radius: 1px;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .step-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+            z-index: 1;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .step-circle {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--card-solid);
+            border: 2px solid rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--text-muted);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .step-indicator.active .step-circle {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(99,91,255,0.12), var(--shadow-glow);
+        }
+
+        .step-indicator.completed .step-circle {
+            background: var(--gradient-primary);
+            border-color: transparent;
+            color: white;
+            box-shadow: 0 2px 8px rgba(99,91,255,0.3);
+        }
+
+        .step-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-align: center;
+            max-width: 90px;
+            letter-spacing: 0.2px;
+            transition: all 0.3s ease;
+        }
+
+        .step-indicator.active .step-label {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .step-indicator.completed .step-label {
+            color: var(--text-secondary);
+        }
+
+        /* ============================================
+           CARDS - Glass Morphism (Apple style)
+           ============================================ */
+        .card {
+            background: var(--card);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            padding: 32px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255,255,255,0.7);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card h2 {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .card .subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 28px;
+            line-height: 1.6;
+        }
+
+        /* ============================================
+           FORM ELEMENTS - Material 3 inspired
+           ============================================ */
+        .form-group {
+            margin-bottom: 22px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            background: white;
+            color: var(--text);
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99,91,255,0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 90px;
+            line-height: 1.6;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* ============================================
+           TAGS INPUT
+           ============================================ */
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            min-height: 50px;
+            cursor: text;
+            background: white;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tags-container:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99,91,255,0.1);
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: rgba(99,91,255,0.08);
+            color: var(--primary);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            border: 1px solid rgba(99,91,255,0.15);
+            animation: scaleIn 0.2s ease-out;
+            transition: transform 0.15s ease;
+        }
+
+        .tag:hover {
+            transform: scale(1.05);
+        }
+
+        .tag .remove {
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            opacity: 0.6;
+            margin-left: 2px;
+            transition: all 0.15s ease;
+        }
+
+        .tag .remove:hover {
+            opacity: 1;
+            color: var(--accent-warm) !important;
+            transform: scale(1.2);
+        }
+
+        .tags-input {
+            border: none;
+            outline: none;
+            flex: 1;
+            min-width: 120px;
+            font-size: 14px;
+            padding: 4px;
+            color: var(--text);
+            background: transparent;
+        }
+
+        /* ============================================
+           CHANNEL SELECTOR
+           ============================================ */
+        .channel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 6px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 14px;
+            background: rgba(247,247,251,0.6);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+
+        .channel-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: var(--radius-xs);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 13px;
+            color: var(--text-secondary);
+            opacity: 0;
+            animation: fadeInUp 0.3s ease-out forwards;
+        }
+
+        .channel-item:hover {
+            background: rgba(99,91,255,0.04);
+            color: var(--text);
+        }
+
+        .channel-item:nth-child(1) { animation-delay: 0s; }
+        .channel-item:nth-child(2) { animation-delay: 0.03s; }
+        .channel-item:nth-child(3) { animation-delay: 0.06s; }
+        .channel-item:nth-child(4) { animation-delay: 0.09s; }
+        .channel-item:nth-child(5) { animation-delay: 0.12s; }
+        .channel-item:nth-child(6) { animation-delay: 0.15s; }
+        .channel-item:nth-child(7) { animation-delay: 0.18s; }
+        .channel-item:nth-child(8) { animation-delay: 0.21s; }
+        .channel-item:nth-child(9) { animation-delay: 0.24s; }
+        .channel-item:nth-child(10) { animation-delay: 0.27s; }
+        .channel-item:nth-child(n+11):nth-child(-n+20) { animation-delay: 0.3s; }
+        .channel-item:nth-child(n+21):nth-child(-n+30) { animation-delay: 0.35s; }
+        .channel-item:nth-child(n+31):nth-child(-n+40) { animation-delay: 0.4s; }
+        .channel-item:nth-child(n+41):nth-child(-n+50) { animation-delay: 0.45s; }
+        .channel-item:nth-child(n+51) { animation-delay: 0.5s; }
+
+        .channel-item input[type="checkbox"] {
+            accent-color: var(--primary);
+            width: 16px;
+            height: 16px;
+        }
+
+        .channel-category {
+            font-weight: 600;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin: 24px 0 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .channel-category:first-child { margin-top: 0; }
+
+        /* ============================================
+           TOGGLE - Apple style
+           ============================================ */
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            background: rgba(255,255,255,0.6);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-sm);
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+        }
+
+        .toggle-group:hover {
+            border-color: rgba(99,91,255,0.12);
+            background: rgba(255,255,255,0.8);
+        }
+
+        .toggle-group label {
+            margin: 0;
+            text-transform: none;
+            letter-spacing: 0;
+            font-size: 14px;
+            color: var(--text);
+        }
+
+        .toggle {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .toggle input { opacity: 0; width: 0; height: 0; }
+
+        .toggle .slider {
+            position: absolute;
+            inset: 0;
+            background: #D1D5DB;
+            border-radius: 13px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .toggle .slider::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            top: 3px;
+            left: 3px;
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+
+        .toggle input:checked + .slider {
+            background: var(--gradient-primary);
+        }
+
+        .toggle input:checked + .slider::before {
+            transform: translateX(22px);
+        }
+
+        /* ============================================
+           BUTTONS
+           ============================================ */
+        .btn-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .btn {
+            padding: 14px 32px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.3px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(99,91,255,0.25);
+        }
+
+        .btn-primary::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: none;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99,91,255,0.35);
+            filter: brightness(1.08);
+        }
+
+        .btn-primary:hover::after {
+            animation: shine 0.6s ease forwards;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--text);
+            border: 1px solid rgba(0,0,0,0.08);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--primary-light);
+            color: var(--primary);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-secondary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-success {
+            background: var(--gradient-primary);
+            color: white;
+            font-size: 16px;
+            padding: 18px 44px;
+            box-shadow: 0 4px 16px rgba(99,91,255,0.3);
+            border-radius: var(--radius-sm);
+        }
+
+        .btn-success::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+            transition: none;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(99,91,255,0.4);
+            filter: brightness(1.08);
+        }
+
+        .btn-success:hover::after {
+            animation: shine 0.6s ease forwards;
+        }
+
+        .btn-success:active {
+            transform: scale(0.98);
+        }
+
+        .btn-success.ready-pulse:not(:disabled) {
+            animation: glowPulse 2s ease-in-out infinite;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* ============================================
+           INDUSTRY CARDS - Airbnb warmth + Arc vibrancy
+           ============================================ */
+        .industry-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+
+        .industry-card {
+            padding: 24px 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-align: center;
+            background: white;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .industry-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: transparent;
+            transition: background 0.3s ease;
+        }
+
+        .industry-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: var(--shadow-lg);
+            border-color: rgba(99,91,255,0.2);
+        }
+
+        .industry-card:hover::before {
+            background: var(--gradient-primary);
+        }
+
+        .industry-card.selected {
+            border-color: var(--primary) !important;
+            background: linear-gradient(135deg, rgba(99,91,255,0.03) 0%, rgba(129,140,248,0.06) 100%) !important;
+            box-shadow: 0 0 0 2px var(--primary), var(--shadow-md) !important;
+        }
+
+        .industry-card.selected::before {
+            background: var(--gradient-primary);
+        }
+
+        .industry-card .icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .industry-card .name {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .industry-card .desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* ============================================
+           JOB CATEGORY CARDS (4 columns)
+           ============================================ */
+        .job-category-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .job-cat-card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: white;
+            position: relative;
+            overflow: hidden;
+            user-select: none;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .job-cat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: transparent;
+            transition: background 0.3s ease;
+        }
+
+        .job-cat-card:hover {
+            border-color: rgba(99,91,255,0.2);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .job-cat-card.selected {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, rgba(99,91,255,0.04) 0%, rgba(129,140,248,0.08) 100%);
+            box-shadow: 0 0 0 2px var(--primary), var(--shadow-sm);
+        }
+
+        .job-cat-card.selected::before {
+            background: var(--gradient-primary);
+        }
+
+        .job-cat-card .cat-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .job-cat-card .cat-name {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1.3;
+        }
+
+        .job-cat-card .cat-check {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--gradient-primary);
+            color: white;
+            font-size: 10px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
+        .job-cat-card.selected .cat-check {
+            display: flex;
+            animation: popIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ============================================
+           JOB CATEGORY INSIGHT PANEL - Glass morphism
+           ============================================ */
+        .job-category-insight {
+            margin-top: 16px;
+            padding: 20px 24px;
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: var(--radius);
+            border: 1px solid rgba(99,91,255,0.12);
+            border-left: 4px solid var(--primary);
+            animation: fadeInUp 0.35s ease;
+            box-shadow: var(--shadow-md);
+        }
+
+        .job-category-insight .insight-header {
+            font-weight: 700;
+            color: var(--text);
+            font-size: 13px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .job-category-insight .insight-header .insight-badge {
+            background: var(--gradient-primary);
+            color: white;
+            font-size: 9px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .insight-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .insight-item {
+            background: white;
+            border-radius: var(--radius-xs);
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+        }
+
+        .insight-item .insight-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .insight-item .insight-value {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1.4;
+        }
+
+        .insight-channels {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .insight-channels .insight-ch {
+            background: white;
+            border: 1px solid rgba(99,91,255,0.12);
+            border-radius: 16px;
+            padding: 3px 10px;
+            font-size: 10px;
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        /* ============================================
+           REVIEW SECTION
+           ============================================ */
+        .review-section {
+            margin-bottom: 24px;
+        }
+
+        .review-section h3 {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 600;
+        }
+
+        .review-item {
+            display: flex;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+        }
+
+        .review-item:last-child {
+            border-bottom: none;
+        }
+
+        .review-item .label {
+            font-weight: 500;
+            width: 180px;
+            flex-shrink: 0;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .review-item .value {
+            font-size: 13px;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .review-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .review-edit-btn {
+            font-size: 12px;
+            color: var(--primary);
+            cursor: pointer;
+            text-decoration: none;
+            padding: 4px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(99,91,255,0.2);
+            transition: all 0.2s ease;
+            font-weight: 500;
+            background: rgba(99,91,255,0.04);
+        }
+
+        .review-edit-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Chips */
+        .chip-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .chip {
+            padding: 4px 12px;
+            background: rgba(99,91,255,0.06);
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--primary);
+            font-weight: 500;
+            border: 1px solid rgba(99,91,255,0.1);
+        }
+
+        /* ============================================
+           WIZARD STEP VISIBILITY
+           ============================================ */
+        .wizard-step { display: none; }
+        .wizard-step.active { display: block; }
+
+        .wizard-step.step-animating {
+            animation: fadeInUp 0.4s ease-out;
+        }
+
+        /* ============================================
+           SPINNER
+           ============================================ */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+        }
+
+        /* ============================================
+           SELECT CONTROLS
+           ============================================ */
+        .select-controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .select-controls a {
+            font-size: 12px;
+            color: var(--primary);
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .select-controls a:hover {
+            color: var(--primary-dark);
+            text-decoration: underline;
+        }
+
+        /* ============================================
+           SECTION DIVIDERS
+           ============================================ */
+        .section-divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 28px 0;
+            color: var(--text-muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 600;
+        }
+
+        .section-divider::before,
+        .section-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(0,0,0,0.06), transparent);
+        }
+
+        .section-divider::after {
+            background: linear-gradient(90deg, transparent, rgba(0,0,0,0.06));
+        }
+
+        /* ============================================
+           CHECKBOX GROUPS - Rounded pill/card style
+           ============================================ */
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            text-transform: none;
+            letter-spacing: 0;
+            color: var(--text-secondary);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            background: white;
+        }
+
+        .checkbox-group label:hover {
+            border-color: rgba(99,91,255,0.2);
+            background: rgba(99,91,255,0.02);
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            accent-color: var(--primary);
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .checkbox-group input[type="checkbox"]:checked + span,
+        .checkbox-group label:has(input:checked) {
+            border-color: var(--primary);
+            background: rgba(99,91,255,0.06);
+            color: var(--primary);
+        }
+
+        /* ============================================
+           KEYFRAME ANIMATIONS
+           ============================================ */
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeOutDown {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-20px); }
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(30px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        @keyframes confetti-fall {
+            0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
+        }
+
+        @keyframes shine {
+            0% { left: -100%; }
+            100% { left: 200%; }
+        }
+
+        @keyframes glowPulse {
+            0%, 100% { box-shadow: 0 4px 16px rgba(99,91,255,0.3); }
+            50% { box-shadow: 0 4px 30px rgba(99,91,255,0.5), 0 0 40px rgba(99,91,255,0.2); }
+        }
+
+        @keyframes toastSlideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes toastSlideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
+        @keyframes checkmarkDraw {
+            0% { stroke-dashoffset: 20; }
+            100% { stroke-dashoffset: 0; }
+        }
+
+        @keyframes progressStepFadeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); }
+            70% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        /* Step content animations */
+        .step-content.active {
+            animation: fadeInUp 0.4s ease-out;
+        }
+
+        .step-content.exiting {
+            animation: fadeOutDown 0.3s ease-in;
+        }
+
+        /* ============================================
+           PAGE PROGRESS BAR
+           ============================================ */
+        .page-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: rgba(99,91,255,0.1);
+            z-index: 9999;
+        }
+
+        .page-progress-fill {
+            height: 100%;
+            background: var(--gradient-primary);
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 0 2px 2px 0;
+        }
+
+        /* ============================================
+           TOAST NOTIFICATIONS - Glass morphism
+           ============================================ */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .toast-item {
+            pointer-events: auto;
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-lg);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 320px;
+            max-width: 420px;
+            animation: toastSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 4px solid var(--primary);
+            font-size: 14px;
+            color: var(--text);
+            border: 1px solid rgba(255,255,255,0.7);
+            border-left: 4px solid var(--primary);
+        }
+
+        .toast-item.toast-exiting {
+            animation: toastSlideOut 0.3s ease-in forwards;
+        }
+
+        .toast-item .toast-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .toast-item .toast-message {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .toast-item .toast-close {
+            cursor: pointer;
+            opacity: 0.4;
+            font-size: 18px;
+            padding: 0 4px;
+            flex-shrink: 0;
+            transition: opacity 0.2s;
+        }
+
+        .toast-item .toast-close:hover {
+            opacity: 1;
+        }
+
+        .toast-success {
+            border-left-color: var(--accent) !important;
+        }
+
+        .toast-success .toast-icon {
+            color: var(--accent);
+        }
+
+        .toast-error {
+            border-left-color: var(--accent-warm) !important;
+        }
+
+        .toast-error .toast-icon {
+            color: var(--accent-warm);
+        }
+
+        .toast-info {
+            border-left-color: var(--primary) !important;
+        }
+
+        .toast-info .toast-icon {
+            color: var(--primary);
+        }
+
+        .toast-warning {
+            border-left-color: var(--warning) !important;
+        }
+
+        .toast-warning .toast-icon {
+            color: var(--warning);
+        }
+
+        /* ============================================
+           CONFETTI
+           ============================================ */
+        .confetti-container {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 10000;
+            overflow: hidden;
+        }
+
+        .confetti-piece {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            top: -10px;
+            animation: confetti-fall linear forwards;
+            opacity: 0.9;
+        }
+
+        /* ============================================
+           GENERATION OVERLAY - Glass morphism
+           ============================================ */
+        .generation-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10,37,64,0.4);
+            z-index: 9998;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .generation-overlay.visible {
+            opacity: 1;
+        }
+
+        .generation-card {
+            background: rgba(255,255,255,0.9);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: 20px;
+            padding: 44px 48px;
+            box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.8);
+            text-align: center;
+            max-width: 440px;
+            width: 90%;
+            border: 1px solid rgba(255,255,255,0.6);
+        }
+
+        .generation-card h3 {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+            letter-spacing: -0.3px;
+        }
+
+        .generation-card .gen-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 28px;
+        }
+
+        .gen-steps {
+            text-align: left;
+        }
+
+        .gen-step {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 0;
+            font-size: 14px;
+            color: var(--text-muted);
+            opacity: 0.5;
+            transition: all 0.3s ease;
+            animation: progressStepFadeIn 0.3s ease-out forwards;
+        }
+
+        .gen-step.gen-active {
+            opacity: 1;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .gen-step.gen-complete {
+            opacity: 1;
+            color: var(--accent);
+        }
+
+        .gen-step-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+            background: rgba(0,0,0,0.04);
+            transition: all 0.3s ease;
+        }
+
+        .gen-step.gen-active .gen-step-icon {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(99,91,255,0.3);
+        }
+
+        .gen-step.gen-complete .gen-step-icon {
+            background: linear-gradient(135deg, #00D4AA, #00BFA5);
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,212,170,0.3);
+        }
+
+        .gen-step.gen-active .gen-step-icon .gen-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+        }
+
+        .gen-progress-bar {
+            margin-top: 24px;
+            height: 4px;
+            background: rgba(0,0,0,0.04);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .gen-progress-fill {
+            height: 100%;
+            background: var(--gradient-primary);
+            border-radius: 2px;
+            transition: width 0.6s ease;
+            width: 0%;
+        }
+
+        /* ============================================
+           FORM VALIDATION
+           ============================================ */
+        .form-group.floating-label {
+            position: relative;
+        }
+
+        .form-group.field-valid input,
+        .form-group.field-valid select,
+        .form-group.field-valid textarea {
+            border-color: var(--accent);
+        }
+
+        .form-group.field-valid::after {
+            content: '\2713';
+            position: absolute;
+            right: 12px;
+            top: 38px;
+            color: var(--accent);
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .form-group.field-error input,
+        .form-group.field-error select,
+        .form-group.field-error textarea {
+            border-color: var(--accent-warm) !important;
+            animation: shake 0.4s ease;
+        }
+
+        .field-error-msg {
+            color: var(--accent-warm);
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .form-group.field-error .field-error-msg {
+            display: block;
+        }
+
+        /* ============================================
+           CUSTOM SCROLLBAR
+           ============================================ */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(99,91,255,0.2);
+            border-radius: 3px;
+            transition: background 0.2s;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99,91,255,0.4);
+        }
+
+        .channel-grid::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .channel-grid::-webkit-scrollbar-thumb {
+            background: rgba(99,91,255,0.15);
+            border-radius: 3px;
+        }
+
+        /* ============================================
+           FOCUS VISIBLE
+           ============================================ */
+        *:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible {
+            outline: none;
+        }
+
+        /* ============================================
+           RESPONSIVE
+           ============================================ */
+        @media (max-width: 1024px) {
+            .container { padding: 28px 16px; }
+            .card { padding: 28px; }
+            .industry-grid { grid-template-columns: repeat(2, 1fr); }
+            .job-category-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .form-row { grid-template-columns: 1fr; }
+            .industry-grid { grid-template-columns: repeat(2, 1fr); }
+            .job-category-grid { grid-template-columns: repeat(3, 1fr); }
+            .container { padding: 20px 16px; }
+            .card { padding: 24px; }
+            .app-header { padding: 0 20px; height: 70px; }
+            .app-header h1 { font-size: 18px; }
+            .btn-success { padding: 14px 32px; font-size: 15px; }
+            .toast-item { min-width: 280px; max-width: 90vw; }
+            .generation-card { padding: 28px 24px; }
+            .review-item .label { width: 140px; }
+            .checkbox-group { grid-template-columns: 1fr 1fr; }
+            .insight-grid { grid-template-columns: 1fr; }
+            .progress-bar { padding: 0; }
+            .progress-bar::before { left: 30px; right: 30px; }
+            .step-label { font-size: 10px; max-width: 70px; }
+        }
+
+        @media (max-width: 480px) {
+            .progress-bar {
+                flex-direction: column;
+                gap: 8px;
+                align-items: flex-start;
+            }
+            .progress-bar::before { display: none; }
+            .progress-line-fill { display: none; }
+            .step-indicator {
+                flex-direction: row;
+                max-width: none;
+                gap: 12px;
+            }
+            .step-circle { width: 30px; height: 30px; font-size: 12px; }
+            .step-label { font-size: 11px; max-width: none; }
+            .container { padding: 16px 10px; }
+            .card { padding: 20px; }
+            .card h2 { font-size: 20px; }
+            .industry-grid { grid-template-columns: 1fr; gap: 10px; }
+            .industry-card { padding: 20px 14px; }
+            .industry-card .icon { font-size: 32px; }
+            .industry-card .name { font-size: 13px; }
+            .industry-card .desc { font-size: 11px; }
+            .btn { padding: 12px 24px; font-size: 14px; }
+            .btn-success { padding: 14px 28px; font-size: 15px; }
+            .form-group label { font-size: 11px; }
+            .toast-container { left: 12px; right: 12px; bottom: 12px; }
+            .toast-item { min-width: auto; }
+            .checkbox-group { grid-template-columns: 1fr; }
+            .job-category-grid { grid-template-columns: repeat(2, 1fr); }
+            .app-header h1 { font-size: 16px; }
+            .app-header p { font-size: 11px; }
+            .logo { width: 36px; height: 36px; font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Page-level progress bar -->
+    <div id="pageProgress" class="page-progress"><div class="page-progress-fill" style="width:20%"></div></div>
+
+    <header class="app-header">
+        <!-- Animated gradient orbs -->
+        <div class="header-orb header-orb-1"></div>
+        <div class="header-orb header-orb-2"></div>
+        <div class="header-orb header-orb-3"></div>
+        <div class="header-orb header-orb-4"></div>
+        <div class="header-content">
+            <div class="logo">&#9965;</div>
+            <div>
+                <h1>Media Plan Generator</h1>
+                <p>Create comprehensive recruitment marketing media plans in minutes</p>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Progress Bar -->
+        <div class="progress-bar" id="progressBar">
+            <div class="step-indicator active" data-step="1">
+                <div class="step-circle">1</div>
+                <div class="step-label">Client Info</div>
+            </div>
+            <div class="step-indicator" data-step="2">
+                <div class="step-circle">2</div>
+                <div class="step-label">Industry & Targeting</div>
+            </div>
+            <div class="step-indicator" data-step="3">
+                <div class="step-circle">3</div>
+                <div class="step-label">Channels</div>
+            </div>
+            <div class="step-indicator" data-step="4">
+                <div class="step-circle">4</div>
+                <div class="step-label">Extra Sections</div>
+            </div>
+            <div class="step-indicator" data-step="5">
+                <div class="step-circle">5</div>
+                <div class="step-label">Review & Export</div>
+            </div>
+        </div>
+
+        <!-- Step 1: Client Info -->
+        <div class="wizard-step active" id="step1">
+            <div class="card">
+                <h2>Client Information</h2>
+                <p class="subtitle">Enter the basic details about your client and campaign</p>
+
+                <div class="form-group">
+                    <label>Client Name *</label>
+                    <input type="text" id="clientName" placeholder="e.g., Minnesota Army National Guard">
+                </div>
+
+                <div class="form-group">
+                    <label>Client Website <span style="font-weight:400;color:var(--text-muted);font-size:10px;letter-spacing:0">(Used to fetch accurate logo and company details)</span></label>
+                    <input type="url" id="clientWebsite" placeholder="e.g., https://www.acmehealthcare.com">
+                    <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">Enter the client's website URL for accurate logo and company identification in the media plan.</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Client's Use Case / Brief *</label>
+                    <textarea id="useCase" placeholder="Describe what the client needs. e.g., Recruit medical professionals including physicians, nurses, and behavioral health specialists..."></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Budget Range</label>
+                        <select id="budgetRange">
+                            <option value="">Select budget range</option>
+                            <option value="< $50,000">Under $50,000</option>
+                            <option value="$50,000 - $250,000">$50,000 - $250,000</option>
+                            <option value="$250,000 - $500,000">$250,000 - $500,000</option>
+                            <option value="$500,000 - $1,000,000">$500,000 - $1,000,000</option>
+                            <option value="$1,000,000 - $3,000,000">$1,000,000 - $3,000,000</option>
+                            <option value="$3,000,000+">$3,000,000+</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Campaign Duration</label>
+                        <select id="campaignDuration">
+                            <option value="">Select duration</option>
+                            <option value="1-3 months">1-3 months</option>
+                            <option value="3-6 months">3-6 months</option>
+                            <option value="6-12 months">6-12 months</option>
+                            <option value="1-2 years">1-2 years</option>
+                            <option value="2-5 years (Long-term)">2-5 years (Long-term)</option>
+                            <option value="Ongoing">Ongoing</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="section-divider">Campaign Details</div>
+
+                <div class="form-group">
+                    <label>Campaign Goals</label>
+                    <div class="checkbox-group" id="campaignGoalsGroup">
+                        <label><input type="checkbox" name="campaignGoals" value="Brand Awareness"><span>Brand Awareness</span></label>
+                        <label><input type="checkbox" name="campaignGoals" value="Lead Generation"><span>Lead Generation</span></label>
+                        <label><input type="checkbox" name="campaignGoals" value="Direct Hiring"><span>Direct Hiring</span></label>
+                        <label><input type="checkbox" name="campaignGoals" value="Talent Pipeline"><span>Talent Pipeline</span></label>
+                        <label><input type="checkbox" name="campaignGoals" value="Employer Branding"><span>Employer Branding</span></label>
+                        <label><input type="checkbox" name="campaignGoals" value="Diversity Hiring"><span>Diversity Hiring</span></label>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Target Hire Volume</label>
+                        <select id="hireVolume">
+                            <option value="">Select hire volume</option>
+                            <option value="1-10 hires">1-10 hires</option>
+                            <option value="10-50 hires">10-50 hires</option>
+                            <option value="50-100 hires">50-100 hires</option>
+                            <option value="100-500 hires">100-500 hires</option>
+                            <option value="500+ hires">500+ hires</option>
+                        </select>
+                    </div>
+                    <div></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Target Locations * <span style="font-weight:400;color:var(--text-muted);font-size:10px;letter-spacing:0">(US cities/states or international: London UK, Berlin Germany, Tokyo Japan, etc.)</span></label>
+                    <div class="tags-container" id="locationsContainer">
+                        <input type="text" class="tags-input" id="locationInput" placeholder="Type a location and press Enter (e.g., Portland OR, London UK, Singapore)...">
+                    </div>
+                    <div style="margin-top:6px;font-size:11px;color:var(--text-muted)">Supports 40+ countries worldwide. For international locations, include the country name.</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Work Environment</label>
+                    <div class="checkbox-group" id="workEnvironmentGroup">
+                        <label><input type="checkbox" name="workEnvironment" value="Remote"><span>Remote</span></label>
+                        <label><input type="checkbox" name="workEnvironment" value="Hybrid"><span>Hybrid</span></label>
+                        <label><input type="checkbox" name="workEnvironment" value="On-site"><span>On-site</span></label>
+                    </div>
+                </div>
+
+                <div style="border-top:1px solid var(--border);margin:24px 0;position:relative"><span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--card-solid);padding:0 16px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600">Competitive Intelligence</span></div>
+
+                <div class="form-group">
+                    <label>Client's Key Competitors <span style="font-weight:400;color:var(--text-muted);font-size:10px;letter-spacing:0">(Enter competitor company names to enhance competitive analysis in the media plan)</span></label>
+                    <div class="tags-container" id="competitorsContainer">
+                        <input type="text" class="tags-input" id="competitorInput" placeholder="Type a competitor name and press Enter (e.g., Radancy, Appcast, Recruitics)...">
+                    </div>
+                    <div style="margin-top:6px;font-size:11px;color:var(--text-muted)">Adding competitors helps generate deeper competitive intelligence — we'll research what they're doing and include insights in your media plan.</div>
+                </div>
+            </div>
+            <div class="btn-row">
+                <div></div>
+                <button class="btn btn-primary" onclick="nextStep()">Continue &#8594;</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Industry & Targeting -->
+        <div class="wizard-step" id="step2">
+            <div class="card">
+                <h2>Industry & Targeting</h2>
+                <p class="subtitle">Select the industry and define your target audience</p>
+
+                <div class="form-group">
+                    <label>Industry *</label>
+                    <div class="industry-grid" id="industryGrid">
+                        <div class="industry-card" data-industry="healthcare_medical" onclick="selectIndustry(this)">
+                            <div class="icon">&#9764;</div>
+                            <div class="name">Healthcare & Medical</div>
+                            <div class="desc">Physicians, Nurses, PAs</div>
+                        </div>
+                        <div class="industry-card" data-industry="blue_collar_trades" onclick="selectIndustry(this)">
+                            <div class="icon">&#9881;</div>
+                            <div class="name">Blue Collar / Trades</div>
+                            <div class="desc">Mechanics, Welders, Operators</div>
+                        </div>
+                        <div class="industry-card" data-industry="maritime_marine" onclick="selectIndustry(this)">
+                            <div class="icon">&#9875;</div>
+                            <div class="name">Maritime & Marine</div>
+                            <div class="desc">Marine Engineers, Technicians</div>
+                        </div>
+                        <div class="industry-card" data-industry="military_recruitment" onclick="selectIndustry(this)">
+                            <div class="icon">&#9733;</div>
+                            <div class="name">Military Recruitment</div>
+                            <div class="desc">All MOS categories</div>
+                        </div>
+                        <div class="industry-card" data-industry="tech_engineering" onclick="selectIndustry(this)">
+                            <div class="icon">&#128187;</div>
+                            <div class="name">Tech & Engineering</div>
+                            <div class="desc">Software, Data, DevOps</div>
+                        </div>
+                        <div class="industry-card" data-industry="general_entry_level" onclick="selectIndustry(this)">
+                            <div class="icon">&#128188;</div>
+                            <div class="name">General / Entry-Level</div>
+                            <div class="desc">Retail, Admin, Customer Service</div>
+                        </div>
+                        <div class="industry-card" data-industry="legal_services" onclick="selectIndustry(this)">
+                            <div class="icon">&#9878;</div>
+                            <div class="name">Legal Services</div>
+                            <div class="desc">Attorneys, Paralegals, Compliance</div>
+                        </div>
+                        <div class="industry-card" data-industry="finance_banking" onclick="selectIndustry(this)">
+                            <div class="icon">&#128176;</div>
+                            <div class="name">Finance & Banking</div>
+                            <div class="desc">Analysts, Bankers, Risk Managers</div>
+                        </div>
+                        <div class="industry-card" data-industry="mental_health" onclick="selectIndustry(this)">
+                            <div class="icon">&#129504;</div>
+                            <div class="name">Mental Health</div>
+                            <div class="desc">Psychologists, Therapists, Counselors</div>
+                        </div>
+                        <div class="industry-card" data-industry="retail_consumer" onclick="selectIndustry(this)">
+                            <div class="icon">&#128722;</div>
+                            <div class="name">Retail & Consumer</div>
+                            <div class="desc">Store Managers, Sales, Merchandising</div>
+                        </div>
+                        <div class="industry-card" data-industry="aerospace_defense" onclick="selectIndustry(this)">
+                            <div class="icon">&#128640;</div>
+                            <div class="name">Aerospace & Defense</div>
+                            <div class="desc">Engineers, Program Managers, Avionics</div>
+                        </div>
+                        <div class="industry-card" data-industry="pharma_biotech" onclick="selectIndustry(this)">
+                            <div class="icon">&#128300;</div>
+                            <div class="name">Pharma & Biotech</div>
+                            <div class="desc">Scientists, CRAs, Regulatory Affairs</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider">Job Categories</div>
+
+                <div class="form-group">
+                    <label>Job Categories <span style="font-weight:400;color:var(--text-muted);font-size:10px;letter-spacing:0">(Select one or more -- helps tailor channels, CPA targets, and strategy from Joveo supply + competitor data)</span></label>
+                    <div class="job-category-grid" id="jobCategoryGrid"></div>
+                    <div id="jobCategoryInsight" class="job-category-insight" style="display:none"></div>
+                </div>
+
+                <div class="section-divider">Target Audience</div>
+
+                <div class="form-group">
+                    <label>Target Roles</label>
+                    <div class="tags-container" id="rolesContainer">
+                        <input type="text" class="tags-input" id="roleInput" placeholder="Type a role and press Enter...">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Target Demographic</label>
+                    <input type="text" id="targetDemographic" placeholder="e.g., Gen Z (18-26), Early-career professionals, Medical students/residents">
+                </div>
+
+                <div class="form-group">
+                    <label>Experience Level</label>
+                    <div class="checkbox-group" id="experienceLevelGroup">
+                        <label><input type="checkbox" name="experienceLevel" value="Entry Level (0-2 yrs)"><span>Entry Level (0-2 yrs)</span></label>
+                        <label><input type="checkbox" name="experienceLevel" value="Mid Level (3-5 yrs)"><span>Mid Level (3-5 yrs)</span></label>
+                        <label><input type="checkbox" name="experienceLevel" value="Senior (5-10 yrs)"><span>Senior (5-10 yrs)</span></label>
+                        <label><input type="checkbox" name="experienceLevel" value="Executive (10+ yrs)"><span>Executive (10+ yrs)</span></label>
+                    </div>
+                </div>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-secondary" onclick="prevStep()">&#8592; Back</button>
+                <button class="btn btn-primary" onclick="nextStep()">Continue &#8594;</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Channel Selection -->
+        <div class="wizard-step" id="step3">
+            <div class="card">
+                <h2>Channel Selection</h2>
+                <p class="subtitle">Select the traditional channels to include in the media plan</p>
+
+                <div class="channel-category">Regional / Local Reach</div>
+                <div class="select-controls">
+                    <a onclick="toggleAll('regional', true)">Select All</a>
+                    <a onclick="toggleAll('regional', false)">Select None</a>
+                </div>
+                <div class="channel-grid" id="regionalChannels"></div>
+
+                <div class="channel-category">Industry-Specific / Niche</div>
+                <div class="select-controls">
+                    <a onclick="toggleAll('niche', true)">Select All</a>
+                    <a onclick="toggleAll('niche', false)">Select None</a>
+                </div>
+                <div class="channel-grid" id="nicheChannels"></div>
+
+                <div class="channel-category">Global Reach</div>
+                <div class="select-controls">
+                    <a onclick="toggleAll('global', true)">Select All</a>
+                    <a onclick="toggleAll('global', false)">Select None</a>
+                </div>
+                <div class="channel-grid" id="globalChannels"></div>
+
+                <div id="apacSection" style="display:none">
+                    <div class="channel-category">APAC Regional Boards</div>
+                    <div class="select-controls">
+                        <a onclick="toggleAll('apac', true)">Select All</a>
+                        <a onclick="toggleAll('apac', false)">Select None</a>
+                    </div>
+                    <div class="channel-grid" id="apacChannels"></div>
+                </div>
+
+                <div id="emeaSection" style="display:none">
+                    <div class="channel-category">EMEA / DACH Regional Boards</div>
+                    <div class="select-controls">
+                        <a onclick="toggleAll('emea', true)">Select All</a>
+                        <a onclick="toggleAll('emea', false)">Select None</a>
+                    </div>
+                    <div class="channel-grid" id="emeaChannels"></div>
+                </div>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-secondary" onclick="prevStep()">&#8592; Back</button>
+                <button class="btn btn-primary" onclick="nextStep()">Continue &#8594;</button>
+            </div>
+        </div>
+
+        <!-- Step 4: Optional Sections -->
+        <div class="wizard-step" id="step4">
+            <div class="card">
+                <h2>Additional Sections</h2>
+                <p class="subtitle">Choose which extra sections to include in the media plan</p>
+
+                <div class="toggle-group">
+                    <div><strong>Educational Partners & Training Programs</strong><br><span style="font-weight:400;color:var(--text-muted);font-size:12px">Universities, trade schools, community colleges near target locations</span></div>
+                    <label class="toggle">
+                        <input type="checkbox" id="includeEducational" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-group">
+                    <div><strong>Events & Career Fairs</strong><br><span style="font-weight:400;color:var(--text-muted);font-size:12px">STEM events, career fairs, industry conferences, community engagement</span></div>
+                    <label class="toggle">
+                        <input type="checkbox" id="includeEvents" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-group">
+                    <div><strong>Radio & Podcasts</strong><br><span style="font-weight:400;color:var(--text-muted);font-size:12px">Local radio stations and industry podcasts for awareness</span></div>
+                    <label class="toggle">
+                        <input type="checkbox" id="includeRadioPodcasts" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-group">
+                    <div><strong>Media / Print Platforms</strong><br><span style="font-weight:400;color:var(--text-muted);font-size:12px">Industry journals, digital platforms, hybrid publications</span></div>
+                    <label class="toggle">
+                        <input type="checkbox" id="includeMediaPlatforms">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-group">
+                    <div><strong>DEI & Diversity Channels</strong><br><span style="font-weight:400;color:var(--text-muted);font-size:12px">Diversity-focused job boards, women-specific platforms, inclusive hiring channels</span></div>
+                    <label class="toggle">
+                        <input type="checkbox" id="includeDEI" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-group">
+                    <div><strong>Innovative Channels 2025+</strong><br><span style="font-weight:400;color:var(--text-muted);font-size:12px">CTV, DOOH, retail media, gaming/esports, podcast ads, messaging apps</span></div>
+                    <label class="toggle">
+                        <input type="checkbox" id="includeInnovative" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-group">
+                    <div><strong>Global Supply Strategy</strong><br><span style="font-weight:400;color:var(--text-muted);font-size:12px">Country-specific job boards, billing models, push vs pull strategy (for international campaigns)</span></div>
+                    <label class="toggle">
+                        <input type="checkbox" id="includeGlobalSupply" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-group">
+                    <div><strong>Budget & Pricing Guide</strong><br><span style="font-weight:400;color:var(--text-muted);font-size:12px">CPC/CPA benchmarks, commission tiers, billing model comparison, regional spend recommendations</span></div>
+                    <label class="toggle">
+                        <input type="checkbox" id="includeBudgetGuide" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-secondary" onclick="prevStep()">&#8592; Back</button>
+                <button class="btn btn-primary" onclick="nextStep()">Continue &#8594;</button>
+            </div>
+        </div>
+
+        <!-- Step 5: Review & Export -->
+        <div class="wizard-step" id="step5">
+            <div class="card">
+                <h2>Review & Export</h2>
+                <p class="subtitle">Review your media plan configuration before generating the Excel file</p>
+
+                <div class="review-section">
+                    <div class="review-section-header">
+                        <h3>Client Details</h3>
+                        <a class="review-edit-btn" onclick="goToStep(1)">Edit</a>
+                    </div>
+                    <div class="review-item"><span class="label">Client Name</span><span class="value" id="reviewClient"></span></div>
+                    <div class="review-item"><span class="label">Website</span><span class="value" id="reviewWebsite"></span></div>
+                    <div class="review-item"><span class="label">Use Case</span><span class="value" id="reviewUseCase"></span></div>
+                    <div class="review-item"><span class="label">Budget</span><span class="value" id="reviewBudget"></span></div>
+                    <div class="review-item"><span class="label">Duration</span><span class="value" id="reviewDuration"></span></div>
+                    <div class="review-item"><span class="label">Campaign Goals</span><span class="value" id="reviewGoals"></span></div>
+                    <div class="review-item"><span class="label">Hire Volume</span><span class="value" id="reviewHireVolume"></span></div>
+                    <div class="review-item"><span class="label">Locations</span><span class="value" id="reviewLocations"></span></div>
+                    <div class="review-item"><span class="label">Work Environment</span><span class="value" id="reviewWorkEnv"></span></div>
+                    <div class="review-item"><span class="label">Competitors</span><span class="value" id="reviewCompetitors"></span></div>
+                </div>
+
+                <div class="review-section">
+                    <div class="review-section-header">
+                        <h3>Targeting</h3>
+                        <a class="review-edit-btn" onclick="goToStep(2)">Edit</a>
+                    </div>
+                    <div class="review-item"><span class="label">Industry</span><span class="value" id="reviewIndustry"></span></div>
+                    <div class="review-item"><span class="label">Job Categories</span><span class="value" id="reviewJobCategories"></span></div>
+                    <div class="review-item"><span class="label">Target Roles</span><span class="value" id="reviewRoles"></span></div>
+                    <div class="review-item"><span class="label">Demographic</span><span class="value" id="reviewDemographic"></span></div>
+                    <div class="review-item"><span class="label">Experience Level</span><span class="value" id="reviewExpLevel"></span></div>
+                </div>
+
+                <div class="review-section">
+                    <div class="review-section-header">
+                        <h3>Channels Selected</h3>
+                        <a class="review-edit-btn" onclick="goToStep(3)">Edit</a>
+                    </div>
+                    <div class="review-item"><span class="label">Regional/Local</span><span class="value" id="reviewRegional"></span></div>
+                    <div class="review-item"><span class="label">Niche/Industry</span><span class="value" id="reviewNiche"></span></div>
+                    <div class="review-item"><span class="label">Global</span><span class="value" id="reviewGlobal"></span></div>
+                </div>
+
+                <div class="review-section">
+                    <div class="review-section-header">
+                        <h3>Included Sections</h3>
+                        <a class="review-edit-btn" onclick="goToStep(4)">Edit</a>
+                    </div>
+                    <div class="chip-list" id="reviewSections"></div>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-secondary" onclick="prevStep()">&#8592; Back</button>
+                <button class="btn btn-success" id="generateBtn" onclick="generatePlan()">
+                    &#128196; Generate Media Plan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast notification container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Confetti container -->
+    <div id="confettiContainer" class="confetti-container" style="display:none"></div>
+
+    <!-- Generation progress overlay -->
+    <div id="generationOverlay" class="generation-overlay" style="display:none">
+        <div class="generation-card">
+            <h3>Generating Your Media Plan</h3>
+            <p class="gen-subtitle">Please wait while we build your comprehensive plan...</p>
+            <div class="gen-steps">
+                <div class="gen-step" id="genStep1">
+                    <div class="gen-step-icon"><span class="gen-spinner"></span></div>
+                    <span>Analyzing market data...</span>
+                </div>
+                <div class="gen-step" id="genStep2">
+                    <div class="gen-step-icon"><span class="gen-spinner"></span></div>
+                    <span>Building channel strategy...</span>
+                </div>
+                <div class="gen-step" id="genStep3">
+                    <div class="gen-step-icon"><span class="gen-spinner"></span></div>
+                    <span>Creating Excel worksheets...</span>
+                </div>
+                <div class="gen-step" id="genStep4">
+                    <div class="gen-step-icon"><span class="gen-spinner"></span></div>
+                    <span>Finalizing your media plan...</span>
+                </div>
+            </div>
+            <div class="gen-progress-bar">
+                <div class="gen-progress-fill" id="genProgressFill"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        const totalSteps = 5;
+        let channelsDB = null;
+        let selectedIndustry = null;
+        let selectedJobCategories = [];
+        let locations = [];
+        let roles = [];
+        let competitors = [];
+
+        // ============================================
+        // 22. Toast notification system
+        // ============================================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast-item toast-${type}`;
+
+            const icons = {
+                success: '&#10004;',
+                error: '&#10008;',
+                warning: '&#9888;',
+                info: '&#8505;'
+            };
+
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || icons.info}</span>
+                <span class="toast-message">${message}</span>
+                <span class="toast-close" onclick="this.parentElement.classList.add('toast-exiting'); setTimeout(() => this.parentElement.remove(), 300)">&times;</span>
+            `;
+
+            container.appendChild(toast);
+
+            // Auto-remove after 4 seconds
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.classList.add('toast-exiting');
+                    setTimeout(() => {
+                        if (toast.parentElement) toast.remove();
+                    }, 300);
+                }
+            }, 4000);
+        }
+
+        // ============================================
+        // 25. Confetti celebration function
+        // ============================================
+        function showConfetti() {
+            const container = document.getElementById('confettiContainer');
+            container.style.display = 'block';
+            container.innerHTML = '';
+
+            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#FFD93D', '#6C5CE7', '#A8E6CF', '#FF8B94', '#2E75B6', '#70AD47', '#ED7D31'];
+
+            for (let i = 0; i < 100; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                const left = Math.random() * 100;
+                const delay = Math.random() * 2;
+                const duration = 2 + Math.random() * 2;
+                const size = 6 + Math.random() * 8;
+                const shapes = ['50%', '0%', '2px'];
+                const borderRadius = shapes[Math.floor(Math.random() * shapes.length)];
+
+                piece.style.cssText = `
+                    left: ${left}%;
+                    background: ${color};
+                    width: ${size}px;
+                    height: ${size}px;
+                    border-radius: ${borderRadius};
+                    animation-delay: ${delay}s;
+                    animation-duration: ${duration}s;
+                `;
+                container.appendChild(piece);
+            }
+
+            // Auto-cleanup after 4 seconds
+            setTimeout(() => {
+                container.style.display = 'none';
+                container.innerHTML = '';
+            }, 4000);
+        }
+
+        // ============================================
+        // 26. Generation progress overlay
+        // ============================================
+        let genStepTimers = [];
+
+        function showGenerationOverlay() {
+            const overlay = document.getElementById('generationOverlay');
+            overlay.style.display = 'flex';
+            requestAnimationFrame(() => {
+                overlay.classList.add('visible');
+            });
+
+            // Reset all steps
+            for (let i = 1; i <= 4; i++) {
+                const step = document.getElementById(`genStep${i}`);
+                step.classList.remove('gen-active', 'gen-complete');
+                step.querySelector('.gen-step-icon').innerHTML = '<span class="gen-spinner"></span>';
+            }
+            document.getElementById('genProgressFill').style.width = '0%';
+
+            // Animate through steps
+            const stepDelays = [0, 1200, 2600, 4000];
+            stepDelays.forEach((delay, idx) => {
+                const timer = setTimeout(() => {
+                    // Complete previous step
+                    if (idx > 0) {
+                        const prevStep = document.getElementById(`genStep${idx}`);
+                        prevStep.classList.remove('gen-active');
+                        prevStep.classList.add('gen-complete');
+                        prevStep.querySelector('.gen-step-icon').innerHTML = '&#10003;';
+                    }
+                    // Activate current step
+                    const curStep = document.getElementById(`genStep${idx + 1}`);
+                    curStep.classList.add('gen-active');
+                    // Update progress bar
+                    document.getElementById('genProgressFill').style.width = `${(idx + 1) * 25}%`;
+                }, delay);
+                genStepTimers.push(timer);
+            });
+        }
+
+        function hideGenerationOverlay(success) {
+            // Clear any pending timers
+            genStepTimers.forEach(t => clearTimeout(t));
+            genStepTimers = [];
+
+            if (success) {
+                // Complete all steps visually
+                for (let i = 1; i <= 4; i++) {
+                    const step = document.getElementById(`genStep${i}`);
+                    step.classList.remove('gen-active');
+                    step.classList.add('gen-complete');
+                    step.querySelector('.gen-step-icon').innerHTML = '&#10003;';
+                }
+                document.getElementById('genProgressFill').style.width = '100%';
+            }
+
+            setTimeout(() => {
+                const overlay = document.getElementById('generationOverlay');
+                overlay.classList.remove('visible');
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                }, 300);
+            }, success ? 500 : 0);
+        }
+
+        // ============================================
+        // 27. Inline validation
+        // ============================================
+        function validateField(fieldId) {
+            const field = document.getElementById(fieldId);
+            if (!field) return true;
+            const formGroup = field.closest('.form-group');
+            if (!formGroup) return true;
+
+            const value = field.value.trim();
+            const errorMsg = formGroup.querySelector('.field-error-msg');
+
+            if (!value) {
+                formGroup.classList.add('field-error');
+                formGroup.classList.remove('field-valid');
+                if (errorMsg) errorMsg.style.display = 'block';
+                return false;
+            } else {
+                formGroup.classList.remove('field-error');
+                formGroup.classList.add('field-valid');
+                if (errorMsg) errorMsg.style.display = 'none';
+                return true;
+            }
+        }
+
+        // Wire validation to blur events for required fields
+        document.addEventListener('DOMContentLoaded', function() {
+            const requiredFields = ['clientName'];
+            requiredFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.addEventListener('blur', () => validateField(fieldId));
+                    field.addEventListener('input', () => {
+                        const formGroup = field.closest('.form-group');
+                        if (formGroup && formGroup.classList.contains('field-error')) {
+                            validateField(fieldId);
+                        }
+                    });
+                }
+            });
+
+            // Add ready-pulse to generate button when on step 5
+            const generateBtn = document.getElementById('generateBtn');
+            if (generateBtn) {
+                generateBtn.classList.add('ready-pulse');
+            }
+        });
+
+        // ============================================
+        // Helper: get checkbox group values
+        // ============================================
+        function getCheckboxGroupValues(name) {
+            return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(cb => cb.value);
+        }
+
+        // Load channels database
+        fetch('/api/channels')
+            .then(r => r.json())
+            .then(data => {
+                channelsDB = data;
+                populateChannels();
+            });
+
+        // Tags input for locations
+        document.getElementById('locationInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.trim()) {
+                e.preventDefault();
+                addTag('locationsContainer', 'locationInput', locations, this.value.trim());
+            }
+        });
+
+        // Tags input for roles
+        document.getElementById('roleInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.trim()) {
+                e.preventDefault();
+                addTag('rolesContainer', 'roleInput', roles, this.value.trim());
+            }
+        });
+
+        // Tags input for competitors
+        document.getElementById('competitorInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.trim()) {
+                e.preventDefault();
+                addTag('competitorsContainer', 'competitorInput', competitors, this.value.trim());
+            }
+        });
+
+        function addTag(containerId, inputId, arr, value) {
+            if (arr.includes(value)) return;
+            arr.push(value);
+            renderTags(containerId, inputId, arr);
+            document.getElementById(inputId).value = '';
+            if (containerId === 'locationsContainer') updateRegionalSections();
+        }
+
+        function removeTag(containerId, inputId, arr, index) {
+            arr.splice(index, 1);
+            renderTags(containerId, inputId, arr);
+            if (containerId === 'locationsContainer') updateRegionalSections();
+        }
+
+        function renderTags(containerId, inputId, arr) {
+            const container = document.getElementById(containerId);
+            const input = document.getElementById(inputId);
+            container.innerHTML = '';
+            arr.forEach((val, i) => {
+                const tag = document.createElement('span');
+                tag.className = 'tag';
+                tag.innerHTML = `${val}<span class="remove" onclick="removeTag('${containerId}','${inputId}',${containerId === 'locationsContainer' ? 'locations' : containerId === 'competitorsContainer' ? 'competitors' : 'roles'},${i})">&times;</span>`;
+                container.appendChild(tag);
+            });
+            container.appendChild(input);
+            input.focus();
+        }
+
+        function selectIndustry(el) {
+            document.querySelectorAll('.industry-card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedIndustry = el.dataset.industry;
+
+            // Update roles based on industry
+            if (channelsDB && channelsDB.industries[selectedIndustry]) {
+                const ind = channelsDB.industries[selectedIndustry];
+                roles = [...ind.typical_roles];
+                renderTags('rolesContainer', 'roleInput', roles);
+            }
+
+            // Update niche channels
+            populateNicheChannels();
+        }
+
+        // ============================================
+        // Job Category Selection
+        // ============================================
+        function populateJobCategories() {
+            if (!channelsDB || !channelsDB.job_categories) return;
+            const grid = document.getElementById('jobCategoryGrid');
+            grid.innerHTML = '';
+
+            for (const [key, cat] of Object.entries(channelsDB.job_categories)) {
+                const card = document.createElement('div');
+                card.className = 'job-cat-card';
+                card.dataset.category = key;
+                card.innerHTML = `
+                    <div class="cat-check">&#10003;</div>
+                    <span class="cat-icon">${cat.icon}</span>
+                    <div class="cat-name">${cat.label}</div>
+                `;
+                card.addEventListener('click', () => toggleJobCategory(card, key));
+                grid.appendChild(card);
+            }
+        }
+
+        function toggleJobCategory(card, key) {
+            card.classList.toggle('selected');
+            if (card.classList.contains('selected')) {
+                if (!selectedJobCategories.includes(key)) selectedJobCategories.push(key);
+            } else {
+                selectedJobCategories = selectedJobCategories.filter(c => c !== key);
+            }
+            updateJobCategoryInsight();
+        }
+
+        function updateJobCategoryInsight() {
+            const panel = document.getElementById('jobCategoryInsight');
+            if (selectedJobCategories.length === 0) {
+                panel.style.display = 'none';
+                return;
+            }
+
+            const cats = channelsDB.job_categories;
+            // Aggregate data from all selected categories
+            let allPrimary = [];
+            let allNiche = [];
+            let allJoveo = [];
+            let allCompetitor = [];
+            let strategies = [];
+            let cpaRanges = [];
+            let ttfRanges = [];
+            let bestPractices = [];
+
+            selectedJobCategories.forEach(key => {
+                const cat = cats[key];
+                if (!cat) return;
+                allPrimary.push(...(cat.recommended_channels?.primary || []));
+                allNiche.push(...(cat.recommended_channels?.niche || []));
+                allJoveo.push(...(cat.joveo_supply_fit || []));
+                allCompetitor.push(...(cat.competitor_channels || []));
+                strategies.push(`${cat.label}: ${cat.strategy_emphasis?.awareness}% awareness / ${cat.strategy_emphasis?.hiring}% hiring`);
+                cpaRanges.push(`${cat.label}: ${cat.avg_cpa_range}`);
+                ttfRanges.push(cat.avg_time_to_fill);
+                bestPractices.push(...(cat.best_practices || []).slice(0, 2));
+            });
+
+            // Deduplicate
+            allPrimary = [...new Set(allPrimary)];
+            allNiche = [...new Set(allNiche)];
+            allJoveo = [...new Set(allJoveo)];
+            allCompetitor = [...new Set(allCompetitor)];
+            bestPractices = [...new Set(bestPractices)].slice(0, 4);
+
+            const catLabels = selectedJobCategories.map(k => cats[k]?.label || k).join(', ');
+
+            panel.style.display = 'block';
+            panel.innerHTML = `
+                <div class="insight-header">
+                    <span>&#128161; Smart Insights for ${catLabels}</span>
+                    <span class="insight-badge">Powered by Joveo Data</span>
+                </div>
+                <div class="insight-grid">
+                    <div class="insight-item">
+                        <div class="insight-label">Avg CPA Range</div>
+                        <div class="insight-value">${cpaRanges.join(' | ')}</div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-label">Avg Time to Fill</div>
+                        <div class="insight-value">${[...new Set(ttfRanges)].join(' | ')}</div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-label">Strategy Mix</div>
+                        <div class="insight-value">${strategies.join('<br>')}</div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-label">Top Recommendations</div>
+                        <div class="insight-value">${bestPractices.map(p => '• ' + p).join('<br>')}</div>
+                    </div>
+                </div>
+                <div style="margin-top:10px">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-light);margin-bottom:6px">Recommended Channels (from Joveo Supply + Competitors)</div>
+                    <div class="insight-channels">
+                        ${allJoveo.slice(0, 8).map(ch => `<span class="insight-ch" style="background:#E8F5E9;border-color:rgba(76,175,80,0.2);color:#2E7D32" title="Joveo Supply">&#9679; ${ch}</span>`).join('')}
+                        ${allCompetitor.slice(0, 5).map(ch => `<span class="insight-ch" style="background:#FFF3E0;border-color:rgba(255,152,0,0.2);color:#E65100" title="Competitor Channel">&#9650; ${ch}</span>`).join('')}
+                        ${allNiche.slice(0, 5).map(ch => `<span class="insight-ch" title="Niche Channel">&#9733; ${ch}</span>`).join('')}
+                    </div>
+                    <div style="margin-top:6px;font-size:9px;color:#999">
+                        <span style="color:#2E7D32">&#9679;</span> Joveo Supply &nbsp;
+                        <span style="color:#E65100">&#9650;</span> Competitor &nbsp;
+                        <span style="color:var(--primary)">&#9733;</span> Niche
+                    </div>
+                </div>
+            `;
+        }
+
+        function populateChannels() {
+            if (!channelsDB) return;
+
+            const regional = channelsDB.traditional_channels.regional_local;
+            const global = channelsDB.traditional_channels.global_reach;
+
+            populateChannelGrid('regionalChannels', regional, 'regional');
+            populateChannelGrid('globalChannels', global, 'global');
+
+            // Populate APAC/EMEA if available
+            updateRegionalSections();
+
+            // Populate job categories
+            populateJobCategories();
+        }
+
+        function updateRegionalSections() {
+            if (!channelsDB) return;
+            // Check if locations contain APAC or EMEA countries
+            const apacCountries = ['japan', 'south korea', 'korea', 'indonesia', 'malaysia', 'philippines', 'singapore', 'thailand', 'vietnam', 'taiwan', 'australia', 'india', 'china', 'hong kong', 'new zealand'];
+            const emeaCountries = ['united kingdom', 'uk', 'germany', 'france', 'spain', 'portugal', 'poland', 'hungary', 'netherlands', 'belgium', 'austria', 'switzerland', 'ireland', 'italy', 'sweden', 'denmark', 'norway', 'finland', 'czech', 'uae', 'dubai', 'south africa', 'kenya', 'israel'];
+            const locsLower = locations.map(l => l.toLowerCase());
+
+            const hasApac = locsLower.some(l => apacCountries.some(c => l.includes(c)));
+            const hasEmea = locsLower.some(l => emeaCountries.some(c => l.includes(c)));
+
+            // Show APAC section
+            const apacSection = document.getElementById('apacSection');
+            if (hasApac && channelsDB.traditional_channels.apac_regional) {
+                apacSection.style.display = 'block';
+                let apacBoards = [];
+                const apacData = channelsDB.traditional_channels.apac_regional;
+                for (const [country, boards] of Object.entries(apacData)) {
+                    if (locsLower.some(l => l.includes(country.replace('_', ' ')))) {
+                        apacBoards = apacBoards.concat(boards);
+                    }
+                }
+                if (apacBoards.length === 0) {
+                    for (const boards of Object.values(apacData)) apacBoards = apacBoards.concat(boards);
+                }
+                populateChannelGrid('apacChannels', [...new Set(apacBoards)], 'apac');
+            } else {
+                apacSection.style.display = 'none';
+            }
+
+            // Show EMEA section
+            const emeaSection = document.getElementById('emeaSection');
+            if (hasEmea) {
+                emeaSection.style.display = 'block';
+                let emeaBoards = channelsDB.traditional_channels.dach_regional || [];
+                const emeaData = channelsDB.traditional_channels.emea_regional || {};
+                for (const [country, boards] of Object.entries(emeaData)) {
+                    if (locsLower.some(l => l.includes(country.replace('_', ' ')))) {
+                        emeaBoards = emeaBoards.concat(boards);
+                    }
+                }
+                if (emeaBoards.length <= (channelsDB.traditional_channels.dach_regional || []).length) {
+                    for (const boards of Object.values(emeaData)) emeaBoards = emeaBoards.concat(boards);
+                }
+                populateChannelGrid('emeaChannels', [...new Set(emeaBoards)], 'emea');
+            } else {
+                emeaSection.style.display = 'none';
+            }
+        }
+
+        function populateNicheChannels() {
+            if (!channelsDB || !selectedIndustry) return;
+            const nicheKey = channelsDB.industries[selectedIndustry]?.niche_channel_key;
+            const niche = channelsDB.traditional_channels.niche_by_industry[nicheKey] || [];
+            populateChannelGrid('nicheChannels', niche, 'niche');
+        }
+
+        // 30. Stagger animations for channel loading
+        function populateChannelGrid(containerId, channels, group) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            channels.forEach((ch, i) => {
+                const item = document.createElement('label');
+                item.className = 'channel-item';
+                item.innerHTML = `<input type="checkbox" checked data-group="${group}" value="${ch}"> ${ch}`;
+                // Add staggered animation delay
+                const delay = Math.min(i * 0.03, 0.5);
+                item.style.animationDelay = `${delay}s`;
+                container.appendChild(item);
+            });
+        }
+
+        function toggleAll(group, checked) {
+            document.querySelectorAll(`input[data-group="${group}"]`).forEach(cb => {
+                cb.checked = checked;
+            });
+        }
+
+        function getSelectedChannels(group) {
+            return Array.from(document.querySelectorAll(`input[data-group="${group}"]:checked`)).map(cb => cb.value);
+        }
+
+        // 23. Step transition animations - enhanced nextStep
+        function nextStep() {
+            if (currentStep === 1) {
+                if (!document.getElementById('clientName').value.trim()) {
+                    showToast('Please enter a client name', 'error');
+                    validateField('clientName');
+                    return;
+                }
+                if (!document.getElementById('useCase').value.trim()) {
+                    showToast('Please describe the client\'s use case', 'error');
+                    document.getElementById('useCase').focus();
+                    return;
+                }
+                if (locations.length === 0) {
+                    showToast('Please add at least one target location', 'error');
+                    return;
+                }
+            }
+            if (currentStep === 2 && !selectedIndustry) {
+                showToast('Please select an industry', 'error');
+                return;
+            }
+
+            if (currentStep === 4) {
+                populateReview();
+            }
+
+            if (currentStep < totalSteps) {
+                const currentEl = document.getElementById(`step${currentStep}`);
+                // Add exiting animation
+                currentEl.style.animation = 'fadeOutDown 0.3s ease-in forwards';
+
+                setTimeout(() => {
+                    currentEl.classList.remove('active');
+                    currentEl.style.animation = '';
+                    currentStep++;
+                    const nextEl = document.getElementById(`step${currentStep}`);
+                    nextEl.classList.add('active');
+                    nextEl.classList.add('step-animating');
+                    setTimeout(() => nextEl.classList.remove('step-animating'), 400);
+                    updateProgress();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }, 280);
+            }
+        }
+
+        // 23. Step transition animations - enhanced prevStep
+        function prevStep() {
+            if (currentStep > 1) {
+                const currentEl = document.getElementById(`step${currentStep}`);
+                currentEl.style.animation = 'fadeOutDown 0.3s ease-in forwards';
+
+                setTimeout(() => {
+                    currentEl.classList.remove('active');
+                    currentEl.style.animation = '';
+                    currentStep--;
+                    const prevEl = document.getElementById(`step${currentStep}`);
+                    prevEl.classList.add('active');
+                    prevEl.classList.add('step-animating');
+                    setTimeout(() => prevEl.classList.remove('step-animating'), 400);
+                    updateProgress();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }, 280);
+            }
+        }
+
+        // goToStep function for review edit buttons
+        function goToStep(step) {
+            if (step >= 1 && step <= totalSteps && step !== currentStep) {
+                const currentEl = document.getElementById(`step${currentStep}`);
+                currentEl.classList.remove('active');
+                currentEl.style.animation = '';
+                currentStep = step;
+                const targetEl = document.getElementById(`step${currentStep}`);
+                targetEl.classList.add('active');
+                targetEl.classList.add('step-animating');
+                setTimeout(() => targetEl.classList.remove('step-animating'), 400);
+                updateProgress();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        // 24. Update page progress bar in updateProgress
+        function updateProgress() {
+            document.querySelectorAll('.step-indicator').forEach(el => {
+                const step = parseInt(el.dataset.step);
+                el.classList.remove('active', 'completed');
+                if (step === currentStep) el.classList.add('active');
+                else if (step < currentStep) el.classList.add('completed');
+            });
+
+            // Update page-level progress bar
+            const progressFill = document.querySelector('.page-progress-fill');
+            if (progressFill) {
+                progressFill.style.width = (currentStep * 20) + '%';
+            }
+        }
+
+        // 29. Updated populateReview with new fields
+        function populateReview() {
+            document.getElementById('reviewClient').textContent = document.getElementById('clientName').value;
+            document.getElementById('reviewUseCase').textContent = document.getElementById('useCase').value || 'Not specified';
+            document.getElementById('reviewBudget').textContent = document.getElementById('budgetRange').value || 'Not specified';
+            document.getElementById('reviewDuration').textContent = document.getElementById('campaignDuration').value || 'Not specified';
+            document.getElementById('reviewLocations').innerHTML = locations.map(l => `<span class="chip">${l}</span>`).join(' ');
+
+            // New fields
+            const campaignGoals = getCheckboxGroupValues('campaignGoals');
+            document.getElementById('reviewGoals').innerHTML = campaignGoals.length > 0
+                ? campaignGoals.map(g => `<span class="chip">${g}</span>`).join(' ')
+                : 'Not specified';
+
+            document.getElementById('reviewHireVolume').textContent = document.getElementById('hireVolume').value || 'Not specified';
+
+            const workEnv = getCheckboxGroupValues('workEnvironment');
+            document.getElementById('reviewWorkEnv').innerHTML = workEnv.length > 0
+                ? workEnv.map(w => `<span class="chip">${w}</span>`).join(' ')
+                : 'Not specified';
+
+            document.getElementById('reviewWebsite').textContent = document.getElementById('clientWebsite').value || 'Not specified';
+
+            document.getElementById('reviewCompetitors').innerHTML = competitors.length > 0
+                ? competitors.map(c => `<span class="chip">${c}</span>`).join(' ')
+                : 'Not specified';
+
+            const expLevel = getCheckboxGroupValues('experienceLevel');
+            document.getElementById('reviewExpLevel').innerHTML = expLevel.length > 0
+                ? expLevel.map(e => `<span class="chip">${e}</span>`).join(' ')
+                : 'Not specified';
+
+            const industryLabel = channelsDB?.industries[selectedIndustry]?.label || selectedIndustry;
+            document.getElementById('reviewIndustry').textContent = industryLabel;
+
+            // Job Categories
+            const jobCatLabels = selectedJobCategories.map(k => channelsDB?.job_categories?.[k]?.label || k);
+            document.getElementById('reviewJobCategories').innerHTML = jobCatLabels.length > 0
+                ? jobCatLabels.map(c => `<span class="chip">${c}</span>`).join(' ')
+                : 'Not specified';
+            document.getElementById('reviewRoles').innerHTML = roles.map(r => `<span class="chip">${r}</span>`).join(' ');
+            document.getElementById('reviewDemographic').textContent = document.getElementById('targetDemographic').value || 'Not specified';
+
+            const regionalCount = getSelectedChannels('regional').length;
+            const nicheCount = getSelectedChannels('niche').length;
+            const globalCount = getSelectedChannels('global').length;
+            const apacCount = getSelectedChannels('apac').length;
+            const emeaCount = getSelectedChannels('emea').length;
+            let channelSummary = `${regionalCount} regional, ${nicheCount} niche, ${globalCount} global`;
+            if (apacCount > 0) channelSummary += `, ${apacCount} APAC`;
+            if (emeaCount > 0) channelSummary += `, ${emeaCount} EMEA`;
+            document.getElementById('reviewRegional').textContent = `${regionalCount} channels selected`;
+            document.getElementById('reviewNiche').textContent = `${nicheCount} channels selected`;
+            document.getElementById('reviewGlobal').textContent = `${globalCount} channels${apacCount > 0 ? ` + ${apacCount} APAC` : ''}${emeaCount > 0 ? ` + ${emeaCount} EMEA` : ''} selected`;
+
+            const sections = [];
+            sections.push('Overview', 'Market Trends', 'Competitor Analysis', 'Channel Strategy', 'Traditional Channels', 'Non-Traditional Channels');
+            if (document.getElementById('includeEducational').checked) sections.push('Educational Partners');
+            if (document.getElementById('includeEvents').checked) sections.push('Events & Career Fairs');
+            if (document.getElementById('includeRadioPodcasts').checked) sections.push('Radio & Podcasts');
+            if (document.getElementById('includeMediaPlatforms').checked) sections.push('Media/Print Platforms');
+            if (document.getElementById('includeDEI').checked) sections.push('DEI & Diversity Channels');
+            if (document.getElementById('includeInnovative').checked) sections.push('Innovative Channels 2025+');
+            if (document.getElementById('includeGlobalSupply').checked) sections.push('Global Supply Strategy');
+            if (document.getElementById('includeBudgetGuide').checked) sections.push('Budget & Pricing Guide');
+
+            document.getElementById('reviewSections').innerHTML = sections.map(s => `<span class="chip">${s}</span>`).join(' ');
+        }
+
+        // 26 & 28. Enhanced generatePlan with overlay, new fields, confetti, and toasts
+        async function generatePlan() {
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            btn.classList.remove('ready-pulse');
+            btn.innerHTML = '<span class="spinner"></span> Generating...';
+
+            // Show generation overlay
+            showGenerationOverlay();
+
+            // 28. Updated payload with new fields
+            const payload = {
+                client_name: document.getElementById('clientName').value,
+                client_website: document.getElementById('clientWebsite').value,
+                use_case: document.getElementById('useCase').value,
+                industry: selectedIndustry,
+                industry_label: channelsDB?.industries[selectedIndustry]?.label || selectedIndustry,
+                job_categories: selectedJobCategories,
+                job_category_labels: selectedJobCategories.map(k => channelsDB?.job_categories?.[k]?.label || k),
+                locations: locations,
+                target_roles: roles,
+                target_demographic: document.getElementById('targetDemographic').value,
+                budget_range: document.getElementById('budgetRange').value,
+                campaign_duration: document.getElementById('campaignDuration').value,
+                campaign_goals: getCheckboxGroupValues('campaignGoals'),
+                hire_volume: document.getElementById('hireVolume').value,
+                work_environment: getCheckboxGroupValues('workEnvironment'),
+                competitors: competitors,
+                experience_level: getCheckboxGroupValues('experienceLevel'),
+                selected_regional: getSelectedChannels('regional'),
+                selected_niche: getSelectedChannels('niche'),
+                selected_global: getSelectedChannels('global'),
+                selected_apac: getSelectedChannels('apac'),
+                selected_emea: getSelectedChannels('emea'),
+                include_educational: document.getElementById('includeEducational').checked,
+                include_events: document.getElementById('includeEvents').checked,
+                include_radio_podcasts: document.getElementById('includeRadioPodcasts').checked,
+                include_media_platforms: document.getElementById('includeMediaPlatforms').checked,
+                include_dei: document.getElementById('includeDEI').checked,
+                include_innovative: document.getElementById('includeInnovative').checked,
+                include_global_supply: document.getElementById('includeGlobalSupply').checked,
+                include_budget_guide: document.getElementById('includeBudgetGuide').checked,
+            };
+
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${payload.client_name.replace(/\s+/g, '_')}_Media_Plan.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+
+                    // Hide overlay with success
+                    hideGenerationOverlay(true);
+
+                    // Show confetti and success toast
+                    setTimeout(() => {
+                        showConfetti();
+                        showToast('Media plan generated and downloaded successfully!', 'success');
+                    }, 600);
+
+                    btn.innerHTML = '&#10003; Downloaded!';
+                    btn.style.background = '#70AD47';
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.classList.add('ready-pulse');
+                        btn.innerHTML = '&#128196; Generate Media Plan';
+                        btn.style.background = '';
+                    }, 3000);
+                } else {
+                    throw new Error('Generation failed');
+                }
+            } catch (err) {
+                hideGenerationOverlay(false);
+                showToast('Failed to generate media plan. Please try again.', 'error');
+                btn.disabled = false;
+                btn.classList.add('ready-pulse');
+                btn.innerHTML = '&#128196; Generate Media Plan';
+            }
+        }
+    </script>
+</body>
+</html>
