@@ -27,7 +27,12 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 # Import research module for real data
 sys.path.insert(0, BASE_DIR)
 import research
-from ppt_generator import generate_pptx
+try:
+    from ppt_generator import generate_pptx
+    print("ppt_generator loaded successfully", file=sys.stderr)
+except ImportError as e:
+    print(f"WARNING: ppt_generator import failed: {e}", file=sys.stderr)
+    generate_pptx = None
 
 # Load global supply data
 GLOBAL_SUPPLY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "global_supply.json")
@@ -2793,11 +2798,18 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             client_name = data.get("client_name", "Client").replace(" ", "_")
 
             # Generate McKinsey PPT
-            try:
-                pptx_bytes = generate_pptx(data)
-            except Exception as e:
-                print(f"PPT generation warning: {e}", file=sys.stderr)
-                pptx_bytes = None
+            pptx_bytes = None
+            if generate_pptx is not None:
+                try:
+                    pptx_bytes = generate_pptx(data)
+                    print(f"PPT generated: {len(pptx_bytes)} bytes", file=sys.stderr)
+                except Exception as e:
+                    import traceback
+                    print(f"PPT generation error: {e}", file=sys.stderr)
+                    traceback.print_exc(file=sys.stderr)
+                    pptx_bytes = None
+            else:
+                print("PPT generation skipped: ppt_generator not available", file=sys.stderr)
 
             if pptx_bytes:
                 # Bundle both files in a ZIP
