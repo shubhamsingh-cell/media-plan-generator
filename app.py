@@ -157,6 +157,48 @@ def fetch_client_logo(client_name, client_website=""):
     return None, None
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# INDUSTRY-SPECIFIC NICHE CHANNELS MAPPING
+# ═══════════════════════════════════════════════════════════════════════════════
+INDUSTRY_NICHE_CHANNELS = {
+    "technology": ["Stack Overflow Jobs", "GitHub Jobs", "HackerNews (Who's Hiring)", "AngelList/Wellfound", "Dice", "Built In", "Triplebyte"],
+    "tech_engineering": ["Stack Overflow Jobs", "GitHub Jobs", "HackerNews (Who's Hiring)", "AngelList/Wellfound", "Dice", "Built In", "Triplebyte"],
+    "healthcare": ["NurseFly", "Vivian Health", "Health eCareers", "Doximity", "PracticeLink", "Medscape Career Center", "AllNurses"],
+    "healthcare_medical": ["NurseFly", "Vivian Health", "Health eCareers", "Doximity", "PracticeLink", "Medscape Career Center", "AllNurses"],
+    "finance": ["eFinancialCareers", "Wall Street Oasis", "Selby Jennings", "The Muse (Finance)", "Vault.com"],
+    "finance_banking": ["eFinancialCareers", "Wall Street Oasis", "Selby Jennings", "The Muse (Finance)", "Vault.com"],
+    "hospitality": ["Hcareers", "Poached", "Culinary Agents", "Harri", "OysterLink"],
+    "hospitality_travel": ["Hcareers", "Poached", "Culinary Agents", "Harri", "OysterLink"],
+    "education": ["SchoolSpring", "K12JobSpot", "HigherEdJobs", "Chronicle Vitae", "TeachAway", "Teach.org"],
+    "manufacturing": ["ManufacturingJobs.com", "iHireManufacturing", "JobsInManufacturing", "IndustryWeek Careers"],
+    "transportation": ["CDLJobs.com", "TruckingJobs.com", "FleetOwner Careers", "Transport Topics Jobs", "DriveForMe"],
+    "energy": ["Rigzone", "EnergyJobline", "Solar Energy Jobs", "NABCEP Job Board", "Oil and Gas Job Search"],
+    "energy_utilities": ["Rigzone", "EnergyJobline", "Solar Energy Jobs", "NABCEP Job Board", "Oil and Gas Job Search"],
+    "retail": ["RetailCareersNow", "AllRetailJobs", "iHireRetail", "NRF Job Board"],
+    "retail_consumer": ["RetailCareersNow", "AllRetailJobs", "iHireRetail", "NRF Job Board"],
+    "professional_services": ["Vault.com", "Management Consulted", "Fishbowl", "WetFeet", "Idealist (for nonprofits)"],
+    "construction": ["ConstructionJobs.com", "iHireConstruction", "AGC Career Center", "BuildingTeams"],
+    "construction_real_estate": ["ConstructionJobs.com", "iHireConstruction", "AGC Career Center", "BuildingTeams"],
+    "rideshare": ["Ridester", "The Rideshare Guy", "Gridwise community", "Driver forums", "Facebook gig groups"],
+    "government": ["USAJobs", "GovernmentJobs.com", "ClearanceJobs", "Intelligence Careers"],
+    "nonprofit": ["Idealist", "Work for Good", "DevEx", "NGOJobBoard", "Foundation List"],
+    "blue_collar_trades": ["TradesmenInternational", "CraftHire", "PeopleReady", "iHireConstruction", "CDLJobs.com"],
+    "maritime_marine": ["RigZone", "SeaCareer", "MarineLink Jobs", "AllMarinerJobs", "gCaptain Jobs"],
+    "military_recruitment": ["RecruitMilitary", "Military.com", "ClearanceJobs", "Hire Heroes USA", "USAJobs.gov"],
+    "legal_services": ["LawJobs.com", "Robert Half Legal", "Above the Law", "NALP Job Board", "Lawcrossing.com"],
+    "mental_health": ["Psychology Today Jobs", "NASW Career Center", "APA PsycCareers", "SocialWorkJobBank", "iHireTherapy"],
+    "aerospace_defense": ["ClearanceJobs", "ClearedJobs.Net", "Aviation Job Search", "SpaceCareers.uk", "Airswift"],
+    "pharma_biotech": ["PharmiWeb.com", "BioSpace", "MedReps", "Science Careers (AAAS)", "Nature Careers"],
+    "insurance": ["InsuranceJobs.com", "GreatInsuranceJobs.com", "Actuarial Careers Inc", "SOA Career Center"],
+    "telecommunications": ["WirelessEstimator Jobs", "FierceTelecom Careers", "Light Reading Jobs", "IEEE Job Site"],
+    "automotive": ["AutomotiveJobFinder", "iHireEngineering", "SAE International Jobs", "AutoCareers"],
+    "food_beverage": ["FoodIndustryJobs.com", "iHireHospitality", "FoodProcessing.com Careers", "IFT Career Center"],
+    "logistics_supply_chain": ["SupplyChainRecruit.com", "LogisticsJobShop.com", "3PL Jobs", "WarehouseJobs.com"],
+    "media_entertainment": ["ProductionHub", "Mandy.com", "EntertainmentCareers.net", "MediaBistro"],
+    "general_entry_level": ["Snagajob", "Wonolo", "Instawork", "Jobcase", "College Recruiter"],
+}
+
+
 def generate_excel(data):
     # Normalize budget: frontend sends "budget_range" but code reads "budget"
     if data.get("budget_range") and not data.get("budget"):
@@ -364,7 +406,8 @@ def generate_excel(data):
         ("Target Roles", ", ".join(roles)),
         ("Target Demographic", data.get("target_demographic", "")),
         ("Budget Range", data.get("budget_range", "") or data.get("budget", "Not specified")),
-        ("Campaign Duration", data.get("campaign_duration", "")),
+        ("Campaign Duration", data.get("campaign_duration", "") or "Not specified"),
+        ("Hire Volume", data.get("hire_volume", "") or "Not specified"),
         ("Key Competitors", ", ".join(client_competitors) if client_competitors else "Not specified"),
     ]
 
@@ -490,10 +533,10 @@ def generate_excel(data):
 
     # Hero stat - total budget or channel count as large number
     budget_range_val = data.get("budget_range", "") or data.get("budget", "Not specified")
-    campaign_duration_val = data.get("campaign_duration", "Not specified")
+    campaign_duration_val = data.get("campaign_duration", "") or "Not specified"
     loc_count = len(locations)
     role_count = len(roles)
-    hire_volume_val = data.get("hire_volume", "Not specified")
+    hire_volume_val = data.get("hire_volume", "") or "Not specified"
 
     # Large hero stat row
     ws_exec.merge_cells(f"B{exec_row}:C{exec_row}")
@@ -1229,6 +1272,39 @@ def generate_excel(data):
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     ws_exec.cell(row=exec_row, column=2, value=f"Conversion rates based on {_bench_year_label} industry benchmarks (Appcast, Recruitics). CPQA stage is where Joveo's ML optimization delivers highest impact.").font = Font(name="Calibri", italic=True, size=8, color="999999")
 
+    # ── Budget Sufficiency Warning ──
+    budget_warning = ""
+    hire_volume_raw = data.get("hire_volume", "")
+    if hire_volume_raw and budget_midpoint:
+        try:
+            # Parse target hires from hire_volume string (e.g. "50", "50 hires", "100+")
+            _hv_nums = re.findall(r'\d+', str(hire_volume_raw))
+            target_hires = int(_hv_nums[0]) if _hv_nums else 0
+            if target_hires > 0 and budget_midpoint > 0:
+                # Use industry-average CPH to estimate achievable hires
+                estimated_hires_possible = budget_midpoint / max(avg_cph, 1)
+                if estimated_hires_possible < target_hires * 0.3:
+                    budget_warning = f"\u26a0\ufe0f BUDGET ALERT: At industry-average cost-per-hire (${avg_cph:,.0f}), the ${budget_midpoint:,.0f} budget may only yield ~{int(estimated_hires_possible)} of your {target_hires} target hires ({int(estimated_hires_possible/target_hires*100)}% of goal). Consider increasing budget or phasing the campaign."
+        except (ValueError, TypeError, IndexError):
+            pass
+
+    if budget_warning:
+        exec_row += 2
+        ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+        warn_cell = ws_exec.cell(row=exec_row, column=2, value=budget_warning)
+        warn_cell.font = Font(name="Calibri", bold=True, size=11, color="FFFFFF")
+        warn_cell.fill = PatternFill(start_color="C00000", end_color="C00000", fill_type="solid")
+        warn_cell.alignment = Alignment(wrap_text=True, vertical="center")
+        warn_cell.border = Border(
+            left=Side(style="thick", color="C00000"),
+            right=Side(style="thick", color="C00000"),
+            top=Side(style="thick", color="C00000"),
+            bottom=Side(style="thick", color="C00000"),
+        )
+        for _wc in range(3, 8):
+            ws_exec.cell(row=exec_row, column=_wc).fill = PatternFill(start_color="C00000", end_color="C00000", fill_type="solid")
+        ws_exec.row_dimensions[exec_row].height = 50
+
     # ── Funnel Visualization Chart (horizontal bar chart) ──
     exec_row += 2
     funnel_chart = BarChart()
@@ -1854,7 +1930,8 @@ def generate_excel(data):
     ws_trends.column_dimensions[get_column_letter(4)].width = 70
 
     # USE RESEARCH MODULE for real competitor data
-    competitors = research.get_competitors(industry, locations)
+    company_name = data.get("company_name", "") or data.get("client_name", "")
+    competitors = research.get_competitors(industry, locations, company_name=company_name)
 
     for comp in competitors:
         row += 1
@@ -2134,14 +2211,15 @@ def generate_excel(data):
     ws_strategy.column_dimensions["C"].width = 50
     ws_strategy.column_dimensions["D"].width = 50
     ws_strategy.column_dimensions["E"].width = 20
+    ws_strategy.column_dimensions["F"].width = 45
 
-    ws_strategy.merge_cells("B2:E2")
+    ws_strategy.merge_cells("B2:F2")
     ws_strategy["B2"].value = "Channel Strategy"
     ws_strategy["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
     ws_strategy["B2"].border = gold_bottom_border
 
     row = 4
-    strat_headers = ["Channel", "Reasoning", "How to Use", "KPIs / Metrics"]
+    strat_headers = ["Channel", "Reasoning", "How to Use", "KPIs / Metrics", "Niche / Non-Traditional Channels"]
     for i, h in enumerate(strat_headers):
         cell = ws_strategy.cell(row=row, column=2 + i, value=h)
         cell.font = header_font
@@ -2149,11 +2227,15 @@ def generate_excel(data):
         cell.alignment = center_alignment
         cell.border = thin_border
 
+    # Look up industry-specific niche channels for this plan
+    _niche_channels_for_industry = INDUSTRY_NICHE_CHANNELS.get(industry, INDUSTRY_NICHE_CHANNELS.get("general_entry_level", []))
+
     selected_strategies = data.get("channel_strategies", [])
     if not selected_strategies:
         all_strats = db.get("channel_strategies", {})
         selected_strategies = all_strats.get("awareness", []) + all_strats.get("hiring", [])
 
+    _niche_idx = 0
     for strat in selected_strategies:
         row += 1
         style_body_cell(ws_strategy, row, 2, strat.get("channel", ""))
@@ -2161,6 +2243,37 @@ def generate_excel(data):
         style_body_cell(ws_strategy, row, 3, strat.get("reasoning", ""))
         style_body_cell(ws_strategy, row, 4, strat.get("usage", ""))
         style_body_cell(ws_strategy, row, 5, strat.get("kpis", "Reach, Engagement, CTR, Conversions"))
+        # Populate Niche / Non-Traditional Channels column with 2-3 industry-specific niche channels per row
+        if _niche_channels_for_industry and _niche_idx < len(_niche_channels_for_industry):
+            _end_idx = min(_niche_idx + 3, len(_niche_channels_for_industry))
+            _niche_slice = _niche_channels_for_industry[_niche_idx:_end_idx]
+            style_body_cell(ws_strategy, row, 6, ", ".join(_niche_slice))
+            ws_strategy.cell(row=row, column=6).font = Font(name="Calibri", size=10, color="7030A0")
+            _niche_idx = _end_idx
+
+    # ── Industry-Specific Niche Channel Recommendations ──
+    row += 3
+    style_section_header(ws_strategy, row, 2, 6, "Industry-Specific Niche Channel Recommendations")
+    row += 1
+    ws_strategy.merge_cells(f"B{row}:F{row}")
+    ws_strategy.cell(row=row, column=2, value=f"Recommended niche and non-traditional channels for the {data.get('industry_label', industry.replace('_', ' ').title())} industry. These specialized platforms offer higher-quality candidates for targeted roles.").font = Font(name="Calibri", italic=True, size=10, color="596780")
+    row += 1
+
+    _niche_rec_headers = ["Channel", "Type", "Best For"]
+    for i, h in enumerate(_niche_rec_headers):
+        cell = ws_strategy.cell(row=row, column=2 + i, value=h)
+        cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+        cell.fill = PatternFill(start_color="7030A0", end_color="7030A0", fill_type="solid")
+        cell.alignment = center_alignment
+        cell.border = thin_border
+    row += 1
+
+    for _nch in _niche_channels_for_industry:
+        style_body_cell(ws_strategy, row, 2, _nch)
+        ws_strategy.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10, color="7030A0")
+        style_body_cell(ws_strategy, row, 3, "Niche / Specialized Board")
+        style_body_cell(ws_strategy, row, 4, f"Specialized {data.get('industry_label', industry.replace('_', ' ').title())} talent")
+        row += 1
 
     # ── Bar Chart: Channel Effectiveness Score ──
     row += 3
@@ -2252,7 +2365,11 @@ def generate_excel(data):
     niche_key = db.get("industries", {}).get(industry, {}).get("niche_channel_key", "")
 
     regional = data.get("selected_regional", db["traditional_channels"]["regional_local"][:25]) if include_regional else []
-    niche_channels = data.get("selected_niche", db["traditional_channels"]["niche_by_industry"].get(niche_key, [])[:25]) if include_niche else []
+    _db_niche = db["traditional_channels"]["niche_by_industry"].get(niche_key, [])[:25]
+    # Fallback to INDUSTRY_NICHE_CHANNELS if DB niche list is empty
+    if not _db_niche:
+        _db_niche = INDUSTRY_NICHE_CHANNELS.get(industry, INDUSTRY_NICHE_CHANNELS.get("general_entry_level", []))
+    niche_channels = data.get("selected_niche", _db_niche) if include_niche else []
     global_channels = data.get("selected_global", db["traditional_channels"]["global_reach"][:25]) if include_global else []
 
     # USE RESEARCH MODULE for real location-specific boards
@@ -3101,7 +3218,13 @@ def generate_excel(data):
     ws_timeline["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
     ws_timeline["B2"].border = gold_bottom_border
 
-    ws_timeline["B3"].value = f"Client: {data.get('client_name', '')}  |  Duration: {data.get('campaign_duration', 'Standard 12 Weeks')}"
+    # Use actual campaign duration instead of hardcoded "Standard 12 Weeks"
+    actual_duration = data.get("campaign_duration", "Not specified")
+    if actual_duration and actual_duration != "Not specified":
+        duration_display = actual_duration
+    else:
+        duration_display = "Standard 12 Weeks"
+    ws_timeline["B3"].value = f"Client: {data.get('client_name', '')}  |  Duration: {duration_display}"
     ws_timeline["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
 
     tl_row = 5
@@ -3124,12 +3247,30 @@ def generate_excel(data):
         "Phase 4": PatternFill(start_color="E4D1F0", end_color="E4D1F0", fill_type="solid"),  # purple
     }
 
-    phases = [
-        ("Phase 1", "Research & Setup", "Weeks 1-2", "Market analysis, account setup, creative development", "N/A", "Setup completion", "5%"),
-        ("Phase 2", "Launch & Optimize", "Weeks 3-6", "Initial campaign launch, A/B testing, bid optimization", "All programmatic", "CPC, CPA, Apply rate", "30%"),
-        ("Phase 3", "Scale & Expand", "Weeks 7-12", "Increase spend on top performers, add new channels", "Top 5 channels", "Cost per hire, Quality of hire", "40%"),
-        ("Phase 4", "Sustain & Refine", "Ongoing", "Maintain performance, quarterly reviews, seasonal adjustments", "Proven channels", "ROI, Time to fill", "25%"),
-    ]
+    # Build timeline phases based on actual campaign_weeks
+    cw = data.get("campaign_weeks", 12)
+    if cw <= 12:
+        phases = [
+            ("Phase 1", "Research & Setup", "Weeks 1-2", "Market analysis, account setup, creative development", "N/A", "Setup completion", "5%"),
+            ("Phase 2", "Launch & Optimize", f"Weeks 3-{min(6, cw)}", "Initial campaign launch, A/B testing, bid optimization", "All programmatic", "CPC, CPA, Apply rate", "30%"),
+            ("Phase 3", "Scale & Expand", f"Weeks {min(7, cw)}-{cw}", "Increase spend on top performers, add new channels", "Top 5 channels", "Cost per hire, Quality of hire", "40%"),
+            ("Phase 4", "Sustain & Refine", "Ongoing", "Maintain performance, quarterly reviews, seasonal adjustments", "Proven channels", "ROI, Time to fill", "25%"),
+        ]
+    elif cw <= 26:
+        phases = [
+            ("Phase 1", "Research & Setup", "Weeks 1-3", "Market analysis, account setup, creative development, employer brand audit", "N/A", "Setup completion", "5%"),
+            ("Phase 2", "Launch & Optimize", f"Weeks 4-{cw // 3}", "Initial campaign launch, A/B testing, bid optimization", "All programmatic", "CPC, CPA, Apply rate", "25%"),
+            ("Phase 3", "Scale & Expand", f"Weeks {cw // 3 + 1}-{2 * cw // 3}", "Increase spend on top performers, add new channels, expand geo-targeting", "Top 5 channels", "Cost per hire, Quality of hire", "40%"),
+            ("Phase 4", "Sustain & Refine", f"Weeks {2 * cw // 3 + 1}-{cw}", "Maintain performance, quarterly reviews, seasonal adjustments, ROI reporting", "Proven channels", "ROI, Time to fill", "30%"),
+        ]
+    else:
+        # Long campaigns (6+ months)
+        phases = [
+            ("Phase 1", "Research & Setup", "Weeks 1-4", "Market analysis, account setup, creative development, employer brand audit", "N/A", "Setup completion", "5%"),
+            ("Phase 2", "Launch & Optimize", f"Weeks 5-{cw // 4}", "Initial campaign launch, A/B testing, bid optimization, talent pipeline building", "All programmatic", "CPC, CPA, Apply rate", "20%"),
+            ("Phase 3", "Scale & Expand", f"Weeks {cw // 4 + 1}-{cw // 2}", "Increase spend on top performers, add new channels, expand geo-targeting", "Top 5 channels", "Cost per hire, Quality of hire", "40%"),
+            ("Phase 4", "Sustain & Refine", f"Weeks {cw // 2 + 1}-{cw}", "Maintain performance, quarterly reviews, seasonal adjustments, advanced ROI reporting", "Proven channels", "ROI, Time to fill, Retention", "35%"),
+        ]
 
     for phase_key, phase_name, timeline, activities, channels, kpis, budget_pct in phases:
         phase_fill = phase_colors.get(phase_key, accent_fill)
@@ -3158,13 +3299,34 @@ def generate_excel(data):
         cell.border = thin_border
     tl_row += 1
 
-    milestones = [
-        ("Week 1", "Kick-off meeting & channel setup"),
-        ("Week 2", "Creative assets approved, campaigns live"),
-        ("Week 4", "First performance review"),
-        ("Week 8", "Mid-campaign optimization review"),
-        ("Week 12", "Full performance report & recommendations"),
-    ]
+    # Build milestones based on actual campaign_weeks
+    if cw <= 12:
+        milestones = [
+            ("Week 1", "Kick-off meeting & channel setup"),
+            ("Week 2", "Creative assets approved, campaigns live"),
+            ("Week 4", "First performance review"),
+            (f"Week {max(6, cw // 2)}", "Mid-campaign optimization review"),
+            (f"Week {cw}", "Full performance report & recommendations"),
+        ]
+    elif cw <= 26:
+        milestones = [
+            ("Week 1", "Kick-off meeting & channel setup"),
+            ("Week 3", "Creative assets approved, campaigns live"),
+            ("Week 6", "First performance review"),
+            (f"Week {cw // 2}", "Mid-campaign optimization review"),
+            (f"Week {3 * cw // 4}", "Quarterly performance report"),
+            (f"Week {cw}", "Full performance report & recommendations"),
+        ]
+    else:
+        milestones = [
+            ("Week 1", "Kick-off meeting & channel setup"),
+            ("Week 4", "Creative assets approved, campaigns live"),
+            ("Week 8", "First performance review"),
+            (f"Week {cw // 4}", "Q1 performance report"),
+            (f"Week {cw // 2}", "Mid-campaign optimization review"),
+            (f"Week {3 * cw // 4}", "Q3 performance report"),
+            (f"Week {cw}", "Full performance report & recommendations"),
+        ]
     for ms_label, ms_desc in milestones:
         cell_l = ws_timeline.cell(row=tl_row, column=2, value=ms_label)
         cell_l.font = Font(name="Calibri", bold=True, size=10)
@@ -4120,6 +4282,73 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Client name is required."}).encode())
                 return
             data["client_name"] = client_name_input
+
+            # ── P0 Fix: Capture timeline, hire_volume, and notes from input ──
+            # campaign_duration: normalize from frontend dropdown or API input
+            raw_duration = (data.get("campaign_duration") or data.get("timeline") or "").strip()
+            if raw_duration:
+                data["campaign_duration"] = raw_duration
+            else:
+                data["campaign_duration"] = "Not specified"
+
+            # hire_volume: capture from form field or parse from notes
+            raw_hire_vol = (data.get("hire_volume") or "").strip()
+            raw_notes = (data.get("notes") or "").strip()
+
+            if raw_hire_vol:
+                data["hire_volume"] = raw_hire_vol
+            elif raw_notes:
+                # Parse hire volume from notes (e.g. "5000+", "10,000+", "500+ teachers")
+                hv_match = re.search(r'(\d[\d,]*)\+?\s*(?:hires?|positions?|roles?|openings?|teachers?|nurses?|drivers?|employees?|workers?|associates?|people|staff|headcount)?', raw_notes, re.IGNORECASE)
+                if hv_match:
+                    hv_num = hv_match.group(1).replace(",", "")
+                    try:
+                        hv_int = int(hv_num)
+                        if hv_int >= 5:  # Only treat as hire volume if >= 5
+                            # Preserve the original text snippet for context
+                            hv_text = hv_match.group(0).strip()
+                            if "+" in raw_notes[hv_match.start():hv_match.end() + 2]:
+                                hv_text = f"{hv_int:,}+"
+                            else:
+                                hv_text = f"{hv_int:,}"
+                            data["hire_volume"] = f"{hv_text} hires"
+                    except ValueError:
+                        pass
+            if not data.get("hire_volume"):
+                data["hire_volume"] = "Not specified"
+
+            # Store notes for downstream use
+            if raw_notes:
+                data["notes"] = raw_notes
+
+            # Compute campaign_weeks from campaign_duration for timeline phasing
+            duration_str = data.get("campaign_duration", "")
+            campaign_weeks = 12  # default
+            dur_lower = duration_str.lower()
+            # Order matters: check more specific/longer ranges before shorter ones
+            if "2-5 year" in dur_lower or "long-term" in dur_lower or "long term" in dur_lower:
+                campaign_weeks = 156
+            elif "1-2 year" in dur_lower or "2 year" in dur_lower:
+                campaign_weeks = 80
+            elif "6-12 month" in dur_lower or "9 month" in dur_lower or "12 month" in dur_lower or "1 year" in dur_lower:
+                campaign_weeks = 48
+            elif "3-6 month" in dur_lower or "4 month" in dur_lower or "5 month" in dur_lower or "6 month" in dur_lower:
+                campaign_weeks = 24
+            elif "1-3 month" in dur_lower or "1 month" in dur_lower or "2 month" in dur_lower or "3 month" in dur_lower:
+                campaign_weeks = 12
+            elif "ongoing" in dur_lower:
+                campaign_weeks = 52  # annual cycle
+            else:
+                # Try to parse weeks directly (e.g. "26 weeks", "16 weeks")
+                wk_match = re.search(r'(\d+)\s*week', dur_lower)
+                if wk_match:
+                    campaign_weeks = int(wk_match.group(1))
+                else:
+                    # Try months (e.g. "6 months")
+                    mo_match = re.search(r'(\d+)\s*month', dur_lower)
+                    if mo_match:
+                        campaign_weeks = int(mo_match.group(1)) * 4
+            data["campaign_weeks"] = campaign_weeks
 
             # Enrich data with live API data
             enriched = {}

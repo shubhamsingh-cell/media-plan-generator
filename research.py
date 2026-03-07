@@ -87,13 +87,41 @@ def _detect_country(location_str):
     parts = [p.strip() for p in loc_lower.split(",")]
     if len(parts) >= 2 and parts[-1] in _US_STATE_ABBREVS:
         return None  # This is a US location
-    # Direct country name match (exact or substring)
+    # Also check "City STATE" format (space-separated, no comma) — e.g. "Indianapolis IN"
+    space_parts = loc_lower.split()
+    if len(space_parts) >= 2 and space_parts[-1] in _US_STATE_ABBREVS:
+        return None  # This is a US location like "Indianapolis IN"
+    # Check if location matches a known US metro area — prevents "Indianapolis" matching "India"
+    # Extract the city part (before comma or state abbreviation) for matching
+    _city_part = loc_lower.split(",")[0].strip()
+    # If location ends with a state abbreviation, strip it for city matching
+    _city_words = _city_part.split()
+    if len(_city_words) >= 2 and _city_words[-1] in _US_STATE_ABBREVS:
+        _city_part = " ".join(_city_words[:-1])
+    _city_norm = re.sub(r'[^a-z0-9]', '', _city_part)
+    for _metro_key in METRO_DATA:
+        _metro_norm = re.sub(r'[^a-z0-9]', '', _metro_key.lower())
+        # Require exact normalized match (not substring) to avoid "india" matching "indianapolis"
+        if _metro_norm == _city_norm:
+            return None  # Known US city, not an international location
+    # Direct country name match — require word-boundary match, not mere substring
+    # This prevents "Indianapolis" from matching "India"
     for country in COUNTRY_DATA:
-        if country.lower() == loc_lower or country.lower() in loc_lower:
+        country_lower = country.lower()
+        if country_lower == loc_lower:
             return country
-    # Alias match
+        # Use word boundary regex to prevent partial city name matches
+        if re.search(r'\b' + re.escape(country_lower) + r'\b', loc_lower):
+            return country
+    # Alias match — also require word boundary or exact positional match
     for alias, country in COUNTRY_ALIASES.items():
         if alias == loc_lower or f", {alias}" in loc_lower or f"({alias})" in loc_lower:
+            # Extra guard: if alias is a US state abbreviation, skip it
+            if alias in _US_STATE_ABBREVS:
+                continue
+            return country
+        # Check for alias as a trailing word (e.g. "SomeCity IN" should not match India via "in" alias)
+        if loc_lower.endswith(f" {alias}") and alias not in _US_STATE_ABBREVS:
             return country
     # Check if location contains a known country city
     city_to_country = {
@@ -845,13 +873,33 @@ INDUSTRY_COMPETITORS = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 ROLE_SALARY_RANGES = {
+    # ── Healthcare & Medical ──
     "Physicians": "$220,000 - $400,000+",
     "Nurses (RN)": "$65,000 - $95,000",
+    "Registered Nurse": "$65,000 - $95,000",
     "Nurse Practitioners": "$95,000 - $140,000",
     "Physician Assistants": "$90,000 - $130,000",
     "Behavioral Health Specialists": "$55,000 - $85,000",
     "Medical Students": "Stipend-based ($35,000 - $65,000 during residency)",
     "Residents": "$58,000 - $78,000",
+    "Medical Assistant": "$32,000 - $42,000",
+    "Travel Nurse": "$90,000 - $180,000",
+    "CNA": "$28,000 - $38,000",
+    "Certified Nursing Assistant": "$28,000 - $38,000",
+    "Licensed Practical Nurse": "$42,000 - $58,000",
+    "LPN": "$42,000 - $58,000",
+    "Phlebotomist": "$30,000 - $40,000",
+    "Pharmacy Technician": "$32,000 - $42,000",
+    "Dental Hygienist": "$65,000 - $85,000",
+    "Physical Therapist": "$75,000 - $100,000",
+    "Occupational Therapist": "$72,000 - $95,000",
+    "Radiologic Technologist": "$55,000 - $78,000",
+    "Respiratory Therapist": "$55,000 - $75,000",
+    "EMT": "$30,000 - $42,000",
+    "Paramedic": "$38,000 - $58,000",
+    "Home Health Aide": "$25,000 - $33,000",
+
+    # ── Blue Collar / Skilled Trades ──
     "Diesel Mechanics": "$48,000 - $78,000",
     "Welders": "$40,000 - $72,000",
     "Electricians": "$52,000 - $85,000",
@@ -859,21 +907,101 @@ ROLE_SALARY_RANGES = {
     "Heavy Equipment Operators": "$45,000 - $72,000",
     "Construction Workers": "$35,000 - $65,000",
     "Manufacturing Technicians": "$38,000 - $62,000",
+    "Plumber": "$48,000 - $80,000",
+    "Carpenter": "$40,000 - $68,000",
+    "Solar Panel Installer": "$40,000 - $60,000",
+    "Aircraft Mechanic": "$50,000 - $90,000",
+    "Production Associate": "$35,000 - $52,000",
+    "Quality Inspector": "$42,000 - $62,000",
+    "CNC Machinist": "$40,000 - $65,000",
+    "Maintenance Technician": "$42,000 - $65,000",
+    "Forklift Operator": "$32,000 - $44,000",
+
+    # ── Maritime & Marine ──
     "Marine Diesel Mechanics": "$52,000 - $85,000",
     "Ship Repair Technicians": "$48,000 - $78,000",
     "Marine Engineers": "$75,000 - $120,000",
     "Marine Electricians": "$55,000 - $88,000",
     "Field Service Engineers": "$65,000 - $105,000",
-    "Software Engineers": "$95,000 - $180,000",
-    "Data Scientists": "$100,000 - $170,000",
+
+    # ── Technology & Engineering ──
+    "Software Engineers": "$120,000 - $200,000",
+    "Software Engineer": "$120,000 - $200,000",
+    "SDE": "$120,000 - $200,000",
+    "Software Development Engineer": "$120,000 - $200,000",
+    "Data Scientists": "$130,000 - $220,000",
+    "Data Scientist": "$130,000 - $220,000",
+    "ML Engineer": "$130,000 - $220,000",
+    "Machine Learning Engineer": "$130,000 - $220,000",
     "DevOps Engineers": "$100,000 - $165,000",
-    "Product Managers": "$110,000 - $180,000",
+    "Product Managers": "$120,000 - $180,000",
+    "Product Manager": "$120,000 - $180,000",
     "UX Designers": "$80,000 - $140,000",
+    "IT Support Technician": "$42,000 - $65,000",
+    "Help Desk Technician": "$38,000 - $55,000",
+    "Systems Administrator": "$60,000 - $95,000",
+    "Network Engineer": "$70,000 - $115,000",
+    "Cloud Engineer": "$110,000 - $170,000",
+    "Frontend Developer": "$90,000 - $160,000",
+    "Backend Developer": "$100,000 - $175,000",
+    "Full Stack Developer": "$95,000 - $170,000",
+    "QA Engineer": "$70,000 - $110,000",
+    "Security Engineer": "$110,000 - $175,000",
+    "Data Engineer": "$110,000 - $180,000",
+    "Technical Program Manager": "$120,000 - $190,000",
+    "Scrum Master": "$85,000 - $130,000",
+    "Business Analyst": "$65,000 - $100,000",
+
+    # ── General / Entry-Level / Service ──
     "Customer Service": "$30,000 - $45,000",
+    "Customer Service Rep": "$30,000 - $45,000",
+    "Customer Service Representative": "$30,000 - $45,000",
     "Retail": "$28,000 - $42,000",
     "Administrative": "$35,000 - $55,000",
+    "Administrative Assistant": "$35,000 - $55,000",
+    "Office Assistant": "$30,000 - $42,000",
+    "Receptionist": "$28,000 - $38,000",
     "Sales": "$40,000 - $75,000 + commission",
-    "Warehouse": "$32,000 - $50,000",
+    "Barista": "$28,000 - $38,000",
+    "Cashier": "$28,000 - $38,000",
+    "Housekeeper": "$28,000 - $37,000",
+    "Housekeeping": "$28,000 - $37,000",
+    "Room Attendant": "$28,000 - $37,000",
+    "Front Desk Agent": "$30,000 - $42,000",
+    "Front Desk Clerk": "$30,000 - $42,000",
+    "Hotel Front Desk": "$30,000 - $42,000",
+    "Line Cook": "$32,000 - $46,000",
+    "Prep Cook": "$28,000 - $38,000",
+    "Dishwasher": "$25,000 - $33,000",
+    "Server": "$22,000 - $35,000 + tips",
+    "Bartender": "$25,000 - $40,000 + tips",
+    "Host/Hostess": "$24,000 - $32,000",
+    "Food Runner": "$24,000 - $32,000",
+    "Janitor": "$28,000 - $38,000",
+    "Custodian": "$28,000 - $38,000",
+    "Security Guard": "$30,000 - $42,000",
+    "Landscaper": "$28,000 - $40,000",
+
+    # ── Logistics, Warehouse & Delivery ──
+    "Warehouse": "$33,000 - $44,000",
+    "Warehouse Associate": "$33,000 - $44,000",
+    "Warehouse Worker": "$33,000 - $44,000",
+    "Package Handler": "$31,000 - $42,000",
+    "Delivery Driver": "$37,000 - $52,000",
+    "CDL Driver": "$48,000 - $72,000",
+    "Truck Driver": "$45,000 - $68,000",
+    "Courier": "$32,000 - $45,000",
+    "Supply Chain Manager": "$80,000 - $120,000",
+    "Supply Chain Analyst": "$65,000 - $95,000",
+    "Logistics Coordinator": "$38,000 - $55,000",
+    "Inventory Specialist": "$32,000 - $45,000",
+    "Operations Manager": "$70,000 - $110,000",
+    "Dispatch Coordinator": "$35,000 - $48,000",
+    "Picker/Packer": "$30,000 - $40,000",
+    "Shipping and Receiving Clerk": "$32,000 - $42,000",
+    "Dock Worker": "$33,000 - $45,000",
+
+    # ── Military ──
     "Infantry": "$24,000 - $42,000 + housing/benefits",
     "Artillery": "$24,000 - $42,000 + housing/benefits",
     "Combat Engineers": "$24,000 - $45,000 + housing/benefits",
@@ -881,48 +1009,367 @@ ROLE_SALARY_RANGES = {
     "Medical Corps": "$45,000 - $120,000 + housing/benefits",
     "Military Police": "$24,000 - $42,000 + housing/benefits",
     "Aviation": "$35,000 - $65,000 + housing/benefits (enlisted) / $55K-$120K (officers)",
-    # Legal Services
+
+    # ── Legal Services ──
     "Attorneys": "$90,000 - $215,000+",
     "Paralegals": "$45,000 - $75,000",
     "Legal Assistants": "$35,000 - $55,000",
-    "Compliance Officers": "$70,000 - $130,000",
+    "Compliance Officers": "$80,000 - $150,000",
+    "Compliance Officer": "$80,000 - $150,000",
     "Corporate Counsel": "$150,000 - $300,000",
     "Litigation Support": "$50,000 - $85,000",
-    # Finance & Banking
+
+    # ── Finance & Banking ──
     "Financial Analysts": "$65,000 - $120,000",
     "Investment Bankers": "$110,000 - $250,000+ (base + bonus)",
     "Risk Managers": "$85,000 - $160,000",
     "Portfolio Managers": "$100,000 - $250,000+",
     "Actuaries": "$75,000 - $150,000",
-    # Mental Health
+    "Bank Teller": "$32,000 - $45,000",
+    "Teller": "$32,000 - $45,000",
+    "Branch Banker": "$45,000 - $70,000",
+    "Personal Banker": "$45,000 - $70,000",
+    "Quantitative Analyst": "$150,000 - $300,000",
+    "Management Consultant": "$90,000 - $180,000",
+    "Senior Auditor": "$70,000 - $120,000",
+    "Tax Associate": "$55,000 - $80,000",
+    "Accountant": "$50,000 - $80,000",
+    "Bookkeeper": "$38,000 - $55,000",
+    "Revenue Manager": "$70,000 - $110,000",
+    "Credit Analyst": "$55,000 - $85,000",
+    "Loan Officer": "$45,000 - $80,000",
+    "Financial Advisor": "$60,000 - $120,000 + commission",
+    "Underwriter": "$55,000 - $90,000",
+
+    # ── Mental Health ──
     "Psychologists": "$80,000 - $130,000",
     "Licensed Therapists (LCSW)": "$55,000 - $90,000",
     "Psychiatric Nurses": "$75,000 - $110,000",
     "Counselors": "$45,000 - $70,000",
     "Social Workers": "$45,000 - $72,000",
     "Behavioral Analysts": "$55,000 - $85,000",
-    # Retail & Consumer
-    "Store Managers": "$50,000 - $85,000",
+
+    # ── Retail & Consumer ──
+    "Store Managers": "$50,000 - $80,000",
+    "Store Manager": "$50,000 - $80,000",
     "Sales Associates": "$28,000 - $42,000 + commission",
     "Merchandisers": "$35,000 - $55,000",
     "Inventory Managers": "$45,000 - $70,000",
     "District Managers": "$75,000 - $120,000",
     "Buyers": "$50,000 - $90,000",
-    # Aerospace & Defense
+    "Shift Supervisor": "$32,000 - $45,000",
+    "Shift Lead": "$32,000 - $45,000",
+    "Assistant Manager": "$38,000 - $55,000",
+    "Loss Prevention": "$32,000 - $50,000",
+    "Visual Merchandiser": "$32,000 - $48,000",
+
+    # ── Aerospace & Defense ──
     "Aerospace Engineers": "$85,000 - $150,000",
     "Systems Engineers": "$90,000 - $160,000",
     "Program Managers": "$100,000 - $180,000",
     "Test Engineers": "$75,000 - $120,000",
     "Quality Engineers": "$70,000 - $110,000",
     "Avionics Technicians": "$55,000 - $90,000",
-    # Pharma & Biotech
+
+    # ── Pharma & Biotech ──
     "Clinical Research Associates": "$65,000 - $100,000",
     "Biostatisticians": "$90,000 - $150,000",
     "Medical Science Liaisons": "$120,000 - $200,000",
     "Regulatory Affairs": "$80,000 - $140,000",
     "Lab Technicians": "$40,000 - $65,000",
     "Drug Safety Officers": "$75,000 - $120,000",
+
+    # ── Education ──
+    "High School Teacher": "$50,000 - $75,000",
+    "Teacher": "$48,000 - $72,000",
+    "Elementary Teacher": "$45,000 - $68,000",
+    "School Principal": "$85,000 - $130,000",
+    "Assistant Principal": "$70,000 - $100,000",
+    "Substitute Teacher": "$80 - $150/day (daily rate)",
+    "Special Education Aide": "$28,000 - $38,000",
+    "Special Education Teacher": "$48,000 - $75,000",
+    "Paraprofessional": "$25,000 - $35,000",
+    "School Counselor": "$50,000 - $75,000",
+    "Professor": "$70,000 - $140,000",
+    "Tutor": "$28,000 - $45,000",
+    "Instructional Designer": "$60,000 - $90,000",
+
+    # ── Marketing & Creative ──
+    "Marketing Manager": "$75,000 - $140,000",
+    "Marketing Coordinator": "$42,000 - $60,000",
+    "Content Writer": "$45,000 - $72,000",
+    "Graphic Designer": "$45,000 - $75,000",
+    "Social Media Manager": "$48,000 - $78,000",
+    "SEO Specialist": "$50,000 - $80,000",
+    "Copywriter": "$45,000 - $72,000",
+    "Brand Manager": "$70,000 - $120,000",
+    "Public Relations Specialist": "$48,000 - $78,000",
+    "Event Coordinator": "$38,000 - $58,000",
+
+    # ── Human Resources ──
+    "HR Manager": "$70,000 - $110,000",
+    "HR Generalist": "$50,000 - $75,000",
+    "Recruiter": "$50,000 - $80,000",
+    "Talent Acquisition Specialist": "$55,000 - $90,000",
+    "HR Coordinator": "$38,000 - $55,000",
+    "Compensation Analyst": "$60,000 - $90,000",
+    "Training Specialist": "$48,000 - $72,000",
+
+    # ── Gig / App-based ──
+    "Uber Driver": "$37,000 - $52,000",
+    "Rideshare Driver": "$37,000 - $52,000",
+    "DoorDash Driver": "$37,000 - $52,000",
+    "Instacart Shopper": "$28,000 - $42,000",
+    "Amazon Flex Driver": "$37,000 - $52,000",
+
+    # ── Energy & Utilities ──
+    "Wind Turbine Technician": "$48,000 - $72,000",
+    "Power Plant Operator": "$60,000 - $90,000",
+    "Utility Lineworker": "$55,000 - $85,000",
+    "Environmental Technician": "$38,000 - $58,000",
+    "Petroleum Engineer": "$90,000 - $170,000",
+
+    # ── Construction & Real Estate ──
+    "Project Manager": "$75,000 - $130,000",
+    "Construction Manager": "$80,000 - $130,000",
+    "Estimator": "$55,000 - $85,000",
+    "Real Estate Agent": "$40,000 - $90,000 + commission",
+    "Property Manager": "$45,000 - $72,000",
+    "Superintendent": "$70,000 - $110,000",
+    "Site Supervisor": "$55,000 - $80,000",
 }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FUZZY ROLE MATCHING - Maps common role title variations to canonical entries
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Normalized keyword patterns mapped to canonical role names in ROLE_SALARY_RANGES.
+# Each tuple: (list_of_keywords_all_must_match, canonical_role_name)
+# Keywords are checked against the normalized (lowercase, stripped) role title.
+_ROLE_FUZZY_PATTERNS = [
+    # Technology & Engineering
+    (["software", "engineer"], "Software Engineer"),
+    (["software", "develop"], "Software Engineer"),
+    (["sde"], "SDE"),
+    (["full", "stack"], "Full Stack Developer"),
+    (["frontend", "dev"], "Frontend Developer"),
+    (["front", "end", "dev"], "Frontend Developer"),
+    (["backend", "dev"], "Backend Developer"),
+    (["back", "end", "dev"], "Backend Developer"),
+    (["data", "scientist"], "Data Scientist"),
+    (["machine", "learning"], "ML Engineer"),
+    (["ml", "engineer"], "ML Engineer"),
+    (["ai", "engineer"], "ML Engineer"),
+    (["devops"], "DevOps Engineers"),
+    (["site", "reliability"], "DevOps Engineers"),
+    (["sre"], "DevOps Engineers"),
+    (["product", "manager"], "Product Manager"),
+    (["ux", "design"], "UX Designers"),
+    (["ui", "design"], "UX Designers"),
+    (["it", "support"], "IT Support Technician"),
+    (["help", "desk"], "Help Desk Technician"),
+    (["sys", "admin"], "Systems Administrator"),
+    (["system", "admin"], "Systems Administrator"),
+    (["cloud", "engineer"], "Cloud Engineer"),
+    (["qa", "engineer"], "QA Engineer"),
+    (["quality", "assurance", "engineer"], "QA Engineer"),
+    (["security", "engineer"], "Security Engineer"),
+    (["cybersecurity"], "Security Engineer"),
+    (["data", "engineer"], "Data Engineer"),
+    (["network", "engineer"], "Network Engineer"),
+    (["business", "analyst"], "Business Analyst"),
+    (["scrum", "master"], "Scrum Master"),
+    (["technical", "program"], "Technical Program Manager"),
+
+    # Delivery / Driving / Gig
+    (["delivery", "driver"], "Delivery Driver"),
+    (["uber", "driver"], "Delivery Driver"),
+    (["ubereats"], "Delivery Driver"),
+    (["doordash"], "Delivery Driver"),
+    (["instacart"], "Instacart Shopper"),
+    (["rideshare"], "Delivery Driver"),
+    (["courier"], "Courier"),
+    (["cdl", "driver"], "CDL Driver"),
+    (["truck", "driver"], "Truck Driver"),
+    (["driver", "partner"], "Delivery Driver"),
+    (["delivery", "partner"], "Delivery Driver"),
+    (["last", "mile"], "Delivery Driver"),
+
+    # Warehouse & Logistics
+    (["warehouse", "associate"], "Warehouse Associate"),
+    (["warehouse", "worker"], "Warehouse Associate"),
+    (["warehouse", "team"], "Warehouse Associate"),
+    (["fulfillment", "associate"], "Warehouse Associate"),
+    (["fulfillment", "center"], "Warehouse Associate"),
+    (["package", "handler"], "Package Handler"),
+    (["sortation"], "Package Handler"),
+    (["picker", "packer"], "Picker/Packer"),
+    (["pick", "pack"], "Picker/Packer"),
+    (["dock", "worker"], "Dock Worker"),
+    (["forklift"], "Forklift Operator"),
+    (["supply", "chain", "manager"], "Supply Chain Manager"),
+    (["supply", "chain", "analyst"], "Supply Chain Analyst"),
+    (["logistics", "coordinator"], "Logistics Coordinator"),
+    (["operations", "manager"], "Operations Manager"),
+    (["dispatch"], "Dispatch Coordinator"),
+    (["shipping", "receiving"], "Shipping and Receiving Clerk"),
+
+    # Healthcare
+    (["registered", "nurse"], "Registered Nurse"),
+    (["travel", "nurse"], "Travel Nurse"),
+    (["travel", "rn"], "Travel Nurse"),
+    (["medical", "assistant"], "Medical Assistant"),
+    (["cna"], "CNA"),
+    (["certified", "nursing", "assistant"], "CNA"),
+    (["nurse", "practitioner"], "Nurse Practitioners"),
+    (["physician", "assistant"], "Physician Assistants"),
+    (["lpn"], "LPN"),
+    (["licensed", "practical"], "LPN"),
+    (["phlebotom"], "Phlebotomist"),
+    (["pharmacy", "tech"], "Pharmacy Technician"),
+    (["dental", "hygien"], "Dental Hygienist"),
+    (["physical", "therap"], "Physical Therapist"),
+    (["occupational", "therap"], "Occupational Therapist"),
+    (["respiratory", "therap"], "Respiratory Therapist"),
+    (["emt"], "EMT"),
+    (["paramedic"], "Paramedic"),
+    (["home", "health"], "Home Health Aide"),
+    (["radiolog"], "Radiologic Technologist"),
+
+    # Hospitality / Food Service
+    (["barista"], "Barista"),
+    (["cashier"], "Cashier"),
+    (["housekeeper"], "Housekeeper"),
+    (["housekeeping"], "Housekeeper"),
+    (["room", "attendant"], "Room Attendant"),
+    (["front", "desk"], "Front Desk Agent"),
+    (["line", "cook"], "Line Cook"),
+    (["prep", "cook"], "Prep Cook"),
+    (["dishwasher"], "Dishwasher"),
+    (["server"], "Server"),
+    (["waiter"], "Server"),
+    (["waitress"], "Server"),
+    (["bartender"], "Bartender"),
+    (["host"], "Host/Hostess"),
+    (["hostess"], "Host/Hostess"),
+    (["food", "runner"], "Food Runner"),
+
+    # Education
+    (["high", "school", "teacher"], "High School Teacher"),
+    (["school", "principal"], "School Principal"),
+    (["assistant", "principal"], "Assistant Principal"),
+    (["substitute", "teacher"], "Substitute Teacher"),
+    (["special", "education", "aide"], "Special Education Aide"),
+    (["special", "ed", "aide"], "Special Education Aide"),
+    (["special", "education", "teacher"], "Special Education Teacher"),
+    (["paraprofessional"], "Paraprofessional"),
+    (["school", "counselor"], "School Counselor"),
+    (["instructional", "design"], "Instructional Designer"),
+    (["professor"], "Professor"),
+    (["teacher"], "Teacher"),
+
+    # Finance & Banking
+    (["bank", "teller"], "Bank Teller"),
+    (["teller"], "Teller"),
+    (["branch", "banker"], "Branch Banker"),
+    (["personal", "banker"], "Personal Banker"),
+    (["quantitative", "analyst"], "Quantitative Analyst"),
+    (["quant", "analyst"], "Quantitative Analyst"),
+    (["management", "consultant"], "Management Consultant"),
+    (["senior", "auditor"], "Senior Auditor"),
+    (["tax", "associate"], "Tax Associate"),
+    (["revenue", "manager"], "Revenue Manager"),
+    (["accountant"], "Accountant"),
+    (["bookkeeper"], "Bookkeeper"),
+    (["credit", "analyst"], "Credit Analyst"),
+    (["loan", "officer"], "Loan Officer"),
+    (["financial", "advisor"], "Financial Advisor"),
+    (["underwriter"], "Underwriter"),
+    (["compliance", "officer"], "Compliance Officer"),
+
+    # Retail
+    (["store", "manager"], "Store Manager"),
+    (["shift", "supervisor"], "Shift Supervisor"),
+    (["shift", "lead"], "Shift Lead"),
+    (["assistant", "manager"], "Assistant Manager"),
+    (["loss", "prevention"], "Loss Prevention"),
+    (["visual", "merchandis"], "Visual Merchandiser"),
+
+    # General / Admin
+    (["admin", "assistant"], "Administrative Assistant"),
+    (["office", "assistant"], "Office Assistant"),
+    (["receptionist"], "Receptionist"),
+    (["customer", "service"], "Customer Service Rep"),
+    (["call", "center"], "Customer Service Rep"),
+    (["security", "guard"], "Security Guard"),
+    (["janitor"], "Janitor"),
+    (["custodian"], "Custodian"),
+    (["landscap"], "Landscaper"),
+
+    # Trades
+    (["solar", "panel", "install"], "Solar Panel Installer"),
+    (["solar", "install"], "Solar Panel Installer"),
+    (["aircraft", "mechanic"], "Aircraft Mechanic"),
+    (["production", "associate"], "Production Associate"),
+    (["production", "worker"], "Production Associate"),
+    (["quality", "inspector"], "Quality Inspector"),
+    (["cnc", "machinist"], "CNC Machinist"),
+    (["maintenance", "tech"], "Maintenance Technician"),
+    (["electrician"], "Electricians"),
+    (["plumb"], "Plumber"),
+    (["carpenter"], "Carpenter"),
+    (["welder"], "Welders"),
+    (["hvac"], "HVAC Technicians"),
+
+    # Marketing
+    (["marketing", "manager"], "Marketing Manager"),
+    (["marketing", "coordinator"], "Marketing Coordinator"),
+    (["content", "writer"], "Content Writer"),
+    (["graphic", "design"], "Graphic Designer"),
+    (["social", "media", "manager"], "Social Media Manager"),
+    (["seo"], "SEO Specialist"),
+    (["copywriter"], "Copywriter"),
+    (["brand", "manager"], "Brand Manager"),
+    (["public", "relations"], "Public Relations Specialist"),
+    (["event", "coordinator"], "Event Coordinator"),
+
+    # HR
+    (["hr", "manager"], "HR Manager"),
+    (["hr", "generalist"], "HR Generalist"),
+    (["recruiter"], "Recruiter"),
+    (["talent", "acquisition"], "Talent Acquisition Specialist"),
+    (["hr", "coordinator"], "HR Coordinator"),
+    (["training", "specialist"], "Training Specialist"),
+
+    # Energy
+    (["wind", "turbine"], "Wind Turbine Technician"),
+    (["power", "plant"], "Power Plant Operator"),
+    (["lineworker"], "Utility Lineworker"),
+    (["petroleum", "engineer"], "Petroleum Engineer"),
+
+    # Construction
+    (["project", "manager"], "Project Manager"),
+    (["construction", "manager"], "Construction Manager"),
+    (["estimator"], "Estimator"),
+    (["real", "estate", "agent"], "Real Estate Agent"),
+    (["property", "manager"], "Property Manager"),
+    (["superintendent"], "Superintendent"),
+    (["site", "supervisor"], "Site Supervisor"),
+]
+
+
+def _fuzzy_match_role(role_title):
+    """
+    Attempt to match a role title to a canonical ROLE_SALARY_RANGES entry
+    using keyword-based fuzzy matching. Returns the canonical role name or None.
+    """
+    title_lower = role_title.strip().lower()
+
+    # Try each pattern - all keywords in the pattern must appear in the title
+    for keywords, canonical in _ROLE_FUZZY_PATTERNS:
+        if all(kw in title_lower for kw in keywords):
+            return canonical
+    return None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1059,7 +1506,7 @@ def _get_role_salary_range(role, location_coli=100, enrichment_salary_data=None)
             high = int(median * 1.30)
             return f"${low:,} - ${high:,}"
 
-    # Fall back to curated ROLE_SALARY_RANGES (try exact, then normalized match)
+    # Fall back to curated ROLE_SALARY_RANGES (try exact, then normalized match, then fuzzy)
     salary = ROLE_SALARY_RANGES.get(role)
     if not salary:
         role_lower = role.strip().lower()
@@ -1067,6 +1514,11 @@ def _get_role_salary_range(role, location_coli=100, enrichment_salary_data=None)
             if k.lower() == role_lower or k.lower().rstrip('s') == role_lower.rstrip('s'):
                 salary = v
                 break
+    if not salary:
+        # Try fuzzy keyword-based matching (e.g. "Uber Driver Partner" -> "Delivery Driver")
+        canonical = _fuzzy_match_role(role)
+        if canonical:
+            salary = ROLE_SALARY_RANGES.get(canonical)
     if not salary:
         # Last resort: generic range based on industry context
         salary = "$45,000 - $80,000"
@@ -1238,8 +1690,8 @@ def get_market_trends(locations, industry, roles, enrichment_salary_data=None):
     return factors
 
 
-def get_competitors(industry, locations):
-    """Get real competitor data for the industry (US + international)."""
+def get_competitors(industry, locations, company_name=None):
+    """Get real competitor data for the industry (US + international). Filters out company_name to prevent self-as-competitor."""
     # Check if any location is international
     has_intl = any(_detect_country(loc) and _detect_country(loc) != "United States" for loc in (locations or []))
 
@@ -1268,6 +1720,16 @@ def get_competitors(industry, locations):
                 "competitors": intl_categories[industry]["competitors"],
                 "threat": intl_categories[industry]["threat"],
             })
+
+    # Filter out the company itself from competitor lists to prevent self-as-competitor
+    if company_name:
+        _cn_lower = company_name.strip().lower()
+        for comp_entry in result:
+            comp_str = comp_entry.get("competitors", "")
+            # Remove company name from comma-separated competitor list
+            comp_parts = [c.strip() for c in comp_str.split(",")]
+            filtered_parts = [c for c in comp_parts if _cn_lower not in c.strip().lower()]
+            comp_entry["competitors"] = ", ".join(filtered_parts) if filtered_parts else comp_str
 
     # Fallback if no data found
     if not result:

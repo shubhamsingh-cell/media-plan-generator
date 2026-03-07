@@ -1851,44 +1851,128 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     _add_filled_rect(slide, Inches(0.55), timeline_top + Inches(0.3),
                      Inches(2.2), Inches(0.03), GOLD)
 
-    phases = [
-        {
-            "phase": "PHASE 1",
-            "weeks": "Weeks 1-2",
-            "title": "Launch & Calibrate",
-            "bullets": [
-                "Campaign setup & publisher activation",
-                "Baseline measurement & tracking",
-                "Attribution configuration",
-            ],
-            "color": BLUE,
-            "accent_bg": LIGHT_BLUE,
-        },
-        {
-            "phase": "PHASE 2",
-            "weeks": "Weeks 3-6",
-            "title": "Optimize & Scale",
-            "bullets": [
-                "ML bid optimization active",
-                "A/B test creative & targeting",
-                "Scale top performers",
-            ],
-            "color": GREEN,
-            "accent_bg": LIGHT_GREEN,
-        },
-        {
-            "phase": "PHASE 3",
-            "weeks": "Weeks 7-12",
-            "title": "Maximize & Report",
-            "bullets": [
-                "Full CPQA optimization",
-                "ROI analysis & reallocation",
-                "Quarterly performance review",
-            ],
-            "color": NAVY,
-            "accent_bg": RGBColor(0xE8, 0xED, 0xF4),
-        },
-    ]
+    # Build timeline phases based on actual campaign_weeks from input
+    cw = data.get("campaign_weeks", 12)
+    if cw <= 12:
+        p2_end = min(6, cw)
+        p3_start = min(7, cw)
+        p3_end = cw
+        phases = [
+            {
+                "phase": "PHASE 1",
+                "weeks": "Weeks 1-2",
+                "title": "Launch & Calibrate",
+                "bullets": [
+                    "Campaign setup & publisher activation",
+                    "Baseline measurement & tracking",
+                    "Attribution configuration",
+                ],
+                "color": BLUE,
+                "accent_bg": LIGHT_BLUE,
+            },
+            {
+                "phase": "PHASE 2",
+                "weeks": f"Weeks 3-{p2_end}",
+                "title": "Optimize & Scale",
+                "bullets": [
+                    "ML bid optimization active",
+                    "A/B test creative & targeting",
+                    "Scale top performers",
+                ],
+                "color": GREEN,
+                "accent_bg": LIGHT_GREEN,
+            },
+            {
+                "phase": "PHASE 3",
+                "weeks": f"Weeks {p3_start}-{p3_end}",
+                "title": "Maximize & Report",
+                "bullets": [
+                    "Full CPQA optimization",
+                    "ROI analysis & reallocation",
+                    "Performance review",
+                ],
+                "color": NAVY,
+                "accent_bg": RGBColor(0xE8, 0xED, 0xF4),
+            },
+        ]
+    elif cw <= 26:
+        phases = [
+            {
+                "phase": "PHASE 1",
+                "weeks": "Weeks 1-3",
+                "title": "Launch & Calibrate",
+                "bullets": [
+                    "Campaign setup & publisher activation",
+                    "Baseline measurement & tracking",
+                    "Attribution configuration",
+                ],
+                "color": BLUE,
+                "accent_bg": LIGHT_BLUE,
+            },
+            {
+                "phase": "PHASE 2",
+                "weeks": f"Weeks 4-{cw // 2}",
+                "title": "Optimize & Scale",
+                "bullets": [
+                    "ML bid optimization active",
+                    "A/B test creative & targeting",
+                    "Scale top performers",
+                ],
+                "color": GREEN,
+                "accent_bg": LIGHT_GREEN,
+            },
+            {
+                "phase": "PHASE 3",
+                "weeks": f"Weeks {cw // 2 + 1}-{cw}",
+                "title": "Maximize & Report",
+                "bullets": [
+                    "Full CPQA optimization",
+                    "ROI analysis & reallocation",
+                    "Quarterly performance review",
+                ],
+                "color": NAVY,
+                "accent_bg": RGBColor(0xE8, 0xED, 0xF4),
+            },
+        ]
+    else:
+        phases = [
+            {
+                "phase": "PHASE 1",
+                "weeks": "Weeks 1-4",
+                "title": "Launch & Calibrate",
+                "bullets": [
+                    "Campaign setup & publisher activation",
+                    "Baseline measurement & tracking",
+                    "Attribution configuration",
+                ],
+                "color": BLUE,
+                "accent_bg": LIGHT_BLUE,
+            },
+            {
+                "phase": "PHASE 2",
+                "weeks": f"Weeks 5-{cw // 3}",
+                "title": "Optimize & Scale",
+                "bullets": [
+                    "ML bid optimization active",
+                    "A/B test creative & targeting",
+                    "Scale top performers",
+                ],
+                "color": GREEN,
+                "accent_bg": LIGHT_GREEN,
+            },
+            {
+                "phase": "PHASE 3",
+                "weeks": f"Weeks {cw // 3 + 1}-{cw}",
+                "title": "Maximize & Report",
+                "bullets": [
+                    "Full CPQA optimization",
+                    "ROI analysis & reallocation",
+                    "Quarterly performance review",
+                ],
+                "color": NAVY,
+                "accent_bg": RGBColor(0xE8, 0xED, 0xF4),
+            },
+        ]
 
     phase_w = Inches(3.85)
     phase_gap = Inches(0.25)
