@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Media Planner — Admin Dashboard</title>
+    <style>
+        :root {
+            --navy: #08294A;
+            --navy-light: #0E3A6B;
+            --navy-lighter: #14497A;
+            --purple: #7C3AED;
+            --purple-light: #A78BFA;
+            --purple-pale: #EDE9FE;
+            --purple-dark: #5B21B6;
+            --blue-primary: #0A66C9;
+            --blue-light: #D1E8FF;
+            --green: #10B981;
+            --green-light: #D1FAE5;
+            --green-dark: #059669;
+            --red: #EF4444;
+            --red-light: #FEE2E2;
+            --amber: #F59E0B;
+            --amber-light: #FEF3C7;
+            --off-white: #F8FAFC;
+            --white: #FFFFFF;
+            --gray-50: #F9FAFB;
+            --gray-100: #F3F4F6;
+            --gray-200: #E5E7EB;
+            --gray-300: #D1D5DB;
+            --gray-400: #9CA3AF;
+            --gray-500: #6B7280;
+            --gray-600: #4B5563;
+            --gray-700: #374151;
+            --gray-800: #1F2937;
+            --text: #1F2937;
+            --text-secondary: #6B7280;
+            --text-muted: #9CA3AF;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+            --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-xs: 6px;
+            --sidebar-width: 260px;
+            --header-height: 64px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        ::selection { background: var(--purple); color: white; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--off-white);
+            color: var(--text);
+            min-height: 100vh;
+            font-size: 14px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: linear-gradient(180deg, var(--navy) 0%, #061E38 100%);
+            color: white;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-brand {
+            padding: 24px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .sidebar-brand h1 {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            margin-bottom: 2px;
+        }
+
+        .sidebar-brand .brand-accent {
+            color: var(--purple-light);
+        }
+
+        .sidebar-brand p {
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+
+        .sidebar-nav {
+            padding: 16px 12px;
+            flex: 1;
+        }
+
+        .sidebar-nav-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: rgba(255,255,255,0.35);
+            padding: 12px 8px 8px;
+            font-weight: 600;
+        }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            margin-bottom: 2px;
+        }
+
+        .sidebar-nav a:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+        }
+
+        .sidebar-nav a.active {
+            background: rgba(124, 58, 237, 0.2);
+            color: white;
+        }
+
+        .sidebar-nav a .nav-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer {
+            padding: 16px 20px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .sidebar-footer .refresh-info {
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
+        }
+
+        .sidebar-footer .refresh-info span {
+            color: var(--purple-light);
+            font-weight: 600;
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        .main {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+        }
+
+        /* ===== TOP HEADER ===== */
+        .top-header {
+            height: var(--header-height);
+            background: var(--white);
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 32px;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .top-header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .top-header-left h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--navy);
+        }
+
+        .header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--green-light);
+            color: var(--green-dark);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        .header-badge .dot {
+            width: 6px;
+            height: 6px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .top-header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: var(--radius-xs);
+            font-size: 13px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--purple);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--purple-dark);
+            box-shadow: 0 4px 12px rgba(124,58,237,0.3);
+        }
+
+        .btn-outline {
+            background: white;
+            color: var(--gray-700);
+            border: 1px solid var(--gray-300);
+        }
+        .btn-outline:hover {
+            background: var(--gray-50);
+            border-color: var(--gray-400);
+        }
+
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .btn-icon {
+            padding: 8px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ===== PAGE CONTENT ===== */
+        .page-content {
+            padding: 28px 32px;
+        }
+
+        /* ===== STATS CARDS ===== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            border: 1px solid var(--gray-200);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+        }
+
+        .stat-card:nth-child(1)::before { background: var(--purple); }
+        .stat-card:nth-child(2)::before { background: var(--green); }
+        .stat-card:nth-child(3)::before { background: var(--blue-primary); }
+        .stat-card:nth-child(4)::before { background: var(--amber); }
+        .stat-card:nth-child(5)::before { background: var(--red); }
+        .stat-card:nth-child(6)::before { background: var(--navy); }
+
+        .stat-card .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-bottom: 12px;
+        }
+
+        .stat-card:nth-child(1) .stat-icon { background: var(--purple-pale); }
+        .stat-card:nth-child(2) .stat-icon { background: var(--green-light); }
+        .stat-card:nth-child(3) .stat-icon { background: var(--blue-light); }
+        .stat-card:nth-child(4) .stat-icon { background: var(--amber-light); }
+        .stat-card:nth-child(5) .stat-icon { background: var(--red-light); }
+        .stat-card:nth-child(6) .stat-icon { background: var(--gray-100); }
+
+        .stat-card .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .stat-card .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--navy);
+            line-height: 1.2;
+        }
+
+        .stat-card .stat-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* ===== SECTION PANELS ===== */
+        .panel {
+            background: var(--white);
+            border-radius: var(--radius);
+            border: 1px solid var(--gray-200);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .panel-header h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--navy);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius-xs);
+            padding: 0 12px;
+            transition: all 0.2s ease;
+        }
+
+        .search-box:focus-within {
+            border-color: var(--purple);
+            box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
+            background: white;
+        }
+
+        .search-box .search-icon {
+            color: var(--gray-400);
+            font-size: 14px;
+            margin-right: 8px;
+        }
+
+        .search-box input {
+            border: none;
+            background: transparent;
+            padding: 8px 0;
+            font-size: 13px;
+            outline: none;
+            width: 220px;
+            color: var(--text);
+        }
+
+        .search-box input::placeholder {
+            color: var(--gray-400);
+        }
+
+        /* ===== TABLE ===== */
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        thead th {
+            background: var(--gray-50);
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--gray-200);
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            transition: background 0.2s;
+        }
+
+        thead th:hover {
+            background: var(--gray-100);
+        }
+
+        thead th .sort-arrow {
+            margin-left: 4px;
+            font-size: 10px;
+            opacity: 0.3;
+        }
+
+        thead th.sorted .sort-arrow {
+            opacity: 1;
+            color: var(--purple);
+        }
+
+        tbody tr {
+            transition: background 0.15s;
+        }
+
+        tbody tr:hover {
+            background: var(--gray-50);
+        }
+
+        tbody td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--gray-100);
+            color: var(--text);
+            vertical-align: middle;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: var(--green-light);
+            color: var(--green-dark);
+        }
+
+        .badge-error {
+            background: var(--red-light);
+            color: var(--red);
+        }
+
+        .badge-pending {
+            background: var(--amber-light);
+            color: #B45309;
+        }
+
+        .truncate {
+            max-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .download-link {
+            color: var(--purple);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: color 0.2s;
+        }
+        .download-link:hover {
+            color: var(--purple-dark);
+            text-decoration: underline;
+        }
+
+        .table-empty {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted);
+        }
+
+        .table-empty .empty-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+            opacity: 0.3;
+        }
+
+        .table-footer {
+            padding: 12px 24px;
+            border-top: 1px solid var(--gray-100);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* ===== DOCUMENTS GRID ===== */
+        .docs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+            padding: 20px 24px;
+        }
+
+        .doc-card {
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius-sm);
+            padding: 18px;
+            transition: all 0.25s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .doc-card:hover {
+            border-color: var(--purple-light);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .doc-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .doc-card-icon {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--purple), var(--purple-dark));
+            border-radius: var(--radius-xs);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .doc-card-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .doc-card-name {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--navy);
+            word-break: break-all;
+            line-height: 1.3;
+        }
+
+        .doc-card-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .doc-card-details {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .doc-card-details span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .doc-card-download {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: var(--purple-pale);
+            color: var(--purple-dark);
+            border-radius: var(--radius-xs);
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .doc-card-download:hover {
+            background: var(--purple);
+            color: white;
+        }
+
+        .docs-empty {
+            text-align: center;
+            padding: 48px;
+            color: var(--text-muted);
+            grid-column: 1 / -1;
+        }
+
+        /* ===== LOADING / SKELETON ===== */
+        .loading-overlay {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 24px;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--gray-200);
+            border-top-color: var(--purple);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* ===== SECTION TAB LINKS ===== */
+        .section-anchor {
+            scroll-margin-top: calc(var(--header-height) + 16px);
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 220px;
+            }
+            .main {
+                margin-left: 220px;
+            }
+            :root {
+                --sidebar-width: 220px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -280px;
+                transition: left 0.3s ease;
+                width: 260px;
+            }
+            .sidebar.open {
+                left: 0;
+            }
+            .main {
+                margin-left: 0;
+            }
+            .page-content {
+                padding: 20px 16px;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .mobile-toggle {
+                display: flex !important;
+            }
+            .docs-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .mobile-toggle {
+            display: none;
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: var(--navy);
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 99;
+        }
+
+        .sidebar-overlay.visible {
+            display: block;
+        }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.4s ease forwards;
+        }
+
+        .animate-in:nth-child(1) { animation-delay: 0s; }
+        .animate-in:nth-child(2) { animation-delay: 0.05s; }
+        .animate-in:nth-child(3) { animation-delay: 0.1s; }
+        .animate-in:nth-child(4) { animation-delay: 0.15s; }
+        .animate-in:nth-child(5) { animation-delay: 0.2s; }
+        .animate-in:nth-child(6) { animation-delay: 0.25s; }
+
+        /* ===== TOOLTIP ===== */
+        .tooltip {
+            position: relative;
+        }
+        .tooltip::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%) translateY(4px);
+            background: var(--navy);
+            color: white;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.2s ease;
+        }
+        .tooltip:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+        /* ===== NUMBER FORMATTING ===== */
+        .mono {
+            font-variant-numeric: tabular-nums;
+            font-family: 'SF Mono', 'Cascadia Mono', 'Menlo', 'Consolas', monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Sidebar Overlay (mobile) -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <h1>AI <span class="brand-accent">Media Planner</span></h1>
+        <p>Admin Dashboard</p>
+    </div>
+    <nav class="sidebar-nav">
+        <div class="sidebar-nav-label">Navigation</div>
+        <a href="/" title="Go to Media Plan Generator">
+            <span class="nav-icon">&#x1f4cb;</span> Media Plan Generator
+        </a>
+        <a href="/dashboard" class="active">
+            <span class="nav-icon">&#x1f4ca;</span> Admin Dashboard
+        </a>
+        <div class="sidebar-nav-label">Sections</div>
+        <a href="#analytics" onclick="scrollToSection('analytics')">
+            <span class="nav-icon">&#x1f4c8;</span> Analytics
+        </a>
+        <a href="#requests" onclick="scrollToSection('requests')">
+            <span class="nav-icon">&#x1f4d1;</span> Request Log
+        </a>
+        <a href="#documents" onclick="scrollToSection('documents')">
+            <span class="nav-icon">&#x1f4c2;</span> Document Repository
+        </a>
+    </nav>
+    <div class="sidebar-footer">
+        <div class="refresh-info">
+            Auto-refresh in <span id="countdown">60</span>s
+        </div>
+    </div>
+</aside>
+
+<!-- Main Content -->
+<div class="main">
+    <!-- Top Header Bar -->
+    <header class="top-header">
+        <div class="top-header-left">
+            <button class="mobile-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">&#9776;</button>
+            <h2>Dashboard Overview</h2>
+            <div class="header-badge">
+                <span class="dot"></span>
+                Live
+            </div>
+        </div>
+        <div class="top-header-right">
+            <button class="btn btn-outline btn-sm" onclick="exportCSV()" title="Export request log to CSV">
+                &#x2B07; Export CSV
+            </button>
+            <button class="btn btn-outline btn-sm btn-icon" onclick="refreshData()" title="Refresh data now">
+                &#x21BB;
+            </button>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <!-- Section 1: Analytics Summary Cards -->
+        <section class="section-anchor" id="analytics">
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card animate-in">
+                    <div class="stat-icon">&#x1f4e8;</div>
+                    <div class="stat-label">Total Requests</div>
+                    <div class="stat-value" id="statTotal">--</div>
+                    <div class="stat-sub" id="statTotalSub">Loading...</div>
+                </div>
+                <div class="stat-card animate-in">
+                    <div class="stat-icon">&#x2705;</div>
+                    <div class="stat-label">Success Rate</div>
+                    <div class="stat-value" id="statSuccess">--</div>
+                    <div class="stat-sub" id="statSuccessSub">Loading...</div>
+                </div>
+                <div class="stat-card animate-in">
+                    <div class="stat-icon">&#x23f1;</div>
+                    <div class="stat-label">Avg. Generation Time</div>
+                    <div class="stat-value" id="statTime">--</div>
+                    <div class="stat-sub" id="statTimeSub">Loading...</div>
+                </div>
+                <div class="stat-card animate-in">
+                    <div class="stat-icon">&#x1f3ed;</div>
+                    <div class="stat-label">Top Industry</div>
+                    <div class="stat-value" id="statIndustry" style="font-size:18px;">--</div>
+                    <div class="stat-sub" id="statIndustrySub">Loading...</div>
+                </div>
+                <div class="stat-card animate-in">
+                    <div class="stat-icon">&#x1f464;</div>
+                    <div class="stat-label">Most Active User</div>
+                    <div class="stat-value" id="statUser" style="font-size:18px;">--</div>
+                    <div class="stat-sub" id="statUserSub">Loading...</div>
+                </div>
+                <div class="stat-card animate-in">
+                    <div class="stat-icon">&#x1f4be;</div>
+                    <div class="stat-label">Total Data Generated</div>
+                    <div class="stat-value" id="statSize">--</div>
+                    <div class="stat-sub" id="statSizeSub">Loading...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Request Log Table -->
+        <section class="section-anchor" id="requests">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>&#x1f4d1; Request Log</h3>
+                    <div class="panel-header-actions">
+                        <div class="search-box">
+                            <span class="search-icon">&#x1f50d;</span>
+                            <input type="text" id="searchInput" placeholder="Search by name, client, industry..." oninput="filterTable()">
+                        </div>
+                        <select id="statusFilter" class="btn btn-outline btn-sm" onchange="filterTable()" style="padding:6px 10px;font-size:12px;">
+                            <option value="">All Statuses</option>
+                            <option value="success">Success</option>
+                            <option value="error">Error</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table id="requestTable">
+                        <thead>
+                            <tr>
+                                <th data-col="index" onclick="sortTable('index')"># <span class="sort-arrow">&#x25B2;</span></th>
+                                <th data-col="timestamp" onclick="sortTable('timestamp')">Date/Time <span class="sort-arrow">&#x25B2;</span></th>
+                                <th data-col="requester_name" onclick="sortTable('requester_name')">Requester <span class="sort-arrow">&#x25B2;</span></th>
+                                <th data-col="requester_email" onclick="sortTable('requester_email')">Email <span class="sort-arrow">&#x25B2;</span></th>
+                                <th data-col="client_name" onclick="sortTable('client_name')">Client <span class="sort-arrow">&#x25B2;</span></th>
+                                <th data-col="industry" onclick="sortTable('industry')">Industry <span class="sort-arrow">&#x25B2;</span></th>
+                                <th data-col="budget" onclick="sortTable('budget')">Budget <span class="sort-arrow">&#x25B2;</span></th>
+                                <th data-col="roles" onclick="sortTable('roles')">Roles <span class="sort-arrow">&#x25B2;</span></th>
+                                <th data-col="locations" onclick="sortTable('locations')">Locations <span class="sort-arrow">&#x25B2;</span></th>
+                                <th data-col="status" onclick="sortTable('status')">Status <span class="sort-arrow">&#x25B2;</span></th>
+                                <th data-col="file_size_bytes" onclick="sortTable('file_size_bytes')">File Size <span class="sort-arrow">&#x25B2;</span></th>
+                                <th data-col="generation_time_seconds" onclick="sortTable('generation_time_seconds')">Gen. Time <span class="sort-arrow">&#x25B2;</span></th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="requestTableBody">
+                            <tr>
+                                <td colspan="13">
+                                    <div class="loading-overlay">
+                                        <div class="spinner"></div>
+                                        <div class="loading-text">Loading request log...</div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <span id="tableInfo">Loading...</span>
+                    <span id="tableShowing"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Document Repository -->
+        <section class="section-anchor" id="documents">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>&#x1f4c2; Document Repository</h3>
+                    <div class="panel-header-actions">
+                        <span id="docCount" style="font-size:12px;color:var(--text-secondary);">Loading...</span>
+                    </div>
+                </div>
+                <div class="docs-grid" id="docsGrid">
+                    <div class="loading-overlay" style="grid-column:1/-1;">
+                        <div class="spinner"></div>
+                        <div class="loading-text">Loading documents...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+// ===== STATE =====
+let allRequests = [];
+let allDocuments = [];
+let sortColumn = 'timestamp';
+let sortAsc = false;
+let countdownValue = 60;
+let countdownTimer = null;
+
+// ===== DATA FETCHING =====
+async function fetchRequests() {
+    try {
+        const res = await fetch('/api/requests');
+        if (!res.ok) throw new Error('Failed to fetch requests');
+        const data = await res.json();
+        allRequests = data.requests || [];
+        updateStats();
+        renderTable();
+    } catch (err) {
+        console.error('Error fetching requests:', err);
+        document.getElementById('requestTableBody').innerHTML =
+            '<tr><td colspan="13"><div class="table-empty"><div class="empty-icon">&#x26A0;</div>Failed to load request data</div></td></tr>';
+    }
+}
+
+async function fetchDocuments() {
+    try {
+        const res = await fetch('/api/documents');
+        if (!res.ok) throw new Error('Failed to fetch documents');
+        const data = await res.json();
+        allDocuments = data.documents || [];
+        renderDocuments();
+    } catch (err) {
+        console.error('Error fetching documents:', err);
+        document.getElementById('docsGrid').innerHTML =
+            '<div class="docs-empty"><div class="empty-icon" style="font-size:40px;opacity:0.3;">&#x26A0;</div><p>Failed to load documents</p></div>';
+    }
+}
+
+function refreshData() {
+    fetchRequests();
+    fetchDocuments();
+    resetCountdown();
+}
+
+// ===== STATS COMPUTATION =====
+function updateStats() {
+    const total = allRequests.length;
+    const successes = allRequests.filter(r => r.status === 'success').length;
+    const successRate = total > 0 ? ((successes / total) * 100) : 0;
+    const times = allRequests.filter(r => r.generation_time_seconds > 0).map(r => r.generation_time_seconds);
+    const avgTime = times.length > 0 ? (times.reduce((a, b) => a + b, 0) / times.length) : 0;
+    const totalSize = allRequests.reduce((sum, r) => sum + (r.file_size_bytes || 0), 0);
+
+    // Top industry
+    const industryCounts = {};
+    allRequests.forEach(r => {
+        const ind = r.industry || 'Unknown';
+        industryCounts[ind] = (industryCounts[ind] || 0) + 1;
+    });
+    const topIndustry = Object.entries(industryCounts).sort((a, b) => b[1] - a[1])[0];
+
+    // Most active user
+    const userCounts = {};
+    allRequests.forEach(r => {
+        const name = r.requester_name || 'Unknown';
+        userCounts[name] = (userCounts[name] || 0) + 1;
+    });
+    const topUser = Object.entries(userCounts).sort((a, b) => b[1] - a[1])[0];
+
+    // Update DOM
+    document.getElementById('statTotal').textContent = total.toLocaleString();
+    document.getElementById('statTotalSub').textContent = `${successes} successful, ${total - successes} failed`;
+
+    document.getElementById('statSuccess').textContent = successRate.toFixed(1) + '%';
+    document.getElementById('statSuccessSub').textContent = `${successes} of ${total} requests`;
+
+    document.getElementById('statTime').textContent = formatDuration(avgTime);
+    document.getElementById('statTimeSub').textContent = times.length > 0
+        ? `Min: ${formatDuration(Math.min(...times))}, Max: ${formatDuration(Math.max(...times))}`
+        : 'No data';
+
+    document.getElementById('statIndustry').textContent = topIndustry ? formatIndustryName(topIndustry[0]) : 'N/A';
+    document.getElementById('statIndustrySub').textContent = topIndustry ? `${topIndustry[1]} requests` : 'No data';
+
+    document.getElementById('statUser').textContent = topUser ? topUser[0] : 'N/A';
+    document.getElementById('statUserSub').textContent = topUser ? `${topUser[1]} requests` : 'No data';
+
+    document.getElementById('statSize').textContent = formatFileSize(totalSize);
+    document.getElementById('statSizeSub').textContent = `Across ${successes} generated files`;
+}
+
+// ===== TABLE RENDERING =====
+function renderTable() {
+    const tbody = document.getElementById('requestTableBody');
+    const filtered = getFilteredRequests();
+    const sorted = getSortedRequests(filtered);
+
+    if (sorted.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="13"><div class="table-empty"><div class="empty-icon">&#x1f4ed;</div><p>No matching requests found</p></div></td></tr>';
+        document.getElementById('tableInfo').textContent = 'No results';
+        document.getElementById('tableShowing').textContent = '';
+        return;
+    }
+
+    let html = '';
+    sorted.forEach((req, i) => {
+        const statusClass = req.status === 'success' ? 'badge-success' : req.status === 'error' ? 'badge-error' : 'badge-pending';
+        const roles = Array.isArray(req.roles) ? req.roles.join(', ') : (req.roles || '--');
+        const locations = Array.isArray(req.locations) ? req.locations.join(', ') : (req.locations || '--');
+        const downloadCell = req.doc_filename
+            ? `<a href="/api/documents/${encodeURIComponent(req.doc_filename)}" class="download-link" title="Download ${req.doc_filename}">&#x2B07; Download</a>`
+            : '<span style="color:var(--text-muted);font-size:12px;">--</span>';
+
+        html += `<tr>
+            <td class="mono">${i + 1}</td>
+            <td class="mono" style="white-space:nowrap;">${formatDate(req.timestamp)}</td>
+            <td>${escapeHtml(req.requester_name || '--')}</td>
+            <td class="truncate" title="${escapeHtml(req.requester_email || '')}">${escapeHtml(req.requester_email || '--')}</td>
+            <td>${escapeHtml(req.client_name || '--')}</td>
+            <td>${escapeHtml(formatIndustryName(req.industry || '--'))}</td>
+            <td class="mono">${escapeHtml(String(req.budget || '--'))}</td>
+            <td class="truncate" title="${escapeHtml(roles)}">${escapeHtml(roles)}</td>
+            <td class="truncate" title="${escapeHtml(locations)}">${escapeHtml(locations)}</td>
+            <td><span class="badge ${statusClass}">${req.status === 'success' ? '&#x2714;' : '&#x2718;'} ${req.status}</span></td>
+            <td class="mono">${req.file_size_bytes ? formatFileSize(req.file_size_bytes) : '--'}</td>
+            <td class="mono">${req.generation_time_seconds ? formatDuration(req.generation_time_seconds) : '--'}</td>
+            <td>${downloadCell}</td>
+        </tr>`;
+    });
+
+    tbody.innerHTML = html;
+    document.getElementById('tableInfo').textContent = `Showing ${sorted.length} of ${allRequests.length} requests`;
+    document.getElementById('tableShowing').textContent = sorted.length < allRequests.length ? '(filtered)' : '';
+}
+
+function getFilteredRequests() {
+    const query = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+    const statusFilter = document.getElementById('statusFilter').value;
+
+    return allRequests.filter(r => {
+        if (statusFilter && r.status !== statusFilter) return false;
+        if (!query) return true;
+        const searchable = [
+            r.requester_name, r.requester_email, r.client_name, r.industry,
+            r.budget, Array.isArray(r.roles) ? r.roles.join(' ') : r.roles,
+            Array.isArray(r.locations) ? r.locations.join(' ') : r.locations,
+            r.status
+        ].join(' ').toLowerCase();
+        return searchable.includes(query);
+    });
+}
+
+function getSortedRequests(data) {
+    const col = sortColumn;
+    const asc = sortAsc;
+    return [...data].sort((a, b) => {
+        let va = a[col];
+        let vb = b[col];
+        if (col === 'index') {
+            va = allRequests.indexOf(a);
+            vb = allRequests.indexOf(b);
+        }
+        if (col === 'roles' || col === 'locations') {
+            va = Array.isArray(va) ? va.join(', ') : (va || '');
+            vb = Array.isArray(vb) ? vb.join(', ') : (vb || '');
+        }
+        if (typeof va === 'number' && typeof vb === 'number') {
+            return asc ? va - vb : vb - va;
+        }
+        va = String(va || '').toLowerCase();
+        vb = String(vb || '').toLowerCase();
+        if (va < vb) return asc ? -1 : 1;
+        if (va > vb) return asc ? 1 : -1;
+        return 0;
+    });
+}
+
+function sortTable(col) {
+    if (sortColumn === col) {
+        sortAsc = !sortAsc;
+    } else {
+        sortColumn = col;
+        sortAsc = true;
+    }
+    // Update sort arrows in header
+    document.querySelectorAll('thead th').forEach(th => {
+        th.classList.remove('sorted');
+        const arrow = th.querySelector('.sort-arrow');
+        if (arrow) arrow.innerHTML = '&#x25B2;';
+    });
+    const activeTh = document.querySelector(`thead th[data-col="${col}"]`);
+    if (activeTh) {
+        activeTh.classList.add('sorted');
+        const arrow = activeTh.querySelector('.sort-arrow');
+        if (arrow) arrow.innerHTML = sortAsc ? '&#x25B2;' : '&#x25BC;';
+    }
+    renderTable();
+}
+
+function filterTable() {
+    renderTable();
+}
+
+// ===== DOCUMENTS RENDERING =====
+function renderDocuments() {
+    const grid = document.getElementById('docsGrid');
+    const countEl = document.getElementById('docCount');
+
+    if (allDocuments.length === 0) {
+        grid.innerHTML = '<div class="docs-empty"><div style="font-size:40px;opacity:0.3;margin-bottom:12px;">&#x1f4c2;</div><p>No documents generated yet</p><p style="font-size:12px;margin-top:4px;">Generated media plans will appear here</p></div>';
+        countEl.textContent = '0 documents';
+        return;
+    }
+
+    countEl.textContent = `${allDocuments.length} document${allDocuments.length !== 1 ? 's' : ''}`;
+
+    let html = '';
+    allDocuments.forEach(doc => {
+        const nameParts = doc.filename.replace('.zip', '').split('_');
+        // Try to extract client name (after timestamp parts)
+        const clientName = nameParts.length > 2 ? nameParts.slice(2).join(' ') : doc.filename;
+
+        html += `<div class="doc-card">
+            <div class="doc-card-header">
+                <div class="doc-card-icon">&#x1f4e6;</div>
+                <div class="doc-card-info">
+                    <div class="doc-card-name">${escapeHtml(doc.filename)}</div>
+                    <div class="doc-card-meta">Client: ${escapeHtml(clientName)}</div>
+                </div>
+            </div>
+            <div class="doc-card-details">
+                <span>&#x1f4c5; ${formatDate(doc.created)}</span>
+                <span>&#x1f4be; ${formatFileSize(doc.size_bytes)}</span>
+            </div>
+            <a href="${doc.download_url}" class="doc-card-download" title="Download ${doc.filename}">
+                &#x2B07; Download ZIP
+            </a>
+        </div>`;
+    });
+
+    grid.innerHTML = html;
+}
+
+// ===== CSV EXPORT =====
+function exportCSV() {
+    if (allRequests.length === 0) {
+        alert('No data to export.');
+        return;
+    }
+
+    const headers = ['#', 'Date/Time', 'Requester Name', 'Email', 'Client Name', 'Industry', 'Budget', 'Roles', 'Locations', 'Status', 'File Size (bytes)', 'Generation Time (s)', 'Document Filename'];
+    const rows = allRequests.map((r, i) => [
+        i + 1,
+        r.timestamp || '',
+        r.requester_name || '',
+        r.requester_email || '',
+        r.client_name || '',
+        r.industry || '',
+        r.budget || '',
+        Array.isArray(r.roles) ? r.roles.join('; ') : (r.roles || ''),
+        Array.isArray(r.locations) ? r.locations.join('; ') : (r.locations || ''),
+        r.status || '',
+        r.file_size_bytes || 0,
+        r.generation_time_seconds || 0,
+        r.doc_filename || ''
+    ]);
+
+    let csv = headers.map(h => `"${h}"`).join(',') + '\n';
+    rows.forEach(row => {
+        csv += row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',') + '\n';
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `media_plan_requests_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ===== FORMATTING HELPERS =====
+function formatDate(iso) {
+    if (!iso) return '--';
+    try {
+        const d = new Date(iso);
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const year = d.getFullYear();
+        const hours = String(d.getHours()).padStart(2, '0');
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${mins}`;
+    } catch {
+        return iso;
+    }
+}
+
+function formatFileSize(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let idx = 0;
+    let size = bytes;
+    while (size >= 1024 && idx < units.length - 1) {
+        size /= 1024;
+        idx++;
+    }
+    return size.toFixed(idx > 0 ? 1 : 0) + ' ' + units[idx];
+}
+
+function formatDuration(seconds) {
+    if (!seconds || seconds === 0) return '--';
+    if (seconds < 1) return (seconds * 1000).toFixed(0) + 'ms';
+    if (seconds < 60) return seconds.toFixed(1) + 's';
+    const mins = Math.floor(seconds / 60);
+    const secs = (seconds % 60).toFixed(0);
+    return `${mins}m ${secs}s`;
+}
+
+function formatIndustryName(slug) {
+    if (!slug || slug === '--' || slug === 'Unknown') return slug || '--';
+    return slug.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ===== SIDEBAR / MOBILE =====
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('visible');
+}
+
+function scrollToSection(id) {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    // Close mobile sidebar
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.remove('open');
+    overlay.classList.remove('visible');
+}
+
+// ===== AUTO-REFRESH COUNTDOWN =====
+function resetCountdown() {
+    countdownValue = 60;
+    document.getElementById('countdown').textContent = countdownValue;
+}
+
+function startCountdown() {
+    if (countdownTimer) clearInterval(countdownTimer);
+    countdownTimer = setInterval(() => {
+        countdownValue--;
+        document.getElementById('countdown').textContent = countdownValue;
+        if (countdownValue <= 0) {
+            refreshData();
+        }
+    }, 1000);
+}
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', () => {
+    refreshData();
+    startCountdown();
+});
+</script>
+
+</body>
+</html>

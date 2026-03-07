@@ -501,6 +501,34 @@ def _add_top_band(slide, left_text: str, right_text: str, band_color=NAVY):
     return band_h
 
 
+def _add_enrichment_badge(slide, enriched):
+    """Add a small 'Powered by live data' badge if APIs were used."""
+    if not enriched:
+        return
+    summary = enriched.get("enrichment_summary", {})
+    apis = summary.get("apis_succeeded", [])
+    if not apis:
+        return
+    # Small text at bottom-right
+    txBox = slide.shapes.add_textbox(Inches(10.5), Inches(7.1), Inches(2.5), Inches(0.3))
+    tf = txBox.text_frame
+    tf.word_wrap = True
+    p = tf.paragraphs[0]
+    p.text = f"Live data: {', '.join(apis[:3])}"
+    p.font.size = Pt(7)
+    p.font.color.rgb = MUTED_TEXT
+    p.alignment = PP_ALIGN.RIGHT
+
+
+def _format_salary(amount):
+    """Format a salary number into human-readable string like $85K or $125K."""
+    if not amount or amount <= 0:
+        return ""
+    if amount >= 1000:
+        return f"${amount / 1000:.0f}K"
+    return f"${amount:,.0f}"
+
+
 # ===================================================================
 # SLIDE 1 - Cover / Section Divider: Title Slide
 # ===================================================================
@@ -546,6 +574,22 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         _add_textbox(
             slide, Inches(0.6), Inches(4.2), Inches(10), Inches(0.5),
             text=industry_label, font_size=20, bold=False, color=LIGHT_BLUE,
+        )
+
+    # Company tagline from enrichment data (Wikipedia description)
+    enriched = data.get("_enriched", {})
+    company_info = enriched.get("company_info", {}) if enriched else {}
+    if company_info and company_info.get("description"):
+        # Truncate to first sentence or 120 chars for a clean tagline
+        desc = company_info["description"]
+        first_sentence_end = desc.find(".")
+        if 0 < first_sentence_end < 120:
+            tagline = desc[:first_sentence_end + 1]
+        else:
+            tagline = desc[:120].rsplit(" ", 1)[0] + "..." if len(desc) > 120 else desc
+        _add_textbox(
+            slide, Inches(0.6), Inches(4.7), Inches(9), Inches(0.4),
+            text=tagline, font_size=11, italic=True, color=LIGHT_MUTED,
         )
 
     # Purple accent line under title area
@@ -664,6 +708,19 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         ("Work Model", work_label),
         ("Budget", budget),
     ]
+
+    # Add salary benchmark from enrichment data if available
+    enriched = data.get("_enriched", {})
+    salary_data = enriched.get("salary_data", {}) if enriched else {}
+    if salary_data:
+        try:
+            first_role = list(salary_data.keys())[0]
+            median = salary_data[first_role].get("median", 0)
+            if median > 0:
+                salary_str = _format_salary(median)
+                sit_items.append(("Salary Benchmark", f"{salary_str} median ({first_role})"))
+        except (IndexError, KeyError, TypeError):
+            pass
 
     box2, tf2 = _add_textbox(slide, sit_left, body_top, sit_w, col_height - Inches(0.5))
     tf2.paragraphs[0].space_before = Pt(0)
@@ -798,13 +855,24 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # Divider
     _add_filled_rect(slide, Inches(4.2), bar_top + Inches(0.2), Inches(0.02), Inches(0.75), GOLD)
 
-    # Secondary metrics
+    # Secondary metrics - include salary data from enrichment if available
     secondary_metrics = [m for m in [
         (str(len(channels)), "Channels"),
         (str(loc_count), "Locations") if loc_count > 0 else None,
         (str(len(roles)), "Target Roles") if roles else None,
         (str(len(goals)), "Campaign Goals") if goals else None,
     ] if m is not None]
+
+    # Replace last metric with salary benchmark if available
+    if salary_data:
+        try:
+            first_role = list(salary_data.keys())[0]
+            median = salary_data[first_role].get("median", 0)
+            if median > 0:
+                salary_str = _format_salary(median)
+                secondary_metrics.append((salary_str, "Median Salary"))
+        except (IndexError, KeyError, TypeError):
+            pass
 
     metric_w = Inches(1.9)
     metric_start = Inches(4.55)
@@ -828,6 +896,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         div_x = metric_start + i * metric_w
         _add_filled_rect(slide, div_x, bar_top + Inches(0.25), Inches(0.015), Inches(0.65),
                          RGBColor(0x1A, 0x45, 0x70))
+
+    # Enrichment badge
+    _add_enrichment_badge(slide, enriched)
 
     # Footer
     _add_footer(slide, today)
@@ -984,6 +1055,25 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         ("Apply Rate", benchmarks["apply_rate"]),
     ]
 
+    # Add real job market data from Adzuna enrichment if available
+    enriched = data.get("_enriched", {})
+    job_market = enriched.get("job_market", {}) if enriched else {}
+    if job_market:
+        try:
+            for role_name, jm_data in list(job_market.items())[:2]:
+                posting_count = jm_data.get("posting_count", 0)
+                avg_sal = jm_data.get("avg_salary", 0)
+                if posting_count > 0:
+                    bench_rows.append(
+                        (f"Live Postings: {role_name}", f"{posting_count:,} active jobs")
+                    )
+                if avg_sal > 0:
+                    bench_rows.append(
+                        (f"Avg Salary: {role_name}", _format_salary(avg_sal))
+                    )
+        except (TypeError, AttributeError):
+            pass
+
     # Table header
     _add_filled_rect(slide, table_left, table_top, table_w, row_h, NAVY)
     _add_textbox(
@@ -1012,11 +1102,14 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             text=value, font_size=10, bold=True, color=NAVY, anchor=MSO_ANCHOR.MIDDLE,
         )
 
-    # Source
-    source_top = table_top + row_h * 5 + Inches(0.05)
+    # Source - adjust position based on actual number of rows
+    source_top = table_top + row_h * (len(bench_rows) + 1) + Inches(0.05)
+    source_text = f"Sources: Appcast {datetime.date.today().year}, Recruitics TMI, SHRM {datetime.date.today().year}"
+    if job_market:
+        source_text += ", Adzuna Job Market API"
     _add_textbox(
         slide, table_left, source_top, table_w, Inches(0.2),
-        text=f"Sources: Appcast {datetime.date.today().year}, Recruitics TMI, SHRM {datetime.date.today().year}",
+        text=source_text,
         font_size=7, italic=True, color=MUTED_TEXT,
     )
 
@@ -1088,6 +1181,9 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             diamond.fill.solid()
             diamond.fill.fore_color.rgb = GOLD
             diamond.line.fill.background()
+
+    # Enrichment badge
+    _add_enrichment_badge(slide, enriched)
 
     # Footer
     _add_footer(slide, today)
@@ -1173,6 +1269,34 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         avg_cpa = 25
     efficiency_improvement = min(35, max(15, round(100 / avg_cpa * 5)))
 
+    # Check for enriched salary data to enhance quadrants
+    enriched = data.get("_enriched", {})
+    salary_data = enriched.get("salary_data", {}) if enriched else {}
+
+    # Build the salary quadrant if real data is available
+    salary_quadrant = None
+    if salary_data:
+        try:
+            first_role = list(salary_data.keys())[0]
+            median = salary_data[first_role].get("median", 0)
+            p10 = salary_data[first_role].get("p10", 0)
+            p90 = salary_data[first_role].get("p90", 0)
+            if median > 0:
+                salary_str = _format_salary(median)
+                range_str = ""
+                if p10 > 0 and p90 > 0:
+                    range_str = f" (range: {_format_salary(p10)} - {_format_salary(p90)})"
+                salary_quadrant = {
+                    "icon": "\u2B22",  # hexagon
+                    "metric": salary_str,
+                    "label": f"Median Salary: {first_role}",
+                    "desc": f"Live BLS salary benchmark{range_str}",
+                    "accent": GOLD,
+                    "bg": PALE_GOLD,
+                }
+        except (IndexError, KeyError, TypeError):
+            pass
+
     quadrants = [
         {
             "icon": "\u2139",  # info
@@ -1190,7 +1314,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
             "accent": GREEN,
             "bg": LIGHT_GREEN,
         },
-        {
+        salary_quadrant if salary_quadrant else {
             "icon": "\u2B22",  # hexagon
             "metric": f"{n_channels}",
             "label": "Channel Diversity",
@@ -1265,10 +1389,28 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         f"Quality-focused optimization (CPQA) ensures spend is directed toward "
         f"candidates most likely to apply and convert."
     )
+
+    # Append salary insight if enrichment data is available
+    if salary_data and salary_quadrant:
+        try:
+            first_role = list(salary_data.keys())[0]
+            median = salary_data[first_role].get("median", 0)
+            source = salary_data[first_role].get("source", "BLS")
+            if median > 0:
+                insight_text += (
+                    f" Market salary data ({source}) shows {_format_salary(median)} "
+                    f"median for {first_role}, enabling precise budget calibration."
+                )
+        except (IndexError, KeyError, TypeError):
+            pass
+
     _add_textbox(
         slide, Inches(2.1), insight_top + Inches(0.12), Inches(10.4), insight_h - Inches(0.2),
         text=insight_text, font_size=10, color=DARK_TEXT,
     )
+
+    # Enrichment badge
+    _add_enrichment_badge(slide, enriched)
 
     # Footer
     _add_footer(slide, today)

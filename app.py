@@ -40,7 +40,7 @@ def save_request_log(log):
     with open(REQUEST_LOG_FILE, "w") as f:
         json.dump(log, f, indent=2, default=str)
 
-def log_request(data, status, file_size=0, generation_time=0, error_msg=None):
+def log_request(data, status, file_size=0, generation_time=0, error_msg=None, doc_filename=None):
     log = load_request_log()
     entry = {
         "id": str(uuid.uuid4())[:8],
@@ -56,7 +56,9 @@ def log_request(data, status, file_size=0, generation_time=0, error_msg=None):
         "status": status,
         "file_size_bytes": file_size,
         "generation_time_seconds": round(generation_time, 2),
-        "error_message": error_msg
+        "error_message": error_msg,
+        "doc_filename": doc_filename,
+        "enrichment_apis": data.get("_enriched", {}).get("enrichment_summary", {}).get("apis_succeeded", []) if isinstance(data.get("_enriched"), dict) else [],
     }
     log.append(entry)
     save_request_log(log)
@@ -71,6 +73,13 @@ try:
 except ImportError as e:
     print(f"WARNING: ppt_generator import failed: {e}", file=sys.stderr)
     generate_pptx = None
+
+try:
+    from api_enrichment import enrich_data
+    print("api_enrichment loaded successfully", file=sys.stderr)
+except ImportError as e:
+    print(f"WARNING: api_enrichment import failed: {e}", file=sys.stderr)
+    enrich_data = None
 
 # Load global supply data
 GLOBAL_SUPPLY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "global_supply.json")
@@ -575,6 +584,16 @@ def generate_excel(data):
         ws_exec.cell(row=exec_row, column=2, value=f"  {item}").font = Font(name="Calibri", size=10, color="333333")
         ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
         exec_row += 1
+
+    # Enhance with real API data if available
+    enriched = data.get("_enriched", {})
+    industry_emp = enriched.get("industry_employment")
+    if industry_emp:
+        exec_row += 1
+        ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+        ws_exec.cell(row=exec_row, column=2, value=f"Live Data: {industry_emp.get('sector_name', 'Industry')} — {industry_emp.get('total_employed', 'N/A'):,} employed, Avg wage ${industry_emp.get('avg_wage', 0):,.0f}, Growth {industry_emp.get('growth_rate', 'N/A')} ({industry_emp.get('source', 'DataUSA')})").font = Font(name="Calibri", size=10, bold=True, color="2E7D32")
+        exec_row += 1
+
     exec_row += 1
 
     # Competitive Landscape in Executive Summary
@@ -676,6 +695,14 @@ def generate_excel(data):
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     ws_exec.cell(row=exec_row, column=2, value=f"Key {_bench_year_label} trends: CPCs rose 27% YoY | Overall CPA up 4.8% | Apply rates climbed 35% to 6.1% | Avg programmatic CPH reached $851 | Healthcare remains most expensive to hire").font = Font(name="Calibri", italic=True, size=9, color="2E75B6")
+
+    enrichment_summary = data.get("_enriched", {}).get("enrichment_summary", {})
+    if enrichment_summary.get("apis_succeeded"):
+        exec_row += 1
+        apis_used = ", ".join(enrichment_summary["apis_succeeded"])
+        ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+        ws_exec.cell(row=exec_row, column=2, value=f"Live API data sourced from: {apis_used} (fetched {enrichment_summary.get('total_time_seconds', 0):.1f}s ago)").font = Font(name="Calibri", italic=True, size=9, color="7C3AED")
+
     exec_row += 2
 
     # CPA/CPC/CPH benchmark data by job category and region — updated with real 2025-2026 data
@@ -1853,6 +1880,81 @@ def generate_excel(data):
             style_body_cell(ws_labour, lm_row, 6, str(lctx.get("coli", "")))
             style_body_cell(ws_labour, lm_row, 7, lctx.get("context_note", ""))
             ws_labour.row_dimensions[lm_row].height = 35
+            lm_row += 1
+
+    # Real-time salary data from BLS
+    enriched = data.get("_enriched", {})
+    salary_data = enriched.get("salary_data", {})
+    if salary_data:
+        lm_row += 2
+        style_section_header(ws_labour, lm_row, 2, 7, "Real-Time Salary Benchmarks (BLS)")
+        lm_row += 1
+        # Headers
+        for ci, hdr in enumerate(["Role", "Median Salary", "10th %ile", "90th %ile", "Source"], start=2):
+            c = ws_labour.cell(row=lm_row, column=ci, value=hdr)
+            c.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+            c.fill = PatternFill(start_color="1B2A4A", end_color="1B2A4A", fill_type="solid")
+            c.alignment = center_alignment
+        lm_row += 1
+        for role_name, sdata in salary_data.items():
+            ws_labour.cell(row=lm_row, column=2, value=role_name).font = body_font
+            ws_labour.cell(row=lm_row, column=3, value=f"${sdata.get('median', 0):,.0f}").font = Font(name="Calibri", size=10, bold=True, color="2E7D32")
+            ws_labour.cell(row=lm_row, column=4, value=f"${sdata.get('p10', 0):,.0f}").font = body_font
+            ws_labour.cell(row=lm_row, column=5, value=f"${sdata.get('p90', 0):,.0f}").font = body_font
+            ws_labour.cell(row=lm_row, column=6, value=sdata.get("source", "BLS")).font = Font(name="Calibri", italic=True, size=9, color="596780")
+            for ci in range(2, 7):
+                ws_labour.cell(row=lm_row, column=ci).border = thin_border
+                ws_labour.cell(row=lm_row, column=ci).alignment = center_alignment
+            lm_row += 1
+
+    location_demos = enriched.get("location_demographics", {})
+    if location_demos:
+        lm_row += 2
+        style_section_header(ws_labour, lm_row, 2, 7, "Location Demographics (Live Data)")
+        lm_row += 1
+        for ci, hdr in enumerate(["Location", "Population", "Median Income", "Unemployment Rate", "Source"], start=2):
+            c = ws_labour.cell(row=lm_row, column=ci, value=hdr)
+            c.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+            c.fill = PatternFill(start_color="1B2A4A", end_color="1B2A4A", fill_type="solid")
+            c.alignment = center_alignment
+        lm_row += 1
+        for loc_name, ldata in location_demos.items():
+            ws_labour.cell(row=lm_row, column=2, value=loc_name).font = body_font
+            pop = ldata.get("population")
+            ws_labour.cell(row=lm_row, column=3, value=f"{pop:,.0f}" if pop else "N/A").font = body_font
+            inc = ldata.get("median_income")
+            ws_labour.cell(row=lm_row, column=4, value=f"${inc:,.0f}" if inc else "N/A").font = body_font
+            unemp = ldata.get("unemployment_rate")
+            ws_labour.cell(row=lm_row, column=5, value=f"{unemp}%" if unemp else "N/A").font = body_font
+            ws_labour.cell(row=lm_row, column=6, value=ldata.get("source", "")).font = Font(name="Calibri", italic=True, size=9, color="596780")
+            for ci in range(2, 7):
+                ws_labour.cell(row=lm_row, column=ci).border = thin_border
+                ws_labour.cell(row=lm_row, column=ci).alignment = center_alignment
+            lm_row += 1
+
+    global_indicators = enriched.get("global_indicators", {})
+    if global_indicators:
+        lm_row += 2
+        style_section_header(ws_labour, lm_row, 2, 7, "Global Economic Indicators (World Bank)")
+        lm_row += 1
+        for ci, hdr in enumerate(["Country", "Unemployment Rate", "GDP Growth", "Labor Force", "Source"], start=2):
+            c = ws_labour.cell(row=lm_row, column=ci, value=hdr)
+            c.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+            c.fill = PatternFill(start_color="1B2A4A", end_color="1B2A4A", fill_type="solid")
+            c.alignment = center_alignment
+        lm_row += 1
+        for country, gdata in global_indicators.items():
+            ws_labour.cell(row=lm_row, column=2, value=country).font = body_font
+            unemp = gdata.get("unemployment_rate")
+            ws_labour.cell(row=lm_row, column=3, value=f"{unemp}%" if unemp else "N/A").font = body_font
+            gdp = gdata.get("gdp_growth")
+            ws_labour.cell(row=lm_row, column=4, value=f"{gdp}%" if gdp else "N/A").font = body_font
+            lf = gdata.get("labor_force")
+            ws_labour.cell(row=lm_row, column=5, value=f"{lf:,.0f}" if lf else "N/A").font = body_font
+            ws_labour.cell(row=lm_row, column=6, value=gdata.get("source", "World Bank")).font = Font(name="Calibri", italic=True, size=9, color="596780")
+            for ci in range(2, 7):
+                ws_labour.cell(row=lm_row, column=ci).border = thin_border
+                ws_labour.cell(row=lm_row, column=ci).alignment = center_alignment
             lm_row += 1
 
     lm_row += 1
@@ -3726,14 +3828,82 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self._send_json(db)
         elif parsed.path == "/api/requests":
             log = load_request_log()
+            # Add download URLs for entries that have doc_filename
+            enriched_log = []
+            for entry in log:
+                e = dict(entry)
+                if e.get("doc_filename"):
+                    e["doc_download_url"] = f"/api/documents/{e['doc_filename']}"
+                enriched_log.append(e)
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             response = {
-                "total_requests": len(log),
-                "requests": log[-100:]  # Last 100 entries
+                "total_requests": len(enriched_log),
+                "requests": enriched_log[-100:]  # Last 100 entries
             }
             self.wfile.write(json.dumps(response, indent=2, default=str).encode())
+        elif parsed.path == "/dashboard":
+            dashboard_path = os.path.join(TEMPLATES_DIR, "dashboard.html")
+            if os.path.exists(dashboard_path):
+                with open(dashboard_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Dashboard page not found")
+        elif parsed.path == "/api/documents":
+            docs_dir = os.path.join(DATA_DIR, "generated_docs")
+            os.makedirs(docs_dir, exist_ok=True)
+            documents = []
+            for fname in sorted(os.listdir(docs_dir), reverse=True):
+                if fname.endswith(".zip"):
+                    fpath = os.path.join(docs_dir, fname)
+                    try:
+                        stat = os.stat(fpath)
+                        documents.append({
+                            "filename": fname,
+                            "size_bytes": stat.st_size,
+                            "created": datetime.datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                            "download_url": f"/api/documents/{fname}"
+                        })
+                    except OSError:
+                        continue
+            response = json.dumps({"total": len(documents), "documents": documents[:100]})
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(response.encode())
+        elif parsed.path.startswith("/api/documents/"):
+            fname = parsed.path.split("/")[-1]
+            # Security: sanitize filename to prevent path traversal
+            fname = re.sub(r'[^\w\.\-]', '', fname)
+            if not fname:
+                self.send_error(400, "Invalid filename")
+                return
+            doc_path = os.path.join(DATA_DIR, "generated_docs", fname)
+            if os.path.exists(doc_path) and os.path.isfile(doc_path):
+                try:
+                    with open(doc_path, "rb") as df:
+                        content = df.read()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/zip")
+                    self.send_header("Content-Disposition", f'attachment; filename="{fname}"')
+                    self.send_header("Content-Length", str(len(content)))
+                    self.end_headers()
+                    self.wfile.write(content)
+                except Exception as e:
+                    self.send_response(500)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": f"Failed to read document: {str(e)}"}).encode())
+            else:
+                self.send_response(404)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Document not found"}).encode())
         else:
             self.send_error(404)
 
@@ -3759,6 +3929,19 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
+            # Enrich data with live API data
+            enriched = {}
+            if enrich_data is not None:
+                try:
+                    enriched = enrich_data(data)
+                    data["_enriched"] = enriched
+                    print(f"API enrichment complete: {enriched.get('enrichment_summary', {})}", file=sys.stderr)
+                except Exception as e:
+                    print(f"API enrichment failed (non-fatal): {e}", file=sys.stderr)
+                    data["_enriched"] = {}
+            else:
+                data["_enriched"] = {}
+
             start_time = time.time()
             try:
                 excel_bytes = generate_excel(data)
@@ -3799,6 +3982,22 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     zf.writestr(f"{client_name}_McKinsey_Deck.pptx", pptx_bytes)
                 zip_bytes = zip_buffer.getvalue()
 
+                # Save a copy for the document repository
+                doc_filename = None
+                try:
+                    docs_dir = os.path.join(DATA_DIR, "generated_docs")
+                    os.makedirs(docs_dir, exist_ok=True)
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    client_slug = re.sub(r'[^\w\-]', '_', data.get("client_name") or "Client")
+                    doc_filename = f"{timestamp}_{client_slug}.zip"
+                    doc_path = os.path.join(docs_dir, doc_filename)
+                    with open(doc_path, "wb") as df:
+                        df.write(zip_bytes)
+                    print(f"Document saved: {doc_filename} ({len(zip_bytes)} bytes)", file=sys.stderr)
+                except Exception as doc_err:
+                    print(f"WARNING: Could not save document copy: {doc_err}", file=sys.stderr)
+                    doc_filename = None
+
                 self.send_response(200)
                 self.send_header("Content-Type", "application/zip")
                 self.send_header("Content-Disposition", f'attachment; filename="{client_name}_Media_Plan_Bundle.zip"')
@@ -3806,9 +4005,28 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(zip_bytes)
                 generation_time = time.time() - start_time
-                log_request(data, "success", file_size=len(zip_bytes), generation_time=generation_time)
+                log_request(data, "success", file_size=len(zip_bytes), generation_time=generation_time, doc_filename=doc_filename)
             else:
-                # Fallback to Excel only if PPT fails
+                # Fallback to Excel only if PPT fails — save Excel as doc copy
+                doc_filename = None
+                try:
+                    docs_dir = os.path.join(DATA_DIR, "generated_docs")
+                    os.makedirs(docs_dir, exist_ok=True)
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    client_slug = re.sub(r'[^\w\-]', '_', data.get("client_name") or "Client")
+                    # Wrap the Excel in a ZIP for consistent storage
+                    doc_zip_buffer = io.BytesIO()
+                    with zipfile.ZipFile(doc_zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+                        zf.writestr(f"{client_name}_Media_Plan.xlsx", excel_bytes)
+                    doc_filename = f"{timestamp}_{client_slug}.zip"
+                    doc_path = os.path.join(docs_dir, doc_filename)
+                    with open(doc_path, "wb") as df:
+                        df.write(doc_zip_buffer.getvalue())
+                    print(f"Document saved (Excel only): {doc_filename}", file=sys.stderr)
+                except Exception as doc_err:
+                    print(f"WARNING: Could not save document copy: {doc_err}", file=sys.stderr)
+                    doc_filename = None
+
                 self.send_response(200)
                 self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                 self.send_header("Content-Disposition", f'attachment; filename="{client_name}_Media_Plan.xlsx"')
@@ -3816,7 +4034,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(excel_bytes)
                 generation_time = time.time() - start_time
-                log_request(data, "success", file_size=len(excel_bytes), generation_time=generation_time)
+                log_request(data, "success", file_size=len(excel_bytes), generation_time=generation_time, doc_filename=doc_filename)
         else:
             self.send_error(404)
 

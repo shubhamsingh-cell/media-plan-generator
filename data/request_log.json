@@ -17,5 +17,36 @@
     "file_size_bytes": 68500,
     "generation_time_seconds": 0.6,
     "error_message": null
+  },
+  {
+    "id": "8982a712",
+    "timestamp": "2026-03-07T15:49:45.710292",
+    "requester_name": "Shubham Chandel",
+    "requester_email": "shubham@joveo.com",
+    "client_name": "Guidewire Software",
+    "industry": "technology",
+    "budget": "$50,000",
+    "roles": [
+      "Software Engineer",
+      "Product Manager",
+      "Data Scientist"
+    ],
+    "locations": [
+      "San Mateo, CA",
+      "London, UK",
+      "Sydney, AU"
+    ],
+    "work_environment": "hybrid",
+    "status": "success",
+    "file_size_bytes": 72514,
+    "generation_time_seconds": 0.5,
+    "error_message": null,
+    "doc_filename": "20260307_154945_Guidewire_Software.zip",
+    "enrichment_apis": [
+      "Wikipedia",
+      "Clearbit",
+      "CurrencyRates",
+      "WorldBank"
+    ]
   }
 ]
