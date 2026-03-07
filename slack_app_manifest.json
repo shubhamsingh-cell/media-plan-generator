@@ -27,7 +27,7 @@
   },
   "settings": {
     "event_subscriptions": {
-      "request_url": "https://YOUR_DOMAIN/api/slack/events",
+      "request_url": "https://media-plan-generator.onrender.com/api/slack/events",
       "bot_events": [
         "app_mention",
         "message.im"

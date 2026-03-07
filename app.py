@@ -6182,6 +6182,17 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.wfile.write(resp_body)
         elif parsed.path == "/api/slack/events":
             # ── Nova Slack Event Webhook ──
+            # FIX: Handle Slack retries — return 200 immediately to prevent duplicates
+            retry_num = self.headers.get("X-Slack-Retry-Num")
+            retry_reason = self.headers.get("X-Slack-Retry-Reason")
+            if retry_num:
+                logger.info("Slack retry #%s (reason: %s) — acknowledging without reprocessing", retry_num, retry_reason)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("X-Slack-No-Retry", "1")
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": True}).encode())
+                return
             try:
                 content_len = int(self.headers.get("Content-Length", 0))
             except (ValueError, TypeError):
@@ -6201,18 +6212,47 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
+
+            # FIX: Verify Slack request signature
             try:
-                from nova_slack import handle_slack_event
-                response = handle_slack_event(data)
-            except Exception as slack_err:
-                logger.error("Nova Slack event error: %s", slack_err, exc_info=True)
-                response = {"ok": False, "error": str(slack_err)}
-            resp_body = json.dumps(response).encode("utf-8")
+                from nova_slack import get_nova_bot
+                _nova_bot = get_nova_bot()
+                _slack_ts = self.headers.get("X-Slack-Request-Timestamp", "")
+                _slack_sig = self.headers.get("X-Slack-Signature", "")
+                if not _nova_bot.verify_slack_signature(_slack_ts, body.decode("utf-8") if isinstance(body, bytes) else body, _slack_sig):
+                    logger.warning("Slack signature verification failed")
+                    self.send_response(403)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Invalid signature"}).encode())
+                    return
+            except Exception as sig_err:
+                # Don't block events if signature verification module has issues
+                logger.warning("Slack signature check skipped: %s", sig_err)
+
+            # Respond to Slack immediately (within 3 seconds), process async
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(resp_body)))
+            self.send_header("X-Slack-No-Retry", "1")
             self.end_headers()
-            self.wfile.write(resp_body)
+
+            # Handle URL verification challenge synchronously (Slack requires immediate response)
+            if data.get("type") == "url_verification":
+                challenge_resp = json.dumps({"challenge": data.get("challenge", "")}).encode()
+                self.wfile.write(challenge_resp)
+                return
+
+            self.wfile.write(json.dumps({"ok": True}).encode())
+
+            # FIX: Process event asynchronously in background thread
+            import threading
+            def _process_slack_event_async(event_data):
+                try:
+                    from nova_slack import handle_slack_event
+                    handle_slack_event(event_data)
+                except Exception as slack_err:
+                    logger.error("Nova Slack async event error: %s", slack_err, exc_info=True)
+            threading.Thread(target=_process_slack_event_async, args=(data,), daemon=True).start()
         elif parsed.path == "/api/admin/nova":
             # ── Nova Admin API (unanswered questions management) ──
             if not self._check_admin_auth():
