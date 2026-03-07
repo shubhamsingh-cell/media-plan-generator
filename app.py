@@ -10,7 +10,10 @@ import re
 import zipfile
 import uuid
 import time
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    fcntl = None  # Windows compatibility: file locking handled below
 import urllib.request
 import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -252,6 +255,19 @@ def save_request_log(log):
     with open(REQUEST_LOG_FILE, "w") as f:
         json.dump(log, f, indent=2, default=str)
 
+def _cleanup_old_docs(docs_dir, max_files=200):
+    """Remove oldest generated docs if directory exceeds max_files."""
+    try:
+        files = sorted(
+            [f for f in os.listdir(docs_dir) if f.endswith('.zip')],
+            key=lambda f: os.path.getmtime(os.path.join(docs_dir, f))
+        )
+        while len(files) > max_files:
+            oldest = files.pop(0)
+            os.remove(os.path.join(docs_dir, oldest))
+    except OSError:
+        pass
+
 def log_request(data, status, file_size=0, generation_time=0, error_msg=None, doc_filename=None):
     """Append a log entry with file locking to prevent corruption from concurrent writes."""
     entry = {
@@ -276,12 +292,17 @@ def log_request(data, status, file_size=0, generation_time=0, error_msg=None, do
     os.makedirs(os.path.dirname(REQUEST_LOG_LOCK), exist_ok=True)
     lock_fd = open(REQUEST_LOG_LOCK, "w")
     try:
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        if fcntl:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
         log = load_request_log()
         log.append(entry)
+        # Keep only last 1000 entries to prevent unbounded growth
+        if len(log) > 1000:
+            log = log[-1000:]
         save_request_log(log)
     finally:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        if fcntl:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
         lock_fd.close()
     return entry
 
@@ -405,7 +426,7 @@ global_supply_data = {}
 try:
     with open(GLOBAL_SUPPLY_PATH, "r") as f:
         global_supply_data = json.load(f)
-except:
+except (FileNotFoundError, json.JSONDecodeError, OSError):
     pass
 
 def load_channels_db():
@@ -4665,9 +4686,50 @@ def generate_excel(data):
     return output.getvalue()
 
 
+ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
+
+# Simple in-memory rate limiter
+from collections import defaultdict
+_rate_limit_store = defaultdict(list)
+_RATE_LIMIT_WINDOW = 60   # seconds
+_RATE_LIMIT_MAX = 10       # requests per window per IP
+
 class MediaPlanHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {format % args}", file=sys.stderr)
+
+    def end_headers(self):
+        """Add security headers to all responses."""
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        super().end_headers()
+
+    def _check_admin_auth(self):
+        """Check for admin API key in query params or Authorization header."""
+        if not ADMIN_API_KEY:
+            return True  # No key configured = development mode
+        parsed = urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed.query)
+        key = params.get("key", [None])[0]
+        if not key:
+            auth = self.headers.get("Authorization", "")
+            if auth.startswith("Bearer "):
+                key = auth[7:]
+        return key == ADMIN_API_KEY
+
+    def _check_rate_limit(self):
+        """Simple per-IP rate limiting for generate endpoint."""
+        client_ip = self.client_address[0]
+        now = time.time()
+        _rate_limit_store[client_ip] = [
+            t for t in _rate_limit_store[client_ip]
+            if now - t < _RATE_LIMIT_WINDOW
+        ]
+        if len(_rate_limit_store[client_ip]) >= _RATE_LIMIT_MAX:
+            return False
+        _rate_limit_store[client_ip].append(now)
+        return True
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -4709,6 +4771,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             ]
             self._send_json(db)
         elif parsed.path == "/api/requests":
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
             log = load_request_log()
             # Add download URLs for entries that have doc_filename
             enriched_log = []
@@ -4726,6 +4791,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             }
             self.wfile.write(json.dumps(response, indent=2, default=str).encode())
         elif parsed.path == "/dashboard":
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized - set ADMIN_API_KEY env var and pass ?key=...")
+                return
             dashboard_path = os.path.join(TEMPLATES_DIR, "dashboard.html")
             if os.path.exists(dashboard_path):
                 with open(dashboard_path, "r") as f:
@@ -4737,6 +4805,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             else:
                 self.send_error(404, "Dashboard page not found")
         elif parsed.path == "/api/documents":
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
             docs_dir = os.path.join(DATA_DIR, "generated_docs")
             os.makedirs(docs_dir, exist_ok=True)
             documents = []
@@ -4762,10 +4833,16 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             fname = parsed.path.split("/")[-1]
             # Security: sanitize filename to prevent path traversal
             fname = re.sub(r'[^\w\.\-]', '', fname)
-            if not fname:
+            if not fname or '..' in fname:
                 self.send_error(400, "Invalid filename")
                 return
             doc_path = os.path.join(DATA_DIR, "generated_docs", fname)
+            # Verify the resolved path is within the docs directory
+            docs_dir = os.path.realpath(os.path.join(DATA_DIR, "generated_docs"))
+            real_path = os.path.realpath(doc_path)
+            if not real_path.startswith(docs_dir):
+                self.send_error(403, "Access denied")
+                return
             if os.path.exists(doc_path) and os.path.isfile(doc_path):
                 try:
                     with open(doc_path, "rb") as df:
@@ -4780,7 +4857,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     self.send_response(500)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
-                    self.wfile.write(json.dumps({"error": f"Failed to read document: {str(e)}"}).encode())
+                    print(f"Document read error: {e}", file=sys.stderr)
+                    self.wfile.write(json.dumps({"error": "Failed to read document"}).encode())
             else:
                 self.send_response(404)
                 self.send_header("Content-Type", "application/json")
@@ -4792,6 +4870,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
         if parsed.path == "/api/generate":
+            if not self._check_rate_limit():
+                self.send_response(429)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Rate limit exceeded. Please try again in a minute."}).encode())
+                return
             try:
                 content_len = int(self.headers.get("Content-Length", 0))
             except (ValueError, TypeError):
@@ -4978,6 +5062,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     with open(doc_path, "wb") as df:
                         df.write(zip_bytes)
                     print(f"Document saved: {doc_filename} ({len(zip_bytes)} bytes)", file=sys.stderr)
+                    _cleanup_old_docs(docs_dir)
                 except Exception as doc_err:
                     print(f"WARNING: Could not save document copy: {doc_err}", file=sys.stderr)
                     doc_filename = None
