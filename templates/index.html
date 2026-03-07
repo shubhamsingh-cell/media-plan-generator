@@ -12,9 +12,9 @@
             --blue-medium: #004082;
             --blue-light: #D1E8FF;
             --blue-pale: #A8D4FF;
-            --gold: #E8A33D;
-            --gold-light: #F5C77D;
-            --gold-pale: #FCE3BD;
+            --gold: #7C3AED;
+            --gold-light: #A78BFA;
+            --gold-pale: #EDE9FE;
             --off-white: #F2F2F0;
             --warm-white: #FCFAF5;
             --warm-gray: #EBE6E0;
@@ -25,9 +25,9 @@
             --primary-dark: #08294A;
             --primary-light: #A8D4FF;
             --accent: #45702E;
-            --accent-warm: #E8A33D;
+            --accent-warm: #7C3AED;
             --success: #45702E;
-            --warning: #E8A33D;
+            --warning: #7C3AED;
             --bg: #FCFAF5;
             --bg-dark: #08294A;
             --card: rgba(255,255,255,0.92);
@@ -46,9 +46,9 @@
             --radius-sm: 10px;
             --radius-xs: 6px;
             --gradient-primary: linear-gradient(135deg, #08294A 0%, #0A66C9 50%, #A8D4FF 100%);
-            --gradient-gold: linear-gradient(135deg, #E8A33D 0%, #F5C77D 50%, #FCE3BD 100%);
+            --gradient-gold: linear-gradient(135deg, #7C3AED 0%, #A78BFA 50%, #EDE9FE 100%);
             --gradient-mesh: radial-gradient(at 27% 37%, rgba(10,102,201,0.08) 0px, transparent 50%),
-                             radial-gradient(at 97% 21%, rgba(232,163,61,0.06) 0px, transparent 50%),
+                             radial-gradient(at 97% 21%, rgba(124,58,237,0.06) 0px, transparent 50%),
                              radial-gradient(at 52% 99%, rgba(8,41,74,0.05) 0px, transparent 50%),
                              radial-gradient(at 10% 29%, rgba(10,102,201,0.04) 0px, transparent 50%);
         }
@@ -101,7 +101,7 @@
             left: 0;
             right: 0;
             height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(10,102,201,0.4), rgba(232,163,61,0.4), transparent);
+            background: linear-gradient(90deg, transparent, rgba(10,102,201,0.4), rgba(124,58,237,0.4), transparent);
         }
 
         .header-orb {
@@ -124,7 +124,7 @@
         .header-orb-2 {
             width: 250px;
             height: 250px;
-            background: rgba(232, 163, 61, 0.25);
+            background: rgba(124, 58, 237, 0.25);
             top: -80px;
             right: 15%;
             animation: orbFloat2 10s ease-in-out infinite;
@@ -142,7 +142,7 @@
         .header-orb-4 {
             width: 350px;
             height: 350px;
-            background: rgba(245, 199, 125, 0.15);
+            background: rgba(167, 139, 250, 0.15);
             top: -150px;
             right: 40%;
             animation: orbFloat4 14s ease-in-out infinite;
@@ -258,7 +258,6 @@
             gap: 10px;
             position: relative;
             z-index: 1;
-            cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
@@ -282,7 +281,7 @@
             border-color: var(--gold);
             color: var(--navy);
             background: var(--gold-pale);
-            box-shadow: 0 0 0 4px rgba(232,163,61,0.15), 0 0 20px rgba(232,163,61,0.1);
+            box-shadow: 0 0 0 4px rgba(124,58,237,0.15), 0 0 20px rgba(124,58,237,0.1);
             font-weight: 800;
         }
 
@@ -549,7 +548,7 @@
         }
 
         .toggle-group:hover {
-            border-color: rgba(232,163,61,0.2);
+            border-color: rgba(124,58,237,0.2);
             background: rgba(255,255,255,0.8);
         }
 
@@ -676,29 +675,18 @@
         }
 
         .btn-success {
-            background: linear-gradient(135deg, var(--gold) 0%, #D4922F 50%, var(--gold) 100%);
+            background: linear-gradient(135deg, var(--gold) 0%, #6D28D9 50%, var(--gold) 100%);
             color: white;
             font-size: 16px;
             padding: 18px 44px;
-            box-shadow: 0 4px 16px rgba(232,163,61,0.35);
+            box-shadow: 0 4px 16px rgba(124,58,237,0.35);
             border-radius: var(--radius-sm);
             text-shadow: 0 1px 2px rgba(0,0,0,0.15);
         }
 
-        .btn-success::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 50%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            transition: none;
-        }
-
         .btn-success:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 28px rgba(232,163,61,0.45);
+            box-shadow: 0 8px 28px rgba(124,58,237,0.45);
             filter: brightness(1.08);
         }
 
@@ -711,7 +699,7 @@
         }
 
         .btn-success.ready-pulse:not(:disabled) {
-            animation: goldGlowPulse 2s ease-in-out infinite;
+            animation: purpleGlowPulse 2s ease-in-out infinite;
         }
 
         .btn:disabled {
@@ -756,7 +744,7 @@
         .industry-card:hover {
             transform: translateY(-4px) scale(1.02);
             box-shadow: var(--shadow-lg);
-            border-color: rgba(232,163,61,0.3);
+            border-color: rgba(124,58,237,0.3);
         }
 
         .industry-card:hover::before {
@@ -827,14 +815,14 @@
         }
 
         .job-cat-card:hover {
-            border-color: rgba(232,163,61,0.3);
+            border-color: rgba(124,58,237,0.3);
             transform: translateY(-2px);
             box-shadow: var(--shadow-md);
         }
 
         .job-cat-card.selected {
             border-color: var(--gold);
-            background: linear-gradient(135deg, rgba(252,227,189,0.2) 0%, rgba(245,199,125,0.1) 100%);
+            background: linear-gradient(135deg, rgba(237,233,254,0.2) 0%, rgba(167,139,250,0.1) 100%);
             box-shadow: 0 0 0 2px var(--gold), var(--shadow-sm);
         }
 
@@ -862,7 +850,7 @@
             width: 18px;
             height: 18px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--gold), #D4922F);
+            background: linear-gradient(135deg, var(--gold), #6D28D9);
             color: white;
             font-size: 10px;
             display: none;
@@ -886,7 +874,7 @@
             backdrop-filter: blur(20px) saturate(180%);
             -webkit-backdrop-filter: blur(20px) saturate(180%);
             border-radius: var(--radius);
-            border: 1px solid rgba(232,163,61,0.15);
+            border: 1px solid rgba(124,58,237,0.15);
             border-left: 4px solid var(--gold);
             animation: fadeInUp 0.35s ease;
             box-shadow: var(--shadow-md);
@@ -903,7 +891,7 @@
         }
 
         .job-category-insight .insight-header .insight-badge {
-            background: linear-gradient(135deg, var(--gold), #D4922F);
+            background: linear-gradient(135deg, var(--gold), #6D28D9);
             color: white;
             font-size: 9px;
             padding: 3px 10px;
@@ -1102,12 +1090,12 @@
             content: '';
             flex: 1;
             height: 2px;
-            background: linear-gradient(90deg, var(--gold), rgba(232,163,61,0.1));
+            background: linear-gradient(90deg, var(--gold), rgba(124,58,237,0.1));
             border-radius: 1px;
         }
 
         .section-divider::after {
-            background: linear-gradient(90deg, rgba(232,163,61,0.1), var(--gold));
+            background: linear-gradient(90deg, rgba(124,58,237,0.1), var(--gold));
         }
 
         /* ============================================
@@ -1138,8 +1126,8 @@
         }
 
         .checkbox-group label:hover {
-            border-color: rgba(232,163,61,0.3);
-            background: rgba(252,227,189,0.15);
+            border-color: rgba(124,58,237,0.3);
+            background: rgba(237,233,254,0.15);
         }
 
         .checkbox-group input[type="checkbox"] {
@@ -1152,7 +1140,7 @@
         .checkbox-group input[type="checkbox"]:checked + span,
         .checkbox-group label:has(input:checked) {
             border-color: var(--gold);
-            background: rgba(252,227,189,0.2);
+            background: rgba(237,233,254,0.2);
             color: var(--navy);
             border-left: 3px solid var(--gold);
         }
@@ -1219,9 +1207,9 @@
             50% { box-shadow: 0 4px 30px rgba(10,102,201,0.5), 0 0 40px rgba(10,102,201,0.2); }
         }
 
-        @keyframes goldGlowPulse {
-            0%, 100% { box-shadow: 0 4px 16px rgba(232,163,61,0.35); }
-            50% { box-shadow: 0 4px 30px rgba(232,163,61,0.55), 0 0 40px rgba(232,163,61,0.2); }
+        @keyframes purpleGlowPulse {
+            0%, 100% { box-shadow: 0 4px 16px rgba(124,58,237,0.35); }
+            50% { box-shadow: 0 4px 30px rgba(124,58,237,0.55), 0 0 40px rgba(124,58,237,0.2); }
         }
 
         @keyframes toastSlideIn {
@@ -1268,7 +1256,7 @@
             left: 0;
             width: 100%;
             height: 3px;
-            background: rgba(232,163,61,0.1);
+            background: rgba(124,58,237,0.1);
             z-index: 9999;
         }
 
@@ -1482,9 +1470,9 @@
         }
 
         .gen-step.gen-active .gen-step-icon {
-            background: linear-gradient(135deg, var(--gold), #D4922F);
+            background: linear-gradient(135deg, var(--gold), #6D28D9);
             color: white;
-            box-shadow: 0 2px 8px rgba(232,163,61,0.4);
+            box-shadow: 0 2px 8px rgba(124,58,237,0.4);
         }
 
         .gen-step.gen-complete .gen-step-icon {
@@ -1687,7 +1675,7 @@
             left: -2px;
             right: -2px;
             bottom: -2px;
-            background: linear-gradient(45deg, transparent, rgba(10,102,201,0.1), transparent, rgba(232,163,61,0.08), transparent);
+            background: linear-gradient(45deg, transparent, rgba(10,102,201,0.1), transparent, rgba(124,58,237,0.08), transparent);
             background-size: 400% 400%;
             animation: gradientShift 8s ease infinite;
             z-index: -1;
@@ -1726,8 +1714,8 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: rgba(232, 163, 61, 0.2);
-            border: 1px solid rgba(232, 163, 61, 0.4);
+            background: rgba(124, 58, 237, 0.2);
+            border: 1px solid rgba(124, 58, 237, 0.4);
             padding: 3px 10px;
             border-radius: 20px;
             font-size: 10px;
@@ -1746,17 +1734,17 @@
             border-radius: 50%;
             background: var(--gold-light);
             animation: aiPulse 2s ease-in-out infinite;
-            box-shadow: 0 0 8px rgba(245,199,125,0.6);
+            box-shadow: 0 0 8px rgba(167,139,250,0.6);
         }
 
         @keyframes aiPulse {
-            0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(245,199,125,0.6); }
-            50% { opacity: 0.5; box-shadow: 0 0 16px rgba(245,199,125,0.8); }
+            0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(167,139,250,0.6); }
+            50% { opacity: 0.5; box-shadow: 0 0 16px rgba(167,139,250,0.8); }
         }
 
         @keyframes aiGlow {
-            0%, 100% { border-color: rgba(232, 163, 61, 0.4); }
-            50% { border-color: rgba(245, 199, 125, 0.6); }
+            0%, 100% { border-color: rgba(124, 58, 237, 0.4); }
+            50% { border-color: rgba(167, 139, 250, 0.6); }
         }
 
         /* Enhanced step transitions with counter animation */
@@ -1917,7 +1905,7 @@
         }
 
         .channel-category-card:hover {
-            border-color: rgba(232,163,61,0.25);
+            border-color: rgba(124,58,237,0.25);
             box-shadow: var(--shadow-sm);
             border-left: 3px solid var(--gold);
         }
@@ -1943,7 +1931,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(252,227,189,0.3);
+            background: rgba(237,233,254,0.3);
             border-radius: 12px;
             flex-shrink: 0;
         }
@@ -2045,7 +2033,7 @@
         }
         .review-section:hover {
             border-left-color: var(--gold);
-            box-shadow: 0 4px 20px rgba(232,163,61,0.1);
+            box-shadow: 0 4px 20px rgba(124,58,237,0.1);
         }
         .review-section h3 {
             display: flex;
@@ -2105,7 +2093,7 @@
         .li-section-divider .section-line {
             flex: 1;
             height: 2px;
-            background: linear-gradient(90deg, var(--gold), rgba(232,163,61,0.05));
+            background: linear-gradient(90deg, var(--gold), rgba(124,58,237,0.05));
             border-radius: 1px;
         }
 
@@ -2139,7 +2127,7 @@
             right: 0;
             width: 200px;
             height: 200px;
-            background: radial-gradient(circle, rgba(232,163,61,0.15) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%);
             pointer-events: none;
         }
 
@@ -2160,7 +2148,7 @@
             color: var(--gold);
             line-height: 1;
             margin-bottom: 8px;
-            text-shadow: 0 2px 10px rgba(232,163,61,0.3);
+            text-shadow: 0 2px 10px rgba(124,58,237,0.3);
             position: relative;
             z-index: 1;
         }
@@ -2215,7 +2203,7 @@
         }
 
         .hero-file-icon.ppt {
-            background: rgba(232,163,61,0.3);
+            background: rgba(124,58,237,0.3);
         }
 
         .hero-file-info {
@@ -2253,7 +2241,7 @@
         }
 
         .channel-category-card:has(input:checked) .category-icon {
-            background: rgba(232,163,61,0.15);
+            background: rgba(124,58,237,0.15);
         }
 
         .channel-category-card:has(input:checked) h3 {
@@ -2337,6 +2325,14 @@
             .hero-stat-label { font-size: 15px; }
         }
 
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -2389,6 +2385,25 @@
             <div class="card">
                 <h2>Client Information</h2>
                 <p class="subtitle">Enter the basic details about your client and campaign</p>
+
+                <div class="form-section" style="margin-bottom: 24px; padding: 20px; background: rgba(124,58,237,0.04); border-radius: 12px; border: 1px solid rgba(124,58,237,0.1);">
+                    <div class="section-label" style="margin-bottom: 16px; font-weight: 700; color: var(--navy);">
+                        <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: var(--gold); color: white; border-radius: 50%; font-size: 12px; margin-right: 8px;">&#128100;</span>
+                        Your Information
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label>Your Name *</label>
+                            <input type="text" id="requesterName" placeholder="e.g., John Smith" required>
+                            <div class="field-error-msg" id="requesterName-error"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Your Email *</label>
+                            <input type="email" id="requesterEmail" placeholder="e.g., john@company.com" required>
+                            <div class="field-error-msg" id="requesterEmail-error"></div>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="form-group">
                     <label>Client Name *</label>
@@ -2902,6 +2917,15 @@
                 <h2>Review & Export</h2>
                 <p class="subtitle">Review your media plan configuration before generating the Excel file</p>
 
+                <div class="review-section" style="background: rgba(124,58,237,0.04); border: 1px solid rgba(124,58,237,0.1);">
+                    <div class="review-section-header">
+                        <h3>Requested By</h3>
+                        <a class="review-edit-btn" onclick="goToStep(1)">Edit</a>
+                    </div>
+                    <div class="review-item"><span class="label">Name</span><span class="value" id="reviewRequesterName"></span></div>
+                    <div class="review-item"><span class="label">Email</span><span class="value" id="reviewRequesterEmail"></span></div>
+                </div>
+
                 <div class="review-section">
                     <div class="review-section-header">
                         <h3>Client Details</h3>
@@ -2948,7 +2972,7 @@
                 </div>
             </div>
 
-            <div class="plan-preview" style="background: linear-gradient(135deg, rgba(252,227,189,0.15), rgba(209,232,255,0.15)); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; margin-bottom: 24px;">
+            <div class="plan-preview" style="background: linear-gradient(135deg, rgba(237,233,254,0.15), rgba(209,232,255,0.15)); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; margin-bottom: 24px;">
                 <h4 style="font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 12px;">&#128203; Your Plan Will Include</h4>
                 <div id="planPreviewContent" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
                     <!-- Populated by JS -->
@@ -2981,7 +3005,7 @@
                             </div>
                         </div>
                     </div>
-                    <button class="btn" onclick="generatePlan()" style="background:linear-gradient(135deg,var(--gold),#D4922F);color:white;padding:14px 36px;font-size:15px;box-shadow:0 4px 16px rgba(232,163,61,0.4);text-shadow:0 1px 2px rgba(0,0,0,0.15);">
+                    <button class="btn" onclick="redownloadBundle()" style="background:linear-gradient(135deg,var(--gold),#6D28D9);color:white;padding:14px 36px;font-size:15px;box-shadow:0 4px 16px rgba(124,58,237,0.4);text-shadow:0 1px 2px rgba(0,0,0,0.15);">
                         &#128229; Download Bundle Again
                     </button>
                 </div>
@@ -3052,6 +3076,8 @@
         let locations = [];
         let roles = [];
         let competitors = [];
+        let lastGeneratedBlob = null;
+        let lastGeneratedFilename = null;
 
         // ============================================
         // 22. Toast notification system
@@ -3068,11 +3094,22 @@
                 info: '&#8505;'
             };
 
-            toast.innerHTML = `
-                <span class="toast-icon">${icons[type] || icons.info}</span>
-                <span class="toast-message">${message}</span>
-                <span class="toast-close" onclick="this.parentElement.classList.add('toast-exiting'); setTimeout(() => this.parentElement.remove(), 300)">&times;</span>
-            `;
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'toast-icon';
+            iconSpan.innerHTML = icons[type] || icons.info;
+            const msgSpan = document.createElement('span');
+            msgSpan.className = 'toast-message';
+            msgSpan.textContent = message;
+            const closeSpan = document.createElement('span');
+            closeSpan.className = 'toast-close';
+            closeSpan.textContent = '\u00d7';
+            closeSpan.onclick = function() {
+                toast.classList.add('toast-exiting');
+                setTimeout(() => toast.remove(), 300);
+            };
+            toast.appendChild(iconSpan);
+            toast.appendChild(msgSpan);
+            toast.appendChild(closeSpan);
 
             container.appendChild(toast);
 
@@ -3220,7 +3257,7 @@
 
         // Wire validation to blur events for required fields
         document.addEventListener('DOMContentLoaded', function() {
-            const requiredFields = ['clientName'];
+            const requiredFields = ['requesterName', 'requesterEmail', 'clientName'];
             requiredFields.forEach(fieldId => {
                 const field = document.getElementById(fieldId);
                 if (field) {
@@ -3250,10 +3287,14 @@
 
         // Load channels database
         fetch('/api/channels')
-            .then(r => r.json())
+            .then(r => { if (!r.ok) throw new Error('Failed to load'); return r.json(); })
             .then(data => {
                 channelsDB = data;
                 populateChannels();
+            })
+            .catch(err => {
+                console.error('Failed to load channels:', err);
+                showToast('Failed to load channel data. Please refresh.', 'error');
             });
 
         // Tags input for locations
@@ -3298,10 +3339,18 @@
             const container = document.getElementById(containerId);
             const input = document.getElementById(inputId);
             container.innerHTML = '';
+            const arrRef = containerId === 'locationsContainer' ? 'locations' : containerId === 'competitorsContainer' ? 'competitors' : 'roles';
             arr.forEach((val, i) => {
                 const tag = document.createElement('span');
                 tag.className = 'tag';
-                tag.innerHTML = `${val}<span class="remove" onclick="removeTag('${containerId}','${inputId}',${containerId === 'locationsContainer' ? 'locations' : containerId === 'competitorsContainer' ? 'competitors' : 'roles'},${i})">&times;</span>`;
+                const textSpan = document.createElement('span');
+                textSpan.textContent = val;
+                const removeSpan = document.createElement('span');
+                removeSpan.className = 'remove';
+                removeSpan.textContent = '\u00d7';
+                removeSpan.onclick = function() { removeTag(containerId, inputId, window[arrRef], i); };
+                tag.appendChild(textSpan);
+                tag.appendChild(removeSpan);
                 container.appendChild(tag);
             });
             container.appendChild(input);
@@ -3502,6 +3551,18 @@
         // 23. Step transition animations - enhanced nextStep
         function nextStep() {
             if (currentStep === 1) {
+                const reqName = document.getElementById('requesterName').value.trim();
+                const reqEmail = document.getElementById('requesterEmail').value.trim();
+                if (!reqName) {
+                    showToast('Please enter your name', 'error');
+                    validateField('requesterName');
+                    return;
+                }
+                if (!reqEmail || !reqEmail.includes('@')) {
+                    showToast('Please enter a valid email address', 'error');
+                    validateField('requesterEmail');
+                    return;
+                }
                 if (!document.getElementById('clientName').value.trim()) {
                     showToast('Please enter a client name', 'error');
                     validateField('clientName');
@@ -3613,45 +3674,106 @@
 
         // 29. Updated populateReview with new fields
         function populateReview() {
+            document.getElementById('reviewRequesterName').textContent = document.getElementById('requesterName').value.trim() || 'Not specified';
+            document.getElementById('reviewRequesterEmail').textContent = document.getElementById('requesterEmail').value.trim() || 'Not specified';
             document.getElementById('reviewClient').textContent = document.getElementById('clientName').value;
             document.getElementById('reviewUseCase').textContent = document.getElementById('useCase').value || 'Not specified';
             document.getElementById('reviewBudget').textContent = document.getElementById('budgetRange').value || 'Not specified';
             document.getElementById('reviewDuration').textContent = document.getElementById('campaignDuration').value || 'Not specified';
-            document.getElementById('reviewLocations').innerHTML = locations.map(l => `<span class="chip">${l}</span>`).join(' ');
+            const reviewLocationsEl = document.getElementById('reviewLocations');
+            reviewLocationsEl.innerHTML = '';
+            locations.forEach(l => {
+                const chip = document.createElement('span');
+                chip.className = 'chip';
+                chip.textContent = l;
+                reviewLocationsEl.appendChild(chip);
+            });
 
             // New fields
             const campaignGoals = getCheckboxGroupValues('campaignGoals');
-            document.getElementById('reviewGoals').innerHTML = campaignGoals.length > 0
-                ? campaignGoals.map(g => `<span class="chip">${g}</span>`).join(' ')
-                : 'Not specified';
+            const reviewGoalsEl = document.getElementById('reviewGoals');
+            reviewGoalsEl.innerHTML = '';
+            if (campaignGoals.length > 0) {
+                campaignGoals.forEach(g => {
+                    const chip = document.createElement('span');
+                    chip.className = 'chip';
+                    chip.textContent = g;
+                    reviewGoalsEl.appendChild(chip);
+                });
+            } else {
+                reviewGoalsEl.textContent = 'Not specified';
+            }
 
             document.getElementById('reviewHireVolume').textContent = document.getElementById('hireVolume').value || 'Not specified';
 
             const workEnv = getCheckboxGroupValues('workEnvironment');
-            document.getElementById('reviewWorkEnv').innerHTML = workEnv.length > 0
-                ? workEnv.map(w => `<span class="chip">${w}</span>`).join(' ')
-                : 'Not specified';
+            const reviewWorkEnvEl = document.getElementById('reviewWorkEnv');
+            reviewWorkEnvEl.innerHTML = '';
+            if (workEnv.length > 0) {
+                workEnv.forEach(w => {
+                    const chip = document.createElement('span');
+                    chip.className = 'chip';
+                    chip.textContent = w;
+                    reviewWorkEnvEl.appendChild(chip);
+                });
+            } else {
+                reviewWorkEnvEl.textContent = 'Not specified';
+            }
 
             document.getElementById('reviewWebsite').textContent = document.getElementById('clientWebsite').value || 'Not specified';
 
-            document.getElementById('reviewCompetitors').innerHTML = competitors.length > 0
-                ? competitors.map(c => `<span class="chip">${c}</span>`).join(' ')
-                : 'Not specified';
+            const reviewCompetitorsEl = document.getElementById('reviewCompetitors');
+            reviewCompetitorsEl.innerHTML = '';
+            if (competitors.length > 0) {
+                competitors.forEach(c => {
+                    const chip = document.createElement('span');
+                    chip.className = 'chip';
+                    chip.textContent = c;
+                    reviewCompetitorsEl.appendChild(chip);
+                });
+            } else {
+                reviewCompetitorsEl.textContent = 'Not specified';
+            }
 
             const expLevel = getCheckboxGroupValues('experienceLevel');
-            document.getElementById('reviewExpLevel').innerHTML = expLevel.length > 0
-                ? expLevel.map(e => `<span class="chip">${e}</span>`).join(' ')
-                : 'Not specified';
+            const reviewExpLevelEl = document.getElementById('reviewExpLevel');
+            reviewExpLevelEl.innerHTML = '';
+            if (expLevel.length > 0) {
+                expLevel.forEach(e => {
+                    const chip = document.createElement('span');
+                    chip.className = 'chip';
+                    chip.textContent = e;
+                    reviewExpLevelEl.appendChild(chip);
+                });
+            } else {
+                reviewExpLevelEl.textContent = 'Not specified';
+            }
 
             const industryLabel = channelsDB?.industries[selectedIndustry]?.label || selectedIndustry;
             document.getElementById('reviewIndustry').textContent = industryLabel;
 
             // Job Categories
             const jobCatLabels = selectedJobCategories.map(k => channelsDB?.job_categories?.[k]?.label || k);
-            document.getElementById('reviewJobCategories').innerHTML = jobCatLabels.length > 0
-                ? jobCatLabels.map(c => `<span class="chip">${c}</span>`).join(' ')
-                : 'Not specified';
-            document.getElementById('reviewRoles').innerHTML = roles.map(r => `<span class="chip">${r}</span>`).join(' ');
+            const reviewJobCatsEl = document.getElementById('reviewJobCategories');
+            reviewJobCatsEl.innerHTML = '';
+            if (jobCatLabels.length > 0) {
+                jobCatLabels.forEach(c => {
+                    const chip = document.createElement('span');
+                    chip.className = 'chip';
+                    chip.textContent = c;
+                    reviewJobCatsEl.appendChild(chip);
+                });
+            } else {
+                reviewJobCatsEl.textContent = 'Not specified';
+            }
+            const reviewRolesEl = document.getElementById('reviewRoles');
+            reviewRolesEl.innerHTML = '';
+            roles.forEach(r => {
+                const chip = document.createElement('span');
+                chip.className = 'chip';
+                chip.textContent = r;
+                reviewRolesEl.appendChild(chip);
+            });
             document.getElementById('reviewDemographic').textContent = document.getElementById('targetDemographic').value || 'Not specified';
 
             const channelCategoryMap = {
@@ -3669,9 +3791,18 @@
                 const el = document.getElementById(id);
                 if (el && el.checked) selectedCategories.push(label);
             }
-            document.getElementById('reviewChannelCategories').innerHTML = selectedCategories.length > 0
-                ? selectedCategories.map(c => `<span class="chip">${c}</span>`).join(' ')
-                : 'No channel categories selected';
+            const reviewChCatsEl = document.getElementById('reviewChannelCategories');
+            reviewChCatsEl.innerHTML = '';
+            if (selectedCategories.length > 0) {
+                selectedCategories.forEach(c => {
+                    const chip = document.createElement('span');
+                    chip.className = 'chip';
+                    chip.textContent = c;
+                    reviewChCatsEl.appendChild(chip);
+                });
+            } else {
+                reviewChCatsEl.textContent = 'No channel categories selected';
+            }
 
             const sections = [];
             sections.push('Overview', 'Market Trends', 'Competitor Analysis', 'Channel Strategy', 'Traditional Channels', 'Non-Traditional Channels');
@@ -3684,7 +3815,14 @@
             if (document.getElementById('includeGlobalSupply').checked) sections.push('Global Supply Strategy');
             if (document.getElementById('includeBudgetGuide').checked) sections.push('Budget & Pricing Guide');
 
-            document.getElementById('reviewSections').innerHTML = sections.map(s => `<span class="chip">${s}</span>`).join(' ');
+            const reviewSectionsEl = document.getElementById('reviewSections');
+            reviewSectionsEl.innerHTML = '';
+            sections.forEach(s => {
+                const chip = document.createElement('span');
+                chip.className = 'chip';
+                chip.textContent = s;
+                reviewSectionsEl.appendChild(chip);
+            });
 
             // Populate plan preview
             const previewEl = document.getElementById('planPreviewContent');
@@ -3742,6 +3880,8 @@
 
             // 28. Updated payload with new fields
             const payload = {
+                requester_name: document.getElementById('requesterName').value.trim(),
+                requester_email: document.getElementById('requesterEmail').value.trim(),
                 client_name: document.getElementById('clientName').value,
                 client_website: document.getElementById('clientWebsite').value,
                 use_case: document.getElementById('useCase').value,
@@ -3792,16 +3932,22 @@
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    const safeName = payload.client_name.replace(/\s+/g, '_');
+                    const safeName = payload.client_name.replace(/[^\w\-]/g, '_');
+                    let filename;
                     if (contentType.includes('zip')) {
-                        a.download = `${safeName}_Media_Plan_Bundle.zip`;
+                        filename = `${safeName}_Media_Plan_Bundle.zip`;
                     } else {
-                        a.download = `${safeName}_Media_Plan.xlsx`;
+                        filename = `${safeName}_Media_Plan.xlsx`;
                     }
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
                     URL.revokeObjectURL(url);
+
+                    // Cache blob for re-download
+                    lastGeneratedBlob = blob;
+                    lastGeneratedFilename = filename;
 
                     // Hide overlay with success
                     hideGenerationOverlay(true);
@@ -3834,7 +3980,8 @@
                         btn.style.background = '';
                     }, 3000);
                 } else {
-                    throw new Error('Generation failed');
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.error || 'Generation failed');
                 }
             } catch (err) {
                 hideGenerationOverlay(false);
@@ -3844,6 +3991,23 @@
                 btn.innerHTML = '<span style="display:flex;align-items:center;justify-content:center;gap:8px;"><span>&#128640;</span><span>Generate Media Plan</span><span style="font-size:11px;opacity:0.8;margin-left:4px;">(Excel + PPT)</span></span>';
             }
         }
+        // Re-download cached bundle without regenerating
+        function redownloadBundle() {
+            if (lastGeneratedBlob && lastGeneratedFilename) {
+                const url = URL.createObjectURL(lastGeneratedBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = lastGeneratedFilename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                showToast('Bundle re-downloaded successfully!', 'success');
+            } else {
+                generatePlan();
+            }
+        }
+
         // ============================================
         // Industry search/filter
         // ============================================
@@ -3869,7 +4033,9 @@
         function createHeaderParticles() {
             const header = document.querySelector('.app-header');
             if (!header) return;
-            setInterval(() => {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            const interval = setInterval(() => {
+                if (document.hidden) return; // Don't create particles when tab is hidden
                 const particle = document.createElement('div');
                 particle.className = 'header-particle';
                 particle.style.left = Math.random() * 100 + '%';

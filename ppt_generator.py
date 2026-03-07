@@ -4,12 +4,13 @@ Premium LinkedIn-inspired PowerPoint generator for AI Media Planner.
 
 Generates a polished, data-driven 6-slide .pptx presentation using python-pptx.
 Incorporates LinkedIn Hiring Value Review visual patterns: section dividers,
-hero stats, gold accents, quality outcomes grids, channel attribution diagrams,
+hero stats, purple accents, quality outcomes grids, channel attribution diagrams,
 and side-by-side comparison panels.
 """
 
 import io
 import math
+import re
 import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -31,9 +32,9 @@ LIGHT_BLUE = RGBColor(0xD1, 0xE8, 0xFF)    # Light background
 PALE_BLUE = RGBColor(0xA8, 0xD4, 0xFF)     # Lighter accent fills
 SKY_BLUE = RGBColor(0x70, 0xB5, 0xFA)      # Chart elements
 
-GOLD = RGBColor(0xE8, 0xA3, 0x3D)          # Highlight accent
-LIGHT_GOLD = RGBColor(0xF5, 0xC7, 0x7D)    # Secondary warm
-PALE_GOLD = RGBColor(0xFC, 0xE3, 0xBD)     # Subtle warm background
+GOLD = RGBColor(0x7C, 0x3A, 0xED)          # Highlight accent (purple)
+LIGHT_GOLD = RGBColor(0xA7, 0x8B, 0xFA)    # Secondary violet
+PALE_GOLD = RGBColor(0xED, 0xE9, 0xFE)     # Subtle violet background
 
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 OFF_WHITE = RGBColor(0xF2, 0xF2, 0xF0)     # Content background
@@ -437,7 +438,6 @@ def _goal_labels(data: Dict) -> List[str]:
 
 def _parse_budget_number(budget_str: str) -> Optional[float]:
     """Try to extract a numeric budget value from a string like '$75,000 / month'."""
-    import re
     clean = budget_str.replace(",", "").replace("$", "").strip()
     match = re.search(r"([\d.]+)\s*[kK]", clean)
     if match:
@@ -517,10 +517,10 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     # Full dark navy background
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, NAVY)
 
-    # Gold accent bar at top
+    # Purple accent bar at top
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, Inches(0.06), GOLD)
 
-    # Decorative gold accent shapes - left side
+    # Decorative purple accent shapes - left side
     _add_filled_rect(slide, Inches(0.6), Inches(1.8), Inches(1.2), Inches(0.05), GOLD)
 
     # "AI MEDIA PLANNER" small label top-left
@@ -548,7 +548,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
             text=industry_label, font_size=20, bold=False, color=LIGHT_BLUE,
         )
 
-    # Gold accent line under title area
+    # Purple accent line under title area
     _add_filled_rect(slide, Inches(0.6), Inches(5.0), Inches(3.0), Inches(0.05), GOLD)
 
     # Date and branding at bottom
@@ -576,7 +576,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     circle.fill.fore_color.rgb = RGBColor(0x0D, 0x35, 0x5E)
 
     # Smaller overlapping accent circle
-    small_circle = _add_oval(
+    _add_oval(
         slide,
         SLIDE_WIDTH - Inches(1.5),
         Inches(3.5),
@@ -585,7 +585,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         RGBColor(0x10, 0x40, 0x6A),
     )
 
-    # Bottom gold bar
+    # Bottom purple bar
     _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.06), SLIDE_WIDTH, Inches(0.06), GOLD)
 
 
@@ -618,9 +618,10 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # Action title
     role_summary = ", ".join(roles[:3]) if roles else "key roles"
     loc_count = len(locations)
+    loc_text = f"{loc_count} location{'s' if loc_count != 1 else ''}" if loc_count > 0 else "multiple locations"
     action_text = (
         f"Joveo's programmatic strategy targets {role_summary} across "
-        f"{loc_count} location{'s' if loc_count != 1 else ''} to optimize "
+        f"{loc_text} to optimize "
         f"{client}'s recruitment spend in {industry_label}"
     )
     _add_textbox(
@@ -658,7 +659,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     sit_items = [
         ("Industry", industry_label),
-        ("Locations", f"{loc_count} market{'s' if loc_count != 1 else ''}"),
+        ("Locations", f"{loc_count} market{'s' if loc_count != 1 else ''}" if loc_count > 0 else "Multiple markets"),
         ("Target Roles", role_display),
         ("Work Model", work_label),
         ("Budget", budget),
@@ -774,7 +775,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # Main bar background
     _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), bar_h, NAVY)
 
-    # Gold accent line at top of bar
+    # Purple accent line at top of bar
     _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), Inches(0.04), GOLD)
 
     # Hero stat: budget (if parseable) or channel count
@@ -798,12 +799,12 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     _add_filled_rect(slide, Inches(4.2), bar_top + Inches(0.2), Inches(0.02), Inches(0.75), GOLD)
 
     # Secondary metrics
-    secondary_metrics = [
+    secondary_metrics = [m for m in [
         (str(len(channels)), "Channels"),
-        (str(loc_count), "Locations"),
-        (str(len(roles)), "Target Roles"),
-        (str(len(goals)), "Campaign Goals"),
-    ]
+        (str(loc_count), "Locations") if loc_count > 0 else None,
+        (str(len(roles)), "Target Roles") if roles else None,
+        (str(len(goals)), "Campaign Goals") if goals else None,
+    ] if m is not None]
 
     metric_w = Inches(1.9)
     metric_start = Inches(4.55)
@@ -844,10 +845,10 @@ def _build_slide_divider_channel_strategy(prs: Presentation, data: Dict):
     # Full LinkedIn Blue background
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, BLUE)
 
-    # Gold accent bar at top
+    # Purple accent bar at top
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, Inches(0.06), GOLD)
 
-    # Gold accent stripe left
+    # Purple accent stripe left
     _add_filled_rect(slide, Inches(0.6), Inches(2.8), Inches(2.0), Inches(0.06), GOLD)
 
     # Section number
@@ -869,7 +870,7 @@ def _build_slide_divider_channel_strategy(prs: Presentation, data: Dict):
         font_size=16, italic=True, color=PALE_BLUE,
     )
 
-    # Bottom gold bar
+    # Bottom purple bar
     _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.06), SLIDE_WIDTH, Inches(0.06), GOLD)
 
     # Decorative shapes right side
@@ -916,7 +917,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     left_col_left = Inches(0.55)
     section_top = Inches(1.6)
 
-    # Section header with gold underline
+    # Section header with purple underline
     _add_textbox(
         slide, left_col_left, section_top, Inches(4), Inches(0.35),
         text="CHANNEL MIX", font_size=11, bold=True, color=NAVY,
@@ -1015,7 +1016,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     source_top = table_top + row_h * 5 + Inches(0.05)
     _add_textbox(
         slide, table_left, source_top, table_w, Inches(0.2),
-        text="Sources: Appcast 2025, Recruitics TMI, SHRM 2025",
+        text=f"Sources: Appcast {datetime.date.today().year}, Recruitics TMI, SHRM {datetime.date.today().year}",
         font_size=7, italic=True, color=MUTED_TEXT,
     )
 
@@ -1077,7 +1078,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 text=ch_list, font_size=7, color=text_color,
             )
 
-        # Overlap connectors between categories (gold diamonds)
+        # Overlap connectors between categories (purple diamonds)
         for gi in range(n_groups - 1):
             connector_x = Inches(0.55) + (gi + 1) * (box_w + box_gap) - box_gap / 2 - Inches(0.12)
             connector_y = box_top + box_h / 2 - Inches(0.12)
@@ -1130,7 +1131,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     hero_top = Inches(1.55)
     hero_h = Inches(1.3)
 
-    # Hero stat card with gold accent
+    # Hero stat card with purple accent
     _add_rounded_rect(slide, Inches(3.5), hero_top, Inches(6.33), hero_h, WHITE)
     _add_filled_rect(slide, Inches(3.5), hero_top, Inches(6.33), Inches(0.05), GOLD)
 
@@ -1158,7 +1159,6 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     grid_start_x = Inches(0.55)
 
     # Compute estimated metrics based on channels/data
-    n_roles = len(roles)
     n_locations = len(locations)
     estimated_reach = n_channels * n_locations * 12500 if n_locations > 0 else n_channels * 25000
     reach_display = f"{estimated_reach / 1000:.0f}K+" if estimated_reach >= 1000 else str(estimated_reach)
@@ -1167,7 +1167,6 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     # Parse CPA to estimate cost efficiency
     cpa_str = benchmarks.get("cpa", "$25")
     try:
-        import re
         cpa_nums = re.findall(r'[\d.]+', cpa_str.replace(",", ""))
         avg_cpa = sum(float(x) for x in cpa_nums) / len(cpa_nums) if cpa_nums else 25
     except Exception:
@@ -1606,7 +1605,6 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
     # Ensure minimum required fields have sensible defaults
     data.setdefault("client_name", "Client")
     data.setdefault("industry", "general_entry_level")
-    data.setdefault("industry_label", data["industry"].replace("_", " ").title())
     data.setdefault("locations", [])
     # Frontend sends "target_roles" but PPT uses "roles" -- normalize
     if "target_roles" in data and "roles" not in data:
@@ -1620,6 +1618,26 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
     if isinstance(we, list):
         data["work_environment"] = we[0] if we else "hybrid"
     data.setdefault("work_environment", "hybrid")
+
+    # Null safety - replace None values with defaults
+    for key, default in [("client_name", "Client"), ("company_name", "Client"), ("industry", "general_entry_level"), ("budget", "TBD"), ("work_environment", "hybrid")]:
+        if data.get(key) is None:
+            data[key] = default
+    # Ensure list fields are actual lists
+    for key in ["locations", "roles", "target_roles", "campaign_goals", "competitors"]:
+        val = data.get(key)
+        if val is None:
+            data[key] = []
+        elif isinstance(val, str):
+            data[key] = [val]
+    # Ensure channel_categories is a dict
+    cc = data.get("channel_categories")
+    if cc is None:
+        data["channel_categories"] = {}
+    elif isinstance(cc, list):
+        data["channel_categories"] = {(item.get("name", "") if isinstance(item, dict) else str(item)): True for item in cc}
+
+    data.setdefault("industry_label", data["industry"].replace("_", " ").title())
 
     try:
         prs = Presentation()

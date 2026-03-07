@@ -8,6 +8,8 @@ import datetime
 import sys
 import re
 import zipfile
+import uuid
+import time
 import urllib.request
 import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -23,6 +25,42 @@ from openpyxl.drawing.image import Image as XlImage
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+
+# --- Request logging helpers ---
+REQUEST_LOG_FILE = os.path.join(DATA_DIR, "request_log.json")
+
+def load_request_log():
+    try:
+        with open(REQUEST_LOG_FILE, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+def save_request_log(log):
+    with open(REQUEST_LOG_FILE, "w") as f:
+        json.dump(log, f, indent=2, default=str)
+
+def log_request(data, status, file_size=0, generation_time=0, error_msg=None):
+    log = load_request_log()
+    entry = {
+        "id": str(uuid.uuid4())[:8],
+        "timestamp": datetime.datetime.now().isoformat(),
+        "requester_name": data.get("requester_name", "Unknown"),
+        "requester_email": data.get("requester_email", "Unknown"),
+        "client_name": data.get("client_name") or data.get("company_name", "Unknown"),
+        "industry": data.get("industry", "Unknown"),
+        "budget": data.get("budget", "Not specified"),
+        "roles": data.get("target_roles") or data.get("roles", []),
+        "locations": data.get("locations", []),
+        "work_environment": data.get("work_environment", "Not specified"),
+        "status": status,
+        "file_size_bytes": file_size,
+        "generation_time_seconds": round(generation_time, 2),
+        "error_message": error_msg
+    }
+    log.append(entry)
+    save_request_log(log)
+    return entry
 
 # Import research module for real data
 sys.path.insert(0, BASE_DIR)
@@ -100,6 +138,18 @@ def fetch_client_logo(client_name, client_website=""):
 
 
 def generate_excel(data):
+    # Null safety for all input fields
+    for key, default in [("client_name", "Client"), ("company_name", "Client"), ("industry", "general_entry_level"), ("budget", "Not specified"), ("work_environment", "hybrid")]:
+        if not data.get(key):
+            data[key] = default
+    # Ensure list fields are actual lists
+    for key in ["locations", "roles", "target_roles", "campaign_goals", "competitors"]:
+        val = data.get(key)
+        if val is None:
+            data[key] = []
+        elif isinstance(val, str):
+            data[key] = [val]
+
     db = load_channels_db()
     joveo_pubs = load_joveo_publishers()
     gs = global_supply_data  # global supply reference
@@ -160,9 +210,9 @@ def generate_excel(data):
     BLUE = "0A66C9"
     MEDIUM_BLUE = "004082"
     LIGHT_BLUE = "D1E8FF"
-    GOLD = "E8A33D"
-    LIGHT_GOLD = "F5C77D"
-    PALE_GOLD = "FCE3BD"
+    GOLD = "7C3AED"
+    LIGHT_GOLD = "A78BFA"
+    PALE_GOLD = "EDE9FE"
     OFF_WHITE = "F2F2F0"
     WARM_GRAY = "EBE6E0"
     GREEN_GOOD = "2E7D32"
@@ -186,7 +236,7 @@ def generate_excel(data):
     gold_bottom_border = Border(bottom=Side(style="medium", color=GOLD))
 
     def style_section_header(ws, row, col_start, col_end, title):
-        """Style a section header with navy text and gold accent border."""
+        """Style a section header with navy text and purple accent border."""
         ws.merge_cells(start_row=row, start_column=col_start, end_row=row, end_column=col_end)
         cell = ws.cell(row=row, column=col_start, value=title)
         cell.font = Font(name="Calibri", bold=True, size=14, color=NAVY)
@@ -372,7 +422,7 @@ def generate_excel(data):
         bottom=Side(style="thin", color=WARM_GRAY),
     )
 
-    client_name_val = data.get("client_name", "CLIENT")
+    client_name_val = data.get("client_name") or "CLIENT"
     industry_label_val = data.get("industry_label", industry_label_map.get(industry, industry))
 
     # Large merged header - Navy background
@@ -386,7 +436,7 @@ def generate_excel(data):
         ws_exec.cell(row=2, column=c).fill = navy_fill
     ws_exec.row_dimensions[2].height = 50
 
-    # Gold accent subtitle bar
+    # Purple accent subtitle bar
     ws_exec.merge_cells("B3:G3")
     ws_exec["B3"].value = f"{industry_label_val}  |  Generated {datetime.datetime.now().strftime('%B %d, %Y')}"
     ws_exec["B3"].font = Font(name="Calibri", bold=True, size=11, color=NAVY)
@@ -408,7 +458,7 @@ def generate_excel(data):
         except Exception:
             pass
 
-    # Campaign Snapshot section with gold accent
+    # Campaign Snapshot section with purple accent
     exec_row = 5
     style_section_header(ws_exec, exec_row, 2, 7, "Campaign Snapshot")
     exec_row += 1
@@ -436,10 +486,10 @@ def generate_excel(data):
     ws_exec.row_dimensions[exec_row].height = 45
     exec_row += 1
 
-    # 2x3 metric cards with off-white backgrounds and gold value highlights
+    # 2x3 metric cards with off-white backgrounds and purple value highlights
     metric_grid = [
         ("Campaign Duration", campaign_duration_val, "Hire Volume", str(hire_volume_val)),
-        ("Target Locations", f"{loc_count} location(s)", "Target Roles", f"{role_count} role(s)"),
+        ("Target Locations", f"{loc_count} location(s)", "Target Roles", f"{role_count} role(s)" if role_count > 0 else "Roles not specified"),
         ("Industry", industry_label_val, "", ""),
     ]
     metric_card_border = Border(
@@ -615,18 +665,20 @@ def generate_excel(data):
         ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
         exec_row += 1
 
-    # ── Recruitment Marketing Benchmarks (2025 Data) ──
+    # ── Recruitment Marketing Benchmarks (2025-2026 Data) ──
+    _current_year = datetime.date.today().year
+    _bench_year_label = f"{_current_year - 1}-{_current_year}"
     exec_row += 2
-    style_section_header(ws_exec, exec_row, 2, 7, "2025 Recruitment Marketing Benchmarks — CPA / CPC / CPH by Industry & Region")
+    style_section_header(ws_exec, exec_row, 2, 7, f"{_bench_year_label} Recruitment Marketing Benchmarks — CPA / CPC / CPH by Industry & Region")
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Data sourced from 2025 industry benchmark reports including Appcast Recruitment Marketing Benchmark (379M clicks, 30M applies analyzed), Recruitics Talent Market Index, and SHRM 2025 Benchmarking.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+    ws_exec.cell(row=exec_row, column=2, value=f"Data sourced from {_bench_year_label} industry benchmark reports including Appcast Recruitment Marketing Benchmark (379M clicks, 30M applies analyzed), Recruitics Talent Market Index, and SHRM Benchmarking.").font = Font(name="Calibri", italic=True, size=9, color="596780")
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Key 2025 trends: CPCs rose 27% YoY | Overall CPA up 4.8% | Apply rates climbed 35% to 6.1% | Avg programmatic CPH reached $851 | Healthcare remains most expensive to hire").font = Font(name="Calibri", italic=True, size=9, color="2E75B6")
+    ws_exec.cell(row=exec_row, column=2, value=f"Key {_bench_year_label} trends: CPCs rose 27% YoY | Overall CPA up 4.8% | Apply rates climbed 35% to 6.1% | Avg programmatic CPH reached $851 | Healthcare remains most expensive to hire").font = Font(name="Calibri", italic=True, size=9, color="2E75B6")
     exec_row += 2
 
-    # CPA/CPC/CPH benchmark data by job category and region — updated with real 2025 data
+    # CPA/CPC/CPH benchmark data by job category and region — updated with real 2025-2026 data
     cpa_cpc_benchmarks = {
         "healthcare_medical": {
             "label": "Healthcare & Medical",
@@ -885,7 +937,7 @@ def generate_excel(data):
         exec_row += 1
 
         # Table headers — now with CPH column
-        bench_headers = ["Region", f"Avg CPA ({display_currency_code})", f"Avg CPC ({display_currency_code})", f"Est. CPH ({display_currency_code})", "2025 Market Intelligence"]
+        bench_headers = ["Region", f"Avg CPA ({display_currency_code})", f"Avg CPC ({display_currency_code})", f"Est. CPH ({display_currency_code})", f"{_bench_year_label} Market Intelligence"]
         for i, h in enumerate(bench_headers):
             cell = ws_exec.cell(row=exec_row, column=2 + i, value=h)
             cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
@@ -960,12 +1012,12 @@ def generate_excel(data):
     exec_row += 1
 
     sources = [
-        "[1] Appcast 2025 Recruitment Marketing Benchmark Report — 379M clicks, 30M+ applies from 1,300+ US employers (appcast.io/2025-benchmark-report)",
-        "[2] Appcast 2026 Benchmark Report — 10th annual, new candidate disposition & global data (prnewswire.com, Feb 2026)",
-        "[3] Recruitics Talent Market Index (Monthly 2025) — Billions of data points across all verticals, CPA/CPC by job family (recruitics.com/labor-market-index)",
-        "[4] SHRM 2025 Benchmarking Reports — 88 data sets, avg US CPH $4,700, exec CPH $28,000+ (shrm.org/benchmarking)",
+        f"[1] Appcast {_current_year - 1} Recruitment Marketing Benchmark Report — 379M clicks, 30M+ applies from 1,300+ US employers (appcast.io/benchmark-report)",
+        f"[2] Appcast {_current_year} Benchmark Report — 10th annual, new candidate disposition & global data (prnewswire.com)",
+        f"[3] Recruitics Talent Market Index (Monthly {_bench_year_label}) — Billions of data points across all verticals, CPA/CPC by job family (recruitics.com/labor-market-index)",
+        f"[4] SHRM {_bench_year_label} Benchmarking Reports — 88 data sets, avg US CPH $4,700, exec CPH $28,000+ (shrm.org/benchmarking)",
         "[5] Joveo Platform Data & CPQA Framework — Cost Per Qualified Applicant methodology across 1,200+ publishers (joveo.com)",
-        "[6] Industry CPH benchmarks aggregated from HR Dive, Engagedly, and industry-specific recruitment cost studies (2024-2025)",
+        f"[6] Industry CPH benchmarks aggregated from HR Dive, Engagedly, and industry-specific recruitment cost studies ({_bench_year_label})",
     ]
     for src in sources:
         ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
@@ -1057,7 +1109,7 @@ def generate_excel(data):
         c4.border = thin_border
         c4.alignment = wrap_alignment
 
-        # Alternating row fill with pale gold
+        # Alternating row fill with pale purple
         if idx % 2 == 0:
             for c in range(2, 6):
                 ws_exec.cell(row=exec_row, column=c).fill = pale_gold_fill
@@ -1068,7 +1120,7 @@ def generate_excel(data):
 
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Conversion rates based on 2025 industry benchmarks (Appcast, Recruitics). CPQA stage is where Joveo's ML optimization delivers highest impact.").font = Font(name="Calibri", italic=True, size=8, color="999999")
+    ws_exec.cell(row=exec_row, column=2, value=f"Conversion rates based on {_bench_year_label} industry benchmarks (Appcast, Recruitics). CPQA stage is where Joveo's ML optimization delivers highest impact.").font = Font(name="Calibri", italic=True, size=8, color="999999")
 
     # ── Funnel Visualization Chart (horizontal bar chart) ──
     exec_row += 2
@@ -1229,7 +1281,7 @@ def generate_excel(data):
     style_section_header(ws_exec, exec_row, 2, 7, "Employer Branding ROI — Why Brand Investment Multiplies Hiring Outcomes")
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Data from LinkedIn's 2025 Hiring Value analysis shows that candidates who engage with an employer's brand before applying deliver significantly better hiring outcomes.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+    ws_exec.cell(row=exec_row, column=2, value=f"Data from LinkedIn's {_bench_year_label} Hiring Value analysis shows that candidates who engage with an employer's brand before applying deliver significantly better hiring outcomes.").font = Font(name="Calibri", italic=True, size=9, color="596780")
     exec_row += 2
 
     eb_metrics = [
@@ -1241,7 +1293,7 @@ def generate_excel(data):
     ]
 
     for idx, (metric, label, desc, color) in enumerate(eb_metrics):
-        # Metric value in large font with gold background
+        # Metric value in large font with purple background
         c1 = ws_exec.cell(row=exec_row, column=2, value=metric)
         c1.font = Font(name="Calibri", bold=True, size=18, color=NAVY)
         c1.fill = gold_fill
@@ -1495,7 +1547,7 @@ def generate_excel(data):
         c1.border = thin_border
 
         if is_client:
-            # Client row: gold highlight with navy text
+            # Client row: purple highlight with navy text
             c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
             c1.fill = gold_fill
         else:
@@ -1558,7 +1610,7 @@ def generate_excel(data):
 
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Your industry row is highlighted in gold. \u25B2 = easier than average (green), \u25BC = harder than average (amber). Use this to calibrate budget expectations.").font = Font(name="Calibri", italic=True, size=8, color="999999")
+    ws_exec.cell(row=exec_row, column=2, value="Your industry row is highlighted in purple. \u25B2 = easier than average (green), \u25BC = harder than average (amber). Use this to calibrate budget expectations.").font = Font(name="Calibri", italic=True, size=8, color="999999")
 
     # Move Executive Summary to first position
     wb.move_sheet("Executive Summary", offset=-(len(wb.sheetnames) - 1))
@@ -1673,7 +1725,7 @@ def generate_excel(data):
 
     # ── Sheet: Labour Market Intelligence ──
     labour_data = research.get_labour_market_intelligence(industry, locations)
-    ws_labour = wb.create_sheet("Labour Market Intel")
+    ws_labour = wb.create_sheet("Labour Market Intelligence")
     ws_labour.sheet_properties.tabColor = "438765"
     ws_labour.column_dimensions["A"].width = 5
     ws_labour.column_dimensions["B"].width = 40
@@ -3672,13 +3724,32 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 {"value": "education", "label": "Education"},
             ]
             self._send_json(db)
+        elif parsed.path == "/api/requests":
+            log = load_request_log()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            response = {
+                "total_requests": len(log),
+                "requests": log[-100:]  # Last 100 entries
+            }
+            self.wfile.write(json.dumps(response, indent=2, default=str).encode())
         else:
             self.send_error(404)
 
     def do_POST(self):
         parsed = urlparse(self.path)
         if parsed.path == "/api/generate":
-            content_len = int(self.headers.get("Content-Length", 0))
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                content_len = 0
+            if content_len > 10 * 1024 * 1024:  # 10MB limit
+                self.send_response(413)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Request too large"}).encode())
+                return
             body = self.rfile.read(content_len)
             try:
                 data = json.loads(body)
@@ -3688,19 +3759,23 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
+            start_time = time.time()
             try:
                 excel_bytes = generate_excel(data)
             except Exception as e:
                 import traceback
                 tb = traceback.format_exc()
                 print(f"Excel generation error: {tb}", file=sys.stderr)
+                generation_time = time.time() - start_time
+                log_request(data, "error", generation_time=generation_time, error_msg=str(e))
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": f"Excel generation failed: {str(e)}"}).encode())
+                self.wfile.write(json.dumps({"error": "Generation failed. Please check your inputs and try again."}).encode())
                 return
 
-            client_name = data.get("client_name", "Client").replace(" ", "_")
+            import re as _re
+            client_name = _re.sub(r'[^\w\-]', '_', data.get("client_name") or "Client")
 
             # Generate McKinsey PPT
             pptx_bytes = None
@@ -3730,6 +3805,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(zip_bytes)))
                 self.end_headers()
                 self.wfile.write(zip_bytes)
+                generation_time = time.time() - start_time
+                log_request(data, "success", file_size=len(zip_bytes), generation_time=generation_time)
             else:
                 # Fallback to Excel only if PPT fails
                 self.send_response(200)
@@ -3738,6 +3815,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(excel_bytes)))
                 self.end_headers()
                 self.wfile.write(excel_bytes)
+                generation_time = time.time() - start_time
+                log_request(data, "success", file_size=len(excel_bytes), generation_time=generation_time)
         else:
             self.send_error(404)
 

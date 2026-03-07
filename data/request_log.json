@@ -1,0 +1,21 @@
+[
+  {
+    "id": "b91e0f01",
+    "timestamp": "2026-03-07T15:27:41.924583",
+    "requester_name": "John Smith",
+    "requester_email": "john@joveo.com",
+    "client_name": "Guidewire Software",
+    "industry": "Technology",
+    "budget": "$150,000",
+    "roles": [
+      "Software Engineer",
+      "Product Manager"
+    ],
+    "locations": [],
+    "work_environment": "Hybrid",
+    "status": "success",
+    "file_size_bytes": 68500,
+    "generation_time_seconds": 0.6,
+    "error_message": null
+  }
+]
