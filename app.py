@@ -2739,6 +2739,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/" or parsed.path == "":
             self._serve_file(os.path.join(TEMPLATES_DIR, "index.html"), "text/html")
+        elif parsed.path == "/api/health":
+            self._send_json({
+                "status": "ok",
+                "version": "2.1.0",
+                "pptx_available": generate_pptx is not None,
+                "timestamp": datetime.datetime.now().isoformat()
+            })
         elif parsed.path == "/api/channels":
             db = load_channels_db()
             # Inject the full industry options list for frontend consumption
