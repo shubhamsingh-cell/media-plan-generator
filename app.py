@@ -1047,7 +1047,7 @@ def generate_excel(data):
     recommendations = []
     if has_international:
         recommendations.append("International recruitment strategy recommended with local job boards")
-    budget_str = data.get("budget_range", "") or data.get("budget", "")
+    budget_str = str(data.get("budget_range", "") or data.get("budget", ""))
     # Check if budget exceeds $500K
     if any(x in budget_str.lower() for x in ["500k", "500,000", "1m", "1,000,000", "million"]):
         recommendations.append("Multi-channel programmatic approach with performance tracking")
@@ -1600,7 +1600,7 @@ def generate_excel(data):
 
     # ── Budget-driven funnel calculation ──
     # Parse budget from the budget_range string (e.g. "$50,000 - $250,000", "< $50,000")
-    budget_range_str = data.get("budget_range", "")
+    budget_range_str = str(data.get("budget_range", "") or "")
     def _parse_budget_midpoint(bstr):
         """Extract a numeric midpoint from budget range strings like '$50,000 - $250,000'."""
         if not bstr:
@@ -1836,7 +1836,7 @@ def generate_excel(data):
     _ap = dict(_INDUSTRY_ALLOC.get(_ind_key, _DEFAULT_ALLOC))
 
     # Budget-size adjustment
-    _bstr = data.get("budget", "")
+    _bstr = str(data.get("budget", "") or "")
     try:
         _bnums = re.findall(r'[\d]+', _bstr.replace(",", "").replace("$", "").strip())
         _bval = int(_bnums[0]) if _bnums and int(_bnums[0]) >= 1000 else None
@@ -4813,14 +4813,14 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
             # ── P0 Fix: Capture timeline, hire_volume, and notes from input ──
             # campaign_duration: normalize from frontend dropdown or API input
-            raw_duration = (data.get("campaign_duration") or data.get("timeline") or "").strip()
+            raw_duration = str(data.get("campaign_duration") or data.get("timeline") or "").strip()
             if raw_duration:
                 data["campaign_duration"] = raw_duration
             else:
                 data["campaign_duration"] = "Not specified"
 
             # hire_volume: capture from form field or parse from notes
-            raw_hire_vol = (data.get("hire_volume") or "").strip()
+            raw_hire_vol = str(data.get("hire_volume") or "").strip()
             raw_notes = (data.get("notes") or "").strip()
 
             if raw_hire_vol:
@@ -4850,7 +4850,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 data["notes"] = raw_notes
 
             # Compute campaign_weeks from campaign_duration for timeline phasing
-            duration_str = data.get("campaign_duration", "")
+            duration_str = str(data.get("campaign_duration", "") or "")
             campaign_weeks = 12  # default
             dur_lower = duration_str.lower()
             # Order matters: check more specific/longer ranges before shorter ones

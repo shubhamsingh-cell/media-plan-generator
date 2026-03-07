@@ -307,8 +307,8 @@ INDUSTRY_ALLOC_PROFILES: Dict[str, Dict[str, int]] = {
 def _get_industry_alloc(industry: str, budget_str: str = "",
                         num_roles: int = 0, roles: list = None) -> Dict[str, Dict[str, Any]]:
     """Return a copy of CHANNEL_ALLOC with percentages adjusted for industry, budget, roles."""
-    import copy
-    base = copy.deepcopy(CHANNEL_ALLOC)
+    # Use manual dict copy to avoid deepcopy issues with RGBColor objects
+    base = {k: dict(v) for k, v in CHANNEL_ALLOC.items()}
 
     # Step 1: Apply industry profile
     profile = INDUSTRY_ALLOC_PROFILES.get(industry)
@@ -505,7 +505,7 @@ def _add_textbox(
         p = tf.paragraphs[0]
         p.alignment = alignment
         run = p.add_run()
-        run.text = text
+        run.text = str(text) if text is not None else ""
         _set_font(run, size=font_size, bold=bold, italic=italic, color=color)
 
     return txBox, tf
@@ -546,7 +546,7 @@ def _add_paragraph(tf, text, font_size=10, bold=False, italic=False, color=DARK_
     p.space_before = Pt(space_before)
     p.space_after = Pt(space_after)
     run = p.add_run()
-    run.text = text
+    run.text = str(text) if text is not None else ""
     _set_font(run, size=font_size, bold=bold, italic=italic, color=color)
     return p
 
@@ -562,7 +562,7 @@ def _add_multi_run_paragraph(tf, runs_data: List[Tuple], alignment=PP_ALIGN.LEFT
     p.space_after = Pt(space_after)
     for text, font_size, bold, color in runs_data:
         run = p.add_run()
-        run.text = text
+        run.text = str(text) if text is not None else ""
         _set_font(run, size=font_size, bold=bold, color=color)
     return p
 
@@ -649,8 +649,11 @@ def _goal_labels(data: Dict) -> List[str]:
     return [GOAL_LABELS.get(g, g.replace("_", " ").title()) for g in goals]
 
 
-def _parse_budget_number(budget_str: str) -> Optional[float]:
+def _parse_budget_number(budget_str) -> Optional[float]:
     """Try to extract a numeric budget value from a string like '$75,000 / month'."""
+    if isinstance(budget_str, (int, float)):
+        return float(budget_str)
+    budget_str = str(budget_str)
     clean = budget_str.replace(",", "").replace("$", "").strip()
     match = re.search(r"([\d.]+)\s*[kK]", clean)
     if match:
@@ -970,7 +973,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         _set_font(run_label, size=10, bold=True, color=DARK_TEXT)
 
         run_val = p.add_run()
-        run_val.text = value
+        run_val.text = str(value)
         _set_font(run_val, size=10, bold=False, color=MUTED_TEXT)
 
     # ---- COMPLICATION (middle) ----
@@ -1002,7 +1005,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         _set_font(run_bullet, size=10, bold=False, color=GOLD)
 
         run_text = p.add_run()
-        run_text.text = item
+        run_text.text = str(item) if item is not None else ""
         _set_font(run_text, size=10, bold=False, color=DARK_TEXT)
 
     # ---- RESOLUTION (right) ----
