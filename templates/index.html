@@ -941,16 +941,11 @@
         }
 
         /* ============================================
-           REVIEW SECTION
+           REVIEW SECTION (base styles - enhanced in card section below)
            ============================================ */
-        .review-section {
-            margin-bottom: 24px;
-        }
-
         .review-section h3 {
             font-size: 11px;
             color: var(--text-muted);
-            margin-bottom: 12px;
             text-transform: uppercase;
             letter-spacing: 0.8px;
             font-weight: 600;
@@ -1947,6 +1942,106 @@
             margin-top: 24px;
         }
 
+        /* ============================================
+           CHANNEL INFO TOOLTIPS
+           ============================================ */
+        .channel-info-tooltip {
+            position: relative;
+            display: inline-block;
+            margin-left: 8px;
+            cursor: help;
+            color: var(--primary);
+            font-size: 14px;
+        }
+        .channel-info-tooltip .tooltip-content {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            width: 280px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            z-index: 100;
+            transition: all 0.2s ease;
+            line-height: 1.5;
+        }
+        .channel-info-tooltip:hover .tooltip-content {
+            visibility: visible;
+            opacity: 1;
+        }
+        .tooltip-content strong {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        /* ============================================
+           STEP CIRCLE COMPLETION CHECKMARKS
+           ============================================ */
+        .step-circle.completed::after {
+            content: '\2713';
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 16px;
+            height: 16px;
+            background: #00B050;
+            color: white;
+            border-radius: 50%;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+        }
+
+        /* ============================================
+           IMPROVED REVIEW SECTION CARDS
+           ============================================ */
+        .review-section {
+            background: var(--card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 16px;
+            border-left: 4px solid var(--primary);
+            transition: all 0.3s ease;
+        }
+        .review-section:hover {
+            border-left-color: var(--accent);
+            box-shadow: 0 4px 20px rgba(99,91,255,0.08);
+        }
+        .review-section h3 {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .review-section .edit-link {
+            font-size: 12px;
+            padding: 4px 12px;
+            background: rgba(99,91,255,0.08);
+            border-radius: 20px;
+            color: var(--primary);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .review-section .edit-link:hover {
+            background: var(--primary);
+            color: white;
+        }
+
     </style>
 </head>
 <body>
@@ -2077,7 +2172,8 @@
                     <div class="tags-container" id="locationsContainer">
                         <input type="text" class="tags-input" id="locationInput" placeholder="Type a location and press Enter (e.g., Portland OR, London UK, Singapore)...">
                     </div>
-                    <div style="margin-top:6px;font-size:11px;color:var(--text-muted)">Supports 40+ countries worldwide. For international locations, include the country name.</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; opacity: 0.7;">Press Enter to add &bull; Click &times; to remove</div>
+                    <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">Supports 40+ countries worldwide. For international locations, include the country name.</div>
                 </div>
 
                 <div class="form-group">
@@ -2096,7 +2192,8 @@
                     <div class="tags-container" id="competitorsContainer">
                         <input type="text" class="tags-input" id="competitorInput" placeholder="Type a competitor name and press Enter...">
                     </div>
-                    <div style="margin-top:6px;font-size:11px;color:var(--text-muted)">Adding competitors helps generate deeper competitive intelligence — we'll research what they're doing and include insights in your media plan.</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; opacity: 0.7;">Press Enter to add &bull; Click &times; to remove</div>
+                    <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">Adding competitors helps generate deeper competitive intelligence -- we'll research what they're doing and include insights in your media plan.</div>
                 </div>
             </div>
             <div class="btn-row">
@@ -2113,6 +2210,9 @@
 
                 <div class="form-group">
                     <label>Industry *</label>
+                    <div class="search-filter-wrap" style="margin-bottom: 16px;">
+                        <input type="text" id="industrySearch" placeholder="Search industries..." class="form-input" style="width: 100%; max-width: 400px; margin: 0 auto; display: block; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; font-family: inherit; background: white; color: var(--text); transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);">
+                    </div>
                     <div class="industry-grid" id="industryGrid">
                         <div class="industry-card" data-industry="healthcare_medical" onclick="selectIndustry(this)">
                             <div class="icon">&#9764;</div>
@@ -2242,6 +2342,7 @@
                     <div class="tags-container" id="rolesContainer">
                         <input type="text" class="tags-input" id="roleInput" placeholder="Type a role and press Enter...">
                     </div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; opacity: 0.7;">Press Enter to add &bull; Click &times; to remove</div>
                 </div>
 
                 <div class="form-group">
@@ -2278,7 +2379,7 @@
                                 <div class="category-icon">📋</div>
                                 <div>
                                     <h3>Regional & Local Job Boards</h3>
-                                    <p>Indeed, Craigslist, local job sites, and regional platforms</p>
+                                    <p>Indeed, Craigslist, local job sites, and regional platforms<span class="channel-info-tooltip">&nbsp;&#9432;<span class="tooltip-content"><strong>Example Platforms</strong>Craigslist, State job boards, Local newspapers online, City-specific job sites</span></span></p>
                                 </div>
                             </div>
                             <label class="toggle-switch">
@@ -2294,7 +2395,7 @@
                                 <div class="category-icon">🌍</div>
                                 <div>
                                     <h3>Global Reach Job Boards</h3>
-                                    <p>ZipRecruiter, Monster, LinkedIn, and international platforms</p>
+                                    <p>ZipRecruiter, Monster, LinkedIn, and international platforms<span class="channel-info-tooltip">&nbsp;&#9432;<span class="tooltip-content"><strong>Example Platforms</strong>Indeed, ZipRecruiter, Glassdoor, CareerBuilder, Monster</span></span></p>
                                 </div>
                             </div>
                             <label class="toggle-switch">
@@ -2310,7 +2411,7 @@
                                 <div class="category-icon">🎯</div>
                                 <div>
                                     <h3>Niche & Industry-Specific Boards</h3>
-                                    <p>Specialized job boards matching your industry (e.g., Dice for Tech, Health eCareers for Healthcare)</p>
+                                    <p>Specialized job boards matching your industry (e.g., Dice for Tech, Health eCareers for Healthcare)<span class="channel-info-tooltip">&nbsp;&#9432;<span class="tooltip-content"><strong>Example Platforms</strong>Health eCareers, Dice, Built In, Rigzone, Poached</span></span></p>
                                 </div>
                             </div>
                             <label class="toggle-switch">
@@ -2326,7 +2427,7 @@
                                 <div class="category-icon">📱</div>
                                 <div>
                                     <h3>Social Media Channels</h3>
-                                    <p>LinkedIn Ads, Facebook Jobs, Instagram, TikTok recruitment, and social platforms</p>
+                                    <p>LinkedIn Ads, Facebook Jobs, Instagram, TikTok recruitment, and social platforms<span class="channel-info-tooltip">&nbsp;&#9432;<span class="tooltip-content"><strong>Example Platforms</strong>Facebook Jobs, Instagram Careers, Twitter/X, TikTok Resumes, Reddit</span></span></p>
                                 </div>
                             </div>
                             <label class="toggle-switch">
@@ -2342,7 +2443,7 @@
                                 <div class="category-icon">⚡</div>
                                 <div>
                                     <h3>Programmatic & DSP Channels</h3>
-                                    <p>Automated job ad distribution via Joveo Mojo and programmatic platforms</p>
+                                    <p>Automated job ad distribution via Joveo Mojo and programmatic platforms<span class="channel-info-tooltip">&nbsp;&#9432;<span class="tooltip-content"><strong>Example Platforms</strong>Programmatic job distribution, real-time bidding, ML-optimized publisher mix</span></span></p>
                                 </div>
                             </div>
                             <label class="toggle-switch">
@@ -2358,7 +2459,7 @@
                                 <div class="category-icon">🏢</div>
                                 <div>
                                     <h3>Employer Branding Platforms</h3>
-                                    <p>Glassdoor, Comparably, career site optimization, and brand-building channels</p>
+                                    <p>Glassdoor, Comparably, career site optimization, and brand-building channels<span class="channel-info-tooltip">&nbsp;&#9432;<span class="tooltip-content"><strong>Example Platforms</strong>Glassdoor profiles, Comparably, LinkedIn Career Pages, Great Place to Work</span></span></p>
                                 </div>
                             </div>
                             <label class="toggle-switch">
@@ -2374,7 +2475,7 @@
                                 <div class="category-icon">🌏</div>
                                 <div>
                                     <h3>APAC Regional Channels</h3>
-                                    <p>Local job platforms for Japan, Korea, India, Singapore, Australia, and more</p>
+                                    <p>Local job platforms for Japan, Korea, India, Singapore, Australia, and more<span class="channel-info-tooltip">&nbsp;&#9432;<span class="tooltip-content"><strong>Example Platforms</strong>JobStreet, Naukri, Seek, JobsDB, Shine.com</span></span></p>
                                 </div>
                             </div>
                             <label class="toggle-switch">
@@ -2390,7 +2491,7 @@
                                 <div class="category-icon">🌍</div>
                                 <div>
                                     <h3>EMEA Regional Channels</h3>
-                                    <p>European and Middle East local job boards and recruitment platforms</p>
+                                    <p>European and Middle East local job boards and recruitment platforms<span class="channel-info-tooltip">&nbsp;&#9432;<span class="tooltip-content"><strong>Example Platforms</strong>StepStone, Totaljobs, Reed, Adzuna, XING</span></span></p>
                                 </div>
                             </div>
                             <label class="toggle-switch">
@@ -2536,10 +2637,26 @@
                 </div>
             </div>
 
+            <div class="plan-preview" style="background: linear-gradient(135deg, rgba(99,91,255,0.04), rgba(46,117,182,0.04)); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; margin-bottom: 24px;">
+                <h4 style="font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 12px;">&#128203; Your Plan Will Include</h4>
+                <div id="planPreviewContent" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
+                    <!-- Populated by JS -->
+                </div>
+                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; gap: 24px; font-size: 13px; color: var(--text-muted); flex-wrap: wrap;">
+                    <span>&#128196; Est. sections: <strong id="estSections">8</strong></span>
+                    <span>&#9201; Generation time: <strong>~15 seconds</strong></span>
+                    <span>&#128229; Format: <strong>Excel (.xlsx) + PPT (.pptx)</strong></span>
+                </div>
+            </div>
+
             <div class="btn-row">
                 <button class="btn btn-secondary" onclick="prevStep()">&#8592; Back</button>
-                <button class="btn btn-success" id="generateBtn" onclick="generatePlan()">
-                    &#128196; Generate Media Plan
+                <button class="btn btn-success" id="generateBtn" onclick="generatePlan()" style="width:100%;">
+                    <span style="display:flex;align-items:center;justify-content:center;gap:8px;">
+                        <span>&#128640;</span>
+                        <span>Generate Media Plan</span>
+                        <span style="font-size:11px;opacity:0.8;margin-left:4px;">(Excel + PPT)</span>
+                    </span>
                 </button>
             </div>
         </div>
@@ -3077,6 +3194,7 @@
                     nextEl.classList.add('step-animating');
                     setTimeout(() => nextEl.classList.remove('step-animating'), 400);
                     updateProgress();
+                    updateStepCheckmarks();
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 }, 280);
             }
@@ -3097,6 +3215,7 @@
                     prevEl.classList.add('step-animating');
                     setTimeout(() => prevEl.classList.remove('step-animating'), 400);
                     updateProgress();
+                    updateStepCheckmarks();
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 }, 280);
             }
@@ -3114,8 +3233,20 @@
                 targetEl.classList.add('step-animating');
                 setTimeout(() => targetEl.classList.remove('step-animating'), 400);
                 updateProgress();
+                // Mark previous steps as completed with checkmarks
+                updateStepCheckmarks();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
+        }
+
+        function updateStepCheckmarks() {
+            document.querySelectorAll('.step-circle').forEach((circle, idx) => {
+                if (idx < currentStep - 1) {
+                    circle.classList.add('completed');
+                } else {
+                    circle.classList.remove('completed');
+                }
+            });
         }
 
         // 24. Update page progress bar in updateProgress
@@ -3208,6 +3339,49 @@
             if (document.getElementById('includeBudgetGuide').checked) sections.push('Budget & Pricing Guide');
 
             document.getElementById('reviewSections').innerHTML = sections.map(s => `<span class="chip">${s}</span>`).join(' ');
+
+            // Populate plan preview
+            const previewEl = document.getElementById('planPreviewContent');
+            if (previewEl) {
+                const previewSections = [
+                    {name: 'Executive Summary', icon: '&#128202;', always: true},
+                    {name: 'Overview & Snapshot', icon: '&#128203;', always: true},
+                    {name: 'Market Trends', icon: '&#128200;', always: true},
+                    {name: 'Labour Market Intel', icon: '&#127963;', always: true},
+                    {name: 'Channel Strategy', icon: '&#127919;', always: true},
+                    {name: 'Traditional Channels', icon: '&#128240;', always: true},
+                    {name: 'Non-Traditional Channels', icon: '&#128640;', always: true},
+                    {name: 'Hiring Funnel Forecast', icon: '&#128260;', always: true},
+                    {name: 'Campaign Timeline', icon: '&#128197;', always: true},
+                    {name: 'McKinsey 2-Pager (PPT)', icon: '&#127917;', always: true},
+                ];
+                const toggleSections = [
+                    {id: 'includeDEI', name: 'DEI & Diversity', icon: '&#127757;'},
+                    {id: 'includeInnovative', name: 'Innovative Channels', icon: '&#128161;'},
+                    {id: 'includeBudgetGuide', name: 'Budget Guide', icon: '&#128176;'},
+                    {id: 'includeGlobalSupply', name: 'Global Supply', icon: '&#127760;'},
+                    {id: 'includeEducational', name: 'Educational Partners', icon: '&#127891;'},
+                    {id: 'includeEvents', name: 'Events & Career Fairs', icon: '&#127914;'},
+                    {id: 'includeRadioPodcasts', name: 'Radio & Podcasts', icon: '&#127897;'},
+                    {id: 'includeMediaPlatforms', name: 'Media & Print', icon: '&#128240;'},
+                ];
+
+                let html = '';
+                let count = 0;
+                previewSections.forEach(s => {
+                    html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(0,176,80,0.06);border-radius:8px;font-size:13px;"><span>${s.icon}</span><span>${s.name}</span></div>`;
+                    count++;
+                });
+                toggleSections.forEach(t => {
+                    const el = document.getElementById(t.id);
+                    if (el && el.checked) {
+                        html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(99,91,255,0.06);border-radius:8px;font-size:13px;"><span>${t.icon}</span><span>${t.name}</span></div>`;
+                        count++;
+                    }
+                });
+                previewEl.innerHTML = html;
+                document.getElementById('estSections').textContent = count;
+            }
         }
 
         // 26 & 28. Enhanced generatePlan with overlay, new fields, confetti, and toasts
@@ -3267,11 +3441,17 @@
                 });
 
                 if (response.ok) {
+                    const contentType = response.headers.get('Content-Type') || '';
                     const blob = await response.blob();
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `${payload.client_name.replace(/\s+/g, '_')}_Media_Plan.xlsx`;
+                    const safeName = payload.client_name.replace(/\s+/g, '_');
+                    if (contentType.includes('zip')) {
+                        a.download = `${safeName}_Media_Plan_Bundle.zip`;
+                    } else {
+                        a.download = `${safeName}_Media_Plan.xlsx`;
+                    }
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
@@ -3281,9 +3461,12 @@
                     hideGenerationOverlay(true);
 
                     // Show confetti and success toast
+                    const successMsg = contentType.includes('zip')
+                        ? 'Media plan bundle (Excel + PPT) downloaded successfully!'
+                        : 'Media plan generated and downloaded successfully!';
                     setTimeout(() => {
                         showConfetti();
-                        showToast('Media plan generated and downloaded successfully!', 'success');
+                        showToast(successMsg, 'success');
                     }, 600);
 
                     btn.innerHTML = '&#10003; Downloaded!';
@@ -3291,7 +3474,7 @@
                     setTimeout(() => {
                         btn.disabled = false;
                         btn.classList.add('ready-pulse');
-                        btn.innerHTML = '&#128196; Generate Media Plan';
+                        btn.innerHTML = '<span style="display:flex;align-items:center;justify-content:center;gap:8px;"><span>&#128640;</span><span>Generate Media Plan</span><span style="font-size:11px;opacity:0.8;margin-left:4px;">(Excel + PPT)</span></span>';
                         btn.style.background = '';
                     }, 3000);
                 } else {
@@ -3302,9 +3485,30 @@
                 showToast('Failed to generate media plan. Please try again.', 'error');
                 btn.disabled = false;
                 btn.classList.add('ready-pulse');
-                btn.innerHTML = '&#128196; Generate Media Plan';
+                btn.innerHTML = '<span style="display:flex;align-items:center;justify-content:center;gap:8px;"><span>&#128640;</span><span>Generate Media Plan</span><span style="font-size:11px;opacity:0.8;margin-left:4px;">(Excel + PPT)</span></span>';
             }
         }
+        // ============================================
+        // Industry search/filter
+        // ============================================
+        document.getElementById('industrySearch').addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase();
+            document.querySelectorAll('.industry-card').forEach(card => {
+                const name = card.querySelector('.name').textContent.toLowerCase();
+                const desc = card.querySelector('.desc').textContent.toLowerCase();
+                card.style.display = (name.includes(query) || desc.includes(query)) ? '' : 'none';
+            });
+        });
+        // Focus styles for industry search
+        document.getElementById('industrySearch').addEventListener('focus', function() {
+            this.style.borderColor = 'var(--primary)';
+            this.style.boxShadow = '0 0 0 3px rgba(99,91,255,0.1)';
+        });
+        document.getElementById('industrySearch').addEventListener('blur', function() {
+            this.style.borderColor = '';
+            this.style.boxShadow = '';
+        });
+
         // Enterprise: Generate floating particles in header
         function createHeaderParticles() {
             const header = document.querySelector('.app-header');
