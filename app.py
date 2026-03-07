@@ -583,6 +583,28 @@ def generate_excel(data):
     ws_exec.cell(row=exec_row, column=2, value=f"{regional_count} Regional  +  {niche_count} Niche  +  {global_count} Global channels").font = Font(name="Calibri", size=11, color="1B2A4A")
     exec_row += 2
 
+
+    # ── Company Intelligence ──
+    company_intel = research.get_company_intelligence(client_name)
+    if company_intel.get("matched"):
+        style_section_header(ws_exec, exec_row, 2, 7, "Company Intelligence")
+        exec_row += 1
+        intel_items = [
+            ("Company Size", company_intel.get("size", "N/A")),
+            ("Glassdoor Rating", company_intel.get("glassdoor", "N/A")),
+            ("Brand Strength", company_intel.get("brand_strength", "N/A")),
+            ("Hiring Volume", company_intel.get("hiring_volume", "N/A")),
+            ("Benefits Highlight", company_intel.get("benefits_highlight", "N/A")),
+            ("Attrition Rate", company_intel.get("attrition", "N/A")),
+        ]
+        for label, value in intel_items:
+            ws_exec.cell(row=exec_row, column=2, value=f"  {label}:").font = Font(name="Calibri", bold=True, size=10, color="1B2A4A")
+            ws_exec.cell(row=exec_row, column=4, value=value).font = Font(name="Calibri", size=10, color="333333")
+            ws_exec.merge_cells(f"B{exec_row}:C{exec_row}")
+            ws_exec.merge_cells(f"D{exec_row}:G{exec_row}")
+            exec_row += 1
+        exec_row += 1
+
     # Labour Market Summary in Executive Summary
     lm_exec = research.get_labour_market_intelligence(industry, locations)
     lm_ind = lm_exec.get("industry_metrics", {})
@@ -614,6 +636,25 @@ def generate_excel(data):
         ws_exec.cell(row=exec_row, column=2, value=f"Live Data: {industry_emp.get('sector_name', 'Industry')} — {_total_emp_str} employed, Avg wage {_avg_wage_str}, Growth {industry_emp.get('growth_rate', 'N/A')} ({industry_emp.get('source', 'DataUSA')})").font = Font(name="Calibri", size=10, bold=True, color="2E7D32")
         exec_row += 1
 
+    exec_row += 1
+
+
+    # ── Seasonal Hiring Calendar ──
+    seasonal_advice = research.get_seasonal_hiring_advice(industry)
+    style_section_header(ws_exec, exec_row, 2, 7, "Seasonal Hiring Calendar")
+    exec_row += 1
+    peak_months_str = ", ".join(seasonal_advice.get("peak_months", []))
+    ramp_start = seasonal_advice.get("ramp_start", "")
+    seasonal_note = seasonal_advice.get("note", "")
+    ws_exec.cell(row=exec_row, column=2, value=f"  Peak Hiring Months: {peak_months_str}").font = Font(name="Calibri", bold=True, size=10, color="1B2A4A")
+    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+    exec_row += 1
+    ws_exec.cell(row=exec_row, column=2, value=f"  Campaign Ramp-Up Start: {ramp_start}").font = Font(name="Calibri", bold=True, size=10, color="2E75B6")
+    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+    exec_row += 1
+    ws_exec.cell(row=exec_row, column=2, value=f"  {seasonal_note}").font = Font(name="Calibri", italic=True, size=10, color="596780")
+    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+    exec_row += 1
     exec_row += 1
 
     # Competitive Landscape in Executive Summary
@@ -2122,6 +2163,39 @@ def generate_excel(data):
                 ws_labour.cell(row=lm_row, column=ci).alignment = center_alignment
             lm_row += 1
 
+
+    # ── Section: Hiring Compliance & Regulatory Notes ──
+    hiring_regs = research.get_hiring_regulations(locations)
+    if hiring_regs:
+        lm_row += 2
+        ws_labour.merge_cells(f"B{lm_row}:D{lm_row}")
+        ws_labour.cell(row=lm_row, column=2, value="Hiring Compliance & Regulatory Notes").font = Font(name="Calibri", bold=True, size=14, color="FFFFFF")
+        ws_labour.cell(row=lm_row, column=2).fill = PatternFill(start_color="CC0000", end_color="CC0000", fill_type="solid")
+        lm_row += 1
+
+        ws_labour.cell(row=lm_row, column=2, value="Applicable hiring regulations by state/jurisdiction. Ensure job postings and hiring processes comply with all listed requirements.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+        ws_labour.merge_cells(f"B{lm_row}:D{lm_row}")
+        lm_row += 1
+
+        for reg_entry in hiring_regs:
+            reg_state = reg_entry.get("state", "")
+            reg_loc = reg_entry.get("location", "")
+            reg_list = reg_entry.get("regulations", [])
+            compliance_note = reg_entry.get("compliance_note", "")
+
+            ws_labour.cell(row=lm_row, column=2, value=f"{reg_state} ({reg_loc})").font = Font(name="Calibri", bold=True, size=11, color="CC0000")
+            ws_labour.merge_cells(f"B{lm_row}:D{lm_row}")
+            lm_row += 1
+
+            for reg in reg_list:
+                ws_labour.cell(row=lm_row, column=2, value=f"  \u2022  {reg}").font = Font(name="Calibri", size=10, color="333333")
+                ws_labour.merge_cells(f"B{lm_row}:D{lm_row}")
+                lm_row += 1
+
+            ws_labour.cell(row=lm_row, column=2, value=compliance_note).font = Font(name="Calibri", italic=True, size=9, color="596780")
+            ws_labour.merge_cells(f"B{lm_row}:D{lm_row}")
+            lm_row += 1
+
     lm_row += 1
     ws_labour.cell(row=lm_row, column=2, value="Data Sources: BLS Occupational Employment & Wage Statistics, JOLTS (Job Openings & Labor Turnover Survey), BLS Employment Projections, industry reports. Curated reference data as of 2024.").font = Font(name="Calibri", italic=True, size=9, color="888888")
     ws_labour.merge_cells(f"B{lm_row}:D{lm_row}")
@@ -2215,6 +2289,40 @@ def generate_excel(data):
         bar_chart.series[0].graphicalProperties.solidFill = "2E75B6"
 
     ws_strategy.add_chart(bar_chart, f"B{row + 1}")
+
+
+    # ── Campus Recruiting Recommendations ──
+    campus_recs = research.get_campus_recruiting_recommendations(locations, roles, industry)
+    if campus_recs:
+        row += 18  # Space for the bar chart above
+        style_section_header(ws_strategy, row, 2, 5, "Campus Recruiting Recommendations")
+        row += 1
+        ws_strategy.cell(row=row, column=2, value="Recommended universities based on target locations. Leverage campus career fairs, on-campus events, and university job boards.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+        ws_strategy.merge_cells(f"B{row}:E{row}")
+        row += 1
+
+        campus_headers = ["University", "Programs", "Enrollment", "Recruiting Channel"]
+        for i, h in enumerate(campus_headers):
+            cell = ws_strategy.cell(row=row, column=2 + i, value=h)
+            cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+            cell.fill = PatternFill(start_color="438765", end_color="438765", fill_type="solid")
+            cell.alignment = center_alignment
+            cell.border = thin_border
+        row += 1
+
+        seen_unis = set()
+        for rec in campus_recs:
+            uni_name = rec.get("university", "")
+            if uni_name in seen_unis:
+                continue
+            seen_unis.add(uni_name)
+            style_body_cell(ws_strategy, row, 2, uni_name)
+            ws_strategy.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10)
+            style_body_cell(ws_strategy, row, 3, rec.get("programs", ""))
+            style_body_cell(ws_strategy, row, 4, rec.get("enrollment", ""))
+            style_body_cell(ws_strategy, row, 5, rec.get("recruiting_channel", ""))
+            ws_strategy.row_dimensions[row].height = 30
+            row += 1
 
     # ── Sheet 4: Traditional Channels ──
     ws_trad = wb.create_sheet("Traditional Channels")
