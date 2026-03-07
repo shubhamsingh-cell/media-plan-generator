@@ -1095,7 +1095,7 @@ function renderTable() {
         const roles = Array.isArray(req.roles) ? req.roles.join(', ') : (req.roles || '--');
         const locations = Array.isArray(req.locations) ? req.locations.join(', ') : (req.locations || '--');
         const downloadCell = req.doc_filename
-            ? `<a href="/api/documents/${encodeURIComponent(req.doc_filename)}" class="download-link" title="Download ${req.doc_filename}">&#x2B07; Download</a>`
+            ? `<a href="${sanitizeDownloadUrl('/api/documents/' + encodeURIComponent(req.doc_filename))}" class="download-link" title="Download ${escapeHtml(req.doc_filename)}">&#x2B07; Download</a>`
             : '<span style="color:var(--text-muted);font-size:12px;">--</span>';
 
         html += `<tr>
@@ -1219,7 +1219,7 @@ function renderDocuments() {
                 <span>&#x1f4c5; ${formatDate(doc.created)}</span>
                 <span>&#x1f4be; ${formatFileSize(doc.size_bytes)}</span>
             </div>
-            <a href="${doc.download_url}" class="doc-card-download" title="Download ${doc.filename}">
+            <a href="${sanitizeDownloadUrl(doc.download_url)}" class="doc-card-download" title="Download ${escapeHtml(doc.filename)}">
                 &#x2B07; Download ZIP
             </a>
         </div>`;
@@ -1312,6 +1312,13 @@ function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+}
+
+function sanitizeDownloadUrl(url) {
+    // Only allow relative URLs under /api/documents/ to prevent javascript: or data: XSS
+    if (typeof url !== 'string') return '#';
+    if (url.startsWith('/api/documents/')) return url;
+    return '#';
 }
 
 // ===== SIDEBAR / MOBILE =====

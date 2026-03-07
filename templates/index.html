@@ -3080,6 +3080,16 @@
         let lastGeneratedFilename = null;
 
         // ============================================
+        // HTML escaping helper to prevent XSS
+        // ============================================
+        function escapeHtml(str) {
+            if (str == null) return '';
+            const div = document.createElement('div');
+            div.textContent = String(str);
+            return div.innerHTML;
+        }
+
+        // ============================================
         // 22. Toast notification system
         // ============================================
         function showToast(message, type = 'info') {
@@ -3387,8 +3397,8 @@
                 card.dataset.category = key;
                 card.innerHTML = `
                     <div class="cat-check">&#10003;</div>
-                    <span class="cat-icon">${cat.icon}</span>
-                    <div class="cat-name">${cat.label}</div>
+                    <span class="cat-icon">${escapeHtml(cat.icon)}</span>
+                    <div class="cat-name">${escapeHtml(cat.label)}</div>
                 `;
                 card.addEventListener('click', () => toggleJobCategory(card, key));
                 grid.appendChild(card);
@@ -3448,33 +3458,33 @@
             panel.style.display = 'block';
             panel.innerHTML = `
                 <div class="insight-header">
-                    <span>&#128161; Smart Insights for ${catLabels}</span>
+                    <span>&#128161; Smart Insights for ${escapeHtml(catLabels)}</span>
                     <span class="insight-badge">Powered by Joveo Data</span>
                 </div>
                 <div class="insight-grid">
                     <div class="insight-item">
                         <div class="insight-label">Avg CPA Range</div>
-                        <div class="insight-value">${cpaRanges.join(' | ')}</div>
+                        <div class="insight-value">${cpaRanges.map(r => escapeHtml(r)).join(' | ')}</div>
                     </div>
                     <div class="insight-item">
                         <div class="insight-label">Avg Time to Fill</div>
-                        <div class="insight-value">${[...new Set(ttfRanges)].join(' | ')}</div>
+                        <div class="insight-value">${[...new Set(ttfRanges)].map(r => escapeHtml(r)).join(' | ')}</div>
                     </div>
                     <div class="insight-item">
                         <div class="insight-label">Strategy Mix</div>
-                        <div class="insight-value">${strategies.join('<br>')}</div>
+                        <div class="insight-value">${strategies.map(s => escapeHtml(s)).join('<br>')}</div>
                     </div>
                     <div class="insight-item">
                         <div class="insight-label">Top Recommendations</div>
-                        <div class="insight-value">${bestPractices.map(p => '• ' + p).join('<br>')}</div>
+                        <div class="insight-value">${bestPractices.map(p => '&bull; ' + escapeHtml(p)).join('<br>')}</div>
                     </div>
                 </div>
                 <div style="margin-top:10px">
                     <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-light);margin-bottom:6px">Recommended Channels (from Joveo Supply + Competitors)</div>
                     <div class="insight-channels">
-                        ${allJoveo.slice(0, 8).map(ch => `<span class="insight-ch" style="background:#E8F5E9;border-color:rgba(76,175,80,0.2);color:#2E7D32" title="Joveo Supply">&#9679; ${ch}</span>`).join('')}
-                        ${allCompetitor.slice(0, 5).map(ch => `<span class="insight-ch" style="background:#FFF3E0;border-color:rgba(255,152,0,0.2);color:#E65100" title="Competitor Channel">&#9650; ${ch}</span>`).join('')}
-                        ${allNiche.slice(0, 5).map(ch => `<span class="insight-ch" title="Niche Channel">&#9733; ${ch}</span>`).join('')}
+                        ${allJoveo.slice(0, 8).map(ch => `<span class="insight-ch" style="background:#E8F5E9;border-color:rgba(76,175,80,0.2);color:#2E7D32" title="Joveo Supply">&#9679; ${escapeHtml(ch)}</span>`).join('')}
+                        ${allCompetitor.slice(0, 5).map(ch => `<span class="insight-ch" style="background:#FFF3E0;border-color:rgba(255,152,0,0.2);color:#E65100" title="Competitor Channel">&#9650; ${escapeHtml(ch)}</span>`).join('')}
+                        ${allNiche.slice(0, 5).map(ch => `<span class="insight-ch" title="Niche Channel">&#9733; ${escapeHtml(ch)}</span>`).join('')}
                     </div>
                     <div style="margin-top:6px;font-size:9px;color:#999">
                         <span style="color:#2E7D32">&#9679;</span> Joveo Supply &nbsp;
@@ -3530,7 +3540,7 @@
             channels.forEach((ch, i) => {
                 const item = document.createElement('label');
                 item.className = 'channel-item';
-                item.innerHTML = `<input type="checkbox" checked data-group="${group}" value="${ch}"> ${ch}`;
+                item.innerHTML = `<input type="checkbox" checked data-group="${escapeHtml(group)}" value="${escapeHtml(ch)}"> ${escapeHtml(ch)}`;
                 // Add staggered animation delay
                 const delay = Math.min(i * 0.03, 0.5);
                 item.style.animationDelay = `${delay}s`;

@@ -1023,8 +1023,87 @@ def get_location_info(location_str):
 # MAIN RESEARCH FUNCTIONS (called by app.py)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def get_market_trends(locations, industry, roles):
-    """Generate real market trend data for each location (US + international)."""
+def _get_role_salary_range(role, location_coli=100, enrichment_salary_data=None):
+    """
+    Get salary range for a role, using BLS enrichment data when available,
+    with location-based COLI adjustment. Falls back to ROLE_SALARY_RANGES.
+
+    Args:
+        role: Role name string
+        location_coli: Cost of Living Index for the target location (100 = national avg)
+        enrichment_salary_data: Dict from api_enrichment salary_data (keyed by role name)
+
+    Returns:
+        Formatted salary range string like "$95,000 - $180,000"
+    """
+    # Try BLS enrichment data first (exact match or case-insensitive match)
+    if enrichment_salary_data:
+        bls = enrichment_salary_data.get(role)
+        if not bls:
+            # Try case-insensitive match
+            role_lower = role.strip().lower()
+            for k, v in enrichment_salary_data.items():
+                if k.strip().lower() == role_lower:
+                    bls = v
+                    break
+        if bls and bls.get("p10") and bls.get("p90"):
+            # Apply COLI adjustment: BLS data is national, adjust for location
+            coli_factor = location_coli / 100.0
+            p10 = int(bls["p10"] * coli_factor)
+            p90 = int(bls["p90"] * coli_factor)
+            return f"${p10:,} - ${p90:,}"
+        elif bls and bls.get("median"):
+            coli_factor = location_coli / 100.0
+            median = int(bls["median"] * coli_factor)
+            low = int(median * 0.75)
+            high = int(median * 1.30)
+            return f"${low:,} - ${high:,}"
+
+    # Fall back to curated ROLE_SALARY_RANGES (try exact, then normalized match)
+    salary = ROLE_SALARY_RANGES.get(role)
+    if not salary:
+        role_lower = role.strip().lower()
+        for k, v in ROLE_SALARY_RANGES.items():
+            if k.lower() == role_lower or k.lower().rstrip('s') == role_lower.rstrip('s'):
+                salary = v
+                break
+    if not salary:
+        # Last resort: generic range based on industry context
+        salary = "$45,000 - $80,000"
+
+    # Apply COLI adjustment to the fallback range if location differs significantly
+    if location_coli != 100 and salary and "$" in salary:
+        import re as _re
+        nums = _re.findall(r'[\d,]+', salary.split("+")[0])
+        if len(nums) >= 2:
+            try:
+                low = int(nums[0].replace(",", ""))
+                high = int(nums[1].replace(",", ""))
+                coli_factor = location_coli / 100.0
+                adj_low = int(low * coli_factor)
+                adj_high = int(high * coli_factor)
+                # Preserve any suffix like "+ commission"
+                suffix = ""
+                if "+" in salary:
+                    suffix = " +" + salary.split("+", 1)[1]
+                elif "commission" in salary.lower():
+                    suffix = " + commission"
+                return f"${adj_low:,} - ${adj_high:,}{suffix}"
+            except (ValueError, IndexError):
+                pass
+
+    return salary
+
+
+def get_market_trends(locations, industry, roles, enrichment_salary_data=None):
+    """Generate real market trend data for each location (US + international).
+
+    Args:
+        locations: List of location strings
+        industry: Industry key string
+        roles: List of role name strings
+        enrichment_salary_data: Optional dict from api_enrichment salary_data (BLS data keyed by role)
+    """
     industry_label = {
         "healthcare_medical": "Healthcare & Medical",
         "blue_collar_trades": "Blue Collar / Skilled Trades",
@@ -1040,9 +1119,11 @@ def get_market_trends(locations, industry, roles):
         "pharma_biotech": "Pharma & Biotech",
     }.get(industry, industry)
 
+    # Build per-role salary text using BLS data when available
+    # Use national average COLI (100) for the summary; per-location adjustments happen in factor descriptions
     role_salary_text = []
     for r in (roles or [])[:5]:
-        salary = ROLE_SALARY_RANGES.get(r, "$45,000 - $80,000")
+        salary = _get_role_salary_range(r, location_coli=100, enrichment_salary_data=enrichment_salary_data)
         role_salary_text.append(f"{r}: {salary}")
     salary_summary = "; ".join(role_salary_text) if role_salary_text else "Varies by position"
 
@@ -1077,9 +1158,16 @@ def get_market_trends(locations, industry, roles):
                 )
             elif factor_name == "Median Salary / Compensation Benchmark":
                 sal_display = f"{currency_sym}{sal:,}" if currency in ("USD", "GBP", "EUR") else f"{currency_sym}{sal:,} ({currency})"
+                # Build location-adjusted salary ranges for each role
+                loc_role_salary_parts = []
+                for r in (roles or [])[:5]:
+                    loc_sal = _get_role_salary_range(r, location_coli=coli, enrichment_salary_data=enrichment_salary_data)
+                    loc_role_salary_parts.append(f"{r}: {loc_sal}")
+                loc_salary_summary = "; ".join(loc_role_salary_parts) if loc_role_salary_parts else salary_summary
+                bls_note = " (BLS-sourced, COLI-adjusted)" if enrichment_salary_data else ""
                 descs[loc] = (
                     f"Regional median salary: {sal_display}/year. "
-                    f"Target role salary ranges: {salary_summary}. "
+                    f"Target role salary ranges{bls_note}: {loc_salary_summary}. "
                     f"{'Compensation packages should be above-market to attract top talent in this competitive metro.' if coli > 110 else 'Compensation aligned with market averages should be competitive.'} "
                     f"{'Consider currency exchange rates and local purchasing power parity when setting compensation.' if is_intl else 'Consider sign-on bonuses and relocation assistance for hard-to-fill positions.'}"
                 )
@@ -2052,7 +2140,7 @@ def get_client_competitor_intelligence(competitors, industry):
         "blue_collar_trades": "Indeed (primary), Craigslist, Facebook Jobs, local union boards, trade school partnerships, industry job fairs",
         "maritime_marine": "Indeed, Maritime Jobs, MarineLink, MARAD job boards, maritime academy career services, industry associations",
         "military_recruitment": "Military.com, GoArmy.com, branch-specific sites, social media (Instagram/TikTok), high school/college events, recruiters in field",
-        "tech_engineering": "LinkedIn (primary), Direct career site, HackerRank, Stack Overflow Jobs, GitHub, employee referrals, university OCR",
+        "tech_engineering": "LinkedIn (primary), Direct career site, HackerRank, Stack Overflow Talent, GitHub, Wellfound, employee referrals, university OCR",
         "general_entry_level": "Indeed (primary), Snagajob, Facebook Jobs, Craigslist, in-store applications, local job fairs, walk-in hiring events",
         "legal_services": "LinkedIn, Direct career site, LawCrossing, Above The Law job board, law school OCI programs, Lateral Link",
         "finance_banking": "LinkedIn (primary), eFinancialCareers, Direct career site, university OCR, Handshake, CFA Institute career center",

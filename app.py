@@ -10,6 +10,7 @@ import re
 import zipfile
 import uuid
 import time
+import fcntl
 import urllib.request
 import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -28,6 +29,7 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 
 # --- Request logging helpers ---
 REQUEST_LOG_FILE = os.path.join(DATA_DIR, "request_log.json")
+REQUEST_LOG_LOCK = REQUEST_LOG_FILE + ".lock"
 
 def load_request_log():
     try:
@@ -41,7 +43,7 @@ def save_request_log(log):
         json.dump(log, f, indent=2, default=str)
 
 def log_request(data, status, file_size=0, generation_time=0, error_msg=None, doc_filename=None):
-    log = load_request_log()
+    """Append a log entry with file locking to prevent corruption from concurrent writes."""
     entry = {
         "id": str(uuid.uuid4())[:8],
         "timestamp": datetime.datetime.now().isoformat(),
@@ -60,8 +62,17 @@ def log_request(data, status, file_size=0, generation_time=0, error_msg=None, do
         "doc_filename": doc_filename,
         "enrichment_apis": data.get("_enriched", {}).get("enrichment_summary", {}).get("apis_succeeded", []) if isinstance(data.get("_enriched"), dict) else [],
     }
-    log.append(entry)
-    save_request_log(log)
+    # Use file locking to prevent concurrent write corruption
+    os.makedirs(os.path.dirname(REQUEST_LOG_LOCK), exist_ok=True)
+    lock_fd = open(REQUEST_LOG_LOCK, "w")
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        log = load_request_log()
+        log.append(entry)
+        save_request_log(log)
+    finally:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        lock_fd.close()
     return entry
 
 # Import research module for real data
@@ -147,6 +158,10 @@ def fetch_client_logo(client_name, client_website=""):
 
 
 def generate_excel(data):
+    # Normalize budget: frontend sends "budget_range" but code reads "budget"
+    if data.get("budget_range") and not data.get("budget"):
+        data["budget"] = data["budget_range"]
+
     # Null safety for all input fields
     for key, default in [("client_name", "Client"), ("company_name", "Client"), ("industry", "general_entry_level"), ("budget", "Not specified"), ("work_environment", "hybrid")]:
         if not data.get(key):
@@ -348,7 +363,7 @@ def generate_excel(data):
         ("Target Locations", ", ".join(locations)),
         ("Target Roles", ", ".join(roles)),
         ("Target Demographic", data.get("target_demographic", "")),
-        ("Budget Range", data.get("budget_range", "")),
+        ("Budget Range", data.get("budget_range", "") or data.get("budget", "Not specified")),
         ("Campaign Duration", data.get("campaign_duration", "")),
         ("Key Competitors", ", ".join(client_competitors) if client_competitors else "Not specified"),
     ]
@@ -367,7 +382,8 @@ def generate_excel(data):
     ws_overview.cell(row=row, column=2, value="Joveo Supply Network").font = Font(name="Calibri", bold=True, size=12, color="2E75B6")
     row += 1
     total_pubs = joveo_pubs.get("total_active_publishers", 1238)
-    ws_overview.cell(row=row, column=2, value=f"  Active Supply Partners: {total_pubs:,}+").font = body_font
+    _total_pubs_str = f"{total_pubs:,}" if isinstance(total_pubs, (int, float)) else str(total_pubs)
+    ws_overview.cell(row=row, column=2, value=f"  Active Supply Partners: {_total_pubs_str}+").font = body_font
     row += 1
     ws_overview.cell(row=row, column=2, value=f"  Countries Covered: 200+").font = body_font
     row += 1
@@ -473,7 +489,7 @@ def generate_excel(data):
     exec_row += 1
 
     # Hero stat - total budget or channel count as large number
-    budget_range_val = data.get("budget_range", "Not specified")
+    budget_range_val = data.get("budget_range", "") or data.get("budget", "Not specified")
     campaign_duration_val = data.get("campaign_duration", "Not specified")
     loc_count = len(locations)
     role_count = len(roles)
@@ -591,7 +607,11 @@ def generate_excel(data):
     if industry_emp:
         exec_row += 1
         ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-        ws_exec.cell(row=exec_row, column=2, value=f"Live Data: {industry_emp.get('sector_name', 'Industry')} — {industry_emp.get('total_employed', 'N/A'):,} employed, Avg wage ${industry_emp.get('avg_wage', 0):,.0f}, Growth {industry_emp.get('growth_rate', 'N/A')} ({industry_emp.get('source', 'DataUSA')})").font = Font(name="Calibri", size=10, bold=True, color="2E7D32")
+        _total_emp = industry_emp.get('total_employed', 'N/A')
+        _total_emp_str = f"{_total_emp:,}" if isinstance(_total_emp, (int, float)) else str(_total_emp)
+        _avg_wage = industry_emp.get('avg_wage', 0)
+        _avg_wage_str = f"${_avg_wage:,.0f}" if isinstance(_avg_wage, (int, float)) else str(_avg_wage)
+        ws_exec.cell(row=exec_row, column=2, value=f"Live Data: {industry_emp.get('sector_name', 'Industry')} — {_total_emp_str} employed, Avg wage {_avg_wage_str}, Growth {industry_emp.get('growth_rate', 'N/A')} ({industry_emp.get('source', 'DataUSA')})").font = Font(name="Calibri", size=10, bold=True, color="2E7D32")
         exec_row += 1
 
     exec_row += 1
@@ -613,7 +633,7 @@ def generate_excel(data):
     recommendations = []
     if has_international:
         recommendations.append("International recruitment strategy recommended with local job boards")
-    budget_str = data.get("budget_range", "")
+    budget_str = data.get("budget_range", "") or data.get("budget", "")
     # Check if budget exceeds $500K
     if any(x in budget_str.lower() for x in ["500k", "500,000", "1m", "1,000,000", "million"]):
         recommendations.append("Multi-channel programmatic approach with performance tracking")
@@ -663,7 +683,7 @@ def generate_excel(data):
         if any(x in role_lower for x in ["nurse", "physician", "rn", "medical", "clinical", "therapist"]):
             recommendations.append("Clinical talent: Prioritize health-specific boards (Health eCareers, Vivian Health) and hospital system career pages")
         if any(x in role_lower for x in ["engineer", "developer", "software", "devops", "data scientist"]):
-            recommendations.append("Tech talent: Invest in developer communities (GitHub Jobs, Stack Overflow) and technical assessment platforms")
+            recommendations.append("Tech talent: Invest in developer communities (GitHub, Stack Overflow Talent, Wellfound) and technical assessment platforms")
         if any(x in role_lower for x in ["driver", "warehouse", "mechanic", "technician", "operator"]):
             recommendations.append("High-volume roles: Deploy programmatic CPA-based campaigns for rapid scaling with performance optimization")
         if any(x in role_lower for x in ["executive", "director", "vp", "chief", "president", "c-suite"]):
@@ -1085,20 +1105,80 @@ def generate_excel(data):
     }
 
     fb = funnel_benchmarks.get(client_industry, funnel_benchmarks["general_entry_level"])
-    # Estimate starting impressions based on number of locations and roles
-    num_locs = max(len(locations), 1)
-    num_roles_est = max(len(roles), 3)
-    base_impressions = 500000 * num_locs * min(num_roles_est, 5)
-    est_impressions = min(base_impressions, 10000000)
+
+    # ── Budget-driven funnel calculation ──
+    # Parse budget from the budget_range string (e.g. "$50,000 - $250,000", "< $50,000")
+    budget_range_str = data.get("budget_range", "")
+    def _parse_budget_midpoint(bstr):
+        """Extract a numeric midpoint from budget range strings like '$50,000 - $250,000'."""
+        if not bstr:
+            return 100000  # default fallback
+        nums = re.findall(r'[\d,]+', bstr.replace(",", ""))
+        # re-parse with commas removed
+        nums = re.findall(r'[\d]+', bstr.replace(",", ""))
+        parsed = [int(n) for n in nums if int(n) >= 1000]  # filter out small numbers
+        if len(parsed) >= 2:
+            return (parsed[0] + parsed[1]) / 2  # midpoint of range
+        elif len(parsed) == 1:
+            return parsed[0]
+        # Handle text-based values
+        bstr_lower = bstr.lower()
+        if "million" in bstr_lower or "1m" in bstr_lower:
+            return 1000000
+        if "500k" in bstr_lower or "500,000" in bstr_lower:
+            return 500000
+        return 100000  # safe default
+
+    budget_midpoint = _parse_budget_midpoint(budget_range_str)
+
+    # Industry-specific Cost-Per-Hire (CPH) ranges for realistic funnel math
+    industry_cph_ranges = {
+        "healthcare_medical":      (9000, 12000),
+        "tech_engineering":        (6000, 14000),
+        "blue_collar_trades":      (3500, 5600),
+        "general_entry_level":     (2000, 4700),
+        "finance_banking":         (5000, 12000),
+        "retail_consumer":         (2700, 4000),
+        "pharma_biotech":          (8000, 18000),
+        "hospitality_travel":      (2500, 4000),
+        "logistics_supply_chain":  (4500, 8000),
+        "energy_utilities":        (5000, 10000),
+        "automotive":              (5600, 9000),
+        "insurance":               (5000, 10000),
+        "food_beverage":           (2000, 3500),
+        "construction_real_estate":(4500, 8000),
+        "education":               (3500, 7000),
+        "telecommunications":      (5000, 10000),
+        "media_entertainment":     (5000, 12000),
+        "maritime_marine":         (5000, 10000),
+        "military_recruitment":    (4000, 8000),
+        "legal_services":          (5000, 12000),
+        "mental_health":           (4000, 8000),
+        "aerospace_defense":       (6000, 15000),
+    }
+    cph_low, cph_high = industry_cph_ranges.get(client_industry, (4000, 8000))
+    avg_cph = (cph_low + cph_high) / 2
+
+    # Calculate realistic projected hires from budget
+    est_hires_from_budget = max(1, int(budget_midpoint / avg_cph))
+
+    # Build funnel UPWARD from hires using realistic conversion ratios
+    est_hires_val = est_hires_from_budget
+    est_offers = int(est_hires_val / fb["offer_to_hire"])
+    est_interviews_final = int(est_offers / fb["interview_to_offer"])
+    est_qualified = int(est_interviews_final / fb["qualified_to_interview"])
+    est_applications = int(est_qualified / fb["apply_to_qualified"])
+    est_clicks = int(est_applications / fb["click_to_apply"])
+    est_impressions = int(est_clicks / fb["impression_to_click"])
 
     funnel_stages = [
         ("Impressions", est_impressions, "Job ad views across all selected channels", None),
-        ("Clicks", int(est_impressions * fb["impression_to_click"]), "Candidates who clicked through to job details", f"{fb['impression_to_click']*100:.1f}%"),
-        ("Applications", int(est_impressions * fb["impression_to_click"] * fb["click_to_apply"]), "Completed applications submitted", f"{fb['click_to_apply']*100:.1f}%"),
-        ("Qualified Applicants", int(est_impressions * fb["impression_to_click"] * fb["click_to_apply"] * fb["apply_to_qualified"]), "Applicants meeting minimum qualifications (CPQA target)", f"{fb['apply_to_qualified']*100:.0f}%"),
-        ("Interviews", int(est_impressions * fb["impression_to_click"] * fb["click_to_apply"] * fb["apply_to_qualified"] * fb["qualified_to_interview"]), "Candidates advancing to interview stage", f"{fb['qualified_to_interview']*100:.0f}%"),
-        ("Offers", int(est_impressions * fb["impression_to_click"] * fb["click_to_apply"] * fb["apply_to_qualified"] * fb["qualified_to_interview"] * fb["interview_to_offer"]), "Offers extended to qualified candidates", f"{fb['interview_to_offer']*100:.0f}%"),
-        ("Hires", int(est_impressions * fb["impression_to_click"] * fb["click_to_apply"] * fb["apply_to_qualified"] * fb["qualified_to_interview"] * fb["interview_to_offer"] * fb["offer_to_hire"]), "Accepted offers resulting in successful hires", f"{fb['offer_to_hire']*100:.0f}%"),
+        ("Clicks", est_clicks, "Candidates who clicked through to job details", f"{fb['impression_to_click']*100:.1f}%"),
+        ("Applications", est_applications, "Completed applications submitted", f"{fb['click_to_apply']*100:.1f}%"),
+        ("Qualified Applicants", est_qualified, "Applicants meeting minimum qualifications (CPQA target)", f"{fb['apply_to_qualified']*100:.0f}%"),
+        ("Interviews", est_interviews_final, "Candidates advancing to interview stage", f"{fb['qualified_to_interview']*100:.0f}%"),
+        ("Offers", est_offers, "Offers extended to qualified candidates", f"{fb['interview_to_offer']*100:.0f}%"),
+        ("Hires", est_hires_val, f"Projected hires at {display_currency}{avg_cph:,.0f} avg CPH", f"{fb['offer_to_hire']*100:.0f}%"),
     ]
 
     # Funnel table headers
@@ -1197,23 +1277,99 @@ def generate_excel(data):
                 ch_cats2[str(item)] = True
     else:
         ch_cats2 = ch_cats2_raw
+
+    # ── Industry-aware channel allocation profiles ──
+    _INDUSTRY_ALLOC = {
+        "healthcare_medical":     {"programmatic_dsp": 22, "global_boards": 15, "niche_boards": 30, "social_media": 10, "regional_boards": 10, "employer_branding": 8, "apac_regional": 3, "emea_regional": 2},
+        "tech_engineering":       {"programmatic_dsp": 30, "global_boards": 15, "niche_boards": 20, "social_media": 18, "regional_boards": 5,  "employer_branding": 7, "apac_regional": 3, "emea_regional": 2},
+        "finance_banking":        {"programmatic_dsp": 25, "global_boards": 18, "niche_boards": 25, "social_media": 10, "regional_boards": 7,  "employer_branding": 10, "apac_regional": 3, "emea_regional": 2},
+        "retail_consumer":        {"programmatic_dsp": 38, "global_boards": 22, "niche_boards": 8,  "social_media": 20, "regional_boards": 7,  "employer_branding": 3, "apac_regional": 1, "emea_regional": 1},
+        "hospitality_travel":     {"programmatic_dsp": 38, "global_boards": 22, "niche_boards": 8,  "social_media": 20, "regional_boards": 7,  "employer_branding": 3, "apac_regional": 1, "emea_regional": 1},
+        "general_entry_level":    {"programmatic_dsp": 40, "global_boards": 22, "niche_boards": 8,  "social_media": 15, "regional_boards": 10, "employer_branding": 3, "apac_regional": 1, "emea_regional": 1},
+        "blue_collar_trades":     {"programmatic_dsp": 35, "global_boards": 20, "niche_boards": 10, "social_media": 15, "regional_boards": 15, "employer_branding": 3, "apac_regional": 1, "emea_regional": 1},
+        "aerospace_defense":      {"programmatic_dsp": 20, "global_boards": 15, "niche_boards": 30, "social_media": 8,  "regional_boards": 10, "employer_branding": 12, "apac_regional": 3, "emea_regional": 2},
+        "pharma_biotech":         {"programmatic_dsp": 22, "global_boards": 15, "niche_boards": 28, "social_media": 10, "regional_boards": 8,  "employer_branding": 12, "apac_regional": 3, "emea_regional": 2},
+        "education":              {"programmatic_dsp": 20, "global_boards": 18, "niche_boards": 28, "social_media": 12, "regional_boards": 10, "employer_branding": 7, "apac_regional": 3, "emea_regional": 2},
+        "legal_services":         {"programmatic_dsp": 22, "global_boards": 18, "niche_boards": 28, "social_media": 8,  "regional_boards": 8,  "employer_branding": 11, "apac_regional": 3, "emea_regional": 2},
+        "automotive":             {"programmatic_dsp": 30, "global_boards": 18, "niche_boards": 18, "social_media": 10, "regional_boards": 15, "employer_branding": 5, "apac_regional": 2, "emea_regional": 2},
+        "energy_utilities":       {"programmatic_dsp": 25, "global_boards": 15, "niche_boards": 25, "social_media": 8,  "regional_boards": 15, "employer_branding": 7, "apac_regional": 3, "emea_regional": 2},
+        "mental_health":          {"programmatic_dsp": 22, "global_boards": 18, "niche_boards": 28, "social_media": 10, "regional_boards": 8,  "employer_branding": 9, "apac_regional": 3, "emea_regional": 2},
+        "logistics_supply_chain": {"programmatic_dsp": 35, "global_boards": 20, "niche_boards": 12, "social_media": 10, "regional_boards": 15, "employer_branding": 5, "apac_regional": 2, "emea_regional": 1},
+        "insurance":              {"programmatic_dsp": 25, "global_boards": 18, "niche_boards": 25, "social_media": 10, "regional_boards": 7,  "employer_branding": 10, "apac_regional": 3, "emea_regional": 2},
+        "maritime_marine":        {"programmatic_dsp": 20, "global_boards": 15, "niche_boards": 30, "social_media": 8,  "regional_boards": 15, "employer_branding": 7, "apac_regional": 3, "emea_regional": 2},
+    }
+    _DEFAULT_ALLOC = {"programmatic_dsp": 35, "global_boards": 20, "niche_boards": 15, "social_media": 12, "regional_boards": 8, "employer_branding": 5, "apac_regional": 3, "emea_regional": 2}
+    _ind_key = data.get("industry", "general_entry_level")
+    _ap = dict(_INDUSTRY_ALLOC.get(_ind_key, _DEFAULT_ALLOC))
+
+    # Budget-size adjustment
+    _bstr = data.get("budget", "")
+    try:
+        _bnums = re.findall(r'[\d]+', _bstr.replace(",", "").replace("$", "").strip())
+        _bval = int(_bnums[0]) if _bnums and int(_bnums[0]) >= 1000 else None
+    except (ValueError, IndexError):
+        _bval = None
+    if _bval is not None:
+        if _bval < 50000:
+            _ap["employer_branding"] = max(1, _ap["employer_branding"] - 3)
+            _ap["apac_regional"] = max(0, _ap["apac_regional"] - 2)
+            _ap["emea_regional"] = max(0, _ap["emea_regional"] - 1)
+            _ap["programmatic_dsp"] += 4; _ap["global_boards"] += 2
+        elif _bval > 500000:
+            _ap["employer_branding"] += 4; _ap["regional_boards"] += 2; _ap["social_media"] += 2
+            _ap["programmatic_dsp"] = max(5, _ap["programmatic_dsp"] - 5)
+            _ap["global_boards"] = max(5, _ap["global_boards"] - 3)
+
+    # Role seniority adjustment
+    _rl = data.get("roles", []) or data.get("target_roles", []) or []
+    if _rl:
+        _rt = " ".join(r.lower() for r in _rl)
+        _sr = sum(1 for k in ["executive","director","vp","chief","president","c-suite","senior","head of","principal"] if k in _rt)
+        _jr = sum(1 for k in ["intern","entry","junior","associate","trainee","assistant","coordinator"] if k in _rt)
+        if _sr > _jr:
+            _ap["niche_boards"] += 4; _ap["employer_branding"] += 3
+            _ap["social_media"] = max(2, _ap["social_media"] - 3); _ap["programmatic_dsp"] = max(5, _ap["programmatic_dsp"] - 4)
+        elif _jr > _sr:
+            _ap["social_media"] += 5; _ap["global_boards"] += 3
+            _ap["niche_boards"] = max(2, _ap["niche_boards"] - 4); _ap["programmatic_dsp"] = max(5, _ap["programmatic_dsp"] - 2)
+    for _k2 in _ap:
+        _ap[_k2] = max(1, _ap[_k2])
+
+    # Industry-specific channel descriptions
+    _NICHE_DESC = {
+        "healthcare_medical": "Health eCareers, Doximity, Vivian Health — clinical talent; highest quality match for medical roles",
+        "tech_engineering": "Dice, BuiltIn, Stack Overflow Talent — developer & engineering talent; skills-matched candidates",
+        "finance_banking": "eFinancialCareers, CFA Career Center — financial professional talent; CPA/CFA certified candidates",
+        "aerospace_defense": "ClearedJobs.net, Aviation Job Search — cleared & aerospace talent; security-vetted pipeline",
+        "pharma_biotech": "BioSpace, Nature Careers, MedReps — scientific & clinical talent; research-credentialed candidates",
+        "education": "HigherEdJobs, K12JobSpot, SchoolSpring — academic talent; certified educator pipeline",
+    }
+    _niche_d = _NICHE_DESC.get(_ind_key, "Specialized boards with higher quality match; lower volume but better CPQA")
+    _SOCIAL_DESC = {
+        "tech_engineering": "LinkedIn Ads, Reddit, Discord, GitHub — developer community reach; passive tech talent engagement",
+        "retail_consumer": "Facebook Jobs, Instagram, TikTok, Snapchat — high-volume social reach; mobile-first hourly candidates",
+        "hospitality_travel": "Facebook Jobs, Instagram, TikTok — high-volume social reach; seasonal & hourly workforce",
+        "blue_collar_trades": "Facebook Jobs, TikTok, Nextdoor — local trade worker reach; mobile-first blue-collar candidates",
+    }
+    _social_d = _SOCIAL_DESC.get(_ind_key, "Facebook Jobs, Instagram, TikTok — passive candidate reach; employer brand amplification")
+
     channel_allocations = []
     if ch_cats2.get("programmatic_dsp", True):
-        channel_allocations.append(("Programmatic & DSP", 35, "ML-optimized bidding; highest volume driver; real-time publisher optimization", "#2E75B6", "Highest"))
+        channel_allocations.append(("Programmatic & DSP", _ap["programmatic_dsp"], "ML-optimized bidding; highest volume driver; real-time publisher optimization", "#2E75B6", "Highest"))
     if ch_cats2.get("global_boards", True):
-        channel_allocations.append(("Global Job Boards", 20, "Indeed, ZipRecruiter, Glassdoor — broad reach; consistent applicant flow", "#1B6B3A", "High"))
+        channel_allocations.append(("Global Job Boards", _ap["global_boards"], "Indeed, ZipRecruiter, Glassdoor — broad reach; consistent applicant flow", "#1B6B3A", "High"))
     if ch_cats2.get("niche_boards", True):
-        channel_allocations.append(("Niche & Industry Boards", 15, "Specialized boards with higher quality match; lower volume but better CPQA", "#7030A0", "Medium-High"))
+        channel_allocations.append(("Niche & Industry Boards", _ap["niche_boards"], _niche_d, "#7030A0", "Medium-High"))
     if ch_cats2.get("social_media", True):
-        channel_allocations.append(("Social Media Channels", 12, "Facebook Jobs, Instagram, TikTok — passive candidate reach; employer brand amplification", "#ED7D31", "Medium"))
+        channel_allocations.append(("Social Media Channels", _ap["social_media"], _social_d, "#ED7D31", "Medium"))
     if ch_cats2.get("regional_boards", True):
-        channel_allocations.append(("Regional & Local Boards", 8, "Geo-targeted local reach; strong for hourly & blue-collar roles", "#4472C4", "Medium"))
+        channel_allocations.append(("Regional & Local Boards", _ap["regional_boards"], "Geo-targeted local reach; strong for hourly & blue-collar roles", "#4472C4", "Medium"))
     if ch_cats2.get("employer_branding", False):
-        channel_allocations.append(("Employer Branding", 5, "Glassdoor, Comparably — long-term brand building; 1.7x higher InMail acceptance", "#00B0F0", "Long-term"))
+        channel_allocations.append(("Employer Branding", _ap["employer_branding"], "Glassdoor, Comparably — long-term brand building; 1.7x higher InMail acceptance", "#00B0F0", "Long-term"))
     if ch_cats2.get("apac_regional", False):
-        channel_allocations.append(("APAC Regional", 3, "JobStreet, Naukri, Seek — APAC market-specific reach", "#FFC000", "Regional"))
+        channel_allocations.append(("APAC Regional", _ap["apac_regional"], "JobStreet, Naukri, Seek — APAC market-specific reach", "#FFC000", "Regional"))
     if ch_cats2.get("emea_regional", False):
-        channel_allocations.append(("EMEA Regional", 2, "StepStone, Totaljobs, Reed — EMEA market-specific reach", "#FF6B6B", "Regional"))
+        channel_allocations.append(("EMEA Regional", _ap["emea_regional"], "StepStone, Totaljobs, Reed — EMEA market-specific reach", "#FF6B6B", "Regional"))
 
     # Normalize allocations to 100%
     total_alloc = sum(a[1] for a in channel_allocations) if channel_allocations else 100
@@ -1442,15 +1598,15 @@ def generate_excel(data):
     num_channels = regional_count + niche_count + global_count
     est_hires = funnel_stages[-1][1] if funnel_stages else 0
     est_applies = funnel_stages[2][1] if len(funnel_stages) > 2 else 0
-    est_cpa = round(est_total_reach * 0.00002, 2) if est_applies > 0 else 0  # rough estimate
+    est_cpa = round(budget_midpoint / max(est_applies, 1), 2) if est_applies > 0 else 0  # budget-derived CPA
     channel_diversity = min(round(num_channels / 10 * 100, 0), 100)  # score out of 100
-    roi_index = round((est_hires / max(num_channels, 1)) * 10, 1) if est_hires > 0 else 0
+    est_cph_display = round(budget_midpoint / max(est_hires, 1), 0) if est_hires > 0 else avg_cph
 
     quality_metrics = [
         (f"{est_total_reach:,.0f}", "Estimated Total Reach", "Total impressions across all selected channels"),
-        (f"{display_currency}{est_cpa:,.2f}", "Est. Cost Per Application", "Based on industry CPA benchmarks for your sector"),
-        (f"{channel_diversity:.0f}/100", "Channel Diversity Score", f"Across {num_channels} channels in {len(normalized) if normalized else 0} categories"),
-        (f"{roi_index}", "Campaign ROI Index", "Estimated hire yield per channel (higher = better)"),
+        (f"{display_currency}{est_cpa:,.2f}", "Est. Cost Per Application", "Budget-calibrated CPA based on industry benchmarks"),
+        (f"{display_currency}{est_cph_display:,.0f}", "Est. Cost Per Hire", f"Based on {client_industry.replace('_', ' ').title()} industry benchmarks"),
+        (f"{est_hires:,}", "Projected Hires", f"Across {num_channels} channels in {len(normalized) if normalized else 0} categories"),
     ]
 
     # 2x2 grid layout: row 1 has metrics 0,1; row 2 has metrics 2,3
@@ -1665,7 +1821,9 @@ def generate_excel(data):
         cell.border = thin_border
 
     # USE RESEARCH MODULE for real market trends
-    market_trends = research.get_market_trends(locations, industry, roles)
+    # Pass BLS enrichment salary data so roles get real salary ranges instead of generic fallback
+    enrichment_salary_data = data.get("_enriched", {}).get("salary_data", {})
+    market_trends = research.get_market_trends(locations, industry, roles, enrichment_salary_data=enrichment_salary_data)
 
     for trend in market_trends:
         row += 1
@@ -1898,9 +2056,12 @@ def generate_excel(data):
         lm_row += 1
         for role_name, sdata in salary_data.items():
             ws_labour.cell(row=lm_row, column=2, value=role_name).font = body_font
-            ws_labour.cell(row=lm_row, column=3, value=f"${sdata.get('median', 0):,.0f}").font = Font(name="Calibri", size=10, bold=True, color="2E7D32")
-            ws_labour.cell(row=lm_row, column=4, value=f"${sdata.get('p10', 0):,.0f}").font = body_font
-            ws_labour.cell(row=lm_row, column=5, value=f"${sdata.get('p90', 0):,.0f}").font = body_font
+            _med = sdata.get('median', 0)
+            ws_labour.cell(row=lm_row, column=3, value=f"${_med:,.0f}" if isinstance(_med, (int, float)) else str(_med)).font = Font(name="Calibri", size=10, bold=True, color="2E7D32")
+            _p10 = sdata.get('p10', 0)
+            ws_labour.cell(row=lm_row, column=4, value=f"${_p10:,.0f}" if isinstance(_p10, (int, float)) else str(_p10)).font = body_font
+            _p90 = sdata.get('p90', 0)
+            ws_labour.cell(row=lm_row, column=5, value=f"${_p90:,.0f}" if isinstance(_p90, (int, float)) else str(_p90)).font = body_font
             ws_labour.cell(row=lm_row, column=6, value=sdata.get("source", "BLS")).font = Font(name="Calibri", italic=True, size=9, color="596780")
             for ci in range(2, 7):
                 ws_labour.cell(row=lm_row, column=ci).border = thin_border
@@ -1912,7 +2073,7 @@ def generate_excel(data):
         lm_row += 2
         style_section_header(ws_labour, lm_row, 2, 7, "Location Demographics (Live Data)")
         lm_row += 1
-        for ci, hdr in enumerate(["Location", "Population", "Median Income", "Unemployment Rate", "Source"], start=2):
+        for ci, hdr in enumerate(["Location", "Population", "Median Income", "Geo Level", "Matched Place", "Source"], start=2):
             c = ws_labour.cell(row=lm_row, column=ci, value=hdr)
             c.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
             c.fill = PatternFill(start_color="1B2A4A", end_color="1B2A4A", fill_type="solid")
@@ -1921,13 +2082,17 @@ def generate_excel(data):
         for loc_name, ldata in location_demos.items():
             ws_labour.cell(row=lm_row, column=2, value=loc_name).font = body_font
             pop = ldata.get("population")
-            ws_labour.cell(row=lm_row, column=3, value=f"{pop:,.0f}" if pop else "N/A").font = body_font
+            ws_labour.cell(row=lm_row, column=3, value=f"{pop:,.0f}" if isinstance(pop, (int, float)) else ("N/A" if not pop else str(pop))).font = body_font
             inc = ldata.get("median_income")
-            ws_labour.cell(row=lm_row, column=4, value=f"${inc:,.0f}" if inc else "N/A").font = body_font
-            unemp = ldata.get("unemployment_rate")
-            ws_labour.cell(row=lm_row, column=5, value=f"{unemp}%" if unemp else "N/A").font = body_font
-            ws_labour.cell(row=lm_row, column=6, value=ldata.get("source", "")).font = Font(name="Calibri", italic=True, size=9, color="596780")
-            for ci in range(2, 7):
+            ws_labour.cell(row=lm_row, column=4, value=f"${inc:,.0f}" if isinstance(inc, (int, float)) else ("N/A" if not inc else str(inc))).font = body_font
+            # Show the geographic level (city, metro, state/country) so users know what the population number represents
+            geo_level = ldata.get("geo_level", "Unknown")
+            ws_labour.cell(row=lm_row, column=5, value=geo_level).font = body_font
+            # Show the actual place name DataUSA matched to
+            matched_place = ldata.get("matched_place", "")
+            ws_labour.cell(row=lm_row, column=6, value=matched_place).font = body_font
+            ws_labour.cell(row=lm_row, column=7, value=ldata.get("source", "")).font = Font(name="Calibri", italic=True, size=9, color="596780")
+            for ci in range(2, 8):
                 ws_labour.cell(row=lm_row, column=ci).border = thin_border
                 ws_labour.cell(row=lm_row, column=ci).alignment = center_alignment
             lm_row += 1
@@ -1950,7 +2115,7 @@ def generate_excel(data):
             gdp = gdata.get("gdp_growth")
             ws_labour.cell(row=lm_row, column=4, value=f"{gdp}%" if gdp else "N/A").font = body_font
             lf = gdata.get("labor_force")
-            ws_labour.cell(row=lm_row, column=5, value=f"{lf:,.0f}" if lf else "N/A").font = body_font
+            ws_labour.cell(row=lm_row, column=5, value=f"{lf:,.0f}" if isinstance(lf, (int, float)) else ("N/A" if not lf else str(lf))).font = body_font
             ws_labour.cell(row=lm_row, column=6, value=gdata.get("source", "World Bank")).font = Font(name="Calibri", italic=True, size=9, color="596780")
             for ci in range(2, 7):
                 ws_labour.cell(row=lm_row, column=ci).border = thin_border
@@ -2067,7 +2232,9 @@ def generate_excel(data):
     ws_trad["B2"].border = gold_bottom_border
 
     roles_str = f" | Target Roles: {', '.join(roles[:5])}" if roles else ""
-    ws_trad["B3"].value = f"Target: {', '.join(locations)}{roles_str} | Joveo Supply Network: {joveo_pubs.get('total_active_publishers', 1238):,}+ active publishers"
+    _trad_pubs = joveo_pubs.get('total_active_publishers', 1238)
+    _trad_pubs_str = f"{_trad_pubs:,}" if isinstance(_trad_pubs, (int, float)) else str(_trad_pubs)
+    ws_trad["B3"].value = f"Target: {', '.join(locations)}{roles_str} | Joveo Supply Network: {_trad_pubs_str}+ active publishers"
     ws_trad["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
 
     row = 5
@@ -2155,6 +2322,14 @@ def generate_excel(data):
     categories.append(("Early-Career Channels", nt.get("early_career_channels", [])))
     if include_employer_brand:
         categories.append(("Employer Branding", nt.get("employer_branding", [])))
+
+    # Add industry-specific non-traditional channels
+    _industry_nt = nt.get("industry_specific", {})
+    _ind_key_nt = data.get("industry", "general_entry_level")
+    _ind_nt_channels = _industry_nt.get(_ind_key_nt, [])
+    if _ind_nt_channels:
+        _ind_label = db.get("industries", {}).get(_ind_key_nt, {}).get("label", _ind_key_nt.replace("_", " ").title())
+        categories.append((f"Industry-Specific Channels ({_ind_label})", _ind_nt_channels))
 
     # Enrich with Joveo supply partner data
     joveo_nt_cats = {
@@ -2854,18 +3029,24 @@ def generate_excel(data):
                     cell.font = Font(name="Calibri", bold=True, size=10, color=ch_color)
                     cell.border = thin_border
                     style_body_cell(ws_jc, jc_row, 3, ", ".join(ch_list))
-                    # Add strategy notes based on category
+                    # Add strategy notes based on category with industry-aware allocation guidance
+                    _strat_emph = cat.get("strategy_emphasis", {})
+                    _hiring_pct = _strat_emph.get("hiring", 65)
                     if "Primary" in ch_label:
-                        style_body_cell(ws_jc, jc_row, 4, "High-volume, proven ROI — allocate 40-50% of budget")
+                        _pri_range = "45-55%" if _hiring_pct >= 65 else "35-45%"
+                        style_body_cell(ws_jc, jc_row, 4, f"High-volume, proven ROI — allocate {_pri_range} of budget")
                         style_body_cell(ws_jc, jc_row, 5, "Joveo Supply Repository")
                     elif "Secondary" in ch_label:
-                        style_body_cell(ws_jc, jc_row, 4, "Supplementary reach — allocate 20-25% of budget")
+                        _sec_range = "15-25%" if _hiring_pct >= 65 else "20-30%"
+                        style_body_cell(ws_jc, jc_row, 4, f"Supplementary reach — allocate {_sec_range} of budget")
                         style_body_cell(ws_jc, jc_row, 5, "Past Media Plan Data")
                     elif "Social" in ch_label:
-                        style_body_cell(ws_jc, jc_row, 4, "Brand awareness + retargeting — allocate 15-20% of budget")
+                        _soc_range = "20-30%" if _hiring_pct < 55 else "10-20%"
+                        style_body_cell(ws_jc, jc_row, 4, f"Brand awareness + retargeting — allocate {_soc_range} of budget")
                         style_body_cell(ws_jc, jc_row, 5, "Competitor Analysis")
                     else:
-                        style_body_cell(ws_jc, jc_row, 4, "Targeted specialists — allocate 10-15% of budget")
+                        _niche_range = "15-20%" if _hiring_pct >= 65 else "10-15%"
+                        style_body_cell(ws_jc, jc_row, 4, f"Targeted specialists — allocate {_niche_range} of budget")
                         style_body_cell(ws_jc, jc_row, 5, "Industry Research")
                     ws_jc.row_dimensions[jc_row].height = 35
                     jc_row += 1
@@ -3185,8 +3366,8 @@ def generate_excel(data):
                     ("InfoWorld / Computerworld", "IT Managers, Developers, DevOps", "US", "Tech career guides, recruitment ads"),
                 ],
                 "digital_media": [
-                    ("Stack Overflow Jobs", "10M+ Monthly developers", "Global", "Targeted developer job ads, company profiles"),
-                    ("GitHub Jobs / Sponsorships", "56M+ Developer accounts", "Global", "Repository sponsorships, team pages, job posts"),
+                    ("Stack Overflow Talent", "10M+ Monthly developers", "Global", "Targeted developer recruitment, company profiles, skills-based matching"),
+                    ("GitHub (Employer Branding)", "100M+ Developer accounts", "Global", "Repository sponsorships, team pages, open-source community engagement"),
                     ("Hacker News (Who's Hiring)", "Senior engineers, startup talent", "Global", "Monthly hiring threads, YC company pages"),
                     ("Dev.to", "2M+ Developer community", "Global", "Employer listings, sponsored posts, community engagement"),
                     ("TechCrunch / The Verge Careers", "Tech industry professionals", "Global", "Sponsored job placements, brand articles"),
@@ -3213,8 +3394,8 @@ def generate_excel(data):
                     ("MIT Technology Review", "Tech leaders, AI/ML researchers", "Global", "Sponsored recruitment content, job listings"),
                 ],
                 "digital_media": [
-                    ("Stack Overflow Jobs", "10M+ Monthly developers", "Global", "Targeted developer job ads, company profiles"),
-                    ("GitHub Jobs / Sponsorships", "56M+ Developer accounts", "Global", "Repository sponsorships, team pages"),
+                    ("Stack Overflow Talent", "10M+ Monthly developers", "Global", "Targeted developer recruitment, company profiles, skills-based matching"),
+                    ("GitHub (Employer Branding)", "100M+ Developer accounts", "Global", "Repository sponsorships, team pages, open-source engagement"),
                     ("Hacker News (Who's Hiring)", "Senior engineers, startup talent", "Global", "Monthly hiring threads"),
                     ("Dice.com", "IT professionals, contractors", "US", "Tech-specific job board, skills matching"),
                 ],
@@ -3929,6 +4110,17 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
+
+            # Validate required fields
+            client_name_input = (data.get("client_name") or "").strip()
+            if not client_name_input:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Client name is required."}).encode())
+                return
+            data["client_name"] = client_name_input
+
             # Enrich data with live API data
             enriched = {}
             if enrich_data is not None:
@@ -3941,6 +4133,37 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     data["_enriched"] = {}
             else:
                 data["_enriched"] = {}
+
+            # Set industry_label for PPT and Excel using the proper label map
+            _industry_label_map_for_data = {
+                "healthcare_medical": "Healthcare & Medical",
+                "blue_collar_trades": "Blue Collar / Skilled Trades",
+                "maritime_marine": "Maritime & Marine",
+                "military_recruitment": "Military Recruitment",
+                "tech_engineering": "Technology & Engineering",
+                "general_entry_level": "General / Entry-Level",
+                "legal_services": "Legal Services",
+                "finance_banking": "Finance & Banking",
+                "mental_health": "Mental Health & Behavioral",
+                "retail_consumer": "Retail & Consumer",
+                "aerospace_defense": "Aerospace & Defense",
+                "pharma_biotech": "Pharma & Biotech",
+                "energy_utilities": "Energy & Utilities",
+                "insurance": "Insurance",
+                "telecommunications": "Telecommunications",
+                "automotive": "Automotive & Manufacturing",
+                "food_beverage": "Food & Beverage",
+                "logistics_supply_chain": "Logistics & Supply Chain",
+                "hospitality_travel": "Hospitality & Travel",
+                "media_entertainment": "Media & Entertainment",
+                "construction_real_estate": "Construction & Real Estate",
+                "education": "Education",
+            }
+            if not data.get("industry_label"):
+                data["industry_label"] = _industry_label_map_for_data.get(
+                    data.get("industry", "general_entry_level"),
+                    data.get("industry", "General").replace("_", " ").title()
+                )
 
             start_time = time.time()
             try:
@@ -3958,7 +4181,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 return
 
             import re as _re
-            client_name = _re.sub(r'[^\w\-]', '_', data.get("client_name") or "Client")
+            # Sanitize client_name to ASCII-safe characters (prevents CJK/Unicode crashes in filenames/headers)
+            client_name = _re.sub(r'[^a-zA-Z0-9_\-]', '_', data.get("client_name") or "Client")
 
             # Generate McKinsey PPT
             pptx_bytes = None
@@ -3988,7 +4212,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     docs_dir = os.path.join(DATA_DIR, "generated_docs")
                     os.makedirs(docs_dir, exist_ok=True)
                     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    client_slug = re.sub(r'[^\w\-]', '_', data.get("client_name") or "Client")
+                    client_slug = re.sub(r'[^a-zA-Z0-9_\-]', '_', data.get("client_name") or "Client")
                     doc_filename = f"{timestamp}_{client_slug}.zip"
                     doc_path = os.path.join(docs_dir, doc_filename)
                     with open(doc_path, "wb") as df:
@@ -4013,7 +4237,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     docs_dir = os.path.join(DATA_DIR, "generated_docs")
                     os.makedirs(docs_dir, exist_ok=True)
                     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    client_slug = re.sub(r'[^\w\-]', '_', data.get("client_name") or "Client")
+                    client_slug = re.sub(r'[^a-zA-Z0-9_\-]', '_', data.get("client_name") or "Client")
                     # Wrap the Excel in a ZIP for consistent storage
                     doc_zip_buffer = io.BytesIO()
                     with zipfile.ZipFile(doc_zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:

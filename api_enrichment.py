@@ -672,6 +672,10 @@ def fetch_location_demographics(locations: List[str]) -> Dict[str, Any]:
     """
     Fetch demographic data for given locations from DataUSA.
     Currently supports US geographies best.
+
+    DataUSA returns Place-level (city/town) data when available.
+    The response includes a 'Place' field with the matched geography name,
+    which we use to label the data level (e.g., city vs. state).
     """
     demo_data: Dict[str, Any] = {}
 
@@ -696,10 +700,24 @@ def fetch_location_demographics(locations: List[str]) -> Dict[str, Any]:
             resp = _http_get_json(url)
             if resp and "data" in resp and resp["data"]:
                 rec = resp["data"][0]
+                matched_place = rec.get("Place", "")
+                population = rec.get("Population")
+
+                # Determine the geographic level from the response
+                # DataUSA Place drilldown returns city/town-level data
+                # Population > 10M likely means we got state or country-level data
+                geo_level = "City/Place"
+                if population and population > 10_000_000:
+                    geo_level = "State/Country-level (not city-specific)"
+                elif population and population > 1_000_000:
+                    geo_level = "City/Metro"
+
                 entry = {
-                    "population": rec.get("Population"),
+                    "population": population,
                     "median_income": rec.get("Median Household Income"),
                     "source": "DataUSA",
+                    "matched_place": matched_place,
+                    "geo_level": geo_level,
                 }
                 demo_data[loc] = entry
                 _set_cached(cache_k, entry)

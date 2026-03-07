@@ -133,7 +133,7 @@ COMPLICATIONS: Dict[str, List[str]] = {
     "tech_engineering": [
         "White-collar recession creating surplus but CPCs remain high",
         "AI/ML roles still command premium sourcing costs",
-        "6.41% apply rate highest of all sectors",
+        "Senior/specialized roles still average 45+ days to fill",
         "Remote-first expectations complicate geo-targeting",
     ],
     "retail_consumer": [
@@ -184,6 +184,7 @@ COMPLICATIONS: Dict[str, List[str]] = {
 # Default Channel Allocations
 # ---------------------------------------------------------------------------
 
+# Default allocation (used as fallback)
 CHANNEL_ALLOC: Dict[str, Dict[str, Any]] = {
     "programmatic_dsp":  {"label": "Programmatic DSP",       "pct": 35, "color": NAVY,        "category": "Programmatic"},
     "global_boards":     {"label": "Global Job Boards",      "pct": 20, "color": BLUE,        "category": "Job Boards"},
@@ -194,6 +195,193 @@ CHANNEL_ALLOC: Dict[str, Dict[str, Any]] = {
     "apac_regional":     {"label": "APAC Regional",          "pct": 3,  "color": LIGHT_GOLD,  "category": "Job Boards"},
     "emea_regional":     {"label": "EMEA Regional",          "pct": 2,  "color": PALE_GOLD,   "category": "Job Boards"},
 }
+
+# ── Industry-specific allocation profiles ──
+# Each profile shifts percentages to match industry hiring patterns.
+# The channel keys match CHANNEL_ALLOC keys; only "pct" differs.
+INDUSTRY_ALLOC_PROFILES: Dict[str, Dict[str, int]] = {
+    # Healthcare: heavier on niche medical boards, less programmatic
+    "healthcare_medical": {
+        "programmatic_dsp": 22, "global_boards": 15, "niche_boards": 30,
+        "social_media": 10, "regional_boards": 10, "employer_branding": 8,
+        "apac_regional": 3, "emea_regional": 2,
+    },
+    # Tech: heavier on programmatic/digital and social, moderate niche
+    "tech_engineering": {
+        "programmatic_dsp": 30, "global_boards": 15, "niche_boards": 20,
+        "social_media": 18, "regional_boards": 5, "employer_branding": 7,
+        "apac_regional": 3, "emea_regional": 2,
+    },
+    # Finance: balanced with strong niche and employer branding
+    "finance_banking": {
+        "programmatic_dsp": 25, "global_boards": 18, "niche_boards": 25,
+        "social_media": 10, "regional_boards": 7, "employer_branding": 10,
+        "apac_regional": 3, "emea_regional": 2,
+    },
+    # Retail/consumer & hospitality: high-volume programmatic + social
+    "retail_consumer": {
+        "programmatic_dsp": 38, "global_boards": 22, "niche_boards": 8,
+        "social_media": 20, "regional_boards": 7, "employer_branding": 3,
+        "apac_regional": 1, "emea_regional": 1,
+    },
+    "hospitality_travel": {
+        "programmatic_dsp": 38, "global_boards": 22, "niche_boards": 8,
+        "social_media": 20, "regional_boards": 7, "employer_branding": 3,
+        "apac_regional": 1, "emea_regional": 1,
+    },
+    # General / entry-level: programmatic-heavy, broad reach
+    "general_entry_level": {
+        "programmatic_dsp": 40, "global_boards": 22, "niche_boards": 8,
+        "social_media": 15, "regional_boards": 10, "employer_branding": 3,
+        "apac_regional": 1, "emea_regional": 1,
+    },
+    # Blue-collar/trades: programmatic + regional, less niche digital
+    "blue_collar_trades": {
+        "programmatic_dsp": 35, "global_boards": 20, "niche_boards": 10,
+        "social_media": 15, "regional_boards": 15, "employer_branding": 3,
+        "apac_regional": 1, "emea_regional": 1,
+    },
+    # Aerospace/defense: niche-heavy, security-cleared boards matter
+    "aerospace_defense": {
+        "programmatic_dsp": 20, "global_boards": 15, "niche_boards": 30,
+        "social_media": 8, "regional_boards": 10, "employer_branding": 12,
+        "apac_regional": 3, "emea_regional": 2,
+    },
+    # Pharma/biotech: niche scientific boards + employer branding
+    "pharma_biotech": {
+        "programmatic_dsp": 22, "global_boards": 15, "niche_boards": 28,
+        "social_media": 10, "regional_boards": 8, "employer_branding": 12,
+        "apac_regional": 3, "emea_regional": 2,
+    },
+    # Education: niche-heavy (HigherEdJobs etc.), moderate social
+    "education": {
+        "programmatic_dsp": 20, "global_boards": 18, "niche_boards": 28,
+        "social_media": 12, "regional_boards": 10, "employer_branding": 7,
+        "apac_regional": 3, "emea_regional": 2,
+    },
+    # Legal services: niche + employer brand focused
+    "legal_services": {
+        "programmatic_dsp": 22, "global_boards": 18, "niche_boards": 28,
+        "social_media": 8, "regional_boards": 8, "employer_branding": 11,
+        "apac_regional": 3, "emea_regional": 2,
+    },
+    # Manufacturing/automotive: programmatic + regional + niche trade
+    "automotive": {
+        "programmatic_dsp": 30, "global_boards": 18, "niche_boards": 18,
+        "social_media": 10, "regional_boards": 15, "employer_branding": 5,
+        "apac_regional": 2, "emea_regional": 2,
+    },
+    # Energy/utilities: niche trade boards + regional
+    "energy_utilities": {
+        "programmatic_dsp": 25, "global_boards": 15, "niche_boards": 25,
+        "social_media": 8, "regional_boards": 15, "employer_branding": 7,
+        "apac_regional": 3, "emea_regional": 2,
+    },
+    # Mental health: niche clinical + employer brand
+    "mental_health": {
+        "programmatic_dsp": 22, "global_boards": 18, "niche_boards": 28,
+        "social_media": 10, "regional_boards": 8, "employer_branding": 9,
+        "apac_regional": 3, "emea_regional": 2,
+    },
+    # Logistics/supply chain: programmatic + regional, moderate niche
+    "logistics_supply_chain": {
+        "programmatic_dsp": 35, "global_boards": 20, "niche_boards": 12,
+        "social_media": 10, "regional_boards": 15, "employer_branding": 5,
+        "apac_regional": 2, "emea_regional": 1,
+    },
+    # Insurance: niche + professional boards
+    "insurance": {
+        "programmatic_dsp": 25, "global_boards": 18, "niche_boards": 25,
+        "social_media": 10, "regional_boards": 7, "employer_branding": 10,
+        "apac_regional": 3, "emea_regional": 2,
+    },
+    # Maritime/marine: niche-heavy, regional
+    "maritime_marine": {
+        "programmatic_dsp": 20, "global_boards": 15, "niche_boards": 30,
+        "social_media": 8, "regional_boards": 15, "employer_branding": 7,
+        "apac_regional": 3, "emea_regional": 2,
+    },
+}
+
+
+def _get_industry_alloc(industry: str, budget_str: str = "",
+                        num_roles: int = 0, roles: list = None) -> Dict[str, Dict[str, Any]]:
+    """Return a copy of CHANNEL_ALLOC with percentages adjusted for industry, budget, roles."""
+    import copy
+    base = copy.deepcopy(CHANNEL_ALLOC)
+
+    # Step 1: Apply industry profile
+    profile = INDUSTRY_ALLOC_PROFILES.get(industry)
+    if profile:
+        for key in base:
+            if key in profile:
+                base[key]["pct"] = profile[key]
+
+    # Step 2: Adjust for budget size
+    budget_val = _parse_budget_number(budget_str) if budget_str else None
+    if budget_val is not None:
+        if budget_val < 50000:
+            # Small budget: concentrate on top 3-4 channels, cut low-impact ones
+            base["employer_branding"]["pct"] = max(1, base["employer_branding"]["pct"] - 3)
+            base["apac_regional"]["pct"] = max(0, base["apac_regional"]["pct"] - 2)
+            base["emea_regional"]["pct"] = max(0, base["emea_regional"]["pct"] - 1)
+            base["programmatic_dsp"]["pct"] += 4
+            base["global_boards"]["pct"] += 2
+        elif budget_val > 500000:
+            # Large budget: spread wider, invest in branding
+            base["employer_branding"]["pct"] += 4
+            base["regional_boards"]["pct"] += 2
+            base["social_media"]["pct"] += 2
+            base["programmatic_dsp"]["pct"] -= 5
+            base["global_boards"]["pct"] -= 3
+
+    # Step 3: Adjust for number of roles (more roles = more diverse mix)
+    if num_roles and num_roles > 10:
+        base["niche_boards"]["pct"] += 3
+        base["regional_boards"]["pct"] += 2
+        base["programmatic_dsp"]["pct"] -= 3
+        base["global_boards"]["pct"] -= 2
+
+    # Step 4: Adjust for seniority mix (if roles provided)
+    if roles:
+        roles_lower = " ".join(r.lower() for r in roles)
+        senior_keywords = ["executive", "director", "vp", "chief", "president",
+                           "c-suite", "senior", "head of", "principal", "fellow"]
+        junior_keywords = ["intern", "entry", "junior", "associate", "trainee",
+                           "assistant", "coordinator", "clerk"]
+        senior_count = sum(1 for kw in senior_keywords if kw in roles_lower)
+        junior_count = sum(1 for kw in junior_keywords if kw in roles_lower)
+
+        if senior_count > junior_count:
+            # Senior-heavy: more niche/executive boards, more employer branding
+            base["niche_boards"]["pct"] += 4
+            base["employer_branding"]["pct"] += 3
+            base["social_media"]["pct"] -= 3
+            base["programmatic_dsp"]["pct"] -= 4
+        elif junior_count > senior_count:
+            # Junior-heavy: more social, more global boards
+            base["social_media"]["pct"] += 5
+            base["global_boards"]["pct"] += 3
+            base["niche_boards"]["pct"] -= 4
+            base["employer_branding"]["pct"] -= 2
+            base["programmatic_dsp"]["pct"] -= 2
+
+    # Ensure no negative percentages
+    for key in base:
+        base[key]["pct"] = max(1, base[key]["pct"])
+
+    # Normalize to 100%
+    total = sum(v["pct"] for v in base.values())
+    if total > 0 and total != 100:
+        for key in base:
+            base[key]["pct"] = round(base[key]["pct"] / total * 100)
+        diff = 100 - sum(v["pct"] for v in base.values())
+        if diff != 0:
+            # Add remainder to largest category
+            largest = max(base, key=lambda k: base[k]["pct"])
+            base[largest]["pct"] += diff
+
+    return base
 
 # Human-readable goal labels
 GOAL_LABELS: Dict[str, str] = {
@@ -385,8 +573,8 @@ def _get_benchmarks(industry: str) -> Dict[str, str]:
 
 
 def _get_complications(industry: str) -> List[str]:
-    """Return complication bullets for the industry."""
-    return COMPLICATIONS.get(
+    """Return complication bullets for the industry, with apply rate framed correctly."""
+    base = COMPLICATIONS.get(
         industry,
         [
             "Talent acquisition costs rising across sectors",
@@ -395,6 +583,22 @@ def _get_complications(industry: str) -> List[str]:
             "Time-to-fill expanding, impacting operational capacity",
         ],
     )
+
+    # Get the apply rate for this industry and frame appropriately
+    benchmarks = BENCHMARKS.get(industry, BENCHMARKS.get("general_entry_level", {}))
+    apply_rate_str = benchmarks.get("apply_rate", "")
+    if apply_rate_str:
+        # Parse apply rate - handle ranges like "3.2% - 4.5%" or single values like "6.41%"
+        import re as _re
+        rates = _re.findall(r'[\d.]+', apply_rate_str)
+        if rates:
+            avg_rate = sum(float(r) for r in rates) / len(rates)
+            # Only add apply rate as complication if it's genuinely low (below 2%)
+            if avg_rate < 2.0:
+                base = list(base)  # make mutable copy
+                base.append(f"Low {apply_rate_str} apply rate indicates competitive market pressure")
+
+    return base
 
 
 def _get_industry_comparison(industry: str) -> Dict[str, Any]:
@@ -405,18 +609,27 @@ def _get_industry_comparison(industry: str) -> Dict[str, Any]:
 
 
 def _selected_channels(data: Dict) -> Dict[str, Dict[str, Any]]:
-    """Return only the channels the user toggled on, with redistributed percentages."""
+    """Return only the channels the user toggled on, with redistributed percentages.
+    Uses industry-aware allocation profiles for differentiated budget splits."""
     cats = data.get("channel_categories", {})
     if isinstance(cats, list):
         cats = {k: True for k in cats}
+
+    # Get industry-aware base allocation
+    industry = data.get("industry", "general_entry_level")
+    budget_str = data.get("budget", "")
+    roles = data.get("roles", [])
+    num_roles = len(roles) if roles else 0
+    alloc_base = _get_industry_alloc(industry, budget_str, num_roles, roles)
+
     selected = {}
-    for key, meta in CHANNEL_ALLOC.items():
+    for key, meta in alloc_base.items():
         if cats.get(key, False):
             selected[key] = dict(meta)
 
     if not selected:
         for key in ("programmatic_dsp", "global_boards", "social_media"):
-            selected[key] = dict(CHANNEL_ALLOC[key])
+            selected[key] = dict(alloc_base[key])
 
     raw_total = sum(v["pct"] for v in selected.values())
     if raw_total > 0:
@@ -522,7 +735,7 @@ def _add_enrichment_badge(slide, enriched):
 
 def _format_salary(amount):
     """Format a salary number into human-readable string like $85K or $125K."""
-    if not amount or amount <= 0:
+    if not isinstance(amount, (int, float)) or amount <= 0:
         return ""
     if amount >= 1000:
         return f"${amount / 1000:.0f}K"
@@ -709,6 +922,21 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         ("Budget", budget),
     ]
 
+    # Add apply rate insight with appropriate framing
+    benchmarks = _get_benchmarks(industry)
+    apply_rate_str = benchmarks.get("apply_rate", "")
+    if apply_rate_str:
+        import re as _re_ar
+        rates = _re_ar.findall(r'[\d.]+', apply_rate_str)
+        if rates:
+            avg_rate = sum(float(r) for r in rates) / len(rates)
+            if avg_rate > 5.0:
+                sit_items.append(("Apply Rate", f"{apply_rate_str} (above average - strength)"))
+            elif avg_rate >= 2.0:
+                sit_items.append(("Apply Rate", f"{apply_rate_str} (at industry average)"))
+            else:
+                sit_items.append(("Apply Rate", f"{apply_rate_str} (below average - challenge)"))
+
     # Add salary benchmark from enrichment data if available
     enriched = data.get("_enriched", {})
     salary_data = enriched.get("salary_data", {}) if enriched else {}
@@ -838,7 +1066,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # Hero stat: budget (if parseable) or channel count
     budget_display = _format_budget_display(budget)
     hero_value = budget_display if budget_display != budget else str(len(channels))
-    hero_label = "Monthly Budget" if budget_display != budget else "Channels Selected"
+    hero_label = "Campaign Budget" if budget_display != budget else "Channels Selected"
 
     # Hero stat on the left
     _add_textbox(
@@ -1239,7 +1467,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         font_size=44, bold=True, color=BLUE,
         alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
     )
-    hero_subtitle = "Optimized Monthly Investment" if budget_display != budget else "Selected for Maximum Impact"
+    hero_subtitle = "Total Campaign Investment" if budget_display != budget else "Selected for Maximum Impact"
     _add_textbox(
         slide, Inches(3.5), hero_top + Inches(0.85), Inches(6.33), Inches(0.35),
         text=hero_subtitle,
@@ -1324,9 +1552,9 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         },
         {
             "icon": "\u23F1",  # timer
-            "metric": "2-3x",
+            "metric": "15-25%",
             "label": "Faster Time-to-Fill",
-            "desc": "Programmatic reach accelerates qualified candidate pipeline velocity",
+            "desc": "Multi-channel programmatic strategy reduces days-to-fill vs. single-source posting",
             "accent": NAVY,
             "bg": RGBColor(0xE8, 0xED, 0xF4),
         },
@@ -1474,8 +1702,8 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     client_reach_mult = 1.0 + (n_channels - 4) * 0.15
     ind_reach_mult = ind_benchmarks.get("estimated_reach_multiplier", 1.0)
 
-    # Comparison metrics
-    comparison_rows = [
+    # Comparison metrics - build all candidates
+    all_comparison_rows = [
         {
             "metric": "Channels Selected",
             "client_val": str(n_channels),
@@ -1507,6 +1735,23 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             "is_better": client_reach_mult >= ind_reach_mult,
         },
     ]
+
+    # Reframe trailing metrics with improvement targets to build confidence
+    # Count how many are beating vs trailing
+    beating_count = sum(1 for r in all_comparison_rows if r["is_better"])
+
+    # If majority trailing, reframe trailing metrics as improvement opportunities
+    if beating_count < len(all_comparison_rows) / 2:
+        for row in all_comparison_rows:
+            if not row["is_better"]:
+                # Reframe with target - show current and where the plan aims to get
+                row["client_val"] = f"{row['client_val']} \u2192 {row['industry_val']}"
+                row["is_better"] = True  # Mark as positive (targeting improvement)
+                row["metric"] = f"{row['metric']} (Target)"
+
+    # Prioritize: show beating-benchmark rows first, then reframed ones
+    comparison_rows = sorted(all_comparison_rows, key=lambda r: (not r["is_better"], 0))
+    comparison_rows = comparison_rows[:5]  # limit to 5 rows
 
     # ==== LEFT PANEL: Client Plan ====
     _add_rounded_rect(slide, left_panel_x, comp_top, panel_w, panel_h, WHITE)
@@ -1754,6 +1999,9 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
     data.setdefault("roles", [])
     data.setdefault("campaign_goals", [])
     data.setdefault("channel_categories", {})
+    # Frontend sends "budget_range" but PPT reads "budget" -- normalize
+    if data.get("budget_range") and not data.get("budget"):
+        data["budget"] = data["budget_range"]
     data.setdefault("budget", "TBD")
     # Frontend sends work_environment as array -- normalize to string
     we = data.get("work_environment", "hybrid")
@@ -1779,7 +2027,36 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
     elif isinstance(cc, list):
         data["channel_categories"] = {(item.get("name", "") if isinstance(item, dict) else str(item)): True for item in cc}
 
-    data.setdefault("industry_label", data["industry"].replace("_", " ").title())
+    # Industry label mapping - use proper names instead of raw key transformation
+    _INDUSTRY_LABEL_MAP = {
+        "healthcare_medical": "Healthcare & Medical",
+        "blue_collar_trades": "Blue Collar / Skilled Trades",
+        "maritime_marine": "Maritime & Marine",
+        "military_recruitment": "Military Recruitment",
+        "tech_engineering": "Technology & Engineering",
+        "general_entry_level": "General / Entry-Level",
+        "legal_services": "Legal Services",
+        "finance_banking": "Finance & Banking",
+        "mental_health": "Mental Health & Behavioral",
+        "retail_consumer": "Retail & Consumer",
+        "aerospace_defense": "Aerospace & Defense",
+        "pharma_biotech": "Pharma & Biotech",
+        "energy_utilities": "Energy & Utilities",
+        "insurance": "Insurance",
+        "telecommunications": "Telecommunications",
+        "automotive": "Automotive & Manufacturing",
+        "food_beverage": "Food & Beverage",
+        "logistics_supply_chain": "Logistics & Supply Chain",
+        "hospitality_travel": "Hospitality & Travel",
+        "media_entertainment": "Media & Entertainment",
+        "construction_real_estate": "Construction & Real Estate",
+        "education": "Education",
+    }
+    if not data.get("industry_label"):
+        data["industry_label"] = _INDUSTRY_LABEL_MAP.get(
+            data["industry"],
+            data["industry"].replace("_", " ").title()
+        )
 
     try:
         prs = Presentation()

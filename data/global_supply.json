@@ -627,7 +627,7 @@
     "community_based_hiring": {
       "description": "Hiring through online communities, forums, and professional groups",
       "use_case": "Access passive candidates in their natural professional environments",
-      "platforms": ["Reddit (subreddits)", "Discord servers", "Slack communities", "Stack Overflow", "GitHub Jobs", "Fishbowl", "Blind"],
+      "platforms": ["Reddit (subreddits)", "Discord servers", "Slack communities", "Stack Overflow Talent", "GitHub", "Wellfound", "Fishbowl", "Blind"],
       "billing": "CPC/Sponsored",
       "best_for": ["Tech hiring", "Creative roles", "Remote work"]
     },
