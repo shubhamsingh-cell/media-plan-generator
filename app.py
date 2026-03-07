@@ -92,6 +92,103 @@ except ImportError as e:
     print(f"WARNING: api_enrichment import failed: {e}", file=sys.stderr)
     enrich_data = None
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ROLE-TIER CLASSIFICATION ENGINE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+ROLE_TIER_KEYWORDS = {
+    "executive": {
+        "tier": "Executive / Leadership",
+        "keywords": ["ceo", "cfo", "cto", "cio", "cmo", "vp ", "vice president", "svp", "evp", "chief", "president", "director", "head of"],
+        "funnel": {"awareness": 0.10, "consideration": 0.25, "engagement": 0.35, "conversion": 0.30},
+        "channels": ["Executive search firms", "LinkedIn Recruiter", "Board networks", "Industry conferences"],
+        "cpa_multiplier": 3.0,
+        "time_to_fill_days": 90,
+    },
+    "professional": {
+        "tier": "Professional / White-Collar",
+        "keywords": ["engineer", "developer", "analyst", "manager", "consultant", "architect", "scientist", "specialist",
+                     "accountant", "auditor", "attorney", "lawyer", "planner", "strategist", "designer", "product", "data",
+                     "researcher", "coordinator", "administrator", "compliance", "underwriter"],
+        "funnel": {"awareness": 0.20, "consideration": 0.30, "engagement": 0.30, "conversion": 0.20},
+        "channels": ["LinkedIn", "Indeed", "Glassdoor", "Company careers page", "Industry job boards"],
+        "cpa_multiplier": 1.5,
+        "time_to_fill_days": 45,
+    },
+    "clinical": {
+        "tier": "Clinical / Licensed",
+        "keywords": ["nurse", "rn ", "lpn", "cna", "physician", "doctor", "therapist", "pharmacist", "paramedic",
+                     "emt", "medical assistant", "dental", "radiology", "sonograph", "surgical tech", "respiratory"],
+        "funnel": {"awareness": 0.15, "consideration": 0.25, "engagement": 0.35, "conversion": 0.25},
+        "channels": ["NurseFly", "Vivian Health", "Health eCareers", "Indeed Healthcare", "Hospital networks"],
+        "cpa_multiplier": 2.0,
+        "time_to_fill_days": 60,
+    },
+    "skilled_trades": {
+        "tier": "Skilled Trades / Technical",
+        "keywords": ["technician", "mechanic", "electrician", "plumber", "welder", "hvac", "machinist",
+                     "installer", "maintenance", "repair", "inspector", "quality", "foreman", "carpenter",
+                     "aircraft mechanic", "solar panel", "wind turbine"],
+        "funnel": {"awareness": 0.25, "consideration": 0.25, "engagement": 0.25, "conversion": 0.25},
+        "channels": ["Trade schools", "Union halls", "Indeed Blue", "Craigslist", "Local job fairs"],
+        "cpa_multiplier": 1.2,
+        "time_to_fill_days": 30,
+    },
+    "hourly": {
+        "tier": "Hourly / Entry-Level",
+        "keywords": ["associate", "clerk", "cashier", "barista", "crew", "team member", "warehouse", "package handler",
+                     "picker", "packer", "stocker", "janitor", "custodian", "housekeeper", "dishwasher",
+                     "food prep", "line cook", "server", "host", "busser", "retail associate", "store associate",
+                     "front desk", "receptionist", "call center", "customer service rep", "csr"],
+        "funnel": {"awareness": 0.35, "consideration": 0.25, "engagement": 0.20, "conversion": 0.20},
+        "channels": ["Indeed", "Snagajob", "Jobcase", "Facebook Jobs", "Walk-in/Referral", "Text-to-Apply"],
+        "cpa_multiplier": 0.5,
+        "time_to_fill_days": 14,
+    },
+    "gig": {
+        "tier": "Gig / Independent Contractor",
+        "keywords": ["driver partner", "delivery partner", "delivery driver", "courier", "rider", "dasher",
+                     "shopper", "freelance", "contractor", "1099", "independent", "flex", "on-demand"],
+        "funnel": {"awareness": 0.40, "consideration": 0.20, "engagement": 0.15, "conversion": 0.25},
+        "channels": ["Programmatic ads", "Social media (Facebook/Instagram)", "Referral bonuses", "Google Ads", "SMS campaigns"],
+        "cpa_multiplier": 0.3,
+        "time_to_fill_days": 7,
+    },
+    "education": {
+        "tier": "Education / Academic",
+        "keywords": ["teacher", "professor", "instructor", "principal", "superintendent", "dean", "librarian",
+                     "counselor", "aide", "paraprofessional", "substitute", "tutor", "curriculum", "coach"],
+        "funnel": {"awareness": 0.20, "consideration": 0.30, "engagement": 0.30, "conversion": 0.20},
+        "channels": ["SchoolSpring", "K12JobSpot", "HigherEdJobs", "State education boards", "University career offices"],
+        "cpa_multiplier": 1.0,
+        "time_to_fill_days": 45,
+    },
+}
+
+
+def classify_role_tier(role_title: str) -> dict:
+    """Classify a role into a tier based on keyword matching. Returns the tier profile."""
+    role_lower = role_title.lower().strip()
+
+    best_match = None
+    best_score = 0
+
+    for tier_key, tier_data in ROLE_TIER_KEYWORDS.items():
+        score = 0
+        for kw in tier_data["keywords"]:
+            if kw in role_lower:
+                score += len(kw)  # Longer keyword matches score higher
+        if score > best_score:
+            best_score = score
+            best_match = tier_data
+
+    if best_match and best_score >= 2:
+        return best_match
+
+    # Default to professional if no match
+    return ROLE_TIER_KEYWORDS["professional"]
+
+
 # Load global supply data
 GLOBAL_SUPPLY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "global_supply.json")
 global_supply_data = {}
@@ -299,6 +396,23 @@ def generate_excel(data):
     industry = data.get("industry", "general_entry_level")
     roles = data.get("target_roles") or data.get("roles", [])
 
+    # ── Role-Tier Classification ──
+    role_tiers = {}
+    for role in roles:
+        role_tiers[role] = classify_role_tier(role)
+    # Compute aggregate tier profile (weighted by role count per tier)
+    tier_groups = {}
+    for role, tier_info in role_tiers.items():
+        tier_name = tier_info["tier"]
+        if tier_name not in tier_groups:
+            tier_groups[tier_name] = {"count": 0, "roles": [], "tier_info": tier_info}
+        tier_groups[tier_name]["count"] += 1
+        tier_groups[tier_name]["roles"].append(role)
+    # Store in data for downstream use
+    data["_role_tiers"] = role_tiers
+    data["_tier_groups"] = tier_groups
+
+
     # Channel category preferences (support list-of-strings, list-of-dicts, and dict formats)
     ch_cats_raw = data.get("channel_categories", {})
     if isinstance(ch_cats_raw, list):
@@ -353,6 +467,10 @@ def generate_excel(data):
 
     job_cat_labels = data.get("job_category_labels", [])
     client_competitors = data.get("competitors", [])
+    # CRITICAL: Filter out self from client-specified competitors (prevents self-as-competitor bug)
+    _company_name_for_filter = (data.get("client_name", "") or "").lower().strip()
+    if _company_name_for_filter and client_competitors:
+        client_competitors = [c for c in client_competitors if _company_name_for_filter not in c.lower()]
 
     overview_items = [
         ("Client Name", data.get("client_name", "")),
@@ -674,11 +792,18 @@ def generate_excel(data):
                 bp = jc_data.get("best_practices", [])
                 if bp:
                     recommendations.append(f"{jc_data.get('label', jck)}: {bp[0]}")
-    # Role-specific recommendations
+    # Role-specific recommendations (enhanced with tier classification)
     if roles:
         role_str = ", ".join(roles[:5])
         recommendations.append(f"Role-targeted strategy: Focus channels and messaging on {role_str} talent pools for maximum relevance")
-        # Check for specific role patterns
+        # Tier-based recommendations from classification engine
+        _tier_groups = data.get("_tier_groups", {})
+        for _tname, _tg in _tier_groups.items():
+            _ti = _tg["tier_info"]
+            _tier_channels = ", ".join(_ti["channels"][:3])
+            _tier_roles = ", ".join(_tg["roles"][:3])
+            recommendations.append(f"{_tname} ({_tier_roles}): Recommended channels — {_tier_channels}. Est. time-to-fill: {_ti['time_to_fill_days']} days. CPA multiplier: {_ti['cpa_multiplier']}x")
+        # Additional pattern-based recommendations (complementary to tier system)
         role_lower = " ".join(r.lower() for r in roles)
         if any(x in role_lower for x in ["nurse", "physician", "rn", "medical", "clinical", "therapist"]):
             recommendations.append("Clinical talent: Prioritize health-specific boards (Health eCareers, Vivian Health) and hospital system career pages")
@@ -1075,6 +1200,77 @@ def generate_excel(data):
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     ws_exec.cell(row=exec_row, column=2, value="Rates shown for your target regions. Actual rates may vary based on job specificity, seasonality, competition, and programmatic optimization level.").font = Font(name="Calibri", italic=True, size=8, color="999999")
 
+    # ── Role-Tier Strategy Breakdown ──
+    tier_groups = data.get("_tier_groups", {})
+    if tier_groups and roles:
+        exec_row += 3
+        style_section_header(ws_exec, exec_row, 2, 7, "Role-Tier Strategy Breakdown")
+        exec_row += 1
+        ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+        ws_exec.cell(row=exec_row, column=2, value="Each role is classified into a hiring tier with tailored funnel weights, recommended channels, and expected time-to-fill. This ensures differentiated strategies across executive, professional, clinical, trades, hourly, gig, and education roles.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+        exec_row += 2
+
+        tier_headers = ["Role Tier", "Roles", "Recommended Channels", "CPA Multiplier", "Est. Time to Fill", "Funnel Emphasis"]
+        for i, h in enumerate(tier_headers):
+            cell = ws_exec.cell(row=exec_row, column=2 + i, value=h)
+            cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+            cell.fill = PatternFill(start_color="1B2A4A", end_color="1B2A4A", fill_type="solid")
+            cell.border = thin_border
+            cell.alignment = center_alignment
+        exec_row += 1
+
+        for tier_name, tg in tier_groups.items():
+            ti = tg["tier_info"]
+            roles_display = ", ".join(tg["roles"][:4])
+            if len(tg["roles"]) > 4:
+                roles_display += f" (+{len(tg['roles']) - 4} more)"
+            channels_display = ", ".join(ti["channels"][:4])
+            funnel_info = ti["funnel"]
+            # Find the dominant funnel stage
+            dominant_stage = max(funnel_info, key=funnel_info.get)
+            funnel_display = f"{dominant_stage.title()} ({int(funnel_info[dominant_stage]*100)}%)"
+
+            c1 = ws_exec.cell(row=exec_row, column=2, value=tier_name)
+            c1.font = Font(name="Calibri", bold=True, size=10, color="1B2A4A")
+            c1.border = thin_border
+
+            c2 = ws_exec.cell(row=exec_row, column=3, value=roles_display)
+            c2.font = Font(name="Calibri", size=10, color="333333")
+            c2.border = thin_border
+            c2.alignment = Alignment(wrap_text=True)
+
+            c3 = ws_exec.cell(row=exec_row, column=4, value=channels_display)
+            c3.font = Font(name="Calibri", size=9, color="596780")
+            c3.border = thin_border
+            c3.alignment = Alignment(wrap_text=True)
+
+            c4 = ws_exec.cell(row=exec_row, column=5, value=f"{ti['cpa_multiplier']}x")
+            c4.font = Font(name="Calibri", size=10, color="333333")
+            c4.border = thin_border
+            c4.alignment = center_alignment
+
+            c5 = ws_exec.cell(row=exec_row, column=6, value=f"{ti['time_to_fill_days']} days")
+            c5.font = Font(name="Calibri", size=10, color="333333")
+            c5.border = thin_border
+            c5.alignment = center_alignment
+
+            c6 = ws_exec.cell(row=exec_row, column=7, value=funnel_display)
+            c6.font = Font(name="Calibri", size=10, color="596780")
+            c6.border = thin_border
+            c6.alignment = center_alignment
+
+            # Alternating row fill
+            if list(tier_groups.keys()).index(tier_name) % 2 == 0:
+                for c in range(2, 8):
+                    ws_exec.cell(row=exec_row, column=c).fill = pale_gold_fill
+
+            ws_exec.row_dimensions[exec_row].height = 30
+            exec_row += 1
+
+        exec_row += 1
+        ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+        ws_exec.cell(row=exec_row, column=2, value="CPA Multiplier reflects relative cost compared to baseline. Time-to-fill estimates are industry medians. Funnel emphasis shows where budget should be concentrated.").font = Font(name="Calibri", italic=True, size=8, color="999999")
+
     # ── Expected Hiring Funnel Forecast ──
     exec_row += 3
     style_section_header(ws_exec, exec_row, 2, 7, "Expected Hiring Funnel Forecast")
@@ -1158,6 +1354,14 @@ def generate_excel(data):
     }
     cph_low, cph_high = industry_cph_ranges.get(client_industry, (4000, 8000))
     avg_cph = (cph_low + cph_high) / 2
+
+    # Adjust CPH by weighted role-tier CPA multiplier
+    role_tiers_data = data.get("_role_tiers", {})
+    if role_tiers_data:
+        total_multiplier = sum(t["cpa_multiplier"] for t in role_tiers_data.values())
+        avg_tier_multiplier = total_multiplier / len(role_tiers_data)
+        # Apply tier multiplier to CPH (normalize around 1.0 baseline for professional tier)
+        avg_cph = avg_cph * (avg_tier_multiplier / 1.5)  # 1.5 is the professional baseline
 
     # Calculate realistic projected hires from budget
     est_hires_from_budget = max(1, int(budget_midpoint / avg_cph))
@@ -1854,7 +2058,7 @@ def generate_excel(data):
     ws_trends.column_dimensions[get_column_letter(4)].width = 70
 
     # USE RESEARCH MODULE for real competitor data
-    competitors = research.get_competitors(industry, locations)
+    competitors = research.get_competitors(industry, locations, company_name=data.get("client_name", ""))
 
     for comp in competitors:
         row += 1
@@ -1866,6 +2070,10 @@ def generate_excel(data):
         ws_trends.row_dimensions[row].height = 80
 
     # Client-specified competitors section — per-competitor differentiated intelligence
+    # CRITICAL: Filter out self from client-specified competitors
+    _client_name_lower = (data.get("client_name", "") or "").lower().strip()
+    if _client_name_lower and client_competitors:
+        client_competitors = [c for c in client_competitors if _client_name_lower not in c.lower()]
     if client_competitors:
         comp_intel = research.get_client_competitor_intelligence(client_competitors, industry)
 
