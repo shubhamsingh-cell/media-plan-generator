@@ -5617,7 +5617,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/" or parsed.path == "":
             self._serve_file(os.path.join(TEMPLATES_DIR, "index.html"), "text/html")
-        elif parsed.path == "/api/health":
+        elif parsed.path in ("/api/health", "/health"):
             self._send_json({
                 "status": "ok",
                 "version": "2.1.0",

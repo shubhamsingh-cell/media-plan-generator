@@ -1223,12 +1223,19 @@ You have access to the following proprietary data through tools:
         is_trend_question = any(kw in msg_lower for kw in ["trend", "future", "outlook", "forecast", "what's new", "emerging"])
         is_cpc_cpa_question = "cpc" in detected_metrics or "cpa" in detected_metrics or "cph" in detected_metrics
 
-        # Greeting detection
-        is_greeting = any(kw in msg_lower for kw in ["hello", "hi", "hey", "good morning", "good afternoon",
-                                                      "help", "what can you do", "who are you"])
+        # Greeting detection — use word boundary matching for short keywords
+        import re as _re
+        _greeting_patterns = [
+            r'\bhello\b', r'\bhi\b', r'\bhey\b', r'\bgood morning\b', r'\bgood afternoon\b',
+            r'\bhelp\b', r'what can you do', r'who are you'
+        ]
+        is_greeting = any(_re.search(pat, msg_lower) for pat in _greeting_patterns)
 
+        # Also check for Guidewire/DEI/trend/CPC questions before returning greeting
+        _is_guidewire = any(kw in msg_lower for kw in ["guidewire", "linkedin hiring", "influenced hire", "skill density", "inmail"])
         if is_greeting and not (is_publisher_question or is_channel_question or is_budget_question
-                                or is_benchmark_question or is_salary_question):
+                                or is_benchmark_question or is_salary_question or is_dei_question
+                                or is_trend_question or is_cpc_cpa_question or _is_guidewire):
             return {
                 "response": (
                     "Hello! I'm **Joveo IQ**, your recruitment marketing intelligence assistant. "
@@ -1381,6 +1388,72 @@ You have access to the following proprietary data through tools:
             tools_used.append("query_budget_projection")
             sources.add("Joveo Budget Allocation Engine")
             sections.append(_format_budget_response(budget_data, budget_amount))
+
+            # Also add role-specific niche channel recommendations for budget questions
+            if detected_roles:
+                role_cat = list(detected_roles)[0]
+                cat_map = {
+                    "nursing": "Health", "healthcare": "Health", "engineering": "Tech",
+                    "technology": "Tech", "retail": "Retail", "finance": "Job Board",
+                    "transportation": "Transportation", "construction": "Construction",
+                    "education": "Education", "hourly": "Hourly",
+                }
+                country_for_ch = detected_country or "United States"
+                pub_params = {"country": country_for_ch}
+                if role_cat in cat_map:
+                    pub_params["category"] = cat_map[role_cat]
+                pub_data = self._query_publishers(pub_params)
+                tools_used.append("query_publishers")
+                sources.add("Joveo Publisher Network")
+                sections.append(f"\n### Recommended Channels for {roles_for_budget[0] if roles_for_budget else role_cat.title()}\n" +
+                                _format_publisher_response(pub_data))
+
+        # ── Comparison questions (vs / compare) ──
+        is_comparison = any(kw in msg_lower for kw in [" vs ", " versus ", "compare ", "comparison"])
+        if is_comparison and not sections:
+            # Split the comparison into two sides and provide data for each
+            comparison_parts = _re.split(r'\bvs\.?\b|\bversus\b|\bcompare\b', msg_lower, maxsplit=1)
+            kb_data = self._query_knowledge_base({"topic": "benchmarks"})
+            tools_used.append("query_knowledge_base")
+            sources.add("Recruitment Industry Knowledge Base")
+
+            comp_sections = ["### Comparison Analysis\n"]
+            for i, part in enumerate(comparison_parts[:2]):
+                part_clean = part.strip().rstrip("?.,!")
+                if not part_clean:
+                    continue
+                label = part_clean.title()
+                comp_sections.append(f"**{label}:**")
+
+                # Check if it's a role type
+                is_blue_collar = any(kw in part for kw in ["blue collar", "hourly", "warehouse", "driver", "construction", "retail"])
+                is_white_collar = any(kw in part for kw in ["white collar", "professional", "office", "corporate", "engineer", "analyst"])
+
+                if is_blue_collar:
+                    comp_sections.append("- **Typical CPA**: $15-$40")
+                    comp_sections.append("- **Apply Rate**: 8-15%")
+                    comp_sections.append("- **Top Channels**: Snagajob, Indeed, Craigslist, Wonolo, Instawork, ShiftPixy")
+                    comp_sections.append("- **Best Platforms**: Google Ads, Meta (mobile-first targeting)")
+                    comp_sections.append("- **Key Trait**: High volume, mobile-first, quick apply needed")
+                elif is_white_collar:
+                    comp_sections.append("- **Typical CPA**: $50-$150")
+                    comp_sections.append("- **Apply Rate**: 3-6%")
+                    comp_sections.append("- **Top Channels**: LinkedIn, Indeed, Glassdoor, ZipRecruiter, niche boards")
+                    comp_sections.append("- **Best Platforms**: LinkedIn Ads, Google Ads, programmatic DSP")
+                    comp_sections.append("- **Key Trait**: Quality over quantity, employer brand matters")
+                else:
+                    # Generic: pull benchmarks from KB
+                    comp_sections.append(f"- Search recruitment benchmarks for '{label}' in the knowledge base")
+
+                comp_sections.append("")
+
+            if len(comparison_parts) >= 2:
+                comp_sections.append("**Key Differences:**")
+                comp_sections.append("- Blue-collar: higher apply rates, lower CPA, mobile-centric, speed matters")
+                comp_sections.append("- White-collar: lower apply rates, higher CPA, brand-driven, quality-focused")
+                comp_sections.append("- Budget split: blue-collar favors job boards (60%+), white-collar favors LinkedIn + programmatic (50%+)")
+
+            sections.append("\n".join(comp_sections))
 
         # ── DEI questions (standalone) ──
         if is_dei_question and not is_publisher_question:
