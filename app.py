@@ -23,6 +23,216 @@ from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.series import DataPoint
 from openpyxl.drawing.image import Image as XlImage
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# NAICS-BASED INDUSTRY CLASSIFICATION ENGINE
+# ═══════════════════════════════════════════════════════════════════════════════
+INDUSTRY_NAICS_MAP = {
+    # Technology / Software (NAICS 51)
+    "technology": {"naics": "51", "sector": "Technology & Software", "bls_sector": "Information", 
+                   "talent_profile": "Professional / Technical Workforce",
+                   "legacy_key": "tech_engineering",
+                   "keywords": ["tech", "software", "saas", "cloud", "ai", "data", "cyber", "digital", "it services", "information technology"]},
+    # Healthcare (NAICS 62)
+    "healthcare": {"naics": "62", "sector": "Healthcare & Life Sciences", "bls_sector": "Health Care",
+                   "talent_profile": "Clinical & Allied Health Workforce",
+                   "legacy_key": "healthcare_medical",
+                   "keywords": ["health", "hospital", "medical", "pharma", "biotech", "clinical", "nursing", "patient care", "life sciences"]},
+    # Finance (NAICS 52)
+    "finance": {"naics": "52", "sector": "Financial Services & Insurance", "bls_sector": "Financial Activities",
+                "talent_profile": "Professional / Financial Workforce",
+                "legacy_key": "finance_banking",
+                "keywords": ["bank", "finance", "insurance", "investment", "capital", "wealth", "fintech", "credit", "mortgage", "securities"]},
+    # Manufacturing (NAICS 31-33)
+    "manufacturing": {"naics": "31-33", "sector": "Manufacturing & Industrial", "bls_sector": "Manufacturing",
+                      "talent_profile": "Skilled Trades & Production Workforce",
+                      "legacy_key": "automotive",
+                      "keywords": ["manufactur", "industrial", "production", "assembly", "factory"]},
+    # Retail / E-commerce (NAICS 44-45)
+    "retail": {"naics": "44-45", "sector": "Retail & E-Commerce", "bls_sector": "Retail Trade",
+               "talent_profile": "General / Entry-Level & Hourly Workforce",
+               "legacy_key": "retail_consumer",
+               "keywords": ["retail", "e-commerce", "ecommerce", "store", "shop", "consumer", "merchandise", "grocery"]},
+    # Transportation / Logistics (NAICS 48-49)  
+    "transportation": {"naics": "48-49", "sector": "Transportation & Logistics", "bls_sector": "Transportation and Warehousing",
+                       "talent_profile": "Operations & Logistics Workforce",
+                       "legacy_key": "logistics_supply_chain",
+                       "keywords": ["transport", "logistics", "shipping", "delivery", "freight", "trucking", "courier", "warehouse", "supply chain", "fleet"]},
+    # Hospitality (NAICS 72)
+    "hospitality": {"naics": "72", "sector": "Hospitality & Tourism", "bls_sector": "Leisure and Hospitality",
+                    "talent_profile": "Service & Hospitality Workforce",
+                    "legacy_key": "hospitality_travel",
+                    "keywords": ["hotel", "hospitality", "restaurant", "food service", "tourism", "travel", "lodging", "resort", "dining"]},
+    # Education (NAICS 61)
+    "education": {"naics": "61", "sector": "Education & Training", "bls_sector": "Education",
+                  "talent_profile": "Academic & Educational Workforce",
+                  "legacy_key": "education",
+                  "keywords": ["education", "school", "university", "college", "academic", "teaching", "k-12", "k12", "training", "teacher", "principal", "isd"]},
+    # Professional Services (NAICS 54)
+    "professional_services": {"naics": "54", "sector": "Professional & Business Services", "bls_sector": "Professional and Business Services",
+                              "talent_profile": "Professional / Consulting Workforce",
+                              "legacy_key": "legal_services",
+                              "keywords": ["consulting", "professional service", "accounting", "legal", "audit", "advisory", "staffing", "management consulting"]},
+    # Construction (NAICS 23)
+    "construction": {"naics": "23", "sector": "Construction & Real Estate", "bls_sector": "Construction",
+                     "talent_profile": "Skilled Trades & Construction Workforce",
+                     "legacy_key": "construction_real_estate",
+                     "keywords": ["construction", "building", "real estate", "property", "architecture", "engineering firm", "contractor"]},
+    # Energy (NAICS 21, 22)
+    "energy": {"naics": "21-22", "sector": "Energy & Utilities", "bls_sector": "Mining and Logging",
+               "talent_profile": "Technical & Field Operations Workforce",
+               "legacy_key": "energy_utilities",
+               "keywords": ["energy", "oil", "gas", "solar", "renewable", "electric", "utility", "power", "mining", "petroleum"]},
+    # Government (NAICS 92)
+    "government": {"naics": "92", "sector": "Government & Public Administration", "bls_sector": "Government",
+                   "talent_profile": "Public Sector Workforce",
+                   "legacy_key": "military_recruitment",
+                   "keywords": ["government", "federal", "state agency", "municipal", "public sector", "military", "defense", "civil service", "army", "navy", "air force", "marines"]},
+    # Telecommunications (NAICS 51 sub)
+    "telecom": {"naics": "51", "sector": "Telecommunications", "bls_sector": "Information",
+                "talent_profile": "Technical & Engineering Workforce",
+                "legacy_key": "telecommunications",
+                "keywords": ["telecom", "wireless", "broadband", "5g", "network", "communications"]},
+    # Agriculture (NAICS 11)
+    "agriculture": {"naics": "11", "sector": "Agriculture & Food Production", "bls_sector": "Agriculture",
+                    "talent_profile": "Agricultural & Seasonal Workforce",
+                    "legacy_key": "food_beverage",
+                    "keywords": ["agriculture", "farming", "food production", "agri", "crop", "livestock"]},
+    # Nonprofit (NAICS 81)
+    "nonprofit": {"naics": "81", "sector": "Nonprofit & Social Services", "bls_sector": "Other Services",
+                  "talent_profile": "Mission-Driven Workforce",
+                  "legacy_key": "general_entry_level",
+                  "keywords": ["nonprofit", "non-profit", "ngo", "charity", "foundation", "social services"]},
+    # General / Entry-Level (catch-all)
+    "general": {"naics": "00", "sector": "General / Multi-Industry", "bls_sector": "Total Nonfarm",
+                "talent_profile": "General / Entry-Level & Hourly Workforce",
+                "legacy_key": "general_entry_level",
+                "keywords": ["general", "entry level", "entry-level", "hourly", "temp", "seasonal", "staffing agency"]},
+    # Rideshare / Gig Economy (NAICS 48 sub)
+    "rideshare": {"naics": "48", "sector": "Rideshare & Gig Economy", "bls_sector": "Transportation and Warehousing",
+                  "talent_profile": "Gig & Independent Contractor Workforce",
+                  "legacy_key": "logistics_supply_chain",
+                  "keywords": ["rideshare", "ride-share", "gig", "uber", "lyft", "doordash", "instacart", "platform", "on-demand"]},
+    # Blue Collar / Skilled Trades (NAICS 23/31-33 crossover)
+    "blue_collar": {"naics": "31-33", "sector": "Blue Collar / Skilled Trades", "bls_sector": "Manufacturing",
+                    "talent_profile": "Skilled Trades & Production Workforce",
+                    "legacy_key": "blue_collar_trades",
+                    "keywords": ["blue collar", "skilled trade", "welder", "electrician", "plumber", "mechanic", "hvac", "trade"]},
+    # Maritime / Marine (NAICS 48 sub)
+    "maritime": {"naics": "48", "sector": "Maritime & Marine", "bls_sector": "Transportation and Warehousing",
+                 "talent_profile": "Maritime & Marine Workforce",
+                 "legacy_key": "maritime_marine",
+                 "keywords": ["maritime", "marine", "shipping", "naval", "shipyard", "port", "offshore", "vessel", "seafar"]},
+    # Aerospace & Defense (NAICS 33 sub)
+    "aerospace": {"naics": "33", "sector": "Aerospace & Defense", "bls_sector": "Manufacturing",
+                  "talent_profile": "Aerospace & Defense Workforce",
+                  "legacy_key": "aerospace_defense",
+                  "keywords": ["aerospace", "defense", "aviation", "aircraft", "missile", "satellite", "space"]},
+    # Pharma & Biotech (NAICS 32 sub)
+    "pharma": {"naics": "32", "sector": "Pharma & Biotech", "bls_sector": "Manufacturing",
+               "talent_profile": "Pharmaceutical & Research Workforce",
+               "legacy_key": "pharma_biotech",
+               "keywords": ["pharma", "biotech", "drug", "vaccine", "clinical trial", "biolog", "therapeutic"]},
+    # Insurance (NAICS 52 sub)
+    "insurance": {"naics": "52", "sector": "Insurance", "bls_sector": "Financial Activities",
+                  "talent_profile": "Professional / Insurance Workforce",
+                  "legacy_key": "insurance",
+                  "keywords": ["insurance", "underwriter", "actuar", "claims", "policy"]},
+    # Mental Health (NAICS 62 sub)
+    "mental_health": {"naics": "62", "sector": "Mental Health & Behavioral", "bls_sector": "Health Care",
+                      "talent_profile": "Behavioral & Mental Health Workforce",
+                      "legacy_key": "mental_health",
+                      "keywords": ["mental health", "behavioral", "counselor", "therapist", "psycholog", "psychiatr", "substance abuse"]},
+    # Media & Entertainment (NAICS 71)
+    "media_entertainment": {"naics": "71", "sector": "Media & Entertainment", "bls_sector": "Leisure and Hospitality",
+                            "talent_profile": "Creative & Media Workforce",
+                            "legacy_key": "media_entertainment",
+                            "keywords": ["media", "entertainment", "film", "broadcast", "streaming", "gaming", "music", "content"]},
+    # Food & Beverage (NAICS 72 sub / 31)
+    "food_beverage": {"naics": "31", "sector": "Food & Beverage", "bls_sector": "Manufacturing",
+                      "talent_profile": "Food Service & Production Workforce",
+                      "legacy_key": "food_beverage",
+                      "keywords": ["food", "beverage", "brewery", "distillery", "catering", "bakery", "meat", "dairy"]},
+}
+
+# Mapping from legacy industry keys (used in channels_db, research.py) to NAICS map keys
+# Priority entries that should NOT be overridden by later NAICS map entries
+_LEGACY_PRIORITY = {
+    "general_entry_level": "general",
+    "logistics_supply_chain": "transportation",
+    "automotive": "manufacturing",
+    "food_beverage": "food_beverage",
+}
+_LEGACY_TO_NAICS_KEY = {}
+for _nk, _nv in INDUSTRY_NAICS_MAP.items():
+    _lk = _nv.get("legacy_key", "")
+    if _lk and _lk not in _LEGACY_TO_NAICS_KEY:
+        _LEGACY_TO_NAICS_KEY[_lk] = _nk
+# Apply priority overrides
+for _lk, _nk in _LEGACY_PRIORITY.items():
+    if _nk in INDUSTRY_NAICS_MAP:
+        _LEGACY_TO_NAICS_KEY[_lk] = _nk
+
+def classify_industry(raw_industry: str, company_name: str = "", roles: list = None) -> dict:
+    """
+    Classify an industry input into the correct NAICS sector with talent profile.
+    Uses fuzzy keyword matching against the input string AND company name AND roles.
+    
+    Handles both:
+    - Legacy keys (e.g., "healthcare_medical", "tech_engineering") from the frontend dropdown
+    - Free-text industry names (e.g., "Technology", "Healthcare") from API/manual input
+    
+    Returns the full industry profile dict including legacy_key for backward compatibility.
+    """
+    if not raw_industry:
+        raw_industry = ""
+    
+    # Step 1: Check if the input is already a legacy key (from frontend dropdown)
+    raw_stripped = raw_industry.strip()
+    if raw_stripped in _LEGACY_TO_NAICS_KEY:
+        return INDUSTRY_NAICS_MAP[_LEGACY_TO_NAICS_KEY[raw_stripped]]
+    
+    # Step 2: Check if the input directly matches a NAICS map key
+    raw_lower = raw_stripped.lower()
+    if raw_lower in INDUSTRY_NAICS_MAP:
+        return INDUSTRY_NAICS_MAP[raw_lower]
+    
+    # Step 3: Fuzzy keyword matching against input + company name + roles
+    search_text = f"{raw_industry} {company_name} {' '.join(roles or [])}".lower()
+    
+    best_match = None
+    best_score = 0
+    
+    for key, profile in INDUSTRY_NAICS_MAP.items():
+        score = 0
+        for kw in profile["keywords"]:
+            if kw in search_text:
+                # Longer keyword matches are weighted higher
+                score += len(kw)
+        if score > best_score:
+            best_score = score
+            best_match = profile
+    
+    if best_match and best_score >= 3:
+        return best_match
+    
+    # Step 4: Fallback - try to match the raw industry string directly against sector names
+    if raw_lower:  # Only attempt if we have a non-empty industry string
+        for key, profile in INDUSTRY_NAICS_MAP.items():
+            if key in raw_lower or raw_lower in profile["sector"].lower():
+                return profile
+    
+    # Final fallback
+    return {
+        "naics": "00", 
+        "sector": raw_industry.strip() if raw_industry and raw_industry.strip() else "General / Multi-Industry",
+        "bls_sector": "Total Nonfarm",
+        "talent_profile": "General / Mixed Workforce",
+        "legacy_key": "general_entry_level",
+        "keywords": []
+    }
+
+
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
@@ -359,6 +569,8 @@ def generate_excel(data):
         ("Client Website", data.get("client_website", "") or "Not specified"),
         ("Client's Use Case", data.get("use_case", "")),
         ("Industry", data.get("industry_label", industry_label_map.get(industry, industry))),
+        ("NAICS Sector", f"{data.get('bls_sector', 'General')} (NAICS {data.get('naics_code', '00')})"),
+        ("Talent Profile", data.get("talent_profile", "General / Mixed Workforce")),
         ("Job Categories", ", ".join(job_cat_labels) if job_cat_labels else "Not specified"),
         ("Target Locations", ", ".join(locations)),
         ("Target Roles", ", ".join(roles)),
@@ -515,7 +727,7 @@ def generate_excel(data):
     metric_grid = [
         ("Campaign Duration", campaign_duration_val, "Hire Volume", str(hire_volume_val)),
         ("Target Locations", f"{loc_count} location(s)", "Target Roles", f"{role_count} role(s)" if role_count > 0 else "Roles not specified"),
-        ("Industry", industry_label_val, "", ""),
+        ("Industry", industry_label_val, "Talent Profile", data.get("talent_profile", "General / Mixed Workforce")),
     ]
     metric_card_border = Border(
         left=Side(style="thin", color=WARM_GRAY),
@@ -4134,36 +4346,28 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             else:
                 data["_enriched"] = {}
 
-            # Set industry_label for PPT and Excel using the proper label map
-            _industry_label_map_for_data = {
-                "healthcare_medical": "Healthcare & Medical",
-                "blue_collar_trades": "Blue Collar / Skilled Trades",
-                "maritime_marine": "Maritime & Marine",
-                "military_recruitment": "Military Recruitment",
-                "tech_engineering": "Technology & Engineering",
-                "general_entry_level": "General / Entry-Level",
-                "legal_services": "Legal Services",
-                "finance_banking": "Finance & Banking",
-                "mental_health": "Mental Health & Behavioral",
-                "retail_consumer": "Retail & Consumer",
-                "aerospace_defense": "Aerospace & Defense",
-                "pharma_biotech": "Pharma & Biotech",
-                "energy_utilities": "Energy & Utilities",
-                "insurance": "Insurance",
-                "telecommunications": "Telecommunications",
-                "automotive": "Automotive & Manufacturing",
-                "food_beverage": "Food & Beverage",
-                "logistics_supply_chain": "Logistics & Supply Chain",
-                "hospitality_travel": "Hospitality & Travel",
-                "media_entertainment": "Media & Entertainment",
-                "construction_real_estate": "Construction & Real Estate",
-                "education": "Education",
-            }
+            # ── NAICS-based Industry Classification ──
+            # Classify industry using the NAICS engine, supporting both legacy keys
+            # (from frontend dropdown) and free-text industry names
+            industry_raw = data.get("industry", "")
+            company_name = data.get("client_name", "") or data.get("company_name", "")
+            roles_list = data.get("target_roles") or data.get("roles", [])
+            if isinstance(roles_list, str):
+                roles_list = [r.strip() for r in roles_list.split(",") if r.strip()]
+            industry_profile = classify_industry(industry_raw, company_name, roles_list)
+            
+            # Set the industry key to the legacy key for backward compatibility with
+            # research.py, channels_db.json, and all internal lookup tables
+            data["industry"] = industry_profile.get("legacy_key", "general_entry_level")
+            
+            # Set the display label from NAICS classification (prefer frontend-provided label)
             if not data.get("industry_label"):
-                data["industry_label"] = _industry_label_map_for_data.get(
-                    data.get("industry", "general_entry_level"),
-                    data.get("industry", "General").replace("_", " ").title()
-                )
+                data["industry_label"] = industry_profile["sector"]
+            
+            # Store talent profile and BLS sector for downstream use
+            data["talent_profile"] = industry_profile["talent_profile"]
+            data["bls_sector"] = industry_profile["bls_sector"]
+            data["naics_code"] = industry_profile.get("naics", "00")
 
             start_time = time.time()
             try:
