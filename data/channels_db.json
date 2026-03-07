@@ -85,6 +85,89 @@
       "pharma_biotech": [
         "PharmiWeb.com", "BioSpace", "MedReps",
         "ISPE", "Science Careers (AAAS)", "Springer Nature - Nature Careers"
+      ],
+      "energy_utilities": [
+        "RigZone", "EnergyJobline", "OilAndGasJobSearch.com", "Airswift", "NES Fircroft",
+        "EnergyJobShop", "Brunel Energy", "Power Magazine Jobs", "Utility Dive Jobs",
+        "RenewableEnergyJobs.com", "Solar Energy Industries Association (SEIA)",
+        "American Wind Energy Association (AWEA)", "CleanTechnica Jobs", "GreenBiz Jobs",
+        "EnergyPeopleConnect", "Petroplan", "Spencer Ogden", "Atlas Professionals",
+        "iHireEngineering", "PowerJobs.com"
+      ],
+      "insurance": [
+        "InsuranceJobs.com", "GreatInsuranceJobs.com", "Actuarial Careers Inc",
+        "Society of Actuaries (SOA) Career Center", "Casualty Actuarial Society (CAS) Jobs",
+        "InsuranceRecruiters.com", "Risk & Insurance Jobs", "NAIC Career Center",
+        "eFinancialCareers", "Underwriting Academy", "Lloyd's of London Careers",
+        "CPCU Society Job Board", "The Institutes Career Center", "InsureMyPath",
+        "PropertyCasualty360 Jobs", "InsuranceBusinessOnline Jobs", "DW Simpson Actuarial"
+      ],
+      "telecommunications": [
+        "TelecomCareers.net", "WirelessJobBoard.com", "FierceTelecom Jobs",
+        "IEEE Job Site", "Light Reading Jobs", "CTIA Career Center",
+        "TelecomReseller Jobs", "5GWorldPro", "ConnectedJobs", "Broadband Communities Jobs",
+        "SCTE Career Center", "CableLabs Jobs", "TeleCom Association Jobs",
+        "TMForum Jobs", "NetworkWorld Jobs", "CNET Jobs", "Dice"
+      ],
+      "automotive": [
+        "AutoJobs.com", "AutomotiveNews Jobs", "SAE International Career Center",
+        "AutoCareers.com", "iHireAutomotive", "MotorTrend Careers",
+        "Cars.com Careers", "EVJobs.com", "Automotive Industries Jobs",
+        "WardsAuto Jobs", "AIAG Career Center", "Edmunds Careers",
+        "ManufacturingJobs.com", "EngineerJobs.com", "iHireManufacturing",
+        "NAM (National Association of Manufacturers) Jobs", "SME Connect Jobs",
+        "IndustryWeek Jobs"
+      ],
+      "food_beverage": [
+        "FoodIndustryJobs.com", "iHireHospitality", "CulinaryAgents.com",
+        "FoodManufacturing.com Jobs", "BevNET Jobs", "FoodProcessing.com Jobs",
+        "Snagajob", "Poached Jobs", "CareersInFood.com", "FoodAndDrinkJobs.com",
+        "Institute of Food Technologists (IFT) Jobs", "Food Safety Jobs",
+        "Bakery Jobs Online", "Restaurant Business Jobs", "QSRMagazine Careers",
+        "National Restaurant Association Jobs", "FoodJobsCanada"
+      ],
+      "logistics_supply_chain": [
+        "SupplyChainOnline", "LogisticsJobShop.com", "APICS Career Center",
+        "CSCMP Career Center", "FreightWaves Careers", "DAT Jobs",
+        "WarehouseJobs.com", "CDLlife", "TransForce", "Fleet Job Finder",
+        "SupplyChainRecruit.com", "ISM Career Center", "Logistics UK Jobs",
+        "JOC.com Jobs", "3PL Jobs", "American Trucking Associations Jobs",
+        "SupplyChainDigital Jobs", "ProLogistix", "PeopleReady"
+      ],
+      "hospitality_travel": [
+        "Hcareers", "HospitalityOnline", "Poached Jobs", "Caterer.com",
+        "HotelCareer", "HospitalityNet Jobs", "AHLA Career Center",
+        "Harri", "CulinaryAgents.com", "TravelWeekly Jobs", "Skift Jobs",
+        "ASTA Career Center", "Phocuswire Jobs", "AirlineCareer.com",
+        "Snagajob", "Instawork", "Seasoned", "RestaurantJobs.com",
+        "CatererSearch", "TourismJobsUK"
+      ],
+      "media_entertainment": [
+        "EntertainmentCareers.Net", "Mandy.com", "ProductionHub",
+        "MediaBistro", "Backstage", "Staff Me Up", "ProductionBeast",
+        "Gamasutra (Game Developer Jobs)", "Hitmarker (Gaming/Esports)",
+        "MusicIndustryJobs.com", "CreativePool", "Behance Jobs",
+        "Dribbble Jobs", "Working Not Working", "The Dots",
+        "StreamingMediaJobs", "Film & TV Pro Jobs", "Broadway World Jobs",
+        "RollingStone Jobs", "Variety Careers"
+      ],
+      "construction_real_estate": [
+        "ConstructionJobs.com", "iHireConstruction", "ConstructionJobForce",
+        "Roadtechs", "AGC Career Center", "NAHB Career Center",
+        "BuildingGreen Jobs", "ENR.com Jobs", "ArchitecturalRecord Jobs",
+        "iHireRealEstate", "SelectLeaders", "RealEstateJobSite.com",
+        "NAIOP Career Center", "CCIM Career Center", "BOMA Career Center",
+        "PeopleReady Skilled Trades", "Tradesmen International",
+        "Heavy Equipment Jobs", "CraftHire", "ConstructConnect Jobs"
+      ],
+      "education": [
+        "HigherEdJobs", "SchoolSpring", "K12JobSpot", "Teach.org",
+        "Chronicle of Higher Education", "Inside Higher Ed Jobs",
+        "HERC Jobs", "Academic Keys", "PhDs.org", "TeachAway",
+        "EdSurge Jobs", "ISTE Career Center", "Indeed Education",
+        "Handshake", "College Recruiter", "AASA Career Center",
+        "NAIS Career Center", "Edjoin", "TeachersOnNet",
+        "International Schools Services (ISS)"
       ]
     },
     "apac_regional": {
@@ -370,6 +453,56 @@
         "digital": ["PharmiWeb", "BioSpace", "Endpoints News", "STAT News"],
         "hybrid": ["Science Magazine", "Cell", "BMJ"]
       }
+    },
+    "energy_utilities": {
+      "label": "Energy & Utilities",
+      "typical_roles": ["Petroleum Engineers", "Electricians", "Solar Technicians", "Plant Operators", "Environmental Engineers"],
+      "niche_channel_key": "energy_utilities"
+    },
+    "insurance": {
+      "label": "Insurance",
+      "typical_roles": ["Actuaries", "Underwriters", "Claims Adjusters", "Risk Analysts", "Insurance Agents", "Compliance Officers"],
+      "niche_channel_key": "insurance"
+    },
+    "telecommunications": {
+      "label": "Telecommunications",
+      "typical_roles": ["Network Engineers", "RF Engineers", "Field Technicians", "Telecom Analysts", "5G Specialists", "Fiber Optic Technicians"],
+      "niche_channel_key": "telecommunications"
+    },
+    "automotive": {
+      "label": "Automotive & Manufacturing",
+      "typical_roles": ["Mechanical Engineers", "Quality Engineers", "Production Managers", "EV Battery Engineers", "Assembly Technicians", "Supply Chain Planners"],
+      "niche_channel_key": "automotive"
+    },
+    "food_beverage": {
+      "label": "Food & Beverage",
+      "typical_roles": ["Food Scientists", "QA Managers", "Plant Managers", "Chefs", "Supply Chain Coordinators", "Brand Managers"],
+      "niche_channel_key": "food_beverage"
+    },
+    "logistics_supply_chain": {
+      "label": "Logistics & Supply Chain",
+      "typical_roles": ["Supply Chain Managers", "Warehouse Supervisors", "Logistics Coordinators", "Procurement Specialists", "Fleet Managers", "Distribution Center Managers"],
+      "niche_channel_key": "logistics_supply_chain"
+    },
+    "hospitality_travel": {
+      "label": "Hospitality & Travel",
+      "typical_roles": ["Hotel General Managers", "Revenue Managers", "Flight Attendants", "Travel Agents", "Event Coordinators", "Concierge Staff"],
+      "niche_channel_key": "hospitality_travel"
+    },
+    "media_entertainment": {
+      "label": "Media & Entertainment",
+      "typical_roles": ["Video Producers", "Content Creators", "Game Designers", "Sound Engineers", "Animators", "Talent Managers"],
+      "niche_channel_key": "media_entertainment"
+    },
+    "construction_real_estate": {
+      "label": "Construction & Real Estate",
+      "typical_roles": ["Project Managers", "Site Supervisors", "Estimators", "Real Estate Agents", "Property Managers", "Civil Engineers"],
+      "niche_channel_key": "construction_real_estate"
+    },
+    "education": {
+      "label": "Education",
+      "typical_roles": ["K-12 Teachers", "Professors", "Instructional Designers", "School Administrators", "EdTech Specialists", "Academic Advisors"],
+      "niche_channel_key": "education"
     }
   },
   "job_categories": {
@@ -587,6 +720,114 @@
       "avg_time_to_fill": "25-45 days",
       "best_practices": ["Portfolio-focused recruitment", "Instagram and Dribbble community engagement", "Creative challenge/contest recruitment", "Agency showcase and culture content", "Design community sponsorships"],
       "joveo_supply_fit": ["Indeed", "LinkedIn", "Glassdoor", "Talent.com", "The Muse"],
+      "competitor_channels": []
+    },
+    "operations_supply_chain": {
+      "label": "Operations & Supply Chain",
+      "icon": "📦",
+      "description": "Supply chain management, operations, procurement, and logistics leadership roles",
+      "example_roles": ["Supply Chain Managers", "Operations Analysts", "Procurement Specialists", "Inventory Managers", "Demand Planners", "Vendor Managers"],
+      "recommended_channels": {
+        "primary": ["LinkedIn", "Indeed", "ZipRecruiter", "APICS Career Center", "CSCMP Career Center"],
+        "secondary": ["Glassdoor", "Monster", "SupplyChainOnline", "ISM Career Center", "FreightWaves Careers"],
+        "social": ["LinkedIn Ads", "Google Ads", "Meta (Facebook/Instagram)"],
+        "niche": ["SupplyChainRecruit.com", "LogisticsJobShop.com", "3PL Jobs", "WarehouseJobs.com"]
+      },
+      "strategy_emphasis": {"awareness": 35, "hiring": 65},
+      "avg_cpa_range": "$4.00 - $18.00",
+      "avg_time_to_fill": "30-50 days",
+      "best_practices": ["APICS/CSCP certification-targeted campaigns", "Supply chain professional association partnerships", "Industry conference sponsorship and recruiting", "LinkedIn Recruiter sourcing for passive talent", "Emphasize technology and automation in job descriptions"],
+      "joveo_supply_fit": ["Indeed", "LinkedIn", "ZipRecruiter", "Talent.com", "Monster"],
+      "competitor_channels": []
+    },
+    "customer_service_support": {
+      "label": "Customer Service & Support",
+      "icon": "🎧",
+      "description": "Call center, support agents, customer success, and client-facing service roles",
+      "example_roles": ["Customer Service Representatives", "Call Center Agents", "Customer Success Managers", "Help Desk Technicians", "Support Specialists", "Chat Support Agents"],
+      "recommended_channels": {
+        "primary": ["Indeed", "Snagajob", "ZipRecruiter", "JobGet", "Jobcase Inc"],
+        "secondary": ["Monster", "Craigslist", "SonicJobs", "MyJobHelper", "PostJobFree"],
+        "social": ["Meta (Facebook/Instagram)", "TikTok Ads", "Google Ads", "Snapchat Ads"],
+        "niche": ["SupportDriven", "RemoteCustomerServiceJobs.com", "FlexJobs", "We Work Remotely"]
+      },
+      "strategy_emphasis": {"awareness": 50, "hiring": 50},
+      "avg_cpa_range": "$1.50 - $6.00",
+      "avg_time_to_fill": "10-25 days",
+      "best_practices": ["Mobile-first application process critical", "Highlight remote/hybrid work options prominently", "Emphasize training programs and career advancement", "High-volume programmatic campaigns with geotargeting", "Same-day interview scheduling for contact center roles", "WhatsApp/SMS outreach for hourly workers"],
+      "joveo_supply_fit": ["Indeed", "Snagajob", "Jobcase", "Talent.com", "Jooble", "JobRapido"],
+      "competitor_channels": []
+    },
+    "human_resources": {
+      "label": "Human Resources",
+      "icon": "👥",
+      "description": "HR managers, recruiters, L&D specialists, and people operations roles",
+      "example_roles": ["HR Managers", "Recruiters", "L&D Specialists", "Compensation Analysts", "HRIS Administrators", "Employee Relations Managers"],
+      "recommended_channels": {
+        "primary": ["LinkedIn", "Indeed", "SHRM Career Center", "Glassdoor", "ZipRecruiter"],
+        "secondary": ["The Muse", "Monster", "HR.com Jobs", "ERE.net", "TLNT"],
+        "social": ["LinkedIn Ads + InMails", "Google Ads", "Meta (Facebook/Instagram)"],
+        "niche": ["iHireHR", "HRJobs.com", "PeopleManagement Jobs", "WorldatWork Career Center"]
+      },
+      "strategy_emphasis": {"awareness": 30, "hiring": 70},
+      "avg_cpa_range": "$5.00 - $20.00",
+      "avg_time_to_fill": "30-50 days",
+      "best_practices": ["SHRM and HRCI certification-targeted campaigns", "HR professional community engagement", "Employer branding focused on culture and values", "LinkedIn Recruiter for passive HR professionals", "Thought leadership content on HR trends"],
+      "joveo_supply_fit": ["Indeed", "LinkedIn", "ZipRecruiter", "Glassdoor", "Talent.com"],
+      "competitor_channels": []
+    },
+    "engineering_manufacturing": {
+      "label": "Engineering & Manufacturing",
+      "icon": "🏭",
+      "description": "Mechanical, electrical, industrial engineers, and manufacturing professionals",
+      "example_roles": ["Mechanical Engineers", "Electrical Engineers", "Industrial Engineers", "Manufacturing Engineers", "Process Engineers", "Quality Assurance Engineers"],
+      "recommended_channels": {
+        "primary": ["LinkedIn", "Indeed", "iHireEngineering", "EngineerJobs.com", "Glassdoor"],
+        "secondary": ["Dice", "BuiltIn", "SAE International Career Center", "IEEE Job Site", "ASME Career Center"],
+        "social": ["LinkedIn Ads", "Google Ads", "Reddit Ads"],
+        "niche": ["ManufacturingJobs.com", "iHireManufacturing", "IndustryWeek Jobs", "SME Connect Jobs", "Roadtechs"]
+      },
+      "strategy_emphasis": {"awareness": 35, "hiring": 65},
+      "avg_cpa_range": "$6.00 - $25.00",
+      "avg_time_to_fill": "35-60 days",
+      "best_practices": ["Professional engineering society partnerships (ASME, IEEE, SAE)", "Trade school and apprenticeship program outreach", "Emphasize hands-on work and technical challenges", "Certification-based targeting (PE, CQE, Six Sigma)", "Factory tour and facility showcase content"],
+      "joveo_supply_fit": ["Indeed", "LinkedIn", "Dice", "Talent.com", "Monster"],
+      "competitor_channels": []
+    },
+    "data_analytics": {
+      "label": "Data & Analytics",
+      "icon": "📊",
+      "description": "Data scientists, analysts, BI developers, and analytics professionals",
+      "example_roles": ["Data Scientists", "Data Analysts", "BI Developers", "Machine Learning Engineers", "Data Engineers", "Analytics Managers"],
+      "recommended_channels": {
+        "primary": ["LinkedIn", "Indeed", "Glassdoor", "Dice", "BuiltIn"],
+        "secondary": ["Kaggle Jobs", "DataJobs.com", "Analytics Vidhya Jobs", "KDnuggets Jobs", "Remote"],
+        "social": ["LinkedIn Ads", "Reddit Ads", "Google Ads", "Discord"],
+        "niche": ["icrunchdata", "DataScienceCentral Jobs", "Towards Data Science (Medium)", "Data Elixir Jobs", "BigDataJobs.com"]
+      },
+      "strategy_emphasis": {"awareness": 35, "hiring": 65},
+      "avg_cpa_range": "$8.00 - $30.00",
+      "avg_time_to_fill": "30-55 days",
+      "best_practices": ["Kaggle competition sponsorship and community engagement", "Data science meetup and conference recruiting", "Open source project contributions as employer branding", "Emphasize data stack and tooling in job descriptions", "Technical blog content marketing on data topics"],
+      "joveo_supply_fit": ["Indeed", "LinkedIn", "Dice", "BuiltIn", "Talent.com"],
+      "competitor_channels": []
+    },
+    "legal_compliance": {
+      "label": "Legal & Compliance",
+      "icon": "⚖️",
+      "description": "Attorneys, paralegals, compliance officers, and legal operations professionals",
+      "example_roles": ["Corporate Attorneys", "Paralegals", "Compliance Officers", "Legal Operations Managers", "Contract Specialists", "Regulatory Affairs Specialists"],
+      "recommended_channels": {
+        "primary": ["LinkedIn", "Indeed", "LawJobs.com", "Robert Half Legal", "Glassdoor"],
+        "secondary": ["Above the Law", "NALP Job Board", "Lawcrossing.com", "Monster", "ZipRecruiter"],
+        "social": ["LinkedIn Ads + InMails", "Google Ads"],
+        "niche": ["Legal Staff", "Lateral Link", "BCG Attorney Search", "Law360 Careers", "Compliance Week Jobs"]
+      },
+      "strategy_emphasis": {"awareness": 30, "hiring": 70},
+      "avg_cpa_range": "$10.00 - $40.00",
+      "avg_time_to_fill": "35-60 days",
+      "best_practices": ["Bar association and legal society job board postings", "Law school career center partnerships", "Discreet confidential searches for senior roles", "Compliance certification-targeted campaigns (CCEP, CRCM)", "Legal industry publication advertising"],
+      "joveo_supply_fit": ["Indeed", "LinkedIn", "LawJobs.com", "Talent.com", "Monster"],
       "competitor_channels": []
     }
   },

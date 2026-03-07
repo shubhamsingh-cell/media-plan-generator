@@ -116,6 +116,16 @@ def generate_excel(data):
         "retail_consumer": "Retail & Consumer",
         "aerospace_defense": "Aerospace & Defense",
         "pharma_biotech": "Pharma & Biotech",
+        "energy_utilities": "Energy & Utilities",
+        "insurance": "Insurance",
+        "telecommunications": "Telecommunications",
+        "automotive": "Automotive & Manufacturing",
+        "food_beverage": "Food & Beverage",
+        "logistics_supply_chain": "Logistics & Supply Chain",
+        "hospitality_travel": "Hospitality & Travel",
+        "media_entertainment": "Media & Entertainment",
+        "construction_real_estate": "Construction & Real Estate",
+        "education": "Education",
     }
 
     wb = Workbook()
@@ -166,6 +176,18 @@ def generate_excel(data):
 
     industry = data.get("industry", "general_entry_level")
     roles = data.get("target_roles", [])
+
+    # Channel category preferences
+    ch_cats = data.get("channel_categories", {})
+    include_regional = ch_cats.get("regional_boards", True)
+    include_global = ch_cats.get("global_boards", True)
+    include_niche = ch_cats.get("niche_boards", True)
+    include_social = ch_cats.get("social_media", True)
+    include_programmatic = ch_cats.get("programmatic_dsp", True)
+    include_employer_brand = ch_cats.get("employer_branding", False)
+    include_apac = ch_cats.get("apac_regional", False)
+    include_emea = ch_cats.get("emea_regional", False)
+
     niche_key = db.get("industries", {}).get(industry, {}).get("niche_channel_key", "")
 
     # ── Sheet 1: Overview ──
@@ -458,6 +480,16 @@ def generate_excel(data):
         "aerospace_defense": "Aerospace & Defense: Target cleared-talent networks and defense industry boards",
         "pharma_biotech": "Pharma: Use scientific publications and specialized biotech job platforms",
         "mental_health": "Mental Health: Focus on counseling association boards and healthcare networks",
+        "energy_utilities": "Energy & Utilities: Target specialized energy boards and professional associations for certified technicians and engineers",
+        "insurance": "Insurance: Leverage financial services networks and actuarial professional communities",
+        "telecommunications": "Telecommunications: Target STEM talent pools and technical certification platforms",
+        "automotive": "Automotive: Focus on manufacturing job boards, trade schools, and EV industry networks",
+        "food_beverage": "Food & Beverage: Leverage hospitality networks, culinary schools, and seasonal hiring platforms",
+        "logistics_supply_chain": "Logistics: Target warehouse and transportation job boards with high-volume programmatic campaigns",
+        "hospitality_travel": "Hospitality: Focus on seasonal hiring platforms, hospitality-specific boards, and local community outreach",
+        "media_entertainment": "Media & Entertainment: Target creative talent platforms, portfolio sites, and industry-specific communities",
+        "construction_real_estate": "Construction: Focus on trade association boards, apprenticeship programs, and skilled labor networks",
+        "education": "Education: Target academic job boards, teacher certification sites, and higher education networks",
     }
     if industry in industry_rec_map:
         recommendations.append(industry_rec_map[industry])
@@ -473,6 +505,23 @@ def generate_excel(data):
                 bp = jc_data.get("best_practices", [])
                 if bp:
                     recommendations.append(f"{jc_data.get('label', jck)}: {bp[0]}")
+    # Role-specific recommendations
+    if roles:
+        role_str = ", ".join(roles[:5])
+        recommendations.append(f"Role-targeted strategy: Focus channels and messaging on {role_str} talent pools for maximum relevance")
+        # Check for specific role patterns
+        role_lower = " ".join(r.lower() for r in roles)
+        if any(x in role_lower for x in ["nurse", "physician", "rn", "medical", "clinical", "therapist"]):
+            recommendations.append("Clinical talent: Prioritize health-specific boards (Health eCareers, Vivian Health) and hospital system career pages")
+        if any(x in role_lower for x in ["engineer", "developer", "software", "devops", "data scientist"]):
+            recommendations.append("Tech talent: Invest in developer communities (GitHub Jobs, Stack Overflow) and technical assessment platforms")
+        if any(x in role_lower for x in ["driver", "warehouse", "mechanic", "technician", "operator"]):
+            recommendations.append("High-volume roles: Deploy programmatic CPA-based campaigns for rapid scaling with performance optimization")
+        if any(x in role_lower for x in ["executive", "director", "vp", "chief", "president", "c-suite"]):
+            recommendations.append("Executive search: Supplement with retained/contingency search firms and premium professional networks")
+        if any(x in role_lower for x in ["sales", "account", "business development"]):
+            recommendations.append("Sales talent: Leverage LinkedIn Recruiter, sales communities, and performance-based sourcing channels")
+
     # Always have at least 3 recommendations
     if len(recommendations) < 3:
         recommendations.append("Programmatic job advertising recommended for optimized cost-per-applicant")
@@ -558,6 +607,51 @@ def generate_excel(data):
                 "Europe (UK/DE/FR)": {"cpa": "$35 - $90", "cpc": "$1.20 - $4.00", "notes": "Basel/Cambridge clusters premium"},
                 "APAC (IN/AU/SG)": {"cpa": "$15 - $50", "cpc": "$0.45 - $2.00", "notes": "India pharma hub; R&D roles growing"},
                 "LATAM": {"cpa": "$10 - $40", "cpc": "$0.30 - $1.50", "notes": "Clinical trials driving demand in Brazil"},
+            }
+        },
+        "energy_utilities": {
+            "label": "Energy & Utilities",
+            "benchmarks": {
+                "North America": {"cpa": "$28 - $70", "cpc": "$0.90 - $3.00", "notes": "Oil/gas premium; renewables growing fast"},
+                "Europe (UK/DE/FR)": {"cpa": "$22 - $60", "cpc": "$0.75 - $2.50", "notes": "Green energy hubs in Germany/Nordics"},
+                "APAC (IN/AU/SG)": {"cpa": "$10 - $40", "cpc": "$0.30 - $1.50", "notes": "Mining and energy in Australia premium"},
+                "LATAM": {"cpa": "$7 - $28", "cpc": "$0.20 - $1.00", "notes": "Oil/gas hubs in Brazil/Mexico"},
+            }
+        },
+        "logistics_supply_chain": {
+            "label": "Logistics & Supply Chain",
+            "benchmarks": {
+                "North America": {"cpa": "$10 - $30", "cpc": "$0.35 - $1.30", "notes": "High volume warehouse; peak in Q4"},
+                "Europe (UK/DE/FR)": {"cpa": "$8 - $25", "cpc": "$0.28 - $1.10", "notes": "Distribution hubs in Germany/Netherlands"},
+                "APAC (IN/AU/SG)": {"cpa": "$3 - $15", "cpc": "$0.08 - $0.50", "notes": "India massive volume; very low CPA"},
+                "LATAM": {"cpa": "$3 - $12", "cpc": "$0.06 - $0.40", "notes": "Manufacturing and logistics expansion"},
+            }
+        },
+        "automotive": {
+            "label": "Automotive & Manufacturing",
+            "benchmarks": {
+                "North America": {"cpa": "$18 - $50", "cpc": "$0.60 - $2.20", "notes": "EV sector most competitive; skilled trades premium"},
+                "Europe (UK/DE/FR)": {"cpa": "$15 - $45", "cpc": "$0.50 - $1.80", "notes": "Germany auto hub; EV battery plants growing"},
+                "APAC (IN/AU/SG)": {"cpa": "$5 - $25", "cpc": "$0.15 - $0.90", "notes": "Japan/Korea OEMs; India manufacturing growth"},
+                "LATAM": {"cpa": "$4 - $20", "cpc": "$0.12 - $0.70", "notes": "Mexico auto corridor competitive"},
+            }
+        },
+        "insurance": {
+            "label": "Insurance",
+            "benchmarks": {
+                "North America": {"cpa": "$28 - $72", "cpc": "$0.95 - $3.50", "notes": "Actuarial and underwriting roles most expensive"},
+                "Europe (UK/DE/FR)": {"cpa": "$22 - $58", "cpc": "$0.75 - $2.80", "notes": "London insurance market premium"},
+                "APAC (IN/AU/SG)": {"cpa": "$10 - $38", "cpc": "$0.30 - $1.50", "notes": "India BPO insurance ops lower CPA"},
+                "LATAM": {"cpa": "$7 - $28", "cpc": "$0.20 - $1.00", "notes": "Growing insurance market in Brazil"},
+            }
+        },
+        "hospitality_travel": {
+            "label": "Hospitality & Travel",
+            "benchmarks": {
+                "North America": {"cpa": "$7 - $20", "cpc": "$0.20 - $0.85", "notes": "Seasonal peaks; very high volume hiring"},
+                "Europe (UK/DE/FR)": {"cpa": "$6 - $18", "cpc": "$0.18 - $0.75", "notes": "Tourism hubs seasonal demand"},
+                "APAC (IN/AU/SG)": {"cpa": "$2 - $10", "cpc": "$0.05 - $0.35", "notes": "Massive hospitality sector in SE Asia"},
+                "LATAM": {"cpa": "$2 - $8", "cpc": "$0.04 - $0.30", "notes": "Tourism-driven in Caribbean/Mexico"},
             }
         },
     }
@@ -995,7 +1089,8 @@ def generate_excel(data):
     ws_trad["B2"].value = "Traditional Channels"
     ws_trad["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
 
-    ws_trad["B3"].value = f"Target: {', '.join(locations)} | Joveo Supply Network: {joveo_pubs.get('total_active_publishers', 1238):,}+ active publishers"
+    roles_str = f" | Target Roles: {', '.join(roles[:5])}" if roles else ""
+    ws_trad["B3"].value = f"Target: {', '.join(locations)}{roles_str} | Joveo Supply Network: {joveo_pubs.get('total_active_publishers', 1238):,}+ active publishers"
     ws_trad["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
 
     row = 5
@@ -1012,9 +1107,9 @@ def generate_excel(data):
 
     niche_key = db.get("industries", {}).get(industry, {}).get("niche_channel_key", "")
 
-    regional = data.get("selected_regional", db["traditional_channels"]["regional_local"][:25])
-    niche_channels = data.get("selected_niche", db["traditional_channels"]["niche_by_industry"].get(niche_key, [])[:25])
-    global_channels = data.get("selected_global", db["traditional_channels"]["global_reach"][:25])
+    regional = data.get("selected_regional", db["traditional_channels"]["regional_local"][:25]) if include_regional else []
+    niche_channels = data.get("selected_niche", db["traditional_channels"]["niche_by_industry"].get(niche_key, [])[:25]) if include_niche else []
+    global_channels = data.get("selected_global", db["traditional_channels"]["global_reach"][:25]) if include_global else []
 
     # USE RESEARCH MODULE for real location-specific boards
     location_boards = research.get_location_boards(locations)
@@ -1022,11 +1117,11 @@ def generate_excel(data):
     max_rows = max(len(regional), len(niche_channels), len(global_channels), len(location_boards))
     for i in range(max_rows):
         row += 1
-        if i < len(regional):
+        if include_regional and i < len(regional):
             style_body_cell(ws_trad, row, 2, regional[i])
-        if i < len(niche_channels):
+        if include_niche and i < len(niche_channels):
             style_body_cell(ws_trad, row, 3, niche_channels[i])
-        if i < len(global_channels):
+        if include_global and i < len(global_channels):
             style_body_cell(ws_trad, row, 4, global_channels[i])
         if i < len(location_boards):
             style_body_cell(ws_trad, row, 6, location_boards[i])
@@ -1075,11 +1170,13 @@ def generate_excel(data):
         ("CPQA (Cost Per Qualified Applicant)", nt.get("cpqa", [])),
         ("Data Partners / Candidate Re-engagement", nt.get("data_partners", [])),
         ("Media Channels", nt.get("media_channels", [])),
-        ("DSPs (Demand-Side Platforms)", nt.get("dsps", [])),
-        ("Government Job Boards", nt.get("gov_job_boards", [])),
-        ("Early-Career Channels", nt.get("early_career_channels", [])),
-        ("Employer Branding", nt.get("employer_branding", [])),
     ]
+    if include_programmatic:
+        categories.append(("DSPs (Demand-Side Platforms)", nt.get("dsps", [])))
+    categories.append(("Government Job Boards", nt.get("gov_job_boards", [])))
+    categories.append(("Early-Career Channels", nt.get("early_career_channels", [])))
+    if include_employer_brand:
+        categories.append(("Employer Branding", nt.get("employer_branding", [])))
 
     # Enrich with Joveo supply partner data
     joveo_nt_cats = {
@@ -1087,9 +1184,11 @@ def generate_excel(data):
         "AI-Powered Sourcing Tools": joveo_pubs.get("by_category", {}).get("AI tool", [])[:10],
         "Influencer Marketing Platforms": joveo_pubs.get("by_category", {}).get("Influencer Marketing", [])[:10],
         "Programmatic Audio Partners": joveo_pubs.get("by_category", {}).get("Programmatic Audio", [])[:10],
-        "DSP Partners (Joveo Network)": joveo_pubs.get("by_category", {}).get("DSP", [])[:10],
-        "Social Media Advertising": joveo_pubs.get("by_category", {}).get("Social Media", [])[:10],
     }
+    if include_programmatic:
+        joveo_nt_cats["DSP Partners (Joveo Network)"] = joveo_pubs.get("by_category", {}).get("DSP", [])[:10]
+    if include_social:
+        joveo_nt_cats["Social Media Advertising"] = joveo_pubs.get("by_category", {}).get("Social Media", [])[:10]
 
     for cat_name, channels in categories:
         cell = ws_nontrad.cell(row=row, column=2, value=cat_name)
@@ -1124,11 +1223,13 @@ def generate_excel(data):
     alt_supply_sections = [
         ("Competitor Supply Channels", nt.get("competitor_supply_channels", [])),
         ("Alternate Staffing Partners", alt_supply.get("staffing_partners", [])),
-        ("Alternate DSPs", alt_supply.get("dsps", [])),
-        ("Influencer Marketing", alt_supply.get("influencer_marketing", [])),
-        ("Programmatic Audio", alt_supply.get("programmatic_audio", [])),
-        ("Social Media Advertising", alt_supply.get("social_media_ads", [])),
     ]
+    if include_programmatic:
+        alt_supply_sections.append(("Alternate DSPs", alt_supply.get("dsps", [])))
+    alt_supply_sections.append(("Influencer Marketing", alt_supply.get("influencer_marketing", [])))
+    alt_supply_sections.append(("Programmatic Audio", alt_supply.get("programmatic_audio", [])))
+    if include_social:
+        alt_supply_sections.append(("Social Media Advertising", alt_supply.get("social_media_ads", [])))
     for cat_name, items in alt_supply_sections:
         if items:
             cell = ws_nontrad.cell(row=row, column=2, value=cat_name)
@@ -1146,7 +1247,7 @@ def generate_excel(data):
     # Add APAC local social platforms if any location is in APAC
     apac_social = alt_supply.get("local_social_platforms", {})
     apac_classifieds = alt_supply.get("local_classifieds", {})
-    if apac_social or apac_classifieds:
+    if include_apac and (apac_social or apac_classifieds):
         has_apac_data = False
         for loc in locations:
             loc_lower = loc.strip().lower()
@@ -2125,6 +2226,16 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 {"value": "retail_consumer", "label": "Retail & Consumer"},
                 {"value": "aerospace_defense", "label": "Aerospace & Defense"},
                 {"value": "pharma_biotech", "label": "Pharma & Biotech"},
+                {"value": "energy_utilities", "label": "Energy & Utilities"},
+                {"value": "insurance", "label": "Insurance"},
+                {"value": "telecommunications", "label": "Telecommunications"},
+                {"value": "automotive", "label": "Automotive & Manufacturing"},
+                {"value": "food_beverage", "label": "Food & Beverage"},
+                {"value": "logistics_supply_chain", "label": "Logistics & Supply Chain"},
+                {"value": "hospitality_travel", "label": "Hospitality & Travel"},
+                {"value": "media_entertainment", "label": "Media & Entertainment"},
+                {"value": "construction_real_estate", "label": "Construction & Real Estate"},
+                {"value": "education", "label": "Education"},
             ]
             self._send_json(db)
         else:
