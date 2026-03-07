@@ -1690,17 +1690,46 @@ def get_market_trends(locations, industry, roles, enrichment_salary_data=None):
     return factors
 
 
+def _filter_self_from_competitors(competitors_str, company_name):
+    """Remove the requesting company from a comma-separated competitor string."""
+    if not company_name:
+        return competitors_str
+    company_lower = company_name.lower().strip()
+    # Also handle common variations (e.g., "JPMorgan Chase" vs "JPMorgan")
+    company_words = [w for w in company_lower.split() if len(w) > 2]
+    parts = [c.strip() for c in competitors_str.split(",")]
+    filtered = []
+    for part in parts:
+        part_lower = part.lower().strip()
+        # Exact match or company name is a substring of competitor
+        if company_lower in part_lower:
+            continue
+        # Check if any significant company word matches
+        if any(w in part_lower for w in company_words if len(w) >= 4):
+            continue
+        filtered.append(part)
+    return ", ".join(filtered) if filtered else competitors_str
+
+
 def get_competitors(industry, locations, company_name=None):
-    """Get real competitor data for the industry (US + international). Filters out company_name to prevent self-as-competitor."""
+    """Get real competitor data for the industry (US + international).
+
+    Args:
+        industry: The industry key (e.g. 'tech_engineering', 'healthcare_medical')
+        locations: List of target locations
+        company_name: The requesting company's name (used to filter self from results)
+    """
     # Check if any location is international
     has_intl = any(_detect_country(loc) and _detect_country(loc) != "United States" for loc in (locations or []))
 
     comp_data = INDUSTRY_COMPETITORS.get(industry, INDUSTRY_COMPETITORS.get("general_entry_level", {}))
     result = []
     for category, data in comp_data.items():
+        # CRITICAL: Remove self from competitor list
+        filtered_competitors = _filter_self_from_competitors(data["competitors"], company_name)
         result.append({
             "category": category,
-            "competitors": data["competitors"],
+            "competitors": filtered_competitors,
             "threat": data["threat"],
         })
 
@@ -1715,9 +1744,10 @@ def get_competitors(industry, locations, company_name=None):
             "legal_services": {"competitors": "Magic Circle firms (UK), De Brauw (Netherlands), Hengeler Mueller (Germany)", "threat": "MODERATE"},
         }
         if industry in intl_categories:
+            filtered_intl = _filter_self_from_competitors(intl_categories[industry]["competitors"], company_name)
             result.append({
                 "category": "International / Global Competitors",
-                "competitors": intl_categories[industry]["competitors"],
+                "competitors": filtered_intl,
                 "threat": intl_categories[industry]["threat"],
             })
 
