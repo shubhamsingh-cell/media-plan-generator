@@ -14,10 +14,12 @@ try:
     import fcntl
 except ImportError:
     fcntl = None  # Windows compatibility: file locking handled below
+import logging
 import urllib.request
 import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
+from pathlib import Path
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -25,6 +27,94 @@ from openpyxl.chart import BarChart, PieChart, DoughnutChart, Reference
 from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.series import DataPoint
 from openpyxl.drawing.image import Image as XlImage
+
+logger = logging.getLogger(__name__)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# KNOWLEDGE BASE LOADER
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_knowledge_base = None
+
+# Mapping from legacy industry keys (used in INDUSTRY_NAICS_MAP) to KB keys
+# in data/recruitment_industry_knowledge.json -> industry_specific_benchmarks
+_INDUSTRY_KEY_TO_KB_KEY = {
+    "healthcare": "healthcare",
+    "healthcare_medical": "healthcare",
+    "mental_health": "healthcare",
+    "technology": "technology",
+    "tech_engineering": "technology",
+    "telecom": "technology",
+    "telecommunications": "technology",
+    "retail": "retail_hospitality",
+    "retail_consumer": "retail_hospitality",
+    "hospitality": "retail_hospitality",
+    "hospitality_travel": "retail_hospitality",
+    "food_beverage": "retail_hospitality",
+    "construction": "construction_infrastructure",
+    "construction_real_estate": "construction_infrastructure",
+    "transportation": "transportation_logistics",
+    "logistics_supply_chain": "transportation_logistics",
+    "maritime": "transportation_logistics",
+    "maritime_marine": "transportation_logistics",
+    "rideshare": "transportation_logistics",
+    "manufacturing": "manufacturing",
+    "automotive": "manufacturing",
+    "blue_collar": "manufacturing",
+    "blue_collar_trades": "manufacturing",
+    "aerospace": "manufacturing",
+    "aerospace_defense": "manufacturing",
+    "pharma": "manufacturing",
+    "pharma_biotech": "manufacturing",
+    "finance": "financial_services",
+    "finance_banking": "financial_services",
+    "insurance": "financial_services",
+    "government": "government_utilities",
+    "military_recruitment": "government_utilities",
+    "energy": "government_utilities",
+    "energy_utilities": "government_utilities",
+    "education": "technology",  # No exact KB match; closest proxy
+    "professional_services": "financial_services",
+    "legal_services": "financial_services",
+    "nonprofit": "government_utilities",
+    "general": "retail_hospitality",
+    "general_entry_level": "retail_hospitality",
+    "media_entertainment": "technology",
+}
+
+
+def load_knowledge_base() -> dict:
+    """Load the recruitment industry knowledge base from disk.
+
+    Uses a module-level cache so the 63 KB JSON file is read at most once.
+    Maps legacy industry keys to the KB's ``industry_specific_benchmarks``
+    section via ``_INDUSTRY_KEY_TO_KB_KEY``.
+
+    Returns:
+        Parsed dict with the full knowledge base, or an empty dict on failure.
+    """
+    global _knowledge_base
+    if _knowledge_base is not None:
+        return _knowledge_base
+
+    kb_path = Path(__file__).resolve().parent / "data" / "recruitment_industry_knowledge.json"
+    try:
+        with open(kb_path, "r", encoding="utf-8") as fh:
+            _knowledge_base = json.load(fh)
+        logger.info("Knowledge base loaded from %s (%d top-level keys)",
+                     kb_path, len(_knowledge_base))
+    except FileNotFoundError:
+        logger.warning("Knowledge base file not found at %s", kb_path)
+        _knowledge_base = {}
+    except json.JSONDecodeError as exc:
+        logger.error("Knowledge base JSON parse error: %s", exc)
+        _knowledge_base = {}
+    except Exception as exc:
+        logger.error("Unexpected error loading knowledge base: %s", exc)
+        _knowledge_base = {}
+
+    return _knowledge_base
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NAICS-BASED INDUSTRY CLASSIFICATION ENGINE
@@ -322,6 +412,20 @@ try:
 except ImportError as e:
     print(f"WARNING: api_enrichment import failed: {e}", file=sys.stderr)
     enrich_data = None
+
+try:
+    from data_synthesizer import synthesize as data_synthesize
+    print("data_synthesizer loaded successfully", file=sys.stderr)
+except ImportError as e:
+    print(f"WARNING: data_synthesizer import failed: {e}", file=sys.stderr)
+    data_synthesize = None
+
+try:
+    from budget_engine import calculate_budget_allocation
+    print("budget_engine loaded successfully", file=sys.stderr)
+except ImportError as e:
+    print(f"WARNING: budget_engine import failed: {e}", file=sys.stderr)
+    calculate_budget_allocation = None
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROLE-TIER CLASSIFICATION ENGINE
@@ -1069,6 +1173,87 @@ def generate_excel(data):
         ws_exec.cell(row=exec_row, column=2, value="Detailed per-competitor intelligence (hiring channels, employer brand, strategies, and recommendations) included in the Market Trends sheet.").font = Font(name="Calibri", italic=True, size=10, color="596780")
         ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
         exec_row += 2
+
+    # ── Data Quality & Budget Summary (Phase 5 enhancements) ──
+    _exec_synth = data.get("_synthesized", {})
+    _exec_budget = data.get("_budget_allocation", {})
+    _exec_conf = _exec_synth.get("confidence_scores", {}) if isinstance(_exec_synth, dict) else {}
+
+    # Data Quality Grade
+    _exec_overall_conf = _exec_conf.get("overall", _exec_conf.get("overall_score", 0)) if isinstance(_exec_conf, dict) else 0
+    if isinstance(_exec_overall_conf, (int, float)) and _exec_overall_conf > 0:
+        if _exec_overall_conf >= 0.9:
+            _exec_grade = "A"
+        elif _exec_overall_conf >= 0.8:
+            _exec_grade = "B"
+        elif _exec_overall_conf >= 0.7:
+            _exec_grade = "C"
+        elif _exec_overall_conf >= 0.5:
+            _exec_grade = "D"
+        else:
+            _exec_grade = "F"
+        _exec_grade_color = "2E7D32" if _exec_grade in ("A", "B") else "F57C00" if _exec_grade == "C" else "C62828"
+
+        style_section_header(ws_exec, exec_row, 2, 7, "Data Quality Assessment")
+        exec_row += 1
+        ws_exec.merge_cells(f"B{exec_row}:C{exec_row}")
+        _dq_cell = ws_exec.cell(row=exec_row, column=2, value=f"  Data Quality Grade: {_exec_grade} ({_exec_overall_conf:.0%})")
+        _dq_cell.font = Font(name="Calibri", bold=True, size=12, color=_exec_grade_color)
+        ws_exec.merge_cells(f"D{exec_row}:G{exec_row}")
+        ws_exec.cell(row=exec_row, column=4, value="Based on API response rates, source coverage, and cross-validation of data points across 25 data sources.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+        exec_row += 2
+
+    # Budget Allocation Summary
+    _exec_total_proj = _exec_budget.get("total_projected", {}) if isinstance(_exec_budget, dict) else {}
+    if isinstance(_exec_total_proj, dict) and _exec_total_proj:
+        _exec_proj_hires = _exec_total_proj.get("hires", 0)
+        _exec_proj_cph = _exec_total_proj.get("cost_per_hire", 0)
+        _exec_proj_clicks = _exec_total_proj.get("clicks", 0)
+        _exec_proj_apps = _exec_total_proj.get("applications", 0)
+
+        style_section_header(ws_exec, exec_row, 2, 7, "Budget Allocation Summary")
+        exec_row += 1
+
+        _ba_summary = [
+            ("Projected Hires", f"{_exec_proj_hires:,.0f}" if isinstance(_exec_proj_hires, (int, float)) else str(_exec_proj_hires),
+             "Projected Cost/Hire", f"${_exec_proj_cph:,.0f}" if isinstance(_exec_proj_cph, (int, float)) and _exec_proj_cph > 0 else "N/A"),
+            ("Projected Clicks", f"{_exec_proj_clicks:,.0f}" if isinstance(_exec_proj_clicks, (int, float)) else str(_exec_proj_clicks),
+             "Projected Applications", f"{_exec_proj_apps:,.0f}" if isinstance(_exec_proj_apps, (int, float)) else str(_exec_proj_apps)),
+        ]
+        for label1, val1, label2, val2 in _ba_summary:
+            ws_exec.cell(row=exec_row, column=2, value=f"  {label1}:").font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+            ws_exec.cell(row=exec_row, column=3, value=val1).font = Font(name="Calibri", size=10, color="333333")
+            ws_exec.cell(row=exec_row, column=4, value=f"  {label2}:").font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+            ws_exec.merge_cells(f"E{exec_row}:G{exec_row}")
+            ws_exec.cell(row=exec_row, column=5, value=val2).font = Font(name="Calibri", size=10, color="333333")
+            exec_row += 1
+
+        # Top 3 channel recommendations
+        _exec_ch_allocs = _exec_budget.get("channel_allocations", {})
+        if isinstance(_exec_ch_allocs, dict) and _exec_ch_allocs:
+            exec_row += 1
+            ws_exec.cell(row=exec_row, column=2, value="  Top Channel Recommendations:").font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+            ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+            exec_row += 1
+            # Sort channels by dollar amount
+            _sorted_chs = sorted(
+                [(ch_name, ch_data) for ch_name, ch_data in _exec_ch_allocs.items() if isinstance(ch_data, dict)],
+                key=lambda x: x[1].get("dollar_amount", x[1].get("amount", 0)),
+                reverse=True,
+            )
+            for _ch_name, _ch_data in _sorted_chs[:3]:
+                _ch_amt = _ch_data.get("dollar_amount", _ch_data.get("amount", 0))
+                _ch_pct = _ch_data.get("percentage", 0)
+                _ch_hires = _ch_data.get("projected_hires", 0)
+                _ch_display = _ch_name.replace("_", " ").title()
+                ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+                _ch_text = f"    {_ch_display}: ${_ch_amt:,.0f} ({_ch_pct:.0f}%)" if isinstance(_ch_amt, (int, float)) and isinstance(_ch_pct, (int, float)) else f"    {_ch_display}"
+                if isinstance(_ch_hires, (int, float)) and _ch_hires > 0:
+                    _ch_text += f" — ~{_ch_hires:.1f} projected hires"
+                ws_exec.cell(row=exec_row, column=2, value=_ch_text).font = Font(name="Calibri", size=10, color="333333")
+                exec_row += 1
+
+        exec_row += 1
 
     # Key Recommendations
     style_section_header(ws_exec, exec_row, 2, 7, "Key Recommendations")
@@ -3597,6 +3782,48 @@ def generate_excel(data):
         ws_budget.add_chart(pie_chart, f"B{row + 1}")
         row += 20  # leave space for chart
 
+        # ── Real Dollar Budget Breakdown (from budget_engine) ──
+        _bp_budget_alloc = data.get("_budget_allocation", {})
+        _bp_ch_allocs = _bp_budget_alloc.get("channel_allocations", {}) if isinstance(_bp_budget_alloc, dict) else {}
+        if isinstance(_bp_ch_allocs, dict) and _bp_ch_allocs:
+            row += 2
+            cell = ws_budget.cell(row=row, column=2, value="Calculated Budget Breakdown (Projected)")
+            cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+            cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+            for c in range(3, 6):
+                ws_budget.cell(row=row, column=c).fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+                ws_budget.cell(row=row, column=c).border = thin_border
+            row += 1
+
+            _bp_headers = ["Channel", f"$ Amount ({display_currency_code})", "Projected Hires", "Cost/Hire"]
+            for i, h in enumerate(_bp_headers):
+                cell = ws_budget.cell(row=row, column=2 + i, value=h)
+                cell.font = subheader_font
+                cell.fill = subheader_fill
+                cell.alignment = center_alignment
+                cell.border = thin_border
+            row += 1
+
+            for ch_name, ch_data in _bp_ch_allocs.items():
+                if not isinstance(ch_data, dict):
+                    continue
+                _bp_amt = ch_data.get("dollar_amount", ch_data.get("amount", 0))
+                _bp_hires = ch_data.get("projected_hires", 0)
+                _bp_cph = ch_data.get("cost_per_hire", 0)
+                style_body_cell(ws_budget, row, 2, ch_name.replace("_", " ").title())
+                ws_budget.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10)
+                style_body_cell(ws_budget, row, 3, f"${_bp_amt:,.0f}" if isinstance(_bp_amt, (int, float)) else str(_bp_amt))
+                style_body_cell(ws_budget, row, 4, f"{_bp_hires:,.1f}" if isinstance(_bp_hires, (int, float)) else str(_bp_hires))
+                style_body_cell(ws_budget, row, 5, f"${_bp_cph:,.0f}" if isinstance(_bp_cph, (int, float)) and _bp_cph > 0 else "N/A")
+                if row % 2 == 0:
+                    for c in range(2, 6):
+                        ws_budget.cell(row=row, column=c).fill = accent_fill
+                row += 1
+
+            row += 1
+            ws_budget.merge_cells(f"B{row}:E{row}")
+            ws_budget.cell(row=row, column=2, value="Dollar amounts computed by the budget engine based on industry allocation percentages, role complexity, and location cost multipliers.").font = Font(name="Calibri", italic=True, size=8, color="999999")
+
     # ── Job Category Insights Sheet (if categories selected) ──
     job_categories = data.get("job_categories", [])
     job_cat_db = db.get("job_categories", {})
@@ -4680,6 +4907,599 @@ def generate_excel(data):
         cell.font = Font(name="Calibri", italic=True, size=9, color="596780")
         cell.alignment = Alignment(wrap_text=True)
 
+    # ═══════════════════════════════════════════════════════════════════════════
+    # PHASE 5: SYNTHESIZED DATA & BUDGET SHEETS
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    # ── Sheet: Ad Platform Analysis ──
+    _synth = data.get("_synthesized", {})
+    _ad_plat = _synth.get("ad_platform_analysis", {})
+    if isinstance(_ad_plat, dict) and _ad_plat:
+        ws_adplat = wb.create_sheet("Ad Platform Analysis")
+        ws_adplat.sheet_properties.tabColor = "0A66C9"
+        ws_adplat.column_dimensions["A"].width = 3
+        ws_adplat.column_dimensions["B"].width = 22
+        ws_adplat.column_dimensions["C"].width = 14
+        ws_adplat.column_dimensions["D"].width = 14
+        ws_adplat.column_dimensions["E"].width = 14
+        ws_adplat.column_dimensions["F"].width = 18
+        ws_adplat.column_dimensions["G"].width = 14
+        ws_adplat.column_dimensions["H"].width = 18
+        ws_adplat.column_dimensions["I"].width = 22
+
+        ws_adplat.merge_cells("B2:I2")
+        ws_adplat["B2"].value = "Ad Platform Analysis"
+        ws_adplat["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_adplat["B2"].border = gold_bottom_border
+
+        adp_row = 4
+        # Recommendation row
+        _top_platform = ""
+        _top_score = 0.0
+        _platforms_list = _ad_plat.get("platforms", {})
+        if isinstance(_platforms_list, dict):
+            for pname, pdata in _platforms_list.items():
+                if isinstance(pdata, dict) and pdata.get("fit_score", 0) > _top_score:
+                    _top_score = pdata.get("fit_score", 0)
+                    _top_platform = pname
+        if _top_platform:
+            ws_adplat.merge_cells(f"B{adp_row}:I{adp_row}")
+            _rec_cell = ws_adplat.cell(row=adp_row, column=2, value=f"Top Recommendation: {_top_platform} (Fit Score: {_top_score:.0%})")
+            _rec_cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+            _rec_cell.fill = PatternFill(start_color="2E7D32", end_color="2E7D32", fill_type="solid")
+            _rec_cell.alignment = center_alignment
+            for c in range(3, 10):
+                ws_adplat.cell(row=adp_row, column=c).fill = PatternFill(start_color="2E7D32", end_color="2E7D32", fill_type="solid")
+            adp_row += 2
+
+        # Headers
+        adp_headers = ["Platform", "CPC", "CPM", "CPA", "Audience Reach", "Fit Score", "ROI Projection", "Daily Budget Range"]
+        for i, h in enumerate(adp_headers):
+            cell = ws_adplat.cell(row=adp_row, column=2 + i, value=h)
+            cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+            cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+            cell.border = thin_border
+            cell.alignment = center_alignment
+        adp_row += 1
+
+        if isinstance(_platforms_list, dict):
+            for pidx, (pname, pdata) in enumerate(_platforms_list.items()):
+                if not isinstance(pdata, dict):
+                    continue
+                _row_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if pidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                _fit = pdata.get("fit_score", 0)
+                _cpc_val = pdata.get("cpc", "N/A")
+                _cpm_val = pdata.get("cpm", "N/A")
+                _cpa_val = pdata.get("cpa", "N/A")
+                _reach_val = pdata.get("audience_reach", "N/A")
+                _roi_val = pdata.get("roi_projection", "N/A")
+                _daily_val = pdata.get("daily_budget_range", "N/A")
+
+                # Format monetary values
+                if isinstance(_cpc_val, (int, float)):
+                    _cpc_val = f"${_cpc_val:.2f}"
+                if isinstance(_cpm_val, (int, float)):
+                    _cpm_val = f"${_cpm_val:.2f}"
+                if isinstance(_cpa_val, (int, float)):
+                    _cpa_val = f"${_cpa_val:.2f}"
+                if isinstance(_reach_val, (int, float)):
+                    _reach_val = f"{_reach_val:,.0f}"
+                if isinstance(_roi_val, (int, float)):
+                    _roi_val = f"{_roi_val:.1f}x"
+                if isinstance(_daily_val, (list, tuple)) and len(_daily_val) == 2:
+                    _daily_val = f"${_daily_val[0]:,.0f} - ${_daily_val[1]:,.0f}"
+                elif isinstance(_daily_val, dict):
+                    _daily_val = f"${_daily_val.get('min', 0):,.0f} - ${_daily_val.get('max', 0):,.0f}"
+
+                for ci, val in enumerate([pname, _cpc_val, _cpm_val, _cpa_val, _reach_val, f"{_fit:.0%}" if isinstance(_fit, (int, float)) else str(_fit), _roi_val, _daily_val]):
+                    cell = ws_adplat.cell(row=adp_row, column=2 + ci, value=val)
+                    cell.font = Font(name="Calibri", size=10, bold=(ci == 0))
+                    cell.fill = _row_fill
+                    cell.border = thin_border
+                    cell.alignment = center_alignment if ci > 0 else wrap_alignment
+
+                # Color-code fit score cell
+                fit_cell = ws_adplat.cell(row=adp_row, column=7)
+                if isinstance(_fit, (int, float)):
+                    if _fit >= 0.7:
+                        fit_cell.fill = PatternFill(start_color="E8F5E9", end_color="E8F5E9", fill_type="solid")
+                        fit_cell.font = Font(name="Calibri", bold=True, size=10, color="2E7D32")
+                    elif _fit >= 0.4:
+                        fit_cell.fill = PatternFill(start_color="FFF3E0", end_color="FFF3E0", fill_type="solid")
+                        fit_cell.font = Font(name="Calibri", bold=True, size=10, color="F57C00")
+                    else:
+                        fit_cell.fill = PatternFill(start_color="FFEBEE", end_color="FFEBEE", fill_type="solid")
+                        fit_cell.font = Font(name="Calibri", bold=True, size=10, color="C62828")
+                adp_row += 1
+
+        # Summary note
+        adp_row += 1
+        ws_adplat.merge_cells(f"B{adp_row}:I{adp_row}")
+        ws_adplat.cell(row=adp_row, column=2, value="Fit scores are computed from industry match, audience alignment, cost efficiency, and historical conversion benchmarks. Higher scores indicate better expected ROI.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+
+    # ── Sheet: Salary Intelligence ──
+    _sal_intel = _synth.get("salary_intelligence", {})
+    if isinstance(_sal_intel, dict) and _sal_intel:
+        ws_salary = wb.create_sheet("Salary Intelligence")
+        ws_salary.sheet_properties.tabColor = "7C3AED"
+        ws_salary.column_dimensions["A"].width = 3
+        ws_salary.column_dimensions["B"].width = 30
+        ws_salary.column_dimensions["C"].width = 14
+        ws_salary.column_dimensions["D"].width = 14
+        ws_salary.column_dimensions["E"].width = 14
+        ws_salary.column_dimensions["F"].width = 14
+        ws_salary.column_dimensions["G"].width = 14
+        ws_salary.column_dimensions["H"].width = 14
+        ws_salary.column_dimensions["I"].width = 14
+
+        ws_salary.merge_cells("B2:I2")
+        ws_salary["B2"].value = "Salary Intelligence"
+        ws_salary["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_salary["B2"].border = gold_bottom_border
+
+        sal_row = 4
+        ws_salary.merge_cells(f"B{sal_row}:I{sal_row}")
+        ws_salary.cell(row=sal_row, column=2, value="Fused salary data from multiple API sources with confidence scoring. Use for competitive offer benchmarking and budget calibration.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+        sal_row += 2
+
+        sal_headers = ["Role", "Min", "P25", "Median", "P75", "Max", "Sources", "Confidence"]
+        for i, h in enumerate(sal_headers):
+            cell = ws_salary.cell(row=sal_row, column=2 + i, value=h)
+            cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+            cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+            cell.border = thin_border
+            cell.alignment = center_alignment
+        sal_row += 1
+
+        # _sal_intel can be a dict with role keys, or have a "roles" sub-dict
+        _sal_roles = _sal_intel.get("roles", _sal_intel) if isinstance(_sal_intel, dict) else {}
+        if isinstance(_sal_roles, dict):
+            for sidx, (role_name, role_data) in enumerate(_sal_roles.items()):
+                if not isinstance(role_data, dict):
+                    continue
+                # Skip meta keys
+                if role_name in ("summary", "overall", "metadata", "data_quality"):
+                    continue
+                _row_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if sidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                _conf = role_data.get("confidence", role_data.get("confidence_score", 0))
+                _srcs = role_data.get("sources", role_data.get("source_count", "N/A"))
+                if isinstance(_srcs, list):
+                    _srcs = len(_srcs)
+
+                _sal_vals = [
+                    role_name,
+                    f"${role_data.get('min', role_data.get('p10', 0)):,.0f}" if isinstance(role_data.get('min', role_data.get('p10', 0)), (int, float)) else str(role_data.get('min', 'N/A')),
+                    f"${role_data.get('p25', 0):,.0f}" if isinstance(role_data.get('p25', 0), (int, float)) else str(role_data.get('p25', 'N/A')),
+                    f"${role_data.get('median', role_data.get('p50', 0)):,.0f}" if isinstance(role_data.get('median', role_data.get('p50', 0)), (int, float)) else str(role_data.get('median', 'N/A')),
+                    f"${role_data.get('p75', 0):,.0f}" if isinstance(role_data.get('p75', 0), (int, float)) else str(role_data.get('p75', 'N/A')),
+                    f"${role_data.get('max', role_data.get('p90', 0)):,.0f}" if isinstance(role_data.get('max', role_data.get('p90', 0)), (int, float)) else str(role_data.get('max', 'N/A')),
+                    str(_srcs),
+                    f"{_conf:.0%}" if isinstance(_conf, (int, float)) else str(_conf),
+                ]
+                for ci, val in enumerate(_sal_vals):
+                    cell = ws_salary.cell(row=sal_row, column=2 + ci, value=val)
+                    cell.font = Font(name="Calibri", size=10, bold=(ci == 0))
+                    cell.fill = _row_fill
+                    cell.border = thin_border
+                    cell.alignment = center_alignment if ci > 0 else wrap_alignment
+
+                # Highlight low-confidence rows
+                if isinstance(_conf, (int, float)) and _conf < 0.5:
+                    for c in range(2, 10):
+                        ws_salary.cell(row=sal_row, column=c).fill = PatternFill(start_color="FFF3E0", end_color="FFF3E0", fill_type="solid")
+                    conf_cell = ws_salary.cell(row=sal_row, column=9)
+                    conf_cell.font = Font(name="Calibri", bold=True, size=10, color="F57C00")
+                sal_row += 1
+
+        sal_row += 1
+        ws_salary.merge_cells(f"B{sal_row}:I{sal_row}")
+        ws_salary.cell(row=sal_row, column=2, value="Rows highlighted in amber indicate low confidence (< 50%). Consider supplementing with additional market research for those roles.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+
+    # ── Sheet: Market Demand Analysis ──
+    _mkt_demand = _synth.get("job_market_demand", {})
+    if isinstance(_mkt_demand, dict) and _mkt_demand:
+        ws_demand = wb.create_sheet("Market Demand Analysis")
+        ws_demand.sheet_properties.tabColor = "ED7D31"
+        ws_demand.column_dimensions["A"].width = 3
+        ws_demand.column_dimensions["B"].width = 28
+        ws_demand.column_dimensions["C"].width = 16
+        ws_demand.column_dimensions["D"].width = 16
+        ws_demand.column_dimensions["E"].width = 16
+        ws_demand.column_dimensions["F"].width = 18
+        ws_demand.column_dimensions["G"].width = 14
+        ws_demand.column_dimensions["H"].width = 16
+
+        ws_demand.merge_cells("B2:H2")
+        ws_demand["B2"].value = "Market Demand Analysis"
+        ws_demand["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_demand["B2"].border = gold_bottom_border
+
+        dem_row = 4
+        ws_demand.merge_cells(f"B{dem_row}:H{dem_row}")
+        ws_demand.cell(row=dem_row, column=2, value="Job market demand signals fused from job posting APIs, search trend data, and talent pool analysis. Temperature indicates hiring difficulty.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+        dem_row += 2
+
+        dem_headers = ["Role", "Job Postings", "Search Interest", "Talent Pool", "Competition Index", "Temperature", "Trend"]
+        for i, h in enumerate(dem_headers):
+            cell = ws_demand.cell(row=dem_row, column=2 + i, value=h)
+            cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+            cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+            cell.border = thin_border
+            cell.alignment = center_alignment
+        dem_row += 1
+
+        _dem_roles = _mkt_demand.get("roles", _mkt_demand) if isinstance(_mkt_demand, dict) else {}
+        if isinstance(_dem_roles, dict):
+            for didx, (role_name, role_data) in enumerate(_dem_roles.items()):
+                if not isinstance(role_data, dict):
+                    continue
+                if role_name in ("summary", "overall", "metadata", "data_quality"):
+                    continue
+                _row_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if didx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+
+                _postings = role_data.get("job_postings", role_data.get("posting_count", "N/A"))
+                _search = role_data.get("search_interest", role_data.get("search_volume", "N/A"))
+                _pool = role_data.get("talent_pool", role_data.get("talent_supply", "N/A"))
+                _comp = role_data.get("competition_index", role_data.get("competition", "N/A"))
+                _temp = role_data.get("temperature", role_data.get("market_temperature", "N/A"))
+                _trend = role_data.get("trend", role_data.get("demand_trend", "N/A"))
+
+                if isinstance(_postings, (int, float)):
+                    _postings = f"{_postings:,.0f}"
+                if isinstance(_search, (int, float)):
+                    _search = f"{_search:,.0f}"
+                if isinstance(_pool, (int, float)):
+                    _pool = f"{_pool:,.0f}"
+                if isinstance(_comp, (int, float)):
+                    _comp = f"{_comp:.2f}"
+
+                for ci, val in enumerate([role_name, str(_postings), str(_search), str(_pool), str(_comp), str(_temp).title(), str(_trend).title()]):
+                    cell = ws_demand.cell(row=dem_row, column=2 + ci, value=val)
+                    cell.font = Font(name="Calibri", size=10, bold=(ci == 0))
+                    cell.fill = _row_fill
+                    cell.border = thin_border
+                    cell.alignment = center_alignment if ci > 0 else wrap_alignment
+
+                # Color-code temperature
+                temp_cell = ws_demand.cell(row=dem_row, column=7)
+                _temp_lower = str(_temp).lower()
+                if "hot" in _temp_lower:
+                    temp_cell.fill = PatternFill(start_color="FFEBEE", end_color="FFEBEE", fill_type="solid")
+                    temp_cell.font = Font(name="Calibri", bold=True, size=10, color="C62828")
+                elif "warm" in _temp_lower:
+                    temp_cell.fill = PatternFill(start_color="FFF3E0", end_color="FFF3E0", fill_type="solid")
+                    temp_cell.font = Font(name="Calibri", bold=True, size=10, color="E65100")
+                elif "cool" in _temp_lower:
+                    temp_cell.fill = PatternFill(start_color="E3F2FD", end_color="E3F2FD", fill_type="solid")
+                    temp_cell.font = Font(name="Calibri", bold=True, size=10, color="1565C0")
+                elif "cold" in _temp_lower:
+                    temp_cell.fill = PatternFill(start_color="ECEFF1", end_color="ECEFF1", fill_type="solid")
+                    temp_cell.font = Font(name="Calibri", bold=True, size=10, color="78909C")
+                dem_row += 1
+
+        dem_row += 1
+        ws_demand.merge_cells(f"B{dem_row}:H{dem_row}")
+        ws_demand.cell(row=dem_row, column=2, value="Temperature: Hot = high demand/low supply (hardest to hire), Cold = low demand/high supply (easiest). Competition Index reflects employer competition for the same talent.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+
+    # ── Sheet: Budget Allocation ──
+    _budget_alloc = data.get("_budget_allocation", {})
+    if isinstance(_budget_alloc, dict) and _budget_alloc:
+        ws_ba = wb.create_sheet("Budget Allocation")
+        ws_ba.sheet_properties.tabColor = "1B6B3A"
+        ws_ba.column_dimensions["A"].width = 3
+        ws_ba.column_dimensions["B"].width = 24
+        ws_ba.column_dimensions["C"].width = 10
+        ws_ba.column_dimensions["D"].width = 16
+        ws_ba.column_dimensions["E"].width = 16
+        ws_ba.column_dimensions["F"].width = 18
+        ws_ba.column_dimensions["G"].width = 16
+        ws_ba.column_dimensions["H"].width = 12
+        ws_ba.column_dimensions["I"].width = 12
+        ws_ba.column_dimensions["J"].width = 14
+        ws_ba.column_dimensions["K"].width = 12
+
+        ws_ba.merge_cells("B2:K2")
+        ws_ba["B2"].value = "Budget Allocation & Projected Outcomes"
+        ws_ba["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_ba["B2"].border = gold_bottom_border
+
+        ba_row = 4
+
+        # Summary hero metrics
+        _total_proj = _budget_alloc.get("total_projected", {})
+        _bstr_display = str(data.get("budget", "") or "")
+        try:
+            _bnums_d = re.findall(r'[\d]+', _bstr_display.replace(",", "").replace("$", "").strip())
+            _total_budget_val = float(_bnums_d[0]) if _bnums_d else 0
+        except (ValueError, IndexError):
+            _total_budget_val = 0
+
+        _proj_hires = _total_proj.get("hires", 0)
+        _proj_cph = _total_proj.get("cost_per_hire", 0)
+
+        _hero_items = [
+            ("TOTAL BUDGET", f"${_total_budget_val:,.0f}" if _total_budget_val > 0 else str(data.get("budget", "N/A"))),
+            ("PROJECTED HIRES", f"{_proj_hires:,.0f}" if isinstance(_proj_hires, (int, float)) else str(_proj_hires)),
+            ("PROJECTED COST/HIRE", f"${_proj_cph:,.0f}" if isinstance(_proj_cph, (int, float)) and _proj_cph > 0 else "N/A"),
+        ]
+        for hidx, (hlabel, hval) in enumerate(_hero_items):
+            col_start = 2 + hidx * 3
+            col_end = col_start + 2
+            ws_ba.merge_cells(start_row=ba_row, start_column=col_start, end_row=ba_row, end_column=col_end)
+            hcell = ws_ba.cell(row=ba_row, column=col_start, value=hval)
+            hcell.font = Font(name="Calibri", bold=True, size=18, color="FFFFFF")
+            hcell.fill = PatternFill(start_color=GOLD, end_color=GOLD, fill_type="solid")
+            hcell.alignment = Alignment(horizontal="center", vertical="center")
+            for cc in range(col_start, col_end + 1):
+                ws_ba.cell(row=ba_row, column=cc).fill = PatternFill(start_color=GOLD, end_color=GOLD, fill_type="solid")
+            ws_ba.merge_cells(start_row=ba_row + 1, start_column=col_start, end_row=ba_row + 1, end_column=col_end)
+            lcell = ws_ba.cell(row=ba_row + 1, column=col_start, value=hlabel)
+            lcell.font = Font(name="Calibri", bold=True, size=9, color="FFFFFF")
+            lcell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+            lcell.alignment = Alignment(horizontal="center", vertical="center")
+            for cc in range(col_start, col_end + 1):
+                ws_ba.cell(row=ba_row + 1, column=cc).fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+        ws_ba.row_dimensions[ba_row].height = 40
+        ba_row += 3
+
+        # Channel allocation table
+        ba_row += 1
+        style_section_header(ws_ba, ba_row, 2, 11, "Channel-Level Budget Allocation")
+        ba_row += 2
+
+        ba_ch_headers = ["Channel", "%", "$ Amount", "Proj. Clicks", "Proj. Applications", "Proj. Hires", "CPC", "CPA", "Cost/Hire", "ROI Score"]
+        for i, h in enumerate(ba_ch_headers):
+            cell = ws_ba.cell(row=ba_row, column=2 + i, value=h)
+            cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+            cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+            cell.border = thin_border
+            cell.alignment = center_alignment
+        ba_row += 1
+
+        _ch_allocs = _budget_alloc.get("channel_allocations", {})
+        _total_spend = 0
+        _total_clicks = 0
+        _total_apps = 0
+        _total_hires_ch = 0
+
+        if isinstance(_ch_allocs, dict):
+            for chidx, (ch_name, ch_data) in enumerate(_ch_allocs.items()):
+                if not isinstance(ch_data, dict):
+                    continue
+                _row_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if chidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                _pct = ch_data.get("percentage", 0)
+                _amt = ch_data.get("dollar_amount", ch_data.get("amount", 0))
+                _clicks = ch_data.get("projected_clicks", 0)
+                _apps = ch_data.get("projected_applications", 0)
+                _hires = ch_data.get("projected_hires", 0)
+                _cpc = ch_data.get("cpc", ch_data.get("cost_per_click", 0))
+                _cpa = ch_data.get("cpa", ch_data.get("cost_per_application", 0))
+                _cph = ch_data.get("cost_per_hire", 0)
+                _roi = ch_data.get("roi_score", ch_data.get("roi", "N/A"))
+
+                _total_spend += _amt if isinstance(_amt, (int, float)) else 0
+                _total_clicks += _clicks if isinstance(_clicks, (int, float)) else 0
+                _total_apps += _apps if isinstance(_apps, (int, float)) else 0
+                _total_hires_ch += _hires if isinstance(_hires, (int, float)) else 0
+
+                _ch_vals = [
+                    ch_name.replace("_", " ").title(),
+                    f"{_pct:.0f}%" if isinstance(_pct, (int, float)) else str(_pct),
+                    f"${_amt:,.0f}" if isinstance(_amt, (int, float)) else str(_amt),
+                    f"{_clicks:,.0f}" if isinstance(_clicks, (int, float)) else str(_clicks),
+                    f"{_apps:,.0f}" if isinstance(_apps, (int, float)) else str(_apps),
+                    f"{_hires:,.1f}" if isinstance(_hires, (int, float)) else str(_hires),
+                    f"${_cpc:.2f}" if isinstance(_cpc, (int, float)) else str(_cpc),
+                    f"${_cpa:.2f}" if isinstance(_cpa, (int, float)) else str(_cpa),
+                    f"${_cph:,.0f}" if isinstance(_cph, (int, float)) and _cph > 0 else "N/A",
+                    f"{_roi:.2f}" if isinstance(_roi, (int, float)) else str(_roi),
+                ]
+                for ci, val in enumerate(_ch_vals):
+                    cell = ws_ba.cell(row=ba_row, column=2 + ci, value=val)
+                    cell.font = Font(name="Calibri", size=10, bold=(ci == 0))
+                    cell.fill = _row_fill
+                    cell.border = thin_border
+                    cell.alignment = center_alignment if ci > 0 else wrap_alignment
+                ba_row += 1
+
+        # Summary totals row
+        _total_vals = ["TOTAL", "100%", f"${_total_spend:,.0f}", f"{_total_clicks:,.0f}", f"{_total_apps:,.0f}", f"{_total_hires_ch:,.1f}", "", "", f"${_total_spend / max(_total_hires_ch, 1):,.0f}" if _total_hires_ch > 0 else "N/A", ""]
+        for ci, val in enumerate(_total_vals):
+            cell = ws_ba.cell(row=ba_row, column=2 + ci, value=val)
+            cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+            cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+            cell.border = thin_border
+            cell.alignment = center_alignment
+        ba_row += 2
+
+        # Sufficiency assessment
+        _suff = _budget_alloc.get("sufficiency", {})
+        if isinstance(_suff, dict) and _suff:
+            style_section_header(ws_ba, ba_row, 2, 11, "Budget Sufficiency Assessment")
+            ba_row += 2
+            _suff_grade = _suff.get("grade", _suff.get("rating", "N/A"))
+            _suff_msg = _suff.get("message", _suff.get("assessment", ""))
+            _suff_color = "2E7D32" if str(_suff_grade).upper() in ("A", "B", "SUFFICIENT", "GOOD") else "F57C00" if str(_suff_grade).upper() in ("C", "MODERATE", "MARGINAL") else "C62828"
+            ws_ba.merge_cells(f"B{ba_row}:K{ba_row}")
+            _suff_cell = ws_ba.cell(row=ba_row, column=2, value=f"Grade: {_suff_grade}  |  {_suff_msg}")
+            _suff_cell.font = Font(name="Calibri", bold=True, size=11, color=_suff_color)
+            ba_row += 1
+
+        # Warnings
+        _warnings = _budget_alloc.get("warnings", [])
+        if _warnings and isinstance(_warnings, list):
+            ba_row += 1
+            for w in _warnings:
+                ws_ba.merge_cells(f"B{ba_row}:K{ba_row}")
+                ws_ba.cell(row=ba_row, column=2, value=f"  Warning: {w}").font = Font(name="Calibri", size=10, color="C62828")
+                ba_row += 1
+
+        # Optimization recommendations
+        _recs = _budget_alloc.get("recommendations", [])
+        if _recs and isinstance(_recs, list):
+            ba_row += 1
+            style_section_header(ws_ba, ba_row, 2, 11, "Optimization Recommendations")
+            ba_row += 2
+            for ridx, rec in enumerate(_recs):
+                if isinstance(rec, dict):
+                    rec_text = rec.get("recommendation", rec.get("message", str(rec)))
+                else:
+                    rec_text = str(rec)
+                ws_ba.merge_cells(f"B{ba_row}:K{ba_row}")
+                ws_ba.cell(row=ba_row, column=2, value=f"  {ridx + 1}. {rec_text}").font = Font(name="Calibri", size=10, color="333333")
+                ba_row += 1
+
+    # ── Sheet: Data Confidence ──
+    _conf_scores = _synth.get("confidence_scores", {})
+    _data_quality = _synth.get("data_quality", {})
+    if isinstance(_conf_scores, dict) and _conf_scores:
+        ws_conf = wb.create_sheet("Data Confidence")
+        ws_conf.sheet_properties.tabColor = "F57C00"
+        ws_conf.column_dimensions["A"].width = 3
+        ws_conf.column_dimensions["B"].width = 30
+        ws_conf.column_dimensions["C"].width = 14
+        ws_conf.column_dimensions["D"].width = 14
+        ws_conf.column_dimensions["E"].width = 30
+
+        ws_conf.merge_cells("B2:E2")
+        ws_conf["B2"].value = "Data Confidence Report"
+        ws_conf["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_conf["B2"].border = gold_bottom_border
+
+        conf_row = 4
+
+        # Overall quality grade
+        _overall = _conf_scores.get("overall", _conf_scores.get("overall_score", 0))
+        if isinstance(_overall, (int, float)):
+            if _overall >= 0.9:
+                _grade = "A"
+            elif _overall >= 0.8:
+                _grade = "B"
+            elif _overall >= 0.7:
+                _grade = "C"
+            elif _overall >= 0.5:
+                _grade = "D"
+            else:
+                _grade = "F"
+            _grade_color = "2E7D32" if _grade in ("A", "B") else "F57C00" if _grade == "C" else "C62828"
+        else:
+            _grade = str(_overall)
+            _grade_color = "333333"
+
+        ws_conf.merge_cells(f"B{conf_row}:C{conf_row}")
+        _grade_cell = ws_conf.cell(row=conf_row, column=2, value=f"Overall Data Quality Grade: {_grade}")
+        _grade_cell.font = Font(name="Calibri", bold=True, size=18, color="FFFFFF")
+        _grade_cell.fill = PatternFill(start_color=_grade_color, end_color=_grade_color, fill_type="solid")
+        _grade_cell.alignment = Alignment(horizontal="center", vertical="center")
+        for cc in range(3, 4):
+            ws_conf.cell(row=conf_row, column=cc).fill = PatternFill(start_color=_grade_color, end_color=_grade_color, fill_type="solid")
+        ws_conf.merge_cells(f"D{conf_row}:E{conf_row}")
+        _score_cell = ws_conf.cell(row=conf_row, column=4, value=f"Score: {_overall:.0%}" if isinstance(_overall, (int, float)) else f"Score: {_overall}")
+        _score_cell.font = Font(name="Calibri", bold=True, size=14, color=_grade_color)
+        _score_cell.alignment = Alignment(horizontal="center", vertical="center")
+        ws_conf.row_dimensions[conf_row].height = 45
+        conf_row += 2
+
+        # Per-section confidence table
+        conf_headers = ["Section", "Score", "Grade", "Sources Used"]
+        for i, h in enumerate(conf_headers):
+            cell = ws_conf.cell(row=conf_row, column=2 + i, value=h)
+            cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+            cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+            cell.border = thin_border
+            cell.alignment = center_alignment
+        conf_row += 1
+
+        _sections = _conf_scores.get("sections", _conf_scores)
+        if isinstance(_sections, dict):
+            for cidx, (sec_name, sec_data) in enumerate(_sections.items()):
+                if sec_name in ("overall", "overall_score", "sections", "metadata"):
+                    continue
+                _row_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if cidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+
+                if isinstance(sec_data, dict):
+                    _sec_score = sec_data.get("score", sec_data.get("confidence", 0))
+                    _sec_sources = sec_data.get("sources", sec_data.get("apis_used", []))
+                elif isinstance(sec_data, (int, float)):
+                    _sec_score = sec_data
+                    _sec_sources = []
+                else:
+                    continue
+
+                if isinstance(_sec_score, (int, float)):
+                    if _sec_score >= 0.9:
+                        _sec_grade = "A"
+                    elif _sec_score >= 0.8:
+                        _sec_grade = "B"
+                    elif _sec_score >= 0.7:
+                        _sec_grade = "C"
+                    elif _sec_score >= 0.5:
+                        _sec_grade = "D"
+                    else:
+                        _sec_grade = "F"
+                else:
+                    _sec_grade = "N/A"
+
+                if isinstance(_sec_sources, list):
+                    _src_display = ", ".join(str(s) for s in _sec_sources[:5])
+                    if len(_sec_sources) > 5:
+                        _src_display += f" (+{len(_sec_sources) - 5} more)"
+                else:
+                    _src_display = str(_sec_sources)
+
+                _sec_vals = [
+                    sec_name.replace("_", " ").title(),
+                    f"{_sec_score:.0%}" if isinstance(_sec_score, (int, float)) else str(_sec_score),
+                    _sec_grade,
+                    _src_display,
+                ]
+                for ci, val in enumerate(_sec_vals):
+                    cell = ws_conf.cell(row=conf_row, column=2 + ci, value=val)
+                    cell.font = Font(name="Calibri", size=10, bold=(ci == 0))
+                    cell.fill = _row_fill
+                    cell.border = thin_border
+                    cell.alignment = center_alignment if ci in (1, 2) else wrap_alignment
+
+                # Color-code grade
+                grade_cell = ws_conf.cell(row=conf_row, column=4)
+                if _sec_grade in ("A", "B"):
+                    grade_cell.font = Font(name="Calibri", bold=True, size=10, color="2E7D32")
+                elif _sec_grade == "C":
+                    grade_cell.font = Font(name="Calibri", bold=True, size=10, color="F57C00")
+                elif _sec_grade in ("D", "F"):
+                    grade_cell.font = Font(name="Calibri", bold=True, size=10, color="C62828")
+                conf_row += 1
+
+        # API failure report
+        conf_row += 1
+        _failed_apis = []
+        if isinstance(_data_quality, dict):
+            _failed_apis = _data_quality.get("failed_apis", _data_quality.get("circuit_broken", []))
+        if not _failed_apis:
+            # Try enrichment summary
+            _enr_sum = data.get("_enriched", {}).get("enrichment_summary", {})
+            if isinstance(_enr_sum, dict):
+                _failed_apis = _enr_sum.get("apis_failed", [])
+
+        if _failed_apis and isinstance(_failed_apis, list):
+            style_section_header(ws_conf, conf_row, 2, 5, "API Failures & Circuit Breakers")
+            conf_row += 2
+            for api_name in _failed_apis:
+                if isinstance(api_name, dict):
+                    api_display = api_name.get("name", api_name.get("api", str(api_name)))
+                    api_reason = api_name.get("reason", api_name.get("error", ""))
+                else:
+                    api_display = str(api_name)
+                    api_reason = ""
+                ws_conf.cell(row=conf_row, column=2, value=f"  {api_display}").font = Font(name="Calibri", size=10, color="C62828")
+                if api_reason:
+                    ws_conf.cell(row=conf_row, column=4, value=str(api_reason)).font = Font(name="Calibri", italic=True, size=9, color="999999")
+                    ws_conf.merge_cells(f"D{conf_row}:E{conf_row}")
+                conf_row += 1
+        else:
+            ws_conf.merge_cells(f"B{conf_row}:E{conf_row}")
+            ws_conf.cell(row=conf_row, column=2, value="All APIs responded successfully. No circuit breakers triggered.").font = Font(name="Calibri", size=10, color="2E7D32")
+
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
@@ -4729,6 +5549,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         if len(_rate_limit_store[client_ip]) >= _RATE_LIMIT_MAX:
             return False
         _rate_limit_store[client_ip].append(now)
+        # Periodic cleanup: evict IPs with no recent requests (every 100th call)
+        if sum(1 for _ in _rate_limit_store) > 1000:
+            stale = [ip for ip, ts in _rate_limit_store.items() if not ts or now - max(ts) > _RATE_LIMIT_WINDOW * 10]
+            for ip in stale:
+                del _rate_limit_store[ip]
         return True
 
     def do_GET(self):
@@ -4864,6 +5689,48 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Document not found"}).encode())
+        elif parsed.path in ("/admin/nova", "/admin/nova/"):
+            # ── Nova Admin Dashboard ──
+            if not self._check_admin_auth():
+                self.send_response(401)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b"<h1>401 Unauthorized</h1><p>Set ADMIN_API_KEY env var and pass ?key=YOUR_KEY</p>")
+                return
+            nova_html = os.path.join(BASE_DIR, "static", "nova-admin.html")
+            if os.path.exists(nova_html):
+                with open(nova_html, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Nova admin page not found")
+        elif parsed.path.startswith("/static/"):
+            # Serve static files (JS, CSS, images) from the static/ directory
+            safe_path = parsed.path.lstrip("/")
+            # Security: prevent directory traversal
+            if ".." in safe_path or safe_path.startswith("/"):
+                self.send_error(403)
+                return
+            filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), safe_path)
+            ext = os.path.splitext(filepath)[1].lower()
+            content_types = {
+                ".js": "application/javascript",
+                ".css": "text/css",
+                ".html": "text/html",
+                ".json": "application/json",
+                ".png": "image/png",
+                ".jpg": "image/jpeg",
+                ".svg": "image/svg+xml",
+                ".ico": "image/x-icon",
+            }
+            ctype = content_types.get(ext, "application/octet-stream")
+            if os.path.isfile(filepath):
+                self._serve_file(filepath, ctype)
+            else:
+                self.send_error(404)
         else:
             self.send_error(404)
 
@@ -4986,6 +5853,21 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             else:
                 data["_enriched"] = {}
 
+            # ── Phase 2: Load Knowledge Base ──
+            kb = load_knowledge_base()
+
+            # ── Phase 3: Data Synthesis ──
+            if data_synthesize is not None:
+                try:
+                    synthesized = data_synthesize(enriched, kb, data)
+                    data["_synthesized"] = synthesized
+                    print(f"Data synthesis complete: {list(synthesized.keys()) if isinstance(synthesized, dict) else 'N/A'}", file=sys.stderr)
+                except Exception as e:
+                    print(f"Data synthesis failed (non-fatal): {e}", file=sys.stderr)
+                    data["_synthesized"] = {}
+            else:
+                data["_synthesized"] = {}
+
             # ── NAICS-based Industry Classification ──
             # Classify industry using the NAICS engine, supporting both legacy keys
             # (from frontend dropdown) and free-text industry names
@@ -5008,6 +5890,65 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             data["talent_profile"] = industry_profile["talent_profile"]
             data["bls_sector"] = industry_profile["bls_sector"]
             data["naics_code"] = industry_profile.get("naics", "00")
+
+            # ── Phase 4: Budget Allocation ──
+            if calculate_budget_allocation is not None:
+                try:
+                    _ind_key_ba = data.get("industry", "general_entry_level")
+                    _INDUSTRY_ALLOC_BA = {
+                        "healthcare_medical":     {"programmatic_dsp": 22, "global_boards": 15, "niche_boards": 30, "social_media": 10, "regional_boards": 10, "employer_branding": 8, "apac_regional": 3, "emea_regional": 2},
+                        "tech_engineering":       {"programmatic_dsp": 30, "global_boards": 15, "niche_boards": 20, "social_media": 18, "regional_boards": 5,  "employer_branding": 7, "apac_regional": 3, "emea_regional": 2},
+                        "finance_banking":        {"programmatic_dsp": 25, "global_boards": 18, "niche_boards": 25, "social_media": 10, "regional_boards": 7,  "employer_branding": 10, "apac_regional": 3, "emea_regional": 2},
+                        "retail_consumer":        {"programmatic_dsp": 38, "global_boards": 22, "niche_boards": 8,  "social_media": 20, "regional_boards": 7,  "employer_branding": 3, "apac_regional": 1, "emea_regional": 1},
+                        "general_entry_level":    {"programmatic_dsp": 40, "global_boards": 22, "niche_boards": 8,  "social_media": 15, "regional_boards": 10, "employer_branding": 3, "apac_regional": 1, "emea_regional": 1},
+                    }
+                    _DEFAULT_ALLOC_BA = {"programmatic_dsp": 35, "global_boards": 20, "niche_boards": 15, "social_media": 12, "regional_boards": 8, "employer_branding": 5, "apac_regional": 3, "emea_regional": 2}
+                    channel_pcts = _INDUSTRY_ALLOC_BA.get(_ind_key_ba, _DEFAULT_ALLOC_BA)
+
+                    # Parse budget to float
+                    _bstr_ba = str(data.get("budget", "") or "")
+                    try:
+                        _bnums_ba = re.findall(r'[\d]+', _bstr_ba.replace(",", "").replace("$", "").strip())
+                        _bval_ba = float(_bnums_ba[0]) if _bnums_ba else 0.0
+                    except (ValueError, IndexError):
+                        _bval_ba = 0.0
+
+                    # Build role dicts from string list
+                    _roles_raw = data.get("target_roles") or data.get("roles", [])
+                    _roles_for_ba = []
+                    for r in (_roles_raw if isinstance(_roles_raw, list) else []):
+                        if isinstance(r, str):
+                            _roles_for_ba.append({"title": r, "count": 1, "tier": data.get("_role_tiers", {}).get(r, {}).get("tier", "Professional")})
+                        elif isinstance(r, dict):
+                            _roles_for_ba.append({"title": r.get("title", ""), "count": int(r.get("count", 1)), "tier": r.get("_tier", "Professional")})
+
+                    # Build location dicts from string list
+                    _locs_raw = data.get("locations", [])
+                    _locs_for_ba = []
+                    for loc in (_locs_raw if isinstance(_locs_raw, list) else []):
+                        if isinstance(loc, str):
+                            parts = [p.strip() for p in loc.split(",")]
+                            _locs_for_ba.append({"city": parts[0] if parts else loc, "state": parts[1] if len(parts) > 1 else "", "country": parts[2] if len(parts) > 2 else parts[-1] if len(parts) > 1 else "US"})
+                        elif isinstance(loc, dict):
+                            _locs_for_ba.append({"city": loc.get("city", ""), "state": loc.get("state", ""), "country": loc.get("country", "")})
+
+                    synthesized_for_ba = data.get("_synthesized", {})
+                    budget_result = calculate_budget_allocation(
+                        total_budget=_bval_ba,
+                        roles=_roles_for_ba,
+                        locations=_locs_for_ba,
+                        industry=data.get("industry", "General"),
+                        channel_percentages=channel_pcts,
+                        synthesized_data=synthesized_for_ba if isinstance(synthesized_for_ba, dict) else {},
+                        knowledge_base=kb,
+                    )
+                    data["_budget_allocation"] = budget_result
+                    print(f"Budget allocation complete: {list(budget_result.keys()) if isinstance(budget_result, dict) else 'N/A'}", file=sys.stderr)
+                except Exception as e:
+                    print(f"Budget allocation failed (non-fatal): {e}", file=sys.stderr)
+                    data["_budget_allocation"] = {}
+            else:
+                data["_budget_allocation"] = {}
 
             start_time = time.time()
             try:
@@ -5104,8 +6045,170 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(excel_bytes)
                 generation_time = time.time() - start_time
                 log_request(data, "success", file_size=len(excel_bytes), generation_time=generation_time, doc_filename=doc_filename)
+        elif parsed.path == "/api/chat":
+            # ── Joveo IQ Chat Endpoint ──
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                content_len = 0
+            if content_len > 1 * 1024 * 1024:  # 1MB limit for chat
+                self.send_response(413)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Request too large"}).encode())
+                return
+            body = self.rfile.read(content_len)
+            try:
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                return
+            try:
+                from joveo_iq import handle_chat_request
+                response = handle_chat_request(data)
+            except Exception as chat_err:
+                logger.error("Joveo IQ chat error: %s", chat_err, exc_info=True)
+                response = {
+                    "response": "An error occurred processing your request. Please try again.",
+                    "sources": [],
+                    "confidence": 0.0,
+                    "tools_used": [],
+                    "error": str(chat_err),
+                }
+            resp_body = json.dumps(response).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            self.wfile.write(resp_body)
+        elif parsed.path == "/api/slack/events":
+            # ── Nova Slack Event Webhook ──
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                content_len = 0
+            if content_len > 1 * 1024 * 1024:  # 1MB limit for Slack events
+                self.send_response(413)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Request too large"}).encode())
+                return
+            body = self.rfile.read(content_len)
+            try:
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                return
+            try:
+                from nova_slack import handle_slack_event
+                response = handle_slack_event(data)
+            except Exception as slack_err:
+                logger.error("Nova Slack event error: %s", slack_err, exc_info=True)
+                response = {"ok": False, "error": str(slack_err)}
+            resp_body = json.dumps(response).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            self.wfile.write(resp_body)
+        elif parsed.path == "/api/admin/nova":
+            # ── Nova Admin API (unanswered questions management) ──
+            if not self._check_admin_auth():
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Unauthorized"}).encode())
+                return
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                content_len = 0
+            if content_len > 1 * 1024 * 1024:  # 1MB limit for admin
+                self.send_response(413)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Request too large"}).encode())
+                return
+            body = self.rfile.read(content_len)
+            try:
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                return
+            try:
+                from nova_slack import handle_admin_unanswered
+                response = handle_admin_unanswered(data)
+            except Exception as admin_err:
+                logger.error("Nova admin error: %s", admin_err, exc_info=True)
+                response = {"error": str(admin_err)}
+            resp_body = json.dumps(response).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            self.wfile.write(resp_body)
+        elif parsed.path == "/api/nova/chat":
+            # ── Nova Standalone Chat (admin testing) ──
+            if not self._check_admin_auth():
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Unauthorized"}).encode())
+                return
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                content_len = 0
+            if content_len > 1 * 1024 * 1024:  # 1MB limit
+                self.send_response(413)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Request too large"}).encode())
+                return
+            body = self.rfile.read(content_len)
+            try:
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                return
+            try:
+                from nova_slack import handle_chat_standalone
+                response = handle_chat_standalone(data)
+            except Exception as chat_err:
+                logger.error("Nova chat error: %s", chat_err, exc_info=True)
+                response = {"error": str(chat_err)}
+            resp_body = json.dumps(response).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            self.wfile.write(resp_body)
         else:
             self.send_error(404)
+
+    def do_OPTIONS(self):
+        """Handle CORS preflight requests."""
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Max-Age", "86400")
+        self.end_headers()
 
     def _serve_file(self, filepath, content_type):
         try:

@@ -6,3 +6,11 @@ __pycache__/
 *.xlsx
 venv/
 .venv/
+data/api_cache/
+data/generated_docs/
+data/request_log.json
+data/request_log.json.lock
+data/nova_learned_answers.json
+data/nova_unanswered.json
+media_plan_sample.pptx
+.claude/

@@ -2133,20 +2133,27 @@ def get_global_supply_data(locations, industry):
         "niche_boards": [],
     }
 
+    _seen_countries = set()
     for loc in (locations or []):
         country = _detect_country(loc)
-        if country:
-            # Country-specific boards
-            cb = global_supply.get("country_job_boards", {}).get(country, {})
-            if cb:
-                result["country_boards"].append({"country": country, "data": cb})
+        if not country:
+            # _detect_country returns None for US locations — include US data from global_supply
+            country = "United States"
+        if country in _seen_countries:
+            continue
+        _seen_countries.add(country)
 
-            # Region for DEI boards
-            region = COUNTRY_DATA.get(country, {}).get("region", "")
-            dei = global_supply.get("dei_boards_by_country", {})
-            for dei_region, dei_boards in dei.items():
-                if country.lower() in dei_region.lower() or region.lower() in dei_region.lower():
-                    result["dei_boards"].extend(dei_boards if isinstance(dei_boards, list) else [dei_boards])
+        # Country-specific boards
+        cb = global_supply.get("country_job_boards", {}).get(country, {})
+        if cb:
+            result["country_boards"].append({"country": country, "data": cb})
+
+        # Region for DEI boards
+        region = COUNTRY_DATA.get(country, {}).get("region", "")
+        dei = global_supply.get("dei_boards_by_country", {})
+        for dei_region, dei_boards in dei.items():
+            if country.lower() in dei_region.lower() or (region and region.lower() in dei_region.lower()):
+                result["dei_boards"].extend(dei_boards if isinstance(dei_boards, list) else [dei_boards])
 
     # Innovative channels (always include)
     result["innovative_channels"] = global_supply.get("innovative_channels_2025", [])

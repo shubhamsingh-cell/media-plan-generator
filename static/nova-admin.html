@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova Admin - Joveo Intelligence</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary: #0066CC;
+    --primary-dark: #004C99;
+    --primary-light: #E6F0FA;
+    --success: #16A34A;
+    --success-light: #DCFCE7;
+    --warning: #D97706;
+    --warning-light: #FEF3C7;
+    --danger: #DC2626;
+    --danger-light: #FEE2E2;
+    --gray-50: #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --gray-600: #4B5563;
+    --gray-700: #374151;
+    --gray-800: #1F2937;
+    --gray-900: #111827;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-800);
+    line-height: 1.6;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow-md);
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .header-logo {
+    width: 40px; height: 40px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 20px;
+  }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header-subtitle { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+  .header-actions { display: flex; gap: 10px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: var(--radius);
+    font-size: 13px; font-weight: 500;
+    border: none; cursor: pointer; transition: all 0.15s;
+    text-decoration: none;
+  }
+  .btn-white { background: #fff; color: var(--primary); }
+  .btn-white:hover { background: var(--primary-light); }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-success:hover { background: #15803D; }
+  .btn-danger { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
+  .btn-danger:hover { background: var(--danger-light); }
+  .btn-ghost { background: transparent; color: var(--gray-500); border: 1px solid var(--gray-200); }
+  .btn-ghost:hover { background: var(--gray-100); }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+  /* Main */
+  .container { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: #fff;
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    box-shadow: var(--shadow);
+  }
+  .stat-value { font-size: 32px; font-weight: 700; color: var(--gray-900); }
+  .stat-label { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
+  .stat-card.pending .stat-value { color: var(--warning); }
+  .stat-card.answered .stat-value { color: var(--success); }
+  .stat-card.learned .stat-value { color: var(--primary); }
+
+  /* Tabs */
+  .tabs {
+    display: flex; gap: 0; margin-bottom: 20px;
+    border-bottom: 2px solid var(--gray-200);
+  }
+  .tab {
+    padding: 10px 20px; font-size: 14px; font-weight: 500;
+    color: var(--gray-500); cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px; transition: all 0.15s;
+    background: none; border-top: none; border-left: none; border-right: none;
+  }
+  .tab:hover { color: var(--gray-700); }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  /* Panel */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Question card */
+  .q-card {
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px 24px;
+    margin-bottom: 14px;
+    border-left: 4px solid var(--warning);
+    transition: border-color 0.2s;
+  }
+  .q-card.resolved { border-left-color: var(--success); }
+  .q-card.dismissed { border-left-color: var(--gray-300); }
+  .q-question { font-size: 15px; font-weight: 500; color: var(--gray-800); margin-bottom: 8px; }
+  .q-meta {
+    font-size: 12px; color: var(--gray-400);
+    display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;
+  }
+  .q-partial {
+    background: var(--gray-50); border: 1px solid var(--gray-200);
+    border-radius: 6px; padding: 10px 14px; font-size: 13px;
+    color: var(--gray-600); margin-bottom: 12px;
+  }
+  .q-partial-label { font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--gray-400); margin-bottom: 4px; }
+  .q-actions { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+  .q-answer-form { width: 100%; margin-top: 10px; }
+  .q-textarea {
+    width: 100%; min-height: 100px; padding: 10px 14px;
+    border: 1px solid var(--gray-300); border-radius: 6px;
+    font-size: 14px; font-family: inherit; resize: vertical;
+    margin-bottom: 10px;
+  }
+  .q-textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,102,204,0.12); }
+  .q-form-actions { display: flex; gap: 8px; }
+
+  .q-resolved-answer {
+    background: var(--success-light); border-radius: 6px;
+    padding: 10px 14px; font-size: 13px; color: var(--gray-700);
+    margin-top: 8px;
+  }
+  .q-resolved-answer strong { font-size: 11px; text-transform: uppercase; color: var(--success); }
+
+  /* Digest panel */
+  .digest-preview {
+    background: #fff; border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 24px;
+    white-space: pre-wrap; font-size: 14px;
+    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    color: var(--gray-700); line-height: 1.7;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center; padding: 60px 20px;
+    color: var(--gray-400);
+  }
+  .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state-text { font-size: 15px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--gray-800); color: #fff;
+    padding: 12px 20px; border-radius: var(--radius);
+    font-size: 14px; box-shadow: var(--shadow-md);
+    opacity: 0; transform: translateY(20px);
+    transition: all 0.3s; pointer-events: none;
+    z-index: 1000;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .toast.success { background: var(--success); }
+  .toast.error { background: var(--danger); }
+
+  /* Loading */
+  .loading { text-align: center; padding: 40px; color: var(--gray-400); }
+  .spinner {
+    width: 32px; height: 32px; border: 3px solid var(--gray-200);
+    border-top-color: var(--primary); border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .header { padding: 16px; flex-direction: column; gap: 12px; }
+    .container { padding: 16px; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .q-actions { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-logo">N</div>
+    <div>
+      <h1>Nova Admin</h1>
+      <div class="header-subtitle">Joveo Recruitment Intelligence -- Learning Dashboard</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-white" onclick="loadData()">Refresh</button>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card pending">
+      <div class="stat-value" id="stat-pending">--</div>
+      <div class="stat-label">Pending Review</div>
+    </div>
+    <div class="stat-card answered">
+      <div class="stat-value" id="stat-answered">--</div>
+      <div class="stat-label">Resolved</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-dismissed">--</div>
+      <div class="stat-label">Dismissed</div>
+    </div>
+    <div class="stat-card learned">
+      <div class="stat-value" id="stat-learned">--</div>
+      <div class="stat-label">Total Learned</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-tab="pending" onclick="switchTab('pending')">Pending Questions</button>
+    <button class="tab" data-tab="resolved" onclick="switchTab('resolved')">Recently Resolved</button>
+    <button class="tab" data-tab="digest" onclick="switchTab('digest')">Weekly Digest</button>
+    <button class="tab" data-tab="test" onclick="switchTab('test')">Test Nova</button>
+  </div>
+
+  <!-- Pending panel -->
+  <div class="panel active" id="panel-pending">
+    <div class="loading" id="loading-pending">
+      <div class="spinner"></div>
+      Loading questions...
+    </div>
+    <div id="pending-list"></div>
+  </div>
+
+  <!-- Resolved panel -->
+  <div class="panel" id="panel-resolved">
+    <div id="resolved-list"></div>
+  </div>
+
+  <!-- Digest panel -->
+  <div class="panel" id="panel-digest">
+    <div class="loading" id="loading-digest">
+      <div class="spinner"></div>
+      Generating digest...
+    </div>
+    <div class="digest-preview" id="digest-content" style="display:none;"></div>
+  </div>
+
+  <!-- Test panel -->
+  <div class="panel" id="panel-test">
+    <div style="background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;">
+      <h3 style="margin-bottom:12px;font-size:16px;color:var(--gray-700);">Test a Question</h3>
+      <p style="font-size:13px;color:var(--gray-500);margin-bottom:16px;">
+        Ask Nova a question to see how it responds. This uses the same pipeline as Slack.
+      </p>
+      <textarea id="test-question" class="q-textarea" placeholder="e.g. What is the CPC benchmark for nursing roles in the US?"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-primary" onclick="testQuestion()">Ask Nova</button>
+        <span id="test-loading" style="display:none;font-size:13px;color:var(--gray-400);">Thinking...</span>
+      </div>
+      <div id="test-result" style="display:none;margin-top:20px;">
+        <div style="background:var(--primary-light);border-radius:6px;padding:16px;font-size:14px;color:var(--gray-700);white-space:pre-wrap;" id="test-response"></div>
+        <div style="margin-top:8px;font-size:12px;color:var(--gray-400);" id="test-meta"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  var API_BASE = '/api/admin/nova';
+  var data = null;
+
+  // ---- Tab switching ----
+  window.switchTab = function(tab) {
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+    document.getElementById('panel-' + tab).classList.add('active');
+
+    if (tab === 'digest' && !document.getElementById('digest-content').textContent) {
+      loadDigest();
+    }
+  };
+
+  // ---- Toast ----
+  var toastTimeout;
+  function showToast(msg, type) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? ' ' + type : '');
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(function() { el.classList.remove('show'); }, 3000);
+  }
+
+  // ---- API helper ----
+  function apiCall(payload, callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', API_BASE, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4) {
+        if (xhr.status === 200) {
+          try { callback(null, JSON.parse(xhr.responseText)); }
+          catch(e) { callback(e); }
+        } else {
+          callback(new Error('HTTP ' + xhr.status));
+        }
+      }
+    };
+    xhr.send(JSON.stringify(payload));
+  }
+
+  // ---- Load data ----
+  window.loadData = function() {
+    document.getElementById('loading-pending').style.display = 'block';
+    document.getElementById('pending-list').innerHTML = '';
+    document.getElementById('resolved-list').innerHTML = '';
+
+    apiCall({action: 'list'}, function(err, resp) {
+      document.getElementById('loading-pending').style.display = 'none';
+      if (err) { showToast('Failed to load data', 'error'); return; }
+      data = resp;
+
+      // Stats
+      document.getElementById('stat-pending').textContent = resp.pending_count || 0;
+      document.getElementById('stat-answered').textContent = resp.answered_count || 0;
+      document.getElementById('stat-dismissed').textContent = resp.dismissed_count || 0;
+      document.getElementById('stat-learned').textContent = resp.total_learned || 0;
+
+      // Pending questions
+      var pendingHtml = '';
+      if (!resp.pending_questions || resp.pending_questions.length === 0) {
+        pendingHtml = '<div class="empty-state"><div class="empty-state-icon">&#10003;</div><div class="empty-state-text">No pending questions -- Nova is handling everything!</div></div>';
+      } else {
+        resp.pending_questions.forEach(function(q) {
+          pendingHtml += renderPendingCard(q);
+        });
+      }
+      document.getElementById('pending-list').innerHTML = pendingHtml;
+
+      // Resolved questions
+      var resolvedHtml = '';
+      if (!resp.recent_answered || resp.recent_answered.length === 0) {
+        resolvedHtml = '<div class="empty-state"><div class="empty-state-text">No recently resolved questions.</div></div>';
+      } else {
+        resp.recent_answered.forEach(function(q) {
+          resolvedHtml += renderResolvedCard(q);
+        });
+      }
+      document.getElementById('resolved-list').innerHTML = resolvedHtml;
+    });
+  };
+
+  function renderPendingCard(q) {
+    var ts = q.timestamp ? new Date(q.timestamp).toLocaleString() : 'Unknown';
+    var partial = '';
+    if (q.partial_answer) {
+      partial = '<div class="q-partial"><div class="q-partial-label">Nova\'s partial answer</div>' + escapeHtml(q.partial_answer) + '</div>';
+    }
+    return '<div class="q-card" id="card-' + q.id + '">' +
+      '<div class="q-question">' + escapeHtml(q.question) + '</div>' +
+      '<div class="q-meta">' +
+        '<span>Asked: ' + ts + '</span>' +
+        (q.asked_by ? '<span>By: ' + escapeHtml(q.asked_by) + '</span>' : '') +
+        (q.channel ? '<span>Channel: ' + escapeHtml(q.channel) + '</span>' : '') +
+      '</div>' +
+      partial +
+      '<div class="q-actions">' +
+        '<button class="btn btn-primary btn-sm" onclick="showAnswerForm(\'' + q.id + '\')">Answer</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="dismissQuestion(\'' + q.id + '\')">Dismiss</button>' +
+      '</div>' +
+      '<div class="q-answer-form" id="form-' + q.id + '" style="display:none;">' +
+        '<textarea class="q-textarea" id="answer-' + q.id + '" placeholder="Type the answer Nova should learn..."></textarea>' +
+        '<div class="q-form-actions">' +
+          '<button class="btn btn-success btn-sm" onclick="submitAnswer(\'' + q.id + '\')">Save Answer</button>' +
+          '<button class="btn btn-ghost btn-sm" onclick="hideAnswerForm(\'' + q.id + '\')">Cancel</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderResolvedCard(q) {
+    var ts = q.answered_at ? new Date(q.answered_at).toLocaleString() : '';
+    return '<div class="q-card resolved">' +
+      '<div class="q-question">' + escapeHtml(q.question) + '</div>' +
+      '<div class="q-meta">' +
+        '<span>Resolved: ' + ts + '</span>' +
+        (q.answered_by ? '<span>By: ' + escapeHtml(q.answered_by) + '</span>' : '') +
+      '</div>' +
+      '<div class="q-resolved-answer"><strong>Answer:</strong><br>' + escapeHtml(q.answer || '') + '</div>' +
+    '</div>';
+  }
+
+  // ---- Answer form interactions ----
+  window.showAnswerForm = function(id) {
+    document.getElementById('form-' + id).style.display = 'block';
+    document.getElementById('answer-' + id).focus();
+  };
+
+  window.hideAnswerForm = function(id) {
+    document.getElementById('form-' + id).style.display = 'none';
+  };
+
+  window.submitAnswer = function(id) {
+    var answer = document.getElementById('answer-' + id).value.trim();
+    if (!answer) { showToast('Please enter an answer', 'error'); return; }
+
+    apiCall({action: 'answer', question_id: id, answer: answer}, function(err, resp) {
+      if (err || !resp.success) { showToast('Failed to save answer', 'error'); return; }
+      showToast('Answer saved -- Nova has learned!', 'success');
+      loadData();
+    });
+  };
+
+  window.dismissQuestion = function(id) {
+    if (!confirm('Dismiss this question? It will be marked as not relevant.')) return;
+    apiCall({action: 'dismiss', question_id: id, reason: 'Not relevant'}, function(err, resp) {
+      if (err || !resp.success) { showToast('Failed to dismiss', 'error'); return; }
+      showToast('Question dismissed', '');
+      loadData();
+    });
+  };
+
+  // ---- Digest ----
+  function loadDigest() {
+    document.getElementById('loading-digest').style.display = 'block';
+    document.getElementById('digest-content').style.display = 'none';
+    apiCall({action: 'digest'}, function(err, resp) {
+      document.getElementById('loading-digest').style.display = 'none';
+      if (err) { showToast('Failed to load digest', 'error'); return; }
+      document.getElementById('digest-content').textContent = resp.digest || 'No digest available.';
+      document.getElementById('digest-content').style.display = 'block';
+    });
+  }
+
+  // ---- Test Nova ----
+  window.testQuestion = function() {
+    var q = document.getElementById('test-question').value.trim();
+    if (!q) { showToast('Enter a question first', 'error'); return; }
+
+    document.getElementById('test-loading').style.display = 'inline';
+    document.getElementById('test-result').style.display = 'none';
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/nova/chat', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onreadystatechange = function() {
+      document.getElementById('test-loading').style.display = 'none';
+      if (xhr.readyState === 4) {
+        document.getElementById('test-result').style.display = 'block';
+        if (xhr.status === 200) {
+          try {
+            var resp = JSON.parse(xhr.responseText);
+            document.getElementById('test-response').textContent = resp.response || resp.text || 'No response';
+            var meta = 'Confidence: ' + ((resp.confidence || 0) * 100).toFixed(0) + '%';
+            if (resp.sources && resp.sources.length) meta += ' | Sources: ' + resp.sources.join(', ');
+            if (resp.queued_for_review) meta += ' | Queued for review';
+            document.getElementById('test-meta').textContent = meta;
+          } catch(e) {
+            document.getElementById('test-response').textContent = 'Error parsing response';
+            document.getElementById('test-meta').textContent = '';
+          }
+        } else {
+          document.getElementById('test-response').textContent = 'Error: HTTP ' + xhr.status;
+          document.getElementById('test-meta').textContent = '';
+        }
+      }
+    };
+    xhr.send(JSON.stringify({message: q}));
+  };
+
+  // ---- Utilities ----
+  function escapeHtml(text) {
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(text || ''));
+    return d.innerHTML;
+  }
+
+  // ---- Initial load ----
+  loadData();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{
+  "display_information": {
+    "name": "Nova by Joveo",
+    "description": "Joveo's recruitment marketing intelligence assistant. Ask Nova about publishers, channels, benchmarks, CPC/CPA data, and budget recommendations across 33 countries.",
+    "background_color": "#0066CC",
+    "long_description": "Nova is Joveo's AI-powered recruitment marketing intelligence chatbot. It provides instant answers to questions about publisher performance, channel benchmarks, CPC/CPA metrics, salary data, budget allocation, and global supply across 33 countries and 1,238+ publishers. Nova learns from your team's answers and gets smarter over time."
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Nova",
+      "always_online": true
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "app_mentions:read",
+        "chat:write",
+        "channels:history",
+        "groups:history",
+        "im:history",
+        "im:read",
+        "im:write",
+        "users:read"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://YOUR_DOMAIN/api/slack/events",
+      "bot_events": [
+        "app_mention",
+        "message.im"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": false
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false
+  }
+}

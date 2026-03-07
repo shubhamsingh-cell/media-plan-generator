@@ -4057,5 +4057,15 @@
         }
         createHeaderParticles();
     </script>
+
+    <!-- Nova by Joveo — AI Chat Widget -->
+    <script src="/static/joveo-iq-chat.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof JoveoIQ !== 'undefined') {
+                JoveoIQ.init({ containerId: null });
+            }
+        });
+    </script>
 </body>
 </html>

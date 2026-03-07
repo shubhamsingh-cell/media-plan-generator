@@ -1,0 +1,1523 @@
+{
+  "metadata": {
+    "title": "Recruitment Industry Knowledge Base",
+    "description": "Comprehensive recruitment industry data compiled from major job boards, recruitment marketing platforms, TA tech products, and industry reports from 2025-2026",
+    "last_updated": "2026-03-08",
+    "data_period": "2025-2026",
+    "version": "1.0"
+  },
+  "benchmarks": {
+    "cost_per_click": {
+      "description": "Average cost-per-click (CPC) benchmarks for recruitment advertising across platforms and channels",
+      "by_platform": {
+        "indeed": {
+          "average_cpc_range": "$0.25-$1.50",
+          "high_end_cpc": "$5.00+",
+          "model": "Pay-per-click for sponsored listings",
+          "free_posts": "Up to 3 free job postings per month (30 days each, lower visibility)",
+          "notes": "CPC varies heavily by industry, role seniority, and geography. Best for volume hiring, blue-collar, and hourly roles.",
+          "year": "2025-2026"
+        },
+        "linkedin": {
+          "job_ad_cpc_range": "$1.50-$4.50",
+          "general_ad_cpc_range": "$2.00-$8.00",
+          "average_cpm": "$6.00-$20.00",
+          "cost_per_applicant_us_average": "$2.83",
+          "industry_cpc": {
+            "b2b_saas_technology": "$5.00-$8.00",
+            "financial_services": "$4.50-$7.00",
+            "education_training": "$3.50-$5.50",
+            "staffing_recruiting": "$4.00-$6.00",
+            "healthcare_b2b": "$3.00-$5.00"
+          },
+          "daily_minimum_spend": "$7.00-$10.00",
+          "recruiter_lite_annual": "$1,680",
+          "recruiter_annual_per_seat": "$10,800",
+          "applicants_per_hire": 57,
+          "estimated_advertising_cost_per_hire": "$161",
+          "ad_revenue_2025": "$8.2 billion",
+          "ad_revenue_2026_projected": "$9.7 billion",
+          "notes": "Premium CPC reflects highly targeted professional audience. Best for white-collar, professional, and executive roles.",
+          "year": "2025-2026"
+        },
+        "ziprecruiter": {
+          "model": "Subscription-based",
+          "starting_price": "$299/month per job slot",
+          "sponsored_post_cost": "$400-$500/month",
+          "estimated_cpc_equivalent": "$0.80-$1.00",
+          "notes": "Uses AI-powered matching. Custom pricing for enterprise. Q4 2025 revenue: $111.7M.",
+          "year": "2025-2026"
+        },
+        "google_search_ads": {
+          "average_cpc": "$2.69",
+          "employment_services_cpc": "$2.04",
+          "notes": "General Google Ads benchmark. CPC has risen for 87% of industries over the past year.",
+          "year": "2025-2026"
+        },
+        "google_display_ads": {
+          "average_cpc": "$0.63",
+          "year": "2025-2026"
+        },
+        "microsoft_bing_ads": {
+          "average_cpc": "$1.54",
+          "vs_google": "Approximately 40% lower than Google Ads",
+          "year": "2025-2026"
+        },
+        "meta_facebook_ads": {
+          "median_cpc_peak_nov_2025": "$1.32",
+          "median_cpc_jan_2026": "$0.85",
+          "yoy_change_jan_2026": "-24%",
+          "year": "2025-2026"
+        }
+      },
+      "by_industry_appcast": {
+        "description": "Recruitment-specific CPC data from Appcast 2025 Benchmark Report (analyzing 2024 data)",
+        "overall_cpc_trend_2024": "+27% increase year-over-year",
+        "notes": "CPCs rose over 27% in 2024 despite expectations, likely due to harder-to-fill roles and job board pricing changes.",
+        "year": "2024-2025"
+      }
+    },
+    "cost_per_application": {
+      "description": "Average cost-per-application (CPA) benchmarks for recruitment advertising",
+      "appcast_2025_report": {
+        "overall_cpa_trend_2024": "+4.8% year-over-year (stable)",
+        "high_cpa_range": "$15-$35 (excluding healthcare)",
+        "vs_2023": "Lower CPA in every single state compared to 2023",
+        "healthcare_cpa": "Highest among all sectors",
+        "technology_apply_rate": "6.41% (highest in 2024)",
+        "marketing_advertising_apply_rate": "6.31%",
+        "business_consumer_services_apply_rate": "6.29%",
+        "sitting_vs_standing": "Sitting-down jobs (tech, marketing) have higher apply rates and CPAs than standing-up jobs (construction, retail)",
+        "year": "2024"
+      },
+      "appcast_2026_report": {
+        "overall_cpa_trend_2025": "Rose sharply despite softer labor market",
+        "cost_per_hire_trend": "Rose sharply",
+        "apply_rates": "Remained high due to increased job-seeker volume",
+        "white_collar_apply_rates": "Rising significantly (white-collar recession deepening)",
+        "sun_belt_performance": "Stronger apply rates, lower CPAs",
+        "rural_states": "Highest recruitment advertising costs",
+        "dataset": "302M+ clicks, 27M+ applications, ~1,200 employers",
+        "year": "2025"
+      },
+      "google_ads_benchmark": {
+        "average_search_cpa": "$48.96",
+        "technology_sector_cpa": "$133.52",
+        "ecommerce_cpa": "$45.27",
+        "median_cpa_2025": "$23.74 (+12.35% YoY)",
+        "year": "2025"
+      },
+      "joveo_historical": {
+        "restaurant_food_service_cpa_range": "$9.70-$15.80",
+        "optimized_cpa_example": "$4.00 (from $40 after optimization, 90% decrease)",
+        "notes": "Joveo advocates shifting to CPQA (Cost Per Qualified Applicant) as a better metric than CPC/CPA",
+        "year": "2020-2025"
+      }
+    },
+    "apply_rates": {
+      "description": "Apply rate benchmarks (percentage of clicks that convert to applications)",
+      "appcast_2024": {
+        "overall_end_of_year": "6.1%",
+        "yoy_trend": "+35% increase from January to December 2024",
+        "technology": "6.41%",
+        "marketing_advertising": "6.31%",
+        "business_consumer_services": "6.29%",
+        "year": "2024"
+      },
+      "appcast_2025": {
+        "trend": "Remained high, fueled by increased job-seeker volume",
+        "white_collar_roles": "Rising significantly",
+        "frontline_roles": "Remained costly and hard to fill (especially healthcare)",
+        "remote_hybrid_advantage": "Narrowing as remote work becomes normalized",
+        "year": "2025"
+      }
+    },
+    "cost_per_hire": {
+      "description": "Average cost-per-hire benchmarks",
+      "shrm_2025": {
+        "average_cost_per_hire": "$4,700",
+        "median_non_executive": "$1,200",
+        "median_executive": "$10,625",
+        "executive_vs_non_executive_ratio": "7x",
+        "year": "2025"
+      },
+      "shrm_2026": {
+        "average_cost_per_hire": "$4,800",
+        "tech_engineering_roles": "$6,200",
+        "retail_hospitality": "$2,700",
+        "year": "2026"
+      },
+      "appcast_2024": {
+        "average_cost_per_hire": "$851",
+        "trend": "Softer and flat throughout 2024 with seasonal push at year-end",
+        "year": "2024"
+      },
+      "cost_of_unfilled_role": "$4,000-$9,000 per month",
+      "hidden_costs": "38% of SMBs underestimate their hiring costs",
+      "ai_impact": "Companies report 30% reduction in cost-per-hire with AI tools"
+    },
+    "time_to_fill": {
+      "description": "Average time-to-fill benchmarks",
+      "shrm_2025": {
+        "median_time_to_fill": "45 days",
+        "global_average": "54 days",
+        "competitive_target": "45 days or less",
+        "year": "2025"
+      },
+      "icims_2025": {
+        "time_to_fill": "41 days (plateaued)",
+        "notes": "Despite more candidate options, employers aren't moving faster",
+        "year": "2025"
+      },
+      "goodtime_2025": {
+        "increase_in_time_to_hire": "60% of companies reported an increase (up from 44% in 2023)",
+        "reduced_time_to_hire": "Only 6% of employers were able to reduce",
+        "year": "2024-2025"
+      },
+      "phenom_insight": {
+        "average_interview_duration": "23 days with 4 rounds",
+        "year": "2025"
+      },
+      "ai_impact": "25% faster time-to-hire reported with AI tools",
+      "internal_mobility_fill_time": "10-15 days (vs 42 days external)"
+    },
+    "source_of_hire": {
+      "description": "Where hires originate from",
+      "job_boards": {
+        "employer_usage": "68.6% conduct all/most hiring through job boards",
+        "job_seeker_usage_general": "79.5% use general job boards",
+        "job_seeker_usage_niche": "53.8% use niche/industry-specific boards (up from 49.2%)",
+        "future_outlook": "31.9% expect increased reliance, 54.1% same, 6.5% decrease",
+        "year": "2025"
+      },
+      "employee_referrals": {
+        "employer_usage": "82% use referrals as primary source",
+        "quality_multiplier": "4x more high-quality candidates vs job boards",
+        "speed_advantage": "55% hired faster than other channels",
+        "likelihood_of_hire": "18x more likely to get the job",
+        "referral_vs_cold_application": "1 referral = ~40 cold applications",
+        "social_media_referral_retention": "45% (vs 25% traditional)",
+        "year": "2025"
+      },
+      "career_sites": {
+        "employer_usage": "49.5% use own websites/career pages",
+        "job_seeker_usage": "45.0% visit company websites",
+        "year": "2025"
+      },
+      "linkedin_professional_networks": {
+        "employer_usage": "46.1%",
+        "job_seeker_usage": "54.9%",
+        "year": "2025"
+      },
+      "social_media": {
+        "employer_usage": "43.5%",
+        "year": "2025"
+      },
+      "alumni_networks_career_centers": {
+        "employer_usage": "34.4% (up from 28.3% in 2024)",
+        "year": "2025"
+      },
+      "sourced_outbound": {
+        "hire_likelihood": "5x more likely to be hired than inbound applicants",
+        "passive_candidate_pool": "70% of global candidate pool are passive",
+        "year": "2025"
+      }
+    },
+    "applicants_per_opening": {
+      "icims_2025": {
+        "ratio": "33 applicants per opening (up from 28 prior year)",
+        "year": "2025"
+      },
+      "linkedin_2026": {
+        "applications_per_job_us": "Doubled since spring 2022",
+        "year": "2025-2026"
+      },
+      "greenhouse_2025": {
+        "trend": "Nearly 3x more applications per role vs 2021",
+        "year": "2025"
+      }
+    },
+    "conversion_rates": {
+      "google_search_ads_2025": {
+        "average_cvr": "4.4%",
+        "cvr_trend": "-9.28% year-over-year decline",
+        "ctr_trend": "+7.49% increase (but lower conversion)",
+        "year": "2025"
+      }
+    }
+  },
+  "market_trends": {
+    "ai_in_recruiting": {
+      "title": "AI in Recruiting",
+      "description": "Artificial intelligence adoption and impact in talent acquisition",
+      "adoption_rates": {
+        "organizations_using_ai_2025": "43% (up from 26% in 2024)",
+        "fortune_500_adoption": "99%",
+        "companies_using_ai_tools": "87%",
+        "actively_integrating_gen_ai": "37% (up from 27% year ago)",
+        "recruiters_planning_increase_2026": "93%",
+        "employers_expect_ai_most_hiring_steps_2026": "62%",
+        "plan_to_increase_ai_12_months": "74%",
+        "daily_ai_usage_recruiters": "41%",
+        "ai_integrated_ats": "42%",
+        "ai_integrated_onboarding": "34%",
+        "gartner_projection_2027": "81% adoption"
+      },
+      "industry_adoption": {
+        "technology": "89%",
+        "financial_services": "76%",
+        "healthcare": "62%",
+        "service_sector_2025": "40% (up from 25% in 2024)",
+        "manufacturing_2025": "26% (up from 16% in 2024)",
+        "europe_fully_leveraging": "13.5%"
+      },
+      "efficiency_gains": {
+        "cost_per_hire_reduction": "30%",
+        "time_to_hire_reduction": "25%",
+        "time_saved_per_week": "20% (approximately 1 full day)",
+        "enterprise_annual_savings": "$2.3M average",
+        "roi_timeline": "8-18 months",
+        "north_america_hr_cost_cutting": "40%",
+        "screening_accuracy": "89-94%",
+        "resume_parsing_accuracy": "94%",
+        "skill_matching_accuracy": "89%"
+      },
+      "use_cases": {
+        "candidate_matching": "55% (top use case in North America 2024)",
+        "sourcing_screening": "41% use AI daily",
+        "applicant_tracking": "42% have AI-powered ATS",
+        "ai_assisted_messaging": "+9% more likely to make quality hire (LinkedIn)",
+        "quality_of_hire_measurement": "61% of TA pros believe AI can improve QoH measurement"
+      },
+      "candidate_side": {
+        "job_seekers_using_gen_ai": "53% of new hires used GenAI in job search (Q1 2024)",
+        "plan_to_use_ai_job_search_2026": "81%",
+        "gen_ai_for_company_research": "70%",
+        "ai_interview_confidence": "Nearly 50% feel more confident"
+      },
+      "bias_and_trust": {
+        "bias_reduction_potential": "56-61%",
+        "adults_avoiding_ai_hiring": "66% of US adults",
+        "applicant_trust_in_ai": "26% trust AI to evaluate fairly",
+        "recruiter_concern_unique_talent": "35% fear AI may overlook",
+        "companies_ai_bias_detection_2030": "94% projected"
+      },
+      "market_size": {
+        "global_2023": "$661.56 million",
+        "projected_2030": "$1,119.80 million",
+        "cagr": "6.8%",
+        "north_america_share": "37.2%",
+        "apac_cagr": "7.01%"
+      },
+      "regulatory": {
+        "eu_ai_act": "Effective 2024, phases through 2026-2027 for high-risk obligations",
+        "nyc_local_law_144": "Annual bias audit and candidate notices required for automated hiring tools",
+        "eu_general_purpose_ai_obligations": "August 2026"
+      }
+    },
+    "programmatic_job_advertising": {
+      "title": "Programmatic Job Advertising",
+      "description": "Automated, data-driven job ad placement and optimization",
+      "market_data": {
+        "us_programmatic_display_2025": "$180.4 billion (92% of digital display)",
+        "us_programmatic_display_2026": "$203 billion projected (+12.5% YoY)",
+        "global_programmatic_2024": "$595 billion",
+        "global_programmatic_2028_projected": "$779 billion",
+        "private_marketplace_share": "91%+ of US spending through PMPs and direct",
+        "adoption_in_job_advertising": "15% (vs widespread adoption in display marketing)",
+        "recruitment_ad_agency_market_2025": "$6.88 billion",
+        "recruitment_ad_agency_market_2026": "$7.44 billion (+8.1% CAGR)"
+      },
+      "key_trends_2026": {
+        "programmatic_video": "$110 billion+ projected (75% of new programmatic ad dollars)",
+        "first_party_data": "40% of US marketers use as primary privacy-centric targeting",
+        "ai_contextual_targeting": "Fueling growth as cookies deprecate",
+        "agentic_ai": "Shift from basic automation to context-aware AI decision-making"
+      },
+      "key_players": {
+        "appcast": {
+          "description": "Leading recruitment marketing platform, part of The Stepstone Group",
+          "dataset": "302M+ clicks, 27M+ applications, ~1,200 employers (2025 data)",
+          "annual_benchmark_report": true
+        },
+        "pandologic": {
+          "description": "Leading programmatic job advertising platform (now Veritone Hire)",
+          "data_points": "199 billion+ historical data points",
+          "employers_served": "125,000+",
+          "job_destinations": "1,000+",
+          "micro_decisions_per_minute": 7000,
+          "data_points_evaluated": "100 trillion"
+        },
+        "joveo": {
+          "description": "Programmatic job advertising platform advocating CPQA metric",
+          "recognition": "Fosway 2025 AI Market Assessment for TA",
+          "metric_shift": "Advocating Cost Per Qualified Applicant (CPQA) over CPC/CPA"
+        },
+        "recruitics": {
+          "description": "Recruitment marketing analytics and programmatic platform",
+          "talent_market_index": true,
+          "focus_areas": "Data-driven recruitment marketing, market intelligence"
+        },
+        "radancy": {
+          "description": "Comprehensive talent acquisition platform (formerly TMP Worldwide)",
+          "products": "Programmatic AdTech, Career Sites, Employee Referral, CRM",
+          "trend_2026": "Agentic AI and connected data for smarter candidate engagement",
+          "personalization_expectation": "72% of job seekers expect personalized communication"
+        }
+      }
+    },
+    "skills_based_hiring": {
+      "title": "Skills-Based Hiring",
+      "description": "Shift from degree-based to skills-based hiring practices",
+      "adoption": {
+        "employers_using_2025": "85% (up from 81% in 2024)",
+        "nace_survey_usage": "70% (up from 65% prior year)",
+        "use_at_least_half_the_time": "71%",
+        "employers_agree_dominant_future_trend": "70%",
+        "actual_impact_of_degree_removal": "Only 0.14% of hires affected by degree removal",
+        "orgs_dropped_degree_requirement": "45% in 2024 (on top of 55% in 2023)"
+      },
+      "degree_requirements": {
+        "indeed_postings_requiring_bachelors_nov_2025": "19.3%",
+        "trend": "Slightly down from pre-pandemic but rising since March 2024",
+        "us_eliminated_degree_requirements": "57%",
+        "think_degrees_less_important": "32%",
+        "think_degrees_more_important": "41%",
+        "washington_dc_bachelor_required": "43.7% (highest)",
+        "gpa_screening_2025": "42% (down from 73% in 2019)"
+      },
+      "methods": {
+        "skills_tests": "76% use skills tests (most popular method)",
+        "resumes": "67% use resumes (down from 73% in 2024)",
+        "interviewing_stage": "87% apply skills-based approach",
+        "screening_stage": "65% apply skills-based approach",
+        "candidate_assessments": "38% evaluate skills earlier via assessments"
+      },
+      "outcomes": {
+        "qualified_candidate_pool_increase": "19x larger",
+        "time_to_hire_reduction": "50%",
+        "employee_retention_improvement": "89%",
+        "mckinsey_performance_prediction": "5x more predictive than education"
+      },
+      "leaders": ["IBM", "Google", "Delta Air Lines", "Bank of America"],
+      "workday_study": {
+        "moved_to_skills_model": "55% of employers",
+        "plan_to_within_year": "23%"
+      }
+    },
+    "remote_hybrid_work": {
+      "title": "Remote & Hybrid Work Trends",
+      "description": "The evolution of work arrangements and their impact on recruitment",
+      "current_state": {
+        "us_remote_at_least_partially": "22.8% (36M+ Americans)",
+        "us_telework_some_hours": "12.3%",
+        "us_telework_all_hours": "10.7%",
+        "global_fully_remote": "27%",
+        "global_hybrid": "52%",
+        "offsite_capable_hybrid": "52%",
+        "offsite_capable_fully_remote": "27%",
+        "offsite_capable_fully_onsite": "21%"
+      },
+      "job_postings": {
+        "hybrid_postings_q2_2025": "24% (up from 15% in Q2 2023)",
+        "onsite_postings_q2_2025": "66% (down from 83% in Q2 2023)",
+        "new_postings_hybrid_q4_2025": "24%",
+        "new_postings_remote_q4_2025": "11%"
+      },
+      "by_industry": {
+        "marketing_creative": {"hybrid": "30%", "remote": "14%"},
+        "technology": {"hybrid": "29%", "remote": "13%"},
+        "legal": {"hybrid": "32%", "remote": "9%"},
+        "finance_accounting": {"hybrid": "27%", "remote": "9%"},
+        "healthcare": {"fully_onsite": "80%"},
+        "admin_customer_support": {"fully_onsite": "80%"}
+      },
+      "employee_preferences": {
+        "prefer_hybrid": "83% globally",
+        "want_some_remote": "98%",
+        "gen_z_millennials_leave_if_forced_rto": "65%",
+        "uk_quit_if_revoked": "93%",
+        "choice_retention_multiplier": "14x more likely to stay"
+      },
+      "retention_impact": {
+        "hybrid_quit_reduction": "33% less likely to quit",
+        "retention_improved_after_hybrid": "69% of employers",
+        "once_a_week_office_retention_boost": "+41%",
+        "stanford_nature_study": "Zero negative productivity impact, 33% turnover drop"
+      },
+      "productivity": {
+        "managers_believe_more_productive": "69%",
+        "remote_lower_stress": "79%",
+        "remote_better_mental_health": "82%",
+        "flexible_companies_revenue_growth": "+21% higher (3 consecutive years)"
+      },
+      "rto_mandates": {
+        "companies_returned_fully_onsite": "27% by end of 2025",
+        "offer_some_flexibility": "67%",
+        "fully_remote_companies": "6%",
+        "required_5_days": "50% of workers",
+        "wont_apply_fully_onsite": "31% of workers",
+        "influenced_by_major_corps_rto": "54%",
+        "influenced_by_federal_rto": "35%",
+        "no_plans_to_mandate_full_rto": "88% of hybrid/remote team leaders"
+      },
+      "regional_in_office_days": {
+        "china": "4.7 days/week",
+        "india": "4.4 days/week",
+        "south_korea": "4.2 days/week",
+        "us": "~2 days/week",
+        "uk": "~2 days/week"
+      }
+    },
+    "dei_hiring": {
+      "title": "DEI in Hiring",
+      "description": "Diversity, Equity, and Inclusion trends in recruitment",
+      "workforce_demographics": {
+        "us_ethnic_racial_minorities": "38.7% (up from 35.2% in 2020)",
+        "us_workforce_women": "50.8%",
+        "women_c_suite": "27.4%",
+        "poc_c_suite": "18.3%",
+        "women_of_color_entry_level": "20%",
+        "women_of_color_c_suite": "4%",
+        "fortune_500_women_directors": "32.7%",
+        "fortune_500_poc_directors": "24.8%",
+        "all_male_boards": "2.1%"
+      },
+      "candidate_attitudes": {
+        "consider_dei_crucial": "70%",
+        "diverse_workforce_critical": "76%",
+        "black_workers_leave_without_dei": "80%",
+        "gen_z_millennials_prioritize_dei": "77%",
+        "gen_z_prioritize_inclusive_employers": "89%"
+      },
+      "business_impact": {
+        "us_corporate_dei_spending_2025": "$8.2 billion",
+        "higher_innovation_rates": "31%",
+        "better_problem_solving": "67%",
+        "innovation_enhancement": "20%",
+        "risk_reduction": "30%",
+        "engaged_when_comfortable": "5.7x more likely",
+        "stay_when_comfortable": "70% more likely",
+        "high_revenue_growth_with_belonging": "54% more likely"
+      },
+      "employer_practices": {
+        "formalized_dei_strategy": "51%",
+        "created_dei_policies": "47%",
+        "offering_dei_bias_training": "29%",
+        "diverse_stakeholders_in_hiring": "28%",
+        "review_hiring_results_for_diversity": "57%",
+        "use_demographics_for_sourcing": "48%"
+      },
+      "political_regulatory_shifts": {
+        "trump_executive_order_2025": "DEI programs put into question at federal level",
+        "eeoc_response": "Affirmed legality of DEI programs",
+        "public_reporting_decline": "Companies sharing less diversity data publicly",
+        "dei_washing_concern": "Minimal increases in diversity hiring following controversies (Stanford GSB study)"
+      },
+      "future_trends": {
+        "ai_for_bias_detection_2030": "94% projected adoption (23% current)",
+        "neurodiverse_talent_recruiting": "54% of companies will actively recruit",
+        "companies_reframing_dei": "Around talent development and employee engagement to reduce legal risk"
+      }
+    },
+    "internal_mobility": {
+      "title": "Internal Mobility",
+      "description": "Internal hiring and career movement within organizations",
+      "retention_impact": {
+        "internal_movers_stay_rate": "75% (vs 56% non-movers)",
+        "retention_increase": "2x with strong programs",
+        "tenure_with_mobility": "7.4 years (vs 4.1 years without)",
+        "stay_longer_high_internal_hiring": "41%",
+        "turnover_reduction": "30%+ for 81% of organizations"
+      },
+      "current_state": {
+        "voluntary_turnover_2024_2025": "13% average",
+        "decline_from_2023": "From 17.3% to 13.5%",
+        "average_tenure_2024": "4.2 years (down from 4.5 in 2022)",
+        "employees_seeking_new_jobs_2026": "34% (plus 22% considering)",
+        "emea_intent_to_stay_decline": "From 66% in 2024 to 62% in 2025"
+      },
+      "why_employees_leave": {
+        "preventable_exits": "63%",
+        "lack_of_growth_opportunities": "19%",
+        "bad_manager_quit_trigger": "70% (75% Gen Z, 77% millennials)",
+        "work_life_balance_exits_increase": "+12%"
+      },
+      "technology_role": {
+        "large_enterprises_ai_skills_marketplaces_2025": "60%",
+        "ai_for_retention_efforts": "90% of organizations looking to use",
+        "gartner_internal_marketplaces_2026": "One-third of recruiting effort",
+        "eightfold_internal_fill_increase": "15-25%"
+      },
+      "future_projections": {
+        "project_based_mobility": "69% of businesses will offer",
+        "predictive_analytics_for_retention": "64% of organizations will use",
+        "career_development_confidence": "67% employer confidence in retention (LinkedIn)",
+        "redeployment_needed_by_2030": "1 in 5 employees (Gartner)"
+      }
+    },
+    "great_stay_low_hire_low_fire": {
+      "title": "The Great Stay / Low-Hire Low-Fire Market",
+      "description": "The current labor market characterized by reduced mobility and cautious hiring",
+      "key_indicators": {
+        "quits_rate": "Declining",
+        "hires_rate": "Declining",
+        "layoffs_rate": "Declining",
+        "ziprecruiter_turnover": "Dropped from 177% (2023) to 50% (2025)",
+        "indeed_jpi_jan_2025": "111.7 (10% above pre-pandemic)",
+        "indeed_jpi_trend": "Sliding to barely above pre-pandemic norms",
+        "workers_not_searching_2026": "57% (Monster)",
+        "workers_staying_through_2027": "75% (Monster)"
+      },
+      "hiring_disconnect": {
+        "icims_july_2025": "Hiring fell 10% YoY even as openings +5% and applications +7%",
+        "linkedin_hiring_rate_nov_2025": "Down 3.5% YoY",
+        "unemployed_per_opening_nov_2025": "1.1 (up from 0.7 in Nov 2023)",
+        "glassdoor_offer_rejection": "12% less likely to reject offers in 2025 vs 2023"
+      },
+      "employer_plans": {
+        "plan_to_increase_hiring": "63% of businesses (ZipRecruiter)",
+        "retention_top_priority": "52% (Monster), 76% (ZipRecruiter)",
+        "plan_to_raise_salaries": "61% (ZipRecruiter)",
+        "plan_entry_level_hiring": "32%"
+      }
+    }
+  },
+  "platform_insights": {
+    "indeed": {
+      "name": "Indeed",
+      "type": "Job Board",
+      "key_data": {
+        "job_postings_index_jan_2025": "111.7 (10%+ above pre-pandemic)",
+        "trend": "Declining across most sectors",
+        "healthcare_share_of_job_growth_2025": "Nearly 75% of all net US job growth",
+        "white_collar_postings": "Well below pre-pandemic in tech, media, professional services",
+        "international_sponsorship": "Nearly 3x more visa/green card sponsorships vs pre-pandemic",
+        "international_interest_decline": "Fallen to near 5-year lows",
+        "uk_postings_vs_pre_pandemic": "19% below",
+        "uk_wage_growth_oct_2025": "5.3% annually",
+        "gdp_forecast_2026": "1.8% (consensus), range 0.9%-2.5%",
+        "unemployment_forecast_2026": "4.1%-4.8%",
+        "job_openings_forecast_2026": "6.8M-7.4M"
+      },
+      "source": "Indeed Hiring Lab",
+      "year": "2025-2026"
+    },
+    "linkedin": {
+      "name": "LinkedIn",
+      "type": "Professional Network / Job Board",
+      "key_data": {
+        "hiring_rate_change_nov_2025": "-3.5% YoY",
+        "us_hiring_down_aug_2025": "-4.9% vs July 2024",
+        "applications_per_job_us": "Doubled since spring 2022",
+        "people_looking_for_new_role_2026": "52% globally",
+        "ai_assisted_messaging_quality_hire": "+9% more likely",
+        "ai_usage_plan_increase_2026": "93% of recruiters",
+        "ai_already_finding_new_candidates": "59%",
+        "quality_of_hire_confidence": "25% feel highly confident",
+        "job_posts_without_degree": "26%",
+        "financial_services_hiring": "+1.4% (defying slowdowns)",
+        "stable_industries": "Utilities, Government, Education, Consumer Services"
+      },
+      "source": "LinkedIn Global Talent Trends, Future of Recruiting 2025",
+      "year": "2025-2026"
+    },
+    "glassdoor": {
+      "name": "Glassdoor",
+      "type": "Job Board / Employer Review Platform",
+      "key_data": {
+        "forever_layoffs_trend": "Rolling small layoffs replacing large cuts",
+        "q4_2025_job_cuts": "Sharpest increase since 2011",
+        "employer_announced_cuts_through_oct_2025": "1.1 million (+65% YoY)",
+        "misalignment_mentions_increase": "+149%",
+        "disconnect_mentions_increase": "+24%",
+        "distrust_mentions_increase": "+26%",
+        "career_opportunity_rating_remote_2020": "4.1",
+        "career_opportunity_rating_remote_2025": "3.5",
+        "offer_rejection_decline": "12% less likely in 2025 vs 2023"
+      },
+      "source": "Glassdoor 2026 Worklife Trends Report",
+      "year": "2025-2026"
+    },
+    "ziprecruiter": {
+      "name": "ZipRecruiter",
+      "type": "Job Board / AI Matching Platform",
+      "key_data": {
+        "turnover_drop": "From 177% (2023) to 50% (2025)",
+        "plan_to_increase_hiring": "63%",
+        "retention_focus": "76%",
+        "plan_to_raise_salaries": "61%",
+        "entry_level_hiring_priority": "32%",
+        "base_pay_unchanged_2025": "57%",
+        "struggle_attract_higher_pay": "34%",
+        "ai_streamline_recruitment": "72% see potential",
+        "ai_used_in_hiring": "43%",
+        "ai_generating_new_roles": "52%",
+        "skills_assessments_early": "38%",
+        "q4_2025_revenue": "$111.7 million (+1% YoY)",
+        "job_openings_decline_q4_2025": "-10% YoY"
+      },
+      "source": "ZipRecruiter Third Annual Employer Survey, Q4 2025 Earnings",
+      "year": "2025-2026"
+    },
+    "monster": {
+      "name": "Monster",
+      "type": "Job Board (filed bankruptcy June 2025)",
+      "key_data": {
+        "bankruptcy_date": "June 24, 2025",
+        "acquired_by": "JobGet Inc. (job board) and Valnet Inc. (media)",
+        "sale_price": "$28 million",
+        "debt_at_filing": "$392.5 million",
+        "employees_at_filing": 935,
+        "jobs_at_risk": 585,
+        "workers_not_searching_2026": "57%",
+        "workers_staying_through_2027": "75%",
+        "expect_market_worsen_2026": "40%",
+        "expect_layoffs_increase": "52%",
+        "salary_inflation_concern": "58%",
+        "side_hustle_current": "32%",
+        "side_hustle_planning": "30%",
+        "ai_job_threat_concern": "49%",
+        "employer_retention_priority": "52%",
+        "employer_struggle_qualified_candidates": "64%",
+        "ai_training_investment_2026": "74%"
+      },
+      "source": "Monster 2026 WorkWatch Report, Monster 2026 Job Market Outlook",
+      "year": "2025-2026"
+    },
+    "icims": {
+      "name": "iCIMS",
+      "type": "TA Tech / ATS Platform",
+      "key_data": {
+        "platform_users": "3 million+ global",
+        "annual_applications": "200 million+",
+        "annual_hires": "5.5 million+",
+        "applicants_per_opening_2025": "33 (up from 28)",
+        "time_to_fill": "41 days (plateaued)",
+        "hiring_fell_july_2025": "-10% YoY",
+        "openings_up_july_2025": "+5% YoY",
+        "applications_up_july_2025": "+7% YoY",
+        "dec_2025_openings_mom": "+6%",
+        "dec_2025_openings_yoy": "+8%",
+        "dec_2025_applications_yoy": "+7%",
+        "dec_2025_hiring_yoy": "+1%",
+        "emea_openings_yoy": "+13%",
+        "emea_applications_yoy": "+11%",
+        "emea_hiring_yoy": "+1%",
+        "workers_not_concerned_layoff": "58%",
+        "plan_to_look_2026": "45% (up from 42%)"
+      },
+      "source": "iCIMS Monthly Workforce Reports 2025-2026",
+      "year": "2025-2026"
+    },
+    "greenhouse": {
+      "name": "Greenhouse",
+      "type": "TA Tech / ATS Platform",
+      "key_data": {
+        "applications_per_role_vs_2021": "Nearly 3x",
+        "ai_in_hiring_survey_2025": "1,200 job seekers, 219 recruiters, 446 hiring managers",
+        "ai_screening_as_first_filter": "Common practice",
+        "hiring_managers_using_ai_screening": "25%",
+        "unsure_what_ai_prioritizes": "8%"
+      },
+      "source": "Greenhouse 2025 Workforce & Hiring Report, AI in Hiring Report",
+      "year": "2025-2026"
+    },
+    "smartrecruiters": {
+      "name": "SmartRecruiters",
+      "type": "TA Tech / ATS Platform",
+      "key_data": {
+        "benchmark_dataset": "Nearly 100 million job applications",
+        "report": "Global Recruiting Benchmarks 2026",
+        "focus": "AI-powered efficiency gains for faster hiring"
+      },
+      "source": "SmartRecruiters Recruiting Benchmarks 2026 Report",
+      "year": "2026"
+    },
+    "phenom": {
+      "name": "Phenom",
+      "type": "TA Tech / Intelligent Talent Experience Platform",
+      "key_data": {
+        "average_interview_duration": "23 days with 4 rounds",
+        "key_focus": "AI-powered screening, scheduling, interviewing, evaluation",
+        "employer_brand": "Strong employer brand is non-negotiable in 2025-2026"
+      },
+      "source": "Phenom Recruiting Trends Analysis 2025",
+      "year": "2025"
+    },
+    "eightfold_ai": {
+      "name": "Eightfold AI",
+      "type": "Talent Intelligence Platform",
+      "key_data": {
+        "career_profiles": "1.6+ billion",
+        "skills_mapped": "1.6+ million",
+        "valuation": "$2.1 billion (June 2021)",
+        "employees": 281,
+        "internal_fill_rate_increase": "15-25%",
+        "key_partnership": "S&P Global (October 2025)",
+        "products": "AI Recruiting, Talent Intelligence, Workforce Transformation, AI Interviewer"
+      },
+      "source": "Eightfold AI Company Data, Gartner/Eightfold Reports",
+      "year": "2025-2026"
+    },
+    "beamery": {
+      "name": "Beamery",
+      "type": "Talent Lifecycle Management Platform",
+      "key_data": {
+        "forrester_roi": "467% return on investment",
+        "pipeline_quality_assurance": "Flags 10-20% duplicate/stale candidates",
+        "user_sentiment_rating": "83/100 (171 reviews)",
+        "focus": "AI-powered sourcing, hiring, upskilling, internal mobility"
+      },
+      "source": "Beamery Forrester ROI Study, SelectHub Reviews",
+      "year": "2024-2025"
+    },
+    "hirevue": {
+      "name": "HireVue",
+      "type": "Video Interview & Assessment Platform",
+      "key_data": {
+        "time_to_hire_reduction_retail": "60%",
+        "manager_review_throughput": "2x with async AI interviews",
+        "capabilities": "AI analysis of responses, facial expressions, speech patterns"
+      },
+      "source": "HireVue/RecRight Case Studies 2024-2025",
+      "year": "2024-2025"
+    },
+    "appcast": {
+      "name": "Appcast",
+      "type": "Recruitment Marketing / Programmatic Platform",
+      "key_data": {
+        "parent_company": "The Stepstone Group",
+        "benchmark_report_edition": "10th Annual (2026)",
+        "2025_dataset": "302M+ clicks, 27M+ applications, ~1,200 employers",
+        "2024_dataset": "379M clicks, 30M+ applies, 1,300+ employers",
+        "search_social_data": "150+ employers, 1.7B impressions, 35M clicks",
+        "cpc_trend_2024": "+27% YoY",
+        "cpa_trend_2024": "+4.8% YoY (stable)",
+        "cost_per_hire_2024": "$851 (flat/soft trend)",
+        "apply_rate_end_2024": "6.1% (+35% Jan to Dec)",
+        "cpa_trend_2025": "Rose sharply",
+        "cost_per_hire_trend_2025": "Rose sharply",
+        "new_in_2026": "First-ever candidate disposition benchmarks and international hiring benchmarks"
+      },
+      "source": "Appcast 2025 and 2026 Recruitment Marketing Benchmark Reports",
+      "year": "2024-2026"
+    },
+    "naukri": {
+      "name": "Naukri",
+      "type": "Job Board (India)",
+      "key_data": {
+        "jobspeak_index_dec_2025": "3,001 points (+13% YoY)",
+        "jobspeak_index_feb_2026": "3,233 points (+12% YoY)",
+        "fresher_hiring_growth": "+17% YoY",
+        "high_salary_band_growth": "+23% YoY (20+ LPA)",
+        "top_growing_sectors": "Insurance (+28%), BPO/ITES (+22%), Real Estate (+19%), Hospitality (+15%), Retail (+14%)",
+        "ai_ml_growth_feb_2025": "+21%",
+        "hospitality_growth_feb_2025": "+20%",
+        "it_hiring_recovery_2026": "Meaningful recovery with AI momentum"
+      },
+      "source": "Naukri JobSpeak Monthly Reports 2025-2026",
+      "year": "2025-2026"
+    },
+    "seek": {
+      "name": "SEEK",
+      "type": "Job Board (Australia / APAC)",
+      "key_data": {
+        "job_ads_trend_jun_2025": "-0.7% MoM (marginal decline)",
+        "applications_per_ad_yoy": "+16.4% (record high)",
+        "applications_per_ad_mom": "+2.1%",
+        "south_australia_yoy": "+3.7%",
+        "western_australia_yoy": "+1.3%",
+        "act_government_defence_decline": "-20% YoY",
+        "australia_unemployment": "4.2%",
+        "occupations_with_shortages": "29%",
+        "critical_demand_sectors": "Health, Education, Construction, Regional Trades"
+      },
+      "source": "SEEK Employment Dashboard 2025",
+      "year": "2025"
+    },
+    "stepstone_totaljobs": {
+      "name": "StepStone / Totaljobs",
+      "type": "Job Board (Europe / UK)",
+      "key_data": {
+        "parent_company": "The Stepstone Group",
+        "global_reach": "140M job applications, 130K employers, 10+ countries",
+        "uk_employers_struggling_skills": "58%",
+        "uk_lost_staff_to_better_offers": "24% in last 6 months",
+        "uk_confident_hire_talent_2026": "58%",
+        "recruiters_finding_skills_challenge": "70%",
+        "top_recruiter_priority": "Skills-based hiring (43%)",
+        "second_priority": "Soft skills focus (38%)",
+        "germany_salary_report": "1.3M+ datapoints",
+        "career_changers_hiring_2026": "Two-thirds of companies plan to hire",
+        "platform_migration": "Year-long migration and European unification strategy"
+      },
+      "source": "Totaljobs Hiring Trends 2026, StepStone Salary Report 2026",
+      "year": "2025-2026"
+    }
+  },
+  "regional_data": {
+    "united_states": {
+      "unemployment_rate": {
+        "forecast_2026_range": "4.1%-4.8%",
+        "year": "2026"
+      },
+      "job_openings": {
+        "forecast_2026_range": "6.8M-7.4M",
+        "year": "2026"
+      },
+      "gdp_growth": {
+        "forecast_2026_consensus": "1.8%",
+        "range": "0.9%-2.5%",
+        "year": "2026"
+      },
+      "hiring_trends": {
+        "indeed_jpi_trend": "Declining, sliding to barely above pre-pandemic norms",
+        "healthcare_share_of_net_job_growth_2025": "75%",
+        "white_collar_recession": "Tech, media, professional services well below pre-pandemic",
+        "sun_belt_states": "Stronger apply rates, lower CPAs",
+        "unemployed_per_opening": "1.1 (Nov 2025, up from 0.7 in Nov 2023)",
+        "workers_planning_job_search_h1_2026": "38% (up from 29%)"
+      },
+      "wage_growth": {
+        "compensation_costs_yoy_dec_2025": "+3.4%",
+        "wages_salaries_yoy": "+3.3%",
+        "benefits_costs_yoy": "+3.4%",
+        "real_wage_growth": "+0.7%",
+        "salary_increase_budget_2026": "3.6% mean (down from 3.7%)",
+        "union_workers_comp_increase": "+4.0%",
+        "non_union_workers_comp_increase": "+3.3%"
+      },
+      "key_sectors": {
+        "strongest": "Healthcare, Construction, Skilled Trades",
+        "weakest": "Tech (white-collar), Media, Professional Services",
+        "recovering": "Financial Services (+1.4%)"
+      }
+    },
+    "united_kingdom": {
+      "unemployment_rate": {
+        "oct_dec_2025": "5.2% (highest since 2021)",
+        "change_yoy": "Up from 4.4%",
+        "year": "2025"
+      },
+      "unemployed_count": "1.88 million (highest since 2015)",
+      "payrolled_employees_jan_2026": "30.3 million (-134K or -0.4% YoY)",
+      "vacancies": {
+        "nov_2025_to_jan_2026": "726,000 (below pre-pandemic)",
+        "year": "2025-2026"
+      },
+      "job_postings_vs_pre_pandemic": "-19%",
+      "wage_growth": {
+        "indeed_wage_tracker_oct_2025": "5.3% annually (lowest since March 2022)",
+        "vs_euro_area": "Much stronger than euro area (2.4%) and US (2.4%)",
+        "private_sector_pay_growth": "Weakest since 2016 (outside pandemic)"
+      },
+      "headwinds": [
+        "Employer social security contribution increase",
+        "Minimum wage increase",
+        "Workers' rights bill uncertainty",
+        "Global tariff volatility"
+      ],
+      "ai_adoption": "Leads peer countries with 5.6% of postings mentioning AI",
+      "skills_gap": "58% of employers struggling to fill roles",
+      "lost_staff_better_offers": "24%",
+      "payroll_job_losses": "-64,000 in 2 months"
+    },
+    "european_union": {
+      "unemployment_rate": {
+        "eu_nov_2025": "6.0%",
+        "euro_area_nov_2025": "6.3%",
+        "trend": "Largely unchanged"
+      },
+      "employment_rate_change": "+0.3pp YoY (Q3 2025)",
+      "key_trends": {
+        "tech_talent_gap": "Demand for AI engineers, cloud experts, cybersecurity far outstrips supply",
+        "nearshoring": "Western firms expanding R&D into Poland, Romania, Czechia",
+        "pay_transparency": "EU Gender Pay Transparency Directive deadline June 7, 2026",
+        "career_changers": "Two-thirds of companies plan to hire career changers (StepStone)"
+      },
+      "ai_adoption": {
+        "fully_leveraging_2025": "13.5%",
+        "ceo_ready_to_invest": "56% (EMEA)"
+      }
+    },
+    "asia_pacific": {
+      "india": {
+        "naukri_index_dec_2025": "3,001 points (+13% YoY)",
+        "naukri_index_feb_2026": "3,233 points (+12% YoY)",
+        "fresher_hiring_yoy": "+17%",
+        "high_salary_band_growth": "+23% (20+ LPA)",
+        "top_sectors": "Insurance (+28%), BPO/ITES (+22%), Real Estate (+19%), AI-ML (+21%), Hospitality (+20%)",
+        "it_recovery_2026": "Meaningful recovery with AI momentum",
+        "office_days": "4.4 days/week average"
+      },
+      "australia": {
+        "unemployment": "4.2%",
+        "occupations_with_shortages": "29%",
+        "job_ads_trend": "Relatively stable, declining 0.2-0.3% YoY",
+        "applications_per_ad_yoy": "+16.4% (record high)",
+        "critical_demand": "Health, Education, Construction, Regional Trades",
+        "growing_states": "South Australia (+3.7%), Western Australia (+1.3%)",
+        "declining_states": "NSW, Victoria, ACT"
+      },
+      "singapore": {
+        "unemployment": "2.8% (stable)",
+        "year": "2025"
+      },
+      "japan": {
+        "outlook": "Tight labor market expected to remain in 2026",
+        "wage_growth": "Slowing with sectoral polarization"
+      },
+      "china": {
+        "youth_unemployment_mid_2025": "17.8% (urban)",
+        "office_days": "4.7 days/week average"
+      },
+      "southeast_asia": {
+        "trend": "Demand surging faster than talent supply",
+        "skills_gap": "Widening in tech, semiconductors, chemicals, digital manufacturing",
+        "salary_inflation": "Not expected to slow meaningfully in 2026",
+        "key_shift": "Skills-based hiring acceleration across Singapore, Malaysia, Philippines, Vietnam"
+      },
+      "south_korea": {
+        "office_days": "4.2 days/week average"
+      }
+    },
+    "middle_east_gcc": {
+      "overall": {
+        "unemployment_arab_states_2025": "9.5%",
+        "women_labor_participation_gcc": "39.5% (vs 86.7% men)",
+        "salary_growth_average_gcc": "3.2%",
+        "projected_new_private_jobs_by_2030": "5+ million",
+        "skills_gap": "45-75% of employers struggling to find qualified talent"
+      },
+      "uae": {
+        "net_employment_outlook": "+48% (global leader)",
+        "employers_planning_expansion": "56%",
+        "hiring_growth_q3_2025": "+3% QoQ",
+        "salary_growth": "4% (leading GCC)",
+        "top_sectors": "Transport/Logistics (+64%), Energy/Utilities (+62%), Consumer Goods (+60%)",
+        "key_trends": "Emiratisation, digital transformation, AI adoption"
+      },
+      "saudi_arabia": {
+        "net_employment_outlook": "+35%",
+        "hiring_growth_q3_2025": "+1.5% QoQ",
+        "ai_data_analytics_job_growth": "+30% H1 2025",
+        "key_drivers": "Vision 2030 megaprojects, Saudization policies",
+        "sectors": "Construction, Technology, Healthcare, Renewable Energy"
+      },
+      "qatar": {
+        "hiring_growth_q3_2025": "+0.5% QoQ",
+        "notes": "Stabilizing operations, LNG projects not yet generating significant workforce demand"
+      },
+      "oman": {
+        "hiring_growth_q3_2025": "+2% QoQ",
+        "key_sectors": "Renewables, Manufacturing, Industrial Development"
+      },
+      "bahrain": {
+        "hiring_growth_q3_2025": "+1% QoQ",
+        "key_sectors": "FinTech, Tourism"
+      },
+      "other_gcc": {
+        "outlook_range": "+20% to +28%",
+        "year": "2025"
+      }
+    },
+    "global": {
+      "unemployment_rate_2025": "4.9% (ILO projection, ~186 million people)",
+      "informal_employment_2025": "51.1%",
+      "youth_unemployment": "11.9% (3x adult rate of 4.3%)",
+      "trade_impact": "465 million workers worldwide supported by trade",
+      "global_wage_growth": "Above 3% worldwide (new post-pandemic standard)"
+    }
+  },
+  "salary_trends": {
+    "united_states": {
+      "overall": {
+        "salary_increase_budget_2025_actual": "3.7%",
+        "salary_increase_budget_2026_projected": "3.6%",
+        "salary_increase_budget_2024_actual": "3.9%",
+        "median_2025": "3.5%",
+        "compensation_costs_yoy": "+3.4% (Dec 2025)",
+        "real_wage_growth": "+0.7%",
+        "benefits_share_of_compensation": "~30%",
+        "source": "World at Work, BLS Employment Cost Index"
+      },
+      "by_industry": {
+        "technology": {
+          "base_pay_increase_2026": "3.5% (Payscale), 1.6% (Robert Half)",
+          "vs_2025": "-0.5% decrease in planned increases",
+          "overall_salary_growth": "+0.8% YoY",
+          "llm_developer_base": "$209,000",
+          "notes": "Generalist roles cooling, specialized AI/cybersecurity roles seeing sharp increases",
+          "economic_stability_concern": "66% of employers cited as reason for shrinking budget"
+        },
+        "healthcare": {
+          "trend": "Continued upward pressure due to shortages",
+          "strongest_hiring_sector": true,
+          "share_of_us_employment": "11%",
+          "share_of_net_job_growth_2025": "75%"
+        },
+        "construction_skilled_trades": {
+          "trend": "Strong upward wage pressure",
+          "employment_growth_2023_2033": "+4.7% (above average)",
+          "drivers": "Infrastructure spending, renewable energy, modernization",
+          "labor_shortages": "Pushing wages upward for licensed/certified professionals"
+        },
+        "manufacturing": {
+          "smart_manufacturing_investment": "80% of executives plan 20%+ of improvement budgets",
+          "trend": "Engineering and automation roles in high demand"
+        },
+        "retail": {
+          "wage_growth_yoy_dec_2025": "2.9% (outpacing food service)",
+          "year": "2025"
+        },
+        "finance_insurance": {
+          "trend": "Wage growth exceeds planned base-pay increases",
+          "hiring": "+1.4% (LinkedIn, defying slowdowns)"
+        }
+      },
+      "by_worker_type": {
+        "union_compensation_increase": "+4.0%",
+        "union_wage_increase": "+4.3%",
+        "non_union_compensation_increase": "+3.3%",
+        "non_union_wage_increase": "+3.3%"
+      }
+    },
+    "united_kingdom": {
+      "wage_growth_oct_2025": "5.3% annually",
+      "vs_euro_area": "Much stronger than 2.4%",
+      "private_sector_pay_growth": "Weakest since 2016 (outside pandemic)",
+      "year": "2025"
+    },
+    "gcc_middle_east": {
+      "average_salary_growth": "3.2%",
+      "uae_leading": "4%",
+      "trend": "Moderating but positive after post-pandemic surge (2022-2024)",
+      "year": "2025"
+    },
+    "global": {
+      "wage_growth_standard": "Above 3% worldwide",
+      "context": "New post-pandemic standard due to worldwide inflation",
+      "inflation_target": "Most countries haven't reached 2% target",
+      "year": "2025-2026"
+    }
+  },
+  "industry_specific_benchmarks": {
+    "healthcare": {
+      "hiring_strength": "Strongest sector in US (75% of net job growth)",
+      "recruitment_difficulty": "Highest CPA among all sectors",
+      "cpa_category": "Standing-up job (harder to fill, costlier)",
+      "icims_openings_yoy_dec_2025": "+8%",
+      "demand_drivers": "Aging population, chronic shortages",
+      "outlook": "Continued strong demand through 2026+"
+    },
+    "technology": {
+      "white_collar_recession": "Postings well below pre-pandemic",
+      "apply_rate": "6.41% (highest in 2024, Appcast)",
+      "recovery_signs": "Tech budgets thawing for AI and efficiency tools",
+      "salary_growth_moderation": "0.8% overall, but LLM developers at $209K",
+      "ai_roles_exception": "Growing rapidly with sharp salary increases"
+    },
+    "retail_hospitality": {
+      "cost_per_hire": "$2,700 (SHRM 2026)",
+      "cpa_category": "Standing-up job",
+      "retail_wage_growth": "2.9% YoY (Dec 2025)",
+      "ziprecruiter_entry_level_focus": "32% plan to hire more entry-level"
+    },
+    "construction_infrastructure": {
+      "employment_growth_2023_2033": "+4.7% (above all industries average)",
+      "drivers": "Infrastructure spending, renewable energy, modernization",
+      "wage_pressure": "Upward due to labor shortages",
+      "planned_pay_increase_vs_current_wage": "Higher than current (unlike most industries)"
+    },
+    "transportation_logistics": {
+      "icims_openings_yoy_dec_2025": "+12%",
+      "gcc_outlook": "+64% (highest in UAE)"
+    },
+    "manufacturing": {
+      "icims_openings_yoy_dec_2025": "+2%",
+      "smart_manufacturing_investment": "80% plan 20%+ of budgets",
+      "oman_growth": "Key sector driving hiring"
+    },
+    "financial_services": {
+      "linkedin_hiring_trend": "+1.4% (defying broader slowdowns)",
+      "gcc_growth": "UAE led by finance sector",
+      "technology_adoption": "76% AI adoption rate"
+    },
+    "government_utilities": {
+      "hiring_stability": "Stable despite general downturn (LinkedIn)",
+      "gcc_public_sector_growth": "+5%",
+      "act_australia_decline": "-20% in Government & Defence"
+    }
+  },
+  "recruitment_advertising_market": {
+    "market_size": {
+      "recruitment_ad_agency_2025": "$6.88 billion",
+      "recruitment_ad_agency_2026": "$7.44 billion",
+      "cagr": "8.1%",
+      "growth_drivers": "Online job portals, competition for skilled talent, corporate hiring volumes"
+    },
+    "major_players": [
+      "Recruitics LLC",
+      "Appcast Inc. (The Stepstone Group)",
+      "Radancy Inc.",
+      "Symphony Talent LLC",
+      "PandoLogic (Veritone Hire)",
+      "Joveo",
+      "Bayard Advertising"
+    ],
+    "programmatic_adoption_in_recruitment": {
+      "current_adoption": "15%",
+      "vs_display_marketing": "Widespread in display, nascent in recruitment",
+      "opportunity": "Massive growth potential"
+    },
+    "channel_effectiveness": {
+      "job_boards": {
+        "employer_reliance": "68.6% conduct most hiring here",
+        "candidate_reliance": "79.5%",
+        "strengths": "Volume, reach, established infrastructure",
+        "weaknesses": "Rising costs, quality concerns"
+      },
+      "social_media": {
+        "employer_usage": "43.5%",
+        "linkedin_candidate_usage": "54.9%",
+        "strengths": "Targeting, employer branding, passive candidates",
+        "weaknesses": "Higher CPC, noise"
+      },
+      "employee_referrals": {
+        "quality_multiplier": "4x vs job boards",
+        "speed": "55% faster hire",
+        "conversion": "1 referral = 40 cold applications",
+        "cost": "Typically program incentive costs only"
+      },
+      "career_sites": {
+        "employer_usage": "49.5%",
+        "candidate_usage": "45.0%",
+        "strengths": "Brand control, lower cost, owned channel",
+        "optimization_opportunity": "AI-powered personalization (Radancy focus)"
+      },
+      "search_engines": {
+        "google_ads_employment_cpc": "$2.04-$2.69",
+        "bing_ads_cpc": "$1.54 (40% lower than Google)",
+        "candidate_usage": "41.6% use search engines"
+      }
+    }
+  },
+  "workforce_planning_data": {
+    "labor_force_participation": {
+      "us_trend": "Declining in 2025",
+      "immigration_trend": "Declining, affecting construction, hospitality, caregiving, engineering"
+    },
+    "hiring_budget_outlook": {
+      "expect_budget_increase": "44% (Criteria 2024/2025)",
+      "expect_budget_same": "48%",
+      "employer_ai_investment_2026": "74% plan AI training/upskilling"
+    },
+    "quality_of_hire": {
+      "tracking_qoh_effectively": "Only 20-25% of organizations",
+      "linkedin_qoh_confidence": "25% feel highly confident",
+      "ai_potential": "61% believe AI can improve QoH measurement"
+    },
+    "candidate_experience": {
+      "personalization_expectation": "72% expect personalized communication",
+      "ghosting_concern": "Major theme in 2025 reports",
+      "transparency_in_ai": "Defining effective hiring in 2026"
+    }
+  },
+  "sources": [
+    {
+      "name": "Appcast 2025 Recruitment Marketing Benchmark Report",
+      "url": "https://www.appcast.io/2025-benchmark-report/",
+      "date": "2025-02",
+      "data_period": "2024",
+      "type": "Benchmark Report"
+    },
+    {
+      "name": "Appcast 2026 Recruitment Marketing Benchmark Report (10th Annual)",
+      "url": "https://www.prnewswire.com/news-releases/appcast-releases-10th-annual-recruitment-marketing-benchmark-report-with-new-candidate-disposition-and-global-hiring-data-302688064.html",
+      "date": "2026-02",
+      "data_period": "2025",
+      "type": "Benchmark Report"
+    },
+    {
+      "name": "Indeed 2026 US Jobs & Hiring Trends Report",
+      "url": "https://www.hiringlab.org/2025/11/20/indeed-2026-us-jobs-hiring-trends-report/",
+      "date": "2025-11",
+      "data_period": "2025-2026",
+      "type": "Market Report"
+    },
+    {
+      "name": "Indeed 2026 UK Jobs & Hiring Trends Report",
+      "url": "https://www.hiringlab.org/uk/blog/2025/12/09/indeed-2026-uk-jobs-hiring-trends-report/",
+      "date": "2025-12",
+      "data_period": "2025-2026",
+      "type": "Market Report"
+    },
+    {
+      "name": "Indeed Hiring Lab Global Reports 2026",
+      "url": "https://www.hiringlab.org/2026/01/15/hiring-labs-global-jobs-hiring-trends-reports-for-2026/",
+      "date": "2026-01",
+      "data_period": "2025-2026",
+      "type": "Market Report"
+    },
+    {
+      "name": "LinkedIn Future of Recruiting 2025",
+      "url": "https://business.linkedin.com/talent-solutions/resources/future-of-recruiting",
+      "date": "2025",
+      "data_period": "2025",
+      "type": "Industry Report"
+    },
+    {
+      "name": "LinkedIn Global Talent Trends",
+      "url": "https://business.linkedin.com/talent-solutions/global-talent-trends",
+      "date": "2025-2026",
+      "data_period": "2025-2026",
+      "type": "Industry Report"
+    },
+    {
+      "name": "LinkedIn 2026 Talent Report",
+      "url": "https://www.arffinancial.com/hiring-sentiment-in-2026-inside-linkedins-2026-talent-report/",
+      "date": "2026",
+      "data_period": "2026",
+      "type": "Industry Report"
+    },
+    {
+      "name": "iCIMS Monthly Workforce Reports 2025-2026",
+      "url": "https://www.icims.com/company/corporate-newsroom/research/",
+      "date": "2025-2026",
+      "data_period": "2025-2026",
+      "type": "Workforce Report"
+    },
+    {
+      "name": "Greenhouse 2025 Workforce & Hiring Report",
+      "url": "https://www.greenhouse.com/blog/greenhouse-2025-workforce-hiring-report",
+      "date": "2025",
+      "data_period": "2025",
+      "type": "Industry Report"
+    },
+    {
+      "name": "SmartRecruiters Global Recruiting Benchmarks 2026",
+      "url": "https://www.smartrecruiters.com/resources/landing/global-recruiting-benchmarks-2026/",
+      "date": "2026",
+      "data_period": "2025-2026",
+      "type": "Benchmark Report"
+    },
+    {
+      "name": "SHRM 2025 Recruiting Executives Benchmarking Report",
+      "url": "https://www.shrm.org/topics-tools/research/2025-recruiting-benchmarking",
+      "date": "2025",
+      "data_period": "2025",
+      "type": "Benchmark Report"
+    },
+    {
+      "name": "ZipRecruiter 2025 Annual Employer Survey",
+      "url": "https://www.ziprecruiter.com/blog/2025-employer-report/",
+      "date": "2025",
+      "data_period": "2025",
+      "type": "Employer Survey"
+    },
+    {
+      "name": "Glassdoor 2026 Worklife Trends Report",
+      "url": "https://www.bestuponrequest.com/blog/glassdoors-2026-workplace-trends-what-employers-need-to-know/",
+      "date": "2025-2026",
+      "data_period": "2025-2026",
+      "type": "Trends Report"
+    },
+    {
+      "name": "Monster 2026 WorkWatch Report",
+      "url": "https://www.monster.com/career-advice/job-search/news-and-insights/2026-workwatch-report",
+      "date": "2025-2026",
+      "data_period": "2025-2026",
+      "type": "Trends Report"
+    },
+    {
+      "name": "Monster 2026 Job Market Outlook",
+      "url": "https://www.monster.com/career-advice/job-search/news-and-insights/2026-job-market-outlook",
+      "date": "2026",
+      "data_period": "2025-2026",
+      "type": "Market Report"
+    },
+    {
+      "name": "Phenom Recruiting Trends 2025",
+      "url": "https://www.phenom.com/blog/recruiting-trends",
+      "date": "2025",
+      "data_period": "2025",
+      "type": "Industry Analysis"
+    },
+    {
+      "name": "Radancy Labor Market Trends 2026",
+      "url": "https://www.radancy.com/en/white-papers-and-guides/labor-market-trends-2026/",
+      "date": "2026",
+      "data_period": "2026",
+      "type": "White Paper"
+    },
+    {
+      "name": "Radancy HR Trends 2026",
+      "url": "https://blog.radancy.com/2025/11/20/hr-trends-2026-whats-next-in-people-strategy-technology-and-talent-management/",
+      "date": "2025-11",
+      "data_period": "2026",
+      "type": "Trends Report"
+    },
+    {
+      "name": "Joveo CPQA Guide 2025",
+      "url": "https://www.joveo.com/blog/cost-per-qualified-applicant-cpqa/",
+      "date": "2025",
+      "data_period": "2025",
+      "type": "Industry Guide"
+    },
+    {
+      "name": "Recruitics Talent Market Index",
+      "url": "https://www.recruitics.com/labor-market-index",
+      "date": "2025-2026",
+      "data_period": "2025-2026",
+      "type": "Market Index"
+    },
+    {
+      "name": "Naukri JobSpeak Monthly Reports",
+      "url": "https://www.naukri.com/blog/tag/naukri-jobspeak/",
+      "date": "2025-2026",
+      "data_period": "2025-2026",
+      "type": "Monthly Index"
+    },
+    {
+      "name": "SEEK Employment Dashboard",
+      "url": "https://talent.seek.com.au/market-insights/article/seek-employment-dashboard-june-2025",
+      "date": "2025",
+      "data_period": "2025",
+      "type": "Employment Dashboard"
+    },
+    {
+      "name": "Totaljobs Hiring Trends 2026",
+      "url": "https://www.totaljobs.com/recruiter-advice/hiring-people/hiring-trends-2026/",
+      "date": "2025-2026",
+      "data_period": "2025-2026",
+      "type": "Hiring Trends Report"
+    },
+    {
+      "name": "StepStone Salary Report 2026",
+      "url": "https://www.tradingview.com/news/eqs:152b94c20094b:0-stepstone-analysis-career-switching-job-security-and-ai-shape-the-labor-market-in-2026/",
+      "date": "2026",
+      "data_period": "2026",
+      "type": "Salary Report"
+    },
+    {
+      "name": "BLS Employment Cost Index December 2025",
+      "url": "https://www.bls.gov/news.release/pdf/eci.pdf",
+      "date": "2026-01",
+      "data_period": "2025",
+      "type": "Government Data"
+    },
+    {
+      "name": "Payscale 2025 Pay Trends Report",
+      "url": "https://www.payscale.com/featured-content/pay-trends-report",
+      "date": "2025",
+      "data_period": "2025",
+      "type": "Compensation Report"
+    },
+    {
+      "name": "Conference Board US Salary Increase Budgets 2025-2026",
+      "url": "https://www.conference-board.org/publications/US-salary-increase-budgets-2025-2026",
+      "date": "2025-2026",
+      "data_period": "2025-2026",
+      "type": "Compensation Report"
+    },
+    {
+      "name": "UK ONS Labour Market Overview February 2026",
+      "url": "https://www.ons.gov.uk/employmentandlabourmarket/peopleinwork/employmentandemployeetypes/bulletins/uklabourmarket/february2026",
+      "date": "2026-02",
+      "data_period": "2025-2026",
+      "type": "Government Data"
+    },
+    {
+      "name": "OECD Labour Market Situation January 2026",
+      "url": "https://www.oecd.org/en/data/insights/statistical-releases/2026/01/labour-market-situation-updated-january-2026.html",
+      "date": "2026-01",
+      "data_period": "2025",
+      "type": "Government Data"
+    },
+    {
+      "name": "ILO Employment and Social Trends 2026",
+      "url": "https://news.un.org/en/story/2026/01/1166751",
+      "date": "2026-01",
+      "data_period": "2025-2026",
+      "type": "International Report"
+    },
+    {
+      "name": "Cooper Fitch GCC Employment Index Q3 2025",
+      "url": "https://peopleconnectglobal.com/uae-gcc-hiring-outlook-2025-2026-a-research-driven-analysis/",
+      "date": "2025",
+      "data_period": "2025",
+      "type": "Regional Report"
+    },
+    {
+      "name": "Robert Half Remote Work Statistics 2026",
+      "url": "https://www.roberthalf.com/us/en/insights/research/remote-work-statistics-and-trends",
+      "date": "2026",
+      "data_period": "2025-2026",
+      "type": "Research Report"
+    },
+    {
+      "name": "Owl Labs State of Hybrid Work 2025",
+      "url": "https://owllabs.com/state-of-hybrid-work/2025",
+      "date": "2025",
+      "data_period": "2025",
+      "type": "Research Report"
+    },
+    {
+      "name": "iHire State of Online Recruiting 2025",
+      "url": "https://www.ihire.com/resourcecenter/employer/pages/the-state-of-online-recruiting-2025",
+      "date": "2025",
+      "data_period": "2025",
+      "type": "Industry Report"
+    },
+    {
+      "name": "TestGorilla State of Skills-Based Hiring 2025",
+      "url": "https://www.testgorilla.com/skills-based-hiring/state-of-skills-based-hiring-2025/",
+      "date": "2025",
+      "data_period": "2025",
+      "type": "Research Report"
+    },
+    {
+      "name": "DemandSage AI Recruitment Statistics 2026",
+      "url": "https://www.demandsage.com/ai-recruitment-statistics/",
+      "date": "2026",
+      "data_period": "2025-2026",
+      "type": "Statistics Compilation"
+    },
+    {
+      "name": "Rally Recruitment Marketing 2026 Recruiting Trends",
+      "url": "https://rallyrecruitmentmarketing.com/2026/01/recruiting-trends-2026-recruitment-marketing/",
+      "date": "2026-01",
+      "data_period": "2025-2026",
+      "type": "Industry Analysis"
+    },
+    {
+      "name": "Gartner Talent Management Trends 2026",
+      "url": "https://www.gartner.com/en/newsroom/press-releases/2025-10-29-gartner-identifies-four-trends-talent-management-leaders-should-prepare-for-in-2026",
+      "date": "2025-10",
+      "data_period": "2026",
+      "type": "Research Report"
+    },
+    {
+      "name": "Recruitment Advertising Agency Global Market Report 2026",
+      "url": "https://www.giiresearch.com/report/tbrc1960702-recruitment-advertising-agency-global-market.html",
+      "date": "2026",
+      "data_period": "2025-2026",
+      "type": "Market Report"
+    },
+    {
+      "name": "HR Dive - Cost-per-hire and CPA Report 2025",
+      "url": "https://www.hrdive.com/news/cost-per-hire-application-increase-2025-recruitment-appcast/812612/",
+      "date": "2025",
+      "data_period": "2025",
+      "type": "Industry News"
+    },
+    {
+      "name": "Indeed vs LinkedIn vs ZipRecruiter Pricing Comparison 2026",
+      "url": "https://pitchmeai.com/blog/indeed-vs-linkedin-vs-ziprecruiter-pricing-comparison",
+      "date": "2026",
+      "data_period": "2025-2026",
+      "type": "Comparison Guide"
+    }
+  ]
+}
