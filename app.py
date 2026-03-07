@@ -648,6 +648,91 @@ def generate_excel(data):
         elif isinstance(val, str):
             data[key] = [val]
 
+    # ── Input Standardization ──
+    # Properly format country names, city names, state names, and role titles
+    # regardless of how the user typed them in the frontend
+    _COUNTRY_CANONICAL = {
+        "us": "United States", "usa": "United States", "united states": "United States",
+        "united states of america": "United States", "u.s.": "United States", "u.s.a.": "United States",
+        "uk": "United Kingdom", "united kingdom": "United Kingdom", "great britain": "United Kingdom",
+        "uae": "United Arab Emirates", "united arab emirates": "United Arab Emirates",
+        "india": "India", "china": "China", "japan": "Japan", "germany": "Germany",
+        "france": "France", "canada": "Canada", "australia": "Australia", "brazil": "Brazil",
+        "mexico": "Mexico", "singapore": "Singapore", "ireland": "Ireland", "israel": "Israel",
+        "south korea": "South Korea", "netherlands": "Netherlands", "the netherlands": "Netherlands",
+        "switzerland": "Switzerland", "sweden": "Sweden", "spain": "Spain", "italy": "Italy",
+        "poland": "Poland", "philippines": "Philippines", "new zealand": "New Zealand",
+        "south africa": "South Africa", "saudi arabia": "Saudi Arabia", "hong kong": "Hong Kong",
+        "taiwan": "Taiwan", "indonesia": "Indonesia", "malaysia": "Malaysia", "thailand": "Thailand",
+        "vietnam": "Vietnam", "norway": "Norway", "denmark": "Denmark", "finland": "Finland",
+        "belgium": "Belgium", "austria": "Austria", "portugal": "Portugal", "czech republic": "Czech Republic",
+        "romania": "Romania", "colombia": "Colombia", "argentina": "Argentina", "chile": "Chile",
+        "peru": "Peru", "egypt": "Egypt", "nigeria": "Nigeria", "kenya": "Kenya", "pakistan": "Pakistan",
+        "bangladesh": "Bangladesh", "sri lanka": "Sri Lanka", "costa rica": "Costa Rica",
+    }
+    _US_STATES_CANONICAL = {
+        "ca": "California", "california": "California", "ny": "New York", "new york": "New York",
+        "tx": "Texas", "texas": "Texas", "fl": "Florida", "florida": "Florida",
+        "il": "Illinois", "illinois": "Illinois", "pa": "Pennsylvania", "pennsylvania": "Pennsylvania",
+        "oh": "Ohio", "ohio": "Ohio", "ga": "Georgia", "georgia": "Georgia",
+        "nc": "North Carolina", "north carolina": "North Carolina", "mi": "Michigan", "michigan": "Michigan",
+        "nj": "New Jersey", "new jersey": "New Jersey", "va": "Virginia", "virginia": "Virginia",
+        "wa": "Washington", "washington": "Washington", "az": "Arizona", "arizona": "Arizona",
+        "ma": "Massachusetts", "massachusetts": "Massachusetts", "tn": "Tennessee", "tennessee": "Tennessee",
+        "in": "Indiana", "indiana": "Indiana", "mo": "Missouri", "missouri": "Missouri",
+        "md": "Maryland", "maryland": "Maryland", "wi": "Wisconsin", "wisconsin": "Wisconsin",
+        "co": "Colorado", "colorado": "Colorado", "mn": "Minnesota", "minnesota": "Minnesota",
+        "sc": "South Carolina", "south carolina": "South Carolina", "al": "Alabama", "alabama": "Alabama",
+        "la": "Louisiana", "louisiana": "Louisiana", "ky": "Kentucky", "kentucky": "Kentucky",
+        "or": "Oregon", "oregon": "Oregon", "ok": "Oklahoma", "oklahoma": "Oklahoma",
+        "ct": "Connecticut", "connecticut": "Connecticut", "ut": "Utah", "utah": "Utah",
+        "ia": "Iowa", "iowa": "Iowa", "nv": "Nevada", "nevada": "Nevada",
+        "ar": "Arkansas", "arkansas": "Arkansas", "ms": "Mississippi", "mississippi": "Mississippi",
+        "ks": "Kansas", "kansas": "Kansas", "nm": "New Mexico", "new mexico": "New Mexico",
+        "ne": "Nebraska", "nebraska": "Nebraska", "id": "Idaho", "idaho": "Idaho",
+        "wv": "West Virginia", "west virginia": "West Virginia", "hi": "Hawaii", "hawaii": "Hawaii",
+        "nh": "New Hampshire", "new hampshire": "New Hampshire", "me": "Maine", "maine": "Maine",
+        "mt": "Montana", "montana": "Montana", "ri": "Rhode Island", "rhode island": "Rhode Island",
+        "de": "Delaware", "delaware": "Delaware", "sd": "South Dakota", "south dakota": "South Dakota",
+        "nd": "North Dakota", "north dakota": "North Dakota", "ak": "Alaska", "alaska": "Alaska",
+        "vt": "Vermont", "vermont": "Vermont", "wy": "Wyoming", "wyoming": "Wyoming",
+        "dc": "Washington, D.C.", "washington dc": "Washington, D.C.", "washington d.c.": "Washington, D.C.",
+    }
+
+    def _standardize_location(loc_str):
+        """Standardize a location string: proper casing for city, state, country."""
+        if not isinstance(loc_str, str) or not loc_str.strip():
+            return loc_str
+        parts = [p.strip() for p in loc_str.split(",")]
+        standardized = []
+        for i, part in enumerate(parts):
+            lower = part.lower().strip()
+            # Check if it's a known country
+            if lower in _COUNTRY_CANONICAL:
+                standardized.append(_COUNTRY_CANONICAL[lower])
+            # Check if it's a known US state
+            elif lower in _US_STATES_CANONICAL:
+                standardized.append(_US_STATES_CANONICAL[lower])
+            else:
+                # Title case for cities and unknown parts
+                standardized.append(part.strip().title())
+        return ", ".join(standardized)
+
+    # Standardize locations
+    if isinstance(data.get("locations"), list):
+        data["locations"] = [_standardize_location(loc) if isinstance(loc, str) else loc for loc in data["locations"]]
+    # Standardize role titles (title case)
+    for role_key in ("target_roles", "roles"):
+        if isinstance(data.get(role_key), list):
+            data[role_key] = [
+                r.strip().title() if isinstance(r, str) else r
+                for r in data[role_key]
+            ]
+    # Standardize company name (title case if all lower/upper)
+    _cn = data.get("client_name", "")
+    if isinstance(_cn, str) and (_cn == _cn.lower() or _cn == _cn.upper()) and len(_cn) > 3:
+        data["client_name"] = _cn.title()
+
     db = load_channels_db()
     joveo_pubs = load_joveo_publishers()
     gs = global_supply_data  # global supply reference
@@ -5877,8 +5962,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     _DEFAULT_ALLOC_BA = {"programmatic_dsp": 35, "global_boards": 20, "niche_boards": 15, "social_media": 12, "regional_boards": 8, "employer_branding": 5, "apac_regional": 3, "emea_regional": 2}
                     channel_pcts = _INDUSTRY_ALLOC_BA.get(_ind_key_ba, _DEFAULT_ALLOC_BA)
 
-                    # Parse budget to float — handles "$50,000", "50000", "50K", "1.5M", "500k USD" etc.
-                    _bstr_ba = str(data.get("budget", "") or "").strip()
+                    # Parse budget to float — check both "budget" and "budget_range" keys
+                    # Frontend sends budget_range (e.g. "$250,000 - $500,000", "< $50,000")
+                    _bstr_ba = str(data.get("budget", "") or data.get("budget_range", "") or "").strip()
+                    if not _bstr_ba:
+                        _bstr_ba = str(data.get("budget_range", "") or "").strip()
                     _bval_ba = 0.0
                     try:
                         _clean_ba = _bstr_ba.replace(",", "").replace("$", "").replace("USD", "").replace("usd", "").strip()
@@ -5889,12 +5977,34 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             _suffix = _km_match.group(2).upper()
                             _bval_ba = _num_part * {"K": 1_000, "M": 1_000_000, "B": 1_000_000_000}[_suffix]
                         else:
-                            # Extract first number (integer or decimal)
-                            _bnums_ba = re.findall(r'[\d]+\.?\d*', _clean_ba)
-                            _bval_ba = float(_bnums_ba[0]) if _bnums_ba else 0.0
+                            # Extract ALL numbers ≥ 1000 (filter out small noise like "3" from "3 months")
+                            _bnums_ba = re.findall(r'[\d]+', _clean_ba)
+                            _parsed_nums = [int(n) for n in _bnums_ba if int(n) >= 1000]
+                            if len(_parsed_nums) >= 2:
+                                # Range like "$250,000 - $500,000" → use midpoint
+                                _bval_ba = (_parsed_nums[0] + _parsed_nums[1]) / 2.0
+                            elif len(_parsed_nums) == 1:
+                                _bval_ba = float(_parsed_nums[0])
+                            elif _bnums_ba:
+                                # Fallback: take the largest number found
+                                _bval_ba = float(max(_bnums_ba, key=lambda x: int(x)))
+                            # Handle text-based budget values
+                            if _bval_ba == 0:
+                                _lower = _clean_ba.lower()
+                                if "million" in _lower or "1m" in _lower:
+                                    _bval_ba = 1_000_000
+                                elif "500k" in _lower:
+                                    _bval_ba = 500_000
+                                elif "250k" in _lower:
+                                    _bval_ba = 250_000
+                                elif "100k" in _lower:
+                                    _bval_ba = 100_000
                     except (ValueError, IndexError):
                         _bval_ba = 0.0
-                    print(f"Budget allocation: parsed budget '{_bstr_ba}' → ${_bval_ba:,.2f}", file=sys.stderr)
+                    # Final fallback: if budget still 0 but we know there's a budget string, use 100K default
+                    if _bval_ba <= 0 and _bstr_ba:
+                        _bval_ba = 100_000.0
+                    print(f"Budget allocation: parsed '{_bstr_ba}' → ${_bval_ba:,.2f}", file=sys.stderr)
 
                     # Build role dicts from string list
                     _roles_raw = data.get("target_roles") or data.get("roles", [])

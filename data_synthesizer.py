@@ -544,6 +544,102 @@ def fuse_salary_intelligence(
                         salary_points.append((midpoint, _weight_for_source(jooble_src), jooble_src))
                         break  # Use first location with salary data
 
+        # --- Fallback: Use knowledge base benchmarks if no API data ---
+        if not salary_points:
+            kb_benchmarks = kb.get("benchmarks", {}) if isinstance(kb, dict) else {}
+            # Try industry-specific salary from KB
+            industry_salaries = kb_benchmarks.get("salary_ranges", kb_benchmarks.get("compensation", {}))
+
+            # Hardcoded fallback salary ranges by common role keywords
+            _FALLBACK_SALARIES = {
+                "software": {"median": 130000, "min": 90000, "p25": 110000, "p75": 155000, "max": 200000},
+                "engineer": {"median": 120000, "min": 80000, "p25": 100000, "p75": 145000, "max": 190000},
+                "data scientist": {"median": 135000, "min": 95000, "p25": 115000, "p75": 160000, "max": 210000},
+                "data": {"median": 120000, "min": 80000, "p25": 100000, "p75": 145000, "max": 185000},
+                "product manager": {"median": 140000, "min": 100000, "p25": 120000, "p75": 165000, "max": 220000},
+                "product": {"median": 130000, "min": 90000, "p25": 110000, "p75": 155000, "max": 200000},
+                "designer": {"median": 110000, "min": 70000, "p25": 90000, "p75": 135000, "max": 170000},
+                "ux": {"median": 115000, "min": 75000, "p25": 95000, "p75": 140000, "max": 175000},
+                "devops": {"median": 135000, "min": 95000, "p25": 115000, "p75": 160000, "max": 200000},
+                "marketing": {"median": 85000, "min": 55000, "p25": 70000, "p75": 105000, "max": 140000},
+                "sales": {"median": 90000, "min": 50000, "p25": 70000, "p75": 115000, "max": 160000},
+                "hr": {"median": 75000, "min": 50000, "p25": 62000, "p75": 92000, "max": 120000},
+                "analyst": {"median": 85000, "min": 55000, "p25": 70000, "p75": 105000, "max": 140000},
+                "manager": {"median": 105000, "min": 70000, "p25": 85000, "p75": 130000, "max": 170000},
+                "director": {"median": 155000, "min": 110000, "p25": 130000, "p75": 180000, "max": 250000},
+                "nurse": {"median": 82000, "min": 58000, "p25": 70000, "p75": 98000, "max": 120000},
+                "driver": {"median": 52000, "min": 38000, "p25": 45000, "p75": 62000, "max": 78000},
+                "warehouse": {"median": 42000, "min": 32000, "p25": 37000, "p75": 50000, "max": 60000},
+                "mechanic": {"median": 52000, "min": 36000, "p25": 44000, "p75": 62000, "max": 75000},
+                "electrician": {"median": 60000, "min": 42000, "p25": 50000, "p75": 72000, "max": 90000},
+                "accountant": {"median": 78000, "min": 52000, "p25": 65000, "p75": 95000, "max": 125000},
+                "teacher": {"median": 62000, "min": 42000, "p25": 52000, "p75": 75000, "max": 95000},
+                "construction": {"median": 55000, "min": 38000, "p25": 46000, "p75": 68000, "max": 85000},
+            }
+            role_lower = role.lower()
+            for keyword, sal_data in _FALLBACK_SALARIES.items():
+                if keyword in role_lower:
+                    salary_points.append((sal_data["median"], 0.3, "Industry Benchmark"))
+                    break
+            else:
+                # Generic professional fallback
+                salary_points.append((85000, 0.2, "General Benchmark"))
+
+        # If only fallback data, use the full fallback structure with percentiles
+        if len(salary_points) == 1 and salary_points[0][2] in ("Industry Benchmark", "General Benchmark"):
+            _FALLBACK_SALARIES_FULL = {
+                "software": {"median": 130000, "min": 90000, "p25": 110000, "p75": 155000, "max": 200000},
+                "engineer": {"median": 120000, "min": 80000, "p25": 100000, "p75": 145000, "max": 190000},
+                "data scientist": {"median": 135000, "min": 95000, "p25": 115000, "p75": 160000, "max": 210000},
+                "data": {"median": 120000, "min": 80000, "p25": 100000, "p75": 145000, "max": 185000},
+                "product manager": {"median": 140000, "min": 100000, "p25": 120000, "p75": 165000, "max": 220000},
+                "product": {"median": 130000, "min": 90000, "p25": 110000, "p75": 155000, "max": 200000},
+                "designer": {"median": 110000, "min": 70000, "p25": 90000, "p75": 135000, "max": 170000},
+                "ux": {"median": 115000, "min": 75000, "p25": 95000, "p75": 140000, "max": 175000},
+                "devops": {"median": 135000, "min": 95000, "p25": 115000, "p75": 160000, "max": 200000},
+                "marketing": {"median": 85000, "min": 55000, "p25": 70000, "p75": 105000, "max": 140000},
+                "sales": {"median": 90000, "min": 50000, "p25": 70000, "p75": 115000, "max": 160000},
+                "hr": {"median": 75000, "min": 50000, "p25": 62000, "p75": 92000, "max": 120000},
+                "analyst": {"median": 85000, "min": 55000, "p25": 70000, "p75": 105000, "max": 140000},
+                "manager": {"median": 105000, "min": 70000, "p25": 85000, "p75": 130000, "max": 170000},
+                "director": {"median": 155000, "min": 110000, "p25": 130000, "p75": 180000, "max": 250000},
+                "nurse": {"median": 82000, "min": 58000, "p25": 70000, "p75": 98000, "max": 120000},
+                "driver": {"median": 52000, "min": 38000, "p25": 45000, "p75": 62000, "max": 78000},
+                "warehouse": {"median": 42000, "min": 32000, "p25": 37000, "p75": 50000, "max": 60000},
+                "mechanic": {"median": 52000, "min": 36000, "p25": 44000, "p75": 62000, "max": 75000},
+                "electrician": {"median": 60000, "min": 42000, "p25": 50000, "p75": 72000, "max": 90000},
+                "accountant": {"median": 78000, "min": 52000, "p25": 65000, "p75": 95000, "max": 125000},
+                "teacher": {"median": 62000, "min": 42000, "p25": 52000, "p75": 75000, "max": 95000},
+                "construction": {"median": 55000, "min": 38000, "p25": 46000, "p75": 68000, "max": 85000},
+            }
+            role_lower = role.lower()
+            for keyword, sal_data in _FALLBACK_SALARIES_FULL.items():
+                if keyword in role_lower:
+                    result[role] = {
+                        "median": sal_data["median"],
+                        "mean": sal_data["median"],
+                        "min": sal_data["min"],
+                        "max": sal_data["max"],
+                        "p10": sal_data["min"],
+                        "p25": sal_data["p25"],
+                        "p75": sal_data["p75"],
+                        "p90": sal_data["max"],
+                        "sources": ["Industry Benchmark"],
+                        "outlier_flags": [],
+                        "kb_validation": {"validated": False, "deviation": 0.0, "flag": "fallback_data"},
+                        "_meta": {"source_count": 1, "kb_validated": False},
+                    }
+                    break
+            else:
+                result[role] = {
+                    "median": 85000, "mean": 85000, "min": 55000, "max": 140000,
+                    "p10": 55000, "p25": 68000, "p75": 105000, "p90": 140000,
+                    "sources": ["General Benchmark"], "outlier_flags": [],
+                    "kb_validation": {"validated": False, "deviation": 0.0, "flag": "fallback_data"},
+                    "_meta": {"source_count": 1, "kb_validated": False},
+                }
+            continue
+
         # --- Synthesize ---
         if not salary_points:
             result[role] = _empty_salary_result(role)
@@ -736,17 +832,64 @@ def fuse_job_market_demand(
 
         talent_pool = _parse_audience_number(audience_str)
 
+        # --- Fallback demand data when APIs return nothing ---
+        if total_postings == 0 and search_volume == 0 and talent_pool == 0:
+            _FALLBACK_DEMAND = {
+                "software": {"job_postings": 150000, "search_interest": "High", "talent_pool": 2500000, "competition_index": 7.2, "trend": "Growing (+8% YoY)"},
+                "engineer": {"job_postings": 200000, "search_interest": "High", "talent_pool": 3000000, "competition_index": 6.8, "trend": "Growing (+6% YoY)"},
+                "data scientist": {"job_postings": 45000, "search_interest": "Very High", "talent_pool": 800000, "competition_index": 8.5, "trend": "Growing (+15% YoY)"},
+                "data": {"job_postings": 120000, "search_interest": "High", "talent_pool": 2000000, "competition_index": 7.0, "trend": "Growing (+10% YoY)"},
+                "product manager": {"job_postings": 60000, "search_interest": "High", "talent_pool": 900000, "competition_index": 7.5, "trend": "Growing (+5% YoY)"},
+                "product": {"job_postings": 80000, "search_interest": "High", "talent_pool": 1200000, "competition_index": 6.5, "trend": "Growing (+5% YoY)"},
+                "designer": {"job_postings": 55000, "search_interest": "Medium", "talent_pool": 1100000, "competition_index": 5.8, "trend": "Stable (+2% YoY)"},
+                "ux": {"job_postings": 40000, "search_interest": "High", "talent_pool": 700000, "competition_index": 6.5, "trend": "Growing (+7% YoY)"},
+                "devops": {"job_postings": 50000, "search_interest": "High", "talent_pool": 600000, "competition_index": 8.0, "trend": "Growing (+12% YoY)"},
+                "marketing": {"job_postings": 100000, "search_interest": "Medium", "talent_pool": 2500000, "competition_index": 4.5, "trend": "Stable (+1% YoY)"},
+                "sales": {"job_postings": 180000, "search_interest": "Medium", "talent_pool": 4000000, "competition_index": 4.0, "trend": "Stable (+1% YoY)"},
+                "hr": {"job_postings": 60000, "search_interest": "Medium", "talent_pool": 1500000, "competition_index": 4.2, "trend": "Stable (+2% YoY)"},
+                "analyst": {"job_postings": 90000, "search_interest": "High", "talent_pool": 1800000, "competition_index": 5.5, "trend": "Growing (+6% YoY)"},
+                "manager": {"job_postings": 250000, "search_interest": "High", "talent_pool": 5000000, "competition_index": 5.0, "trend": "Stable (+2% YoY)"},
+                "director": {"job_postings": 40000, "search_interest": "Medium", "talent_pool": 800000, "competition_index": 5.5, "trend": "Stable (+1% YoY)"},
+                "nurse": {"job_postings": 200000, "search_interest": "Very High", "talent_pool": 4000000, "competition_index": 9.0, "trend": "Growing (+12% YoY)"},
+                "driver": {"job_postings": 300000, "search_interest": "High", "talent_pool": 3500000, "competition_index": 8.5, "trend": "Growing (+10% YoY)"},
+                "warehouse": {"job_postings": 250000, "search_interest": "High", "talent_pool": 3000000, "competition_index": 7.5, "trend": "Growing (+8% YoY)"},
+                "mechanic": {"job_postings": 80000, "search_interest": "Medium", "talent_pool": 1200000, "competition_index": 6.0, "trend": "Stable (+3% YoY)"},
+                "electrician": {"job_postings": 70000, "search_interest": "High", "talent_pool": 900000, "competition_index": 7.5, "trend": "Growing (+6% YoY)"},
+                "accountant": {"job_postings": 85000, "search_interest": "Medium", "talent_pool": 1800000, "competition_index": 4.8, "trend": "Stable (+2% YoY)"},
+                "teacher": {"job_postings": 120000, "search_interest": "Medium", "talent_pool": 3500000, "competition_index": 3.5, "trend": "Stable (+1% YoY)"},
+                "construction": {"job_postings": 180000, "search_interest": "High", "talent_pool": 2500000, "competition_index": 7.0, "trend": "Growing (+5% YoY)"},
+            }
+            role_lower = role.lower()
+            fallback_demand = None
+            for keyword, fb_data in _FALLBACK_DEMAND.items():
+                if keyword in role_lower:
+                    fallback_demand = fb_data
+                    break
+            if fallback_demand is None:
+                # Generic professional fallback
+                fallback_demand = {"job_postings": 75000, "search_interest": "Medium", "talent_pool": 1500000, "competition_index": 5.0, "trend": "Stable (+2% YoY)"}
+
+            total_postings = fallback_demand["job_postings"]
+            search_volume = total_postings // 10  # Estimate monthly search volume
+            talent_pool = fallback_demand["talent_pool"]
+            competition_index = fallback_demand["competition_index"] / 100.0  # Normalize
+            posting_volumes = [(total_postings, "Industry Benchmark")]
+            posting_source_count = 1
+            trend_dir = fallback_demand["trend"]
+
         # --- Competition index ---
-        competition_index = 0.0
-        if talent_pool > 0 and total_postings > 0:
-            competition_index = round(total_postings / talent_pool, 4)
-        elif total_postings > 5000:
-            competition_index = 2.5  # Estimated high
-        elif total_postings > 1000:
-            competition_index = 1.0
+        _used_fallback = any(s == "Industry Benchmark" for _, s in posting_volumes)
+        if not _used_fallback:
+            competition_index = 0.0
+            if talent_pool > 0 and total_postings > 0:
+                competition_index = round(total_postings / talent_pool, 4)
+            elif total_postings > 5000:
+                competition_index = 2.5  # Estimated high
+            elif total_postings > 1000:
+                competition_index = 1.0
+            trend_dir = _trend_direction(trend_values) if trend_values else "stable"
 
         temperature = _market_temperature(competition_index * 100)
-        trend_dir = _trend_direction(trend_values) if trend_values else "stable"
 
         # Source counting
         source_count = posting_source_count
@@ -1162,10 +1305,76 @@ def fuse_ad_platform_analysis(
         budget=budget,
     )
 
+    # --- Fallback: Industry benchmark data for major ad platforms ---
+    # Check if all platforms returned empty/zero data
+    _all_empty = all(
+        isinstance(result.get(pk), dict) and result[pk].get("avg_cpc", 0) == 0
+        and result[pk].get("avg_cpm", 0) == 0 and result[pk].get("avg_cpa", 0) == 0
+        for pk in ("google", "meta", "bing", "tiktok", "linkedin")
+        if pk in result
+    )
+    if _all_empty:
+        _PLATFORM_BENCHMARKS = {
+            "Google Ads": {"cpc": 2.69, "cpm": 3.12, "cpa": 48.96, "audience_reach": "5.6B+ monthly searches", "daily_budget_range": "$50 - $500", "best_for": "Active job seekers, high intent"},
+            "Meta (Facebook/Instagram)": {"cpc": 1.72, "cpm": 7.19, "cpa": 18.68, "audience_reach": "3.0B+ monthly active users", "daily_budget_range": "$20 - $300", "best_for": "Passive candidates, employer branding"},
+            "LinkedIn Ads": {"cpc": 5.26, "cpm": 6.59, "cpa": 56.08, "audience_reach": "1.0B+ professionals", "daily_budget_range": "$50 - $1,000", "best_for": "Professional/white-collar roles, B2B"},
+            "TikTok Ads": {"cpc": 1.00, "cpm": 10.00, "cpa": 20.00, "audience_reach": "1.5B+ monthly active users", "daily_budget_range": "$20 - $200", "best_for": "Gen-Z talent, hourly/retail roles"},
+            "Microsoft/Bing Ads": {"cpc": 1.54, "cpm": 2.00, "cpa": 41.44, "audience_reach": "1.0B+ monthly searches", "daily_budget_range": "$30 - $300", "best_for": "Professional candidates, desktop users"},
+            "Snapchat Ads": {"cpc": 1.30, "cpm": 2.95, "cpa": 22.00, "audience_reach": "750M+ monthly active users", "daily_budget_range": "$20 - $150", "best_for": "Young hourly workforce, retail/hospitality"},
+            "X (Twitter) Ads": {"cpc": 1.35, "cpm": 6.46, "cpa": 28.00, "audience_reach": "500M+ monthly active users", "daily_budget_range": "$30 - $200", "best_for": "Tech talent, thought leadership"},
+            "Programmatic Display (DSP)": {"cpc": 0.63, "cpm": 2.80, "cpa": 15.00, "audience_reach": "Billions of impressions across open web", "daily_budget_range": "$100 - $2,000", "best_for": "Scale hiring, retargeting, geo-targeting"},
+            "Roku/CTV Advertising": {"cpc": 0.00, "cpm": 25.00, "cpa": 45.00, "audience_reach": "80M+ US households", "daily_budget_range": "$200 - $5,000", "best_for": "Employer branding, mass-market roles"},
+            "Spotify Audio Ads": {"cpc": 0.00, "cpm": 15.00, "cpa": 35.00, "audience_reach": "600M+ monthly active users", "daily_budget_range": "$50 - $500", "best_for": "Brand awareness, commuter audience"},
+            "Reddit Ads": {"cpc": 0.75, "cpm": 3.50, "cpa": 25.00, "audience_reach": "1.7B+ monthly active users", "daily_budget_range": "$20 - $200", "best_for": "Tech/engineering communities, niche targeting"},
+            "Indeed Sponsored Jobs": {"cpc": 0.50, "cpm": 0.00, "cpa": 22.00, "audience_reach": "350M+ monthly unique visitors", "daily_budget_range": "$30 - $500", "best_for": "Direct applicants, all industries"},
+            "ZipRecruiter Sponsored": {"cpc": 1.50, "cpm": 0.00, "cpa": 28.00, "audience_reach": "25M+ monthly active job seekers", "daily_budget_range": "$16 - $300", "best_for": "SMB hiring, quick fills"},
+        }
+
+        # Industry-specific platform fit scores
+        _INDUSTRY_PLATFORM_FIT = {
+            "tech_engineering": {"LinkedIn Ads": 9, "Google Ads": 8, "Reddit Ads": 7, "Meta (Facebook/Instagram)": 6, "X (Twitter) Ads": 7, "Programmatic Display (DSP)": 8},
+            "healthcare_medical": {"Indeed Sponsored Jobs": 9, "Google Ads": 8, "Meta (Facebook/Instagram)": 7, "LinkedIn Ads": 6, "Programmatic Display (DSP)": 8},
+            "retail_consumer": {"Meta (Facebook/Instagram)": 9, "TikTok Ads": 8, "Snapchat Ads": 7, "Google Ads": 7, "Programmatic Display (DSP)": 8},
+            "finance_banking": {"LinkedIn Ads": 9, "Google Ads": 8, "Microsoft/Bing Ads": 7, "Meta (Facebook/Instagram)": 6, "Programmatic Display (DSP)": 7},
+            "blue_collar_trades": {"Indeed Sponsored Jobs": 9, "Meta (Facebook/Instagram)": 8, "Google Ads": 7, "TikTok Ads": 6, "Programmatic Display (DSP)": 8},
+            "hospitality_travel": {"Indeed Sponsored Jobs": 9, "Meta (Facebook/Instagram)": 8, "TikTok Ads": 8, "Snapchat Ads": 7, "Programmatic Display (DSP)": 7},
+        }
+        industry_fit = _INDUSTRY_PLATFORM_FIT.get(industry, {})
+
+        # Replace result with comprehensive benchmark-based platform data
+        result = {}
+        for pname, pdata in _PLATFORM_BENCHMARKS.items():
+            fit_score = industry_fit.get(pname, 5)  # default fit = 5
+            roi_proj = round(10 - (pdata["cpa"] / 10), 1) if pdata["cpa"] > 0 else 5.0
+            roi_proj = max(1.0, min(10.0, roi_proj))
+            platform_key = pname.lower().replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_")
+            result[platform_key] = {
+                "platform_name": pname,
+                "source": "Industry Benchmark (2024-2025)",
+                "avg_cpc": pdata["cpc"],
+                "avg_cpm": pdata["cpm"],
+                "avg_cpa": pdata["cpa"],
+                "total_monthly_searches": 0,
+                "estimated_reach": 0,
+                "audience_reach": pdata["audience_reach"],
+                "fit_score": fit_score / 10.0,  # Normalize to 0-1 scale
+                "roi_projection": roi_proj,
+                "roi_projection_applications": round(budget / pdata["cpa"], 0) if pdata["cpa"] > 0 and budget > 0 else 0.0,
+                "daily_budget_range": pdata["daily_budget_range"],
+                "best_for": pdata["best_for"],
+                "cpc_kb_validation": {},
+                "recommended_daily_budget": {
+                    "min": round(pdata["cpc"] * 10, 2) if pdata["cpc"] > 0 else 20.0,
+                    "max": round(pdata["cpc"] * 50, 2) if pdata["cpc"] > 0 else 100.0,
+                },
+                "platform_summary": {},
+                "_meta": {"source_count": 1, "kb_validated": False, "fallback": True},
+            }
+
     # --- Platform ranking ---
     rankings: List[Tuple[str, float]] = []
     for platform_key, platform_data in result.items():
-        if isinstance(platform_data, dict):
+        if isinstance(platform_data, dict) and not platform_key.startswith("_"):
             composite = (
                 platform_data.get("fit_score", 0) * 0.4
                 + (1.0 - min(platform_data.get("avg_cpc", 5.0) / 10.0, 1.0)) * 0.3

@@ -141,6 +141,7 @@ class JoveoIQ:
             "channels_db": "channels_db.json",
             "joveo_publishers": "joveo_publishers.json",
             "knowledge_base": "recruitment_industry_knowledge.json",
+            "linkedin_guidewire": "linkedin_guidewire_data.json",
         }
         for key, filename in data_files.items():
             filepath = DATA_DIR / filename
@@ -205,6 +206,12 @@ You have access to the following proprietary data through tools:
 6. **Salary Intelligence**: Role-specific compensation data from BLS, O*NET, and commercial sources
 
 7. **Market Demand Signals**: Job posting volumes, growth trends, and competitive intelligence
+
+8. **LinkedIn Hiring Intelligence (Guidewire Case Study)**: Comprehensive hiring value review
+   - Influenced hire rates, skill density analysis, AI-assisted recruiter workflows
+   - Peer benchmarks: Stripe, GitLab, Coinbase, NerdWallet, Qualtrics, TCS, Sabre, Robinhood, Talkdesk
+   - LinkedIn product adoption: Recruiter, InMail, Hiring Manager tools
+   - Use as a reference for tech company hiring performance benchmarks
 
 ## RESPONSE GUIDELINES
 
@@ -417,6 +424,25 @@ You have access to the following proprietary data through tools:
                     "required": []
                 }
             },
+            {
+                "name": "query_linkedin_guidewire",
+                "description": "Access LinkedIn Hiring Value Review data for Guidewire Software. Contains hiring performance metrics, influenced hire data, skill density analysis, recruiter efficiency benchmarks, peer company comparisons (Stripe, GitLab, Coinbase, etc.), and LinkedIn product adoption rates. Use for questions about Guidewire hiring, LinkedIn ROI, or tech company hiring benchmarks.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "section": {
+                            "type": "string",
+                            "enum": ["executive_summary", "hiring_performance", "hire_efficiency", "all"],
+                            "description": "Which section of the LinkedIn review to query"
+                        },
+                        "metric": {
+                            "type": "string",
+                            "description": "Specific metric to look up (e.g., 'influenced_hires', 'skill_density', 'inmail_response_rate')"
+                        }
+                    },
+                    "required": []
+                }
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -435,6 +461,7 @@ You have access to the following proprietary data through tools:
             "query_budget_projection": self._query_budget_projection,
             "query_location_profile": self._query_location_profile,
             "query_ad_platform": self._query_ad_platform,
+            "query_linkedin_guidewire": self._query_linkedin_guidewire,
         }
         handler = handlers.get(tool_name)
         if not handler:
@@ -983,6 +1010,60 @@ You have access to the following proprietary data through tools:
 
         return result
 
+    def _query_linkedin_guidewire(self, params: dict) -> str:
+        """Query LinkedIn Hiring Value Review data for Guidewire Software."""
+        gw_data = self._data_cache.get("linkedin_guidewire", {})
+        if not gw_data:
+            return "LinkedIn Guidewire data not available."
+
+        section = params.get("section", "all")
+        metric = params.get("metric", "")
+        result = ""
+
+        if section == "executive_summary" or section == "all":
+            exec_sum = gw_data.get("executive_summary", {})
+            result = f"**Guidewire LinkedIn Hiring Review**\n"
+            result += f"Headline: {exec_sum.get('headline', 'N/A')}\n"
+            result += f"Context: {exec_sum.get('context', 'N/A')}\n\n"
+            for theme in exec_sum.get("key_themes", []):
+                result += f"**{theme.get('theme', '')}**\n"
+                for pt in theme.get("points", []):
+                    result += f"- {pt}\n"
+                result += "\n"
+            if section == "executive_summary":
+                return result
+
+        if section == "hiring_performance" or section == "all":
+            # Return hiring performance data
+            hp = gw_data.get("hiring_performance", gw_data.get("hiring_performance_l12m", {}))
+            if isinstance(hp, dict):
+                result_hp = "**Hiring Performance (L12M)**\n"
+                for key, val in hp.items():
+                    if isinstance(val, dict):
+                        result_hp += f"\n**{key.replace('_', ' ').title()}**:\n"
+                        for k2, v2 in val.items():
+                            result_hp += f"  - {k2}: {v2}\n"
+                    else:
+                        result_hp += f"- {key}: {val}\n"
+                if section == "hiring_performance":
+                    return result_hp
+                result += result_hp
+
+        if section == "hire_efficiency" or section == "all":
+            he = gw_data.get("hire_efficiency", {})
+            if isinstance(he, dict):
+                result_he = "**Hire Efficiency**\n"
+                for key, val in he.items():
+                    if isinstance(val, dict):
+                        result_he += f"\n**{key.replace('_', ' ').title()}**:\n"
+                        for k2, v2 in val.items():
+                            result_he += f"  - {k2}: {v2}\n"
+                    else:
+                        result_he += f"- {key}: {val}\n"
+                result += result_he
+
+        return result if result else json.dumps(gw_data, indent=2)[:3000]
+
     # ------------------------------------------------------------------
     # Chat orchestration
     # ------------------------------------------------------------------
@@ -1165,6 +1246,29 @@ You have access to the following proprietary data through tools:
                 "confidence": 1.0,
                 "tools_used": [],
             }
+
+        # ── Guidewire / LinkedIn hiring data ──
+        if any(kw in msg_lower for kw in ["guidewire", "linkedin hiring", "influenced hire", "skill density", "inmail"]):
+            gw_data = self._data_cache.get("linkedin_guidewire", {})
+            if gw_data:
+                exec_sum = gw_data.get("executive_summary", {})
+                response_parts = [f"**Guidewire Software — LinkedIn Hiring Intelligence**\n"]
+                response_parts.append(f"{exec_sum.get('headline', '')}\n")
+                for theme in exec_sum.get("key_themes", [])[:3]:
+                    response_parts.append(f"\n**{theme.get('theme', '')}**")
+                    for pt in theme.get("points", [])[:3]:
+                        response_parts.append(f"- {pt}")
+
+                # Add peer comparison if available
+                peers = gw_data.get("document_metadata", {}).get("peer_companies", [])
+                if peers:
+                    response_parts.append(f"\n**Peer Companies**: {', '.join(peers)}")
+
+                return {
+                    "response": "\n".join(response_parts),
+                    "sources": ["LinkedIn Hiring Value Review for Guidewire Software (Jan 2025 - Dec 2025)"],
+                    "confidence": 0.95,
+                }
 
         # ── Publisher / Job Board questions ──
         if is_publisher_question or (detected_country and not is_benchmark_question and not is_budget_question):
