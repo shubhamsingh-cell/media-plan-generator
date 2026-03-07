@@ -4933,7 +4933,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             # Sanitize client_name to ASCII-safe characters (prevents CJK/Unicode crashes in filenames/headers)
             client_name = _re.sub(r'[^a-zA-Z0-9_\-]', '_', data.get("client_name") or "Client")
 
-            # Generate McKinsey PPT
+            # Generate Strategy PPT deck
             pptx_bytes = None
             if generate_pptx is not None:
                 try:
@@ -4952,7 +4952,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 zip_buffer = io.BytesIO()
                 with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
                     zf.writestr(f"{client_name}_Media_Plan.xlsx", excel_bytes)
-                    zf.writestr(f"{client_name}_McKinsey_Deck.pptx", pptx_bytes)
+                    zf.writestr(f"{client_name}_Strategy_Deck.pptx", pptx_bytes)
                 zip_bytes = zip_buffer.getvalue()
 
                 # Save a copy for the document repository
