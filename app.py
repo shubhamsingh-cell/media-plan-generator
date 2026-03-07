@@ -2778,7 +2778,18 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
-            excel_bytes = generate_excel(data)
+            try:
+                excel_bytes = generate_excel(data)
+            except Exception as e:
+                import traceback
+                tb = traceback.format_exc()
+                print(f"Excel generation error: {tb}", file=sys.stderr)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": f"Excel generation failed: {str(e)}"}).encode())
+                return
+
             client_name = data.get("client_name", "Client").replace(" ", "_")
 
             # Generate McKinsey PPT
