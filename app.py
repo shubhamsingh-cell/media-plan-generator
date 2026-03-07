@@ -703,14 +703,14 @@ def generate_excel(data):
     )
     accent_fill = PatternFill(start_color="E8F0FE", end_color="E8F0FE", fill_type="solid")
 
-    # ── LinkedIn-inspired color palette ──
+    # ── Joveo-inspired color palette ──
     NAVY = "1B2A4A"
     BLUE = "0A66C9"
     MEDIUM_BLUE = "004082"
     LIGHT_BLUE = "D1E8FF"
-    GOLD = "7C3AED"
-    LIGHT_GOLD = "A78BFA"
-    PALE_GOLD = "EDE9FE"
+    GOLD = "0A66C9"          # Joveo blue (accent)
+    LIGHT_GOLD = "5BA3E6"    # Light Joveo blue
+    PALE_GOLD = "E8F0FE"     # Pale Joveo blue
     OFF_WHITE = "F2F2F0"
     WARM_GRAY = "EBE6E0"
     GREEN_GOOD = "2E7D32"
@@ -1174,43 +1174,17 @@ def generate_excel(data):
         ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
         exec_row += 2
 
-    # ── Data Quality & Budget Summary (Phase 5 enhancements) ──
-    _exec_synth = data.get("_synthesized", {})
+    # ── Budget Summary (Phase 5 enhancements) ──
     _exec_budget = data.get("_budget_allocation", {})
-    _exec_conf = _exec_synth.get("confidence_scores", {}) if isinstance(_exec_synth, dict) else {}
 
-    # Data Quality Grade
-    _exec_overall_conf = _exec_conf.get("overall", _exec_conf.get("overall_score", 0)) if isinstance(_exec_conf, dict) else 0
-    if isinstance(_exec_overall_conf, (int, float)) and _exec_overall_conf > 0:
-        if _exec_overall_conf >= 0.9:
-            _exec_grade = "A"
-        elif _exec_overall_conf >= 0.8:
-            _exec_grade = "B"
-        elif _exec_overall_conf >= 0.7:
-            _exec_grade = "C"
-        elif _exec_overall_conf >= 0.5:
-            _exec_grade = "D"
-        else:
-            _exec_grade = "F"
-        _exec_grade_color = "2E7D32" if _exec_grade in ("A", "B") else "F57C00" if _exec_grade == "C" else "C62828"
-
-        style_section_header(ws_exec, exec_row, 2, 7, "Data Quality Assessment")
-        exec_row += 1
-        ws_exec.merge_cells(f"B{exec_row}:C{exec_row}")
-        _dq_cell = ws_exec.cell(row=exec_row, column=2, value=f"  Data Quality Grade: {_exec_grade} ({_exec_overall_conf:.0%})")
-        _dq_cell.font = Font(name="Calibri", bold=True, size=12, color=_exec_grade_color)
-        ws_exec.merge_cells(f"D{exec_row}:G{exec_row}")
-        ws_exec.cell(row=exec_row, column=4, value="Based on API response rates, source coverage, and cross-validation of data points across 25 data sources.").font = Font(name="Calibri", italic=True, size=9, color="596780")
-        exec_row += 2
-
-    # Budget Allocation Summary
+    # Budget Allocation Summary — only show if we have meaningful data (clicks > 0 or hires > 0)
     _exec_total_proj = _exec_budget.get("total_projected", {}) if isinstance(_exec_budget, dict) else {}
-    if isinstance(_exec_total_proj, dict) and _exec_total_proj:
-        _exec_proj_hires = _exec_total_proj.get("hires", 0)
-        _exec_proj_cph = _exec_total_proj.get("cost_per_hire", 0)
-        _exec_proj_clicks = _exec_total_proj.get("clicks", 0)
-        _exec_proj_apps = _exec_total_proj.get("applications", 0)
-
+    _exec_proj_hires = _exec_total_proj.get("hires", 0) if isinstance(_exec_total_proj, dict) else 0
+    _exec_proj_cph = _exec_total_proj.get("cost_per_hire", 0) if isinstance(_exec_total_proj, dict) else 0
+    _exec_proj_clicks = _exec_total_proj.get("clicks", 0) if isinstance(_exec_total_proj, dict) else 0
+    _exec_proj_apps = _exec_total_proj.get("applications", 0) if isinstance(_exec_total_proj, dict) else 0
+    _has_budget_data = any(isinstance(v, (int, float)) and v > 0 for v in [_exec_proj_hires, _exec_proj_clicks, _exec_proj_apps])
+    if _has_budget_data:
         style_section_header(ws_exec, exec_row, 2, 7, "Budget Allocation Summary")
         exec_row += 1
 
@@ -2107,7 +2081,7 @@ def generate_excel(data):
     if ch_cats2.get("global_boards", True):
         channel_allocations.append(("Global Job Boards", _ap["global_boards"], "Indeed, ZipRecruiter, Glassdoor — broad reach; consistent applicant flow", "#1B6B3A", "High"))
     if ch_cats2.get("niche_boards", True):
-        channel_allocations.append(("Niche & Industry Boards", _ap["niche_boards"], _niche_d, "#7030A0", "Medium-High"))
+        channel_allocations.append(("Niche & Industry Boards", _ap["niche_boards"], _niche_d, "#0A66C9", "Medium-High"))
     if ch_cats2.get("social_media", True):
         channel_allocations.append(("Social Media Channels", _ap["social_media"], _social_d, "#ED7D31", "Medium"))
     if ch_cats2.get("regional_boards", True):
@@ -2218,7 +2192,7 @@ def generate_excel(data):
     eb_metrics = [
         ("1.7x", "Higher Outreach Acceptance", "Candidates exposed to employer branding are 1.7x more likely to accept recruiter InMails and respond to outreach messages.", "#2E75B6"),
         ("5.9x", "Higher Conversion to Hire", "Brand-engaged applicants are 5.9x more likely to convert from application to hire compared to non-engaged candidates.", "#00B050"),
-        ("2.2x", "Faster Promotion Rate", "Employer brand-influenced hires show 2.2x higher promotion rates, indicating better role fit and long-term alignment.", "#7030A0"),
+        ("2.2x", "Faster Promotion Rate", "Employer brand-influenced hires show 2.2x higher promotion rates, indicating better role fit and long-term alignment.", "#0A66C9"),
         ("1.4x", "Higher Demand Talent", "Brand-influenced hires are 1.4x more likely to be in-demand candidates (higher InMail volume), signaling you're attracting competitive talent.", "#ED7D31"),
         ("82%", "First-Year Retention", "Brand-engaged hires show stronger first-year retention rates, reducing costly early-stage turnover and rehiring costs.", "#1B6B3A"),
     ]
@@ -2959,7 +2933,7 @@ def generate_excel(data):
             _end_idx = min(_niche_idx + 3, len(_niche_channels_for_industry))
             _niche_slice = _niche_channels_for_industry[_niche_idx:_end_idx]
             style_body_cell(ws_strategy, row, 6, ", ".join(_niche_slice))
-            ws_strategy.cell(row=row, column=6).font = Font(name="Calibri", size=10, color="7030A0")
+            ws_strategy.cell(row=row, column=6).font = Font(name="Calibri", size=10, color="0A66C9")
             _niche_idx = _end_idx
 
     # ── Industry-Specific Niche Channel Recommendations ──
@@ -2974,14 +2948,14 @@ def generate_excel(data):
     for i, h in enumerate(_niche_rec_headers):
         cell = ws_strategy.cell(row=row, column=2 + i, value=h)
         cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
-        cell.fill = PatternFill(start_color="7030A0", end_color="7030A0", fill_type="solid")
+        cell.fill = PatternFill(start_color="0A66C9", end_color="0A66C9", fill_type="solid")
         cell.alignment = center_alignment
         cell.border = thin_border
     row += 1
 
     for _nch in _niche_channels_for_industry:
         style_body_cell(ws_strategy, row, 2, _nch)
-        ws_strategy.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10, color="7030A0")
+        ws_strategy.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10, color="0A66C9")
         style_body_cell(ws_strategy, row, 3, "Niche / Specialized Board")
         style_body_cell(ws_strategy, row, 4, f"Specialized {data.get('industry_label', industry.replace('_', ' ').title())} talent")
         row += 1
@@ -3409,7 +3383,7 @@ def generate_excel(data):
     # ── Sheet 7: DEI & Diversity Channels (optional) ──
     if data.get("include_dei"):
         ws_dei = wb.create_sheet("DEI & Diversity Channels")
-        ws_dei.sheet_properties.tabColor = "7030A0"
+        ws_dei.sheet_properties.tabColor = "0A66C9"
         ws_dei.column_dimensions["A"].width = 5
         ws_dei.column_dimensions["B"].width = 30
         ws_dei.column_dimensions["C"].width = 35
@@ -3916,7 +3890,7 @@ def generate_excel(data):
                 ("Primary Channels (Joveo Supply)", rec_ch.get("primary", []), "00B050"),
                 ("Secondary Channels", rec_ch.get("secondary", []), "4472C4"),
                 ("Social & Paid Media", rec_ch.get("social", []), "ED7D31"),
-                ("Niche / Specialized", rec_ch.get("niche", []), "7030A0"),
+                ("Niche / Specialized", rec_ch.get("niche", []), "0A66C9"),
             ]
             ch_headers = ["Category", "Channels", "Strategy Notes", "Data Source"]
             for i, h in enumerate(ch_headers):
@@ -4848,7 +4822,7 @@ def generate_excel(data):
             "trade_publications": ("📰 TRADE PUBLICATIONS & JOURNALS", "2E75B6"),
             "digital_media": ("💻 DIGITAL MEDIA PLATFORMS", "1B6B3A"),
             "ooh_print": ("🏗️ OUT-OF-HOME & PRINT", "ED7D31"),
-            "broadcast_audio": ("🎙️ BROADCAST & AUDIO", "7030A0"),
+            "broadcast_audio": ("🎙️ BROADCAST & AUDIO", "0A66C9"),
             "specialty": ("⭐ SPECIALTY & EMERGING", "FFC000"),
         }
 
@@ -5349,10 +5323,8 @@ def generate_excel(data):
                 ws_ba.cell(row=ba_row, column=2, value=f"  {ridx + 1}. {rec_text}").font = Font(name="Calibri", size=10, color="333333")
                 ba_row += 1
 
-    # ── Sheet: Data Confidence ──
-    _conf_scores = _synth.get("confidence_scores", {})
-    _data_quality = _synth.get("data_quality", {})
-    if isinstance(_conf_scores, dict) and _conf_scores:
+    # ── Sheet: Data Confidence (removed — internal metric, not client-facing) ──
+    if False:  # disabled per user request
         ws_conf = wb.create_sheet("Data Confidence")
         ws_conf.sheet_properties.tabColor = "F57C00"
         ws_conf.column_dimensions["A"].width = 3
@@ -5905,13 +5877,24 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     _DEFAULT_ALLOC_BA = {"programmatic_dsp": 35, "global_boards": 20, "niche_boards": 15, "social_media": 12, "regional_boards": 8, "employer_branding": 5, "apac_regional": 3, "emea_regional": 2}
                     channel_pcts = _INDUSTRY_ALLOC_BA.get(_ind_key_ba, _DEFAULT_ALLOC_BA)
 
-                    # Parse budget to float
-                    _bstr_ba = str(data.get("budget", "") or "")
+                    # Parse budget to float — handles "$50,000", "50000", "50K", "1.5M", "500k USD" etc.
+                    _bstr_ba = str(data.get("budget", "") or "").strip()
+                    _bval_ba = 0.0
                     try:
-                        _bnums_ba = re.findall(r'[\d]+', _bstr_ba.replace(",", "").replace("$", "").strip())
-                        _bval_ba = float(_bnums_ba[0]) if _bnums_ba else 0.0
+                        _clean_ba = _bstr_ba.replace(",", "").replace("$", "").replace("USD", "").replace("usd", "").strip()
+                        # Handle K/M/B suffixes: "50K" → 50000, "1.5M" → 1500000
+                        _km_match = re.match(r'^([\d.]+)\s*([KkMmBb])', _clean_ba)
+                        if _km_match:
+                            _num_part = float(_km_match.group(1))
+                            _suffix = _km_match.group(2).upper()
+                            _bval_ba = _num_part * {"K": 1_000, "M": 1_000_000, "B": 1_000_000_000}[_suffix]
+                        else:
+                            # Extract first number (integer or decimal)
+                            _bnums_ba = re.findall(r'[\d]+\.?\d*', _clean_ba)
+                            _bval_ba = float(_bnums_ba[0]) if _bnums_ba else 0.0
                     except (ValueError, IndexError):
                         _bval_ba = 0.0
+                    print(f"Budget allocation: parsed budget '{_bstr_ba}' → ${_bval_ba:,.2f}", file=sys.stderr)
 
                     # Build role dicts from string list
                     _roles_raw = data.get("target_roles") or data.get("roles", [])
