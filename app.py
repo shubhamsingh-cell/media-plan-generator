@@ -1004,9 +1004,18 @@ def generate_excel(data):
         ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
         _total_emp = industry_emp.get('total_employed', 'N/A')
         _total_emp_str = f"{_total_emp:,}" if isinstance(_total_emp, (int, float)) else str(_total_emp)
-        _avg_wage = industry_emp.get('avg_wage', 0)
+        _avg_wage = industry_emp.get('avg_annual_wage') or industry_emp.get('avg_wage', 0)
         _avg_wage_str = f"${_avg_wage:,.0f}" if isinstance(_avg_wage, (int, float)) else str(_avg_wage)
-        ws_exec.cell(row=exec_row, column=2, value=f"Live Data: {industry_emp.get('sector_name', 'Industry')} — {_total_emp_str} employed, Avg wage {_avg_wage_str}, Growth {industry_emp.get('growth_rate', 'N/A')} ({industry_emp.get('source', 'DataUSA')})").font = Font(name="Calibri", size=10, bold=True, color="2E7D32")
+        _estabs = industry_emp.get('establishments', '')
+        _estabs_str = f", {_estabs:,} establishments" if isinstance(_estabs, (int, float)) and _estabs else ""
+        ws_exec.cell(row=exec_row, column=2, value=f"Live Data: {industry_emp.get('sector_name', 'Industry')} — {_total_emp_str} employed, Avg annual wage {_avg_wage_str}{_estabs_str} ({industry_emp.get('source', 'BLS QCEW')})").font = Font(name="Calibri", size=10, bold=True, color="2E7D32")
+        exec_row += 1
+
+    # SEC EDGAR data — public company status
+    sec_data = enriched.get("sec_data")
+    if sec_data and sec_data.get("is_public"):
+        ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+        ws_exec.cell(row=exec_row, column=2, value=f"Public Company: {sec_data.get('company_name', '')} (Ticker: {sec_data.get('ticker', 'N/A')}) — Source: SEC EDGAR").font = Font(name="Calibri", size=10, bold=True, color="1565C0")
         exec_row += 1
 
     exec_row += 1
@@ -2586,7 +2595,7 @@ def generate_excel(data):
         style_section_header(ws_labour, lm_row, 2, 7, "Real-Time Salary Benchmarks (BLS)")
         lm_row += 1
         # Headers
-        for ci, hdr in enumerate(["Role", "Median Salary", "10th %ile", "90th %ile", "Source"], start=2):
+        for ci, hdr in enumerate(["Role", "Mean / Median Salary", "10th %ile", "90th %ile", "Source"], start=2):
             c = ws_labour.cell(row=lm_row, column=ci, value=hdr)
             c.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
             c.fill = PatternFill(start_color="1B2A4A", end_color="1B2A4A", fill_type="solid")
@@ -2594,8 +2603,10 @@ def generate_excel(data):
         lm_row += 1
         for role_name, sdata in salary_data.items():
             ws_labour.cell(row=lm_row, column=2, value=role_name).font = body_font
-            _med = sdata.get('median', 0)
-            ws_labour.cell(row=lm_row, column=3, value=f"${_med:,.0f}" if isinstance(_med, (int, float)) else str(_med)).font = Font(name="Calibri", size=10, bold=True, color="2E7D32")
+            # Show median if available, otherwise mean
+            _med = sdata.get('median') or sdata.get('mean', 0)
+            _label = "Median" if sdata.get('median') else "Mean"
+            ws_labour.cell(row=lm_row, column=3, value=f"${_med:,.0f} ({_label})" if isinstance(_med, (int, float)) else str(_med)).font = Font(name="Calibri", size=10, bold=True, color="2E7D32")
             _p10 = sdata.get('p10', 0)
             ws_labour.cell(row=lm_row, column=4, value=f"${_p10:,.0f}" if isinstance(_p10, (int, float)) else str(_p10)).font = body_font
             _p90 = sdata.get('p90', 0)
@@ -2626,8 +2637,8 @@ def generate_excel(data):
             # Show the geographic level (city, metro, state/country) so users know what the population number represents
             geo_level = ldata.get("geo_level", "Unknown")
             ws_labour.cell(row=lm_row, column=5, value=geo_level).font = body_font
-            # Show the actual place name DataUSA matched to
-            matched_place = ldata.get("matched_place", "")
+            # Show the matched place name (from Census ACS state_name, or WorldBank country)
+            matched_place = ldata.get("matched_place", "") or ldata.get("state_name", "") or ldata.get("country", "")
             ws_labour.cell(row=lm_row, column=6, value=matched_place).font = body_font
             ws_labour.cell(row=lm_row, column=7, value=ldata.get("source", "")).font = Font(name="Calibri", italic=True, size=9, color="596780")
             for ci in range(2, 8):

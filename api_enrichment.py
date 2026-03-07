@@ -6,13 +6,18 @@ salary benchmarks, industry employment stats, location demographics, global
 economic indicators, job market data, company information, and competitor logos.
 
 Integrated APIs:
-    1. BLS (Bureau of Labor Statistics) — Salary & employment data
-    2. Data USA — Industry stats, demographics, education
-    3. World Bank Open Data — Global economic indicators
-    4. Clearbit Logo API — Company & competitor logos
-    5. Adzuna Job Search — Job postings & salary data (optional, needs keys)
-    6. Open Exchange Rates — Currency conversion (hardcoded fallback)
-    7. Wikipedia REST API — Company descriptions
+    1. BLS OES (Bureau of Labor Statistics) — Salary data (v1 free / v2 with key)
+    2. BLS QCEW — Industry employment & wage statistics (free, no key)
+    3. US Census ACS — Location demographics: population, income (free, no key)
+    4. World Bank Open Data — Global economic indicators (free, no key)
+    5. Clearbit Logo + Google Favicons — Company & competitor logos (free)
+    6. Adzuna Job Search — Job postings & salary data (optional, needs keys)
+    7. Currency Rates — Exchange rates (hardcoded fallback)
+    8. Wikipedia REST API — Company descriptions (free, no key)
+    9. Clearbit Autocomplete — Company metadata & domain lookup (free, no key)
+   10. SEC EDGAR — Public company ticker/CIK/filing data (free, no key)
+   11. FRED (Federal Reserve) — US economic indicators (free key required)
+   12. Google Trends — Search interest data (requires pytrends package)
 
 All API calls:
     - Use only urllib.request (stdlib, no third-party dependencies)
@@ -56,7 +61,7 @@ from typing import Any, Dict, List, Optional
 
 API_TIMEOUT = 5  # seconds per HTTP call
 CACHE_TTL = 86400  # 24 hours in seconds
-MAX_WORKERS = 4
+MAX_WORKERS = 6
 CACHE_DIR = Path(__file__).resolve().parent / "data" / "api_cache"
 
 # Ensure cache directory exists at import time
@@ -522,26 +527,52 @@ def _fetch_bls_salary(role: str, soc_code: str) -> Optional[Dict[str, Any]]:
     # Strip the dash for the series ID
     soc_clean = soc_code.replace("-", "")
 
-    # OES national series IDs for annual wages:
-    #   Median (code 13), 10th pct (code 11), 90th pct (code 17)
-    series_median = f"OEUN000000000000000{soc_clean}A13"
-    series_p10 = f"OEUN000000000000000{soc_clean}A11"
-    series_p90 = f"OEUN000000000000000{soc_clean}A17"
+    # OES national series ID format (25 chars total):
+    #   OEUN (prefix=OE, seasonal=U, areatype=N)
+    #   + area(7) = 0000000 (national)
+    #   + industry(6) = 000000 (all industries)
+    #   + occupation(6) = {soc_clean}
+    #   + datatype(2) = 04 (mean), 13 (median), etc.
+    # Correct: OEUN + 0000000 + 000000 + XXXXXX + XX = 4+7+6+6+2 = 25 chars
+    # Datatype codes: 01=employment, 04=annual mean wage,
+    #   11=annual 10th pct, 13=annual median, 15=annual 90th pct
+    series_mean = f"OEUN0000000000000{soc_clean}04"    # annual mean wage
+    series_median = f"OEUN0000000000000{soc_clean}13"  # annual median wage
+    series_p10 = f"OEUN0000000000000{soc_clean}11"     # annual 10th pct
+    series_p90 = f"OEUN0000000000000{soc_clean}15"     # annual 90th pct
 
     api_key = os.environ.get("BLS_API_KEY", "")
-    url = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
 
-    payload: Dict[str, Any] = {
-        "seriesid": [series_median, series_p10, series_p90],
-        "startyear": "2023",
-        "endyear": "2025",
-    }
+    # Try v2 first (higher limits, 500/day with key), then fall back to v1
+    # (25 queries/day, no key needed).
+    endpoints: List[tuple] = []
     if api_key:
-        payload["registrationkey"] = api_key
+        endpoints.append(("v2", "https://api.bls.gov/publicAPI/v2/timeseries/data/"))
+    endpoints.append(("v1", "https://api.bls.gov/publicAPI/v1/timeseries/data/"))
 
-    resp = _http_post_json(url, payload)
-    if not resp or resp.get("status") != "REQUEST_SUCCEEDED":
-        _log_warn(f"BLS request failed for SOC {soc_code}")
+    resp = None
+    for version, url in endpoints:
+        payload: Dict[str, Any] = {
+            "seriesid": [series_mean, series_median, series_p10, series_p90],
+            "startyear": "2023",
+            "endyear": "2025",
+        }
+        if version == "v2" and api_key:
+            payload["registrationkey"] = api_key
+
+        resp = _http_post_json(url, payload, timeout=8)
+        if resp and resp.get("status") == "REQUEST_SUCCEEDED":
+            _log_info(f"BLS {version} request succeeded for SOC {soc_code}")
+            break
+        else:
+            msg = ""
+            if resp:
+                msg = str(resp.get("message", ""))
+            _log_warn(f"BLS {version} failed for SOC {soc_code}: {msg}")
+            resp = None
+
+    if not resp:
+        _log_warn(f"BLS request failed on all endpoints for SOC {soc_code}")
         return None
 
     result: Dict[str, Any] = {"source": "BLS OES"}
@@ -555,18 +586,22 @@ def _fetch_bls_salary(role: str, soc_code: str) -> Optional[Dict[str, Any]]:
         # Take the most recent value
         latest = data_points[0]
         try:
-            value = float(latest.get("value", "0").replace(",", ""))
+            val_str = str(latest.get("value", "0"))
+            value = float(val_str.replace(",", ""))
         except (ValueError, TypeError):
             continue
 
-        if sid == series_median:
+        if sid == series_mean:
+            result["mean"] = int(value)
+        elif sid == series_median:
             result["median"] = int(value)
         elif sid == series_p10:
             result["p10"] = int(value)
         elif sid == series_p90:
             result["p90"] = int(value)
 
-    if "median" in result:
+    # Accept result if we got at least mean or median
+    if "median" in result or "mean" in result:
         _set_cached(cache_k, result)
         return result
 
@@ -601,132 +636,240 @@ def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# API 2: Data USA
+# API 2: BLS QCEW (Quarterly Census of Employment & Wages)
+#   Replaces the defunct DataUSA API for industry employment stats
 # ---------------------------------------------------------------------------
+
+# US state name-to-FIPS mapping for Census/QCEW
+US_STATE_FIPS: Dict[str, str] = {
+    "AL": "01", "AK": "02", "AZ": "04", "AR": "05", "CA": "06", "CO": "08",
+    "CT": "09", "DE": "10", "FL": "12", "GA": "13", "HI": "15", "ID": "16",
+    "IL": "17", "IN": "18", "IA": "19", "KS": "20", "KY": "21", "LA": "22",
+    "ME": "23", "MD": "24", "MA": "25", "MI": "26", "MN": "27", "MS": "28",
+    "MO": "29", "MT": "30", "NE": "31", "NV": "32", "NH": "33", "NJ": "34",
+    "NM": "35", "NY": "36", "NC": "37", "ND": "38", "OH": "39", "OK": "40",
+    "OR": "41", "PA": "42", "RI": "44", "SC": "45", "SD": "46", "TN": "47",
+    "TX": "48", "UT": "49", "VT": "50", "VA": "51", "WA": "53", "WV": "54",
+    "WI": "55", "WY": "56", "DC": "11",
+}
+
+
+def _http_get_text(url: str, timeout: int = API_TIMEOUT) -> Optional[str]:
+    """Perform HTTP GET and return raw text, or None on failure."""
+    req = urllib.request.Request(url, method="GET")
+    req.add_header("User-Agent", "AIMediaPlanner/1.0")
+    for ctx in (_DEFAULT_SSL_CTX, _UNVERIFIED_SSL_CTX):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                return resp.read().decode("utf-8")
+        except ssl.SSLError:
+            continue
+        except Exception as exc:
+            _log_warn(f"HTTP GET text failed for {url}: {exc}")
+            return None
+    return None
+
 
 def fetch_industry_employment(industry: str) -> Optional[Dict[str, Any]]:
     """
-    Fetch industry-level employment stats from Data USA.
+    Fetch industry-level employment stats from BLS QCEW API.
+    Returns employment count, average wages, and establishment count
+    for the given industry's NAICS sector nationally.
     """
-    cache_k = _cache_key("datausa_industry", industry)
+    cache_k = _cache_key("qcew_industry", industry)
     cached = _get_cached(cache_k)
     if cached is not None:
         return cached
 
-    # Build request
-    params = urllib.parse.urlencode({
-        "drilldowns": "PUMS Industry",
-        "measures": "Total Population,Average Wage",
-        "limit": "5",
-    })
-    url = f"https://datausa.io/api/data?{params}"
-    resp = _http_get_json(url)
+    # Map industry to NAICS code
+    industry_lower = industry.lower().replace(" ", "_")
+    naics = NAICS_CODES.get(industry_lower)
+    if not naics:
+        # Try partial matching
+        for key, code in NAICS_CODES.items():
+            if key in industry_lower or industry_lower in key:
+                naics = code
+                break
+    if not naics:
+        naics = "10"  # All industries fallback
 
-    if not resp or "data" not in resp:
-        _log_warn(f"DataUSA industry request failed for: {industry}")
-        return None
+    # BLS QCEW API — national level, most recent year
+    # Format: https://data.bls.gov/cew/data/api/{year}/{qtr}/industry/{naics}.csv
+    result: Dict[str, Any] = {"source": "BLS QCEW"}
 
-    records = resp["data"]
-    if not records:
-        return None
+    for year in ["2024", "2023"]:
+        for qtr in ["a", "1"]:  # 'a' = annual, '1' = Q1
+            url = f"https://data.bls.gov/cew/data/api/{year}/{qtr}/industry/{naics}.csv"
+            try:
+                raw = _http_get_text(url, timeout=8)
+                if not raw or "area_fips" not in raw:
+                    continue
 
-    # Try to find a matching industry record
-    industry_lower = industry.lower().replace("_", " ")
-    best_match = None
-    for rec in records:
-        ind_name = rec.get("PUMS Industry", "").lower()
-        if industry_lower in ind_name or ind_name in industry_lower:
-            best_match = rec
-            break
+                # Parse CSV — find the US national row (area_fips = US000 or "US000")
+                lines = raw.strip().split("\n")
+                if len(lines) < 2:
+                    continue
 
-    # Fall back to first record if no match
-    if not best_match:
-        best_match = records[0]
+                headers = [h.strip().strip('"') for h in lines[0].split(",")]
+                for line in lines[1:]:
+                    cols = [c.strip().strip('"') for c in line.split(",")]
+                    if len(cols) < len(headers):
+                        continue
+                    row = dict(zip(headers, cols))
 
-    result = {
-        "total_employed": best_match.get("Total Population"),
-        "avg_wage": best_match.get("Average Wage"),
-        "sector_name": best_match.get("PUMS Industry", "Unknown"),
-        "source": "DataUSA",
-    }
+                    area = row.get("area_fips", "")
+                    # National total row + private ownership
+                    if area == "US000" and row.get("own_code", "") == "5":
+                        try:
+                            emp = int(row.get("annual_avg_emplvl", "0") or
+                                      row.get("month1_emplvl", "0"))
+                            wages = int(row.get("annual_avg_wkly_wage", "0") or "0")
+                            estabs = int(row.get("annual_avg_estabs", "0") or
+                                         row.get("qtrly_estabs", "0"))
 
-    # Attempt growth rate from year-over-year data
-    if len(records) >= 2:
-        try:
-            curr = records[0].get("Total Population", 0)
-            prev = records[1].get("Total Population", 1)
-            if prev and curr:
-                growth = ((curr - prev) / prev) * 100
-                result["growth_rate"] = f"{growth:.1f}%"
-        except (TypeError, ZeroDivisionError):
-            pass
+                            result["total_employed"] = emp
+                            result["avg_weekly_wage"] = wages
+                            result["avg_annual_wage"] = wages * 52 if wages else None
+                            result["establishments"] = estabs
+                            result["sector_name"] = industry.replace("_", " ").title()
+                            result["year"] = year
+                            result["naics"] = naics
 
-    if result.get("growth_rate") is None:
-        result["growth_rate"] = "N/A"
+                            _set_cached(cache_k, result)
+                            return result
+                        except (ValueError, TypeError):
+                            continue
 
-    _set_cached(cache_k, result)
-    return result
+            except Exception as exc:
+                _log_warn(f"QCEW fetch failed for {naics}/{year}/{qtr}: {exc}")
+                continue
 
+    _log_warn(f"No QCEW data found for industry: {industry} (NAICS {naics})")
+    return None
+
+
+# ---------------------------------------------------------------------------
+# API 2b: US Census ACS (replaces defunct DataUSA for demographics)
+# ---------------------------------------------------------------------------
 
 def fetch_location_demographics(locations: List[str]) -> Dict[str, Any]:
     """
-    Fetch demographic data for given locations from DataUSA.
-    Currently supports US geographies best.
+    Fetch demographic data for US locations from the Census Bureau ACS API.
+    Returns population and median household income at state level.
+    Falls back to providing state-level data when city-level is unavailable.
 
-    DataUSA returns Place-level (city/town) data when available.
-    The response includes a 'Place' field with the matched geography name,
-    which we use to label the data level (e.g., city vs. state).
+    For non-US locations, returns basic info from WorldBank if available.
     """
     demo_data: Dict[str, Any] = {}
 
+    # First, fetch all US state data in one call (efficient)
+    state_data = _fetch_census_state_data()
+
     for loc in locations:
-        cache_k = _cache_key("datausa_geo", loc)
+        cache_k = _cache_key("census_geo", loc)
         cached = _get_cached(cache_k)
         if cached is not None:
             demo_data[loc] = cached
             continue
 
-        # Extract city name for DataUSA query
-        city = loc.split(",")[0].strip()
-        params = urllib.parse.urlencode({
-            "drilldowns": "Place",
-            "measures": "Population,Median Household Income",
-            "Place": city,
-            "limit": "1",
-        })
-        url = f"https://datausa.io/api/data?{params}"
+        # Parse location
+        parts = [p.strip() for p in loc.split(",")]
+        city = parts[0] if parts else ""
+        state_abbr = parts[-1].strip().upper() if len(parts) >= 2 else ""
 
-        try:
-            resp = _http_get_json(url)
-            if resp and "data" in resp and resp["data"]:
-                rec = resp["data"][0]
-                matched_place = rec.get("Place", "")
-                population = rec.get("Population")
+        # Check if US location
+        country = _parse_country_from_location(loc)
 
-                # Determine the geographic level from the response
-                # DataUSA Place drilldown returns city/town-level data
-                # Population > 10M likely means we got state or country-level data
-                geo_level = "City/Place"
-                if population and population > 10_000_000:
-                    geo_level = "State/Country-level (not city-specific)"
-                elif population and population > 1_000_000:
-                    geo_level = "City/Metro"
-
+        if country == "USA" and state_abbr in US_STATE_FIPS:
+            fips = US_STATE_FIPS[state_abbr]
+            if fips in state_data:
                 entry = {
-                    "population": population,
-                    "median_income": rec.get("Median Household Income"),
-                    "source": "DataUSA",
-                    "matched_place": matched_place,
-                    "geo_level": geo_level,
+                    "population": state_data[fips].get("population"),
+                    "median_income": state_data[fips].get("median_income"),
+                    "state_name": state_data[fips].get("name", state_abbr),
+                    "city": city,
+                    "source": "US Census ACS",
+                    "geo_level": "State",
                 }
                 demo_data[loc] = entry
                 _set_cached(cache_k, entry)
-            else:
-                _log_warn(f"No DataUSA demographic data for: {loc}")
-        except Exception as exc:
-            _log_warn(f"DataUSA demographics failed for {loc}: {exc}")
+                continue
+
+        # For non-US or unmatched US locations, try WorldBank population
+        if country and country != "USA":
+            wb_url = (
+                f"https://api.worldbank.org/v2/country/{country}/indicator/"
+                f"SP.POP.TOTL?format=json&per_page=2&date=2020:2025"
+            )
+            try:
+                resp = _http_get_json(wb_url)
+                if resp and isinstance(resp, list) and len(resp) >= 2 and resp[1]:
+                    for rec in resp[1]:
+                        if rec.get("value") is not None:
+                            entry = {
+                                "population": int(rec["value"]),
+                                "source": "WorldBank",
+                                "geo_level": "Country",
+                                "country": country,
+                            }
+                            demo_data[loc] = entry
+                            _set_cached(cache_k, entry)
+                            break
+            except Exception:
+                pass
+
+        if loc not in demo_data:
+            _log_warn(f"No demographic data for: {loc}")
 
     return demo_data
+
+
+def _fetch_census_state_data() -> Dict[str, Dict[str, Any]]:
+    """
+    Fetch all US state-level population and median income from Census ACS.
+    Returns dict keyed by state FIPS code.
+    No API key required for state-level queries.
+    """
+    cache_k = _cache_key("census_states", "all")
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        return cached
+
+    # ACS 5-year estimates — B01001_001E = total population,
+    # B19013_001E = median household income
+    url = ("https://api.census.gov/data/2022/acs/acs5"
+           "?get=NAME,B01001_001E,B19013_001E&for=state:*")
+
+    try:
+        resp = _http_get_json(url, timeout=8)
+        if not resp or not isinstance(resp, list) or len(resp) < 2:
+            _log_warn("Census ACS state data request failed")
+            return {}
+
+        # First row is headers: ["NAME","B01001_001E","B19013_001E","state"]
+        headers = resp[0]
+        state_data: Dict[str, Dict[str, Any]] = {}
+
+        for row in resp[1:]:
+            if len(row) < 4:
+                continue
+            fips = row[3]  # state FIPS code
+            try:
+                state_data[fips] = {
+                    "name": row[0],
+                    "population": int(row[1]) if row[1] else None,
+                    "median_income": int(row[2]) if row[2] else None,
+                }
+            except (ValueError, TypeError):
+                continue
+
+        if state_data:
+            _set_cached(cache_k, state_data)
+        return state_data
+
+    except Exception as exc:
+        _log_warn(f"Census ACS fetch failed: {exc}")
+        return {}
 
 
 # ---------------------------------------------------------------------------
@@ -806,47 +949,55 @@ def _country_label(iso3: str) -> str:
 
 def fetch_company_logo(domain: str) -> Optional[str]:
     """
-    Return a Clearbit logo URL for the given domain.
-    Validates with a HEAD request to confirm the logo exists.
+    Return a logo URL for the given domain.
+    Tries Clearbit first, falls back to Google Favicons (always available).
     """
     if not domain:
         return None
 
     domain = domain.strip().lower()
-    if not domain.startswith("http"):
-        logo_url = f"https://logo.clearbit.com/{domain}"
-    else:
-        # Extract domain from URL
+    if domain.startswith("http"):
         parsed = urllib.parse.urlparse(domain)
-        host = parsed.hostname or domain
-        logo_url = f"https://logo.clearbit.com/{host}"
+        domain = parsed.hostname or domain
 
-    cache_k = _cache_key("clearbit", domain)
+    cache_k = _cache_key("logo", domain)
     cached = _get_cached(cache_k)
     if cached is not None:
         return cached
 
-    # Validate the logo URL is accessible
+    # Strategy 1: Clearbit Logo API (higher quality)
+    clearbit_url = f"https://logo.clearbit.com/{domain}"
     try:
-        req = urllib.request.Request(logo_url, method="HEAD")
+        req = urllib.request.Request(clearbit_url, method="HEAD")
         req.add_header("User-Agent", "AIMediaPlanner/1.0")
-        with urllib.request.urlopen(req, timeout=API_TIMEOUT, context=_DEFAULT_SSL_CTX) as resp:
+        with urllib.request.urlopen(req, timeout=3, context=_DEFAULT_SSL_CTX) as resp:
             if resp.status == 200:
-                _set_cached(cache_k, logo_url)
-                return logo_url
+                _set_cached(cache_k, clearbit_url)
+                return clearbit_url
     except Exception:
-        # Try unverified SSL
         try:
-            with urllib.request.urlopen(req, timeout=API_TIMEOUT, context=_UNVERIFIED_SSL_CTX) as resp:
+            with urllib.request.urlopen(req, timeout=3, context=_UNVERIFIED_SSL_CTX) as resp:
                 if resp.status == 200:
-                    _set_cached(cache_k, logo_url)
-                    return logo_url
+                    _set_cached(cache_k, clearbit_url)
+                    return clearbit_url
         except Exception:
             pass
 
-    # Return the URL anyway (it may work in browsers even if HEAD failed)
-    _set_cached(cache_k, logo_url)
-    return logo_url
+    # Strategy 2: Google Favicons API (always works, lower resolution)
+    google_url = f"https://www.google.com/s2/favicons?domain={domain}&sz=128"
+    try:
+        req = urllib.request.Request(google_url, method="HEAD")
+        req.add_header("User-Agent", "AIMediaPlanner/1.0")
+        with urllib.request.urlopen(req, timeout=3, context=_DEFAULT_SSL_CTX) as resp:
+            if resp.status == 200:
+                _set_cached(cache_k, google_url)
+                return google_url
+    except Exception:
+        pass
+
+    # Fallback: Return Clearbit URL anyway (may work in browser)
+    _set_cached(cache_k, clearbit_url)
+    return clearbit_url
 
 
 def fetch_competitor_logos(competitors: List[str]) -> Dict[str, str]:
@@ -868,12 +1019,28 @@ def fetch_job_market(roles: List[str], locations: List[str]) -> Dict[str, Any]:
     """
     Fetch job market data from Adzuna (if API keys are available).
     Returns posting counts, average salaries, and competition levels.
+
+    Requires environment variables:
+        ADZUNA_APP_ID  — Your Adzuna application ID
+        ADZUNA_APP_KEY — Your Adzuna application key
+
+    Get free API keys at: https://developer.adzuna.com/
     """
     app_id = os.environ.get("ADZUNA_APP_ID", "")
     app_key = os.environ.get("ADZUNA_APP_KEY", "")
 
     if not app_id or not app_key:
-        _log_info("Adzuna API keys not set; skipping job market enrichment")
+        missing = []
+        if not app_id:
+            missing.append("ADZUNA_APP_ID")
+        if not app_key:
+            missing.append("ADZUNA_APP_KEY")
+        _log_info(
+            f"Adzuna API keys not configured (missing: {', '.join(missing)}). "
+            f"Skipping job market enrichment. "
+            f"Set these environment variables to enable Adzuna data. "
+            f"Free keys available at https://developer.adzuna.com/"
+        )
         return {}
 
     job_market: Dict[str, Any] = {}
@@ -903,7 +1070,7 @@ def fetch_job_market(roles: List[str], locations: List[str]) -> Dict[str, Any]:
 
         try:
             resp = _http_get_json(url)
-            if resp:
+            if resp and "error" not in resp:
                 count = resp.get("count", 0)
                 mean_salary = resp.get("mean", None)
 
@@ -923,6 +1090,11 @@ def fetch_job_market(roles: List[str], locations: List[str]) -> Dict[str, Any]:
                 }
                 job_market[role] = entry
                 _set_cached(cache_k, entry)
+            elif resp and "error" in resp:
+                _log_warn(
+                    f"Adzuna API returned error for {role}: {resp.get('error')}. "
+                    f"Check that ADZUNA_APP_ID and ADZUNA_APP_KEY are valid."
+                )
         except Exception as exc:
             _log_warn(f"Adzuna fetch failed for {role}: {exc}")
 
@@ -965,12 +1137,17 @@ def fetch_company_info(client_name: str,
         info["description"] = cached
         return info
 
-    # Try exact name, then with underscores
+    # Try company-specific disambiguated names first (more likely to find the
+    # correct article for a business entity), then fall back to the plain name
     search_names = [
-        client_name,
-        client_name.replace(" ", "_"),
         f"{client_name}_(company)",
         f"{client_name.replace(' ', '_')}_(company)",
+        f"{client_name}_(software)",
+        f"{client_name.replace(' ', '_')}_(software)",
+        f"{client_name}_Software",
+        f"{client_name.replace(' ', '_')}_Software",
+        client_name,
+        client_name.replace(" ", "_"),
     ]
 
     for name in search_names:
@@ -989,6 +1166,243 @@ def fetch_company_info(client_name: str,
 
     _log_warn(f"Wikipedia summary not found for: {client_name}")
     return info
+
+
+# ---------------------------------------------------------------------------
+# API 8: Clearbit Autocomplete (Company Metadata)
+# ---------------------------------------------------------------------------
+
+def fetch_company_metadata(company_name: str) -> Optional[Dict[str, Any]]:
+    """
+    Fetch company metadata from Clearbit Autocomplete API.
+    Returns domain, logo, and basic company info.
+    Free, no API key required.
+    """
+    if not company_name:
+        return None
+
+    cache_k = _cache_key("clearbit_auto", company_name)
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        return cached
+
+    encoded = urllib.parse.quote(company_name)
+    url = f"https://autocomplete.clearbit.com/v1/companies/suggest?query={encoded}"
+
+    try:
+        resp = _http_get_json(url, timeout=5)
+        if resp and isinstance(resp, list) and resp:
+            # Find best match
+            best = resp[0]
+            for item in resp:
+                if item.get("name", "").lower() == company_name.lower():
+                    best = item
+                    break
+
+            result = {
+                "name": best.get("name", company_name),
+                "domain": best.get("domain", ""),
+                "logo_url": best.get("logo") or "",
+                "source": "Clearbit",
+            }
+            _set_cached(cache_k, result)
+            return result
+    except Exception as exc:
+        _log_warn(f"Clearbit autocomplete failed for {company_name}: {exc}")
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# API 9: SEC EDGAR (Public Company Data)
+# ---------------------------------------------------------------------------
+
+# Pre-loaded company tickers cache (loaded on first use)
+_sec_tickers_cache: Optional[Dict[str, Any]] = None
+
+
+def _load_sec_tickers() -> Dict[str, Any]:
+    """Load SEC company tickers JSON (cached in memory)."""
+    global _sec_tickers_cache
+    if _sec_tickers_cache is not None:
+        return _sec_tickers_cache
+
+    cache_k = _cache_key("sec_tickers", "all")
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        _sec_tickers_cache = cached
+        return cached
+
+    url = "https://www.sec.gov/files/company_tickers.json"
+    try:
+        req = urllib.request.Request(url, method="GET")
+        req.add_header("User-Agent", "AIMediaPlanner admin@example.com")
+        req.add_header("Accept", "application/json")
+        with urllib.request.urlopen(req, timeout=8, context=_DEFAULT_SSL_CTX) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            _sec_tickers_cache = data
+            _set_cached(cache_k, data)
+            return data
+    except Exception as exc:
+        _log_warn(f"SEC tickers load failed: {exc}")
+        _sec_tickers_cache = {}
+        return {}
+
+
+def fetch_sec_company_data(company_name: str) -> Optional[Dict[str, Any]]:
+    """
+    Look up a company in SEC EDGAR to determine if it's publicly traded.
+    Returns ticker symbol, CIK, and filing status.
+    """
+    if not company_name:
+        return None
+
+    cache_k = _cache_key("sec_company", company_name)
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        return cached
+
+    tickers = _load_sec_tickers()
+    if not tickers:
+        return None
+
+    # Search for matching company
+    company_lower = company_name.lower().strip()
+    # Remove common suffixes for matching
+    clean_name = re.sub(
+        r"\s+(inc\.?|corp\.?|ltd\.?|llc|co\.?|company|technologies|technology)$",
+        "", company_lower, flags=re.IGNORECASE
+    ).strip()
+
+    best_match = None
+    for _key, entry in tickers.items():
+        title = entry.get("title", "").lower()
+        if clean_name in title or title in clean_name:
+            best_match = entry
+            # Prefer exact match
+            if title == clean_name or title == company_lower:
+                break
+
+    if best_match:
+        result = {
+            "ticker": best_match.get("ticker", ""),
+            "cik": str(best_match.get("cik_str", "")),
+            "company_name": best_match.get("title", ""),
+            "is_public": True,
+            "source": "SEC EDGAR",
+        }
+        _set_cached(cache_k, result)
+        return result
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# API 10: FRED (Federal Reserve Economic Data)
+# ---------------------------------------------------------------------------
+
+_FRED_SERIES = {
+    "unemployment_rate": "UNRATE",       # US unemployment rate
+    "cpi_inflation": "CPIAUCSL",         # Consumer Price Index
+    "fed_funds_rate": "FEDFUNDS",        # Federal funds rate
+    "job_openings": "JTSJOL",            # Job openings (JOLTS)
+    "avg_hourly_earnings": "CES0500000003",  # Avg hourly earnings
+}
+
+
+def fetch_fred_indicators() -> Dict[str, Any]:
+    """
+    Fetch key US economic indicators from FRED (Federal Reserve Economic Data).
+    Uses the FRED API if a key is available, otherwise returns None.
+    A free API key can be obtained at https://fred.stlouisfed.org/docs/api/api_key.html
+    """
+    api_key = os.environ.get("FRED_API_KEY", "")
+    if not api_key:
+        _log_info("FRED_API_KEY not set; skipping FRED indicators")
+        return {}
+
+    cache_k = _cache_key("fred", "us_indicators")
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        return cached
+
+    result: Dict[str, Any] = {"source": "FRED"}
+
+    for label, series_id in _FRED_SERIES.items():
+        url = (
+            f"https://api.stlouisfed.org/fred/series/observations"
+            f"?series_id={series_id}&api_key={api_key}&file_type=json"
+            f"&sort_order=desc&limit=1"
+        )
+        try:
+            resp = _http_get_json(url, timeout=5)
+            if resp and "observations" in resp and resp["observations"]:
+                obs = resp["observations"][0]
+                val = obs.get("value", "")
+                if val and val != ".":
+                    result[label] = {
+                        "value": float(val),
+                        "date": obs.get("date", ""),
+                    }
+        except Exception as exc:
+            _log_warn(f"FRED series {series_id} failed: {exc}")
+
+    if len(result) > 1:  # more than just "source"
+        _set_cached(cache_k, result)
+        return result
+
+    return {}
+
+
+# ---------------------------------------------------------------------------
+# API 11: Google Trends (via pytrends, if installed)
+# ---------------------------------------------------------------------------
+
+def fetch_search_trends(keywords: List[str]) -> Dict[str, Any]:
+    """
+    Fetch Google Trends interest data for given keywords.
+    Requires the 'pytrends' package (pip install pytrends).
+    Returns relative search interest scores.
+    """
+    try:
+        from pytrends.request import TrendReq
+    except ImportError:
+        _log_info("pytrends not installed; skipping Google Trends")
+        return {}
+
+    if not keywords:
+        return {}
+
+    cache_k = _cache_key("gtrends", ",".join(keywords[:5]))
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        return cached
+
+    try:
+        pytrends = TrendReq(hl="en-US", tz=360, timeout=(5, 10))
+        # Limit to 5 keywords (Google Trends max)
+        kw_list = keywords[:5]
+        pytrends.build_payload(kw_list, timeframe="today 3-m", geo="US")
+
+        interest = pytrends.interest_over_time()
+        if interest is not None and not interest.empty:
+            result: Dict[str, Any] = {"source": "Google Trends"}
+            for kw in kw_list:
+                if kw in interest.columns:
+                    avg_interest = int(interest[kw].mean())
+                    latest = int(interest[kw].iloc[-1])
+                    result[kw] = {
+                        "avg_interest": avg_interest,
+                        "latest_interest": latest,
+                        "trend": "rising" if latest > avg_interest else "stable",
+                    }
+            if len(result) > 1:
+                _set_cached(cache_k, result)
+                return result
+    except Exception as exc:
+        _log_warn(f"Google Trends fetch failed: {exc}")
+
+    return {}
 
 
 # ---------------------------------------------------------------------------
@@ -1041,8 +1455,12 @@ def enrich_data(data: Dict[str, Any]) -> Dict[str, Any]:
         "global_indicators": {},
         "job_market": {},
         "company_info": {},
+        "company_metadata": {},
+        "sec_data": {},
         "competitor_logos": {},
         "currency_rates": {},
+        "fred_indicators": {},
+        "search_trends": {},
         "enrichment_summary": {},
     }
 
@@ -1054,11 +1472,11 @@ def enrich_data(data: Dict[str, Any]) -> Dict[str, Any]:
         tasks.append(("salary_data", "BLS", lambda: fetch_salary_data(roles)))
 
     if industry:
-        tasks.append(("industry_employment", "DataUSA",
+        tasks.append(("industry_employment", "BLS-QCEW",
                        lambda: fetch_industry_employment(industry)))
 
     if locations:
-        tasks.append(("location_demographics", "DataUSA-Geo",
+        tasks.append(("location_demographics", "Census-ACS",
                        lambda: fetch_location_demographics(locations)))
         tasks.append(("global_indicators", "WorldBank",
                        lambda: fetch_global_indicators(locations)))
@@ -1070,6 +1488,10 @@ def enrich_data(data: Dict[str, Any]) -> Dict[str, Any]:
     if client_name:
         tasks.append(("company_info", "Wikipedia",
                        lambda: fetch_company_info(client_name, client_website)))
+        tasks.append(("company_metadata", "Clearbit-Auto",
+                       lambda: fetch_company_metadata(client_name)))
+        tasks.append(("sec_data", "SEC-EDGAR",
+                       lambda: fetch_sec_company_data(client_name)))
 
     if competitors:
         tasks.append(("competitor_logos", "Clearbit",
@@ -1078,6 +1500,18 @@ def enrich_data(data: Dict[str, Any]) -> Dict[str, Any]:
     # Currency rates are always fetched (cheap, no network call for fallback)
     tasks.append(("currency_rates", "CurrencyRates",
                   lambda: fetch_currency_rates()))
+
+    # FRED economic indicators (if API key available)
+    tasks.append(("fred_indicators", "FRED",
+                  lambda: fetch_fred_indicators()))
+
+    # Google Trends for roles (if pytrends installed)
+    if roles:
+        trend_keywords = [r for r in roles[:3]]
+        if client_name:
+            trend_keywords.insert(0, f"{client_name} jobs")
+        tasks.append(("search_trends", "GoogleTrends",
+                       lambda: fetch_search_trends(trend_keywords)))
 
     # --- Execute tasks concurrently ---
     _log_info(f"Starting enrichment with {len(tasks)} tasks "
@@ -1157,6 +1591,338 @@ def clear_cache(memory: bool = True, disk: bool = True) -> None:
 
 
 # ---------------------------------------------------------------------------
+# API Diagnostics
+# ---------------------------------------------------------------------------
+
+def diagnose_apis() -> Dict[str, Any]:
+    """
+    Test all API endpoints and report status.
+
+    Returns a dict with each API name mapped to a status dict containing:
+        - status: 'ok', 'error', or 'skipped'
+        - message: human-readable description
+        - response_time: seconds taken (if tested)
+
+    Can be called from the command line:
+        python api_enrichment.py --diagnose
+    """
+    results: Dict[str, Any] = {}
+
+    print("=" * 60)
+    print("  API Enrichment Diagnostics")
+    print("=" * 60)
+    print()
+
+    # --- 1. BLS OES (Salary Data) ---
+    print("1. BLS OES (Salary Data)...")
+    t0 = time.time()
+    try:
+        soc_clean = "151252"  # Software Engineer
+        series_id = f"OEUN0000000000000{soc_clean}13"
+        api_key = os.environ.get("BLS_API_KEY", "")
+        if api_key:
+            url = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
+            version = "v2"
+        else:
+            url = "https://api.bls.gov/publicAPI/v1/timeseries/data/"
+            version = "v1"
+        payload = {
+            "seriesid": [series_id],
+            "startyear": "2023",
+            "endyear": "2024",
+        }
+        if api_key:
+            payload["registrationkey"] = api_key
+        resp = _http_post_json(url, payload, timeout=10)
+        elapsed = round(time.time() - t0, 2)
+        if resp and resp.get("status") == "REQUEST_SUCCEEDED":
+            series_list = resp.get("Results", {}).get("series", [])
+            if series_list and series_list[0].get("data"):
+                val = series_list[0]["data"][0].get("value", "?")
+                results["BLS_OES"] = {
+                    "status": "ok",
+                    "message": f"{version} OK - median wage for 15-1252: ${val}",
+                    "response_time": elapsed,
+                }
+                print(f"   OK ({elapsed}s) - {version} endpoint, median wage: ${val}")
+            else:
+                results["BLS_OES"] = {
+                    "status": "ok",
+                    "message": f"{version} connected but no data for test series",
+                    "response_time": elapsed,
+                }
+                print(f"   OK ({elapsed}s) - {version} connected, no data for test series")
+        else:
+            msg = str(resp.get("message", "")) if resp else "no response"
+            results["BLS_OES"] = {
+                "status": "error",
+                "message": f"{version} failed: {msg}",
+                "response_time": elapsed,
+            }
+            print(f"   FAIL ({elapsed}s) - {version}: {msg}")
+    except Exception as exc:
+        elapsed = round(time.time() - t0, 2)
+        results["BLS_OES"] = {"status": "error", "message": str(exc), "response_time": elapsed}
+        print(f"   FAIL ({elapsed}s) - {exc}")
+
+    # --- 2. BLS QCEW (Industry Employment) ---
+    print("2. BLS QCEW (Industry Employment)...")
+    t0 = time.time()
+    try:
+        url = "https://data.bls.gov/cew/data/api/2023/a/industry/10.csv"
+        raw = _http_get_text(url, timeout=10)
+        elapsed = round(time.time() - t0, 2)
+        if raw and "area_fips" in raw:
+            lines = raw.strip().split("\n")
+            results["BLS_QCEW"] = {
+                "status": "ok",
+                "message": f"OK - received {len(lines)} rows of CSV data",
+                "response_time": elapsed,
+            }
+            print(f"   OK ({elapsed}s) - {len(lines)} rows")
+        else:
+            results["BLS_QCEW"] = {
+                "status": "error",
+                "message": "No valid CSV data returned",
+                "response_time": elapsed,
+            }
+            print(f"   FAIL ({elapsed}s) - no valid CSV")
+    except Exception as exc:
+        elapsed = round(time.time() - t0, 2)
+        results["BLS_QCEW"] = {"status": "error", "message": str(exc), "response_time": elapsed}
+        print(f"   FAIL ({elapsed}s) - {exc}")
+
+    # --- 3. Census ACS (Location Demographics) ---
+    print("3. Census ACS (Location Demographics)...")
+    t0 = time.time()
+    try:
+        url = ("https://api.census.gov/data/2022/acs/acs5"
+               "?get=NAME,B01001_001E&for=state:06")
+        resp = _http_get_json(url, timeout=10)
+        elapsed = round(time.time() - t0, 2)
+        if resp and isinstance(resp, list) and len(resp) >= 2:
+            state_name = resp[1][0] if resp[1] else "?"
+            pop = resp[1][1] if resp[1] else "?"
+            results["Census_ACS"] = {
+                "status": "ok",
+                "message": f"OK - {state_name}: population {pop}",
+                "response_time": elapsed,
+            }
+            print(f"   OK ({elapsed}s) - {state_name}: pop {pop}")
+        else:
+            results["Census_ACS"] = {
+                "status": "error",
+                "message": "Unexpected response format",
+                "response_time": elapsed,
+            }
+            print(f"   FAIL ({elapsed}s) - unexpected format")
+    except Exception as exc:
+        elapsed = round(time.time() - t0, 2)
+        results["Census_ACS"] = {"status": "error", "message": str(exc), "response_time": elapsed}
+        print(f"   FAIL ({elapsed}s) - {exc}")
+
+    # --- 4. World Bank (Global Indicators) ---
+    print("4. World Bank (Global Indicators)...")
+    t0 = time.time()
+    try:
+        url = ("https://api.worldbank.org/v2/country/GBR/indicator/"
+               "SL.UEM.TOTL.ZS?format=json&per_page=2&date=2020:2025")
+        resp = _http_get_json(url, timeout=10)
+        elapsed = round(time.time() - t0, 2)
+        if resp and isinstance(resp, list) and len(resp) >= 2 and resp[1]:
+            val = None
+            for rec in resp[1]:
+                val = rec.get("value")
+                if val is not None:
+                    break
+            if val is not None:
+                results["WorldBank"] = {
+                    "status": "ok",
+                    "message": f"OK - GBR unemployment rate: {round(val, 1)}%",
+                    "response_time": elapsed,
+                }
+                print(f"   OK ({elapsed}s) - GBR unemployment: {round(val, 1)}%")
+            else:
+                results["WorldBank"] = {
+                    "status": "ok",
+                    "message": "Connected but no non-null values",
+                    "response_time": elapsed,
+                }
+                print(f"   OK ({elapsed}s) - connected, no non-null values")
+        else:
+            results["WorldBank"] = {
+                "status": "error",
+                "message": "Unexpected response format",
+                "response_time": elapsed,
+            }
+            print(f"   FAIL ({elapsed}s) - unexpected format")
+    except Exception as exc:
+        elapsed = round(time.time() - t0, 2)
+        results["WorldBank"] = {"status": "error", "message": str(exc), "response_time": elapsed}
+        print(f"   FAIL ({elapsed}s) - {exc}")
+
+    # --- 5. Clearbit Logo ---
+    print("5. Clearbit Logo...")
+    t0 = time.time()
+    try:
+        logo_url = "https://logo.clearbit.com/google.com"
+        req = urllib.request.Request(logo_url, method="HEAD")
+        req.add_header("User-Agent", "AIMediaPlanner/1.0")
+        with urllib.request.urlopen(req, timeout=5, context=_DEFAULT_SSL_CTX) as resp:
+            elapsed = round(time.time() - t0, 2)
+            if resp.status == 200:
+                results["Clearbit_Logo"] = {
+                    "status": "ok",
+                    "message": "OK - logo for google.com accessible",
+                    "response_time": elapsed,
+                }
+                print(f"   OK ({elapsed}s)")
+            else:
+                results["Clearbit_Logo"] = {
+                    "status": "error",
+                    "message": f"HTTP {resp.status}",
+                    "response_time": elapsed,
+                }
+                print(f"   FAIL ({elapsed}s) - HTTP {resp.status}")
+    except Exception as exc:
+        elapsed = round(time.time() - t0, 2)
+        results["Clearbit_Logo"] = {"status": "error", "message": str(exc), "response_time": elapsed}
+        print(f"   FAIL ({elapsed}s) - {exc}")
+
+    # --- 6. Adzuna Job Search ---
+    print("6. Adzuna Job Search...")
+    app_id = os.environ.get("ADZUNA_APP_ID", "")
+    app_key = os.environ.get("ADZUNA_APP_KEY", "")
+    if not app_id or not app_key:
+        missing = []
+        if not app_id:
+            missing.append("ADZUNA_APP_ID")
+        if not app_key:
+            missing.append("ADZUNA_APP_KEY")
+        results["Adzuna"] = {
+            "status": "skipped",
+            "message": (
+                f"API keys not configured (missing: {', '.join(missing)}). "
+                f"Get free keys at https://developer.adzuna.com/"
+            ),
+            "response_time": 0,
+        }
+        print(f"   SKIPPED - missing {', '.join(missing)}")
+    else:
+        t0 = time.time()
+        try:
+            params = urllib.parse.urlencode({
+                "app_id": app_id,
+                "app_key": app_key,
+                "what": "software engineer",
+                "results_per_page": "1",
+            })
+            url = f"https://api.adzuna.com/v1/api/jobs/us/search/1?{params}"
+            resp = _http_get_json(url, timeout=10)
+            elapsed = round(time.time() - t0, 2)
+            if resp and "count" in resp:
+                count = resp.get("count", 0)
+                results["Adzuna"] = {
+                    "status": "ok",
+                    "message": f"OK - {count} software engineer postings found",
+                    "response_time": elapsed,
+                }
+                print(f"   OK ({elapsed}s) - {count} postings")
+            elif resp and "error" in resp:
+                results["Adzuna"] = {
+                    "status": "error",
+                    "message": f"API error: {resp.get('error')}",
+                    "response_time": elapsed,
+                }
+                print(f"   FAIL ({elapsed}s) - {resp.get('error')}")
+            else:
+                results["Adzuna"] = {
+                    "status": "error",
+                    "message": "Unexpected response",
+                    "response_time": elapsed,
+                }
+                print(f"   FAIL ({elapsed}s) - unexpected response")
+        except Exception as exc:
+            elapsed = round(time.time() - t0, 2)
+            results["Adzuna"] = {"status": "error", "message": str(exc), "response_time": elapsed}
+            print(f"   FAIL ({elapsed}s) - {exc}")
+
+    # --- 7. Wikipedia REST API ---
+    print("7. Wikipedia REST API...")
+    t0 = time.time()
+    try:
+        url = "https://en.wikipedia.org/api/rest_v1/page/summary/Google"
+        resp = _http_get_json(url, timeout=10)
+        elapsed = round(time.time() - t0, 2)
+        if resp and resp.get("type") == "standard":
+            title = resp.get("title", "?")
+            extract_len = len(resp.get("extract", ""))
+            results["Wikipedia"] = {
+                "status": "ok",
+                "message": f"OK - '{title}' summary ({extract_len} chars)",
+                "response_time": elapsed,
+            }
+            print(f"   OK ({elapsed}s) - '{title}' ({extract_len} chars)")
+        else:
+            results["Wikipedia"] = {
+                "status": "error",
+                "message": "Unexpected response type",
+                "response_time": elapsed,
+            }
+            print(f"   FAIL ({elapsed}s) - unexpected response")
+    except Exception as exc:
+        elapsed = round(time.time() - t0, 2)
+        results["Wikipedia"] = {"status": "error", "message": str(exc), "response_time": elapsed}
+        print(f"   FAIL ({elapsed}s) - {exc}")
+
+    # --- 8. Currency Rates ---
+    print("8. Currency Rates (hardcoded fallback)...")
+    t0 = time.time()
+    rates = fetch_currency_rates()
+    elapsed = round(time.time() - t0, 2)
+    if rates and "USD" in rates:
+        results["CurrencyRates"] = {
+            "status": "ok",
+            "message": f"OK - {len(rates)} currencies loaded",
+            "response_time": elapsed,
+        }
+        print(f"   OK ({elapsed}s) - {len(rates)} currencies")
+    else:
+        results["CurrencyRates"] = {
+            "status": "error",
+            "message": "No rates available",
+            "response_time": elapsed,
+        }
+        print(f"   FAIL ({elapsed}s)")
+
+    # --- Summary ---
+    print()
+    print("-" * 60)
+    ok_count = sum(1 for v in results.values() if v["status"] == "ok")
+    err_count = sum(1 for v in results.values() if v["status"] == "error")
+    skip_count = sum(1 for v in results.values() if v["status"] == "skipped")
+    total = len(results)
+    print(f"  Results: {ok_count}/{total} OK, {err_count} errors, {skip_count} skipped")
+
+    # Check optional env vars
+    print()
+    print("  Environment variables:")
+    env_vars = {
+        "BLS_API_KEY": "BLS v2 (higher rate limits)",
+        "ADZUNA_APP_ID": "Adzuna job market data",
+        "ADZUNA_APP_KEY": "Adzuna job market data",
+        "FRED_API_KEY": "FRED economic indicators",
+    }
+    for var, purpose in env_vars.items():
+        val = os.environ.get(var, "")
+        status = "SET" if val else "NOT SET"
+        print(f"    {var}: {status} — {purpose}")
+    print("=" * 60)
+
+    return results
+
+
+# ---------------------------------------------------------------------------
 # CLI entry point for testing
 # ---------------------------------------------------------------------------
 
@@ -1185,4 +1951,8 @@ def _cli_demo():
 
 
 if __name__ == "__main__":
-    _cli_demo()
+    import sys as _sys
+    if "--diagnose" in _sys.argv:
+        diagnose_apis()
+    else:
+        _cli_demo()
