@@ -2726,3 +2726,226 @@ def _generate_competitive_recommendation(comp_name, profile, industry):
         recs.append("They invest in education/tuition benefits — if you offer similar, promote aggressively; if not, emphasize on-the-job training, certifications, and career development paths.")
 
     return " ".join(recs)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPANY INTELLIGENCE DATABASE  
+# ═══════════════════════════════════════════════════════════════════════════════
+
+COMPANY_INTELLIGENCE = {
+    "walmart": {"size": "2.1M employees", "glassdoor": "3.4/5", "brand_strength": "Strong employer brand in retail/hourly", "hiring_volume": "High (500K+/year)", "benefits_highlight": "College tuition, $15+ min wage", "attrition": "High (60-80% hourly)"},
+    "amazon": {"size": "1.5M employees", "glassdoor": "3.5/5", "brand_strength": "Strong tech brand, mixed warehouse perception", "hiring_volume": "Very High (800K+/year)", "benefits_highlight": "Day-1 benefits, Career Choice program", "attrition": "Very High (>100% warehouse)"},
+    "uber": {"size": "32K employees + 5M drivers", "glassdoor": "3.8/5", "brand_strength": "Strong tech brand, driver satisfaction varies", "hiring_volume": "Continuous driver onboarding", "benefits_highlight": "Flexible schedule, earnings transparency", "attrition": "Very High driver churn"},
+    "fedex": {"size": "500K employees", "glassdoor": "3.5/5", "brand_strength": "Trusted logistics brand", "hiring_volume": "High (seasonal peaks)", "benefits_highlight": "Tuition reimbursement, health benefits", "attrition": "Moderate (40-50% hourly)"},
+    "marriott": {"size": "290K employees", "glassdoor": "3.9/5", "brand_strength": "Top hospitality employer brand", "hiring_volume": "Moderate-High", "benefits_highlight": "Hotel discounts, career mobility", "attrition": "High in hourly roles"},
+    "jpmorgan": {"size": "300K employees", "glassdoor": "3.8/5", "brand_strength": "Top-tier finance employer", "hiring_volume": "Moderate (20K+/year)", "benefits_highlight": "Competitive comp, training programs", "attrition": "Low-Moderate"},
+    "deloitte": {"size": "415K employees", "glassdoor": "3.9/5", "brand_strength": "Big 4 prestige", "hiring_volume": "High (campus + experienced)", "benefits_highlight": "Professional development, flex work", "attrition": "Moderate (25-30%)"},
+    "tesla": {"size": "140K employees", "glassdoor": "3.3/5", "brand_strength": "Strong mission-driven brand, mixed reviews", "hiring_volume": "High (factory expansion)", "benefits_highlight": "Stock options, mission appeal", "attrition": "High (manufacturing)"},
+    "starbucks": {"size": "380K employees", "glassdoor": "3.6/5", "brand_strength": "Strong employer brand in food service", "hiring_volume": "Very High (100K+/year)", "benefits_highlight": "ASU tuition, healthcare for part-time", "attrition": "High (65% barista)"},
+    "google": {"size": "180K employees", "glassdoor": "4.3/5", "brand_strength": "Top tech employer globally", "hiring_volume": "Moderate (15K+/year)", "benefits_highlight": "Best-in-class perks, 20% time", "attrition": "Low (10-12%)"},
+    "microsoft": {"size": "220K employees", "glassdoor": "4.2/5", "brand_strength": "Top tech employer", "hiring_volume": "Moderate (20K+/year)", "benefits_highlight": "RSUs, excellent benefits", "attrition": "Low (10-15%)"},
+    "apple": {"size": "164K employees", "glassdoor": "4.1/5", "brand_strength": "Premium tech brand", "hiring_volume": "Moderate", "benefits_highlight": "Product discounts, health programs", "attrition": "Low"},
+    "unitedhealth": {"size": "400K employees", "glassdoor": "3.7/5", "brand_strength": "Largest health company", "hiring_volume": "High (50K+/year)", "benefits_highlight": "Health benefits, tuition assistance", "attrition": "Moderate"},
+    "target": {"size": "440K employees", "glassdoor": "3.5/5", "brand_strength": "Strong retail employer brand", "hiring_volume": "High (seasonal peaks)", "benefits_highlight": "$15+ min wage, tuition free", "attrition": "High (50-70% hourly)"},
+    "hca": {"size": "280K employees", "glassdoor": "3.4/5", "brand_strength": "Largest hospital system", "hiring_volume": "Very High (nursing shortage)", "benefits_highlight": "Sign-on bonuses, tuition reimbursement", "attrition": "High (nursing turnover 20-25%)"},
+}
+
+def get_company_intelligence(company_name: str) -> dict:
+    """Look up company intelligence data. Returns dict with company data or generic defaults."""
+    if not company_name:
+        return {}
+    
+    company_lower = company_name.lower().strip()
+    
+    # Direct match
+    for key, data in COMPANY_INTELLIGENCE.items():
+        if key in company_lower or company_lower in key:
+            return {**data, "matched": True}
+    
+    # Partial match
+    for key, data in COMPANY_INTELLIGENCE.items():
+        if any(word in company_lower for word in key.split()):
+            return {**data, "matched": True}
+    
+    return {"matched": False, "note": "Company not in intelligence database - using industry defaults"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HIRING COMPLIANCE & REGULATORY INTELLIGENCE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+STATE_HIRING_REGULATIONS = {
+    "CA": ["Salary transparency required (SB 1162)", "Ban-the-box (Fair Chance Act)", "CCPA privacy compliance for candidates", "Paid sick leave mandate"],
+    "NY": ["NYC salary range disclosure (Local Law 32)", "Ban-the-box", "Paid family leave", "NYC AI hiring law (Local Law 144)"],
+    "CO": ["Salary range required in all postings (EPEW Act)", "Equal pay transparency", "Paid family leave"],
+    "WA": ["Salary range disclosure required (SB 5761)", "Ban-the-box", "Paid family leave"],
+    "IL": ["AI Video Interview Act", "Equal Pay Act amendments", "Chicago fair workweek ordinance"],
+    "MA": ["Salary history ban", "Equal Pay Act", "Predictive scheduling discussions"],
+    "NJ": ["Salary history ban", "Ban-the-box", "Paid sick leave", "Temp worker protections"],
+    "CT": ["Salary range disclosure required", "Ban-the-box", "Pay equity"],
+    "MD": ["Salary history ban", "Equal pay for equal work", "Ban-the-box (statewide)"],
+    "TX": ["At-will employment", "No state salary transparency mandate", "E-Verify for state contractors"],
+    "FL": ["At-will employment", "E-Verify requirement for employers >25", "No state salary transparency mandate"],
+    "GA": ["At-will employment", "Limited salary transparency requirements"],
+    "PA": ["Philadelphia ban-the-box", "Philadelphia salary history ban (local)"],
+    "OH": ["At-will employment", "Limited state-level hiring regulations"],
+    "MI": ["Ban-the-box (public employers)", "Paid medical leave act"],
+    "VA": ["Salary transparency discussions in progress", "At-will employment"],
+    "NC": ["At-will employment", "Limited state-level hiring mandates"],
+    "AZ": ["At-will employment", "E-Verify requirement", "Proposition 206 min wage"],
+    "TN": ["At-will employment", "Tennessee Lawful Employment Act (E-Verify)"],
+    "IN": ["At-will employment", "E-Verify for state agencies", "Limited salary transparency"],
+    "MN": ["Salary range disclosure required (2024+)", "Ban-the-box", "Paid sick leave"],
+    "HI": ["Salary range disclosure required", "Temp staffing regulations"],
+    "DC": ["Salary range transparency required", "Ban-the-box", "Paid family leave"],
+    "RI": ["Salary range disclosure required", "Ban-the-box"],
+    "NV": ["Salary range disclosure required", "Ban-the-box"],
+}
+
+def get_hiring_regulations(locations: list) -> list:
+    """Get relevant hiring regulations for the given locations."""
+    regulations = []
+    seen_states = set()
+    
+    for loc in locations:
+        # Extract state code from location
+        loc_upper = loc.upper().strip()
+        state = None
+        
+        # Check if location ends with state code
+        parts = loc_upper.replace(",", " ").split()
+        for part in reversed(parts):
+            if len(part) == 2 and part in STATE_HIRING_REGULATIONS:
+                state = part
+                break
+        
+        # Also try to match city to state via _extract_state and METRO_DATA
+        if not state:
+            extracted = _extract_state(loc)
+            if extracted and extracted in STATE_HIRING_REGULATIONS:
+                state = extracted
+        
+        if not state:
+            # Try metro data for city-to-state mapping
+            metro_key, metro_info = _find_metro(loc)
+            if metro_info:
+                metro_state = metro_info.get("state", "")
+                if metro_state in STATE_HIRING_REGULATIONS:
+                    state = metro_state
+        
+        if state and state not in seen_states:
+            seen_states.add(state)
+            regs = STATE_HIRING_REGULATIONS.get(state, [])
+            if regs:
+                regulations.append({
+                    "state": state,
+                    "location": loc,
+                    "regulations": regs,
+                    "compliance_note": f"Job postings in {state} must comply with: {'; '.join(regs[:2])}"
+                })
+    
+    # Federal regulations (always applicable)
+    regulations.append({
+        "state": "Federal",
+        "location": "All US",
+        "regulations": ["EEOC compliance", "OFCCP for federal contractors", "ADA reasonable accommodations", "I-9 employment eligibility"],
+        "compliance_note": "All US hiring must comply with EEOC, ADA, and I-9 requirements"
+    })
+    
+    return regulations
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CAMPUS RECRUITING MODULE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def get_campus_recruiting_recommendations(locations: list, roles: list = None, industry: str = "") -> list:
+    """Generate campus recruiting recommendations based on locations and roles."""
+    recommendations = []
+    
+    for loc in locations:
+        # Use existing helper functions to extract state
+        state = _extract_state(loc)
+        
+        if not state:
+            # Try metro data for city-to-state mapping
+            metro_key, metro_info = _find_metro(loc)
+            if metro_info:
+                state = metro_info.get("state", "")
+        
+        if not state:
+            continue
+        
+        # Use STATE_UNIVERSITIES if available
+        state_unis = STATE_UNIVERSITIES.get(state, [])
+        if state_unis:
+            for uni in state_unis[:3]:  # Top 3 universities per location
+                recommendations.append({
+                    "location": loc,
+                    "state": state,
+                    "university": uni.get("name", ""),
+                    "programs": uni.get("programs", ""),
+                    "enrollment": uni.get("enrollment", ""),
+                    "recruiting_channel": "Campus career fair, On-campus events, University job board"
+                })
+    
+    return recommendations
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SEASONAL HIRING CALENDAR
+# ═══════════════════════════════════════════════════════════════════════════════
+
+SEASONAL_HIRING_CALENDAR = {
+    "retail": {"peak_months": ["Sep", "Oct", "Nov"], "ramp_start": "Aug", "note": "Holiday hiring season - start campaigns by August for November readiness"},
+    "hospitality": {"peak_months": ["Mar", "Apr", "May"], "ramp_start": "Feb", "note": "Summer season prep - hotels/restaurants staff up for Memorial Day through Labor Day"},
+    "education": {"peak_months": ["Mar", "Apr", "May"], "ramp_start": "Feb", "note": "Academic hiring cycle - most teaching positions posted Feb-May for fall start"},
+    "healthcare": {"peak_months": ["Jan", "Feb", "Jul"], "ramp_start": "Dec", "note": "Nursing residency cycles (Jan, Jul) drive peak hiring. Travel nurse demand spikes in winter"},
+    "technology": {"peak_months": ["Jan", "Feb", "Sep"], "ramp_start": "Nov", "note": "New year budget cycles and post-summer campus hire onboarding drive tech hiring peaks"},
+    "finance": {"peak_months": ["Jan", "Feb", "Sep"], "ramp_start": "Nov", "note": "New fiscal year budgets and fall campus recruiting drive hiring peaks"},
+    "transportation": {"peak_months": ["Sep", "Oct", "Nov"], "ramp_start": "Aug", "note": "Peak shipping season (holiday e-commerce) drives massive driver/warehouse hiring"},
+    "manufacturing": {"peak_months": ["Jan", "Mar", "Sep"], "ramp_start": "Dec", "note": "Production ramp-ups for new model years and seasonal demand fluctuations"},
+    "construction": {"peak_months": ["Mar", "Apr", "May"], "ramp_start": "Feb", "note": "Spring construction season drives hiring for field workers and project managers"},
+    "energy": {"peak_months": ["Mar", "Apr", "Jun"], "ramp_start": "Feb", "note": "Spring/summer field operations and maintenance windows drive seasonal hiring"},
+    "government": {"peak_months": ["Oct", "Mar", "Jul"], "ramp_start": "Sep", "note": "Federal fiscal year (Oct 1) and mid-year budget releases drive government hiring"},
+}
+
+# Industry key to seasonal calendar key mapping
+_INDUSTRY_TO_SEASONAL = {
+    "healthcare_medical": "healthcare",
+    "tech_engineering": "technology",
+    "blue_collar_trades": "manufacturing",
+    "finance_banking": "finance",
+    "retail_consumer": "retail",
+    "hospitality_travel": "hospitality",
+    "logistics_supply_chain": "transportation",
+    "energy_utilities": "energy",
+    "construction_real_estate": "construction",
+    "education": "education",
+    "automotive": "manufacturing",
+    "food_beverage": "hospitality",
+    "pharma_biotech": "healthcare",
+    "insurance": "finance",
+    "telecommunications": "technology",
+    "media_entertainment": "technology",
+    "aerospace_defense": "manufacturing",
+    "legal_services": "finance",
+    "mental_health": "healthcare",
+    "maritime_marine": "transportation",
+}
+
+def get_seasonal_hiring_advice(industry: str) -> dict:
+    """Get seasonal hiring calendar advice for the industry."""
+    industry_lower = industry.lower().strip() if industry else ""
+    
+    # Try mapped key first
+    mapped = _INDUSTRY_TO_SEASONAL.get(industry_lower, "")
+    if mapped and mapped in SEASONAL_HIRING_CALENDAR:
+        return SEASONAL_HIRING_CALENDAR[mapped]
+    
+    # Try direct match
+    for key, data in SEASONAL_HIRING_CALENDAR.items():
+        if key in industry_lower or industry_lower in key:
+            return data
+    
+    return {"peak_months": ["Jan", "Sep"], "ramp_start": "Dec", "note": "Standard hiring follows Q1 budget releases and fall planning cycles"}
