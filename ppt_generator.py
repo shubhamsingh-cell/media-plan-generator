@@ -882,10 +882,17 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
     data.setdefault("industry", "general_entry_level")
     data.setdefault("industry_label", data["industry"].replace("_", " ").title())
     data.setdefault("locations", [])
+    # Frontend sends "target_roles" but PPT uses "roles" — normalize
+    if "target_roles" in data and "roles" not in data:
+        data["roles"] = data["target_roles"]
     data.setdefault("roles", [])
     data.setdefault("campaign_goals", [])
     data.setdefault("channel_categories", {})
     data.setdefault("budget", "TBD")
+    # Frontend sends work_environment as array — normalize to string
+    we = data.get("work_environment", "hybrid")
+    if isinstance(we, list):
+        data["work_environment"] = we[0] if we else "hybrid"
     data.setdefault("work_environment", "hybrid")
 
     try:

@@ -2686,44 +2686,640 @@ def generate_excel(data):
     if data.get("include_media_platforms"):
         ws_media = wb.create_sheet("Media & Print Platforms")
         ws_media.sheet_properties.tabColor = "ED7D31"
-        for col, w in [("A",5),("B",45),("C",40),("D",22),("E",18)]:
+        for col, w in [("A",5),("B",40),("C",18),("D",32),("E",22),("F",18),("G",30)]:
             ws_media.column_dimensions[col].width = w
-        ws_media.merge_cells("B2:E2")
-        ws_media["B2"].value = "Media & Print Platforms"
+
+        # Comprehensive media/print platform data by industry
+        media_platforms_db = {
+            "healthcare_medical": {
+                "label": "Healthcare & Medical",
+                "trade_publications": [
+                    ("JAMA Network", "Physicians, Surgeons, Researchers", "US + Global", "Employer profiles, classified ads, sponsored features"),
+                    ("New England Journal of Medicine (NEJM)", "Physicians, Hospital Leaders", "Global", "Career center listings, display ads"),
+                    ("American Journal of Nursing (AJN)", "RNs, NPs, Nurse Leaders", "US", "Print + digital job ads, career guides"),
+                    ("Modern Healthcare", "Hospital Administrators, C-Suite", "US", "Sponsored content, job board integration"),
+                    ("Becker's Hospital Review", "Health System Executives", "US", "Job listings, executive recruitment features"),
+                    ("Nursing Times", "Nurses, Midwives, HCAs", "UK + Europe", "Recruitment supplements, career events"),
+                ],
+                "digital_media": [
+                    ("Medscape", "1M+ Physicians, NPs, PAs (verified)", "Global", "Targeted recruitment ads by specialty & geography"),
+                    ("Doximity", "80%+ of US Physicians", "US", "InMail recruiting, employer profiles, telehealth talent"),
+                    ("Nurse.com", "RNs, LPNs, Travel Nurses", "US", "Job alerts, continuing education + recruitment combos"),
+                    ("Health eCareers", "Allied Health, Clinical, Admin", "US", "Niche job board, resume database access"),
+                    ("PracticeLink", "Physicians in active job search", "US", "Physician-only recruitment platform"),
+                ],
+                "ooh_print": [
+                    ("Hospital Cafeteria / Break Room Flyers", "Current staff referrals", "Local", "Low-cost, high-trust referral channel"),
+                    ("Medical Conference Programs (AAMC, AACN)", "Conference attendees by specialty", "US + Global", "Event program ads, booth placements"),
+                    ("Nursing School Campus Boards", "New grad nurses, students", "Local", "Career fair flyers, campus partnerships"),
+                    ("Transit Ads in Hospital Districts", "Local healthcare workers", "Regional", "Bus wraps, metro ads near medical centers"),
+                ],
+                "broadcast_audio": [
+                    ("Healthcare NOW Radio", "Healthcare professionals, HIT", "US", "Sponsored segments, recruitment spots"),
+                    ("The Nurses You Know Podcast", "Nursing professionals", "US", "Sponsorship, employer spotlight episodes"),
+                    ("Spotify/Pandora Geo-targeted", "Commuting healthcare workers", "Regional", "Audio ads targeting healthcare interest segments"),
+                ],
+            },
+            "technology_it": {
+                "label": "Technology & IT",
+                "trade_publications": [
+                    ("IEEE Spectrum", "Engineers, Computer Scientists", "Global", "Career ads, employer sponsored features"),
+                    ("Communications of the ACM", "Software Engineers, CS Researchers", "Global", "Career center, recruitment display ads"),
+                    ("Wired Magazine", "Tech professionals, early adopters", "US + Global", "Employer brand features, career content"),
+                    ("MIT Technology Review", "Tech leaders, AI/ML researchers", "Global", "Sponsored recruitment content, job listings"),
+                    ("InfoWorld / Computerworld", "IT Managers, Developers, DevOps", "US", "Tech career guides, recruitment ads"),
+                ],
+                "digital_media": [
+                    ("Stack Overflow Jobs", "10M+ Monthly developers", "Global", "Targeted developer job ads, company profiles"),
+                    ("GitHub Jobs / Sponsorships", "56M+ Developer accounts", "Global", "Repository sponsorships, team pages, job posts"),
+                    ("Hacker News (Who's Hiring)", "Senior engineers, startup talent", "Global", "Monthly hiring threads, YC company pages"),
+                    ("Dev.to", "2M+ Developer community", "Global", "Employer listings, sponsored posts, community engagement"),
+                    ("TechCrunch / The Verge Careers", "Tech industry professionals", "Global", "Sponsored job placements, brand articles"),
+                    ("Dice.com", "IT professionals, contractors", "US", "Tech-specific job board, skills matching"),
+                ],
+                "ooh_print": [
+                    ("Tech Conference Programs (CES, AWS re:Invent, Google I/O)", "Developers, CTOs, Architects", "Global", "Event sponsorships, booth recruitment"),
+                    ("Tech Hub Billboard / Transit (SF, NYC, Austin, Seattle)", "Local tech workers", "Regional", "High-visibility employer brand ads"),
+                    ("Hackathon Sponsorships", "Junior to mid developers", "Regional", "Direct talent pipeline + brand building"),
+                    ("University CS Department Boards", "CS/Engineering students", "Local", "Campus recruiting, internship postings"),
+                ],
+                "broadcast_audio": [
+                    ("Software Engineering Daily Podcast", "Senior developers, architects", "Global", "Recruitment sponsorships, employer spotlights"),
+                    ("Changelog Podcast Network", "Open source developers", "Global", "Targeted dev recruitment, sponsor reads"),
+                    ("Spotify Tech Playlist Targeting", "Tech workers by interest", "US + Global", "Audio ads targeting tech/coding playlists"),
+                ],
+            },
+            "tech_engineering": {
+                "label": "Technology & Engineering",
+                "trade_publications": [
+                    ("IEEE Spectrum", "Engineers, Computer Scientists", "Global", "Career ads, employer sponsored features"),
+                    ("Communications of the ACM", "Software Engineers, CS Researchers", "Global", "Career center, recruitment display ads"),
+                    ("Wired Magazine", "Tech professionals, early adopters", "US + Global", "Employer brand features, career content"),
+                    ("MIT Technology Review", "Tech leaders, AI/ML researchers", "Global", "Sponsored recruitment content, job listings"),
+                ],
+                "digital_media": [
+                    ("Stack Overflow Jobs", "10M+ Monthly developers", "Global", "Targeted developer job ads, company profiles"),
+                    ("GitHub Jobs / Sponsorships", "56M+ Developer accounts", "Global", "Repository sponsorships, team pages"),
+                    ("Hacker News (Who's Hiring)", "Senior engineers, startup talent", "Global", "Monthly hiring threads"),
+                    ("Dice.com", "IT professionals, contractors", "US", "Tech-specific job board, skills matching"),
+                ],
+                "ooh_print": [
+                    ("Tech Conference Programs (CES, AWS re:Invent)", "Developers, CTOs, Architects", "Global", "Event sponsorships, booth recruitment"),
+                    ("University CS Department Boards", "CS/Engineering students", "Local", "Campus recruiting, internship postings"),
+                ],
+                "broadcast_audio": [
+                    ("Software Engineering Daily Podcast", "Senior developers, architects", "Global", "Recruitment sponsorships"),
+                    ("Spotify Tech Playlist Targeting", "Tech workers by interest", "Global", "Audio ads targeting tech playlists"),
+                ],
+            },
+            "blue_collar_trades": {
+                "label": "Blue Collar & Skilled Trades",
+                "trade_publications": [
+                    ("Contractor Magazine", "Plumbing, HVAC, Mechanical contractors", "US", "Classified job ads, workforce features"),
+                    ("Electrical Contractor (EC&M)", "Electricians, Electrical contractors", "US", "Career section, recruitment ads"),
+                    ("Welding Journal (AWS)", "Welders, fabricators, inspectors", "US + Global", "Certified welder recruitment ads"),
+                    ("Fine Homebuilding / JLC", "Carpenters, builders, remodelers", "US", "Help wanted ads, workforce content"),
+                    ("Plumbing & Mechanical Magazine", "Plumbers, pipefitters", "US", "Trade recruitment, apprenticeship ads"),
+                ],
+                "digital_media": [
+                    ("Tradesmen International", "All skilled trades", "US", "Skilled labor marketplace, staffing"),
+                    ("iHireConstruction / iHireMaintenance", "Construction & maintenance workers", "US", "Niche job boards for trades"),
+                    ("SkillsUSA / Trade School Job Boards", "Vocational students, apprentices", "US", "Early career pipeline, school partnerships"),
+                    ("Facebook Local Groups (Trade Work)", "Local tradespeople", "Regional", "Community-based recruiting, local job posts"),
+                    ("NextDoor Neighborhood Ads", "Local residents seeking work", "Regional", "Hyperlocal recruitment for trades"),
+                ],
+                "ooh_print": [
+                    ("Home Depot / Lowe's Community Boards", "DIY-ers, handymen, trade workers", "Local", "Flyer postings, partnership programs"),
+                    ("Union Halls & Trade School Bulletin Boards", "Apprentices, journeymen", "Local", "Direct trade community access"),
+                    ("Truck Stop / Gas Station Postings", "CDL drivers, field workers", "Regional", "Highway corridor reach"),
+                    ("Local Newspaper Classifieds", "Blue collar job seekers", "Local", "Traditional but trusted channel"),
+                    ("Community Recreation Centers", "Local job seekers", "Local", "Flyers, job fair postings"),
+                ],
+                "broadcast_audio": [
+                    ("Local AM/FM Radio (Drive Time)", "Commuting tradespeople", "Regional", "30-60 sec recruitment spots during commute hours"),
+                    ("Country / Classic Rock Station Sponsorships", "Blue collar demographics", "Regional", "Recruitment spots on trade-friendly formats"),
+                    ("iHeartRadio Local Targeting", "Regional workers by zip code", "Regional", "Digital audio ads targeted by location"),
+                ],
+            },
+            "logistics_supply_chain": {
+                "label": "Logistics & Supply Chain",
+                "trade_publications": [
+                    ("Supply Chain Management Review", "SCM directors, VP Operations", "US + Global", "Executive recruitment, employer profiles"),
+                    ("Logistics Management", "Logistics managers, warehouse directors", "US", "Career section, recruitment display ads"),
+                    ("Transport Topics", "Trucking, fleet operators, CDL drivers", "US", "Driver recruitment ads, fleet hiring features"),
+                    ("Journal of Commerce (JOC)", "Shipping, freight, customs professionals", "Global", "Trade recruitment, sponsored content"),
+                    ("Inbound Logistics", "Supply chain, procurement professionals", "US", "Recruitment ads, workforce articles"),
+                ],
+                "digital_media": [
+                    ("CDLjobs.com", "CDL truck drivers", "US", "Driver-specific job board, 500K+ monthly visitors"),
+                    ("FreightWaves", "Freight, trucking, logistics professionals", "US", "News site, career section, employer brand"),
+                    ("SupplyChainBrain", "SC professionals all levels", "US + Global", "Job board, webinar sponsorships"),
+                    ("Indeed CDL Driver Campaigns", "CDL-A/B drivers, delivery drivers", "US", "Programmatic driver recruitment"),
+                    ("Facebook Driver Groups", "OTR, local, regional drivers", "US", "Community-based driver recruiting"),
+                ],
+                "ooh_print": [
+                    ("Truck Stop Advertising (Pilot/Flying J, Love's)", "Long-haul truck drivers", "US Nationwide", "Poster ads, digital screens at fuel islands"),
+                    ("Warehouse District Billboards", "Warehouse workers, forklift operators", "Regional", "High-traffic logistics corridor visibility"),
+                    ("Distribution Center Break Rooms", "Current warehouse employees (referrals)", "Local", "Internal referral flyers, QR code postings"),
+                    ("CDL School Campus Boards", "New CDL holders, students", "Regional", "Direct pipeline from driving schools"),
+                ],
+                "broadcast_audio": [
+                    ("Road Dog Trucking (SiriusXM Ch 146)", "OTR truck drivers", "US Nationwide", "Recruitment spots during long hauls"),
+                    ("TruckersMP / Trucker Path App Ads", "Active truck drivers", "US", "In-app recruitment ads"),
+                    ("Spotify/Pandora Geo-targeted (Warehouse zones)", "Warehouse workers by geography", "Regional", "Audio ads near fulfillment centers"),
+                ],
+            },
+            "retail_consumer": {
+                "label": "Retail & Consumer",
+                "trade_publications": [
+                    ("Retail Dive", "Retail executives, buyers, merchandisers", "US", "Recruitment display ads, employer profiles"),
+                    ("NRF SmartBrief / Stores Magazine", "NRF members, retail leaders", "US", "Career content, sponsored recruitment"),
+                    ("Chain Store Age", "Chain retail management", "US", "Recruitment ads, workforce features"),
+                    ("Progressive Grocer", "Grocery retail managers, buyers", "US", "Supermarket industry recruitment"),
+                ],
+                "digital_media": [
+                    ("Snagajob / Snag", "Hourly retail & service workers", "US", "Hourly job platform, 100M+ job seekers"),
+                    ("RetailCareers.com", "Retail management, corporate retail", "US + Global", "Retail-specific job board"),
+                    ("Facebook Local Job Posts", "Local hourly job seekers", "Regional", "Free + paid job postings, high engagement"),
+                    ("TikTok Recruitment (Retail brands)", "Gen Z retail workers", "US + Global", "Short-form employer brand content"),
+                    ("Google Local Jobs", "In-store, hourly, seasonal workers", "Regional", "High-intent local job search"),
+                ],
+                "ooh_print": [
+                    ("In-Store 'Now Hiring' Signage", "Walk-in candidates, shoppers", "Local", "Highest-converting retail recruitment channel"),
+                    ("Shopping Mall Directory Boards", "Foot traffic job seekers", "Local", "Multi-store hiring event ads"),
+                    ("Local Community Bulletin Boards", "Neighborhood residents", "Local", "Free/low-cost community reach"),
+                    ("Bus Stop / Transit Shelter Ads", "Commuters, entry-level workers", "Regional", "High-visibility in retail corridors"),
+                    ("College Campus Boards (Part-time)", "Students seeking part-time work", "Local", "Campus partnerships for seasonal hires"),
+                ],
+                "broadcast_audio": [
+                    ("Local Radio (Pop, Urban, Top 40)", "Younger workforce 18-35", "Regional", "Drive-time recruitment spots"),
+                    ("Spotify Free Tier Ads", "Younger demographics", "Regional", "Audio/display ads between songs"),
+                    ("Retail podcast sponsorships", "Retail professionals", "US", "Employer brand content"),
+                ],
+            },
+            "hospitality_travel": {
+                "label": "Hospitality & Travel",
+                "trade_publications": [
+                    ("Hotel Management", "Hotel GMs, front office, F&B directors", "US", "Career section, recruitment ads"),
+                    ("Restaurant Business / Nation's Restaurant News", "Restaurant managers, chefs, FOH", "US", "Recruitment classifieds, workforce features"),
+                    ("Travel Weekly", "Travel agents, tour operators", "US + Global", "Career ads, industry recruitment"),
+                    ("Lodging Magazine", "Hospitality management, revenue mgrs", "US", "Recruitment display ads"),
+                ],
+                "digital_media": [
+                    ("Hcareers", "Hotel, restaurant, casino, resort jobs", "US + Global", "Hospitality-specific job board"),
+                    ("Poached Jobs", "Restaurant, bar, hotel staff", "US", "Culinary & hospitality talent marketplace"),
+                    ("Culinary Agents", "Chefs, cooks, sommeliers, F&B", "US", "Food service recruitment platform"),
+                    ("Hosco", "Hospitality students & professionals", "Global", "International hospitality careers"),
+                    ("Instagram / TikTok (Behind the scenes)", "Younger hospitality workers", "Global", "Employer brand, day-in-the-life content"),
+                ],
+                "ooh_print": [
+                    ("Culinary School Campus Boards", "Culinary students, externs", "Local", "Chef and kitchen pipeline"),
+                    ("Hotel Lobby / Employee Entrance Postings", "Walk-in applicants, current referrals", "Local", "High-conversion referral channel"),
+                    ("Tourism District Billboards / Transit", "Service workers in tourism areas", "Regional", "Seasonal hiring visibility"),
+                    ("Restaurant Supply Store Boards", "Kitchen staff, restaurant workers", "Local", "Industry-adjacent community reach"),
+                ],
+                "broadcast_audio": [
+                    ("Food & restaurant podcasts (Bon Appétit, Eater)", "Culinary professionals, foodies", "US + Global", "Sponsorship, employer spotlight"),
+                    ("Local radio — morning drive", "Service industry shift workers", "Regional", "Recruitment spots before shift start"),
+                ],
+            },
+            "finance_banking": {
+                "label": "Finance & Banking",
+                "trade_publications": [
+                    ("Financial Times", "Finance professionals, banking executives", "Global", "Recruitment display ads, career section"),
+                    ("Wall Street Journal", "Financial analysts, fund managers", "Global", "Career section, executive recruitment"),
+                    ("American Banker", "Banking professionals, compliance, risk", "US", "Industry recruitment, employer profiles"),
+                    ("The Economist", "Economists, policy analysts, finance leaders", "Global", "Career ads, sponsored employer content"),
+                    ("Barron's", "Investment professionals, wealth managers", "US", "Career section, premium recruitment ads"),
+                ],
+                "digital_media": [
+                    ("eFinancialCareers", "Investment banking, asset management", "Global", "Finance-specific job board, 2M+ monthly visitors"),
+                    ("Wall Street Oasis", "IB analysts, PE/VC professionals", "Global", "Community + job board, employer AMAs"),
+                    ("Bloomberg Careers", "Financial data, analytics professionals", "Global", "Premium finance recruitment"),
+                    ("Investopedia Career Center", "Financial advisors, analysts", "US", "Career content, job listings"),
+                    ("The Muse / Vault Finance", "Early-career finance professionals", "US", "Employer profiles, career guides"),
+                ],
+                "ooh_print": [
+                    ("Financial District Transit Ads (NYC, London, HK)", "Finance commuters", "Regional", "High-visibility in financial hubs"),
+                    ("CFA/CPA Exam Prep Center Boards", "Finance candidates pursuing credentials", "US + Global", "Targeted credential-track talent"),
+                    ("University Business School Boards", "MBA, finance students", "Regional", "On-campus recruitment, career fair ads"),
+                ],
+                "broadcast_audio": [
+                    ("Bloomberg Radio / TV", "Finance professionals, traders", "Global", "Recruitment sponsorships, career segments"),
+                    ("Financial podcasts (Odd Lots, Money Stuff)", "Finance enthusiasts, professionals", "Global", "Sponsor reads, employer features"),
+                    ("CNBC / Fox Business Digital", "Finance decision-makers", "US", "Recruitment display + video ads"),
+                ],
+            },
+            "aerospace_defense": {
+                "label": "Aerospace & Defense",
+                "trade_publications": [
+                    ("Aviation Week & Space Technology", "Aerospace engineers, program managers", "Global", "Career center, recruitment display ads"),
+                    ("Defense News", "Defense contractors, military-transition", "US + Global", "Recruitment features, career section"),
+                    ("Jane's Defence Weekly", "Defense & security professionals", "Global", "Premium recruitment listings"),
+                    ("SpaceNews", "Space industry engineers, scientists", "Global", "Space sector recruitment ads"),
+                ],
+                "digital_media": [
+                    ("ClearedJobs.net", "Security-cleared professionals", "US", "Cleared talent job board, virtual career fairs"),
+                    ("Military.com", "Veterans, military-transition professionals", "US", "Largest military community, job board"),
+                    ("Defense One", "Defense policy, technology professionals", "US", "Sponsored recruitment content"),
+                    ("AIAA Career Center", "Aerospace engineers, researchers", "Global", "Professional association job board"),
+                    ("AviationJobSearch", "Pilots, aviation maintenance, aerospace", "Global", "Aviation-specific recruitment platform"),
+                ],
+                "ooh_print": [
+                    ("Defense Industry Conference Programs (AUSA, AAAA)", "Defense professionals, military leaders", "US + Global", "Conference recruitment booths, program ads"),
+                    ("Military Base Transition Centers", "Separating service members", "US", "High-quality veteran pipeline"),
+                    ("Aerospace Museum / Air Show Programs", "Aviation enthusiasts, STEM talent", "Regional", "Brand visibility + passive recruitment"),
+                ],
+                "broadcast_audio": [
+                    ("The Aerospace Executive Podcast", "Aerospace leaders, engineers", "US", "Recruitment sponsorships"),
+                    ("Defense & Aerospace Report", "Defense industry professionals", "US", "Sponsor reads, career features"),
+                ],
+            },
+            "pharma_biotech": {
+                "label": "Pharma & Biotech",
+                "trade_publications": [
+                    ("Nature", "Scientists, researchers, PhD professionals", "Global", "Career section, recruitment ads, employer profiles"),
+                    ("The Lancet", "Clinical researchers, physicians", "Global", "Medical recruitment, career features"),
+                    ("Science Magazine (AAAS)", "STEM researchers, postdocs", "Global", "Career center, employer ads"),
+                    ("STAT News", "Biopharma, health, science reporters & pros", "US", "Sponsored employer content, job listings"),
+                    ("Genetic Engineering & Biotechnology News (GEN)", "Biotech lab professionals", "US + Global", "Niche biotech recruitment ads"),
+                ],
+                "digital_media": [
+                    ("BioSpace", "Life science professionals all levels", "US", "Biotech/pharma job board, 1M+ monthly visitors"),
+                    ("PharmiWeb", "Pharmaceutical, CRO, medical device", "Global", "Pharma-specific recruitment platform"),
+                    ("Endpoints News", "Biopharma executives, clinical teams", "US", "Sponsored content, employer brand features"),
+                    ("ResearchGate Jobs", "Academic researchers, PhD scientists", "Global", "Research community recruitment"),
+                    ("MedReps", "Medical sales, device reps, pharma sales", "US", "Sales-focused life science job board"),
+                ],
+                "ooh_print": [
+                    ("Biotech Hub Transit Ads (Boston, SF, San Diego, RTP)", "Life science commuters", "Regional", "High-visibility in biotech clusters"),
+                    ("Scientific Conference Programs (ASCO, ASH, JPM)", "Researchers, clinical professionals", "Global", "Conference career fair ads, booth recruitment"),
+                    ("University Lab / Science Building Boards", "Postdocs, PhD students, researchers", "Local", "Academic pipeline for industry positions"),
+                ],
+                "broadcast_audio": [
+                    ("This Week in Virology / Science podcasts", "Scientists, researchers", "Global", "Recruitment sponsorships in science media"),
+                    ("STAT News Podcast", "Biopharma professionals", "US", "Industry recruitment sponsor reads"),
+                ],
+            },
+            "energy_utilities": {
+                "label": "Energy & Utilities",
+                "trade_publications": [
+                    ("Power Engineering", "Power plant operators, engineers", "US", "Career section, recruitment ads"),
+                    ("Oil & Gas Journal", "Petroleum engineers, field operators", "Global", "O&G industry recruitment"),
+                    ("Renewable Energy World", "Solar, wind, energy storage pros", "Global", "Clean energy recruitment ads"),
+                    ("Utility Dive", "Utility executives, grid engineers", "US", "Career content, sponsored recruitment"),
+                    ("T&D World", "Transmission & distribution professionals", "US", "Utility workforce recruitment"),
+                ],
+                "digital_media": [
+                    ("Rigzone", "Oil & gas professionals globally", "Global", "O&G job board, 1.5M+ monthly visitors"),
+                    ("EnergyJobline", "All energy sector professionals", "Global", "Cross-energy recruitment platform"),
+                    ("CleanTechnica Jobs", "Renewable energy professionals", "Global", "Clean energy job board"),
+                    ("Utility Jobs Online", "Electric, gas, water utility workers", "US", "Utility-specific recruitment"),
+                ],
+                "ooh_print": [
+                    ("Energy Conference Programs (CERAWeek, Solar Power Intl)", "Energy executives, engineers", "Global", "Conference recruitment, booth presence"),
+                    ("Oil Field / Pipeline Corridor Billboards", "Field workers, operators", "Regional", "Reach workers in energy production areas"),
+                    ("Trade Union Halls (IBEW, UWUA)", "Lineworkers, electricians, utility workers", "US", "Union-pathway recruitment"),
+                ],
+                "broadcast_audio": [
+                    ("Energy podcasts (The Energy Gang, Columbia Energy Exchange)", "Energy professionals, policy makers", "US + Global", "Recruitment sponsorships"),
+                    ("Local radio in energy production regions (Permian, Bakken)", "Oilfield workers, plant operators", "Regional", "Geo-targeted recruitment spots"),
+                ],
+            },
+            "education": {
+                "label": "Education",
+                "trade_publications": [
+                    ("The Chronicle of Higher Education", "University faculty, administrators", "US", "Premier higher ed recruitment publication"),
+                    ("Education Week", "K-12 teachers, administrators, policy", "US", "K-12 recruitment ads, career section"),
+                    ("Inside Higher Ed", "College faculty, staff, administrators", "US", "Job board, employer profiles"),
+                    ("Times Higher Education (THE)", "International university faculty", "Global", "Global academic recruitment"),
+                ],
+                "digital_media": [
+                    ("HigherEdJobs", "College & university positions", "US", "Largest higher ed job board"),
+                    ("SchoolSpring / Frontline Education", "K-12 teachers, staff", "US", "K-12 school recruitment platform"),
+                    ("Teach Away", "International teaching positions", "Global", "International school recruitment"),
+                    ("Indeed Education Campaigns", "All education roles", "US", "Broad education recruitment"),
+                ],
+                "ooh_print": [
+                    ("Education Conference Programs (ISTE, ASCD, AERA)", "Educators, administrators", "US + Global", "Conference career fair recruitment"),
+                    ("College of Education Bulletin Boards", "Student teachers, new graduates", "Local", "Pipeline for new teacher hires"),
+                    ("School District Office Boards", "Current staff referrals, substitutes", "Local", "Community recruitment reach"),
+                ],
+                "broadcast_audio": [
+                    ("Education podcasts (Cult of Pedagogy, EdSurge)", "Teachers, instructional designers", "US", "Recruitment sponsorships"),
+                    ("NPR / Public Radio Underwriting", "Educated demographics, teachers", "Regional", "Premium audience, employer brand"),
+                ],
+            },
+            "construction_real_estate": {
+                "label": "Construction & Real Estate",
+                "trade_publications": [
+                    ("Engineering News-Record (ENR)", "Construction executives, PMs, engineers", "US + Global", "Industry recruitment leader, career center"),
+                    ("Construction Dive", "Construction managers, superintendents", "US", "Recruitment ads, workforce features"),
+                    ("Builder Magazine", "Homebuilders, developers", "US", "Residential construction recruitment"),
+                    ("Real Estate Forum / GlobeSt", "CRE professionals, brokers, developers", "US", "Commercial RE recruitment"),
+                ],
+                "digital_media": [
+                    ("ConstructionJobs.com", "All construction trades & management", "US", "Construction-specific job board"),
+                    ("iHireConstruction", "Laborers, operators, supervisors", "US", "Niche construction recruitment"),
+                    ("Procore Community Jobs", "Construction tech, project management", "US", "Construction software community"),
+                    ("Zillow / Realtor.com Careers", "Real estate agents, property managers", "US", "Real estate recruitment"),
+                ],
+                "ooh_print": [
+                    ("Construction Supply Store Boards (Home Depot Pro)", "Contractors, construction workers", "Local", "Industry-adjacent community reach"),
+                    ("Job Site Fence Banners / QR Codes", "Passersby, local trade workers", "Local", "High-visibility at active construction sites"),
+                    ("Union Halls (Carpenters, Laborers, Operating Engineers)", "Union tradespeople", "Regional", "Union apprenticeship pipeline"),
+                ],
+                "broadcast_audio": [
+                    ("Construction-focused radio (AM talk, sports)", "Construction worker commuters", "Regional", "Drive-time recruitment spots"),
+                    ("Construction podcasts (ConTech Crew)", "Construction professionals", "US", "Recruitment sponsorships"),
+                ],
+            },
+            "food_beverage": {
+                "label": "Food & Beverage",
+                "trade_publications": [
+                    ("Food Processing Magazine", "Food manufacturing, QA, plant managers", "US", "Industry recruitment, career section"),
+                    ("Beverage Industry", "Beverage production, distribution", "US", "Beverage sector recruitment"),
+                    ("Food Engineering", "Food plant engineers, operations", "US", "Engineering recruitment in food mfg"),
+                    ("QSR Magazine", "Quick service restaurant management", "US", "Restaurant industry recruitment"),
+                ],
+                "digital_media": [
+                    ("Poached Jobs", "Restaurant, bar, culinary talent", "US", "Hospitality talent marketplace"),
+                    ("FoodGrads", "Food science, food safety graduates", "US + Canada", "Entry-level food industry recruitment"),
+                    ("CareerBuilder Food & Bev", "Food manufacturing, plant workers", "US", "Broad food industry recruitment"),
+                    ("Facebook Local Restaurant Groups", "Line cooks, servers, kitchen staff", "Regional", "Community-based recruiting"),
+                ],
+                "ooh_print": [
+                    ("Food Industry Trade Show Programs (IFT, NRA Show)", "Food scientists, chefs, F&B execs", "US + Global", "Conference recruitment and brand visibility"),
+                    ("Restaurant Supply Store Boards", "Kitchen staff, restaurant workers", "Local", "Industry community reach"),
+                    ("Food Plant Employee Entrance Postings", "Current employee referrals", "Local", "Referral-based internal recruitment"),
+                ],
+                "broadcast_audio": [
+                    ("Food podcasts (Bon Appétit, Gastropod)", "Culinary professionals, food scientists", "US + Global", "Recruitment sponsorships"),
+                    ("Local radio near food production facilities", "Plant workers, line operators", "Regional", "Geo-targeted recruitment spots"),
+                ],
+            },
+            "telecommunications": {
+                "label": "Telecommunications",
+                "trade_publications": [
+                    ("Light Reading", "Telecom engineers, network architects", "Global", "Carrier & vendor recruitment ads"),
+                    ("FierceTelecom / FierceWireless", "Telecom executives, 5G professionals", "US + Global", "Recruitment features, career section"),
+                    ("RCR Wireless News", "Wireless industry professionals", "Global", "Wireless/5G recruitment ads"),
+                ],
+                "digital_media": [
+                    ("TelecomCareers.net", "All telecom roles", "US", "Telecom-specific job board"),
+                    ("Dice.com (Telecom/Network)", "Network engineers, telecom IT", "US", "Tech job board with telecom filter"),
+                    ("LinkedIn Telecom Groups", "Telecom professionals by specialty", "Global", "Group recruiting, sponsored posts"),
+                ],
+                "ooh_print": [
+                    ("MWC / CES Conference Programs", "Telecom executives, engineers", "Global", "Event recruitment, booth hiring"),
+                    ("Telecom facility area billboards", "Tower technicians, field engineers", "Regional", "Local recruitment near infrastructure"),
+                ],
+                "broadcast_audio": [
+                    ("Telecom podcasts (Light Reading, Fierce)", "Telecom professionals", "Global", "Recruitment sponsorships"),
+                ],
+            },
+            "media_entertainment": {
+                "label": "Media & Entertainment",
+                "trade_publications": [
+                    ("Variety", "Entertainment industry professionals", "Global", "Recruitment ads, career classifieds"),
+                    ("The Hollywood Reporter", "Film, TV, media executives", "Global", "Entertainment career section"),
+                    ("Broadcasting & Cable", "Broadcast, streaming professionals", "US", "Media industry recruitment"),
+                    ("AdAge / AdWeek", "Marketing, advertising, creative pros", "US + Global", "Agency & brand recruitment"),
+                ],
+                "digital_media": [
+                    ("Mandy.com", "Actors, crew, production staff", "Global", "Entertainment production job board"),
+                    ("ProductionHub", "Film & video production professionals", "US", "Production crew recruitment"),
+                    ("Mediabistro", "Media, journalism, content professionals", "US", "Media industry job board"),
+                    ("CreativePool / Behance Jobs", "Designers, animators, creative talent", "Global", "Creative talent marketplace"),
+                ],
+                "ooh_print": [
+                    ("Film/Media Festival Programs (Sundance, SXSW, NAB Show)", "Creative & production professionals", "Global", "Event recruitment, networking"),
+                    ("Studio Lot / Production Office Boards", "Production crew, assistants", "Local", "Industry insider recruitment"),
+                ],
+                "broadcast_audio": [
+                    ("Entertainment industry podcasts (The Business, Scriptnotes)", "Writers, producers, industry pros", "US + Global", "Recruitment sponsorships"),
+                ],
+            },
+            "insurance": {
+                "label": "Insurance",
+                "trade_publications": [
+                    ("Insurance Journal", "Insurance agents, underwriters, adjusters", "US", "Insurance industry recruitment ads"),
+                    ("Best's Review (AM Best)", "Insurance executives, actuaries", "US + Global", "Premium insurance career listings"),
+                    ("National Underwriter", "P&C, life/health underwriters", "US", "Underwriting recruitment classifieds"),
+                ],
+                "digital_media": [
+                    ("InsuranceJobs.com", "All insurance roles", "US", "Insurance-specific job board"),
+                    ("The Institutes Career Center", "Certified insurance professionals (CPCU, ARM)", "US", "Credential-based recruitment"),
+                    ("Actuarial Outpost / GoActuary", "Actuaries, actuarial students", "US + Global", "Actuarial recruitment platform"),
+                ],
+                "ooh_print": [
+                    ("Insurance Industry Conference Programs (RIMS, CPCU)", "Insurance professionals", "US + Global", "Conference career fairs, program ads"),
+                    ("Actuarial exam prep center boards", "Aspiring actuaries", "US", "Pipeline recruitment for actuarial talent"),
+                ],
+                "broadcast_audio": [
+                    ("Insurance podcasts (Insurance Journal, Carrier Mgmt)", "Insurance professionals", "US", "Recruitment sponsorships"),
+                ],
+            },
+            "legal_services": {
+                "label": "Legal Services",
+                "trade_publications": [
+                    ("The American Lawyer", "BigLaw attorneys, firm management", "US", "Legal recruitment ads, lateral classifieds"),
+                    ("National Law Journal", "Attorneys, judges, legal professionals", "US", "Career section, recruitment display ads"),
+                    ("ABA Journal", "All practicing attorneys (ABA members)", "US", "Bar association recruitment listings"),
+                    ("Law360", "In-house counsel, litigators, transactional", "US", "Legal news + career center"),
+                ],
+                "digital_media": [
+                    ("LawCrossing", "Attorney, paralegal, legal staff", "US", "Legal-specific job aggregator"),
+                    ("Robert Half Legal / Special Counsel", "Legal professionals, temp-to-perm", "US", "Legal staffing + recruitment"),
+                    ("Above the Law", "Associates, law students, in-house counsel", "US", "Legal career content, employer features"),
+                    ("NALP / Law School Career Centers", "Law students, recent JD graduates", "US", "Pipeline from law schools"),
+                ],
+                "ooh_print": [
+                    ("Bar Association Event Programs (ABA, State Bars)", "Practicing attorneys", "US", "CLE event career fairs, program ads"),
+                    ("Law School Campus Boards (Top 50)", "Law students, 1L-3L", "Regional", "On-campus legal recruitment"),
+                ],
+                "broadcast_audio": [
+                    ("Legal podcasts (Strict Scrutiny, Lawyer 2 Lawyer)", "Attorneys, legal professionals", "US", "Recruitment sponsorships"),
+                ],
+            },
+            "automotive": {
+                "label": "Automotive & Manufacturing",
+                "trade_publications": [
+                    ("Automotive News", "Auto industry executives, dealers", "US + Global", "Automotive recruitment leader"),
+                    ("SAE International Publications", "Automotive engineers, EV specialists", "Global", "Engineering recruitment, career center"),
+                    ("IndustryWeek", "Manufacturing plant managers, directors", "US", "Manufacturing recruitment ads"),
+                    ("Assembly Magazine", "Manufacturing, assembly professionals", "US", "Plant-level recruitment ads"),
+                ],
+                "digital_media": [
+                    ("AutoJobs.com", "Dealership, automotive service, manufacturing", "US", "Auto industry job board"),
+                    ("iHireManufacturing", "Manufacturing all levels", "US", "Manufacturing-specific recruitment"),
+                    ("Engineering.com Jobs", "Mechanical, manufacturing engineers", "Global", "Engineering recruitment platform"),
+                    ("DealerSocket / Hireology (Dealers)", "Dealership staff recruitment", "US", "Automotive retail recruitment"),
+                ],
+                "ooh_print": [
+                    ("Auto Shows (NAIAS, LA Auto Show) Programs", "Automotive professionals, enthusiasts", "US + Global", "Event recruitment, brand visibility"),
+                    ("Manufacturing Plant Corridor Boards", "Current employees (referrals), temp workers", "Local", "Internal referral recruitment"),
+                    ("Vocational School Auto Programs", "Auto tech students, mechanics", "Local", "Technician pipeline recruitment"),
+                ],
+                "broadcast_audio": [
+                    ("Automotive podcasts (Autoline, The Drive)", "Auto industry professionals", "US + Global", "Recruitment sponsorships"),
+                    ("Local radio near manufacturing plants", "Manufacturing workers, shift employees", "Regional", "Geo-targeted recruitment spots"),
+                ],
+            },
+            "military_recruitment": {
+                "label": "Military Recruitment",
+                "trade_publications": [
+                    ("Military Times (Army/Navy/Air Force/Marine Times)", "Active duty, veterans, military families", "US", "Premier military recruitment publication"),
+                    ("Stars and Stripes", "Overseas military, DoD civilians", "Global", "Overseas military community recruitment"),
+                    ("G.I. Jobs Magazine", "Transitioning service members", "US", "Military-to-civilian career guide"),
+                ],
+                "digital_media": [
+                    ("Military.com", "5M+ Veterans, active duty, families", "US", "Largest military job board & community"),
+                    ("Hire Heroes USA", "Veteran job seekers", "US", "Nonprofit veteran career placement"),
+                    ("RecruitMilitary", "Military-experienced professionals", "US", "Veteran job fairs + job board"),
+                    ("USAJOBS (Federal)", "Veterans seeking federal employment", "US", "Government career portal"),
+                ],
+                "ooh_print": [
+                    ("Military Base Transition Assistance (TAP) Centers", "Separating service members", "US + Global", "Direct military-to-civilian pipeline"),
+                    ("VFW / American Legion Posts", "Veterans community", "US", "Community-based veteran recruitment"),
+                    ("Military Installation Bulletin Boards", "Active duty, dependents", "US", "On-base job postings"),
+                ],
+                "broadcast_audio": [
+                    ("Armed Forces Radio (AFN)", "Active duty service members worldwide", "Global", "Overseas military recruitment"),
+                    ("Veteran podcasts (Borne the Battle, Jocko Podcast)", "Veterans, military-transition", "US", "Recruitment sponsorships, employer spotlights"),
+                ],
+            },
+            "maritime_marine": {
+                "label": "Maritime & Marine",
+                "trade_publications": [
+                    ("Maritime Executive", "Ship officers, port management, naval architects", "Global", "Maritime career section, recruitment ads"),
+                    ("Marine Log", "Shipbuilding, marine engineering", "US", "Marine industry recruitment"),
+                    ("TradeWinds", "Shipping, offshore, maritime executives", "Global", "Shipping industry career classifieds"),
+                    ("WorkBoat Magazine", "Workboat operators, inland waterway pros", "US", "Domestic maritime recruitment"),
+                ],
+                "digital_media": [
+                    ("MarineLink / Maritime Jobs", "All maritime roles globally", "Global", "Maritime-specific job board"),
+                    ("Crew4Yachts / dockwalk", "Yacht crew, superyacht positions", "Global", "Luxury maritime recruitment"),
+                    ("GCAPTAIN", "Maritime professionals, ship captains", "Global", "Maritime news + career section"),
+                ],
+                "ooh_print": [
+                    ("Port Authority / Seamen's Church Boards", "Mariners, dockworkers, port staff", "Regional", "Direct maritime community recruitment"),
+                    ("Maritime Academy Campus Boards", "Maritime cadets, new graduates", "US", "Maritime officer pipeline"),
+                    ("Ship Chandlery / Maritime Supply Stores", "Active mariners", "Regional", "Industry community postings"),
+                ],
+                "broadcast_audio": [
+                    ("Maritime podcasts (Maritime Podcast, The Shipping Podcast)", "Shipping & maritime professionals", "Global", "Recruitment sponsorships"),
+                ],
+            },
+        }
+        # Add general/entry-level as fallback
+        media_platforms_db["general_entry_level"] = {
+            "label": "General / Entry-Level",
+            "trade_publications": [
+                ("Local Newspapers (Classifieds Section)", "General job seekers, all levels", "Local", "Traditional recruitment, broad reach"),
+                ("Community Newspapers / Weeklies", "Local residents, hourly workers", "Local", "Affordable, community-trusted channel"),
+            ],
+            "digital_media": [
+                ("Indeed Sponsored Jobs", "All job seekers, 250M+ monthly visitors", "Global", "Largest job site, broad programmatic reach"),
+                ("Facebook Jobs", "Hourly, entry-level, local job seekers", "Global", "Social recruiting, community groups"),
+                ("Google for Jobs", "High-intent job searchers", "Global", "Organic + paid local job visibility"),
+                ("Craigslist Jobs", "Local hourly, entry-level, gig workers", "US", "Low-cost local recruitment"),
+            ],
+            "ooh_print": [
+                ("Community Bulletin Boards (Libraries, Rec Centers)", "Local job seekers", "Local", "Free community reach"),
+                ("Public Transit Ads (Bus, Subway, Shelters)", "Commuting workers, entry-level", "Regional", "High-frequency visibility"),
+                ("Grocery Store / Laundromat Boards", "Neighborhood residents seeking work", "Local", "Hyperlocal community reach"),
+            ],
+            "broadcast_audio": [
+                ("Local Radio (Mix of formats)", "General audience by demographics", "Regional", "Broad recruitment reach, drive-time slots"),
+                ("Spotify/Pandora Geo-targeted Ads", "Younger demographics by location", "Regional", "Digital audio recruitment ads"),
+            ],
+        }
+
+        # Get the platform data for the client's industry (with fallback)
+        ind_key = industry
+        if ind_key not in media_platforms_db:
+            # Try mapping some common aliases
+            alias_map = {"niche_industry": "general_entry_level", "mental_health": "healthcare_medical"}
+            ind_key = alias_map.get(ind_key, "general_entry_level")
+        ind_platforms = media_platforms_db.get(ind_key, media_platforms_db["general_entry_level"])
+        ind_label = ind_platforms.get("label", industry.replace("_", " ").title())
+
+        # Get locations for regional context
+        locs = data.get("locations", [])
+        loc_context = ", ".join(locs[:3]) if locs else "US"
+
+        ws_media.merge_cells("B2:G2")
+        ws_media["B2"].value = f"Media & Print Platforms — {ind_label}"
         ws_media["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
-        industry_data = db.get("industries", {}).get(industry, {})
-        media_platforms = industry_data.get("media_platforms", {})
 
-        # USE RESEARCH MODULE for real audience descriptions
-        audiences = research.get_media_platform_audiences(industry)
+        ws_media.merge_cells("B3:G3")
+        ws_media["B3"].value = f"Recommended recruitment marketing channels for {ind_label} roles in {loc_context}. These platforms complement digital programmatic channels to reach passive candidates and build employer brand."
+        ws_media["B3"].font = Font(name="Calibri", italic=True, size=9, color="596780")
+        ws_media["B3"].alignment = Alignment(wrap_text=True, vertical="top")
 
-        row = 4
-        for platform_type in ["print", "digital", "hybrid"]:
-            platforms = media_platforms.get(platform_type, [])
-            if platforms:
-                cell = ws_media.cell(row=row, column=2, value=f"{platform_type.upper()} PLATFORMS")
-                cell.font = section_font
-                cell.fill = section_fill
+        category_labels = {
+            "trade_publications": ("📰 TRADE PUBLICATIONS & JOURNALS", "2E75B6"),
+            "digital_media": ("💻 DIGITAL MEDIA PLATFORMS", "1B6B3A"),
+            "ooh_print": ("🏗️ OUT-OF-HOME & PRINT", "ED7D31"),
+            "broadcast_audio": ("🎙️ BROADCAST & AUDIO", "7030A0"),
+            "specialty": ("⭐ SPECIALTY & EMERGING", "FFC000"),
+        }
+
+        row = 5
+        for cat_key, (cat_label, cat_color) in category_labels.items():
+            platforms = ind_platforms.get(cat_key, [])
+            if not platforms:
+                continue
+
+            # Category header
+            ws_media.merge_cells(f"B{row}:G{row}")
+            cell = ws_media.cell(row=row, column=2, value=cat_label)
+            cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+            cell.fill = PatternFill(start_color=cat_color, end_color=cat_color, fill_type="solid")
+            cell.alignment = Alignment(vertical="center")
+            for c in range(3, 8):
+                ws_media.cell(row=row, column=c).fill = PatternFill(start_color=cat_color, end_color=cat_color, fill_type="solid")
+            row += 1
+
+            # Column headers
+            for i, h in enumerate(["Platform / Channel", "Type", "Target Audience", "Reach", "Use Case", "Recommendation"]):
+                cell = ws_media.cell(row=row, column=2 + i, value=h)
+                cell.font = Font(name="Calibri", bold=True, size=10, color="1B2A4A")
+                cell.fill = PatternFill(start_color="D6E4F0", end_color="D6E4F0", fill_type="solid")
+                cell.alignment = Alignment(horizontal="center", vertical="center")
                 cell.border = thin_border
-                for c in range(3, 6):
-                    ws_media.cell(row=row, column=c).fill = section_fill
-                    ws_media.cell(row=row, column=c).border = thin_border
-                row += 1
-                for i, h in enumerate(["Platform Name", "Target Audience", "Audience Type", "Reach"]):
-                    cell = ws_media.cell(row=row, column=2 + i, value=h)
-                    cell.font = subheader_font
-                    cell.fill = subheader_fill
-                    cell.alignment = center_alignment
+            row += 1
+
+            # Platform rows
+            for idx, plat in enumerate(platforms):
+                name, audience, reach, use_case = plat
+                fill_color = "FFFFFF" if idx % 2 == 0 else "F2F6FA"
+                row_fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
+
+                type_label = cat_key.replace("_", " ").title()
+
+                # Recommendation logic based on locations
+                rec = "✅ Recommended"
+                if "Global" in reach and any(loc for loc in locs if any(c in loc.lower() for c in ["uk","london","india","germany","singapore","japan","australia"])):
+                    rec = "⭐ High Priority (International)"
+                elif "Local" in reach and locs:
+                    rec = f"✅ Target: {locs[0]}" if locs else "✅ Recommended"
+
+                for ci, val in enumerate([name, type_label, audience, reach, use_case, rec]):
+                    cell = ws_media.cell(row=row, column=2 + ci, value=val)
+                    cell.font = Font(name="Calibri", size=10, bold=(ci==0), color="1B2A4A" if ci==0 else "333333")
+                    cell.fill = row_fill
+                    cell.alignment = Alignment(wrap_text=True, vertical="top")
                     cell.border = thin_border
                 row += 1
-                audience_desc = audiences.get(platform_type, "Practitioners")
-                for p in platforms:
-                    style_body_cell(ws_media, row, 2, p)
-                    style_body_cell(ws_media, row, 3, audience_desc)
-                    style_body_cell(ws_media, row, 4, "Practitioners & Decision-Makers")
-                    style_body_cell(ws_media, row, 5, "US + Global")
-                    row += 1
-                row += 1
+            row += 1  # Gap between categories
+
+        # Footer with guidance
+        ws_media.merge_cells(f"B{row}:G{row}")
+        cell = ws_media.cell(row=row, column=2, value="💡 Recommendation: Combine 2-3 print/OOH channels with digital programmatic for optimal passive + active candidate coverage. Allocate 10-15% of total recruitment budget to media/print channels for employer brand lift.")
+        cell.font = Font(name="Calibri", italic=True, size=9, color="596780")
+        cell.alignment = Alignment(wrap_text=True)
 
     output = io.BytesIO()
     wb.save(output)
