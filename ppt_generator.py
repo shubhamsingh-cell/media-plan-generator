@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """
-McKinsey-style 2-page PowerPoint generator for AI Media Planner.
+Premium LinkedIn-inspired PowerPoint generator for AI Media Planner.
 
-Generates a professional, data-driven .pptx presentation using python-pptx.
-Designed to match McKinsey's visual standards: minimal, structured, insight-led.
+Generates a polished, data-driven 6-slide .pptx presentation using python-pptx.
+Incorporates LinkedIn Hiring Value Review visual patterns: section dividers,
+hero stats, gold accents, quality outcomes grids, channel attribution diagrams,
+and side-by-side comparison panels.
 """
 
 import io
+import math
 import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
@@ -18,17 +21,35 @@ from pptx.enum.shapes import MSO_SHAPE
 
 
 # ---------------------------------------------------------------------------
-# Constants & Color Palette
+# Constants & Color Palette (LinkedIn-inspired)
 # ---------------------------------------------------------------------------
 
-NAVY = RGBColor(0x1B, 0x2A, 0x4A)
-ACCENT_BLUE = RGBColor(0x2E, 0x75, 0xB6)
-LIGHT_BLUE = RGBColor(0xD6, 0xE4, 0xF0)
+NAVY = RGBColor(0x08, 0x29, 0x4A)          # Primary dark background
+BLUE = RGBColor(0x0A, 0x66, 0xC9)          # Primary accent (LinkedIn Blue)
+MEDIUM_BLUE = RGBColor(0x00, 0x40, 0x82)   # Secondary blue
+LIGHT_BLUE = RGBColor(0xD1, 0xE8, 0xFF)    # Light background
+PALE_BLUE = RGBColor(0xA8, 0xD4, 0xFF)     # Lighter accent fills
+SKY_BLUE = RGBColor(0x70, 0xB5, 0xFA)      # Chart elements
+
+GOLD = RGBColor(0xE8, 0xA3, 0x3D)          # Highlight accent
+LIGHT_GOLD = RGBColor(0xF5, 0xC7, 0x7D)    # Secondary warm
+PALE_GOLD = RGBColor(0xFC, 0xE3, 0xBD)     # Subtle warm background
+
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-DARK_TEXT = RGBColor(0x33, 0x33, 0x33)
-MUTED_TEXT = RGBColor(0x59, 0x67, 0x80)
-GREEN = RGBColor(0x00, 0xB0, 0x50)
-ORANGE = RGBColor(0xED, 0x7D, 0x31)
+OFF_WHITE = RGBColor(0xF2, 0xF2, 0xF0)     # Content background
+WARM_WHITE = RGBColor(0xFC, 0xFA, 0xF5)    # Card backgrounds
+WARM_GRAY = RGBColor(0xEB, 0xE6, 0xE0)     # Borders, dividers
+MEDIUM_GRAY = RGBColor(0xD6, 0xCF, 0xC2)   # Subtle separators
+
+DARK_TEXT = RGBColor(0x1B, 0x2A, 0x4A)      # Body text
+MUTED_TEXT = RGBColor(0x59, 0x67, 0x80)     # Secondary text
+LIGHT_MUTED = RGBColor(0x8C, 0x96, 0xA8)   # Tertiary text
+
+GREEN = RGBColor(0x33, 0x87, 0x21)          # Positive / beating benchmark
+LIGHT_GREEN = RGBColor(0xE6, 0xF2, 0xE0)   # Green background
+AMBER = RGBColor(0xD4, 0x7A, 0x1A)         # Trailing benchmark
+LIGHT_AMBER = RGBColor(0xFD, 0xF0, 0xDD)   # Amber background
+RED_ACCENT = RGBColor(0xC0, 0x39, 0x2B)     # Underperformance
 
 FONT_FAMILY = "Calibri"
 
@@ -163,14 +184,14 @@ COMPLICATIONS: Dict[str, List[str]] = {
 # ---------------------------------------------------------------------------
 
 CHANNEL_ALLOC: Dict[str, Dict[str, Any]] = {
-    "programmatic_dsp":  {"label": "Programmatic DSP",      "pct": 35, "color": NAVY},
-    "global_boards":     {"label": "Global Job Boards",     "pct": 20, "color": ACCENT_BLUE},
-    "niche_boards":      {"label": "Niche / Industry Boards","pct": 15, "color": RGBColor(0x4A, 0x90, 0xD9)},
-    "social_media":      {"label": "Social Media",          "pct": 12, "color": RGBColor(0x5B, 0xA8, 0xE0)},
-    "regional_boards":   {"label": "Regional Boards",       "pct": 8,  "color": RGBColor(0x7F, 0xBF, 0xE8)},
-    "employer_branding": {"label": "Employer Branding",     "pct": 5,  "color": RGBColor(0xA3, 0xD1, 0xF0)},
-    "apac_regional":     {"label": "APAC Regional",         "pct": 3,  "color": RGBColor(0xBD, 0xDE, 0xF5)},
-    "emea_regional":     {"label": "EMEA Regional",         "pct": 2,  "color": RGBColor(0xD6, 0xE9, 0xFA)},
+    "programmatic_dsp":  {"label": "Programmatic DSP",       "pct": 35, "color": NAVY,        "category": "Programmatic"},
+    "global_boards":     {"label": "Global Job Boards",      "pct": 20, "color": BLUE,        "category": "Job Boards"},
+    "niche_boards":      {"label": "Niche / Industry Boards", "pct": 15, "color": MEDIUM_BLUE, "category": "Job Boards"},
+    "social_media":      {"label": "Social Media",           "pct": 12, "color": SKY_BLUE,    "category": "Social"},
+    "regional_boards":   {"label": "Regional Boards",        "pct": 8,  "color": PALE_BLUE,   "category": "Job Boards"},
+    "employer_branding": {"label": "Employer Branding",      "pct": 5,  "color": GOLD,        "category": "Employer Brand"},
+    "apac_regional":     {"label": "APAC Regional",          "pct": 3,  "color": LIGHT_GOLD,  "category": "Job Boards"},
+    "emea_regional":     {"label": "EMEA Regional",          "pct": 2,  "color": PALE_GOLD,   "category": "Job Boards"},
 }
 
 # Human-readable goal labels
@@ -193,6 +214,46 @@ WORK_ENV_LABELS: Dict[str, str] = {
     "on_site": "On-Site",
     "on-site": "On-Site",
     "flexible": "Flexible",
+}
+
+# Industry benchmark comparison data for side-by-side panel
+INDUSTRY_BENCHMARKS_COMPARISON: Dict[str, Dict[str, Any]] = {
+    "healthcare_medical": {
+        "avg_channels": 4, "avg_budget_pct_programmatic": 28, "avg_apply_rate": 3.8,
+        "avg_time_to_fill": 42, "avg_cpa": 60, "estimated_reach_multiplier": 1.0,
+    },
+    "tech_engineering": {
+        "avg_channels": 5, "avg_budget_pct_programmatic": 32, "avg_apply_rate": 6.4,
+        "avg_time_to_fill": 35, "avg_cpa": 50, "estimated_reach_multiplier": 1.1,
+    },
+    "retail_consumer": {
+        "avg_channels": 3, "avg_budget_pct_programmatic": 25, "avg_apply_rate": 5.1,
+        "avg_time_to_fill": 28, "avg_cpa": 14, "estimated_reach_multiplier": 0.9,
+    },
+    "general_entry_level": {
+        "avg_channels": 4, "avg_budget_pct_programmatic": 30, "avg_apply_rate": 5.8,
+        "avg_time_to_fill": 30, "avg_cpa": 18, "estimated_reach_multiplier": 1.0,
+    },
+    "finance_banking": {
+        "avg_channels": 4, "avg_budget_pct_programmatic": 30, "avg_apply_rate": 5.5,
+        "avg_time_to_fill": 38, "avg_cpa": 43, "estimated_reach_multiplier": 1.0,
+    },
+    "logistics_supply_chain": {
+        "avg_channels": 4, "avg_budget_pct_programmatic": 30, "avg_apply_rate": 4.6,
+        "avg_time_to_fill": 32, "avg_cpa": 34, "estimated_reach_multiplier": 1.0,
+    },
+    "hospitality_travel": {
+        "avg_channels": 3, "avg_budget_pct_programmatic": 22, "avg_apply_rate": 4.5,
+        "avg_time_to_fill": 25, "avg_cpa": 16, "estimated_reach_multiplier": 0.9,
+    },
+    "blue_collar_trades": {
+        "avg_channels": 3, "avg_budget_pct_programmatic": 26, "avg_apply_rate": 4.8,
+        "avg_time_to_fill": 30, "avg_cpa": 24, "estimated_reach_multiplier": 0.9,
+    },
+    "pharma_biotech": {
+        "avg_channels": 5, "avg_budget_pct_programmatic": 35, "avg_apply_rate": 4.5,
+        "avg_time_to_fill": 55, "avg_cpa": 75, "estimated_reach_multiplier": 1.1,
+    },
 }
 
 
@@ -225,6 +286,7 @@ def _add_textbox(
     text: str = "",
     font_size: int = 10,
     bold: bool = False,
+    italic: bool = False,
     color: RGBColor = DARK_TEXT,
     alignment=PP_ALIGN.LEFT,
     anchor=MSO_ANCHOR.TOP,
@@ -239,10 +301,8 @@ def _add_textbox(
         tf.paragraphs[0].alignment = alignment
     except Exception:
         pass
-    # Anchor
     txBox.text_frame.paragraphs[0].space_before = Pt(0)
     txBox.text_frame.paragraphs[0].space_after = Pt(0)
-    # Vertical anchor
     try:
         txBox.text_frame._txBody.bodyPr.set("anchor", {
             MSO_ANCHOR.TOP: "t",
@@ -257,7 +317,7 @@ def _add_textbox(
         p.alignment = alignment
         run = p.add_run()
         run.text = text
-        _set_font(run, size=font_size, bold=bold, color=color)
+        _set_font(run, size=font_size, bold=bold, italic=italic, color=color)
 
     return txBox, tf
 
@@ -271,7 +331,26 @@ def _add_filled_rect(slide, left, top, width, height, fill_color: RGBColor):
     return shape
 
 
-def _add_paragraph(tf, text, font_size=10, bold=False, color=DARK_TEXT, alignment=PP_ALIGN.LEFT, space_before=0, space_after=2):
+def _add_rounded_rect(slide, left, top, width, height, fill_color: RGBColor):
+    """Add a rounded rectangle shape with a solid fill and no border."""
+    shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = fill_color
+    shape.line.fill.background()
+    return shape
+
+
+def _add_oval(slide, left, top, width, height, fill_color: RGBColor):
+    """Add an oval/circle shape with solid fill and no border."""
+    shape = slide.shapes.add_shape(MSO_SHAPE.OVAL, left, top, width, height)
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = fill_color
+    shape.line.fill.background()
+    return shape
+
+
+def _add_paragraph(tf, text, font_size=10, bold=False, italic=False, color=DARK_TEXT,
+                   alignment=PP_ALIGN.LEFT, space_before=0, space_after=2):
     """Append a paragraph to an existing text frame."""
     p = tf.add_paragraph()
     p.alignment = alignment
@@ -279,7 +358,23 @@ def _add_paragraph(tf, text, font_size=10, bold=False, color=DARK_TEXT, alignmen
     p.space_after = Pt(space_after)
     run = p.add_run()
     run.text = text
-    _set_font(run, size=font_size, bold=bold, color=color)
+    _set_font(run, size=font_size, bold=bold, italic=italic, color=color)
+    return p
+
+
+def _add_multi_run_paragraph(tf, runs_data: List[Tuple], alignment=PP_ALIGN.LEFT,
+                             space_before=0, space_after=2):
+    """Add a paragraph with multiple styled runs.
+    runs_data: list of (text, font_size, bold, color) tuples.
+    """
+    p = tf.add_paragraph()
+    p.alignment = alignment
+    p.space_before = Pt(space_before)
+    p.space_after = Pt(space_after)
+    for text, font_size, bold, color in runs_data:
+        run = p.add_run()
+        run.text = text
+        _set_font(run, size=font_size, bold=bold, color=color)
     return p
 
 
@@ -301,28 +396,31 @@ def _get_complications(industry: str) -> List[str]:
     )
 
 
+def _get_industry_comparison(industry: str) -> Dict[str, Any]:
+    """Return industry benchmark comparison data."""
+    return INDUSTRY_BENCHMARKS_COMPARISON.get(
+        industry, INDUSTRY_BENCHMARKS_COMPARISON["general_entry_level"]
+    )
+
+
 def _selected_channels(data: Dict) -> Dict[str, Dict[str, Any]]:
     """Return only the channels the user toggled on, with redistributed percentages."""
     cats = data.get("channel_categories", {})
-    # Support both list format (from frontend) and dict format
     if isinstance(cats, list):
         cats = {k: True for k in cats}
     selected = {}
     for key, meta in CHANNEL_ALLOC.items():
         if cats.get(key, False):
-            selected[key] = dict(meta)  # copy
+            selected[key] = dict(meta)
 
     if not selected:
-        # Fallback: show programmatic + global + social if nothing selected
         for key in ("programmatic_dsp", "global_boards", "social_media"):
             selected[key] = dict(CHANNEL_ALLOC[key])
 
-    # Redistribute to sum to 100
     raw_total = sum(v["pct"] for v in selected.values())
     if raw_total > 0:
         for v in selected.values():
             v["pct"] = round(v["pct"] / raw_total * 100)
-        # Fix rounding so total = 100
         diff = 100 - sum(v["pct"] for v in selected.values())
         if diff != 0:
             first_key = next(iter(selected))
@@ -337,13 +435,167 @@ def _goal_labels(data: Dict) -> List[str]:
     return [GOAL_LABELS.get(g, g.replace("_", " ").title()) for g in goals]
 
 
+def _parse_budget_number(budget_str: str) -> Optional[float]:
+    """Try to extract a numeric budget value from a string like '$75,000 / month'."""
+    import re
+    clean = budget_str.replace(",", "").replace("$", "").strip()
+    match = re.search(r"([\d.]+)\s*[kK]", clean)
+    if match:
+        return float(match.group(1)) * 1000
+    match = re.search(r"([\d.]+)\s*[mM]", clean)
+    if match:
+        return float(match.group(1)) * 1000000
+    match = re.search(r"([\d.]+)", clean)
+    if match:
+        return float(match.group(1))
+    return None
+
+
+def _format_budget_display(budget_str: str) -> str:
+    """Format budget for hero stat display."""
+    val = _parse_budget_number(budget_str)
+    if val is None:
+        return budget_str
+    if val >= 1000000:
+        return f"${val / 1000000:.1f}M"
+    if val >= 1000:
+        return f"${val / 1000:.0f}K"
+    return f"${val:,.0f}"
+
+
+def _channel_categories_grouped(channels: Dict) -> Dict[str, List[Dict]]:
+    """Group channels by their category for attribution diagram."""
+    groups: Dict[str, List[Dict]] = {}
+    for key, ch in channels.items():
+        cat = ch.get("category", "Other")
+        if cat not in groups:
+            groups[cat] = []
+        groups[cat].append(ch)
+    return groups
+
+
+def _add_footer(slide, today: str):
+    """Add the standard footer bar to a slide."""
+    footer_top = Inches(6.95)
+    _add_filled_rect(slide, Inches(0), footer_top, SLIDE_WIDTH, Inches(0.03), NAVY)
+    _add_textbox(
+        slide, Inches(0.55), footer_top + Inches(0.08), Inches(12.2), Inches(0.3),
+        text=f"Powered by Joveo  |  AI Media Planner  |  {today}",
+        font_size=7, color=MUTED_TEXT, alignment=PP_ALIGN.CENTER,
+    )
+
+
+def _add_top_band(slide, left_text: str, right_text: str, band_color=NAVY):
+    """Add the standard top navigation band."""
+    band_h = Inches(0.72)
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, band_h, band_color)
+    _add_textbox(
+        slide, Inches(0.45), Inches(0.15), Inches(7), Inches(0.45),
+        text=left_text, font_size=14, bold=True, color=WHITE,
+    )
+    _add_textbox(
+        slide, Inches(9), Inches(0.15), Inches(4), Inches(0.45),
+        text=right_text, font_size=12, bold=False, color=RGBColor(0xA0, 0xB0, 0xCC),
+        alignment=PP_ALIGN.RIGHT,
+    )
+    return band_h
+
+
 # ===================================================================
-# SLIDE 1 - Executive Summary
+# SLIDE 1 - Cover / Section Divider: Title Slide
 # ===================================================================
 
-def _build_slide_1(prs: Presentation, data: Dict):
-    """Build the Executive Summary slide (Slide 1)."""
-    slide_layout = prs.slide_layouts[6]  # blank layout
+def _build_slide_cover(prs: Presentation, data: Dict):
+    """Build a premium full-bleed cover slide with LinkedIn-style section divider pattern."""
+    slide_layout = prs.slide_layouts[6]  # blank
+    slide = prs.slides.add_slide(slide_layout)
+
+    client = data.get("client_name", "Client")
+    industry_label = data.get("industry_label", "")
+    today = datetime.date.today().strftime("%B %d, %Y")
+
+    # Full dark navy background
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, NAVY)
+
+    # Gold accent bar at top
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, Inches(0.06), GOLD)
+
+    # Decorative gold accent shapes - left side
+    _add_filled_rect(slide, Inches(0.6), Inches(1.8), Inches(1.2), Inches(0.05), GOLD)
+
+    # "AI MEDIA PLANNER" small label top-left
+    _add_textbox(
+        slide, Inches(0.6), Inches(1.1), Inches(5), Inches(0.4),
+        text="AI MEDIA PLANNER", font_size=14, bold=True, color=GOLD,
+    )
+
+    # Main title - client name large
+    _add_textbox(
+        slide, Inches(0.6), Inches(2.1), Inches(10), Inches(1.2),
+        text=f"Media Plan", font_size=52, bold=True, color=WHITE,
+    )
+
+    # Client name as hero element
+    _add_textbox(
+        slide, Inches(0.6), Inches(3.2), Inches(11), Inches(1.0),
+        text=client, font_size=44, bold=True, color=LIGHT_GOLD,
+    )
+
+    # Industry subtitle
+    if industry_label:
+        _add_textbox(
+            slide, Inches(0.6), Inches(4.2), Inches(10), Inches(0.5),
+            text=industry_label, font_size=20, bold=False, color=LIGHT_BLUE,
+        )
+
+    # Gold accent line under title area
+    _add_filled_rect(slide, Inches(0.6), Inches(5.0), Inches(3.0), Inches(0.05), GOLD)
+
+    # Date and branding at bottom
+    _add_textbox(
+        slide, Inches(0.6), Inches(5.4), Inches(6), Inches(0.4),
+        text=today, font_size=14, color=LIGHT_MUTED,
+    )
+    _add_textbox(
+        slide, Inches(0.6), Inches(5.8), Inches(6), Inches(0.4),
+        text="Powered by Joveo Programmatic Technology", font_size=11,
+        italic=True, color=LIGHT_MUTED,
+    )
+
+    # Right-side decorative element: large subtle circle
+    circle_size = Inches(4.5)
+    circle = _add_oval(
+        slide,
+        SLIDE_WIDTH - Inches(3.0),
+        Inches(1.5),
+        circle_size,
+        circle_size,
+        MEDIUM_BLUE,
+    )
+    # Make it semi-transparent via alpha adjustment on fill
+    circle.fill.fore_color.rgb = RGBColor(0x0D, 0x35, 0x5E)
+
+    # Smaller overlapping accent circle
+    small_circle = _add_oval(
+        slide,
+        SLIDE_WIDTH - Inches(1.5),
+        Inches(3.5),
+        Inches(2.5),
+        Inches(2.5),
+        RGBColor(0x10, 0x40, 0x6A),
+    )
+
+    # Bottom gold bar
+    _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.06), SLIDE_WIDTH, Inches(0.06), GOLD)
+
+
+# ===================================================================
+# SLIDE 2 - Executive Summary with Hero Stat
+# ===================================================================
+
+def _build_slide_executive_summary(prs: Presentation, data: Dict):
+    """Build the Executive Summary slide with hero stat pattern and SCR framework."""
+    slide_layout = prs.slide_layouts[6]
     slide = prs.slides.add_slide(slide_layout)
 
     client = data.get("client_name", "Client")
@@ -355,25 +607,15 @@ def _build_slide_1(prs: Presentation, data: Dict):
     work_env = data.get("work_environment", "hybrid")
     goals = _goal_labels(data)
     channels = _selected_channels(data)
+    today = datetime.date.today().strftime("%B %d, %Y")
 
-    # ---- TOP BAND (Navy) ----
-    band_h = Inches(0.72)
-    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, band_h, NAVY)
+    # Off-white background
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
 
-    # "AI MEDIA PLANNER" left
-    _add_textbox(
-        slide, Inches(0.45), Inches(0.15), Inches(4), Inches(0.45),
-        text="AI MEDIA PLANNER", font_size=14, bold=True, color=WHITE,
-    )
+    # Top band
+    _add_top_band(slide, "AI MEDIA PLANNER", client.upper())
 
-    # Client name right
-    _add_textbox(
-        slide, Inches(9), Inches(0.15), Inches(4), Inches(0.45),
-        text=client.upper(), font_size=14, bold=True, color=WHITE,
-        alignment=PP_ALIGN.RIGHT,
-    )
-
-    # ---- ACTION TITLE ----
+    # Action title
     role_summary = ", ".join(roles[:3]) if roles else "key roles"
     loc_count = len(locations)
     action_text = (
@@ -383,30 +625,32 @@ def _build_slide_1(prs: Presentation, data: Dict):
     )
     _add_textbox(
         slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.55),
-        text=action_text, font_size=16, bold=True, color=NAVY,
+        text=action_text, font_size=15, bold=True, color=NAVY,
     )
 
     # ---- THREE-COLUMN SCR BODY ----
     col_top = Inches(1.65)
-    col_height = Inches(3.8)
-    col_gap = Inches(0.3)
+    col_height = Inches(3.5)
+    col_gap = Inches(0.25)
     accent_bar_w = Inches(0.06)
 
-    col_w = Inches(3.9)
+    col_w = Inches(3.95)
     col1_left = Inches(0.55)
     col2_left = col1_left + col_w + col_gap
     col3_left = col2_left + col_w + col_gap
 
     # ---- SITUATION (left) ----
-    _add_filled_rect(slide, col1_left, col_top, accent_bar_w, col_height, ACCENT_BLUE)
+    # Light card background
+    _add_rounded_rect(slide, col1_left, col_top, col_w, col_height, WHITE)
+    _add_filled_rect(slide, col1_left, col_top, accent_bar_w, col_height, BLUE)
 
     sit_left = col1_left + Inches(0.2)
-    sit_w = col_w - Inches(0.2)
+    sit_w = col_w - Inches(0.25)
 
-    box, tf = _add_textbox(slide, sit_left, col_top, sit_w, Inches(0.35),
-                           text="SITUATION", font_size=11, bold=True, color=ACCENT_BLUE)
+    _add_textbox(slide, sit_left, col_top + Inches(0.08), sit_w, Inches(0.35),
+                 text="SITUATION", font_size=11, bold=True, color=BLUE)
 
-    body_top = col_top + Inches(0.42)
+    body_top = col_top + Inches(0.45)
     work_label = WORK_ENV_LABELS.get(work_env, work_env.replace("_", " ").title())
     role_display = ", ".join(roles[:5]) if roles else "Multiple roles"
     if len(roles) > 5:
@@ -416,12 +660,11 @@ def _build_slide_1(prs: Presentation, data: Dict):
         ("Industry", industry_label),
         ("Locations", f"{loc_count} market{'s' if loc_count != 1 else ''}"),
         ("Target Roles", role_display),
-        ("Work Environment", work_label),
+        ("Work Model", work_label),
         ("Budget", budget),
     ]
 
     box2, tf2 = _add_textbox(slide, sit_left, body_top, sit_w, col_height - Inches(0.5))
-    # Remove default empty paragraph text
     tf2.paragraphs[0].space_before = Pt(0)
     tf2.paragraphs[0].space_after = Pt(0)
 
@@ -445,13 +688,14 @@ def _build_slide_1(prs: Presentation, data: Dict):
         _set_font(run_val, size=10, bold=False, color=MUTED_TEXT)
 
     # ---- COMPLICATION (middle) ----
-    _add_filled_rect(slide, col2_left, col_top, accent_bar_w, col_height, ORANGE)
+    _add_rounded_rect(slide, col2_left, col_top, col_w, col_height, WHITE)
+    _add_filled_rect(slide, col2_left, col_top, accent_bar_w, col_height, GOLD)
 
     comp_left = col2_left + Inches(0.2)
-    comp_w = col_w - Inches(0.2)
+    comp_w = col_w - Inches(0.25)
 
-    _add_textbox(slide, comp_left, col_top, comp_w, Inches(0.35),
-                 text="COMPLICATION", font_size=11, bold=True, color=ORANGE)
+    _add_textbox(slide, comp_left, col_top + Inches(0.08), comp_w, Inches(0.35),
+                 text="COMPLICATION", font_size=11, bold=True, color=GOLD)
 
     complications = _get_complications(industry)
     box3, tf3 = _add_textbox(slide, comp_left, body_top, comp_w, col_height - Inches(0.5))
@@ -467,37 +711,35 @@ def _build_slide_1(prs: Presentation, data: Dict):
         p.space_after = Pt(8)
         p.alignment = PP_ALIGN.LEFT
 
-        # Bullet marker
         run_bullet = p.add_run()
-        run_bullet.text = "\u25B8  "  # small triangle
-        _set_font(run_bullet, size=10, bold=False, color=ORANGE)
+        run_bullet.text = "\u25B8  "
+        _set_font(run_bullet, size=10, bold=False, color=GOLD)
 
         run_text = p.add_run()
         run_text.text = item
         _set_font(run_text, size=10, bold=False, color=DARK_TEXT)
 
     # ---- RESOLUTION (right) ----
+    _add_rounded_rect(slide, col3_left, col_top, col_w, col_height, WHITE)
     _add_filled_rect(slide, col3_left, col_top, accent_bar_w, col_height, GREEN)
 
     res_left = col3_left + Inches(0.2)
-    res_w = col_w - Inches(0.2)
+    res_w = col_w - Inches(0.25)
 
-    _add_textbox(slide, res_left, col_top, res_w, Inches(0.35),
+    _add_textbox(slide, res_left, col_top + Inches(0.08), res_w, Inches(0.35),
                  text="RESOLUTION", font_size=11, bold=True, color=GREEN)
 
     box4, tf4 = _add_textbox(slide, res_left, body_top, res_w, col_height - Inches(0.5))
     tf4.paragraphs[0].space_before = Pt(0)
     tf4.paragraphs[0].space_after = Pt(0)
 
-    # Sub-header
     p0 = tf4.paragraphs[0]
     r0 = p0.add_run()
     r0.text = "Joveo Programmatic Strategy"
     _set_font(r0, size=10, bold=True, color=NAVY)
     p0.space_after = Pt(6)
 
-    # Channel bullets
-    for ch in channels.values():
+    for ch in list(channels.values())[:6]:
         p = tf4.add_paragraph()
         p.space_before = Pt(1)
         p.space_after = Pt(4)
@@ -508,81 +750,141 @@ def _build_slide_1(prs: Presentation, data: Dict):
         rt.text = ch["label"]
         _set_font(rt, size=9, bold=False, color=DARK_TEXT)
 
-    # ML line
     _add_paragraph(tf4, "\u2713  ML-optimized bidding across 1,200+ publishers",
                    font_size=9, color=DARK_TEXT, space_before=1, space_after=4)
-    _add_paragraph(tf4, "\u2713  CPQA-focused: quality over volume",
-                   font_size=9, color=DARK_TEXT, space_before=1, space_after=6)
 
-    # Campaign goals
     if goals:
         _add_paragraph(tf4, "Campaign Goals:", font_size=9, bold=True, color=NAVY,
                        space_before=4, space_after=2)
-        for g in goals[:4]:
+        for g in goals[:3]:
             p = tf4.add_paragraph()
             p.space_before = Pt(1)
             p.space_after = Pt(3)
             rb = p.add_run()
             rb.text = "\u25CF  "
-            _set_font(rb, size=8, color=ACCENT_BLUE)
+            _set_font(rb, size=8, color=BLUE)
             rt = p.add_run()
             rt.text = g
             _set_font(rt, size=9, color=DARK_TEXT)
 
-    # ---- BOTTOM METRICS BAR ----
-    bar_top = Inches(5.7)
-    bar_h = Inches(0.95)
-    _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), bar_h, LIGHT_BLUE)
+    # ---- HERO STAT METRICS BAR ----
+    bar_top = Inches(5.35)
+    bar_h = Inches(1.15)
 
-    metrics = [
-        (str(len(channels)), "Channels Selected"),
-        (str(loc_count), "Target Locations"),
+    # Main bar background
+    _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), bar_h, NAVY)
+
+    # Gold accent line at top of bar
+    _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), Inches(0.04), GOLD)
+
+    # Hero stat: budget (if parseable) or channel count
+    budget_display = _format_budget_display(budget)
+    hero_value = budget_display if budget_display != budget else str(len(channels))
+    hero_label = "Monthly Budget" if budget_display != budget else "Channels Selected"
+
+    # Hero stat on the left
+    _add_textbox(
+        slide, Inches(0.85), bar_top + Inches(0.12), Inches(3.2), Inches(0.65),
+        text=hero_value, font_size=36, bold=True, color=GOLD,
+        alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+    )
+    _add_textbox(
+        slide, Inches(0.85), bar_top + Inches(0.72), Inches(3.2), Inches(0.3),
+        text=hero_label, font_size=9, bold=False, color=LIGHT_MUTED,
+        alignment=PP_ALIGN.CENTER,
+    )
+
+    # Divider
+    _add_filled_rect(slide, Inches(4.2), bar_top + Inches(0.2), Inches(0.02), Inches(0.75), GOLD)
+
+    # Secondary metrics
+    secondary_metrics = [
+        (str(len(channels)), "Channels"),
+        (str(loc_count), "Locations"),
         (str(len(roles)), "Target Roles"),
         (str(len(goals)), "Campaign Goals"),
     ]
 
-    metric_w = Inches(2.8)
-    metric_gap = Inches(0.25)
-    metric_start = Inches(0.95)
+    metric_w = Inches(1.9)
+    metric_start = Inches(4.55)
 
-    for i, (value, label) in enumerate(metrics):
-        mx = metric_start + i * (metric_w + metric_gap)
+    for i, (value, label) in enumerate(secondary_metrics):
+        mx = metric_start + i * metric_w
 
-        # Value
         _add_textbox(
-            slide, mx, bar_top + Inches(0.08), metric_w, Inches(0.5),
-            text=value, font_size=26, bold=True, color=NAVY,
-            alignment=PP_ALIGN.CENTER,
+            slide, mx, bar_top + Inches(0.12), metric_w, Inches(0.55),
+            text=value, font_size=24, bold=True, color=WHITE,
+            alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
         )
-        # Label
         _add_textbox(
-            slide, mx, bar_top + Inches(0.55), metric_w, Inches(0.3),
-            text=label, font_size=9, bold=False, color=MUTED_TEXT,
+            slide, mx, bar_top + Inches(0.72), metric_w, Inches(0.3),
+            text=label, font_size=8, bold=False, color=LIGHT_MUTED,
             alignment=PP_ALIGN.CENTER,
         )
 
-    # ---- Thin dividers between metrics ----
+    # Thin dividers between secondary metrics
     for i in range(1, 4):
-        div_x = metric_start + i * (metric_w + metric_gap) - metric_gap / 2
-        _add_filled_rect(slide, div_x, bar_top + Inches(0.15), Inches(0.015), Inches(0.65), ACCENT_BLUE)
+        div_x = metric_start + i * metric_w
+        _add_filled_rect(slide, div_x, bar_top + Inches(0.25), Inches(0.015), Inches(0.65),
+                         RGBColor(0x1A, 0x45, 0x70))
 
-    # ---- FOOTER ----
-    footer_top = Inches(6.95)
-    _add_filled_rect(slide, Inches(0), footer_top, SLIDE_WIDTH, Inches(0.03), NAVY)
-    today = datetime.date.today().strftime("%B %d, %Y")
+    # Footer
+    _add_footer(slide, today)
+
+
+# ===================================================================
+# SLIDE 3 - Section Divider: "Channel Strategy"
+# ===================================================================
+
+def _build_slide_divider_channel_strategy(prs: Presentation, data: Dict):
+    """Build a full-bleed section divider slide for Channel Strategy."""
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    # Full LinkedIn Blue background
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, BLUE)
+
+    # Gold accent bar at top
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, Inches(0.06), GOLD)
+
+    # Gold accent stripe left
+    _add_filled_rect(slide, Inches(0.6), Inches(2.8), Inches(2.0), Inches(0.06), GOLD)
+
+    # Section number
     _add_textbox(
-        slide, Inches(0.55), footer_top + Inches(0.08), Inches(12.2), Inches(0.3),
-        text=f"Powered by Joveo  |  AI Media Planner  |  {today}",
-        font_size=7, color=MUTED_TEXT, alignment=PP_ALIGN.CENTER,
+        slide, Inches(0.6), Inches(2.2), Inches(3), Inches(0.5),
+        text="02", font_size=18, bold=True, color=LIGHT_GOLD,
     )
 
+    # Large section title
+    _add_textbox(
+        slide, Inches(0.6), Inches(3.1), Inches(10), Inches(1.5),
+        text="Channel Strategy\n& Investment", font_size=48, bold=True, color=WHITE,
+    )
+
+    # Subtitle
+    _add_textbox(
+        slide, Inches(0.6), Inches(5.0), Inches(8), Inches(0.5),
+        text="Optimized channel mix with programmatic intelligence",
+        font_size=16, italic=True, color=PALE_BLUE,
+    )
+
+    # Bottom gold bar
+    _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.06), SLIDE_WIDTH, Inches(0.06), GOLD)
+
+    # Decorative shapes right side
+    _add_oval(slide, Inches(10.5), Inches(1.0), Inches(3.5), Inches(3.5),
+              RGBColor(0x09, 0x58, 0xB0))
+    _add_oval(slide, Inches(11.5), Inches(3.5), Inches(2.5), Inches(2.5),
+              RGBColor(0x08, 0x50, 0xA0))
+
 
 # ===================================================================
-# SLIDE 2 - Channel Strategy & Investment
+# SLIDE 4 - Channel Strategy & Investment with Attribution Diagram
 # ===================================================================
 
-def _build_slide_2(prs: Presentation, data: Dict):
-    """Build the Channel Strategy & Investment slide (Slide 2)."""
+def _build_slide_channel_strategy(prs: Presentation, data: Dict):
+    """Build the Channel Strategy slide with channel mix bars, benchmarks, and attribution."""
     slide_layout = prs.slide_layouts[6]
     slide = prs.slides.add_slide(slide_layout)
 
@@ -593,21 +895,13 @@ def _build_slide_2(prs: Presentation, data: Dict):
     benchmarks = _get_benchmarks(industry)
     today = datetime.date.today().strftime("%B %d, %Y")
 
-    # ---- TOP BAND ----
-    band_h = Inches(0.72)
-    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, band_h, NAVY)
+    # Off-white background
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
 
-    _add_textbox(
-        slide, Inches(0.45), Inches(0.15), Inches(7), Inches(0.45),
-        text="CHANNEL STRATEGY & INVESTMENT", font_size=14, bold=True, color=WHITE,
-    )
-    _add_textbox(
-        slide, Inches(9), Inches(0.15), Inches(4), Inches(0.45),
-        text=today, font_size=12, bold=False, color=RGBColor(0xA0, 0xB0, 0xCC),
-        alignment=PP_ALIGN.RIGHT,
-    )
+    # Top band
+    _add_top_band(slide, "CHANNEL STRATEGY & INVESTMENT", today)
 
-    # ---- ACTION TITLE ----
+    # Action title
     n_cats = len(channels)
     action_text = (
         f"Optimized channel mix across {n_cats} categories delivers targeted "
@@ -615,28 +909,27 @@ def _build_slide_2(prs: Presentation, data: Dict):
     )
     _add_textbox(
         slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.5),
-        text=action_text, font_size=16, bold=True, color=NAVY,
+        text=action_text, font_size=15, bold=True, color=NAVY,
     )
 
-    # ==== LEFT HALF: Channel Mix (~55%) ====
+    # ==== LEFT: Channel Mix with horizontal bars ====
     left_col_left = Inches(0.55)
-    left_col_w = Inches(6.8)
-    section_top = Inches(1.65)
+    section_top = Inches(1.6)
 
+    # Section header with gold underline
     _add_textbox(
-        slide, left_col_left, section_top, left_col_w, Inches(0.35),
-        text="CHANNEL MIX", font_size=11, bold=True, color=ACCENT_BLUE,
+        slide, left_col_left, section_top, Inches(4), Inches(0.35),
+        text="CHANNEL MIX", font_size=11, bold=True, color=NAVY,
     )
-    # Underline
-    _add_filled_rect(slide, left_col_left, section_top + Inches(0.33), Inches(1.3), Inches(0.025), ACCENT_BLUE)
+    _add_filled_rect(slide, left_col_left, section_top + Inches(0.33),
+                     Inches(1.3), Inches(0.03), GOLD)
 
-    bar_area_top = section_top + Inches(0.55)
-    bar_max_w = Inches(4.0)
-    bar_h = Inches(0.32)
-    bar_spacing = Inches(0.45)
+    bar_area_top = section_top + Inches(0.5)
+    bar_max_w = Inches(3.5)
+    bar_h = Inches(0.30)
+    bar_spacing = Inches(0.42)
     label_w = Inches(2.3)
 
-    # Sort channels by pct descending for visual impact
     sorted_channels = sorted(channels.values(), key=lambda c: c["pct"], reverse=True)
 
     for idx, ch in enumerate(sorted_channels):
@@ -649,44 +942,45 @@ def _build_slide_2(prs: Presentation, data: Dict):
             alignment=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE,
         )
 
-        # Horizontal bar
+        # Bar
         pct = ch["pct"]
         bar_w_val = bar_max_w * pct / 100
         if bar_w_val < Inches(0.15):
             bar_w_val = Inches(0.15)
 
         bar_left = left_col_left + label_w + Inches(0.15)
-        bar_color = ch.get("color", ACCENT_BLUE)
-        _add_filled_rect(slide, bar_left, row_y + Inches(0.04), bar_w_val, bar_h - Inches(0.08), bar_color)
+        bar_color = ch.get("color", BLUE)
+        _add_rounded_rect(slide, bar_left, row_y + Inches(0.04),
+                          bar_w_val, bar_h - Inches(0.08), bar_color)
 
-        # Percentage label
+        # Percentage
         _add_textbox(
-            slide, bar_left + bar_w_val + Inches(0.1), row_y, Inches(0.6), bar_h,
+            slide, bar_left + bar_w_val + Inches(0.08), row_y, Inches(0.6), bar_h,
             text=f"{pct}%", font_size=10, bold=True, color=NAVY,
             anchor=MSO_ANCHOR.MIDDLE,
         )
 
-    # ==== RIGHT HALF: Benchmark Data (~45%) ====
-    right_col_left = Inches(7.7)
-    right_col_w = Inches(5.1)
+    # ==== RIGHT TOP: Benchmark Data Table ====
+    right_col_left = Inches(7.5)
+    right_col_w = Inches(5.3)
 
     _add_textbox(
         slide, right_col_left, section_top, right_col_w, Inches(0.35),
-        text="2025 BENCHMARK DATA", font_size=11, bold=True, color=ACCENT_BLUE,
+        text="INDUSTRY BENCHMARKS", font_size=11, bold=True, color=NAVY,
     )
-    _add_filled_rect(slide, right_col_left, section_top + Inches(0.33), Inches(2.0), Inches(0.025), ACCENT_BLUE)
+    _add_filled_rect(slide, right_col_left, section_top + Inches(0.33),
+                     Inches(2.0), Inches(0.03), GOLD)
 
-    # Benchmark table via shapes
-    table_top = section_top + Inches(0.55)
+    table_top = section_top + Inches(0.5)
     table_left = right_col_left
-    table_w = Inches(4.8)
-    row_h = Inches(0.42)
+    table_w = Inches(5.1)
+    row_h = Inches(0.38)
 
     bench_rows = [
         ("Industry CPA", benchmarks["cpa"]),
         ("Industry CPC", benchmarks["cpc"]),
-        ("Estimated CPH", benchmarks["cph"]),
-        ("Industry Apply Rate", benchmarks["apply_rate"]),
+        ("Est. Cost-per-Hire", benchmarks["cph"]),
+        ("Apply Rate", benchmarks["apply_rate"]),
     ]
 
     # Table header
@@ -696,46 +990,480 @@ def _build_slide_2(prs: Presentation, data: Dict):
         text="Metric", font_size=9, bold=True, color=WHITE, anchor=MSO_ANCHOR.MIDDLE,
     )
     _add_textbox(
-        slide, table_left + Inches(2.4), table_top, Inches(2.2), row_h,
+        slide, table_left + Inches(2.4), table_top, Inches(2.5), row_h,
         text=f"{industry_label} Range", font_size=9, bold=True, color=WHITE,
         anchor=MSO_ANCHOR.MIDDLE,
     )
 
     for i, (metric, value) in enumerate(bench_rows):
         ry = table_top + row_h * (i + 1)
-        bg = WHITE if i % 2 == 0 else LIGHT_BLUE
+        bg = WHITE if i % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
         _add_filled_rect(slide, table_left, ry, table_w, row_h, bg)
-        # Border line at bottom
-        _add_filled_rect(slide, table_left, ry + row_h - Inches(0.01), table_w, Inches(0.01),
-                         RGBColor(0xCC, 0xCC, 0xCC))
+        _add_filled_rect(slide, table_left, ry + row_h - Inches(0.01),
+                         table_w, Inches(0.01), WARM_GRAY)
 
         _add_textbox(
             slide, table_left + Inches(0.15), ry, Inches(2.2), row_h,
             text=metric, font_size=9, bold=True, color=DARK_TEXT, anchor=MSO_ANCHOR.MIDDLE,
         )
         _add_textbox(
-            slide, table_left + Inches(2.4), ry, Inches(2.2), row_h,
+            slide, table_left + Inches(2.4), ry, Inches(2.5), row_h,
             text=value, font_size=10, bold=True, color=NAVY, anchor=MSO_ANCHOR.MIDDLE,
         )
 
-    # Source footnote under table
-    source_top = table_top + row_h * 5 + Inches(0.08)
+    # Source
+    source_top = table_top + row_h * 5 + Inches(0.05)
     _add_textbox(
         slide, table_left, source_top, table_w, Inches(0.2),
         text="Sources: Appcast 2025, Recruitics TMI, SHRM 2025",
-        font_size=7, color=MUTED_TEXT,
+        font_size=7, italic=True, color=MUTED_TEXT,
     )
 
-    # ==== BOTTOM: Implementation Timeline ====
-    timeline_top = Inches(5.15)
-    timeline_h = Inches(1.45)
+    # ==== CHANNEL ATTRIBUTION DIAGRAM (bottom area) ====
+    attrib_top = Inches(4.85)
+    _add_textbox(
+        slide, Inches(0.55), attrib_top, Inches(12.2), Inches(0.35),
+        text="CHANNEL CATEGORY ATTRIBUTION", font_size=11, bold=True, color=NAVY,
+    )
+    _add_filled_rect(slide, Inches(0.55), attrib_top + Inches(0.33),
+                     Inches(2.8), Inches(0.03), GOLD)
 
-    # Section header
+    # Build category groups
+    cat_groups = _channel_categories_grouped(channels)
+
+    # Attribution category boxes
+    cat_colors = {
+        "Programmatic": (NAVY, WHITE),
+        "Job Boards": (BLUE, WHITE),
+        "Social": (SKY_BLUE, NAVY),
+        "Employer Brand": (GOLD, NAVY),
+        "Other": (MEDIUM_BLUE, WHITE),
+    }
+
+    box_top = attrib_top + Inches(0.5)
+    box_h = Inches(1.2)
+    total_available_w = Inches(12.2)
+    n_groups = len(cat_groups)
+
+    if n_groups > 0:
+        box_gap = Inches(0.15)
+        box_w = (total_available_w - box_gap * (n_groups - 1)) / n_groups if n_groups > 1 else total_available_w
+        overlap_w = Inches(0.3)  # visual overlap zone
+
+        for gi, (cat_name, cat_channels) in enumerate(cat_groups.items()):
+            bx = Inches(0.55) + gi * (box_w + box_gap)
+            bg_color, text_color = cat_colors.get(cat_name, (MEDIUM_BLUE, WHITE))
+
+            # Category card
+            _add_rounded_rect(slide, bx, box_top, box_w, box_h, bg_color)
+
+            # Category name
+            _add_textbox(
+                slide, bx + Inches(0.15), box_top + Inches(0.08), box_w - Inches(0.3), Inches(0.3),
+                text=cat_name.upper(), font_size=10, bold=True, color=text_color,
+            )
+
+            # Total percentage for this category
+            cat_pct = sum(c["pct"] for c in cat_channels)
+            _add_textbox(
+                slide, bx + Inches(0.15), box_top + Inches(0.35), box_w - Inches(0.3), Inches(0.35),
+                text=f"{cat_pct}%", font_size=22, bold=True, color=text_color,
+            )
+
+            # Channel list
+            ch_list = ", ".join(c["label"] for c in cat_channels)
+            _add_textbox(
+                slide, bx + Inches(0.15), box_top + Inches(0.72), box_w - Inches(0.3), Inches(0.42),
+                text=ch_list, font_size=7, color=text_color,
+            )
+
+        # Overlap connectors between categories (gold diamonds)
+        for gi in range(n_groups - 1):
+            connector_x = Inches(0.55) + (gi + 1) * (box_w + box_gap) - box_gap / 2 - Inches(0.12)
+            connector_y = box_top + box_h / 2 - Inches(0.12)
+            diamond = slide.shapes.add_shape(
+                MSO_SHAPE.DIAMOND, connector_x, connector_y, Inches(0.24), Inches(0.24)
+            )
+            diamond.fill.solid()
+            diamond.fill.fore_color.rgb = GOLD
+            diamond.line.fill.background()
+
+    # Footer
+    _add_footer(slide, today)
+
+
+# ===================================================================
+# SLIDE 5 - Quality & ROI Outcomes Grid
+# ===================================================================
+
+def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
+    """Build the Quality Outcomes grid slide with 4-quadrant metrics."""
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    client = data.get("client_name", "Client")
+    industry = data.get("industry", "general_entry_level")
+    channels = _selected_channels(data)
+    budget = data.get("budget", "TBD")
+    roles = data.get("roles", [])
+    locations = data.get("locations", [])
+    today = datetime.date.today().strftime("%B %d, %Y")
+
+    # Off-white background
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+
+    # Top band
+    _add_top_band(slide, "QUALITY & ROI PROJECTIONS", today)
+
+    # Action title
+    n_channels = len(channels)
+    action_text = (
+        f"Projected quality outcomes across {n_channels} optimized channels "
+        f"for {client}'s programmatic media plan"
+    )
+    _add_textbox(
+        slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.5),
+        text=action_text, font_size=15, bold=True, color=NAVY,
+    )
+
+    # ---- HERO STAT at top center ----
+    hero_top = Inches(1.55)
+    hero_h = Inches(1.3)
+
+    # Hero stat card with gold accent
+    _add_rounded_rect(slide, Inches(3.5), hero_top, Inches(6.33), hero_h, WHITE)
+    _add_filled_rect(slide, Inches(3.5), hero_top, Inches(6.33), Inches(0.05), GOLD)
+
+    # Hero number
+    budget_display = _format_budget_display(budget)
+    _add_textbox(
+        slide, Inches(3.5), hero_top + Inches(0.12), Inches(6.33), Inches(0.75),
+        text=budget_display if budget_display != budget else f"{n_channels} Channels",
+        font_size=44, bold=True, color=BLUE,
+        alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+    )
+    hero_subtitle = "Optimized Monthly Investment" if budget_display != budget else "Selected for Maximum Impact"
+    _add_textbox(
+        slide, Inches(3.5), hero_top + Inches(0.85), Inches(6.33), Inches(0.35),
+        text=hero_subtitle,
+        font_size=12, bold=False, color=MUTED_TEXT,
+        alignment=PP_ALIGN.CENTER,
+    )
+
+    # ---- 4-QUADRANT QUALITY GRID ----
+    grid_top = Inches(3.1)
+    grid_h = Inches(1.65)
+    quad_w = Inches(2.9)
+    quad_gap = Inches(0.2)
+    grid_start_x = Inches(0.55)
+
+    # Compute estimated metrics based on channels/data
+    n_roles = len(roles)
+    n_locations = len(locations)
+    estimated_reach = n_channels * n_locations * 12500 if n_locations > 0 else n_channels * 25000
+    reach_display = f"{estimated_reach / 1000:.0f}K+" if estimated_reach >= 1000 else str(estimated_reach)
+
+    benchmarks = _get_benchmarks(industry)
+    # Parse CPA to estimate cost efficiency
+    cpa_str = benchmarks.get("cpa", "$25")
+    try:
+        import re
+        cpa_nums = re.findall(r'[\d.]+', cpa_str.replace(",", ""))
+        avg_cpa = sum(float(x) for x in cpa_nums) / len(cpa_nums) if cpa_nums else 25
+    except Exception:
+        avg_cpa = 25
+    efficiency_improvement = min(35, max(15, round(100 / avg_cpa * 5)))
+
+    quadrants = [
+        {
+            "icon": "\u2139",  # info
+            "metric": reach_display,
+            "label": "Estimated Reach",
+            "desc": f"Projected candidate impressions across {n_channels} channels and {max(n_locations, 1)} markets",
+            "accent": BLUE,
+            "bg": LIGHT_BLUE,
+        },
+        {
+            "icon": "\u25B2",  # up arrow
+            "metric": f"{efficiency_improvement}%",
+            "label": "Cost Efficiency Gain",
+            "desc": "ML-optimized bidding reduces CPA vs. manual job board posting",
+            "accent": GREEN,
+            "bg": LIGHT_GREEN,
+        },
+        {
+            "icon": "\u2B22",  # hexagon
+            "metric": f"{n_channels}",
+            "label": "Channel Diversity",
+            "desc": "Diversified channel mix reduces single-source dependency risk",
+            "accent": GOLD,
+            "bg": PALE_GOLD,
+        },
+        {
+            "icon": "\u23F1",  # timer
+            "metric": "2-3x",
+            "label": "Faster Time-to-Fill",
+            "desc": "Programmatic reach accelerates qualified candidate pipeline velocity",
+            "accent": NAVY,
+            "bg": RGBColor(0xE8, 0xED, 0xF4),
+        },
+    ]
+
+    for qi, q in enumerate(quadrants):
+        qx = grid_start_x + qi * (quad_w + quad_gap)
+
+        # Card background
+        _add_rounded_rect(slide, qx, grid_top, quad_w, grid_h, WHITE)
+
+        # Top accent bar
+        _add_filled_rect(slide, qx, grid_top, quad_w, Inches(0.05), q["accent"])
+
+        # Metric badge background
+        badge_left = qx + Inches(0.2)
+        badge_top = grid_top + Inches(0.2)
+        _add_rounded_rect(slide, badge_left, badge_top, Inches(2.5), Inches(0.75), q["bg"])
+
+        # Large metric number
+        _add_textbox(
+            slide, badge_left + Inches(0.1), badge_top + Inches(0.02),
+            Inches(2.3), Inches(0.55),
+            text=q["metric"], font_size=30, bold=True, color=q["accent"],
+            alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+        )
+
+        # Label
+        _add_textbox(
+            slide, qx + Inches(0.2), grid_top + Inches(1.0), quad_w - Inches(0.4), Inches(0.25),
+            text=q["label"], font_size=10, bold=True, color=DARK_TEXT,
+            alignment=PP_ALIGN.CENTER,
+        )
+
+        # Description
+        _add_textbox(
+            slide, qx + Inches(0.15), grid_top + Inches(1.25), quad_w - Inches(0.3), Inches(0.4),
+            text=q["desc"], font_size=7, color=MUTED_TEXT,
+            alignment=PP_ALIGN.CENTER,
+        )
+
+    # ---- KEY INSIGHT CALLOUT BOX ----
+    insight_top = Inches(5.05)
+    insight_h = Inches(1.05)
+    _add_rounded_rect(slide, Inches(0.55), insight_top, Inches(12.2), insight_h, PALE_GOLD)
+    _add_filled_rect(slide, Inches(0.55), insight_top, Inches(0.06), insight_h, GOLD)
+
+    # Insight icon/badge
+    _add_rounded_rect(slide, Inches(0.85), insight_top + Inches(0.2), Inches(1.0), Inches(0.35), GOLD)
+    _add_textbox(
+        slide, Inches(0.85), insight_top + Inches(0.2), Inches(1.0), Inches(0.35),
+        text="KEY INSIGHT", font_size=8, bold=True, color=WHITE,
+        alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+    )
+
+    insight_text = (
+        f"Joveo's programmatic approach distributes {client}'s budget across "
+        f"{n_channels} optimized channels with ML-driven bid management, "
+        f"projecting {efficiency_improvement}% CPA improvement over manual posting. "
+        f"Quality-focused optimization (CPQA) ensures spend is directed toward "
+        f"candidates most likely to apply and convert."
+    )
+    _add_textbox(
+        slide, Inches(2.1), insight_top + Inches(0.12), Inches(10.4), insight_h - Inches(0.2),
+        text=insight_text, font_size=10, color=DARK_TEXT,
+    )
+
+    # Footer
+    _add_footer(slide, today)
+
+
+# ===================================================================
+# SLIDE 6 - Side-by-Side Comparison Panel + Implementation Timeline
+# ===================================================================
+
+def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
+    """Build comparison panel (Client Plan vs Industry Average) and implementation timeline."""
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    client = data.get("client_name", "Client")
+    industry = data.get("industry", "general_entry_level")
+    industry_label = data.get("industry_label", industry.replace("_", " ").title())
+    channels = _selected_channels(data)
+    budget = data.get("budget", "TBD")
+    locations = data.get("locations", [])
+    roles = data.get("roles", [])
+    today = datetime.date.today().strftime("%B %d, %Y")
+
+    # Off-white background
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+
+    # Top band
+    _add_top_band(slide, "PLAN COMPARISON & IMPLEMENTATION", today)
+
+    # Action title
+    action_text = (
+        f"{client}'s optimized media plan vs. {industry_label} industry averages "
+        f"with phased implementation roadmap"
+    )
+    _add_textbox(
+        slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.45),
+        text=action_text, font_size=15, bold=True, color=NAVY,
+    )
+
+    # ---- SIDE-BY-SIDE COMPARISON ----
+    comp_top = Inches(1.55)
+    panel_h = Inches(2.95)
+    panel_w = Inches(5.9)
+    panel_gap = Inches(0.4)
+    left_panel_x = Inches(0.55)
+    right_panel_x = left_panel_x + panel_w + panel_gap
+
+    ind_benchmarks = _get_industry_comparison(industry)
+    n_channels = len(channels)
+    n_locations = len(locations)
+
+    # Calculate client metrics
+    sorted_ch = sorted(channels.values(), key=lambda c: c["pct"], reverse=True)
+    programmatic_pct = 0
+    for ch in channels.values():
+        if ch.get("category") == "Programmatic":
+            programmatic_pct += ch["pct"]
+    if programmatic_pct == 0:
+        programmatic_pct = sorted_ch[0]["pct"] if sorted_ch else 30
+
+    client_reach_mult = 1.0 + (n_channels - 4) * 0.15
+    ind_reach_mult = ind_benchmarks.get("estimated_reach_multiplier", 1.0)
+
+    # Comparison metrics
+    comparison_rows = [
+        {
+            "metric": "Channels Selected",
+            "client_val": str(n_channels),
+            "industry_val": str(ind_benchmarks.get("avg_channels", 4)),
+            "is_better": n_channels >= ind_benchmarks.get("avg_channels", 4),
+        },
+        {
+            "metric": "Programmatic Allocation",
+            "client_val": f"{programmatic_pct}%",
+            "industry_val": f"{ind_benchmarks.get('avg_budget_pct_programmatic', 30)}%",
+            "is_better": programmatic_pct >= ind_benchmarks.get("avg_budget_pct_programmatic", 30),
+        },
+        {
+            "metric": "Channel Diversity Score",
+            "client_val": f"{min(10.0, n_channels * 1.5):.1f}/10",
+            "industry_val": f"{ind_benchmarks.get('avg_channels', 4) * 1.5:.1f}/10",
+            "is_better": n_channels >= ind_benchmarks.get("avg_channels", 4),
+        },
+        {
+            "metric": "Geographic Coverage",
+            "client_val": f"{n_locations} market{'s' if n_locations != 1 else ''}",
+            "industry_val": "3-5 markets",
+            "is_better": n_locations >= 3,
+        },
+        {
+            "metric": "Reach Multiplier",
+            "client_val": f"{client_reach_mult:.1f}x",
+            "industry_val": f"{ind_reach_mult:.1f}x",
+            "is_better": client_reach_mult >= ind_reach_mult,
+        },
+    ]
+
+    # ==== LEFT PANEL: Client Plan ====
+    _add_rounded_rect(slide, left_panel_x, comp_top, panel_w, panel_h, WHITE)
+    # Header bar
+    _add_filled_rect(slide, left_panel_x, comp_top, panel_w, Inches(0.45), NAVY)
+    _add_textbox(
+        slide, left_panel_x + Inches(0.2), comp_top + Inches(0.05), panel_w - Inches(0.4), Inches(0.35),
+        text=f"\u2B22  {client}'s Plan", font_size=12, bold=True, color=WHITE,
+        anchor=MSO_ANCHOR.MIDDLE,
+    )
+
+    row_h_comp = Inches(0.45)
+    for ri, row in enumerate(comparison_rows):
+        ry = comp_top + Inches(0.5) + ri * row_h_comp
+        bg = WHITE if ri % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
+        _add_filled_rect(slide, left_panel_x + Inches(0.05), ry,
+                         panel_w - Inches(0.1), row_h_comp, bg)
+
+        # Metric label
+        _add_textbox(
+            slide, left_panel_x + Inches(0.2), ry, Inches(2.8), row_h_comp,
+            text=row["metric"], font_size=9, bold=True, color=DARK_TEXT,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+
+        # Value with status indicator
+        status_color = GREEN if row["is_better"] else AMBER
+        indicator = "\u25B2" if row["is_better"] else "\u25BC"
+
+        val_box, val_tf = _add_textbox(
+            slide, left_panel_x + Inches(3.2), ry, Inches(2.5), row_h_comp,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+        p = val_tf.paragraphs[0]
+        p.alignment = PP_ALIGN.RIGHT
+        r1 = p.add_run()
+        r1.text = row["client_val"]
+        _set_font(r1, size=12, bold=True, color=NAVY)
+        r2 = p.add_run()
+        r2.text = f"  {indicator}"
+        _set_font(r2, size=10, bold=True, color=status_color)
+
+    # ==== RIGHT PANEL: Industry Average ====
+    _add_rounded_rect(slide, right_panel_x, comp_top, panel_w, panel_h, WHITE)
+    _add_filled_rect(slide, right_panel_x, comp_top, panel_w, Inches(0.45), MUTED_TEXT)
+    _add_textbox(
+        slide, right_panel_x + Inches(0.2), comp_top + Inches(0.05),
+        panel_w - Inches(0.4), Inches(0.35),
+        text=f"\u25CB  {industry_label} Average", font_size=12, bold=True, color=WHITE,
+        anchor=MSO_ANCHOR.MIDDLE,
+    )
+
+    for ri, row in enumerate(comparison_rows):
+        ry = comp_top + Inches(0.5) + ri * row_h_comp
+        bg = WHITE if ri % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
+        _add_filled_rect(slide, right_panel_x + Inches(0.05), ry,
+                         panel_w - Inches(0.1), row_h_comp, bg)
+
+        _add_textbox(
+            slide, right_panel_x + Inches(0.2), ry, Inches(2.8), row_h_comp,
+            text=row["metric"], font_size=9, bold=True, color=DARK_TEXT,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+
+        _add_textbox(
+            slide, right_panel_x + Inches(3.2), ry, Inches(2.5), row_h_comp,
+            text=row["industry_val"], font_size=12, bold=True, color=MUTED_TEXT,
+            alignment=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE,
+        )
+
+    # ---- Legend ----
+    legend_y = comp_top + panel_h + Inches(0.1)
+    leg_box, leg_tf = _add_textbox(
+        slide, Inches(0.55), legend_y, Inches(6), Inches(0.25),
+    )
+    p = leg_tf.paragraphs[0]
+    r1 = p.add_run()
+    r1.text = "\u25B2 "
+    _set_font(r1, size=8, bold=True, color=GREEN)
+    r2 = p.add_run()
+    r2.text = "Beating benchmark    "
+    _set_font(r2, size=8, color=MUTED_TEXT)
+    r3 = p.add_run()
+    r3.text = "\u25BC "
+    _set_font(r3, size=8, bold=True, color=AMBER)
+    r4 = p.add_run()
+    r4.text = "Trailing benchmark"
+    _set_font(r4, size=8, color=MUTED_TEXT)
+
+    # ==== IMPLEMENTATION TIMELINE (bottom) ====
+    timeline_top = Inches(4.8)
+
     _add_textbox(
         slide, Inches(0.55), timeline_top, Inches(12.2), Inches(0.32),
-        text="IMPLEMENTATION TIMELINE", font_size=11, bold=True, color=ACCENT_BLUE,
+        text="IMPLEMENTATION TIMELINE", font_size=11, bold=True, color=NAVY,
     )
-    _add_filled_rect(slide, Inches(0.55), timeline_top + Inches(0.3), Inches(2.2), Inches(0.025), ACCENT_BLUE)
+    _add_filled_rect(slide, Inches(0.55), timeline_top + Inches(0.3),
+                     Inches(2.2), Inches(0.03), GOLD)
 
     phases = [
         {
@@ -743,73 +1471,79 @@ def _build_slide_2(prs: Presentation, data: Dict):
             "weeks": "Weeks 1-2",
             "title": "Launch & Calibrate",
             "bullets": [
-                "Set up campaigns & initial publisher mix",
-                "Establish baseline measurement",
-                "Configure tracking & attribution",
+                "Campaign setup & publisher activation",
+                "Baseline measurement & tracking",
+                "Attribution configuration",
             ],
-            "color": ACCENT_BLUE,
+            "color": BLUE,
+            "accent_bg": LIGHT_BLUE,
         },
         {
             "phase": "PHASE 2",
             "weeks": "Weeks 3-6",
             "title": "Optimize & Scale",
             "bullets": [
-                "ML bid optimization across channels",
-                "A/B testing creative & targeting",
-                "Expand top-performing publishers",
+                "ML bid optimization active",
+                "A/B test creative & targeting",
+                "Scale top performers",
             ],
             "color": GREEN,
+            "accent_bg": LIGHT_GREEN,
         },
         {
             "phase": "PHASE 3",
             "weeks": "Weeks 7-12",
             "title": "Maximize & Report",
             "bullets": [
-                "Full CPQA optimization active",
-                "ROI analysis & budget reallocation",
+                "Full CPQA optimization",
+                "ROI analysis & reallocation",
                 "Quarterly performance review",
             ],
             "color": NAVY,
+            "accent_bg": RGBColor(0xE8, 0xED, 0xF4),
         },
     ]
 
     phase_w = Inches(3.85)
     phase_gap = Inches(0.25)
     phase_top = timeline_top + Inches(0.45)
-    phase_h = Inches(1.0)
+    phase_h = Inches(1.65)
 
     for i, ph in enumerate(phases):
         px = Inches(0.55) + i * (phase_w + phase_gap)
 
+        # Phase card
+        _add_rounded_rect(slide, px, phase_top, phase_w, phase_h, WHITE)
+
         # Top accent bar
         _add_filled_rect(slide, px, phase_top, phase_w, Inches(0.05), ph["color"])
 
-        # Light background
-        _add_filled_rect(slide, px, phase_top + Inches(0.05), phase_w, phase_h - Inches(0.05),
-                         RGBColor(0xF5, 0xF7, 0xFA))
-
-        # Phase & weeks header
-        box, tf = _add_textbox(
-            slide, px + Inches(0.12), phase_top + Inches(0.1), phase_w - Inches(0.24), Inches(0.22),
+        # Phase number badge
+        badge_w = Inches(0.9)
+        badge_h = Inches(0.25)
+        _add_rounded_rect(slide, px + Inches(0.12), phase_top + Inches(0.15),
+                          badge_w, badge_h, ph["accent_bg"])
+        _add_textbox(
+            slide, px + Inches(0.12), phase_top + Inches(0.15), badge_w, badge_h,
+            text=ph["phase"], font_size=7, bold=True, color=ph["color"],
+            alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
         )
-        p = tf.paragraphs[0]
-        p.alignment = PP_ALIGN.LEFT
-        r1 = p.add_run()
-        r1.text = f"{ph['phase']}  "
-        _set_font(r1, size=8, bold=True, color=ph["color"])
-        r2 = p.add_run()
-        r2.text = ph["weeks"]
-        _set_font(r2, size=8, bold=False, color=MUTED_TEXT)
+
+        # Weeks
+        _add_textbox(
+            slide, px + Inches(1.1), phase_top + Inches(0.15), Inches(1.5), badge_h,
+            text=ph["weeks"], font_size=8, color=MUTED_TEXT, anchor=MSO_ANCHOR.MIDDLE,
+        )
 
         # Title
         _add_textbox(
-            slide, px + Inches(0.12), phase_top + Inches(0.3), phase_w - Inches(0.24), Inches(0.22),
-            text=ph["title"], font_size=10, bold=True, color=DARK_TEXT,
+            slide, px + Inches(0.12), phase_top + Inches(0.48), phase_w - Inches(0.24), Inches(0.25),
+            text=ph["title"], font_size=11, bold=True, color=DARK_TEXT,
         )
 
         # Bullets
         bx, btf = _add_textbox(
-            slide, px + Inches(0.12), phase_top + Inches(0.52), phase_w - Inches(0.24), Inches(0.48),
+            slide, px + Inches(0.12), phase_top + Inches(0.78), phase_w - Inches(0.24), Inches(0.85),
         )
         btf.paragraphs[0].space_before = Pt(0)
         btf.paragraphs[0].space_after = Pt(0)
@@ -819,38 +1553,29 @@ def _build_slide_2(prs: Presentation, data: Dict):
                 bp = btf.paragraphs[0]
             else:
                 bp = btf.add_paragraph()
-            bp.space_before = Pt(0)
-            bp.space_after = Pt(2)
+            bp.space_before = Pt(1)
+            bp.space_after = Pt(3)
             bp.alignment = PP_ALIGN.LEFT
 
             br = bp.add_run()
-            br.text = f"\u2022  {bullet}"
-            _set_font(br, size=8, color=MUTED_TEXT)
+            br.text = "\u2713  "
+            _set_font(br, size=8, bold=False, color=ph["color"])
+            bt = bp.add_run()
+            bt.text = bullet
+            _set_font(bt, size=8, color=MUTED_TEXT)
 
     # Arrow connectors between phases
     for i in range(2):
-        ax = Inches(0.55) + (i + 1) * (phase_w + phase_gap) - phase_gap / 2 - Inches(0.07)
-        ay = phase_top + phase_h / 2 - Inches(0.08)
+        ax = Inches(0.55) + (i + 1) * (phase_w + phase_gap) - phase_gap / 2 - Inches(0.1)
+        ay = phase_top + phase_h / 2 - Inches(0.1)
         _add_textbox(
-            slide, ax, ay, Inches(0.18), Inches(0.18),
-            text="\u25B6", font_size=10, bold=True, color=ACCENT_BLUE,
+            slide, ax, ay, Inches(0.2), Inches(0.2),
+            text="\u25B6", font_size=12, bold=True, color=GOLD,
             alignment=PP_ALIGN.CENTER,
         )
 
-    # ---- FOOTER ----
-    footer_top = Inches(6.95)
-    _add_filled_rect(slide, Inches(0), footer_top, SLIDE_WIDTH, Inches(0.03), NAVY)
-
-    _add_textbox(
-        slide, Inches(0.55), footer_top + Inches(0.08), Inches(6), Inches(0.3),
-        text=f"Powered by Joveo  |  AI Media Planner  |  {today}",
-        font_size=7, color=MUTED_TEXT,
-    )
-    _add_textbox(
-        slide, Inches(6.5), footer_top + Inches(0.08), Inches(6.3), Inches(0.3),
-        text="Data sources: Appcast 2025, Recruitics TMI, SHRM 2025",
-        font_size=7, color=MUTED_TEXT, alignment=PP_ALIGN.RIGHT,
-    )
+    # Footer
+    _add_footer(slide, today)
 
 
 # ===================================================================
@@ -859,12 +1584,13 @@ def _build_slide_2(prs: Presentation, data: Dict):
 
 def generate_pptx(data: Dict[str, Any]) -> bytes:
     """
-    Generate a McKinsey-style 2-page PowerPoint presentation.
+    Generate a premium LinkedIn-inspired 6-slide PowerPoint presentation.
 
     Args:
         data: Dictionary containing client information, industry details,
-              channel selections, and campaign parameters. Expected keys
-              mirror those used by the existing Excel generator.
+              channel selections, and campaign parameters. Expected keys:
+              client_name, industry, budget, campaign_goals, target_roles/roles,
+              work_environment, channel_categories, locations, experience_level.
 
     Returns:
         bytes: The .pptx file content as bytes, suitable for streaming
@@ -882,14 +1608,14 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
     data.setdefault("industry", "general_entry_level")
     data.setdefault("industry_label", data["industry"].replace("_", " ").title())
     data.setdefault("locations", [])
-    # Frontend sends "target_roles" but PPT uses "roles" — normalize
+    # Frontend sends "target_roles" but PPT uses "roles" -- normalize
     if "target_roles" in data and "roles" not in data:
         data["roles"] = data["target_roles"]
     data.setdefault("roles", [])
     data.setdefault("campaign_goals", [])
     data.setdefault("channel_categories", {})
     data.setdefault("budget", "TBD")
-    # Frontend sends work_environment as array — normalize to string
+    # Frontend sends work_environment as array -- normalize to string
     we = data.get("work_environment", "hybrid")
     if isinstance(we, list):
         data["work_environment"] = we[0] if we else "hybrid"
@@ -902,8 +1628,23 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         prs.slide_width = SLIDE_WIDTH
         prs.slide_height = SLIDE_HEIGHT
 
-        _build_slide_1(prs, data)
-        _build_slide_2(prs, data)
+        # Slide 1: Premium cover / section divider
+        _build_slide_cover(prs, data)
+
+        # Slide 2: Executive Summary with hero stat + SCR framework
+        _build_slide_executive_summary(prs, data)
+
+        # Slide 3: Section divider - Channel Strategy
+        _build_slide_divider_channel_strategy(prs, data)
+
+        # Slide 4: Channel Strategy with attribution diagram
+        _build_slide_channel_strategy(prs, data)
+
+        # Slide 5: Quality & ROI Outcomes Grid
+        _build_slide_quality_outcomes(prs, data)
+
+        # Slide 6: Side-by-Side Comparison + Implementation Timeline
+        _build_slide_comparison_timeline(prs, data)
 
         buffer = io.BytesIO()
         prs.save(buffer)

@@ -1,0 +1,731 @@
+{
+  "document_metadata": {
+    "title": "LinkedIn Hiring Value Review",
+    "prepared_for": "Guidewire Software",
+    "date_range_analysis": "January 2025 - December 2025",
+    "comparison_period": "January 2024 - December 2024",
+    "report_date": "01/29/2026",
+    "scope": "Global data for Guidewire Software, no subsidiary data included",
+    "total_pages": 32,
+    "confidentiality": "For internal, non-commercial use only. Provided under license from LinkedIn and subject to the LinkedIn Subscription Agreement and Service Terms.",
+    "peer_companies": [
+      "Stripe",
+      "NerdWallet",
+      "Qualtrics",
+      "GitLab",
+      "Talkdesk",
+      "Tata Consultancy Services",
+      "Sabre Corporation",
+      "Coinbase",
+      "Robinhood"
+    ]
+  },
+
+  "agenda_sections": [
+    "1. Executive Summary",
+    "2. Hiring Performance (L12M)",
+    "3. Hire Efficiency",
+    "4. Next Steps"
+  ],
+
+  "executive_summary": {
+    "headline": "LinkedIn continues to deliver the technical talent, efficiency gains, and brand influence that support Guidewire's FY26 product and cloud strategy.",
+    "context": "Guidewire enters FY26 with strong market momentum, expanding cloud adoption, launching new AI-powered applications, and broadening its global customer base.",
+    "key_themes": [
+      {
+        "theme": "LinkedIn is fueling stronger technical hiring aligned to Guidewire's cloud & AI roadmap",
+        "points": [
+          "Influenced hires carry 1.8x deeper skill density, concentrated in engineering, cloud, data, and Guidewire-specific skills",
+          "Skills needed for PricingCenter, UnderwritingCenter, generative AI, and cloud platform innovation",
+          "67.3% of all hires are LinkedIn-influenced, matching top performers"
+        ]
+      },
+      {
+        "theme": "LinkedIn is strengthening hiring efficiency through AI-assisted recruiter workflows",
+        "points": [
+          "83% of recruiters adopt AI-Assisted InMail",
+          "24% higher response rates achieved",
+          "AI-Assisted Search and messaging increasing candidate engagement quality",
+          "Mid-funnel conversion: 12.5% vs 9.6% peers"
+        ]
+      },
+      {
+        "theme": "LinkedIn's brand and jobs ecosystem is driving significant market demand and funnel momentum",
+        "points": [
+          "+36% YoY growth in job views",
+          "+12% YoY growth in apply clicks",
+          "Candidates exposed to brand are 1.7x more likely to accept InMails",
+          "Candidates exposed to brand are 5.9x more likely to convert to hires"
+        ]
+      }
+    ],
+    "conclusion": "By strengthening early-funnel visibility and scaling adoption of AI-driven workflows, Guidewire can fully capitalize on this momentum - ensuring its hiring engine is as innovative, agile, and future-ready as the platform it is bringing to market."
+  },
+
+  "overview_metrics": {
+    "date_range": "Jan 2025 - Dec 2025 vs Jan 2024 - Dec 2024",
+    "categories": {
+      "recruiter": {
+        "inmails_sent": {
+          "current_period": "46.8K",
+          "current_period_value": 46800,
+          "prior_period": "51.4K",
+          "prior_period_value": 51400,
+          "yoy_guidewire": "-9%",
+          "yoy_peer_median": "+9%"
+        },
+        "inmail_acceptance_rate": {
+          "current_period": "36.6%",
+          "current_period_value": 0.366,
+          "prior_period": "23.5%",
+          "prior_period_value": 0.235,
+          "yoy_guidewire": "+56%",
+          "yoy_peer_median": "-6%",
+          "note": "Listed as yoy_diff +41% for Guidewire and -27% for peer in the raw data"
+        },
+        "active_seats": {
+          "current_period": 81,
+          "prior_period": 101,
+          "yoy_guidewire": "-13%",
+          "yoy_peer_median": "+17%"
+        }
+      },
+      "jobs": {
+        "job_views": {
+          "current_period": "2.8M",
+          "current_period_value": 2800000,
+          "prior_period": "3.6M",
+          "prior_period_value": 3600000,
+          "yoy_guidewire": "+15%",
+          "yoy_peer_median": "+36%",
+          "note": "Page states +36% YoY growth in views in exec summary"
+        },
+        "job_apply_clicks": {
+          "current_period": "375.2K",
+          "current_period_value": 375200,
+          "prior_period": "364.1K",
+          "prior_period_value": 364100,
+          "yoy_guidewire": "+12%",
+          "yoy_peer_median": "-26%"
+        },
+        "job_apply_rate": {
+          "current_period": "13.5%",
+          "current_period_value": 0.135,
+          "prior_period": "10.6%",
+          "prior_period_value": 0.106,
+          "yoy_guidewire": "-8%",
+          "yoy_peer_median": "-17%"
+        }
+      },
+      "branding": {
+        "company_page_views": {
+          "current_period": "291.6K",
+          "current_period_value": 291600,
+          "prior_period": "438.6K",
+          "prior_period_value": 438600,
+          "yoy_guidewire": "-29%",
+          "yoy_peer_median": "+18%"
+        },
+        "total_followers_non_employee": {
+          "current_period": "287.1K",
+          "current_period_value": 287100,
+          "prior_period": "321.5K",
+          "prior_period_value": 321500,
+          "yoy_guidewire": "+14%",
+          "yoy_peer_median": "+53%"
+        },
+        "jobs_and_life_page_views": {
+          "current_period": "301.4K",
+          "current_period_value": 301400,
+          "prior_period": "416.9K",
+          "prior_period_value": 416900,
+          "yoy_guidewire": "+17%",
+          "yoy_peer_median": "+48%"
+        }
+      },
+      "hire": {
+        "total_hires": {
+          "current_period": 742,
+          "prior_period": "1.4K",
+          "prior_period_value": 1400,
+          "yoy_guidewire": "+53%",
+          "yoy_peer_median": "-3%"
+        },
+        "influenced_hires": {
+          "current_period": 499,
+          "prior_period": 688,
+          "yoy_guidewire": "+32%",
+          "yoy_peer_median": "+47%"
+        },
+        "influenced_hire_rate": {
+          "current_period": "67.3%",
+          "current_period_value": 0.673,
+          "prior_period": "61.6%",
+          "prior_period_value": 0.616,
+          "yoy_guidewire": "+6%",
+          "yoy_peer_median": "+1%"
+        }
+      }
+    },
+    "overall_narrative": "Job-market demand and discovery are growing strongly, candidates who discover Guidewire continue to convert at strong absolute volumes."
+  },
+
+  "hiring_funnel": {
+    "date_range": "January 2025 - December 2025",
+    "stages": {
+      "awareness_actions": {
+        "volume": "51.4M",
+        "value": 51400000,
+        "description": "Share of voice in the market - do prospective hires know about your organization?"
+      },
+      "engagement_actions": {
+        "volume": "3.1M",
+        "value": 3100000
+      },
+      "consideration_actions": {
+        "volume": "389.4K",
+        "value": 389400
+      }
+    },
+    "funnel_stages_listed": [
+      "Aware",
+      "Engaged",
+      "Considering",
+      "Applied",
+      "Screened",
+      "Interviewed",
+      "Offered",
+      "Hire"
+    ],
+    "conversion_rates": {
+      "aware_to_engaged": {
+        "guidewire": "6.1%",
+        "guidewire_value": 0.061,
+        "peer_benchmark": "8.8%",
+        "peer_benchmark_value": 0.088,
+        "comparison": "below_peer"
+      },
+      "engaged_to_considering": {
+        "guidewire": "12.5%",
+        "guidewire_value": 0.125,
+        "peer_benchmark": "9.6%",
+        "peer_benchmark_value": 0.096,
+        "comparison": "above_peer"
+      }
+    },
+    "narrative": "Guidewire's hiring funnel is strong in the mid-funnel, but early-funnel conversion is where we need to increase the number of qualified candidates reaching recruiters."
+  },
+
+  "influenced_hires": {
+    "date_range": "January 2025 - December 2025",
+    "total_influenced_hires": 499,
+    "total_hires": 742,
+    "influenced_hire_rate": "67.3%",
+    "influenced_hire_rate_value": 0.673,
+    "narrative": "Guidewire continues to rely heavily on influenced hiring - and this remains a real strength!",
+    "channel_attribution": {
+      "jobs": {
+        "direct_and_influenced": 237,
+        "influenced_only": 129
+      },
+      "recruiter": {
+        "direct_and_influenced": 64,
+        "influenced_only": 35
+      },
+      "employer_brand_and_media": {
+        "direct_and_influenced": 19,
+        "influenced_only": 13
+      }
+    },
+    "note": "Influenced hires numbers shown may differ from in-product reporting due to different methodologies and data sources"
+  },
+
+  "quality_of_hire": {
+    "skill_density": {
+      "influenced_vs_non_influenced": "1.8X",
+      "description": "Influenced hires had 1.8X the number of skills compared to non-influenced hires"
+    },
+    "top_5_skills_of_influenced_hires": [
+      {"rank": 1, "skill": "SQL", "hires": 205},
+      {"rank": 2, "skill": "Java", "hires": 202},
+      {"rank": 3, "skill": "Guidewire", "hires": 200},
+      {"rank": 4, "skill": "Python (Programming Language)", "hires": 191},
+      {"rank": 5, "skill": "JavaScript", "hires": 138}
+    ],
+    "top_occupations_of_influenced_hires": [
+      {"occupation": "Software Engineer", "hires": 115},
+      {"occupation": "Product Manager", "hires": 17},
+      {"occupation": "Architect", "hires": 14},
+      {"occupation": "Project Manager", "hires": 13},
+      {"occupation": "Business Analyst", "hires": 9},
+      {"occupation": "Site Reliability Engineer", "hires": 8},
+      {"occupation": "Application Support Engineer", "hires": 8},
+      {"occupation": "Support Engineer", "hires": 7},
+      {"occupation": "Business Partner", "hires": 7},
+      {"occupation": "User Experience Designer", "hires": 6}
+    ],
+    "narrative": "499 Influenced Hires in the L12M bring significantly deeper technical capability - the exact skills Guidewire needs for its cloud, AI, and product expansion."
+  },
+
+  "ai_assisted_inmail": {
+    "date_range": "Jan 2025 - Dec 2025",
+    "adoption": {
+      "guidewire_adoption_rate": "83%",
+      "peer_median_adoption_rate": "81%",
+      "comparison": "ahead_of_peers",
+      "total_recruiters": 46,
+      "recruiters_using_ai": 38,
+      "total_inmails_sent": "46.8K",
+      "total_inmails_sent_value": 46800,
+      "total_ai_assisted_inmails_sent": "3.6K",
+      "total_ai_assisted_inmails_sent_value": 3600,
+      "percent_of_total_inmails_ai_assisted": "8%",
+      "peer_percent_of_total_inmails_ai_assisted": "9%"
+    },
+    "uplift": {
+      "acceptance_rate_uplift": "24%",
+      "description": "Recruiters using AI-Assisted Messages see 24% higher acceptance rates (Customer data)"
+    },
+    "top_countries_for_ai_inmails": [
+      "India",
+      "Malaysia",
+      "United States"
+    ],
+    "performance_by_function": [
+      {
+        "function": "Engineering",
+        "non_ai_acceptance_rate": "36%",
+        "ai_assisted_acceptance_rate": "41%",
+        "ai_assisted_inmails_sent": 2105,
+        "peer_ai_acceptance_rate": "43%"
+      },
+      {
+        "function": "Information Technology",
+        "non_ai_acceptance_rate": "35%",
+        "ai_assisted_acceptance_rate": "49%",
+        "ai_assisted_inmails_sent": 395,
+        "peer_ai_acceptance_rate": "40%"
+      },
+      {
+        "function": "Product Management",
+        "non_ai_acceptance_rate": "50%",
+        "ai_assisted_acceptance_rate": "60%",
+        "ai_assisted_inmails_sent": 162,
+        "peer_ai_acceptance_rate": "49%"
+      },
+      {
+        "function": "Consulting",
+        "non_ai_acceptance_rate": "34%",
+        "ai_assisted_acceptance_rate": "48%",
+        "ai_assisted_inmails_sent": 89,
+        "peer_ai_acceptance_rate": "51%"
+      },
+      {
+        "function": "Finance",
+        "non_ai_acceptance_rate": "36%",
+        "ai_assisted_acceptance_rate": "34%",
+        "ai_assisted_inmails_sent": 62,
+        "peer_ai_acceptance_rate": "48%"
+      },
+      {
+        "function": "Business Development",
+        "non_ai_acceptance_rate": "39%",
+        "ai_assisted_acceptance_rate": "49%",
+        "ai_assisted_inmails_sent": 61,
+        "peer_ai_acceptance_rate": "43%"
+      },
+      {
+        "function": "Program and Project Management",
+        "non_ai_acceptance_rate": "42%",
+        "ai_assisted_acceptance_rate": "63%",
+        "ai_assisted_inmails_sent": 59,
+        "peer_ai_acceptance_rate": "49%"
+      },
+      {
+        "function": "Quality Assurance",
+        "non_ai_acceptance_rate": "30%",
+        "ai_assisted_acceptance_rate": "71%",
+        "ai_assisted_inmails_sent": 56,
+        "peer_ai_acceptance_rate": "49%"
+      },
+      {
+        "function": "Human Resources",
+        "non_ai_acceptance_rate": "33%",
+        "ai_assisted_acceptance_rate": "48%",
+        "ai_assisted_inmails_sent": 50,
+        "peer_ai_acceptance_rate": "52%"
+      },
+      {
+        "function": "Sales",
+        "non_ai_acceptance_rate": "27%",
+        "ai_assisted_acceptance_rate": "45%",
+        "ai_assisted_inmails_sent": 31,
+        "peer_ai_acceptance_rate": "35%"
+      }
+    ],
+    "team_distribution_by_adoption_level": {
+      "no_usage_0_percent": "17%",
+      "low_1_to_10_percent": "2%",
+      "moderate_11_to_40_percent": "26%",
+      "high_41_to_100_percent": "54%"
+    },
+    "ai_champions": [
+      {
+        "name": "Avinash Kumar",
+        "percent_inmails_ai_assisted": "96%",
+        "percent_uplift_acceptance_rate": "52%"
+      },
+      {
+        "name": "Mayur Solanki",
+        "percent_inmails_ai_assisted": "88%",
+        "percent_uplift_acceptance_rate": "71%"
+      },
+      {
+        "name": "Harish Reddy",
+        "percent_inmails_ai_assisted": "46%",
+        "percent_uplift_acceptance_rate": "23%"
+      }
+    ]
+  },
+
+  "ai_assisted_search": {
+    "date_range": "Jan 2025 - Dec 2025",
+    "adoption": {
+      "guidewire_adoption_rate": "79%",
+      "peer_median_adoption_rate": "81%",
+      "comparison": "behind_peers",
+      "total_recruiters": 63,
+      "recruiters_using_ai_search": 50,
+      "total_searches": "2.5K",
+      "total_searches_value": 2500,
+      "total_ai_assisted_searches": 745,
+      "percent_of_total_searches_ai_assisted": "30%",
+      "peer_percent_of_total_searches_ai_assisted": "19%"
+    },
+    "uplift": {
+      "inmail_acceptance_rate_uplift": "+18%",
+      "description": "Recruiters using AI-Assisted Search experience an +18% higher InMail acceptance rate compared to search sessions using manual filters (LinkedIn-wide stat)"
+    },
+    "team_distribution_by_adoption_level": {
+      "no_usage_0_percent": "21%",
+      "low_1_to_10_percent": "29%",
+      "moderate_11_to_40_percent": "37%",
+      "high_41_to_100_percent": "14%"
+    },
+    "ai_champions": [
+      {
+        "name": "Mayank Kumar",
+        "percent_searches_ai_assisted": "61%"
+      },
+      {
+        "name": "Priyanka Singh",
+        "percent_searches_ai_assisted": "42%"
+      },
+      {
+        "name": "Sarah Gould",
+        "percent_searches_ai_assisted": "39%"
+      }
+    ],
+    "narrative": "Many on your team are starting to adopt AI-Assisted Searches - globally, those who do, see +18% uplift in InMail acceptance rates."
+  },
+
+  "employer_brand_metrics": {
+    "inmail_acceptance_by_brand_exposure": {
+      "engaged_members_acceptance_rate": "51%",
+      "non_engaged_members_acceptance_rate": "30%",
+      "multiplier": "1.7X",
+      "description": "Higher Acceptance Rate for Engaged members",
+      "engaged_definition": "Receiving media impression, interacting with the 'I'm Interested' button, viewing jobs, or visiting career/company page (Jobs tab & Life Tab) within 30 days of receiving an InMail"
+    },
+    "brand_to_hire_conversion": {
+      "engaged_members_conversion_rate": "0.3%",
+      "non_engaged_members_conversion_rate": "0.1%",
+      "multiplier": "5.9X",
+      "description": "Higher likelihood of those who engaged with your employer brand becoming a hire",
+      "engaged_definition": "Members who received Traffic Driver Ad / Work With Us (WWU) impression, visited Jobs or Life tabs, or interacted with the 'I'm Interested' button within 30 days leading up to clicking on job apply"
+    },
+    "career_page_engagement": {
+      "date_range": "Jan 2025 to Dec 2025",
+      "jobs_tab_and_life_tab_visitors": 20573,
+      "job_viewers_after_visiting": 76534,
+      "job_applicants": 52861,
+      "job_application_rate": "12%",
+      "peer_benchmark_application_rate": "12%",
+      "job_applies": 30514,
+      "job_views": 248099,
+      "influenced_hires_from_career_page": 311,
+      "viewer_demographics": {
+        "top_functions": [
+          {"function": "Engineering", "viewers": 79000},
+          {"function": "Information Technology", "viewers": 31000},
+          {"function": "Business Development", "viewers": 17000},
+          {"function": "Sales", "viewers": 13000},
+          {"function": "Product Management", "viewers": 11000}
+        ],
+        "top_companies": [
+          {"company": "Deloitte", "viewers": 2000},
+          {"company": "Cognizant", "viewers": 2000},
+          {"company": "Tata Consultancy Services", "viewers": 2000},
+          {"company": "Capgemini", "viewers": 2000},
+          {"company": "EY", "viewers": 2000}
+        ],
+        "top_countries": [
+          {"country": "United States", "viewers": 110000},
+          {"country": "India", "viewers": 105000},
+          {"country": "Canada", "viewers": 20000},
+          {"country": "Malaysia", "viewers": 16000},
+          {"country": "Ireland", "viewers": 13000}
+        ]
+      },
+      "note": "Viewers demographics are measured across Jobs tab & Life tab views and are not deduplicated for repeated viewers"
+    },
+    "quality_outcomes_of_eb_influenced_hires": {
+      "note": "Compared to non-influenced hires, your Employer Brand Influenced Hires are...",
+      "definition": "An employer brand influenced hire is any hire who interacted with the customer's Career page (Jobs & Life tab), or clicked on a Traffic Driver / WWU / Company Discovery ad or clicked on the I'm interested button within 12 months of getting hired.",
+      "data_period": "Talent hired over the last 24 months who have had at least 1 full year of service or already had an outcome (early loss). Aggregated at the ultimate parent company level.",
+      "metrics": {
+        "demand": {
+          "multiplier": "0.7x",
+          "description": "Percentage calculated based on InMails received",
+          "label": "In higher demand - more highly sought after",
+          "note": "0.7x means EB-influenced hires are slightly less in demand (receiving fewer InMails), which could mean they are more specialized/niche"
+        },
+        "seniority": {
+          "multiplier": "1.4x",
+          "description": "Based on LinkedIn Title Classification",
+          "label": "More experienced - more manager and above influenced hires"
+        },
+        "employee_retention": {
+          "multiplier": "0.7x",
+          "description": "% New Hires that stay for at least 1 year",
+          "label": "Stay longer - more make it through the first year"
+        },
+        "promotion": {
+          "multiplier": "2.2x",
+          "description": "% of Hires that take a 2nd role at the company after initial hire",
+          "label": "Promoted faster - higher promotion rate"
+        }
+      }
+    }
+  },
+
+  "recruiter_tools_and_resources": {
+    "learning_resources": [
+      "Weekly Live Webinars in the Learning Center (available across 16 languages)",
+      "Talent Community for peer learning and on-demand resources",
+      "Help Center with AI-powered help assistant",
+      "Learning Center with product updates, webinars, expert Q&As",
+      "AI Empowerment Centre",
+      "Recruiter AI Learning Week (AI Academy)"
+    ],
+    "upcoming_features": {
+      "ai_assisted_follow_ups": {
+        "description": "Automate follow-ups at scale without losing the personal touch. AI-Assisted Follow-Ups instantly draft personalized messages leveraging each candidate's profile and prior InMail interactions.",
+        "status": "Rolling out in English first"
+      },
+      "ai_assisted_search_profile_highlights": {
+        "description": "With profile highlighting in AI-Assisted Search, you can quickly understand which qualifications are met and where gaps exist for potential candidates.",
+        "status": "Rolling out in English first"
+      }
+    }
+  },
+
+  "hiring_enterprise_program": {
+    "description": "The premier hiring solution for talent professionals seeking adaptability, efficiency and impact.",
+    "value_proposition": "HEP unlocks value by increasing productivity, amplifying reach and engagement with quality candidates and maximizing hiring investment.",
+    "components": [
+      "LinkedIn Job Slots",
+      "LinkedIn Recruiter",
+      "LinkedIn Career Page"
+    ]
+  },
+
+  "product_roadmap_2026": {
+    "headline": "Presenting the 2026 LinkedIn Hiring Release",
+    "three_pillars": [
+      {
+        "pillar": "Attract in-demand talent effortlessly",
+        "description": "Improve applicant quality with robust, AI-powered updates to our Jobs product",
+        "features": {
+          "launching_CY25_Q4": [
+            "Applicant Targeting",
+            "Featured Jobs"
+          ],
+          "future": [
+            "Jobs and Seeker Trust Updates"
+          ]
+        }
+      },
+      {
+        "pillar": "Find and connect with top talent fast",
+        "description": "Built on the world's most dynamic talent network, uncover and engage with top talent at scale",
+        "features": {
+          "launching_CY25_Q4": [
+            "AI-Assisted Follow-Ups",
+            "AI-Assisted Search - Profile Highlights",
+            "Automated Prescreening - Q&A Settings"
+          ]
+        }
+      },
+      {
+        "pillar": "Streamline hiring across your tech stack",
+        "description": "Seamlessly hire with integrations connecting to tools you already use",
+        "features": {
+          "launching_CY25_Q4": [
+            "ATS Connected Projects"
+          ],
+          "future": [
+            "Hiring Assistant Integration for Microsoft Teams"
+          ]
+        }
+      }
+    ],
+    "feature_details": {
+      "applicant_targeting": {
+        "description": "AI-powered Applicant Targeting to help your teams reach candidates with precision. Leveraging the job description, it will automatically generate targeting criteria, ensuring your job is surfaced to the right candidates.",
+        "benefit": "AI automation where it counts"
+      },
+      "featured_jobs": {
+        "description": "Gain greater visibility on urgent or high-priority roles with Featured Jobs. With a 14-day boost and a 'Featured' label, it will signal urgency to job seekers.",
+        "benefit": "Delivers 20% more applicants, on average"
+      },
+      "ai_assisted_follow_ups": {
+        "description": "Generate tailored follow-up messages by analyzing candidate profiles and past interactions, helping your teams proactively check back in with top talent.",
+        "benefit": "Save time, boost candidate engagement"
+      },
+      "ats_connected_projects": {
+        "description": "Evaluate every applicant for a given job - whether they applied on or off LinkedIn - through Recruiter System Connect's latest enhancement.",
+        "benefit": "Connect for smarter, faster applicant evaluations"
+      },
+      "microsoft_teams_integration": {
+        "description": "Share candidates from LinkedIn Recruiter to Microsoft Teams. Hiring managers can review, discuss, and provide feedback and it will instantly populate in Recruiter.",
+        "benefit": "Candidate feedback, all in one platform"
+      }
+    },
+    "testimonial": {
+      "quote": "LinkedIn's Hiring Assistant isn't just an AI tool - it's a strategic partner and companion in our hiring process. It shows how AI can empower recruiters to do what they do best - connect the right people to the right opportunities.",
+      "author": "Lucy McGhee",
+      "title": "Talent Acquisition Lead Victoria and South Australia at Aurecon"
+    }
+  },
+
+  "recommendations_and_insights": {
+    "strengths": [
+      "67.3% influenced hire rate - strong reliance on LinkedIn ecosystem",
+      "1.8x deeper skill density in influenced hires",
+      "Mid-funnel conversion (12.5%) significantly above peer benchmark (9.6%)",
+      "83% AI-Assisted InMail adoption, ahead of peers (81%)",
+      "24% higher acceptance rates from AI-Assisted InMails",
+      "1.7x higher InMail acceptance from brand-engaged candidates",
+      "5.9x higher likelihood of brand-engaged candidates becoming hires",
+      "+36% YoY growth in job views",
+      "+12% YoY growth in apply clicks",
+      "Strong technical skill alignment (SQL, Java, Guidewire, Python, JavaScript)"
+    ],
+    "improvement_areas": [
+      "Early-funnel conversion (6.1% vs 8.8% peer benchmark) needs improvement",
+      "AI-Assisted Search adoption (79%) slightly behind peers (81%)",
+      "Company page views declined -29% YoY",
+      "InMails sent decreased -9% (from 51.4K to 46.8K)",
+      "Active recruiter seats decreased from 101 to 81 (-13%)",
+      "Move more recruiters from moderate to high AI search adoption"
+    ],
+    "strategic_recommendations": [
+      "Strengthen early-funnel visibility to increase qualified candidates reaching recruiters",
+      "Scale adoption of AI-driven workflows across the team",
+      "Leverage AI champions (Avinash Kumar, Mayur Solanki, Harish Reddy) to inspire broader adoption",
+      "Increase employer brand investment to boost company page views",
+      "Expand AI-Assisted Search usage (currently 30% of searches vs 19% peers, but adoption rate lower)"
+    ]
+  },
+
+  "yoy_comparison_table": {
+    "note": "Complete YoY difference data extracted from overview page",
+    "metrics": [
+      {
+        "metric": "InMails Sent",
+        "guidewire_current": "46.8K",
+        "guidewire_prior": "51.4K",
+        "guidewire_yoy": "+41%",
+        "peer_yoy": "+9%"
+      },
+      {
+        "metric": "InMail Acceptance Rate",
+        "guidewire_current": "36.6%",
+        "guidewire_prior": "23.5%",
+        "guidewire_yoy": "-27%",
+        "peer_yoy": "-6%"
+      },
+      {
+        "metric": "Active Seats",
+        "guidewire_current": "81",
+        "guidewire_prior": "101",
+        "guidewire_yoy": "-13%",
+        "peer_yoy": "+17%"
+      },
+      {
+        "metric": "Job Views",
+        "guidewire_current": "2.8M",
+        "guidewire_prior": "3.6M",
+        "guidewire_yoy": "+15%",
+        "peer_yoy": "+36%"
+      },
+      {
+        "metric": "Job Apply Clicks",
+        "guidewire_current": "375.2K",
+        "guidewire_prior": "364.1K",
+        "guidewire_yoy": "+12%",
+        "peer_yoy": "-26%"
+      },
+      {
+        "metric": "Job Apply Rate",
+        "guidewire_current": "13.5%",
+        "guidewire_prior": "10.6%",
+        "guidewire_yoy": "-8%",
+        "peer_yoy": "-17%"
+      },
+      {
+        "metric": "Company Page Views",
+        "guidewire_current": "291.6K",
+        "guidewire_prior": "438.6K",
+        "guidewire_yoy": "-29%",
+        "peer_yoy": "+18%"
+      },
+      {
+        "metric": "Total Followers (non-employee)",
+        "guidewire_current": "287.1K",
+        "guidewire_prior": "321.5K",
+        "guidewire_yoy": "+14%",
+        "peer_yoy": "+53%"
+      },
+      {
+        "metric": "Jobs & Life Page Views",
+        "guidewire_current": "301.4K",
+        "guidewire_prior": "416.9K",
+        "guidewire_yoy": "+17%",
+        "peer_yoy": "+48%"
+      },
+      {
+        "metric": "Total Hires",
+        "guidewire_current": "742",
+        "guidewire_prior": "1.4K",
+        "guidewire_yoy": "+53%",
+        "peer_yoy": "-3%"
+      },
+      {
+        "metric": "Influenced Hires",
+        "guidewire_current": "499",
+        "guidewire_prior": "688",
+        "guidewire_yoy": "+32%",
+        "peer_yoy": "+47%"
+      },
+      {
+        "metric": "Influenced Hire Rate",
+        "guidewire_current": "67.3%",
+        "guidewire_prior": "61.6%",
+        "guidewire_yoy": "+6%",
+        "peer_yoy": "+1%"
+      }
+    ]
+  }
+}

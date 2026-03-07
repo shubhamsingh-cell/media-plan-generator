@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from openpyxl.chart import BarChart, PieChart, Reference
+from openpyxl.chart import BarChart, PieChart, DoughnutChart, Reference
 from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.series import DataPoint
 from openpyxl.drawing.image import Image as XlImage
@@ -155,6 +155,47 @@ def generate_excel(data):
     )
     accent_fill = PatternFill(start_color="E8F0FE", end_color="E8F0FE", fill_type="solid")
 
+    # ── LinkedIn-inspired color palette ──
+    NAVY = "1B2A4A"
+    BLUE = "0A66C9"
+    MEDIUM_BLUE = "004082"
+    LIGHT_BLUE = "D1E8FF"
+    GOLD = "E8A33D"
+    LIGHT_GOLD = "F5C77D"
+    PALE_GOLD = "FCE3BD"
+    OFF_WHITE = "F2F2F0"
+    WARM_GRAY = "EBE6E0"
+    GREEN_GOOD = "2E7D32"
+    AMBER_WARN = "F57C00"
+
+    # LinkedIn-style fills
+    gold_fill = PatternFill(start_color=GOLD, end_color=GOLD, fill_type="solid")
+    light_gold_fill = PatternFill(start_color=LIGHT_GOLD, end_color=LIGHT_GOLD, fill_type="solid")
+    pale_gold_fill = PatternFill(start_color=PALE_GOLD, end_color=PALE_GOLD, fill_type="solid")
+    off_white_fill = PatternFill(start_color=OFF_WHITE, end_color=OFF_WHITE, fill_type="solid")
+    warm_gray_fill = PatternFill(start_color=WARM_GRAY, end_color=WARM_GRAY, fill_type="solid")
+    light_blue_fill = PatternFill(start_color=LIGHT_BLUE, end_color=LIGHT_BLUE, fill_type="solid")
+    green_fill = PatternFill(start_color="E8F5E9", end_color="E8F5E9", fill_type="solid")
+    amber_fill = PatternFill(start_color="FFF3E0", end_color="FFF3E0", fill_type="solid")
+    gold_accent_border = Border(
+        left=Side(style="medium", color=GOLD),
+        right=Side(style="thin", color=WARM_GRAY),
+        top=Side(style="thin", color=WARM_GRAY),
+        bottom=Side(style="thin", color=WARM_GRAY),
+    )
+    gold_bottom_border = Border(bottom=Side(style="medium", color=GOLD))
+
+    def style_section_header(ws, row, col_start, col_end, title):
+        """Style a section header with navy text and gold accent border."""
+        ws.merge_cells(start_row=row, start_column=col_start, end_row=row, end_column=col_end)
+        cell = ws.cell(row=row, column=col_start, value=title)
+        cell.font = Font(name="Calibri", bold=True, size=14, color=NAVY)
+        cell.border = Border(
+            bottom=Side(style="medium", color=GOLD),
+            left=Side(style="thick", color=GOLD),
+        )
+        return cell
+
     def style_body_cell(ws, row, col, val=""):
         cell = ws.cell(row=row, column=col, value=val)
         cell.font = body_font
@@ -182,12 +223,19 @@ def generate_excel(data):
         display_currency_code = loc_currency
 
     industry = data.get("industry", "general_entry_level")
-    roles = data.get("target_roles", [])
+    roles = data.get("target_roles") or data.get("roles", [])
 
-    # Channel category preferences (support both list and dict formats)
+    # Channel category preferences (support list-of-strings, list-of-dicts, and dict formats)
     ch_cats_raw = data.get("channel_categories", {})
     if isinstance(ch_cats_raw, list):
-        ch_cats = {k: True for k in ch_cats_raw}
+        ch_cats = {}
+        for item in ch_cats_raw:
+            if isinstance(item, dict):
+                name = item.get("name", "")
+                enabled = item.get("enabled", True)
+                ch_cats[name] = enabled
+            else:
+                ch_cats[str(item)] = True
     else:
         ch_cats = ch_cats_raw
     include_regional = ch_cats.get("regional_boards", True)
@@ -316,18 +364,18 @@ def generate_excel(data):
     ws_exec.column_dimensions["G"].width = 55
 
     navy_fill = PatternFill(start_color="1B2A4A", end_color="1B2A4A", fill_type="solid")
-    metric_fill = PatternFill(start_color="D6E4F0", end_color="D6E4F0", fill_type="solid")
+    metric_fill = PatternFill(start_color=OFF_WHITE, end_color=OFF_WHITE, fill_type="solid")
     blue_accent_border = Border(
-        left=Side(style="medium", color="2E75B6"),
-        right=Side(style="thin", color="CCCCCC"),
-        top=Side(style="thin", color="CCCCCC"),
-        bottom=Side(style="thin", color="CCCCCC"),
+        left=Side(style="medium", color=GOLD),
+        right=Side(style="thin", color=WARM_GRAY),
+        top=Side(style="thin", color=WARM_GRAY),
+        bottom=Side(style="thin", color=WARM_GRAY),
     )
 
     client_name_val = data.get("client_name", "CLIENT")
     industry_label_val = data.get("industry_label", industry_label_map.get(industry, industry))
 
-    # Large merged header
+    # Large merged header - Navy background
     ws_exec.merge_cells("B2:G2")
     title_cell_exec = ws_exec["B2"]
     title_cell_exec.value = f"AI MEDIA PLANNER \u2014 {client_name_val.upper()}"
@@ -338,14 +386,15 @@ def generate_excel(data):
         ws_exec.cell(row=2, column=c).fill = navy_fill
     ws_exec.row_dimensions[2].height = 50
 
-    # Subtitle
+    # Gold accent subtitle bar
     ws_exec.merge_cells("B3:G3")
     ws_exec["B3"].value = f"{industry_label_val}  |  Generated {datetime.datetime.now().strftime('%B %d, %Y')}"
-    ws_exec["B3"].font = Font(name="Calibri", italic=True, size=11, color="FFFFFF")
-    ws_exec["B3"].fill = navy_fill
+    ws_exec["B3"].font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+    ws_exec["B3"].fill = gold_fill
     ws_exec["B3"].alignment = Alignment(horizontal="center", vertical="center")
     for c in range(3, 8):
-        ws_exec.cell(row=3, column=c).fill = navy_fill
+        ws_exec.cell(row=3, column=c).fill = gold_fill
+    ws_exec.row_dimensions[3].height = 30
 
     # Insert logo on executive summary if available
     if logo_data:
@@ -359,49 +408,71 @@ def generate_excel(data):
         except Exception:
             pass
 
-    # Campaign Snapshot section
+    # Campaign Snapshot section with gold accent
     exec_row = 5
-    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Campaign Snapshot").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
+    style_section_header(ws_exec, exec_row, 2, 7, "Campaign Snapshot")
     exec_row += 1
 
-    # 2x3 metric grid
+    # Hero stat - total budget or channel count as large number
     budget_range_val = data.get("budget_range", "Not specified")
     campaign_duration_val = data.get("campaign_duration", "Not specified")
     loc_count = len(locations)
     role_count = len(roles)
     hire_volume_val = data.get("hire_volume", "Not specified")
 
+    # Large hero stat row
+    ws_exec.merge_cells(f"B{exec_row}:C{exec_row}")
+    hero_cell = ws_exec.cell(row=exec_row, column=2, value=str(budget_range_val))
+    hero_cell.font = Font(name="Calibri", bold=True, size=24, color=GOLD)
+    hero_cell.fill = off_white_fill
+    hero_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws_exec.cell(row=exec_row, column=3).fill = off_white_fill
+    ws_exec.merge_cells(f"D{exec_row}:E{exec_row}")
+    hero_label = ws_exec.cell(row=exec_row, column=4, value="BUDGET RANGE")
+    hero_label.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+    hero_label.fill = off_white_fill
+    hero_label.alignment = Alignment(horizontal="left", vertical="center")
+    ws_exec.cell(row=exec_row, column=5).fill = off_white_fill
+    ws_exec.row_dimensions[exec_row].height = 45
+    exec_row += 1
+
+    # 2x3 metric cards with off-white backgrounds and gold value highlights
     metric_grid = [
-        ("Budget Range", budget_range_val, "Campaign Duration", campaign_duration_val),
+        ("Campaign Duration", campaign_duration_val, "Hire Volume", str(hire_volume_val)),
         ("Target Locations", f"{loc_count} location(s)", "Target Roles", f"{role_count} role(s)"),
-        ("Industry", industry_label_val, "Hire Volume", str(hire_volume_val)),
+        ("Industry", industry_label_val, "", ""),
     ]
+    metric_card_border = Border(
+        left=Side(style="thin", color=WARM_GRAY),
+        right=Side(style="thin", color=WARM_GRAY),
+        top=Side(style="thin", color=WARM_GRAY),
+        bottom=Side(style="thin", color=WARM_GRAY),
+    )
     for label1, val1, label2, val2 in metric_grid:
-        # Left metric
+        # Left metric card
         cell_l = ws_exec.cell(row=exec_row, column=2, value=label1)
         cell_l.font = Font(name="Calibri", bold=True, size=9, color="666666")
-        cell_l.fill = metric_fill
-        cell_l.border = thin_border
+        cell_l.fill = off_white_fill
+        cell_l.border = metric_card_border
         cell_v = ws_exec.cell(row=exec_row, column=3, value=val1)
-        cell_v.font = Font(name="Calibri", bold=True, size=12, color="1B2A4A")
-        cell_v.fill = metric_fill
-        cell_v.border = thin_border
-        # Right metric
-        cell_r = ws_exec.cell(row=exec_row, column=4, value=label2)
-        cell_r.font = Font(name="Calibri", bold=True, size=9, color="666666")
-        cell_r.fill = metric_fill
-        cell_r.border = thin_border
-        cell_rv = ws_exec.cell(row=exec_row, column=5, value=val2)
-        cell_rv.font = Font(name="Calibri", bold=True, size=12, color="1B2A4A")
-        cell_rv.fill = metric_fill
-        cell_rv.border = thin_border
+        cell_v.font = Font(name="Calibri", bold=True, size=12, color=NAVY)
+        cell_v.fill = off_white_fill
+        cell_v.border = metric_card_border
+        # Right metric card
+        if label2:
+            cell_r = ws_exec.cell(row=exec_row, column=4, value=label2)
+            cell_r.font = Font(name="Calibri", bold=True, size=9, color="666666")
+            cell_r.fill = off_white_fill
+            cell_r.border = metric_card_border
+            cell_rv = ws_exec.cell(row=exec_row, column=5, value=val2)
+            cell_rv.font = Font(name="Calibri", bold=True, size=12, color=NAVY)
+            cell_rv.fill = off_white_fill
+            cell_rv.border = metric_card_border
         exec_row += 1
 
     # Plan at a Glance
     exec_row += 1
-    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Plan at a Glance").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
+    style_section_header(ws_exec, exec_row, 2, 7, "Plan at a Glance")
     exec_row += 1
     all_sheet_names = ["Overview", "Market Trends", "Labour Market Intelligence", "Channel Strategy", "Traditional Channels", "Non-Traditional Channels"]
     if data.get("job_categories"):
@@ -429,8 +500,7 @@ def generate_excel(data):
 
     # Channel Mix Summary
     exec_row += 1
-    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Channel Mix Summary").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
+    style_section_header(ws_exec, exec_row, 2, 7, "Channel Mix Summary")
     exec_row += 1
     regional_count = len(data.get("selected_regional", db["traditional_channels"]["regional_local"][:25]))
     niche_count = len(data.get("selected_niche", db["traditional_channels"]["niche_by_industry"].get(niche_key, [])[:25]))
@@ -441,8 +511,7 @@ def generate_excel(data):
     # Labour Market Summary in Executive Summary
     lm_exec = research.get_labour_market_intelligence(industry, locations)
     lm_ind = lm_exec.get("industry_metrics", {})
-    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Labour Market Snapshot").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
+    style_section_header(ws_exec, exec_row, 2, 7, "Labour Market Snapshot")
     exec_row += 1
     lm_summary_items = [
         f"Sector: {lm_ind.get('sector_name', '')}",
@@ -460,8 +529,7 @@ def generate_excel(data):
 
     # Competitive Landscape in Executive Summary
     if client_competitors:
-        ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-        ws_exec.cell(row=exec_row, column=2, value="Competitive Landscape").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
+        style_section_header(ws_exec, exec_row, 2, 7, "Competitive Landscape")
         exec_row += 1
         ws_exec.cell(row=exec_row, column=2, value=f"Key Competitors: {', '.join(client_competitors)}").font = Font(name="Calibri", size=11, color="333333")
         exec_row += 1
@@ -470,8 +538,7 @@ def generate_excel(data):
         exec_row += 2
 
     # Key Recommendations
-    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Key Recommendations").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
+    style_section_header(ws_exec, exec_row, 2, 7, "Key Recommendations")
     exec_row += 1
 
     recommendations = []
@@ -550,9 +617,7 @@ def generate_excel(data):
 
     # ── Recruitment Marketing Benchmarks (2025 Data) ──
     exec_row += 2
-    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="2025 Recruitment Marketing Benchmarks — CPA / CPC / CPH by Industry & Region").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
-    ws_exec.cell(row=exec_row, column=2).border = Border(bottom=Side(style="medium", color="2E75B6"))
+    style_section_header(ws_exec, exec_row, 2, 7, "2025 Recruitment Marketing Benchmarks — CPA / CPC / CPH by Industry & Region")
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     ws_exec.cell(row=exec_row, column=2, value="Data sourced from 2025 industry benchmark reports including Appcast Recruitment Marketing Benchmark (379M clicks, 30M applies analyzed), Recruitics Talent Market Index, and SHRM 2025 Benchmarking.").font = Font(name="Calibri", italic=True, size=9, color="596780")
@@ -913,9 +978,7 @@ def generate_excel(data):
 
     # ── Expected Hiring Funnel Forecast ──
     exec_row += 3
-    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Expected Hiring Funnel Forecast").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
-    ws_exec.cell(row=exec_row, column=2).border = Border(bottom=Side(style="medium", color="2E75B6"))
+    style_section_header(ws_exec, exec_row, 2, 7, "Expected Hiring Funnel Forecast")
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     ws_exec.cell(row=exec_row, column=2, value="Estimated pipeline volumes based on industry conversion benchmarks and selected channel mix. Actual results depend on job specificity, employer brand, and optimization.").font = Font(name="Calibri", italic=True, size=9, color="596780")
@@ -969,19 +1032,22 @@ def generate_excel(data):
         cell.alignment = center_alignment
     exec_row += 1
 
-    # Funnel color gradient from dark blue to light green
-    funnel_colors = ["2E75B6", "3585C2", "4A95CE", "5BA5DA", "6DB5A0", "50B870", "00B050"]
+    # Funnel color gradient - navy to light blue (LinkedIn style)
+    funnel_colors = [NAVY, "1B3D6F", "245694", "2E6EB8", "3886DC", "5A9FE6", "82B8F0"]
+    funnel_table_start_row = exec_row  # track where table data begins
     for idx, (stage, volume, desc, rate) in enumerate(funnel_stages):
         c1 = ws_exec.cell(row=exec_row, column=2, value=f"{'  ' * idx}\u25B6 {stage}")
         c1.font = Font(name="Calibri", bold=True, size=10, color=funnel_colors[idx])
         c1.border = thin_border
 
-        c2 = ws_exec.cell(row=exec_row, column=3, value=f"{volume:,}")
-        c2.font = Font(name="Calibri", bold=True, size=11, color="1B2A4A")
+        # Write volume as number for chart reference
+        c2 = ws_exec.cell(row=exec_row, column=3, value=volume)
+        c2.font = Font(name="Calibri", bold=True, size=11, color=NAVY)
         c2.border = thin_border
         c2.alignment = center_alignment
+        c2.number_format = '#,##0'
 
-        c3 = ws_exec.cell(row=exec_row, column=4, value=rate if rate else "—")
+        c3 = ws_exec.cell(row=exec_row, column=4, value=rate if rate else "\u2014")
         c3.font = Font(name="Calibri", size=10, color="596780")
         c3.border = thin_border
         c3.alignment = center_alignment
@@ -991,22 +1057,52 @@ def generate_excel(data):
         c4.border = thin_border
         c4.alignment = wrap_alignment
 
-        # Alternating row fill
+        # Alternating row fill with pale gold
         if idx % 2 == 0:
             for c in range(2, 6):
-                ws_exec.cell(row=exec_row, column=c).fill = PatternFill(start_color="F0F5FA", end_color="F0F5FA", fill_type="solid")
+                ws_exec.cell(row=exec_row, column=c).fill = pale_gold_fill
 
         exec_row += 1
+
+    funnel_table_end_row = exec_row - 1
 
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     ws_exec.cell(row=exec_row, column=2, value="Conversion rates based on 2025 industry benchmarks (Appcast, Recruitics). CPQA stage is where Joveo's ML optimization delivers highest impact.").font = Font(name="Calibri", italic=True, size=8, color="999999")
 
+    # ── Funnel Visualization Chart (horizontal bar chart) ──
+    exec_row += 2
+    funnel_chart = BarChart()
+    funnel_chart.type = "bar"  # horizontal bars
+    funnel_chart.style = 10
+    funnel_chart.title = "Hiring Funnel — Pipeline Volume by Stage"
+    funnel_chart.y_axis.title = None
+    funnel_chart.x_axis.title = "Estimated Volume"
+    funnel_chart.width = 28
+    funnel_chart.height = 14
+
+    # Data reference: column 3 (volumes) from funnel_table_start_row to funnel_table_end_row
+    funnel_data_ref = Reference(ws_exec, min_col=3, min_row=funnel_table_start_row, max_row=funnel_table_end_row)
+    funnel_cats_ref = Reference(ws_exec, min_col=2, min_row=funnel_table_start_row, max_row=funnel_table_end_row)
+    funnel_chart.add_data(funnel_data_ref, titles_from_data=False)
+    funnel_chart.set_categories(funnel_cats_ref)
+    funnel_chart.shape = 4
+    funnel_chart.legend = None
+
+    # Apply navy-to-light-blue gradient colors to individual bars
+    bar_colors_hex = ["1B2A4A", "1B3D6F", "245694", "2E6EB8", "3886DC", "5A9FE6", "82B8F0"]
+    series = funnel_chart.series[0]
+    for bar_idx in range(len(funnel_stages)):
+        pt = DataPoint(idx=bar_idx)
+        pt.graphicalProperties.solidFill = bar_colors_hex[bar_idx]
+        series.data_points.append(pt)
+
+    ws_exec.add_chart(funnel_chart, f"B{exec_row}")
+    exec_row += 17  # Space for chart height
+
     # ── Channel Contribution Forecast ──
     exec_row += 3
-    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Channel Contribution Forecast").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
-    ws_exec.cell(row=exec_row, column=2).border = Border(bottom=Side(style="medium", color="2E75B6"))
+    style_section_header(ws_exec, exec_row, 2, 7, "Channel Contribution Forecast")
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     ws_exec.cell(row=exec_row, column=2, value="Estimated % of qualified pipeline contributed by each selected channel category, based on programmatic recruitment benchmarks.").font = Font(name="Calibri", italic=True, size=9, color="596780")
@@ -1014,7 +1110,12 @@ def generate_excel(data):
 
     ch_cats2_raw = data.get("channel_categories", {})
     if isinstance(ch_cats2_raw, list):
-        ch_cats2 = {k: True for k in ch_cats2_raw}
+        ch_cats2 = {}
+        for item in ch_cats2_raw:
+            if isinstance(item, dict):
+                ch_cats2[item.get("name", "")] = item.get("enabled", True)
+            else:
+                ch_cats2[str(item)] = True
     else:
         ch_cats2 = ch_cats2_raw
     channel_allocations = []
@@ -1074,14 +1175,58 @@ def generate_excel(data):
 
         if idx % 2 == 0:
             for c in range(2, 6):
-                ws_exec.cell(row=exec_row, column=c).fill = PatternFill(start_color="F0F5FA", end_color="F0F5FA", fill_type="solid")
+                ws_exec.cell(row=exec_row, column=c).fill = pale_gold_fill
         exec_row += 1
+
+    # ── Donut Chart for Channel Distribution ──
+    if normalized:
+        exec_row += 2
+        # Write chart data in a hidden area (columns H-I) for the donut chart reference
+        donut_data_start = exec_row
+        ws_exec.cell(row=exec_row, column=8, value="Channel").font = Font(name="Calibri", bold=True, size=9, color="999999")
+        ws_exec.cell(row=exec_row, column=9, value="Allocation %").font = Font(name="Calibri", bold=True, size=9, color="999999")
+        exec_row += 1
+        donut_colors = [NAVY, BLUE, GOLD, LIGHT_BLUE, WARM_GRAY, MEDIUM_BLUE, LIGHT_GOLD, "A8D4FF"]
+        for ch_idx, (ch_name, ch_pct, _desc, _color, _impact) in enumerate(normalized):
+            ws_exec.cell(row=exec_row, column=8, value=ch_name).font = Font(name="Calibri", size=8, color="999999")
+            ws_exec.cell(row=exec_row, column=9, value=ch_pct).font = Font(name="Calibri", size=8, color="999999")
+            exec_row += 1
+        donut_data_end = exec_row - 1
+
+        donut_chart = DoughnutChart()
+        donut_chart.title = "Budget Allocation by Channel"
+        donut_chart.style = 10
+        donut_chart.width = 18
+        donut_chart.height = 12
+
+        donut_data_ref = Reference(ws_exec, min_col=9, min_row=donut_data_start, max_row=donut_data_end)
+        donut_cats_ref = Reference(ws_exec, min_col=8, min_row=donut_data_start + 1, max_row=donut_data_end)
+        donut_chart.add_data(donut_data_ref, titles_from_data=True)
+        donut_chart.set_categories(donut_cats_ref)
+
+        # Apply LinkedIn-style colors to donut segments
+        if donut_chart.series:
+            donut_series = donut_chart.series[0]
+            for seg_idx in range(len(normalized)):
+                seg_pt = DataPoint(idx=seg_idx)
+                color_idx = seg_idx % len(donut_colors)
+                seg_pt.graphicalProperties.solidFill = donut_colors[color_idx]
+                donut_series.data_points.append(seg_pt)
+
+        # Data labels showing percentages
+        donut_chart.dataLabels = DataLabelList()
+        donut_chart.dataLabels.showPercent = True
+        donut_chart.dataLabels.showCatName = True
+        donut_chart.dataLabels.showVal = False
+
+        # Place chart after the table
+        chart_anchor_row = donut_data_start - 1
+        ws_exec.add_chart(donut_chart, f"B{chart_anchor_row}")
+        exec_row = chart_anchor_row + 16  # Space for chart
 
     # ── Employer Branding ROI ──
     exec_row += 3
-    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Employer Branding ROI — Why Brand Investment Multiplies Hiring Outcomes").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
-    ws_exec.cell(row=exec_row, column=2).border = Border(bottom=Side(style="medium", color="2E75B6"))
+    style_section_header(ws_exec, exec_row, 2, 7, "Employer Branding ROI — Why Brand Investment Multiplies Hiring Outcomes")
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     ws_exec.cell(row=exec_row, column=2, value="Data from LinkedIn's 2025 Hiring Value analysis shows that candidates who engage with an employer's brand before applying deliver significantly better hiring outcomes.").font = Font(name="Calibri", italic=True, size=9, color="596780")
@@ -1096,14 +1241,15 @@ def generate_excel(data):
     ]
 
     for idx, (metric, label, desc, color) in enumerate(eb_metrics):
-        # Metric value in large font
+        # Metric value in large font with gold background
         c1 = ws_exec.cell(row=exec_row, column=2, value=metric)
-        c1.font = Font(name="Calibri", bold=True, size=18, color=color.replace("#", ""))
+        c1.font = Font(name="Calibri", bold=True, size=18, color=NAVY)
+        c1.fill = gold_fill
         c1.border = thin_border
         c1.alignment = center_alignment
 
         c2 = ws_exec.cell(row=exec_row, column=3, value=label)
-        c2.font = Font(name="Calibri", bold=True, size=11, color="1B2A4A")
+        c2.font = Font(name="Calibri", bold=True, size=11, color=NAVY)
         c2.border = thin_border
         c2.alignment = Alignment(vertical="center")
 
@@ -1116,19 +1262,25 @@ def generate_excel(data):
         ws_exec.row_dimensions[exec_row].height = 40
 
         if idx % 2 == 0:
-            for c in range(2, 7):
-                ws_exec.cell(row=exec_row, column=c).fill = PatternFill(start_color="F0F5FA", end_color="F0F5FA", fill_type="solid")
+            for c in range(3, 7):
+                ws_exec.cell(row=exec_row, column=c).fill = off_white_fill
+        else:
+            for c in range(3, 7):
+                ws_exec.cell(row=exec_row, column=c).fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
         exec_row += 1
 
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Recommendation: Allocate 5-10% of total recruitment marketing budget to employer branding for sustained pipeline quality improvement.").font = Font(name="Calibri", bold=True, italic=True, size=10, color="1B6B3A")
+    rec_cell = ws_exec.cell(row=exec_row, column=2, value="  RECOMMENDATION: Allocate 5-10% of total recruitment marketing budget to employer branding for sustained pipeline quality improvement.")
+    rec_cell.font = Font(name="Calibri", bold=True, italic=True, size=10, color=NAVY)
+    rec_cell.fill = light_gold_fill
+    rec_cell.border = Border(left=Side(style="thick", color=GOLD), bottom=Side(style="thin", color=GOLD))
+    for c in range(3, 8):
+        ws_exec.cell(row=exec_row, column=c).fill = light_gold_fill
 
     # ── Quality of Hire Expected Outcomes ──
     exec_row += 3
-    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Quality of Hire — Expected Outcomes by Channel Type").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
-    ws_exec.cell(row=exec_row, column=2).border = Border(bottom=Side(style="medium", color="2E75B6"))
+    style_section_header(ws_exec, exec_row, 2, 7, "Quality of Hire — Expected Outcomes by Channel Type")
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     ws_exec.cell(row=exec_row, column=2, value="Not all channels deliver equal quality. This framework shows expected quality-of-hire outcomes by sourcing channel, helping optimize spend toward highest-quality pipelines.").font = Font(name="Calibri", italic=True, size=9, color="596780")
@@ -1172,7 +1324,7 @@ def generate_excel(data):
         c3.alignment = center_alignment
 
         c4 = ws_exec.cell(row=exec_row, column=5, value=quality)
-        c4.font = Font(name="Calibri", size=12, color="ED7D31")
+        c4.font = Font(name="Calibri", size=12, color=GOLD)
         c4.border = thin_border
         c4.alignment = center_alignment
 
@@ -1183,21 +1335,119 @@ def generate_excel(data):
 
         if is_joveo:
             for c in range(2, 7):
-                ws_exec.cell(row=exec_row, column=c).fill = PatternFill(start_color="E8F0FE", end_color="E8F0FE", fill_type="solid")
+                ws_exec.cell(row=exec_row, column=c).fill = light_gold_fill
         elif idx % 2 == 0:
             for c in range(2, 7):
-                ws_exec.cell(row=exec_row, column=c).fill = PatternFill(start_color="F0F5FA", end_color="F0F5FA", fill_type="solid")
+                ws_exec.cell(row=exec_row, column=c).fill = off_white_fill
         exec_row += 1
 
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Joveo's programmatic approach combines the speed of automation with quality optimization (CPQA), delivering the best balance of time-to-fill, retention, and cost efficiency.").font = Font(name="Calibri", bold=True, italic=True, size=10, color="2E75B6")
+    joveo_rec = ws_exec.cell(row=exec_row, column=2, value="  Joveo's programmatic approach combines the speed of automation with quality optimization (CPQA), delivering the best balance of time-to-fill, retention, and cost efficiency.")
+    joveo_rec.font = Font(name="Calibri", bold=True, italic=True, size=10, color=NAVY)
+    joveo_rec.fill = light_gold_fill
+    joveo_rec.border = Border(left=Side(style="thick", color=GOLD))
+    for c in range(3, 8):
+        ws_exec.cell(row=exec_row, column=c).fill = light_gold_fill
+
+    # ── Quality & ROI Metrics (2x2 card grid) ──
+    exec_row += 3
+    style_section_header(ws_exec, exec_row, 2, 7, "Quality & ROI Metrics")
+    exec_row += 1
+    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+    ws_exec.cell(row=exec_row, column=2, value="Key performance indicators estimated from your channel mix, industry benchmarks, and campaign parameters.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+    exec_row += 2
+
+    # Calculate estimated metrics
+    est_total_reach = est_impressions
+    num_channels = regional_count + niche_count + global_count
+    est_hires = funnel_stages[-1][1] if funnel_stages else 0
+    est_applies = funnel_stages[2][1] if len(funnel_stages) > 2 else 0
+    est_cpa = round(est_total_reach * 0.00002, 2) if est_applies > 0 else 0  # rough estimate
+    channel_diversity = min(round(num_channels / 10 * 100, 0), 100)  # score out of 100
+    roi_index = round((est_hires / max(num_channels, 1)) * 10, 1) if est_hires > 0 else 0
+
+    quality_metrics = [
+        (f"{est_total_reach:,.0f}", "Estimated Total Reach", "Total impressions across all selected channels"),
+        (f"{display_currency}{est_cpa:,.2f}", "Est. Cost Per Application", "Based on industry CPA benchmarks for your sector"),
+        (f"{channel_diversity:.0f}/100", "Channel Diversity Score", f"Across {num_channels} channels in {len(normalized) if normalized else 0} categories"),
+        (f"{roi_index}", "Campaign ROI Index", "Estimated hire yield per channel (higher = better)"),
+    ]
+
+    # 2x2 grid layout: row 1 has metrics 0,1; row 2 has metrics 2,3
+    card_border = Border(
+        left=Side(style="thin", color=WARM_GRAY),
+        right=Side(style="thin", color=WARM_GRAY),
+        top=Side(style="thin", color=WARM_GRAY),
+        bottom=Side(style="thin", color=WARM_GRAY),
+    )
+    for grid_row_idx in range(2):
+        # Large number row
+        for grid_col_idx in range(2):
+            m_idx = grid_row_idx * 2 + grid_col_idx
+            if m_idx >= len(quality_metrics):
+                break
+            val, lbl, ctx = quality_metrics[m_idx]
+            col_start = 2 + grid_col_idx * 3  # B or E
+
+            # Merge for large metric number
+            ws_exec.merge_cells(start_row=exec_row, start_column=col_start, end_row=exec_row, end_column=col_start + 2)
+            num_cell = ws_exec.cell(row=exec_row, column=col_start, value=val)
+            num_cell.font = Font(name="Calibri", bold=True, size=22, color=NAVY)
+            num_cell.fill = gold_fill
+            num_cell.alignment = Alignment(horizontal="center", vertical="center")
+            num_cell.border = card_border
+            for cc in range(col_start + 1, col_start + 3):
+                ws_exec.cell(row=exec_row, column=cc).fill = gold_fill
+                ws_exec.cell(row=exec_row, column=cc).border = card_border
+        ws_exec.row_dimensions[exec_row].height = 40
+        exec_row += 1
+
+        # Label row
+        for grid_col_idx in range(2):
+            m_idx = grid_row_idx * 2 + grid_col_idx
+            if m_idx >= len(quality_metrics):
+                break
+            val, lbl, ctx = quality_metrics[m_idx]
+            col_start = 2 + grid_col_idx * 3
+
+            ws_exec.merge_cells(start_row=exec_row, start_column=col_start, end_row=exec_row, end_column=col_start + 2)
+            lbl_cell = ws_exec.cell(row=exec_row, column=col_start, value=lbl)
+            lbl_cell.font = Font(name="Calibri", bold=True, size=11, color="FFFFFF")
+            lbl_cell.fill = navy_fill
+            lbl_cell.alignment = Alignment(horizontal="center", vertical="center")
+            lbl_cell.border = card_border
+            for cc in range(col_start + 1, col_start + 3):
+                ws_exec.cell(row=exec_row, column=cc).fill = navy_fill
+                ws_exec.cell(row=exec_row, column=cc).border = card_border
+        exec_row += 1
+
+        # Context row
+        for grid_col_idx in range(2):
+            m_idx = grid_row_idx * 2 + grid_col_idx
+            if m_idx >= len(quality_metrics):
+                break
+            val, lbl, ctx = quality_metrics[m_idx]
+            col_start = 2 + grid_col_idx * 3
+
+            ws_exec.merge_cells(start_row=exec_row, start_column=col_start, end_row=exec_row, end_column=col_start + 2)
+            ctx_cell = ws_exec.cell(row=exec_row, column=col_start, value=ctx)
+            ctx_cell.font = Font(name="Calibri", italic=True, size=9, color="596780")
+            ctx_cell.fill = off_white_fill
+            ctx_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            ctx_cell.border = card_border
+            for cc in range(col_start + 1, col_start + 3):
+                ws_exec.cell(row=exec_row, column=cc).fill = off_white_fill
+                ws_exec.cell(row=exec_row, column=cc).border = card_border
+        exec_row += 1
+
+        # Spacer between card rows
+        if grid_row_idx == 0:
+            exec_row += 1
 
     # ── Peer Industry Benchmark Comparison ──
     exec_row += 3
-    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Peer Industry Benchmark Comparison — How Your Industry Compares").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
-    ws_exec.cell(row=exec_row, column=2).border = Border(bottom=Side(style="medium", color="2E75B6"))
+    style_section_header(ws_exec, exec_row, 2, 7, "Peer Industry Benchmark Comparison — How Your Industry Compares")
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     ws_exec.cell(row=exec_row, column=2, value="Your industry's recruitment marketing costs compared to peer industries and the all-industry average. Helps identify relative competitiveness and budget calibration.").font = Font(name="Calibri", italic=True, size=9, color="596780")
@@ -1215,56 +1465,100 @@ def generate_excel(data):
         "general_entry_level": {"label": "General", "cpa": "$10 - $25", "cpc": "$0.35 - $1.30", "cph": "$2K - $4.7K", "apply_rate": "5.5 - 6.1%", "difficulty": "\u2605\u2605\u2606\u2606\u2606"},
     }
 
-    # Table headers
-    peer_headers = ["Industry", f"Avg CPA ({display_currency_code})", f"Avg CPC ({display_currency_code})", "Est. CPH", "Apply Rate", "Hiring Difficulty"]
+    # Table headers with split-panel look
+    peer_headers = ["Industry", f"Avg CPA ({display_currency_code})", f"Avg CPC ({display_currency_code})", "Est. CPH", "Apply Rate", "Difficulty", "vs. Avg"]
     for i, h in enumerate(peer_headers):
         cell = ws_exec.cell(row=exec_row, column=2 + i, value=h)
         cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
-        cell.fill = PatternFill(start_color="1B2A4A", end_color="1B2A4A", fill_type="solid")
+        cell.fill = navy_fill
         cell.border = thin_border
         cell.alignment = center_alignment
     exec_row += 1
 
+    # Difficulty numeric map for delta comparison
+    difficulty_score = {
+        "\u2605\u2605\u2605\u2605\u2605": 5, "\u2605\u2605\u2605\u2605\u2606": 4,
+        "\u2605\u2605\u2605\u2606\u2606": 3, "\u2605\u2605\u2606\u2606\u2606": 2,
+        "\u2605\u2606\u2606\u2606\u2606": 1,
+    }
+    avg_difficulty = 3  # All-industry average reference
+
     for ind_key, pdata in peer_industries.items():
         is_client = ind_key == client_industry
-        row_font_color = "FFFFFF" if is_client else "1B2A4A"
-        row_fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid") if is_client else None
 
-        label_val = f"\u25B6 {pdata['label']} (YOUR INDUSTRY)" if is_client else pdata["label"]
+        if is_client:
+            label_val = f"\u25B6 {pdata['label']} (YOUR INDUSTRY)"
+        else:
+            label_val = pdata["label"]
 
         c1 = ws_exec.cell(row=exec_row, column=2, value=label_val)
-        c1.font = Font(name="Calibri", bold=True, size=10, color=row_font_color)
         c1.border = thin_border
-        if row_fill:
-            c1.fill = row_fill
+
+        if is_client:
+            # Client row: gold highlight with navy text
+            c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+            c1.fill = gold_fill
+        else:
+            c1.font = Font(name="Calibri", bold=False, size=10, color=NAVY)
 
         fields = [pdata["cpa"], pdata["cpc"], pdata["cph"], pdata["apply_rate"], pdata["difficulty"]]
         for fi, fval in enumerate(fields):
             cell = ws_exec.cell(row=exec_row, column=3 + fi, value=fval)
-            cell.font = Font(name="Calibri", bold=is_client, size=10, color=row_font_color)
             cell.border = thin_border
             cell.alignment = center_alignment
-            if row_fill:
-                cell.fill = row_fill
+            if is_client:
+                cell.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                cell.fill = gold_fill
+            else:
+                cell.font = Font(name="Calibri", size=10, color=NAVY)
+
+        # Delta column - compare difficulty to average
+        d_score = difficulty_score.get(pdata["difficulty"], 3)
+        if d_score < avg_difficulty:
+            delta_text = f"\u25B2 Easier"
+            delta_color = GREEN_GOOD
+            delta_fill_val = green_fill
+        elif d_score > avg_difficulty:
+            delta_text = f"\u25BC Harder"
+            delta_color = AMBER_WARN
+            delta_fill_val = amber_fill
+        else:
+            delta_text = "\u2014 Average"
+            delta_color = "666666"
+            delta_fill_val = off_white_fill
+
+        delta_cell = ws_exec.cell(row=exec_row, column=8, value=delta_text)
+        delta_cell.font = Font(name="Calibri", bold=True, size=10, color=delta_color)
+        delta_cell.border = thin_border
+        delta_cell.alignment = center_alignment
+        delta_cell.fill = delta_fill_val
+
+        # Non-client alternating rows
+        if not is_client:
+            row_idx_in_peers = list(peer_industries.keys()).index(ind_key)
+            if row_idx_in_peers % 2 == 0:
+                for c in range(2, 8):
+                    if ws_exec.cell(row=exec_row, column=c).fill == PatternFill():
+                        ws_exec.cell(row=exec_row, column=c).fill = off_white_fill
 
         exec_row += 1
 
     # All-industry average row
     ws_exec.cell(row=exec_row, column=2, value="ALL-INDUSTRY AVG").font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
-    ws_exec.cell(row=exec_row, column=2).fill = PatternFill(start_color="1B2A4A", end_color="1B2A4A", fill_type="solid")
+    ws_exec.cell(row=exec_row, column=2).fill = navy_fill
     ws_exec.cell(row=exec_row, column=2).border = thin_border
-    avg_values = ["$10 - $45", "$0.35 - $2.50", "$4.7K (SHRM)", "5.5 - 6.1%", "\u2605\u2605\u2605\u2606\u2606"]
+    avg_values = ["$10 - $45", "$0.35 - $2.50", "$4.7K (SHRM)", "5.5 - 6.1%", "\u2605\u2605\u2605\u2606\u2606", "\u2014"]
     for fi, fval in enumerate(avg_values):
         cell = ws_exec.cell(row=exec_row, column=3 + fi, value=fval)
         cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
-        cell.fill = PatternFill(start_color="1B2A4A", end_color="1B2A4A", fill_type="solid")
+        cell.fill = navy_fill
         cell.border = thin_border
         cell.alignment = center_alignment
     exec_row += 1
 
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Your industry row is highlighted in blue. Use this comparison to calibrate budget expectations and benchmark campaign performance against industry peers.").font = Font(name="Calibri", italic=True, size=8, color="999999")
+    ws_exec.cell(row=exec_row, column=2, value="Your industry row is highlighted in gold. \u25B2 = easier than average (green), \u25BC = harder than average (amber). Use this to calibrate budget expectations.").font = Font(name="Calibri", italic=True, size=8, color="999999")
 
     # Move Executive Summary to first position
     wb.move_sheet("Executive Summary", offset=-(len(wb.sheetnames) - 1))
@@ -1279,7 +1573,8 @@ def generate_excel(data):
 
     ws_trends.merge_cells(start_row=2, start_column=2, end_row=2, end_column=2 + len(locations))
     ws_trends["B2"].value = "Market Trends & Labor Market Analysis"
-    ws_trends["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+    ws_trends["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+    ws_trends["B2"].border = gold_bottom_border
 
     row = 4
     headers = ["Market Trends Factor"] + locations
@@ -1307,8 +1602,7 @@ def generate_excel(data):
 
     # Competitor section
     row += 3
-    ws_trends.merge_cells(start_row=row, start_column=2, end_row=row, end_column=2 + len(locations))
-    ws_trends.cell(row=row, column=2, value="Competitor Analysis").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
+    style_section_header(ws_trends, row, 2, 2 + len(locations), "Competitor Analysis")
 
     row += 2
     comp_headers = ["Competitor Category", "Key Competitors", "Hiring Focus & Threat Level"]
@@ -1339,8 +1633,7 @@ def generate_excel(data):
         comp_intel = research.get_client_competitor_intelligence(client_competitors, industry)
 
         row += 3
-        ws_trends.merge_cells(start_row=row, start_column=2, end_row=row, end_column=5)
-        ws_trends.cell(row=row, column=2, value="Client-Identified Competitor Intelligence").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
+        style_section_header(ws_trends, row, 2, 5, "Client-Identified Competitor Intelligence")
         row += 1
         ws_trends.cell(row=row, column=2, value="Detailed competitive intelligence for each client-specified competitor, including hiring channels, employer brand analysis, and strategic recommendations.").font = Font(name="Calibri", italic=True, size=10, color="596780")
         ws_trends.merge_cells(start_row=row, start_column=2, end_row=row, end_column=5)
@@ -1525,7 +1818,8 @@ def generate_excel(data):
 
     ws_strategy.merge_cells("B2:E2")
     ws_strategy["B2"].value = "Channel Strategy"
-    ws_strategy["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+    ws_strategy["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+    ws_strategy["B2"].border = gold_bottom_border
 
     row = 4
     strat_headers = ["Channel", "Reasoning", "How to Use", "KPIs / Metrics"]
@@ -1551,8 +1845,7 @@ def generate_excel(data):
 
     # ── Bar Chart: Channel Effectiveness Score ──
     row += 3
-    ws_strategy.merge_cells(f"B{row}:E{row}")
-    ws_strategy.cell(row=row, column=2, value="Channel Effectiveness Scores").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
+    style_section_header(ws_strategy, row, 2, 5, "Channel Effectiveness Scores")
     row += 1
 
     bar_data_start = row
@@ -1616,7 +1909,8 @@ def generate_excel(data):
 
     ws_trad.merge_cells("B2:F2")
     ws_trad["B2"].value = "Traditional Channels"
-    ws_trad["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+    ws_trad["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+    ws_trad["B2"].border = gold_bottom_border
 
     roles_str = f" | Target Roles: {', '.join(roles[:5])}" if roles else ""
     ws_trad["B3"].value = f"Target: {', '.join(locations)}{roles_str} | Joveo Supply Network: {joveo_pubs.get('total_active_publishers', 1238):,}+ active publishers"
@@ -1688,7 +1982,8 @@ def generate_excel(data):
 
     ws_nontrad.merge_cells("B2:C2")
     ws_nontrad["B2"].value = "Non-Traditional Channels"
-    ws_nontrad["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+    ws_nontrad["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+    ws_nontrad["B2"].border = gold_bottom_border
 
     ws_nontrad["B3"].value = f"Target: {', '.join(locations)}"
     ws_nontrad["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
@@ -1827,7 +2122,8 @@ def generate_excel(data):
 
         ws_global.merge_cells("B2:G2")
         ws_global["B2"].value = "Global Supply Strategy"
-        ws_global["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+        ws_global["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_global["B2"].border = gold_bottom_border
         ws_global["B3"].value = f"Markets: {', '.join(locations)}"
         ws_global["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
 
@@ -1931,7 +2227,8 @@ def generate_excel(data):
 
         ws_dei.merge_cells("B2:E2")
         ws_dei["B2"].value = "DEI & Diversity Channels"
-        ws_dei["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+        ws_dei["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_dei["B2"].border = gold_bottom_border
         ws_dei["B3"].value = f"Target Markets: {', '.join(locations)}"
         ws_dei["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
 
@@ -2038,7 +2335,8 @@ def generate_excel(data):
 
         ws_innov.merge_cells("B2:F2")
         ws_innov["B2"].value = "Innovative Channels 2025+"
-        ws_innov["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+        ws_innov["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_innov["B2"].border = gold_bottom_border
         ws_innov["B3"].value = "Emerging recruitment channels: CTV, DOOH, Retail Media, Gaming, Podcasts, Messaging Apps & more"
         ws_innov["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
 
@@ -2108,7 +2406,8 @@ def generate_excel(data):
 
         ws_budget.merge_cells("B2:E2")
         ws_budget["B2"].value = "Budget & Pricing Guide"
-        ws_budget["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+        ws_budget["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_budget["B2"].border = gold_bottom_border
 
         row = 4
         # Billing Models
@@ -2464,14 +2763,14 @@ def generate_excel(data):
 
     ws_timeline.merge_cells("B2:G2")
     ws_timeline["B2"].value = "Campaign Timeline"
-    ws_timeline["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+    ws_timeline["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+    ws_timeline["B2"].border = gold_bottom_border
 
     ws_timeline["B3"].value = f"Client: {data.get('client_name', '')}  |  Duration: {data.get('campaign_duration', 'Standard 12 Weeks')}"
     ws_timeline["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
 
     tl_row = 5
-    ws_timeline.merge_cells(f"B{tl_row}:G{tl_row}")
-    ws_timeline.cell(row=tl_row, column=2, value="Campaign Phases").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
+    style_section_header(ws_timeline, tl_row, 2, 7, "Campaign Phases")
     tl_row += 1
 
     tl_headers = ["Phase", "Timeline", "Activities", "Channels", "KPIs", "Budget %"]
@@ -2512,8 +2811,7 @@ def generate_excel(data):
 
     # Key Milestones section
     tl_row += 2
-    ws_timeline.merge_cells(f"B{tl_row}:G{tl_row}")
-    ws_timeline.cell(row=tl_row, column=2, value="Key Milestones").font = Font(name="Calibri", bold=True, size=14, color="1B2A4A")
+    style_section_header(ws_timeline, tl_row, 2, 7, "Key Milestones")
     tl_row += 1
 
     milestone_headers = ["Milestone", "Description"]
@@ -2554,7 +2852,8 @@ def generate_excel(data):
         ws_edu.column_dimensions["C"].width = 70
         ws_edu.merge_cells("B2:C2")
         ws_edu["B2"].value = "Educational Partners & Training Programs"
-        ws_edu["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+        ws_edu["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_edu["B2"].border = gold_bottom_border
         row = 4
         for i, h in enumerate(["Institution", "Talent Focus / Strategic Fit"]):
             cell = ws_edu.cell(row=row, column=2 + i, value=h)
@@ -2600,7 +2899,8 @@ def generate_excel(data):
             ws_events.column_dimensions[col].width = w
         ws_events.merge_cells("B2:G2")
         ws_events["B2"].value = "Events & Career Fairs"
-        ws_events["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+        ws_events["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_events["B2"].border = gold_bottom_border
         row = 4
         for i, h in enumerate(["Primary Partners", "Location", "Type", "Branding & Recruitment Impact", "Reach", "Budget Est."]):
             cell = ws_events.cell(row=row, column=2 + i, value=h)
@@ -2630,7 +2930,8 @@ def generate_excel(data):
             ws_radio.column_dimensions[col].width = w
         ws_radio.merge_cells("B2:E2")
         ws_radio["B2"].value = "Radio & Podcasts"
-        ws_radio["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+        ws_radio["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_radio["B2"].border = gold_bottom_border
         row = 4
         for i, h in enumerate(["Channel / Station", "Weekly Listeners / Downloads", "Format / Genre", "Audience Type"]):
             cell = ws_radio.cell(row=row, column=2 + i, value=h)
@@ -3251,7 +3552,8 @@ def generate_excel(data):
 
         ws_media.merge_cells("B2:G2")
         ws_media["B2"].value = f"Media & Print Platforms — {ind_label}"
-        ws_media["B2"].font = Font(name="Calibri", bold=True, size=16, color="1B2A4A")
+        ws_media["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_media["B2"].border = gold_bottom_border
 
         ws_media.merge_cells("B3:G3")
         ws_media["B3"].value = f"Recommended recruitment marketing channels for {ind_label} roles in {loc_context}. These platforms complement digital programmatic channels to reach passive candidates and build employer brand."
