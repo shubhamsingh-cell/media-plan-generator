@@ -608,6 +608,7 @@ def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None,
     """
     Perform an HTTP GET and return parsed JSON, or None on any failure.
     Tries verified SSL first, falls back to unverified if needed.
+    Retries on 429/503 with exponential backoff (1s, 2s, 4s).
     """
     req = urllib.request.Request(url, method="GET")
     req.add_header("User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)")
@@ -616,16 +617,29 @@ def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None,
         for k, v in headers.items():
             req.add_header(k, v)
 
-    for ctx in (_DEFAULT_SSL_CTX, _UNVERIFIED_SSL_CTX):
-        try:
-            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
-                raw = resp.read().decode("utf-8")
-                return json.loads(raw)
-        except ssl.SSLError:
-            continue  # retry with unverified context
-        except Exception as exc:
-            _log_warn(f"HTTP GET failed for {url}: {exc}")
-            return None
+    max_retries = 3
+    for attempt in range(max_retries + 1):
+        for ctx in (_DEFAULT_SSL_CTX, _UNVERIFIED_SSL_CTX):
+            try:
+                with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                    raw = resp.read().decode("utf-8")
+                    return json.loads(raw)
+            except ssl.SSLError:
+                continue  # retry with unverified context
+            except urllib.error.HTTPError as exc:
+                if exc.code in (429, 503) and attempt < max_retries:
+                    wait = min(2 ** attempt, 8)
+                    _log_warn(f"HTTP {exc.code} for {url}, retry in {wait}s (attempt {attempt + 1}/{max_retries})")
+                    import time; time.sleep(wait)
+                    break  # break SSL loop to retry
+                _log_warn(f"HTTP GET failed for {url}: {exc}")
+                return None
+            except Exception as exc:
+                _log_warn(f"HTTP GET failed for {url}: {exc}")
+                return None
+        else:
+            continue  # SSL loop completed without break, move to next attempt
+        continue  # broke out of SSL loop (429/503), retry
     return None
 
 

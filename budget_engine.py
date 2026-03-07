@@ -747,7 +747,7 @@ def assess_budget_sufficiency(
     # Check for channels with very low ROI
     low_roi_channels = [
         name for name, ch in channel_allocations.items()
-        if ch.get("roi_score", 5) <= 3 and ch.get("dollars", 0) > 0
+        if ch.get("roi_score", 5) <= 3 and ch.get("dollar_amount", ch.get("dollars", 0)) > 0
     ]
     if low_roi_channels:
         recommendations.append(
@@ -809,7 +809,7 @@ def optimize_allocation(
     # Compute efficiency: goal metric per dollar for each channel
     efficiencies: Dict[str, float] = {}
     for ch_name, ch_data in channel_allocations.items():
-        dollars = ch_data.get("dollars", 0)
+        dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
         metric_val = ch_data.get(goal_key, 0)
         efficiencies[ch_name] = _safe_divide(metric_val, dollars, 0.0)
 
@@ -851,7 +851,7 @@ def optimize_allocation(
     transfer_pool = 0.0
     donor_reductions: Dict[str, float] = {}
     for ch_name in donors:
-        orig_dollars = channel_allocations[ch_name].get("dollars", 0)
+        orig_dollars = channel_allocations[ch_name].get("dollar_amount", channel_allocations[ch_name].get("dollars", 0))
         max_reduction = orig_dollars * 0.30  # never take more than 30%
         floor = orig_dollars * 0.05          # keep at least 5%
         reduction = min(max_reduction, orig_dollars - floor)
@@ -886,7 +886,7 @@ def optimize_allocation(
     optimized_metric_total = 0
 
     for ch_name, ch_data in channel_allocations.items():
-        orig_dollars = ch_data.get("dollars", 0)
+        orig_dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
         orig_pct = ch_data.get("percentage", 0)
         original_metric_total += ch_data.get(goal_key, 0)
 

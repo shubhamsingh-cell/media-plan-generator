@@ -60,12 +60,12 @@ _INDUSTRY_KEY_TO_KB_KEY = {
     "rideshare": "transportation_logistics",
     "manufacturing": "manufacturing",
     "automotive": "manufacturing",
-    "blue_collar": "manufacturing",
-    "blue_collar_trades": "manufacturing",
+    "blue_collar": "transportation_logistics",
+    "blue_collar_trades": "transportation_logistics",
     "aerospace": "manufacturing",
     "aerospace_defense": "manufacturing",
-    "pharma": "manufacturing",
-    "pharma_biotech": "manufacturing",
+    "pharma": "healthcare",
+    "pharma_biotech": "healthcare",
     "finance": "financial_services",
     "finance_banking": "financial_services",
     "insurance": "financial_services",
@@ -73,8 +73,8 @@ _INDUSTRY_KEY_TO_KB_KEY = {
     "military_recruitment": "government_utilities",
     "energy": "government_utilities",
     "energy_utilities": "government_utilities",
-    "education": "technology",  # No exact KB match; closest proxy
-    "professional_services": "financial_services",
+    "education": "government_utilities",
+    "professional_services": "technology",
     "legal_services": "financial_services",
     "nonprofit": "government_utilities",
     "general": "retail_hospitality",
@@ -5006,7 +5006,9 @@ def generate_excel(data):
         # Recommendation row
         _top_platform = ""
         _top_score = 0.0
-        _platforms_list = _ad_plat.get("platforms", {})
+        # FIX: Synthesizer returns platforms as top-level keys (not wrapped in "platforms")
+        _platforms_list = {k: v for k, v in _ad_plat.items()
+                          if isinstance(v, dict) and not k.startswith("_")}
         if isinstance(_platforms_list, dict):
             for pname, pdata in _platforms_list.items():
                 if isinstance(pdata, dict) and pdata.get("fit_score", 0) > _top_score:
@@ -5034,16 +5036,16 @@ def generate_excel(data):
 
         if isinstance(_platforms_list, dict):
             for pidx, (pname, pdata) in enumerate(_platforms_list.items()):
-                if not isinstance(pdata, dict):
+                if not isinstance(pdata, dict) or pname.startswith("_"):
                     continue
                 _row_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if pidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
                 _fit = pdata.get("fit_score", 0)
-                _cpc_val = pdata.get("cpc", "N/A")
-                _cpm_val = pdata.get("cpm", "N/A")
-                _cpa_val = pdata.get("cpa", "N/A")
-                _reach_val = pdata.get("audience_reach", "N/A")
+                _cpc_val = pdata.get("avg_cpc", pdata.get("cpc", "N/A"))
+                _cpm_val = pdata.get("avg_cpm", pdata.get("cpm", "N/A"))
+                _cpa_val = pdata.get("avg_cpa", pdata.get("cpa", "N/A"))
+                _reach_val = pdata.get("estimated_reach", pdata.get("audience_reach", "N/A"))
                 _roi_val = pdata.get("roi_projection", "N/A")
-                _daily_val = pdata.get("daily_budget_range", "N/A")
+                _daily_val = pdata.get("daily_budget_range", pdata.get("recommended_daily_budget", "N/A"))
 
                 # Format monetary values
                 if isinstance(_cpc_val, (int, float)):
@@ -5207,12 +5209,12 @@ def generate_excel(data):
                     continue
                 _row_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if didx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
 
-                _postings = role_data.get("job_postings", role_data.get("posting_count", "N/A"))
-                _search = role_data.get("search_interest", role_data.get("search_volume", "N/A"))
-                _pool = role_data.get("talent_pool", role_data.get("talent_supply", "N/A"))
+                _postings = role_data.get("total_postings", role_data.get("job_postings", role_data.get("posting_count", "N/A")))
+                _search = role_data.get("search_volume_monthly", role_data.get("search_interest", role_data.get("search_volume", "N/A")))
+                _pool = role_data.get("talent_pool_estimate", role_data.get("talent_pool", role_data.get("talent_supply", "N/A")))
                 _comp = role_data.get("competition_index", role_data.get("competition", "N/A"))
-                _temp = role_data.get("temperature", role_data.get("market_temperature", "N/A"))
-                _trend = role_data.get("trend", role_data.get("demand_trend", "N/A"))
+                _temp = role_data.get("market_temperature", role_data.get("temperature", "N/A"))
+                _trend = role_data.get("trend_direction", role_data.get("trend", role_data.get("demand_trend", "N/A")))
 
                 if isinstance(_postings, (int, float)):
                     _postings = f"{_postings:,.0f}"
