@@ -82,42 +82,61 @@ SOURCE_WEIGHTS: Dict[str, float] = {
 # Mapping from NAICS / legacy industry keys to KB
 # ``industry_specific_benchmarks`` section keys
 _INDUSTRY_TO_KB_KEY: Dict[str, str] = {
+    # Healthcare (C1 fix: pharma/biotech → healthcare, not manufacturing)
     "healthcare": "healthcare",
     "healthcare_medical": "healthcare",
     "mental_health": "healthcare",
+    "pharma": "healthcare",
+    "pharma_biotech": "healthcare",
+    "life_sciences": "healthcare",
+    "biotech": "healthcare",
+    # Technology
     "technology": "technology",
     "tech_engineering": "technology",
     "telecom": "technology",
     "telecommunications": "technology",
+    "saas": "technology",
+    "fintech": "technology",
+    # Retail & Hospitality
     "retail": "retail_hospitality",
     "retail_consumer": "retail_hospitality",
     "hospitality": "retail_hospitality",
     "hospitality_travel": "retail_hospitality",
     "food_beverage": "retail_hospitality",
+    "restaurant": "retail_hospitality",
+    # Construction
     "construction": "construction_infrastructure",
     "construction_real_estate": "construction_infrastructure",
+    "real_estate": "construction_infrastructure",
+    # Transportation & Logistics (C5 fix: blue_collar → transportation, not manufacturing)
     "transportation": "transportation_logistics",
     "logistics_supply_chain": "transportation_logistics",
     "maritime": "transportation_logistics",
     "maritime_marine": "transportation_logistics",
     "rideshare": "transportation_logistics",
+    "blue_collar": "transportation_logistics",          # C5 FIX: was "manufacturing"
+    "blue_collar_trades": "transportation_logistics",   # C5 FIX: was "manufacturing"
+    # Manufacturing (C1 fix: NAICS 31-33 is broad manufacturing, not food-only)
     "manufacturing": "manufacturing",
     "automotive": "manufacturing",
-    "blue_collar": "manufacturing",
-    "blue_collar_trades": "manufacturing",
-    "aerospace": "manufacturing",
-    "aerospace_defense": "manufacturing",
-    "pharma": "manufacturing",
-    "pharma_biotech": "manufacturing",
+    "aerospace": "manufacturing",               # kept — aerospace IS manufacturing
+    "aerospace_defense": "manufacturing",       # defense manufacturing
+    "industrial": "manufacturing",
+    "semiconductor": "manufacturing",
+    # Financial Services
     "finance": "financial_services",
     "finance_banking": "financial_services",
     "insurance": "financial_services",
+    "accounting": "financial_services",
+    # Government & Utilities
     "government": "government_utilities",
     "military_recruitment": "government_utilities",
     "energy": "government_utilities",
     "energy_utilities": "government_utilities",
-    "education": "technology",
-    "professional_services": "financial_services",
+    "public_sector": "government_utilities",
+    # C5 FIX: education and professional services get proper mappings
+    "education": "government_utilities",            # C5 FIX: was "technology"
+    "professional_services": "technology",          # C5 FIX: was "financial_services"
     "legal_services": "financial_services",
     "nonprofit": "government_utilities",
     "general": "retail_hospitality",

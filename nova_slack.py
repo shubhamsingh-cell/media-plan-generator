@@ -38,6 +38,24 @@ LEARNED_ANSWERS_FILE = DATA_DIR / "nova_learned_answers.json"
 SLACK_HISTORY_CACHE_FILE = DATA_DIR / "nova_slack_history_cache.json"
 
 # ---------------------------------------------------------------------------
+# P1 FIX: Pre-loaded Q&A pairs that survive ephemeral filesystem redeploys
+# ---------------------------------------------------------------------------
+_PRELOADED_ANSWERS = [
+    {"question": "how many publishers does joveo have", "answer": "Joveo has **1,238+ supply partners** across **33+ countries**, including major job boards, niche boards, programmatic platforms, and social channels.", "keywords": ["publishers", "supply partners", "how many"], "confidence": 0.95},
+    {"question": "what is joveo", "answer": "Joveo is a **recruitment marketing platform** that uses programmatic advertising technology to optimize job ad spend across 1,238+ publishers globally. It helps employers reach the right candidates at the right time on the right channels.", "keywords": ["joveo", "what is"], "confidence": 0.95},
+    {"question": "what countries does joveo operate in", "answer": "Joveo operates across **33+ countries** including the US, UK, Canada, Germany, France, India, Australia, Japan, UAE, Brazil, and many more across EMEA, APAC, and AMER regions.", "keywords": ["countries", "regions", "operate"], "confidence": 0.90},
+    {"question": "what is programmatic job advertising", "answer": "Programmatic job advertising uses **data-driven automation** to buy, place, and optimize job ads in real-time across multiple channels. It maximizes ROI by dynamically adjusting bids, budgets, and targeting based on performance data. Average CPC ranges from $0.50-$2.50 depending on role and industry.", "keywords": ["programmatic", "advertising", "explain"], "confidence": 0.90},
+    {"question": "what is cpc cpa cph", "answer": "**CPC** (Cost Per Click): You pay each time a candidate clicks your job ad ($0.50-$5.00 typical).\n**CPA** (Cost Per Application): You pay when a candidate completes an application ($5-$50 typical).\n**CPH** (Cost Per Hire): Total cost to fill a position ($1,500-$10,000+ depending on role).\nCPC is best for volume, CPA for quality, CPH for executive/niche roles.", "keywords": ["cpc", "cpa", "cph", "cost per"], "confidence": 0.95},
+    {"question": "what pricing models does joveo support", "answer": "Joveo supports multiple pricing models: **CPC** (Cost Per Click), **CPA** (Cost Per Application), **TCPA** (Target CPA with auto-optimization), **Flat CPC**, **ORG** (Organic/free postings), and **PPP** (Pay Per Post). The optimal model depends on your hiring volume and role type.", "keywords": ["pricing", "models", "commission"], "confidence": 0.90},
+    {"question": "top job boards in the us", "answer": "The top job boards in the US by traffic and performance:\n1. **Indeed** — largest globally, CPC model\n2. **LinkedIn** — best for white-collar/professional\n3. **ZipRecruiter** — strong AI matching\n4. **Glassdoor** (merging into Indeed) — employer brand focused\n5. **CareerBuilder** (under Bold Holdings post-bankruptcy)\n6. **Dice** — tech-specific\n7. **Snagajob/JobGet** — hourly/blue-collar\n8. **Handshake** — early career/campus", "keywords": ["top", "job boards", "us", "united states", "best"], "confidence": 0.85},
+    {"question": "what happened to monster and careerbuilder", "answer": "Monster and CareerBuilder filed for **Chapter 11 bankruptcy** in July 2025. They were acquired by **Bold Holdings for $28M**. Monster Europe has been shut down (DNS killed). CareerBuilder continues operating in the US under new ownership but with reduced scale.", "keywords": ["monster", "careerbuilder", "bankruptcy", "shut down"], "confidence": 0.95},
+    {"question": "what is glassdoor status", "answer": "Glassdoor's operations are **merging into Indeed** (both owned by Recruit Holdings). The Glassdoor CEO stepped down in late 2025. The platform still operates but is increasingly integrated with Indeed's infrastructure.", "keywords": ["glassdoor", "status", "indeed"], "confidence": 0.90},
+    {"question": "best boards for nursing hiring", "answer": "Top job boards for **nursing/healthcare** hiring:\n1. **Health eCareers** — largest healthcare niche board\n2. **Nurse.com** — RN-focused\n3. **NursingJobs.us** — US nursing specific\n4. **Indeed** — high-volume nursing traffic\n5. **Vivian Health** — travel nursing marketplace\n6. **Incredible Health** — RN matching platform\n7. **AlliedHealthJobs** — allied health professionals\nRecommended channel mix: 30% niche boards, 22% programmatic, 15% global boards.", "keywords": ["nursing", "nurse", "healthcare", "boards"], "confidence": 0.90},
+    {"question": "best boards for blue collar hiring", "answer": "Top channels for **blue-collar/hourly** hiring:\n1. **JobGet** (acquired Snagajob) — 100M+ hourly workers\n2. **Indeed** — highest blue-collar volume\n3. **Craigslist** — local trades & service\n4. **Facebook Jobs** — mobile-first hourly workers\n5. **Wonolo** — on-demand warehouse/logistics\n6. **Instawork** — gig/flexible workers\n7. **ShiftPixy** — restaurant/hospitality shifts\nBudget tip: 40%+ should go to programmatic/mobile-first channels.", "keywords": ["blue collar", "hourly", "warehouse", "driver", "trades"], "confidence": 0.90},
+    {"question": "joveo vs competitors", "answer": "Joveo's key differentiators vs competitors:\n- **PandoLogic** (now Veritone Hire): Joveo has broader global publisher network (33 vs ~20 countries)\n- **Appcast** (owned by StepStone): Joveo offers more pricing models (CPC+CPA+TCPA)\n- **Recruitics**: Joveo has stronger programmatic optimization and niche board access\n- **Radancy**: Joveo focuses on performance marketing, Radancy on employer branding\nJoveo uniquely offers access to 1,238+ publishers with real-time bid optimization.", "keywords": ["competitor", "vs", "pandologic", "appcast", "recruitics"], "confidence": 0.85},
+]
+
+# ---------------------------------------------------------------------------
 # Stop-words removed during keyword matching
 # ---------------------------------------------------------------------------
 _STOP_WORDS = frozenset(
@@ -113,7 +131,7 @@ class NovaSlackBot:
     # ------------------------------------------------------------------
 
     def _load_learned_answers(self) -> None:
-        """Load previously learned answers from disk."""
+        """Load previously learned answers from disk, merging with pre-loaded pairs."""
         with self._lock:
             try:
                 if LEARNED_ANSWERS_FILE.exists():
@@ -130,6 +148,12 @@ class NovaSlackBot:
                     "answers": [],
                     "metadata": {"total_learned": 0, "last_updated": None},
                 }
+            # P1 FIX: Merge pre-loaded answers (survives ephemeral filesystem)
+            existing_qs = {a.get("question", "").lower() for a in self.learned_answers.get("answers", [])}
+            for preloaded in _PRELOADED_ANSWERS:
+                if preloaded["question"].lower() not in existing_qs:
+                    self.learned_answers.setdefault("answers", []).append(preloaded)
+            self.learned_answers["metadata"]["total_learned"] = len(self.learned_answers.get("answers", []))
 
     def _save_learned_answers(self) -> None:
         """Persist learned answers to disk (caller must hold ``_lock``)."""

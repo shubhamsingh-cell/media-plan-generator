@@ -67,6 +67,33 @@ _COUNTRY_ALIASES: Dict[str, str] = {
     "israel": "Israel", "taiwan": "Taiwan",
 }
 
+# US state aliases -- map to United States so budget/publisher lookups work
+_US_STATE_ALIASES: Dict[str, str] = {
+    "alabama": "Alabama", "alaska": "Alaska", "arizona": "Arizona", "arkansas": "Arkansas",
+    "california": "California", "colorado": "Colorado", "connecticut": "Connecticut",
+    "delaware": "Delaware", "florida": "Florida", "georgia": "Georgia", "hawaii": "Hawaii",
+    "idaho": "Idaho", "illinois": "Illinois", "indiana": "Indiana", "iowa": "Iowa",
+    "kansas": "Kansas", "kentucky": "Kentucky", "louisiana": "Louisiana", "maine": "Maine",
+    "maryland": "Maryland", "massachusetts": "Massachusetts", "michigan": "Michigan",
+    "minnesota": "Minnesota", "mississippi": "Mississippi", "missouri": "Missouri",
+    "montana": "Montana", "nebraska": "Nebraska", "nevada": "Nevada",
+    "new hampshire": "New Hampshire", "new jersey": "New Jersey", "new mexico": "New Mexico",
+    "new york": "New York", "north carolina": "North Carolina", "north dakota": "North Dakota",
+    "ohio": "Ohio", "oklahoma": "Oklahoma", "oregon": "Oregon", "pennsylvania": "Pennsylvania",
+    "rhode island": "Rhode Island", "south carolina": "South Carolina", "south dakota": "South Dakota",
+    "tennessee": "Tennessee", "texas": "Texas", "utah": "Utah", "vermont": "Vermont",
+    "virginia": "Virginia", "washington": "Washington", "west virginia": "West Virginia",
+    "wisconsin": "Wisconsin", "wyoming": "Wyoming",
+    # Common abbreviations
+    "ca": "California", "tx": "Texas", "ny": "New York", "fl": "Florida",
+    "il": "Illinois", "pa": "Pennsylvania", "oh": "Ohio", "nc": "North Carolina",
+    "mi": "Michigan", "nj": "New Jersey", "va": "Virginia", "wa": "Washington",
+    "ma": "Massachusetts", "az": "Arizona", "co": "Colorado", "mn": "Minnesota",
+    "wi": "Wisconsin", "mo": "Missouri", "md": "Maryland", "in": "Indiana",
+    "tn": "Tennessee", "ct": "Connecticut", "or": "Oregon", "la": "Louisiana",
+    "sc": "South Carolina", "ky": "Kentucky", "ok": "Oklahoma", "ga": "Georgia",
+}
+
 # Role keywords for intent detection
 _ROLE_KEYWORDS: Dict[str, List[str]] = {
     "nursing": ["nurse", "nursing", "rn", "lpn", "cna", "registered nurse"],
@@ -76,14 +103,17 @@ _ROLE_KEYWORDS: Dict[str, List[str]] = {
                     "dental", "veterinary", "paramedic", "emt"],
     "retail": ["retail", "cashier", "store associate", "merchandiser", "store manager"],
     "hospitality": ["chef", "cook", "waiter", "waitress", "bartender", "hotel", "restaurant"],
-    "transportation": ["driver", "trucker", "cdl", "logistics", "warehouse", "forklift"],
+    "transportation": ["driver", "trucker", "cdl", "logistics", "warehouse", "forklift",
+                       "blue collar", "blue-collar"],
     "finance": ["accountant", "analyst", "banker", "financial", "auditor", "actuary"],
     "executive": ["executive", "director", "vp", "vice president", "c-suite", "cfo", "cto", "ceo"],
-    "hourly": ["hourly", "part-time", "part time", "entry-level", "entry level", "seasonal", "gig"],
+    "hourly": ["hourly", "part-time", "part time", "entry-level", "entry level", "seasonal", "gig",
+               "blue collar", "blue-collar"],
     "education": ["teacher", "professor", "instructor", "educator", "principal", "tutor"],
     "construction": ["construction", "carpenter", "plumber", "electrician", "mason", "welder"],
     "sales": ["sales", "account executive", "business development", "bdr", "sdr"],
     "marketing": ["marketing", "seo", "content", "social media manager", "brand"],
+    "remote": ["remote", "work from home", "wfh", "distributed", "virtual"],
 }
 
 # Metric keywords for intent detection
@@ -95,8 +125,11 @@ _METRIC_KEYWORDS: Dict[str, List[str]] = {
     "budget": ["budget", "spend", "allocation", "investment", "roi"],
     "time_to_fill": ["time to fill", "time-to-fill", "days to fill", "time to hire",
                       "time-to-hire", "ttf"],
-    "apply_rate": ["apply rate", "application rate", "conversion rate", "cvr"],
-    "benchmark": ["benchmark", "average", "industry average", "standard", "compare", "comparison"],
+    "apply_rate": ["apply rate", "application rate", "conversion rate", "cvr",
+                    "conversion funnel", "recruitment funnel"],
+    "benchmark": ["benchmark", "average", "industry average", "standard", "comparison",
+                   "programmatic", "programmatic job advertising", "kpi", "measure success",
+                   "metrics that matter"],
 }
 
 # Industry keywords
@@ -1215,9 +1248,14 @@ You have access to the following proprietary data through tools:
 
         # Detect question type
         is_publisher_question = any(kw in msg_lower for kw in ["publisher", "job board", "board", "where to post", "which board"])
-        is_channel_question = any(kw in msg_lower for kw in ["channel", "source", "platform", "where to advertise"])
-        is_budget_question = any(kw in msg_lower for kw in ["budget", "allocat", "spend", "invest", "roi", "$"])
-        is_benchmark_question = any(kw in msg_lower for kw in ["benchmark", "average", "industry average", "typical", "compare"])
+        is_channel_question = any(kw in msg_lower for kw in ["channel", "source", "platform",
+                                                                "where to advertise",
+                                                                "non-traditional", "nontraditional"])
+        is_budget_question = any(kw in msg_lower for kw in ["budget", "allocat", "spend", "invest",
+                                                                "roi", "$", "media plan", "hiring plan",
+                                                                "cost projection", "cost estimate"])
+        is_benchmark_question = any(kw in msg_lower for kw in ["benchmark", "average", "industry average",
+                                                                    "typical", "programmatic"])
         is_salary_question = "salary" in detected_metrics or any(kw in msg_lower for kw in ["salary", "compensation", "pay range", "wage"])
         is_dei_question = any(kw in msg_lower for kw in ["dei", "diversity", "inclusion", "women", "minority", "veteran", "disability"])
         is_trend_question = any(kw in msg_lower for kw in ["trend", "future", "outlook", "forecast", "what's new", "emerging"])
@@ -1227,9 +1265,16 @@ You have access to the following proprietary data through tools:
         import re as _re
         _greeting_patterns = [
             r'\bhello\b', r'\bhi\b', r'\bhey\b', r'\bgood morning\b', r'\bgood afternoon\b',
-            r'\bhelp\b', r'what can you do', r'who are you'
+            r'^help$', r'^help\s*me$', r'^help\s*$', r'what can you do', r'who are you',
         ]
         is_greeting = any(_re.search(pat, msg_lower) for pat in _greeting_patterns)
+        # Prevent false positives: if "help" appears but message is longer and contains
+        # suspicious/action words, it's NOT a greeting
+        if is_greeting and len(msg_lower.split()) > 4:
+            _non_greeting_signals = ["hack", "break", "steal", "attack", "exploit",
+                                     "inject", "password", "admin", "ignore", "previous instructions"]
+            if any(sig in msg_lower for sig in _non_greeting_signals):
+                is_greeting = False
 
         # Also check for Guidewire/DEI/trend/CPC questions before returning greeting
         _is_guidewire = any(kw in msg_lower for kw in ["guidewire", "linkedin hiring", "influenced hire", "skill density", "inmail"])
@@ -1277,8 +1322,41 @@ You have access to the following proprietary data through tools:
                     "confidence": 0.95,
                 }
 
+        # ── Publisher count question (e.g., "How many publishers does Joveo have?") ──
+        is_count_question = any(kw in msg_lower for kw in ["how many publisher", "total publisher",
+                                                             "publisher count", "number of publisher"])
+        if is_count_question:
+            pub_data = self._query_publishers({})
+            tools_used.append("query_publishers")
+            sources.add("Joveo Publisher Network")
+            total = pub_data.get("total_active_publishers", 0)
+            cats = pub_data.get("categories", {})
+            countries_covered = pub_data.get("countries_covered", 0)
+            count_parts = [
+                f"### Joveo Publisher Network\n",
+                f"Joveo has **{total:,} active publishers** across **{countries_covered} countries**.\n",
+            ]
+            if detected_country:
+                # Also show country-specific count
+                country_pub = self._query_publishers({"country": detected_country})
+                c_count = country_pub.get("count", 0)
+                c_pubs = country_pub.get("publishers", [])
+                count_parts.append(f"**In {detected_country}**: {c_count} publishers")
+                if c_pubs:
+                    for p in c_pubs[:10]:
+                        count_parts.append(f"- {p}")
+                    if len(c_pubs) > 10:
+                        count_parts.append(f"*...and {len(c_pubs) - 10} more*")
+            else:
+                # Show category breakdown
+                if cats:
+                    count_parts.append("**By Category:**")
+                    for cat, count in sorted(cats.items(), key=lambda x: x[1], reverse=True)[:12]:
+                        count_parts.append(f"- **{cat}**: {count} publishers")
+            sections.append("\n".join(count_parts))
+
         # ── Publisher / Job Board questions ──
-        if is_publisher_question or (detected_country and not is_benchmark_question and not is_budget_question):
+        elif is_publisher_question or (detected_country and not is_benchmark_question and not is_budget_question):
             country = detected_country or "United States"
             if is_dei_question:
                 data = self._query_global_supply({"country": country, "board_type": "dei"})
@@ -1343,7 +1421,7 @@ You have access to the following proprietary data through tools:
 
         # ── Salary questions ──
         if is_salary_question:
-            role = list(detected_roles)[0] if detected_roles else "general"
+            role = _pick_best_role(detected_roles, msg_lower) if detected_roles else "general"
             role_titles = {
                 "nursing": "Registered Nurse", "engineering": "Software Engineer",
                 "technology": "Software Developer", "healthcare": "Healthcare Professional",
@@ -1352,9 +1430,12 @@ You have access to the following proprietary data through tools:
                 "executive": "Senior Executive", "hourly": "Hourly Worker",
                 "education": "Teacher", "construction": "Construction Worker",
                 "sales": "Sales Representative", "marketing": "Marketing Manager",
+                "remote": "Remote Worker",
             }
             role_title = role_titles.get(role, role.title())
-            location = detected_country or ""
+            # Use state name if detected, otherwise country
+            detected_state = _detect_us_state(user_message)
+            location = detected_state or detected_country or ""
             sal_data = self._query_salary_data({"role": role_title, "location": location})
             tools_used.append("query_salary_data")
             sources.add("Joveo Salary Intelligence")
@@ -1373,6 +1454,7 @@ You have access to the following proprietary data through tools:
                     "finance": "Financial Analyst", "executive": "Senior Executive",
                     "hourly": "Hourly Worker", "education": "Teacher",
                     "construction": "Construction Worker", "sales": "Sales Representative",
+                    "remote": "Remote Worker", "marketing": "Marketing Manager",
                 }
                 roles_for_budget.append(role_titles.get(r, r.title()))
 
@@ -1410,7 +1492,7 @@ You have access to the following proprietary data through tools:
 
         # ── Comparison questions (vs / compare) ──
         is_comparison = any(kw in msg_lower for kw in [" vs ", " versus ", "compare ", "comparison"])
-        if is_comparison and not sections:
+        if is_comparison:
             # Split the comparison into two sides and provide data for each
             comparison_parts = _re.split(r'\bvs\.?\b|\bversus\b|\bcompare\b', msg_lower, maxsplit=1)
             kb_data = self._query_knowledge_base({"topic": "benchmarks"})
@@ -1470,9 +1552,36 @@ You have access to the following proprietary data through tools:
             sources.add("Recruitment Industry Knowledge Base")
             sections.append(_format_trend_response(trend_data))
 
+        # ── Remote work questions ── (before market demand so "remote" doesn't fall through)
+        if "remote" in detected_roles and not sections:
+            remote_boards = [
+                "**FlexJobs** - Curated remote & flexible job listings",
+                "**We Work Remotely** - Largest remote work community",
+                "**Remote.co** - Remote jobs across all industries",
+                "**Remote OK** - Remote job aggregator with salary data",
+                "**Jobspresso** - Curated remote positions in tech, marketing, support",
+                "**Working Nomads** - Digital nomad and remote job listings",
+                "**Himalayas** - Remote jobs with company transparency data",
+                "**Remotive** - Remote tech jobs community",
+                "**AngelList / Wellfound** - Startup remote positions",
+                "**LinkedIn (Remote filter)** - Largest professional network with remote job filter",
+            ]
+            parts = ["### Remote Work Job Boards & Channels\n"]
+            parts.append("Here are the top platforms for posting remote/work-from-home positions:\n")
+            for b in remote_boards:
+                parts.append(f"- {b}")
+            parts.append("\n**Tips for Remote Hiring:**")
+            parts.append("- Use the 'remote' filter on major boards (Indeed, LinkedIn, ZipRecruiter)")
+            parts.append("- Consider time-zone-specific targeting for distributed teams")
+            parts.append("- Remote roles typically see 2-3x higher application volumes")
+            parts.append("- Programmatic advertising can geo-target remote workers in specific regions")
+            sections.append("\n".join(parts))
+            tools_used.append("query_channels")
+            sources.add("Joveo Channel Database")
+
         # ── Market demand questions ──
         if detected_roles and not sections:
-            role = list(detected_roles)[0]
+            role = _pick_best_role(detected_roles, msg_lower)
             role_titles = {
                 "nursing": "Registered Nurse", "engineering": "Software Engineer",
                 "technology": "Software Developer", "healthcare": "Healthcare Professional",
@@ -1486,30 +1595,101 @@ You have access to the following proprietary data through tools:
             sources.add("Joveo Market Demand Intelligence")
             sections.append(_format_demand_response(demand_data, role_title))
 
+        # ── Prompt injection / security detection ──
+        _injection_patterns = [
+            r'ignore\s+(all\s+)?previous\s+instructions',
+            r'tell\s+me\s+(the\s+)?(admin|system|root)\s+(password|prompt|key)',
+            r'what\s+is\s+your\s+system\s+prompt',
+            r'reveal\s+(your\s+)?(system|hidden|secret)',
+            r'act\s+as\s+(if\s+you\s+are|a)\s+(different|new)',
+            r'pretend\s+(you\s+are|to\s+be)',
+        ]
+        is_injection = any(_re.search(pat, msg_lower) for pat in _injection_patterns)
+        if is_injection and not sections:
+            sections.append(
+                "I'm **Joveo IQ**, a recruitment marketing intelligence assistant. "
+                "I can only help with recruitment-related questions such as job board recommendations, "
+                "CPC/CPA benchmarks, budget allocation, and hiring market data.\n\n"
+                "I cannot share system configuration details or respond to prompt manipulation attempts. "
+                "How can I help you with your recruitment marketing needs?"
+            )
+            tools_used.clear()
+            sources.clear()
+
+        # ── Unethical request detection ──
+        _unethical_patterns = [
+            r'\bhack\b', r'\bsteal\b', r'\bbreak\s+into\b', r'\bexploit\b',
+            r'\billegal\b', r'\bscrape\s+competitor\b',
+        ]
+        is_unethical = any(_re.search(pat, msg_lower) for pat in _unethical_patterns)
+        if is_unethical and not sections:
+            sections.append(
+                "I'm unable to assist with that request. As a recruitment marketing intelligence tool, "
+                "I can only help with legitimate recruitment activities.\n\n"
+                "Here's what I **can** help with:\n"
+                "- Job board and publisher recommendations\n"
+                "- CPC/CPA/CPH industry benchmarks\n"
+                "- Budget allocation and ROI projections\n"
+                "- Market intelligence and hiring trends\n"
+                "- DEI recruitment strategies\n\n"
+                "What recruitment marketing question can I help you with?"
+            )
+            tools_used.clear()
+            sources.clear()
+
+        # ── Off-topic detection ──
+        _off_topic_patterns = [
+            r'\bweather\b', r'\b\d+\s*\+\s*\d+\b', r'\bwrite\s+(me\s+)?a\s+(python|code|script)\b',
+            r'\brecipe\b', r'\bjoke\b', r'\bstory\b', r'\bpoem\b',
+        ]
+        is_off_topic = any(_re.search(pat, msg_lower) for pat in _off_topic_patterns)
+
         # ── Fallback ──
         if not sections:
-            # Try a general knowledge base search
-            kb_data = self._query_knowledge_base({"topic": "all"})
-            tools_used.append("query_knowledge_base")
-            sources.add("Recruitment Industry Knowledge Base")
+            if is_off_topic:
+                response_text = (
+                    "I appreciate your question, but I'm specifically designed for **recruitment marketing intelligence**. "
+                    "I can't help with general knowledge questions.\n\n"
+                    "Here's what I can help with:\n\n"
+                    "- **Job boards and publishers** for specific countries or industries\n"
+                    "- **CPC, CPA, and cost-per-hire benchmarks** by industry and platform\n"
+                    "- **Budget allocation** recommendations with projected outcomes\n"
+                    "- **Salary intelligence** for specific roles and locations\n"
+                    "- **DEI recruitment channels** and diversity-focused boards\n"
+                    "- **Market trends** in recruitment advertising\n\n"
+                    "Try asking something like: *\"What's the average CPC for tech roles?\"* "
+                    "or *\"How should I allocate a $100K hiring budget?\"*"
+                )
+            else:
+                # Try a general knowledge base search
+                kb_data = self._query_knowledge_base({"topic": "all"})
+                tools_used.append("query_knowledge_base")
+                sources.add("Recruitment Industry Knowledge Base")
 
-            response_text = (
-                "I can help you with recruitment marketing intelligence. "
-                "Based on Joveo's data across **1,238+ publishers** in **30+ countries**, "
-                "I can answer questions about:\n\n"
-                "- **Job boards and publishers** for specific countries or industries\n"
-                "- **CPC, CPA, and cost-per-hire benchmarks** by industry and platform\n"
-                "- **Budget allocation** recommendations with projected outcomes\n"
-                "- **Salary intelligence** for specific roles and locations\n"
-                "- **DEI recruitment channels** and diversity-focused boards\n"
-                "- **Market trends** in recruitment advertising\n\n"
-                "Could you rephrase your question with more specifics? "
-                "For example, mention a role, location, industry, or metric."
-            )
+                response_text = (
+                    "I can help you with recruitment marketing intelligence. "
+                    "Based on Joveo's data across **1,238+ publishers** in **30+ countries**, "
+                    "I can answer questions about:\n\n"
+                    "- **Job boards and publishers** for specific countries or industries\n"
+                    "- **CPC, CPA, and cost-per-hire benchmarks** by industry and platform\n"
+                    "- **Budget allocation** recommendations with projected outcomes\n"
+                    "- **Salary intelligence** for specific roles and locations\n"
+                    "- **DEI recruitment channels** and diversity-focused boards\n"
+                    "- **Market trends** in recruitment advertising\n\n"
+                    "Could you rephrase your question with more specifics? "
+                    "For example, mention a role, location, industry, or metric."
+                )
             sections.append(response_text)
 
         response = "\n\n".join(sections)
         confidence = _estimate_confidence(tools_used, sources)
+
+        # Lower confidence for fallback/off-topic/injection responses
+        if is_off_topic or is_injection or is_unethical:
+            confidence = 1.0  # we're confident in our refusal/redirect
+        elif not tools_used or (len(tools_used) == 1 and tools_used[0] == "query_knowledge_base" and
+                                 "Could you rephrase" in response):
+            confidence = round(min(confidence, 0.4), 2)  # generic fallback = lower confidence
 
         return {
             "response": response,
@@ -1566,6 +1746,43 @@ def _match_category_key(query: str, available_keys: List[str]) -> Optional[str]:
     return None
 
 
+def _pick_best_role(detected_roles: set, text: str) -> str:
+    """Pick the most relevant role from a set of detected roles.
+
+    Uses a priority order (more specific roles first) and checks which role
+    keyword appears earliest in the text to break ties.
+    """
+    if not detected_roles:
+        return "general"
+    if len(detected_roles) == 1:
+        return list(detected_roles)[0]
+
+    # Priority order: more specific roles ranked higher
+    priority = [
+        "nursing", "healthcare", "executive", "engineering", "technology",
+        "construction", "transportation", "education", "finance", "sales",
+        "marketing", "retail", "hospitality", "hourly", "remote",
+    ]
+    # Find which role keyword appears first in the text
+    earliest_pos = {}
+    for role in detected_roles:
+        keywords = _ROLE_KEYWORDS.get(role, [])
+        for kw in keywords:
+            pos = text.find(kw)
+            if pos >= 0:
+                if role not in earliest_pos or pos < earliest_pos[role]:
+                    earliest_pos[role] = pos
+
+    # Sort by earliest appearance, then by priority
+    def sort_key(role):
+        pos = earliest_pos.get(role, 9999)
+        pri = priority.index(role) if role in priority else 99
+        return (pos, pri)
+
+    sorted_roles = sorted(detected_roles, key=sort_key)
+    return sorted_roles[0]
+
+
 def _detect_keywords(text: str, keyword_map: Dict[str, List[str]]) -> set:
     """Detect which keyword categories are present in text."""
     found = set()
@@ -1580,13 +1797,46 @@ def _detect_keywords(text: str, keyword_map: Dict[str, List[str]]) -> set:
 def _detect_country(text: str) -> Optional[str]:
     """Detect a country name in the text."""
     text_lower = text.lower()
-    # Check aliases (longest first to avoid partial matches)
+    # Check country aliases (longest first to avoid partial matches)
     sorted_aliases = sorted(_COUNTRY_ALIASES.keys(), key=len, reverse=True)
     for alias in sorted_aliases:
         # Use word boundary check to avoid false matches
         pattern = r'\b' + re.escape(alias) + r'\b'
         if re.search(pattern, text_lower):
             return _COUNTRY_ALIASES[alias]
+    # Check US state aliases -- return "United States" if a US state is mentioned
+    sorted_states = sorted(_US_STATE_ALIASES.keys(), key=len, reverse=True)
+    for state_alias in sorted_states:
+        if len(state_alias) <= 2:
+            # For 2-letter abbrevs, require word boundary and uppercase in original text
+            pattern = r'\b' + re.escape(state_alias) + r'\b'
+            if re.search(pattern, text_lower):
+                # Only match if it's uppercase in original (avoid matching "in", "or", etc.)
+                upper_pat = r'\b' + re.escape(state_alias.upper()) + r'\b'
+                if re.search(upper_pat, text):
+                    return "United States"
+        else:
+            pattern = r'\b' + re.escape(state_alias) + r'\b'
+            if re.search(pattern, text_lower):
+                return "United States"
+    return None
+
+
+def _detect_us_state(text: str) -> Optional[str]:
+    """Detect a US state name in the text and return the canonical state name."""
+    text_lower = text.lower()
+    sorted_states = sorted(_US_STATE_ALIASES.keys(), key=len, reverse=True)
+    for state_alias in sorted_states:
+        if len(state_alias) <= 2:
+            pattern = r'\b' + re.escape(state_alias) + r'\b'
+            if re.search(pattern, text_lower):
+                upper_pat = r'\b' + re.escape(state_alias.upper()) + r'\b'
+                if re.search(upper_pat, text):
+                    return _US_STATE_ALIASES[state_alias]
+        else:
+            pattern = r'\b' + re.escape(state_alias) + r'\b'
+            if re.search(pattern, text_lower):
+                return _US_STATE_ALIASES[state_alias]
     return None
 
 
@@ -1626,7 +1876,7 @@ def _estimate_confidence(tools_used: list, sources: set) -> float:
     base += min(len(tools_used) * 0.05, 0.2)
     # More sources = higher confidence
     base += min(len(sources) * 0.05, 0.15)
-    return min(base, 0.95)
+    return round(min(base, 0.95), 2)
 
 
 def _summarize_enrichment(context: dict) -> str:
@@ -1763,6 +2013,28 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
     parts = []
     bm = data.get("benchmarks", {})
 
+    # When no specific metric is requested, show a summary of available benchmark categories
+    if "benchmark_categories" in data and not bm:
+        categories = data["benchmark_categories"]
+        parts.append("### Recruitment Advertising Benchmarks Overview\n")
+        parts.append("Joveo's knowledge base covers the following benchmark categories:\n")
+        cat_descriptions = {
+            "cost_per_click": "CPC benchmarks by platform (Indeed, LinkedIn, Google, Meta, etc.)",
+            "cost_per_application": "CPA benchmarks by industry and platform",
+            "apply_rates": "Application conversion rates (clicks to applications)",
+            "cost_per_hire": "Total cost-per-hire benchmarks (SHRM data)",
+            "time_to_fill": "Average days to fill positions",
+            "source_of_hire": "Percentage of hires from each channel",
+            "applicants_per_opening": "Average applicants per job opening",
+            "conversion_rates": "Funnel conversion rates (impression to hire)",
+        }
+        for cat in categories:
+            desc = cat_descriptions.get(cat, "")
+            nice_name = cat.replace("_", " ").title()
+            parts.append(f"- **{nice_name}**: {desc}" if desc else f"- **{nice_name}**")
+        parts.append("\nAsk about a specific metric for detailed data (e.g., *\"What is the average CPC?\"*)")
+        return "\n".join(parts)
+
     if not bm or "message" in bm:
         # Try industry benchmarks
         ind_bm = data.get("industry_benchmarks", {})
@@ -1857,7 +2129,7 @@ def _format_budget_response(data: dict, budget: float) -> str:
         parts.append("| Channel | Spend | Proj. Clicks | Proj. Applications |")
         parts.append("|---------|-------|-------------|-------------------|")
         for ch_name, ch_data in allocs.items():
-            spend = ch_data.get("dollars", ch_data.get("spend", 0))
+            spend = ch_data.get("dollar_amount", ch_data.get("dollars", ch_data.get("spend", 0)))
             clicks = ch_data.get("projected_clicks", 0)
             apps = ch_data.get("projected_applications", 0)
             parts.append(f"| {ch_name} | ${spend:,.0f} | {clicks:,.0f} | {apps:,.0f} |")

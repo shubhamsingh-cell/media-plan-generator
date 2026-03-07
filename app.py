@@ -2104,6 +2104,17 @@ def generate_excel(data):
         "logistics_supply_chain": {"programmatic_dsp": 35, "global_boards": 20, "niche_boards": 12, "social_media": 10, "regional_boards": 15, "employer_branding": 5, "apac_regional": 2, "emea_regional": 1},
         "insurance":              {"programmatic_dsp": 25, "global_boards": 18, "niche_boards": 25, "social_media": 10, "regional_boards": 7,  "employer_branding": 10, "apac_regional": 3, "emea_regional": 2},
         "maritime_marine":        {"programmatic_dsp": 20, "global_boards": 15, "niche_boards": 30, "social_media": 8,  "regional_boards": 15, "employer_branding": 7, "apac_regional": 3, "emea_regional": 2},
+        # C3 FIX: Add missing industry channel profiles
+        "construction_real_estate":{"programmatic_dsp": 30, "global_boards": 18, "niche_boards": 15, "social_media": 10, "regional_boards": 18, "employer_branding": 5, "apac_regional": 2, "emea_regional": 2},
+        "telecommunications":    {"programmatic_dsp": 28, "global_boards": 15, "niche_boards": 22, "social_media": 12, "regional_boards": 8,  "employer_branding": 10, "apac_regional": 3, "emea_regional": 2},
+        "rideshare":              {"programmatic_dsp": 42, "global_boards": 22, "niche_boards": 5,  "social_media": 18, "regional_boards": 8,  "employer_branding": 3, "apac_regional": 1, "emea_regional": 1},
+        "professional_services":  {"programmatic_dsp": 22, "global_boards": 18, "niche_boards": 25, "social_media": 10, "regional_boards": 8,  "employer_branding": 12, "apac_regional": 3, "emea_regional": 2},
+        "government":             {"programmatic_dsp": 18, "global_boards": 20, "niche_boards": 28, "social_media": 5,  "regional_boards": 15, "employer_branding": 8, "apac_regional": 3, "emea_regional": 3},
+        "military_recruitment":   {"programmatic_dsp": 15, "global_boards": 15, "niche_boards": 35, "social_media": 8,  "regional_boards": 12, "employer_branding": 10, "apac_regional": 3, "emea_regional": 2},
+        "manufacturing":          {"programmatic_dsp": 32, "global_boards": 18, "niche_boards": 15, "social_media": 10, "regional_boards": 18, "employer_branding": 4, "apac_regional": 2, "emea_regional": 1},
+        "telecom":                {"programmatic_dsp": 28, "global_boards": 15, "niche_boards": 22, "social_media": 12, "regional_boards": 8,  "employer_branding": 10, "apac_regional": 3, "emea_regional": 2},
+        "food_beverage":          {"programmatic_dsp": 40, "global_boards": 22, "niche_boards": 5,  "social_media": 20, "regional_boards": 8,  "employer_branding": 3, "apac_regional": 1, "emea_regional": 1},
+        "real_estate":            {"programmatic_dsp": 25, "global_boards": 18, "niche_boards": 20, "social_media": 12, "regional_boards": 15, "employer_branding": 5, "apac_regional": 3, "emea_regional": 2},
     }
     _DEFAULT_ALLOC = {"programmatic_dsp": 35, "global_boards": 20, "niche_boards": 15, "social_media": 12, "regional_boards": 8, "employer_branding": 5, "apac_regional": 3, "emea_regional": 2}
     _ind_key = data.get("industry", "general_entry_level")

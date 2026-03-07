@@ -72,7 +72,19 @@ BASE_BENCHMARKS: Dict[str, Any] = {
         "career_site": 0.12,
         "regional": 0.07,
     },
-    "hire_rate": 0.02,  # applications -> hires (industry baseline)
+    "hire_rate": 0.02,  # applications -> hires (default baseline)
+}
+
+# C4 FIX: Role-tier-specific hire rates instead of universal 2%
+HIRE_RATE_BY_TIER: Dict[str, float] = {
+    "Hourly / Entry-Level": 0.06,          # high-volume, lower bar
+    "Skilled Trades / Technical": 0.04,     # CDL, warehouse, construction
+    "Clinical / Licensed": 0.03,            # nurses, therapists — credentialing bottleneck
+    "Professional / White-Collar": 0.02,    # standard corporate roles
+    "Executive / Leadership": 0.008,        # highly selective
+    "Technology / Engineering": 0.015,      # competitive market
+    "Sales / Revenue": 0.035,              # high turnover, faster hiring
+    "default": 0.02,
 }
 
 # Map user-facing channel names (from _INDUSTRY_ALLOC in app.py) to internal
@@ -519,6 +531,7 @@ def compute_role_weighted_spend(
             "tier": tier,
             "multiplier": _tier_multiplier(tier),
             "openings": openings,
+            "headcount": openings,  # alias for hire_rate blending
         }
 
     logger.info("Role-weighted spend computed for %d roles, total $%.2f", len(result), total_budget)
@@ -568,7 +581,17 @@ def compute_channel_dollar_amounts(
         return {}
     norm_factor = 100.0 / pct_sum
 
-    hire_rate = BASE_BENCHMARKS["hire_rate"]
+    # C4 FIX: Compute blended hire rate from role tiers instead of flat 2%
+    _tier_counts: Dict[str, int] = {}
+    for rb in role_budgets.values():
+        tier = rb.get("tier", "default")
+        _tier_counts[tier] = _tier_counts.get(tier, 0) + rb.get("headcount", 1)
+    _total_hc = max(sum(_tier_counts.values()), 1)
+    hire_rate = sum(
+        HIRE_RATE_BY_TIER.get(tier, HIRE_RATE_BY_TIER["default"]) * count / _total_hc
+        for tier, count in _tier_counts.items()
+    )
+    logger.info("Blended hire_rate=%.4f from tiers: %s", hire_rate, _tier_counts)
     industry_avg_cph = 6_000.0  # fallback; caller can override via assess_budget_sufficiency
 
     allocations: Dict[str, Dict] = {}
