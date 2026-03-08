@@ -4,7 +4,7 @@ Premium LinkedIn-inspired PowerPoint generator for AI Media Planner.
 
 Generates a polished, data-driven 6-slide .pptx presentation using python-pptx.
 Incorporates LinkedIn Hiring Value Review visual patterns: section dividers,
-hero stats, purple accents, quality outcomes grids, channel attribution diagrams,
+hero stats, blue/teal accents, quality outcomes grids, channel attribution diagrams,
 and side-by-side comparison panels.
 """
 
@@ -32,9 +32,9 @@ LIGHT_BLUE = RGBColor(0xD1, 0xE8, 0xFF)    # Light background
 PALE_BLUE = RGBColor(0xA8, 0xD4, 0xFF)     # Lighter accent fills
 SKY_BLUE = RGBColor(0x70, 0xB5, 0xFA)      # Chart elements
 
-GOLD = RGBColor(0x7C, 0x3A, 0xED)          # Highlight accent (purple)
-LIGHT_GOLD = RGBColor(0xA7, 0x8B, 0xFA)    # Secondary violet
-PALE_GOLD = RGBColor(0xED, 0xE9, 0xFE)     # Subtle violet background
+TEAL = RGBColor(0x08, 0x91, 0xB2)          # Teal accent
+LIGHT_TEAL = RGBColor(0x22, 0xD3, 0xEE)    # Light teal
+PALE_TEAL = RGBColor(0xEC, 0xFE, 0xFF)     # Pale teal background
 
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 OFF_WHITE = RGBColor(0xF2, 0xF2, 0xF0)     # Content background
@@ -191,9 +191,9 @@ CHANNEL_ALLOC: Dict[str, Dict[str, Any]] = {
     "niche_boards":      {"label": "Niche / Industry Boards", "pct": 15, "color": MEDIUM_BLUE, "category": "Job Boards"},
     "social_media":      {"label": "Social Media",           "pct": 12, "color": SKY_BLUE,    "category": "Social"},
     "regional_boards":   {"label": "Regional Boards",        "pct": 8,  "color": PALE_BLUE,   "category": "Job Boards"},
-    "employer_branding": {"label": "Employer Branding",      "pct": 5,  "color": GOLD,        "category": "Employer Brand"},
-    "apac_regional":     {"label": "APAC Regional",          "pct": 3,  "color": LIGHT_GOLD,  "category": "Job Boards"},
-    "emea_regional":     {"label": "EMEA Regional",          "pct": 2,  "color": PALE_GOLD,   "category": "Job Boards"},
+    "employer_branding": {"label": "Employer Branding",      "pct": 5,  "color": TEAL,        "category": "Employer Brand"},
+    "apac_regional":     {"label": "APAC Regional",          "pct": 3,  "color": LIGHT_TEAL,  "category": "Job Boards"},
+    "emea_regional":     {"label": "EMEA Regional",          "pct": 2,  "color": PALE_TEAL,   "category": "Job Boards"},
 }
 
 # ── Industry-specific allocation profiles ──
@@ -761,16 +761,16 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     # Full dark navy background
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, NAVY)
 
-    # Purple accent bar at top
-    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, Inches(0.06), GOLD)
+    # Teal accent bar at top
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, Inches(0.06), TEAL)
 
-    # Decorative purple accent shapes - left side
-    _add_filled_rect(slide, Inches(0.6), Inches(1.8), Inches(1.2), Inches(0.05), GOLD)
+    # Decorative teal accent shapes - left side
+    _add_filled_rect(slide, Inches(0.6), Inches(1.8), Inches(1.2), Inches(0.05), TEAL)
 
     # "AI MEDIA PLANNER" small label top-left
     _add_textbox(
         slide, Inches(0.6), Inches(1.1), Inches(5), Inches(0.4),
-        text="AI MEDIA PLANNER", font_size=14, bold=True, color=GOLD,
+        text="AI MEDIA PLANNER", font_size=14, bold=True, color=TEAL,
     )
 
     # Main title - client name large
@@ -782,7 +782,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     # Client name as hero element
     _add_textbox(
         slide, Inches(0.6), Inches(3.2), Inches(11), Inches(1.0),
-        text=client, font_size=44, bold=True, color=LIGHT_GOLD,
+        text=client, font_size=44, bold=True, color=LIGHT_TEAL,
     )
 
     # Industry subtitle
@@ -808,8 +808,8 @@ def _build_slide_cover(prs: Presentation, data: Dict):
             text=tagline, font_size=11, italic=True, color=LIGHT_MUTED,
         )
 
-    # Purple accent line under title area
-    _add_filled_rect(slide, Inches(0.6), Inches(5.0), Inches(3.0), Inches(0.05), GOLD)
+    # Teal accent line under title area
+    _add_filled_rect(slide, Inches(0.6), Inches(5.0), Inches(3.0), Inches(0.05), TEAL)
 
     # Date and branding at bottom
     _add_textbox(
@@ -845,8 +845,8 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         RGBColor(0x10, 0x40, 0x6A),
     )
 
-    # Bottom purple bar
-    _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.06), SLIDE_WIDTH, Inches(0.06), GOLD)
+    # Bottom teal bar
+    _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.06), SLIDE_WIDTH, Inches(0.06), TEAL)
 
 
 # ===================================================================
@@ -868,6 +868,10 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     goals = _goal_labels(data)
     channels = _selected_channels(data)
     today = datetime.date.today().strftime("%B %d, %Y")
+
+    # Pull synthesized + budget allocation data (from pipeline)
+    synthesized = data.get("_synthesized", {})
+    budget_alloc = data.get("_budget_allocation", {})
 
     # Off-white background
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
@@ -978,13 +982,13 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     # ---- COMPLICATION (middle) ----
     _add_rounded_rect(slide, col2_left, col_top, col_w, col_height, WHITE)
-    _add_filled_rect(slide, col2_left, col_top, accent_bar_w, col_height, GOLD)
+    _add_filled_rect(slide, col2_left, col_top, accent_bar_w, col_height, TEAL)
 
     comp_left = col2_left + Inches(0.2)
     comp_w = col_w - Inches(0.25)
 
     _add_textbox(slide, comp_left, col_top + Inches(0.08), comp_w, Inches(0.35),
-                 text="COMPLICATION", font_size=11, bold=True, color=GOLD)
+                 text="COMPLICATION", font_size=11, bold=True, color=TEAL)
 
     complications = _get_complications(industry)
     box3, tf3 = _add_textbox(slide, comp_left, body_top, comp_w, col_height - Inches(0.5))
@@ -1002,7 +1006,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
         run_bullet = p.add_run()
         run_bullet.text = "\u25B8  "
-        _set_font(run_bullet, size=10, bold=False, color=GOLD)
+        _set_font(run_bullet, size=10, bold=False, color=TEAL)
 
         run_text = p.add_run()
         run_text.text = str(item) if item is not None else ""
@@ -1063,8 +1067,8 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # Main bar background
     _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), bar_h, NAVY)
 
-    # Purple accent line at top of bar
-    _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), Inches(0.04), GOLD)
+    # Teal accent line at top of bar
+    _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), Inches(0.04), TEAL)
 
     # Hero stat: budget (if parseable) or channel count
     budget_display = _format_budget_display(budget)
@@ -1074,7 +1078,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # Hero stat on the left
     _add_textbox(
         slide, Inches(0.85), bar_top + Inches(0.12), Inches(3.2), Inches(0.65),
-        text=hero_value, font_size=36, bold=True, color=GOLD,
+        text=hero_value, font_size=36, bold=True, color=TEAL,
         alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
     )
     _add_textbox(
@@ -1084,7 +1088,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     )
 
     # Divider
-    _add_filled_rect(slide, Inches(4.2), bar_top + Inches(0.2), Inches(0.02), Inches(0.75), GOLD)
+    _add_filled_rect(slide, Inches(4.2), bar_top + Inches(0.2), Inches(0.02), Inches(0.75), TEAL)
 
     # Secondary metrics - include salary data from enrichment if available
     secondary_metrics = [m for m in [
@@ -1104,6 +1108,17 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
                 secondary_metrics.append((salary_str, "Median Salary"))
         except (IndexError, KeyError, TypeError):
             pass
+
+    # Add budget allocation metrics if available (projected hires, avg CPA)
+    ba_summary = budget_alloc.get("summary", {}) if budget_alloc else {}
+    if ba_summary:
+        projected_hires = ba_summary.get("projected_hires", 0)
+        avg_cpa_val = ba_summary.get("avg_cpa", 0)
+        if projected_hires and projected_hires > 0:
+            # Replace the last secondary metric with projected hires
+            secondary_metrics.append((str(int(projected_hires)), "Projected Hires"))
+        if avg_cpa_val and avg_cpa_val > 0:
+            secondary_metrics.append((f"${avg_cpa_val:,.0f}", "Avg CPA"))
 
     metric_w = Inches(1.9)
     metric_start = Inches(4.55)
@@ -1147,16 +1162,16 @@ def _build_slide_divider_channel_strategy(prs: Presentation, data: Dict):
     # Full LinkedIn Blue background
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, BLUE)
 
-    # Purple accent bar at top
-    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, Inches(0.06), GOLD)
+    # Teal accent bar at top
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, Inches(0.06), TEAL)
 
-    # Purple accent stripe left
-    _add_filled_rect(slide, Inches(0.6), Inches(2.8), Inches(2.0), Inches(0.06), GOLD)
+    # Teal accent stripe left
+    _add_filled_rect(slide, Inches(0.6), Inches(2.8), Inches(2.0), Inches(0.06), TEAL)
 
     # Section number
     _add_textbox(
         slide, Inches(0.6), Inches(2.2), Inches(3), Inches(0.5),
-        text="02", font_size=18, bold=True, color=LIGHT_GOLD,
+        text="02", font_size=18, bold=True, color=LIGHT_TEAL,
     )
 
     # Large section title
@@ -1172,8 +1187,8 @@ def _build_slide_divider_channel_strategy(prs: Presentation, data: Dict):
         font_size=16, italic=True, color=PALE_BLUE,
     )
 
-    # Bottom purple bar
-    _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.06), SLIDE_WIDTH, Inches(0.06), GOLD)
+    # Bottom teal bar
+    _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.06), SLIDE_WIDTH, Inches(0.06), TEAL)
 
     # Decorative shapes right side
     _add_oval(slide, Inches(10.5), Inches(1.0), Inches(3.5), Inches(3.5),
@@ -1198,6 +1213,10 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     benchmarks = _get_benchmarks(industry)
     today = datetime.date.today().strftime("%B %d, %Y")
 
+    # Pull synthesized + budget allocation data (from pipeline)
+    synthesized = data.get("_synthesized", {})
+    budget_alloc = data.get("_budget_allocation", {})
+
     # Off-white background
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
 
@@ -1219,13 +1238,13 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     left_col_left = Inches(0.55)
     section_top = Inches(1.6)
 
-    # Section header with purple underline
+    # Section header with teal underline
     _add_textbox(
         slide, left_col_left, section_top, Inches(4), Inches(0.35),
         text="CHANNEL MIX", font_size=11, bold=True, color=NAVY,
     )
     _add_filled_rect(slide, left_col_left, section_top + Inches(0.33),
-                     Inches(1.3), Inches(0.03), GOLD)
+                     Inches(1.3), Inches(0.03), TEAL)
 
     bar_area_top = section_top + Inches(0.5)
     bar_max_w = Inches(3.5)
@@ -1233,15 +1252,44 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     bar_spacing = Inches(0.42)
     label_w = Inches(2.3)
 
+    # Override channel percentages with real budget allocation if available
+    ba_channel_alloc = budget_alloc.get("channel_allocations", {}) if budget_alloc else {}
+    if ba_channel_alloc:
+        # Map budget engine channel names to display channels
+        ba_total_budget = budget_alloc.get("total_budget", 0)
+        for ch_key, ch_data in channels.items():
+            # Try exact key match, then fuzzy label match
+            ba_match = ba_channel_alloc.get(ch_key)
+            if not ba_match:
+                # Try matching by label (case-insensitive)
+                ch_label_lower = ch_data.get("label", "").lower()
+                for ba_key, ba_val in ba_channel_alloc.items():
+                    if isinstance(ba_val, dict):
+                        ba_label = ba_val.get("label", ba_key).lower()
+                        if ba_label == ch_label_lower or ba_key.lower() == ch_key.lower():
+                            ba_match = ba_val
+                            break
+            if ba_match and isinstance(ba_match, dict):
+                real_pct = ba_match.get("percentage", 0)
+                real_dollar = ba_match.get("dollar_amount", 0)
+                if real_pct > 0:
+                    ch_data["pct"] = round(real_pct)
+                if real_dollar > 0:
+                    ch_data["_dollar_amount"] = real_dollar
+
     sorted_channels = sorted(channels.values(), key=lambda c: c["pct"], reverse=True)
 
     for idx, ch in enumerate(sorted_channels):
         row_y = bar_area_top + idx * bar_spacing
 
-        # Category label
+        # Category label (include dollar amount if available from budget engine)
+        label_text = ch["label"]
+        if ch.get("_dollar_amount"):
+            label_text = f"{ch['label']} (${ch['_dollar_amount']:,.0f})"
+
         _add_textbox(
             slide, left_col_left, row_y, label_w, bar_h,
-            text=ch["label"], font_size=9, bold=True, color=DARK_TEXT,
+            text=label_text, font_size=9, bold=True, color=DARK_TEXT,
             alignment=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE,
         )
 
@@ -1272,7 +1320,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         text="INDUSTRY BENCHMARKS", font_size=11, bold=True, color=NAVY,
     )
     _add_filled_rect(slide, right_col_left, section_top + Inches(0.33),
-                     Inches(2.0), Inches(0.03), GOLD)
+                     Inches(2.0), Inches(0.03), TEAL)
 
     table_top = section_top + Inches(0.5)
     table_left = right_col_left
@@ -1304,6 +1352,35 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                     )
         except (TypeError, AttributeError):
             pass
+
+    # Add real ad platform analysis data from synthesized pipeline
+    ad_plat = synthesized.get("ad_platform_analysis", {}) if synthesized else {}
+    if ad_plat:
+        try:
+            for plat_name, plat_data in list(ad_plat.items())[:3]:
+                if not isinstance(plat_data, dict):
+                    continue
+                plat_label = plat_name.replace("_", " ").title()
+                plat_cpc = plat_data.get("CPC", plat_data.get("cpc", 0))
+                plat_cpa = plat_data.get("CPA", plat_data.get("cpa", 0))
+                plat_reach = plat_data.get("estimated_reach", 0)
+                if plat_cpc and plat_cpc > 0:
+                    bench_rows.append(
+                        (f"{plat_label} CPC", f"${plat_cpc:.2f}")
+                    )
+                if plat_cpa and plat_cpa > 0:
+                    bench_rows.append(
+                        (f"{plat_label} CPA", f"${plat_cpa:.2f}")
+                    )
+                if plat_reach and plat_reach > 0:
+                    bench_rows.append(
+                        (f"{plat_label} Est. Reach", f"{plat_reach:,}")
+                    )
+        except (TypeError, AttributeError):
+            pass
+
+    # Has ad platform data - use for 3-column table header
+    has_ad_plat_data = bool(ad_plat)
 
     # Table header
     _add_filled_rect(slide, table_left, table_top, table_w, row_h, NAVY)
@@ -1338,6 +1415,8 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     source_text = f"Sources: Appcast {datetime.date.today().year}, Recruitics TMI, SHRM {datetime.date.today().year}"
     if job_market:
         source_text += ", Adzuna Job Market API"
+    if ad_plat:
+        source_text += ", Joveo Ad Platform Intelligence"
     _add_textbox(
         slide, table_left, source_top, table_w, Inches(0.2),
         text=source_text,
@@ -1351,7 +1430,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         text="CHANNEL CATEGORY ATTRIBUTION", font_size=11, bold=True, color=NAVY,
     )
     _add_filled_rect(slide, Inches(0.55), attrib_top + Inches(0.33),
-                     Inches(2.8), Inches(0.03), GOLD)
+                     Inches(2.8), Inches(0.03), TEAL)
 
     # Build category groups
     cat_groups = _channel_categories_grouped(channels)
@@ -1361,7 +1440,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         "Programmatic": (NAVY, WHITE),
         "Job Boards": (BLUE, WHITE),
         "Social": (SKY_BLUE, NAVY),
-        "Employer Brand": (GOLD, NAVY),
+        "Employer Brand": (TEAL, NAVY),
         "Other": (MEDIUM_BLUE, WHITE),
     }
 
@@ -1402,7 +1481,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 text=ch_list, font_size=7, color=text_color,
             )
 
-        # Overlap connectors between categories (purple diamonds)
+        # Overlap connectors between categories (teal diamonds)
         for gi in range(n_groups - 1):
             connector_x = Inches(0.55) + (gi + 1) * (box_w + box_gap) - box_gap / 2 - Inches(0.12)
             connector_y = box_top + box_h / 2 - Inches(0.12)
@@ -1410,7 +1489,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 MSO_SHAPE.DIAMOND, connector_x, connector_y, Inches(0.24), Inches(0.24)
             )
             diamond.fill.solid()
-            diamond.fill.fore_color.rgb = GOLD
+            diamond.fill.fore_color.rgb = TEAL
             diamond.line.fill.background()
 
     # Enrichment badge
@@ -1437,6 +1516,10 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     locations = data.get("locations", [])
     today = datetime.date.today().strftime("%B %d, %Y")
 
+    # Pull synthesized + budget allocation data (from pipeline)
+    synthesized = data.get("_synthesized", {})
+    budget_alloc = data.get("_budget_allocation", {})
+
     # Off-white background
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
 
@@ -1458,9 +1541,9 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     hero_top = Inches(1.55)
     hero_h = Inches(1.3)
 
-    # Hero stat card with purple accent
+    # Hero stat card with teal accent
     _add_rounded_rect(slide, Inches(3.5), hero_top, Inches(6.33), hero_h, WHITE)
-    _add_filled_rect(slide, Inches(3.5), hero_top, Inches(6.33), Inches(0.05), GOLD)
+    _add_filled_rect(slide, Inches(3.5), hero_top, Inches(6.33), Inches(0.05), TEAL)
 
     # Hero number
     budget_display = _format_budget_display(budget)
@@ -1487,18 +1570,46 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
 
     # Compute estimated metrics based on channels/data
     n_locations = len(locations)
-    estimated_reach = n_channels * n_locations * 12500 if n_locations > 0 else n_channels * 25000
+
+    # Try real reach from ad platform analysis first
+    real_reach = None
+    ad_plat = synthesized.get("ad_platform_analysis", {}) if synthesized else {}
+    if ad_plat:
+        total_reach = sum(
+            p.get("estimated_reach", 0)
+            for p in ad_plat.values()
+            if isinstance(p, dict)
+        )
+        if total_reach > 0:
+            real_reach = total_reach
+
+    if real_reach:
+        estimated_reach = real_reach
+    else:
+        estimated_reach = n_channels * n_locations * 12500 if n_locations > 0 else n_channels * 25000
     reach_display = f"{estimated_reach / 1000:.0f}K+" if estimated_reach >= 1000 else str(estimated_reach)
 
     benchmarks = _get_benchmarks(industry)
-    # Parse CPA to estimate cost efficiency
+    # Parse CPA to estimate cost efficiency - prefer real data from budget allocation
+    ba_summary = budget_alloc.get("summary", {}) if budget_alloc else {}
+    real_avg_cpa = ba_summary.get("avg_cpa", 0) if ba_summary else 0
+
     cpa_str = benchmarks.get("cpa", "$25")
     try:
         cpa_nums = re.findall(r'[\d.]+', cpa_str.replace(",", ""))
-        avg_cpa = sum(float(x) for x in cpa_nums) / len(cpa_nums) if cpa_nums else 25
+        benchmark_avg_cpa = sum(float(x) for x in cpa_nums) / len(cpa_nums) if cpa_nums else 25
     except Exception:
-        avg_cpa = 25
+        benchmark_avg_cpa = 25
+
+    if real_avg_cpa and real_avg_cpa > 0:
+        avg_cpa = real_avg_cpa
+    else:
+        avg_cpa = benchmark_avg_cpa
+
     efficiency_improvement = min(35, max(15, round(100 / avg_cpa * 5)))
+
+    # Get projected hires from budget allocation
+    projected_hires = ba_summary.get("projected_hires", 0) if ba_summary else 0
 
     # Check for enriched salary data to enhance quadrants
     enriched = data.get("_enriched", {})
@@ -1522,42 +1633,83 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
                     "metric": salary_str,
                     "label": f"Median Salary: {first_role}",
                     "desc": f"Live BLS salary benchmark{range_str}",
-                    "accent": GOLD,
-                    "bg": PALE_GOLD,
+                    "accent": TEAL,
+                    "bg": PALE_TEAL,
                 }
         except (IndexError, KeyError, TypeError):
             pass
+
+    # Build reach quadrant - use real data source label if available
+    reach_source_label = "Estimated Reach"
+    reach_desc = f"Projected candidate impressions across {n_channels} channels and {max(n_locations, 1)} markets"
+    if real_reach:
+        reach_source_label = "Projected Reach"
+        reach_desc = f"Ad platform intelligence across {len(ad_plat)} platforms and {max(n_locations, 1)} markets"
+
+    # Build cost efficiency quadrant - use real CPA if available
+    cost_eff_metric = f"{efficiency_improvement}%"
+    cost_eff_label = "Cost Efficiency Gain"
+    cost_eff_desc = "ML-optimized bidding reduces CPA vs. manual job board posting"
+    if real_avg_cpa and real_avg_cpa > 0:
+        cost_eff_metric = f"${real_avg_cpa:,.0f}"
+        cost_eff_label = "Projected Avg CPA"
+        cost_eff_desc = f"Budget-engine projected CPA vs. industry benchmark ${benchmark_avg_cpa:.0f}"
+
+    # Build 3rd quadrant: projected hires > salary data > channel diversity fallback
+    if projected_hires and projected_hires > 0:
+        third_quadrant = {
+            "icon": "\u2B22",  # hexagon
+            "metric": str(int(projected_hires)),
+            "label": "Projected Hires",
+            "desc": f"Budget-engine projection based on ${budget_alloc.get('total_budget', 0):,.0f} total investment",
+            "accent": TEAL,
+            "bg": PALE_TEAL,
+        }
+    elif salary_quadrant:
+        third_quadrant = salary_quadrant
+    else:
+        third_quadrant = {
+            "icon": "\u2B22",  # hexagon
+            "metric": f"{n_channels}",
+            "label": "Channel Diversity",
+            "desc": "Diversified channel mix reduces single-source dependency risk",
+            "accent": TEAL,
+            "bg": PALE_TEAL,
+        }
+
+    # Build time-to-fill quadrant - use real avg CPH if available
+    ttf_metric = "15-25%"
+    ttf_label = "Faster Time-to-Fill"
+    ttf_desc = "Multi-channel programmatic strategy reduces days-to-fill vs. single-source posting (industry benchmark)"
+    ba_avg_cph = ba_summary.get("avg_cph", 0) if ba_summary else 0
+    if ba_avg_cph and ba_avg_cph > 0:
+        ttf_metric = f"${ba_avg_cph:,.0f}"
+        ttf_label = "Projected Cost-per-Hire"
+        ttf_desc = "Budget-engine projected cost-per-hire across all channels"
 
     quadrants = [
         {
             "icon": "\u2139",  # info
             "metric": reach_display,
-            "label": "Estimated Reach",
-            "desc": f"Projected candidate impressions across {n_channels} channels and {max(n_locations, 1)} markets",
+            "label": reach_source_label,
+            "desc": reach_desc,
             "accent": BLUE,
             "bg": LIGHT_BLUE,
         },
         {
             "icon": "\u25B2",  # up arrow
-            "metric": f"{efficiency_improvement}%",
-            "label": "Cost Efficiency Gain",
-            "desc": "ML-optimized bidding reduces CPA vs. manual job board posting",
+            "metric": cost_eff_metric,
+            "label": cost_eff_label,
+            "desc": cost_eff_desc,
             "accent": GREEN,
             "bg": LIGHT_GREEN,
         },
-        salary_quadrant if salary_quadrant else {
-            "icon": "\u2B22",  # hexagon
-            "metric": f"{n_channels}",
-            "label": "Channel Diversity",
-            "desc": "Diversified channel mix reduces single-source dependency risk",
-            "accent": GOLD,
-            "bg": PALE_GOLD,
-        },
+        third_quadrant,
         {
             "icon": "\u23F1",  # timer
-            "metric": "15-25%",
-            "label": "Faster Time-to-Fill",
-            "desc": "Multi-channel programmatic strategy reduces days-to-fill vs. single-source posting",
+            "metric": ttf_metric,
+            "label": ttf_label,
+            "desc": ttf_desc,
             "accent": NAVY,
             "bg": RGBColor(0xE8, 0xED, 0xF4),
         },
@@ -1602,24 +1754,48 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     # ---- KEY INSIGHT CALLOUT BOX ----
     insight_top = Inches(5.05)
     insight_h = Inches(1.05)
-    _add_rounded_rect(slide, Inches(0.55), insight_top, Inches(12.2), insight_h, PALE_GOLD)
-    _add_filled_rect(slide, Inches(0.55), insight_top, Inches(0.06), insight_h, GOLD)
+    _add_rounded_rect(slide, Inches(0.55), insight_top, Inches(12.2), insight_h, PALE_TEAL)
+    _add_filled_rect(slide, Inches(0.55), insight_top, Inches(0.06), insight_h, TEAL)
 
     # Insight icon/badge
-    _add_rounded_rect(slide, Inches(0.85), insight_top + Inches(0.2), Inches(1.0), Inches(0.35), GOLD)
+    _add_rounded_rect(slide, Inches(0.85), insight_top + Inches(0.2), Inches(1.0), Inches(0.35), TEAL)
     _add_textbox(
         slide, Inches(0.85), insight_top + Inches(0.2), Inches(1.0), Inches(0.35),
         text="KEY INSIGHT", font_size=8, bold=True, color=WHITE,
         alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
     )
 
-    insight_text = (
-        f"Joveo's programmatic approach distributes {client}'s budget across "
-        f"{n_channels} optimized channels with ML-driven bid management, "
-        f"projecting {efficiency_improvement}% CPA improvement over manual posting. "
-        f"Quality-focused optimization (CPQA) ensures spend is directed toward "
-        f"candidates most likely to apply and convert."
-    )
+    # Build insight text using real data when available
+    if real_avg_cpa and real_avg_cpa > 0:
+        insight_text = (
+            f"Joveo's programmatic approach distributes {client}'s budget across "
+            f"{n_channels} optimized channels with ML-driven bid management, "
+            f"projecting ${real_avg_cpa:,.0f} avg CPA (vs. industry benchmark ${benchmark_avg_cpa:.0f}). "
+            f"Quality-focused optimization (CPQA) ensures spend is directed toward "
+            f"candidates most likely to apply and convert."
+        )
+    else:
+        insight_text = (
+            f"Joveo's programmatic approach distributes {client}'s budget across "
+            f"{n_channels} optimized channels with ML-driven bid management, "
+            f"projecting {efficiency_improvement}% CPA improvement over manual posting. "
+            f"Quality-focused optimization (CPQA) ensures spend is directed toward "
+            f"candidates most likely to apply and convert."
+        )
+
+    # Append projected hires if available from budget allocation
+    if projected_hires and projected_hires > 0:
+        total_apps = ba_summary.get("projected_applications", 0)
+        if total_apps and total_apps > 0:
+            insight_text += (
+                f" Budget engine projects {int(total_apps):,} applications and "
+                f"{int(projected_hires):,} hires from the allocated investment."
+            )
+        else:
+            insight_text += (
+                f" Budget engine projects {int(projected_hires):,} hires "
+                f"from the allocated investment."
+            )
 
     # Append salary insight if enrichment data is available
     if salary_data and salary_quadrant:
@@ -1664,6 +1840,10 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     locations = data.get("locations", [])
     roles = data.get("roles", [])
     today = datetime.date.today().strftime("%B %d, %Y")
+
+    # Pull synthesized + budget allocation data (from pipeline)
+    synthesized = data.get("_synthesized", {})
+    budget_alloc = data.get("_budget_allocation", {})
 
     # Off-white background
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
@@ -1738,6 +1918,47 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             "is_better": client_reach_mult >= ind_reach_mult,
         },
     ]
+
+    # Add budget-allocation-powered comparison rows if real data is available
+    ba_summary = budget_alloc.get("summary", {}) if budget_alloc else {}
+    ba_channel_alloc = budget_alloc.get("channel_allocations", {}) if budget_alloc else {}
+    ba_total_budget = budget_alloc.get("total_budget", 0) if budget_alloc else 0
+
+    if ba_summary:
+        proj_cpa = ba_summary.get("avg_cpa", 0)
+        proj_hires = ba_summary.get("projected_hires", 0)
+        proj_apps = ba_summary.get("projected_applications", 0)
+
+        # Get industry benchmark CPA for comparison
+        bench = _get_benchmarks(industry)
+        cpa_str = bench.get("cpa", "$25")
+        try:
+            cpa_nums = re.findall(r'[\d.]+', cpa_str.replace(",", ""))
+            ind_avg_cpa = sum(float(x) for x in cpa_nums) / len(cpa_nums) if cpa_nums else 25
+        except Exception:
+            ind_avg_cpa = 25
+
+        if proj_cpa and proj_cpa > 0:
+            all_comparison_rows.append({
+                "metric": "Projected CPA",
+                "client_val": f"${proj_cpa:,.0f}",
+                "industry_val": cpa_str,
+                "is_better": proj_cpa <= ind_avg_cpa,
+            })
+        if proj_hires and proj_hires > 0:
+            all_comparison_rows.append({
+                "metric": "Projected Hires",
+                "client_val": f"{int(proj_hires):,}",
+                "industry_val": "N/A",
+                "is_better": True,
+            })
+        if ba_total_budget and ba_total_budget > 0:
+            all_comparison_rows.append({
+                "metric": "Total Investment",
+                "client_val": f"${ba_total_budget:,.0f}",
+                "industry_val": "Varies",
+                "is_better": True,
+            })
 
     # Reframe trailing metrics with improvement targets to build confidence
     # Count how many are beating vs trailing
@@ -1852,7 +2073,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         text="IMPLEMENTATION TIMELINE", font_size=11, bold=True, color=NAVY,
     )
     _add_filled_rect(slide, Inches(0.55), timeline_top + Inches(0.3),
-                     Inches(2.2), Inches(0.03), GOLD)
+                     Inches(2.2), Inches(0.03), TEAL)
 
     # Build timeline phases based on actual campaign_weeks from input
     cw = data.get("campaign_weeks", 12)
@@ -2043,7 +2264,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         ay = phase_top + phase_h / 2 - Inches(0.1)
         _add_textbox(
             slide, ax, ay, Inches(0.2), Inches(0.2),
-            text="\u25B6", font_size=12, bold=True, color=GOLD,
+            text="\u25B6", font_size=12, bold=True, color=TEAL,
             alignment=PP_ALIGN.CENTER,
         )
 

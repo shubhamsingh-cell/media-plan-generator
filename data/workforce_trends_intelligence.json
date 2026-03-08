@@ -1,0 +1,1236 @@
+{
+  "last_updated": "2026-03-08",
+  "sources": [
+    "Bureau of Labor Statistics (BLS) - Employment Cost Index, Occupational Outlook Handbook",
+    "Indeed Hiring Lab - 2026 US Jobs & Hiring Trends Report",
+    "LinkedIn - Future of Recruiting 2025, Skills on the Rise 2026",
+    "Randstad - Gen Z Workplace Blueprint 2025",
+    "Deloitte - 2025 Gen Z and Millennial Survey",
+    "Gallup - State of the Global Workplace 2025",
+    "Payscale - 2026 Compensation Best Practices Report, Salary Budget Survey",
+    "WorldatWork - 2025-2026 Salary Budget Survey",
+    "Robert Half - Remote Work Statistics and Trends 2026",
+    "FlexJobs - Remote Work Economy Index 2026",
+    "Owl Labs - State of Hybrid Work 2025",
+    "SHRM - AI in HR Studies, Mental Health Research",
+    "World Economic Forum - Future of Jobs Report 2025",
+    "McKinsey & Company - Workforce and AI Research",
+    "Zety - Gen Z Career Trends Report",
+    "iHire - Multi-Generational Workforce Report 2025",
+    "Gateway Commercial Finance - Gen Z Workforce Research",
+    "Resume.org - Employer Surveys on Gen Z Ghosting",
+    "Monster - 2025 State of the Graduate Report",
+    "Handshake - Gen Z Salary Transparency Report",
+    "ZipRecruiter - Graduate Salary Expectations Survey",
+    "ADP Research - Pay Trends 2026",
+    "Conference Board - US Salary Increase Budgets 2025-2026",
+    "Veritone - Programmatic Job Advertising Evolution",
+    "IRENA - Renewable Energy Employment",
+    "CyberSeek - Cybersecurity Workforce Data",
+    "U.S. Census Bureau - Nonemployer Statistics (Gig Economy)",
+    "Goldman Sachs - Gig Economy Research",
+    "SIA (Staffing Industry Analysts)",
+    "Pew Research Center - Gig Work Studies",
+    "Mercer - 2026 Compensation Trends",
+    "Grant Thornton - Compensation Planning 2026",
+    "Korn Ferry - Pay Transparency Trends",
+    "Business Research Insights - Job Aggregators Market",
+    "CSIS - Reshoring Semiconductor Manufacturing",
+    "Semiconductor Industry Association (SIA)",
+    "Deloitte & Manufacturing Institute - Manufacturing Workforce Studies",
+    "NACE - Skills-Based Hiring Survey",
+    "Checkr - Future of Work 2025 Report",
+    "Placer.ai - Domestic Migration Reports"
+  ],
+  "generational_trends": {
+    "gen_z": {
+      "definition": "Born 1997-2012, currently aged 14-29",
+      "workforce_share": {
+        "current_percentage": "Approximately 30% of world population",
+        "projected_workforce_share_2026": "27% of the workforce by 2026",
+        "projected_workforce_share_2030": "30% of the U.S. workforce by 2030"
+      },
+      "job_search_behavior": {
+        "platform_usage": {
+          "tiktok": {
+            "usage_rate": "22.1% of Gen Z use TikTok as a job search tool",
+            "job_secured_via_tiktok": "46% have secured a job or internship through TikTok",
+            "interview_sourcing": "20% of Gen Z candidates get interviews directly thanks to TikTok",
+            "trust_for_career_advice": "92% trust TikTok for career advice",
+            "misleading_advice_acknowledgment": "55% admit to following misleading advice on TikTok",
+            "career_decisions_influenced": "41% have made career-related decisions based on TikTok advice",
+            "year_over_year_growth": "Job ad engagement on TikTok grew 63% (from 8% in 2024 to 13% in 2025)"
+          },
+          "instagram": {
+            "career_content_reliance": "76% rely on Instagram for career content",
+            "job_secured_via_instagram": "64% have secured a job or internship via Instagram",
+            "year_over_year_growth": "Job ad engagement grew 33% (from 12% in 2024 to 16% in 2025)"
+          },
+          "linkedin": {
+            "usage_rate": "20.8% of Gen Z use LinkedIn as job search tool (lower than TikTok)",
+            "note": "TikTok has overtaken LinkedIn among Gen Z for job searching"
+          },
+          "youtube": {
+            "year_over_year_growth": "Job ad engagement grew 35% (from 14% in 2024 to 19% in 2025)"
+          },
+          "x_formerly_twitter": {
+            "job_secured_rate": "56% have secured a job through X"
+          }
+        },
+        "mobile_vs_desktop": {
+          "discovery": "Gen Z discovers jobs on mobile, job boards, and social media",
+          "applications": "75% switch to desktop for formal job applications",
+          "desktop_trend": "Desktop use for job applications grew from 54% (2023) to 65% (2025)",
+          "note": "Despite being mobile-first, Gen Z prefers desktop for completing applications"
+        },
+        "social_media_habits": {
+          "daily_usage": "54% spend 4+ hours daily on social media",
+          "tiktok_usage": "68% use TikTok",
+          "snapchat_usage": "67% use Snapchat",
+          "profile_importance": "78% believe social media profiles are important for evaluation",
+          "employer_social_impact": "95% say company social media presence impacts decision to apply",
+          "dei_content_influence": "48% cite DEI initiatives as content increasing likelihood to apply",
+          "social_media_applications": "48% have applied for jobs they saw on social media"
+        },
+        "gen_z_specific_platforms": {
+          "handshake": "Leading platform for campus recruiting and early-career talent",
+          "wayup": "Diversity-focused early career platform",
+          "ripplematch": "AI-powered campus recruiting platform",
+          "notes": "Gen Z-specific platforms focus on entry-level, internship, and campus recruiting"
+        }
+      },
+      "workplace_expectations": {
+        "flexibility": {
+          "left_or_considered_leaving_over_flexibility": "72% have left or considered leaving a job lacking flexible work policy",
+          "fully_remote_preference": "Only 23% prefer fully remote (lower than older generations at 35%)",
+          "hybrid_preference": "Hybrid models (e.g., 3-day office, 2-day remote) are most attractive",
+          "office_preference_nuance": "Gen Z is actually most likely to want employees in the office more often than older generations",
+          "loneliness_driver": "27% felt lonely 'a lot' the previous day (nearly double Gen X, triple Boomers)"
+        },
+        "mental_health": {
+          "priority_level": "Over 60% rank mental health as number one concern at work (McKinsey)",
+          "would_leave_for_better_benefits": "61% would strongly consider leaving for better mental health benefits",
+          "experiencing_challenges": "91% report experiencing mental health challenges at least occasionally",
+          "disconnecting_difficulty": "Nearly 1 in 5 say they can't detach from work at end of day",
+          "expectations": "Expect mental health days, counseling services, and supportive environment"
+        },
+        "dei_expectations": {
+          "importance": "Greater focus on DEI initiatives in workplace is expected",
+          "impact": "Companies expanding DEI focus see improved engagement across all age groups",
+          "note": "Expect companies to demonstrate real commitment to diversity and ethical practices"
+        },
+        "purpose_driven_work": {
+          "purpose_essential": "89% say a sense of purpose is essential to job satisfaction (Deloitte 2025)",
+          "employer_expectations": "Expect employers to demonstrate commitment to sustainability, diversity, and social impact"
+        },
+        "communication_preferences": {
+          "preferred_channels": "Text and chat over email and phone",
+          "speed_expectations": "Expect fast, transparent communication in hiring process",
+          "disengagement_trigger": "When hiring feels slow, unclear, or impersonal, they disengage quickly"
+        }
+      },
+      "tenure_and_job_hopping": {
+        "average_tenure": {
+          "first_five_years": "1.1 years average tenure (Randstad global survey)",
+          "overall_average": "1.8 years (Gateway Commercial Finance)",
+          "comparison": "vs Millennials 1.8 years, Gen X 2.8 years, Boomers 2.9 years"
+        },
+        "job_change_plans": "1 in 3 Gen Z workers plans to change jobs within next year",
+        "industries_explored": "Already moved through 2.1 industries and 2.2 roles in first 3 career years",
+        "career_goals_consideration": "40% always consider long-term career goals when making job changes",
+        "compensation_edge_faded": "Job-switching salary premium now only 0.2% (4.8% vs 4.6% for stayers) — lowest gap in 10 years",
+        "burnout_risk": "Job-hoppers are 65% more likely to report burnout (38% vs 23%)",
+        "counterpoint": "Workers aged 25-34 in 2024 had median tenure of 2.7 years, only slightly lower than Boomers at same age in 1983"
+      },
+      "salary_expectations": {
+        "expected_starting_salary": "$101,500 (ZipRecruiter 2025)",
+        "actual_average_starting_salary": "$68,400",
+        "expectation_gap": "$33,100 gap between expectations and reality",
+        "financial_success_threshold": "$587,797 annual salary deemed adequate for financial success",
+        "middle_class_perception": "Only 41% consider $74,000/year as middle class",
+        "financial_health_requirement": "$177,633 needed to feel financially healthy",
+        "would_leave_over_salary": "74% would leave if salary was unsatisfactory",
+        "bonus_programs": "71.6% of organizations include new graduates in annual bonus programs",
+        "sign_on_bonuses": "45.6% of organizations offer sign-on bonuses to new graduates"
+      },
+      "ghosting_behavior": {
+        "employer_ghosting_rate": "41% of Gen Z job seekers have ghosted a potential employer",
+        "post_offer_ghosting": "54% of hiring managers report being ghosted by Gen Z after extending an offer",
+        "ghosting_types": {
+          "accept_but_no_paperwork": "27%",
+          "paperwork_but_no_show_day_one": "26%",
+          "show_up_then_disappear": "29%"
+        },
+        "quit_without_notice": "30% have 'ghosted' an employer — quitting without notice",
+        "interview_ghosting_uk": "93% of Gen Zers flaked on an interview (Indeed UK survey)",
+        "salary_transparency_trigger": "44% would ghost if salary range not disclosed during interview",
+        "employer_impact": {
+          "increased_time_to_fill": "54% say ghosting increased time to fill roles",
+          "decreased_trust": "47% decreased trust in younger candidates",
+          "favor_older_candidates": "34% now favor older candidates",
+          "refuse_to_hire_gen_z": "7% no longer consider Gen Z candidates"
+        },
+        "root_cause": "Employers have ghosted candidates for decades; Gen Z is reciprocating"
+      },
+      "trending_career_mindsets": {
+        "quiet_quitting_followers": "47%",
+        "career_cushioning_followers": "48%",
+        "job_hopping_acceptance": "55%",
+        "job_as_situationship": "58% describe their job as a 'situationship'",
+        "openness_to_job_types": {
+          "full_time": "50.4%",
+          "part_time": "51.6%",
+          "seasonal": "14.3%",
+          "internships": "12.8%",
+          "apprenticeships": "10.2%"
+        }
+      },
+      "gig_economy_participation": {
+        "participation_rate": "43% of Gen Z workers participate in the gig economy",
+        "comparison": "vs Millennials 38%, Gen X 28% at comparable life stages",
+        "note": "Highest gig participation of any generation at same age"
+      },
+      "campus_recruiting": {
+        "entry_level_decline": "Entry-level job postings have fallen 29% since January 2024",
+        "graduation_employment": "58% of recent graduates still looking for full-time work",
+        "pre_graduation_employment": "Only 12% of recent Gen Z grads secured full-time work by graduation (vs 40% for earlier grads)",
+        "hiring_manager_concerns": "Only 25% view short tenures as red flag, but 36% have chosen not to hire due to job-hopping concerns"
+      }
+    },
+    "millennials": {
+      "definition": "Born 1981-1996, currently aged 30-45",
+      "workforce_position": {
+        "current_status": "Moving into management and senior roles",
+        "workforce_share": "Together with Gen Z, expected to make up 74% of U.S. workforce by 2030",
+        "skills_dominance": "Possess the majority of in-demand skills across industries"
+      },
+      "career_advancement": {
+        "top_priority": "38.3% prioritize career advancement opportunities above other recognition",
+        "job_satisfaction_correlation": "Millennials certain of advancement opportunities report job satisfaction above 80%",
+        "desire_for_clarity": "Want clear career pathways with transparent promotion criteria",
+        "employer_involvement": "Desire active employer involvement in career development"
+      },
+      "retention_challenges": {
+        "key_drivers": {
+          "reskilling": "Became the smartest retention strategy; shifted from perk to operating priority",
+          "internal_mobility": "Essential retention strategy alongside upskilling",
+          "transparency": "Companies communicating clearly attracted more engaged candidates",
+          "autonomy": "High performers want clarity on objectives with freedom in execution",
+          "trust": "Became an essential management skill"
+        },
+        "mid_career_attrition": "Many companies underestimated mid-career attrition in 2025",
+        "departure_risk": "Not necessarily feeling tied to work despite central workforce position"
+      },
+      "skills_based_hiring": {
+        "adoption_rate": "65% of employers have adopted skills-based hiring for entry-level (NACE)",
+        "degree_requirement_removal": "1 in 4 companies removed degree requirements for some roles",
+        "employer_shift": "55% have begun moving to skills-based model, 23% plan to within next year (Workday)",
+        "benefits": "Broadens applicant pools, improves diversity, enables compensation flexibility"
+      },
+      "ai_and_technology": {
+        "genai_usage": "56% already using generative AI in day-to-day work",
+        "job_elimination_concern": "65% worry GenAI will eliminate jobs",
+        "career_advancement_belief": "62% believe GenAI skills are required for career advancement",
+        "time_savings": "Workers report saving average of 2 hours per day using AI tools",
+        "training_gap": "Only 25% receive formal AI training from employers"
+      },
+      "freelance_and_contract": {
+        "multiple_income_streams": "Increasingly embracing multiple income streams",
+        "project_based_work": "Growing appetite for project-based engagement throughout careers",
+        "flexibility_demand": "Roughly half expect at least a hybrid schedule"
+      },
+      "work_life_balance": {
+        "flexibility_priority": "Flexibility intensifying as top priority",
+        "rto_backlash": "65% say they would leave if forced back to office full-time (Deloitte)",
+        "balance_vs_advancement": "Both are priorities; not willing to sacrifice flexibility for advancement"
+      }
+    },
+    "gen_x": {
+      "definition": "Born 1965-1980, currently aged 46-61",
+      "workforce_share": "31% of the workforce (second-largest generational group)",
+      "the_forgotten_generation": {
+        "recognition_deficit": "30% less likely than others to say they're meaningfully recognized at work",
+        "belonging_deficit": "18% less likely to feel strong sense of belonging at organization",
+        "overlooked_status": "Often overlooked despite making up one-third of U.S. workforce",
+        "executive_representation": "Only 15% in executive-level positions (lower than 20% of Millennials)"
+      },
+      "career_plateau": {
+        "sidelined": "Many find themselves scrambling to keep up as landscape rapidly changes",
+        "competing_with_younger": "Forced to compete with younger workers for middle management positions",
+        "financial_insecurity": "81% say current job doesn't pay enough for financial security (highest of any generation)",
+        "pay_disparity": "49% of workers over 40 report earning less than younger coworkers for same job"
+      },
+      "sandwich_generation_pressures": {
+        "financial_responsibilities": "Peak financial responsibilities: mortgages, childcare, aging parent care",
+        "stagnant_wages": "Stagnant wage growth relative to cost increases",
+        "stability_vs_growth": "Want stability but need growth; value meaning but require financial security"
+      },
+      "upskilling_challenges": {
+        "ai_adoption": "42% use AI to problem-solve at work (vs 55% Gen Z)",
+        "ai_learning": "56% use AI to learn new skills (vs 75% Gen Z)",
+        "barriers": "Age, family responsibilities make upskilling harder to accomplish",
+        "personalized_training_needed": "Require training that speaks to their experience with technology"
+      },
+      "leadership_talent": {
+        "retention_strength": "Intend to stay with employer longest despite lower satisfaction",
+        "bridge_generation": "Positioned to understand perspectives of both younger and older colleagues",
+        "knowledge_transfer_value": "Hold critical institutional knowledge and leadership experience",
+        "leadership_opportunity": "Organizations should provide leadership opportunities to facilitate knowledge transfer"
+      },
+      "retention_strategies": {
+        "recognition_programs": "Invest in meaningful recognition programs",
+        "leadership_development": "Provide leadership opportunities and advancement pathways",
+        "financial_wellness": "Address financial insecurity through competitive compensation",
+        "flexible_work": "Younger Gen X leaders are noting attrition caused by inflexible RTO policies",
+        "rto_impact": "Organizations taking 23% longer to fill roles vacated by RTO enforcement"
+      }
+    },
+    "boomers": {
+      "definition": "Born 1946-1964, currently aged 62+",
+      "retirement_wave": {
+        "daily_turning_65": "Approximately 11,400 Americans turning 65 every day in 2025",
+        "peak_65_period": "2024-2027 is 'Peak 65 Zone'; 2025 marks absolute peak",
+        "total_retiring_2024_2030": "30.4 million baby boomers will turn 65 between 2024-2030",
+        "total_generation": "73 million people, entire generation will reach retirement age by 2030",
+        "annual_retirements": "Spiked to over 1.7 million in 2025 (vs ~1.2 million average pre-pandemic)",
+        "leading_edge_milestone": "On January 1, 2026, leading edge of Baby Boom reached age 80"
+      },
+      "labor_market_impact": {
+        "workforce_share": "Currently 1 in 4 workers is a baby boomer (25% of workforce)",
+        "labor_force_participation_decline": "Expected to decrease from 62% (2023) to 58% by 2030",
+        "monthly_hiring_needed": "240,000+ hires needed monthly for 5 years just to replace departing workers",
+        "unemployment_pressure": "Fewer job seekers will push unemployment potentially below 3%",
+        "wage_inflation": "Labor shortages creating wage pressures as businesses compete for shrinking talent pool",
+        "healthcare_dominance": "97% of net private-sector job creation in 2025 was in healthcare and social assistance"
+      },
+      "knowledge_transfer": {
+        "brain_drain_risk": "30-40 years of institutional knowledge and expertise exits with each retiree",
+        "void_at_top": "If too many senior employees leave, companies face leadership vacuum",
+        "solutions": {
+          "succession_planning": "Formalizing knowledge transfer through succession plans",
+          "mentoring_programs": "NASA model: retirement-eligible work half-time, 20% dedicated to mentoring",
+          "phased_retirement": "CVS Health and NASA pioneering gradual transition models",
+          "cross_training": "Essential component of succession planning"
+        }
+      },
+      "industries_most_impacted": {
+        "healthcare": {
+          "workers_to_lose": "Expected to lose 2.135 million workers",
+          "dual_challenge": "Losing boomer workers while seeing surging demand from boomer patients",
+          "medicare_strain": "Increasing eligible population strains Medicare",
+          "long_term_care": "70% of people over 65 expected to need some form of long-term care"
+        },
+        "government": {
+          "preparedness": "Most government succession planning has focused on knowledge transfer",
+          "workforce_planning": "Missing piece: predicting when boomers will decide to leave",
+          "proactive_examples": "Fort Collins, CO utilities department developed 5-year training plan"
+        },
+        "manufacturing": {
+          "workforce_gap": "3.8 million manufacturing jobs needed, 1.9 million expected unfilled by 2030",
+          "retirement_component": "2.8 million manufacturing jobs from retirement alone"
+        },
+        "education": {
+          "teacher_shortage": "Significant experienced teacher retirements creating quality gaps"
+        }
+      },
+      "continuing_to_work": {
+        "working_past_65": "1 in 5 people aged 65+ are still working",
+        "plans_to_continue": "Almost half of boomers indicated they plan to keep working in 2025",
+        "financial_pressures": "Social Security potential shortfall by 2033-2034 (may only pay 77-81% of benefits)"
+      },
+      "wealth_and_economic_impact": {
+        "total_wealth": "$75 trillion",
+        "consumption_tailwind": "Retirement spending providing tailwind to economic growth",
+        "healthcare_consumption": "Large portion likely consumed by healthcare and caregiving costs",
+        "great_wealth_transfer": "May be smaller than expected due to healthcare costs and longevity"
+      }
+    }
+  },
+  "supply_partner_trends": {
+    "job_board_evolution": {
+      "indeed": {
+        "market_position": {
+          "global_companies_using": "Over 45,043 companies worldwide using Indeed",
+          "us_dominance": "69.05% of Indeed customers are US-based",
+          "monthly_visits_dec_2025": "360.7 million visits",
+          "traffic_trend": "Traffic decreased 6.19% month-over-month in December 2025",
+          "organic_search_decline": "-8.13% organic search traffic month-over-month",
+          "peak_traffic": "604.5 million unique global visitors (March 2024)",
+          "ai_traffic": "882K visits from ChatGPT, 227K from jobright.ai, 73K from Perplexity"
+        },
+        "pricing_changes_2025_2026": {
+          "healthy_budget_minimum": "$25 minimum spend per job (enforced July 1, 2025)",
+          "free_hosted_job_limits": "Limited to 3 free hosted jobs per employer per calendar month (December 2025)",
+          "organic_visibility_change_march_2026": "Jobs from single-source XML/API feeds lose free organic visibility unless delivered through ATS supporting Indeed Apply",
+          "cost_impact": "Experts warn hiring costs could quadruple under new rules",
+          "strategic_direction": "Shifting from free aggregator to closed full-service platform requiring payment for visibility",
+          "arpj_target": "Recruit Holdings committed to 16% increase in Average Revenue per Posted Job"
+        },
+        "labor_market_context": {
+          "job_search_activity": "Job searches up 31% in January 2026 vs early December 2025",
+          "employer_leverage": "Job openings per unemployed person now below 1.0",
+          "market_environment": "Low hire, low fire environment continues"
+        }
+      },
+      "linkedin": {
+        "member_base": "1.2 billion members globally",
+        "recruiter_activity": "89% of recruiters active on the platform",
+        "ai_job_match_feature": "Launched January 2025 — provides instant profile-to-job match analysis",
+        "ai_impact_on_applications": "AI optimizations drove 40% year-over-year job application growth",
+        "personalized_recommendations": "30% boost from personalized recommendations",
+        "skills_validation": "Now looks for 'Entity Associations' — posts, endorsements, projects corroborating claimed skills",
+        "ai_roles_growth": "70% year-over-year increase in US roles requiring AI literacy",
+        "recruiter_ai_plans": "93% of recruiters plan to increase AI usage in 2026",
+        "hidden_gem_finding": "60% of recruiters say AI helps find talent they would have overlooked",
+        "skills_on_the_rise_2026": "Published lists across US, UK, Canada, Australia, Singapore",
+        "ai_jobs_created": "1.3 million new AI-related jobs added in two years globally"
+      },
+      "ziprecruiter": {
+        "ai_career_advisor": "Phil — AI-powered career advisor using conversational questions",
+        "matching_approach": "Analyzes skills, certifications, experience, salary desires, career objectives",
+        "one_tap_apply": "Quick-apply feature, but criticized for favoring volume over quality",
+        "criticism": "Algorithm seems to favor application volume over candidate quality",
+        "market_position": "Lacks standout features compared to competitors in 2026"
+      },
+      "google_for_jobs": {
+        "impact": "Generalist platforms still lead on Google for Jobs visibility",
+        "niche_boards": "Niche boards gaining ground but generalists dominate Google for Jobs",
+        "search_behavior_shift": "AI-generated overviews reducing need for users to click on ads"
+      },
+      "niche_vs_generalist": {
+        "niche_board_growth": {
+          "healthcare_visibility": "Healthcare niche boards hold 26.7% visibility, close to general platforms",
+          "specialization_advantage": "Focus on specific audience, industry, role type provides better matching",
+          "seo_advantage": "Easier to rank in search engines with focused content",
+          "passive_candidate_reach": "Deliver applications that Indeed and LinkedIn cannot"
+        },
+        "generalist_challenges": {
+          "ai_erosion": "Being swallowed by AI-driven search engines",
+          "volume_vs_clarity": "Employers frustrated by 'volume without clarity' crisis",
+          "note": "Job boards won't disappear, but spending shift expected"
+        },
+        "aggregator_market": {
+          "market_size_2023": "$5.2 billion",
+          "projected_2032": "$16.2 billion",
+          "cagr": "13.7% (2024-2032)",
+          "challenges": "Intense competition, potential market saturation, price pressure"
+        }
+      },
+      "consolidation_and_acquisitions": {
+        "workday_acquires_paradox": "$4.5 billion acquisition announced early 2025",
+        "trend": "Larger players buying smaller, less profitable players in closely related industries",
+        "specialist_outperformance": "Specialist platforms generating better returns than generalists",
+        "2026_outlook": "Increased consolidation expected due to AI search advances"
+      }
+    },
+    "programmatic_trends": {
+      "market_growth": {
+        "growth_rate": "Growing 2x faster than overall job advertising market",
+        "global_programmatic_spend_2026": "$725 billion projected",
+        "recruitment_focus": "Shift from CPC to CPA/CPQA (cost-per-quality-acquisition) models"
+      },
+      "cpc_inflation": {
+        "overall_cpc_increase_2024_2025": "12.88% average increase across all industries ($4.66 to $5.26)",
+        "google_ads_annual_average": "2.33% annual CPC increase (Google's own data, 2019-2024)",
+        "wordstream_benchmarks": ">4% CAGR over last 4 years across all industries",
+        "managed_accounts": "11.75% CAGR for high-spend accounts",
+        "cost_per_lead_increase": "~25% year-over-year increase across all industries",
+        "zero_click_searches": "Nearly 60% of Google searches ended without a click in 2024",
+        "us_ad_spend_growth": "Over 12% growth, reaching $144 billion",
+        "impression_decline": "Down 15% year-over-year despite spending increases"
+      },
+      "click_fraud_and_ad_fraud": {
+        "global_fraud_losses": "Projected to exceed $172 billion annually by 2028",
+        "programmatic_fraud_rate": "40-50% ad fraud rates without verification tools",
+        "at_risk_impressions": "20-25% of programmatic impressions at risk without verification",
+        "average_campaign_fraud": "25% fraud in average campaign; programmatic often 40-50%",
+        "advertiser_budget_loss": "15-30% of budget lost to invalid traffic (IVT)",
+        "fraud_prevention_impact": "Using fraud prevention tools reduces invalid traffic by 60-90%",
+        "fraud_types": "Cookie stuffing, bot traffic, click/impression fraud, domain spoofing, hidden advertising",
+        "rising_costs_increase_fraud": "Higher CPM/CPC pressures lead to increased fraud tactics"
+      },
+      "publisher_quality": {
+        "domain_spoofing_risk": "Websites disguised as higher-value sites to inflate prices",
+        "quality_management": "Most teams limit to high-volume/low-CPC publishers regardless of hire quality",
+        "prevention_strategies": [
+          "Pre-bid solutions to screen high-risk inventory",
+          "Whitelisting known, trustworthy domains",
+          "Third-party verification tools",
+          "Performance-based publisher scoring"
+        ]
+      },
+      "pricing_model_evolution": {
+        "traditional_cpc": "Still dominant but declining in effectiveness",
+        "cpa_models": "Growing focus on cost-per-application",
+        "cpqa_models": "Emerging focus on cost-per-quality-acquisition",
+        "performance_focus": "Budget flows only to channels delivering qualified candidates",
+        "indeed_model_shift": "Indeed experimented with PPA in 2022-2023 but reverted to CPC after backlash"
+      },
+      "mobile_apply_optimization": {
+        "gen_z_behavior": "Discover on mobile, complete applications on desktop",
+        "desktop_growth": "Desktop application completion grew from 54% (2023) to 65% (2025)",
+        "implication": "Mobile optimization critical for discovery, but desktop experience matters for conversion"
+      },
+      "conversational_apply": {
+        "paradox_olivia": {
+          "market_leader": "500+ companies worldwide",
+          "conversion_improvement": "5x increase in application conversion",
+          "hiring_speed": "Chipotle 75% faster hiring, McDonald's cut hiring time in half",
+          "cost_savings": "GM saved $2M annually",
+          "time_savings": "7-Eleven saved 40,000 interview-hours per week",
+          "scheduling_speed": "Interview scheduling dropped from 26 hours to 18 minutes",
+          "candidate_satisfaction": "99.78% of candidates rate experience positively",
+          "acquisition": "Acquired by Workday for ~$4.5 billion (2025)",
+          "languages": "100+ languages supported"
+        },
+        "market_size": {
+          "current_2025": "$2.03 billion",
+          "projected_2030": "$5.41 billion",
+          "cagr": "21.6%"
+        }
+      },
+      "video_job_ads": {
+        "short_form_effectiveness": "Short-form videos outperform generic career pages for Gen Z",
+        "employee_stories": "Real employee stories drive higher engagement than corporate content",
+        "tiktok_recruitment_videos": "Some videos earn 37,000+ likes and directly drive career site traffic",
+        "paradox_video_capture": "Allows video responses within conversational application flow"
+      },
+      "one_click_apply": {
+        "volume_vs_quality": "Increases application volume but can reduce quality",
+        "ziprecruiter_criticism": "1-Tap Apply opens floodgates to mismatched applications",
+        "employer_challenge": "Need to balance ease of apply with qualified candidate filtering"
+      }
+    },
+    "social_recruiting": {
+      "tiktok": {
+        "platform_stats": "1 billion+ monthly active users, majority under 30",
+        "algorithm_advantage": "'For You' feed allows any video to go viral, unlike follow-based platforms",
+        "lower_competition": "Still underused for recruitment vs Indeed/Facebook",
+        "gen_z_search": "74% of Gen Z use TikTok for search; 51% favor it over Google",
+        "case_studies": {
+          "chipotle": "Applicants increased 7% from TikTok recruiting campaign",
+          "manufacturing": "Mid-sized manufacturers using shop-floor content for hiring",
+          "viral_recruitment": "Some recruiting videos earned 37,000+ likes"
+        },
+        "limitations": "Skews younger, may not reach senior/specialized candidates; requires strong visual content",
+        "ban_risk": "Ongoing uncertainty about TikTok availability in the US"
+      },
+      "instagram": {
+        "user_demographics": "Over 60% of users aged 18-34",
+        "employer_branding": "Powerful for illustrating work environment and employee experiences",
+        "content_formats": "Reels, Stories, posts for behind-the-scenes and culture content",
+        "influence_on_applications": "76% of Gen Z rely on Instagram for career content"
+      },
+      "reddit": {
+        "growth": "Overtook X to become 5th most-popular social platform in UK (47% YoY growth)",
+        "unique_value": "Community-driven format ensures valuable content stays visible and searchable",
+        "ama_effectiveness": "Strategic AMAs position organizations as thought leaders while attracting talent",
+        "employee_advocacy": "Works exceptionally well due to Reddit's credibility-driven culture",
+        "authenticity_advantage": "Genuine community participation carries more credibility than corporate accounts"
+      },
+      "emerging_platforms": {
+        "discord_slack": "Tech recruiting through community channels",
+        "youtube_shorts": "Expected to be dominant for recruiting ad videos in 2025",
+        "spotify": "Drawing increasing interest for job advertising",
+        "x_decline": "Companies losing interest due to polarizing content associations"
+      },
+      "employee_advocacy": {
+        "trust_factor": "86% of candidates trust employee recommendations over corporate advertising (Universum)",
+        "reach": "Job searchers spend only 3% of online time on Indeed/LinkedIn",
+        "social_impressions": "Social media creates brand impressions before active job searching",
+        "multi_platform": "Employees share on LinkedIn, Instagram, Reddit, TikTok"
+      }
+    },
+    "emerging_channels": {
+      "ctv_connected_tv": {
+        "market_size": {
+          "ad_spend_2025": "$33.35 billion (nearly 10% of total digital ad spend)",
+          "us_ctv_users_2026": "69.9% of US population",
+          "us_ctv_viewers": "250+ million",
+          "global_smart_tv_households": "1.2 billion"
+        },
+        "streaming_dominance": "Streaming accounted for 47.5% of total U.S. TV viewing time (December 2025)",
+        "interactive_ads": "Engagement per impression reached 1.94% in Q2 2025 (nearly double Q2 2024)",
+        "maturation": "Channel moved from experimental to essential/evergreen in 2025",
+        "recruitment_application": "Growing interest in CTV for employer branding and large-scale recruitment campaigns"
+      },
+      "podcast_advertising": {
+        "weekly_listeners_2026": "121.5 million in US",
+        "video_podcast_growth": "YouTube podcast streaming on TVs: 700M hours (Oct 2025) vs 400M (Oct 2024)",
+        "audio_vs_video": "Audio ads outperform video in purchase conversion by 18-25%",
+        "brand_building": "Video podcasts on YouTube better for brand building; audio better for direct response",
+        "recruitment_use": "Increasingly used for employer branding and culture storytelling"
+      },
+      "voice_advertising": {
+        "status": "Emerging touchpoint through Alexa, Google Home, Siri",
+        "potential": "Real-time, hyper-relevant advertising through voice commands",
+        "readiness": "Most brands don't yet have infrastructure for voice-based retargeting"
+      },
+      "metaverse_recruiting": {
+        "status": "Largely faded from mainstream recruiting conversations",
+        "note": "Initial hype did not translate into significant recruiting adoption"
+      },
+      "in_game_advertising": {
+        "target_audience": "Potential for Gen Z recruitment through gaming platforms",
+        "status": "Experimental; not yet mainstream for recruitment"
+      },
+      "ai_chatbot_recruiting": {
+        "paradox_olivia": "Market leader, acquired by Workday for $4.5B",
+        "market_growth": "Recruitment chatbot market: $2.03B (2025) to $5.41B (2030), 21.6% CAGR",
+        "ai_screening_adoption": "83% of hiring managers using AI to screen resumes (up from 12% five years ago)",
+        "autonomous_agents": "More than half of talent leaders planning to add autonomous AI agents in 2026"
+      }
+    }
+  },
+  "job_type_trends": {
+    "growing_demand": {
+      "ai_ml_engineers": {
+        "hiring_growth": "88% year-on-year growth in 2025",
+        "us_positions_q1_2025": "35,445 AI-related positions (25.2% increase from Q1 2024)",
+        "salary_average": "$206,000 average (2025), up $50,000 from previous year",
+        "senior_level_median": "$240,000 (top 4% of all earners)",
+        "salary_premium": "12% premium at IC level vs non-AI roles",
+        "market_size": "Global ML market: $55.8B (2024) to $282.13B (2030), 30.4% CAGR",
+        "job_title_share": "AI/ML Engineer represents 45% of all AI/ML job titles",
+        "company_priority": "65% of companies making AI skillsets a business priority",
+        "emerging_roles": "AI Engineer (+143% growth), Prompt Engineer (+95% growth) YoY"
+      },
+      "cybersecurity": {
+        "unfilled_jobs_global": "3.5 million currently, expected 4.5 million by 2026",
+        "us_openings_2025": "457,398 cybersecurity job openings (CyberSeek)",
+        "bls_growth_projection": "33% increase 2023-2033 (much faster than average)",
+        "annual_posting_growth": "18-22% year-over-year through 2026",
+        "median_salary": "$124,910 (May 2024 BLS data)",
+        "unemployment_rate": "Has reached 0% multiple times in past 5 years",
+        "spending_growth": "Security software: $95B (2024) to $106B (2025) to $121B (2026)",
+        "top_skill_gaps": "AI (41%), cloud security (36%), risk assessment (29%), application security (28%)"
+      },
+      "healthcare": {
+        "job_growth_dominance": "121% of all jobs added Jan 2025-Jan 2026 were in healthcare",
+        "january_2026": "81,900 of 130,000 total jobs added (63%)",
+        "long_term_projection": "5.2 million US jobs expected 2024-2034",
+        "annual_openings": "~1.9 million openings projected annually",
+        "health_services_managers_growth": "29% by 2033",
+        "above_pandemic_levels": "Job postings remain 32.5% above pre-pandemic levels",
+        "ai_resistance": "Healthcare jobs hard to automate and can't be offshored",
+        "nursing_shortage": "Over 500,000 nurses short in 2025"
+      },
+      "skilled_trades": {
+        "growth_range": "4-60% for various trades through 2033 (BLS)",
+        "solar_installer_growth": "48% projected 2023-2033",
+        "wind_turbine_tech_growth": "45% projected 2023-2033 (fastest-growing occupation)",
+        "electrician_growth": "11% projected 2023-2033",
+        "retirement_ratio": "5 experienced tradespeople retire for every 2 new workers",
+        "welder_shortage": "400,000 nationwide (American Welding Society)",
+        "aging_workforce": "Nearly one-third of skilled labor force is over 50",
+        "infrastructure_jobs": "Bipartisan Infrastructure Law creating 345,000 new trade positions",
+        "construction_annual_growth": "154,900 new jobs annually over next decade",
+        "automation_resistance": "Cannot be replaced by machines or shipped overseas"
+      },
+      "renewable_energy": {
+        "global_employment": "16.2 million people employed in renewable energy (2023 IRENA)",
+        "solar_jobs": "7.1 million jobs worldwide in solar",
+        "projected_2030": "Over 30 million global renewable energy jobs",
+        "wind_tech_growth": "60% job growth 2023-2033",
+        "solar_installer_growth": "27% growth 2022-2032",
+        "us_capacity_additions_2025": "Renewables accounted for 93% of capacity additions",
+        "2026_projection": "Solar, wind, battery additions projected 62% higher than previous year",
+        "policy_impact": "IRA triggered $300B+ in clean energy projects",
+        "policy_risk": "One Big Beautiful Bill Act rolled back many clean energy tax credits"
+      },
+      "supply_chain_logistics": {
+        "hiring_trend": "36% of companies added personnel, 32% had hiring freezes, 21% had layoffs",
+        "bls_growth": "17% employment growth for logisticians through 2034",
+        "stabilization": "Market stabilizing after years of volatility",
+        "automation_adoption": "54% of leaders prioritizing automation of repetitive tasks",
+        "growth_drivers": "Domestic production increases and reshoring initiatives"
+      },
+      "mental_health_professionals": {
+        "bls_growth": "17% projected 2024-2034 (much faster than average)",
+        "annual_openings": "48,300 openings projected each year over next decade",
+        "shortage_scale": "112+ million Americans in mental healthcare shortage areas",
+        "market_size": "US behavioral health: $96.9B (2025) to $159.35B (2035)",
+        "online_therapy_growth": "US online therapy: $1.45B (2025) to $4.25B (2035), 8.73% CAGR",
+        "workforce_gap": "Shortages of counselors, psychiatrists, and social workers expected to worsen"
+      },
+      "financial_compliance_risk": {
+        "demand_driver": "Increasing regulatory complexity across industries",
+        "growth_areas": "AML compliance, risk management, regulatory technology"
+      }
+    },
+    "declining_roles": {
+      "overall_impact": {
+        "global_displacement": "85 million jobs displaced by AI/automation by end of 2026",
+        "us_impact_2025": "55,000 jobs impacted by AI-driven automation",
+        "automatable_work": "25% of global work hours now automatable (up from 18%)",
+        "employer_reductions": "40% of employers expect workforce reductions due to AI",
+        "wef_projection": "92 million jobs displaced by 2030, but 170 million new created (net +78M)",
+        "upskilling_need": "Over 40% of workers will require significant upskilling by 2030"
+      },
+      "data_entry": {
+        "positions_at_risk": "7.5 million positions could be eliminated by 2027",
+        "automation_technology": "ML and OCR already automating manual data entry tasks",
+        "traditional_volume": "Rapidly shrinking as organizations adopt automated data pipelines"
+      },
+      "customer_service": {
+        "automation_potential": "80% automation potential by 2025",
+        "chatbot_replacement": "AI chatbots increasingly handling routine customer interactions",
+        "vulnerability": "Administration and customer service most vulnerable sectors"
+      },
+      "retail_cashiers": {
+        "automation_risk": "65% automation risk",
+        "self_checkout_adoption": "AI-powered checkout expected to reach 25% adoption by 2026-2028",
+        "walmart_impact": "Self-checkout expansion may replace 8,000 positions",
+        "sams_club": "AI verification rollout could eliminate 12,000 cashier jobs",
+        "stock_clerks": "Projected 10% decline by 2033 due to AI inventory"
+      },
+      "entry_level_jobs": {
+        "posting_decline": "15% year-over-year decline in entry-level postings",
+        "uk_tech_grad_roles": "Fell 46% in 2024, projected further 53% drop by 2026",
+        "us_junior_tech": "67% decrease in junior tech postings",
+        "employment_decline": "13% decline in employment for workers 22-25 in AI-exposed roles",
+        "hiring_vs_separations": "Decline driven by slower hiring rather than increased separations",
+        "ai_adoption_impact": "AI-adopting firms hired 3.7 fewer junior workers per quarter vs non-adopters"
+      },
+      "traditional_media": {
+        "print_journalism": "Continuing decline as digital media dominates",
+        "broadcast_roles": "Reduced demand for traditional broadcast positions"
+      },
+      "basic_accounting": {
+        "automation_driver": "AI and automation tools handling routine bookkeeping",
+        "transformation": "Shifting toward advisory and strategic roles requiring human judgment"
+      },
+      "tech_layoffs": {
+        "ai_attributed_losses_h1_2025": "77,999 tech jobs directly attributed to AI",
+        "early_2026_impact": "Over 22,000 employees impacted by AI-driven layoffs",
+        "chatgpt_replacement": "49% of US companies using ChatGPT report replacing workers",
+        "displacement_timeline": "2026-2028 expected peak of career transitions and displacement"
+      }
+    },
+    "gig_economy": {
+      "market_size": {
+        "global_2026": "$674.1 billion",
+        "projected_2035": "$2,522.37 billion",
+        "cagr": "15.79%",
+        "freelance_platforms_market": "$7.65B (2025) to $16.54B (2030)"
+      },
+      "us_workforce": {
+        "total_gig_workers_2025": "70+ million Americans (36% of total workforce)",
+        "total_freelancers_2025": "76.4 million",
+        "projected_2027": "87 million (50.9% of workforce)",
+        "high_earners": "5.6 million earning $100K+ annually (87% increase since 2020)",
+        "average_hourly_pay": "$16.67 (range $10.10-$27.16)",
+        "average_freelancer_salary": "$108,028 annually",
+        "skilled_freelancer_earnings": "$1.5 trillion earned by US skilled knowledge freelancers (2024)"
+      },
+      "global_scale": {
+        "world_bank_estimate": "435 million gig workers globally",
+        "conservative_estimate": "154 million online gig workers worldwide"
+      },
+      "platform_trends": {
+        "growth_rate": "5-8% year-over-year in monthly active users of gig work apps",
+        "economic_cushion": "Gig platforms absorbing strain as traditional labor market cools",
+        "unemployment_hidden": "15% of 'unemployed' or 'not in labor force' are doing gig work",
+        "pay_gap": "Gig workers earn only 50-65% as much per hour as previous traditional jobs",
+        "lost_income_response": "20% of people who lost pay/jobs turned to gig platforms"
+      },
+      "upwork_stats": {
+        "registered_freelancers": "18+ million",
+        "average_hourly_rate": "$39/hour",
+        "active_clients": "841,000",
+        "annual_revenue": "$769.32 million (2024)",
+        "gsv": "$4 billion (2024)",
+        "growth_projection": "6-8% revenue growth projected for 2026"
+      },
+      "sector_trends": {
+        "white_collar_demand": "Project-based white-collar talent demand grew 38% (FY 2025)",
+        "blue_collar_growth": "Blue-collar gig hiring rose 92% YoY in 2024",
+        "ai_adoption": "60% of freelancers using AI-driven platforms for skill development (up from 35% in 2023)",
+        "gen_z_participation": "43% of Gen Z workers in gig economy (highest of any generation)"
+      },
+      "regulatory": {
+        "california_unionization": "800,000 rideshare drivers can unionize starting Jan 1, 2026 (AB 1340)",
+        "eu_platform_work_directive": "All EU members must implement by December 2, 2026",
+        "worker_classification": "Ongoing debates about employee vs contractor status",
+        "company_opposition": "Uber, Lyft, DoorDash spent $200M+ supporting Proposition 22"
+      },
+      "on_demand_platforms": {
+        "examples": "Wonolo, Instawork, BlueCrew for shift-based work",
+        "growth_driver": "E-commerce and delivery demand",
+        "census_data": "Top industries: Couriers (1.43M), Taxi/Limo (1.36M), Janitorial (1.07M), Artists/Writers (1.04M)"
+      }
+    },
+    "remote_work": {
+      "current_state": {
+        "us_remote_rate": "22.8% of US employees work remotely at least part-time (March 2025)",
+        "stability": "Remained stable between 21-23% since early 2024",
+        "hybrid_prevalence": "55% of remote-capable workers in hybrid setting",
+        "overall_remote_capable": "80% of remote-capable employees work hybrid (52%) or fully remote (26%)"
+      },
+      "job_postings_breakdown": {
+        "q4_2025": {
+          "fully_onsite": "65%",
+          "hybrid": "24%",
+          "fully_remote": "11%"
+        },
+        "hybrid_growth": "Jumped from 15% (Q2 2023) to 24% (Q2 2025)",
+        "onsite_decline": "Declined from 83% (Q2 2023) to 66% (Q2 2025)",
+        "remote_application_premium": "Remote jobs attract 2.6x as many applications as in-person jobs",
+        "remote_postings_growth": "Remote postings increased 3% in Q4 2025"
+      },
+      "return_to_office_mandates": {
+        "companies_requiring_5_days": {
+          "2026_planned": "30% of companies plan to require 5 days by 2026",
+          "examples": "Truist, TikTok requiring full return in 2026",
+          "major_companies": "Google, Apple, Meta, Microsoft, Netflix requiring 3-4 days/week"
+        },
+        "influence_factors": {
+          "corporate_influence": "54% of businesses influenced by major corporations returning",
+          "government_influence": "35% influenced by federal government RTO"
+        },
+        "employee_backlash": {
+          "would_quit": "64% of remote workers would quit or start looking if employer ended remote/hybrid",
+          "job_hunting_trigger": "40% would start job hunting if flexible work removed",
+          "expect_raise": "22% would expect a raise",
+          "immediate_quit": "5% would quit immediately",
+          "gen_z_millennial_response": "65% say they would leave if forced back full-time (Deloitte)"
+        }
+      },
+      "employer_plans": {
+        "maintaining_remote": "90% plan to maintain or increase remote work options",
+        "no_rto_plans": "88% of hybrid/remote team leaders have no plans for full office return",
+        "retention_benefit": "76% experience greater employee retention by allowing remote work"
+      },
+      "remote_work_by_industry": {
+        "note": "Remote job availability varies significantly by industry",
+        "tech": "Highest remote/hybrid availability",
+        "healthcare": "Limited remote (except telehealth)",
+        "manufacturing": "Primarily on-site",
+        "finance": "Moderate hybrid adoption",
+        "professional_services": "High hybrid adoption"
+      },
+      "geographic_pay_adjustments": {
+        "trend": "Ongoing debates about location-based pay vs role-based pay",
+        "digital_nomad_visas": "Multiple countries offering visas for international remote workers",
+        "salary_impact": "Some companies adjusting pay based on employee location"
+      },
+      "remote_job_boards": {
+        "platforms": "FlexJobs, We Work Remotely, Remote.co, Remotive",
+        "trend": "Premium positioning as remote/hybrid becomes a perk rather than standard"
+      }
+    }
+  },
+  "regional_shifts": {
+    "us_domestic_migration": {
+      "sun_belt_dominance": {
+        "top_growth_states_2025": [
+          "Texas", "Florida", "North Carolina", "Tennessee", "South Carolina",
+          "Washington", "Arizona", "Idaho", "Alabama", "Georgia"
+        ],
+        "stability": "8 of top 10 states were also in top 10 in 2024",
+        "outmigration_states": "California, New York, Illinois continue largest net domestic outflows"
+      },
+      "texas": {
+        "jobs_added": "611,400 new jobs year-over-year (leads nation)",
+        "corporate_relocations": "Dallas-Fort Worth #1 destination for HQ relocations (2018-2023)",
+        "austin_tech": "Known as 'Silicon Hills'; 20%+ population increase in last decade",
+        "job_growth_rate": "4.6% year-over-year"
+      },
+      "florida": {
+        "job_growth_rate": "4.6% year-over-year",
+        "migration_slowdown": "Net domestic migration fell 49% from 2022 to 2023",
+        "headwinds": "Skyrocketing home insurance (~$9,500 avg annual premium), housing affordability",
+        "note": "Still positive net migration but pace moderated significantly"
+      },
+      "arizona": {
+        "phoenix_growth": "15% population growth rate 2010-2022",
+        "sectors": "Healthcare, finance, semiconductor manufacturing, EV production",
+        "chips_act_impact": "Samsung semiconductor plant in Taylor expected operational 2026"
+      },
+      "emerging_tech_hubs": {
+        "austin": "#5 in AI-focused job postings per capita",
+        "raleigh": "#7 in AI-focused job postings per capita",
+        "salt_lake_city": "#4 in AI-focused job postings per capita",
+        "nashville": "Top 5 for HQ relocations",
+        "traditional_leaders": "San Jose, Seattle, San Francisco still lead in AI job density"
+      },
+      "cost_of_living_migration": {
+        "no_income_tax_advantage": "Texas, Florida, Nevada continue attracting high-income earners",
+        "source_states": "California, New York, New Jersey primary sources",
+        "mortgage_rate_lock": "High rates keeping some potential movers in place"
+      },
+      "nevada": {
+        "job_growth_rate": "5.1% year-over-year (leads all states)"
+      }
+    },
+    "international_hiring": {
+      "nearshore_latam": {
+        "market_growth": {
+          "latam_it_market_cagr": "6.5% annual rate through 2030",
+          "mexico_it_services": "$21.28B (2025) to $37.28B (2030)",
+          "latam_tech_ecosystem": "$26.02B by 2030 (7.12% CAGR)",
+          "nearshore_hiring_growth": "285% growth since 2016",
+          "applicant_growth": "370% increase in LATAM tech job applicants over 4 years"
+        },
+        "mexico": {
+          "tech_talent_pool": "800,000+ tech professionals",
+          "us_company_nearshoring": "49% of US companies nearshore IT to Mexico and Canada",
+          "strengths": "US time zone alignment, deep talent pools, cloud and AI specialization"
+        },
+        "colombia": {
+          "tech_talent_pool": "165,000+ tech professionals",
+          "startup_ranking": "#2 in South America startup ecosystem (2025)",
+          "medellin": "Functioning as region's 'Silicon Valley'",
+          "government_support": "ICT Modernization Law boosting tech exports"
+        },
+        "argentina": {
+          "talent_quality": "Strong technical talent at competitive rates",
+          "cost_advantage": "Senior engineer $52,000-$78,000 vs $120,000-$150,000 in Silicon Valley"
+        },
+        "cost_savings": "30-50% less than US equivalents for equivalent quality",
+        "salary_pressure": "LATAM salaries grew 15-25% in 2024-2025; projected 10-15% higher in 2026"
+      },
+      "india": {
+        "market_position": "Continues to dominate IT and software development outsourcing",
+        "emerging_hubs": "Pune and Hyderabad alongside Bangalore",
+        "startup_hiring_growth": "32% year-over-year surge (leads Asia-Pacific)",
+        "developer_rates": "$18-$40/hour; median annual wages often below $12,000",
+        "cost_advantage": "40-70% lower than US/Western European rates",
+        "challenges": "Large time zone difference and communication barriers"
+      },
+      "eastern_europe": {
+        "key_markets": "Poland, Romania, Ukraine, Czech Republic",
+        "strengths": "Strong engineering education, growing tech ecosystems",
+        "note": "Ukraine talent market affected by ongoing conflict but remote work continues"
+      },
+      "southeast_asia": {
+        "growth_markets": "Vietnam, Philippines, Indonesia",
+        "cost_advantage": "Among lowest rates globally",
+        "growing_quality": "Improving technical education and talent pipelines"
+      },
+      "middle_east": {
+        "saudi_vision_2030": "Major diversification hiring initiatives",
+        "uae_tech_hub": "Dubai and Abu Dhabi as growing technology centers",
+        "investment": "Significant government-backed tech sector investment"
+      },
+      "africa": {
+        "emerging_markets": "Nigeria tech, Kenya tech, South Africa",
+        "growth_trajectory": "Rapidly developing tech ecosystems",
+        "talent_pipeline": "Young, growing population with increasing tech education"
+      },
+      "global_trends": {
+        "shift_from_cost_to_strategy": "No longer solely about cost savings; now about specialized skills and resilience",
+        "h1b_visa_pressure": "Rising costs pushing US companies toward nearshoring",
+        "enterprise_adoption": "Major companies building permanent LATAM engineering centers in 2026",
+        "hybrid_models": "Many firms adopting hybrid offshore/nearshore models",
+        "talent_shortage": "77% of companies still struggle to find needed talent",
+        "skills_first": "Skills-based hiring expanding talent pools nearly tenfold"
+      }
+    },
+    "industry_specific_regional": {
+      "healthcare": {
+        "rural_shortage": {
+          "hpsa_rural": "60%+ of Health Professional Shortage Areas in rural/partially rural regions",
+          "population_vs_physicians": "15% of US population in rural areas, served by <10% of physicians",
+          "patient_ratio": "5.1 per 10,000 in rural vs 8.0 in urban areas"
+        },
+        "travel_nursing": {
+          "market_status": "Matured from pandemic volatility to structured market",
+          "demand_drivers": "Retirements, burnout, ongoing workforce shortages",
+          "virtual_shift": "Travel RNs increasingly shifting to virtual platforms with compact licensure"
+        },
+        "telehealth": {
+          "rural_impact": "Reducing ER transfers by up to 25%",
+          "policy_uncertainty": "Key flexibilities extended only through January 30, 2026",
+          "growth": "Transformative tool for rural systems with specialist shortages"
+        }
+      },
+      "tech": {
+        "distributed_teams": "Hub-and-spoke models becoming standard",
+        "new_tech_hubs": "Austin, Raleigh, Salt Lake City, Nashville growing",
+        "traditional_hubs_status": "San Jose, Seattle, San Francisco still lead in AI job density",
+        "remote_enabling": "Distributed hiring reducing dependence on single geography"
+      },
+      "manufacturing": {
+        "reshoring": {
+          "jobs_announced_since_2010": "2+ million jobs announced (accelerated in last 4 years)",
+          "chips_act_investment": "TSMC $100B, Micron $200B, Samsung $37B investments",
+          "workforce_challenge": "67,000 of 115,000 semiconductor jobs may go unfilled",
+          "manufacturing_gap": "3.8M jobs needed, 1.9M expected unfilled by 2030"
+        },
+        "chips_act": {
+          "total_funding": "$52.7 billion over 5 years",
+          "tax_credit": "25% for semiconductor investments in US",
+          "semiconductor_investment": "$102.6B in capital investment (Oct 2024-Apr 2025)",
+          "jobs_created": "17,600+ new semiconductor jobs from mega-deals"
+        },
+        "2026_outlook": {
+          "revenue_growth": "4.4% projected increase",
+          "capex_growth": "3% rise in capital expenditures",
+          "employment_growth": "0.4% focused on skilled roles"
+        }
+      },
+      "energy": {
+        "renewable_transition": "Shifting talent geography from fossil fuel regions to solar/wind corridors",
+        "ev_uncertainty": "Q1 2025: more EV projects canceled than previous 2 years combined",
+        "policy_headwinds": "H.R.1 eliminates $7,500 federal EV tax credit",
+        "deployment_surge": "Solar, wind, battery additions projected 62% higher in 2026"
+      },
+      "finance": {
+        "fintech_decentralization": "Moving beyond NYC/London to distributed models",
+        "compliance_growth": "Increasing regulatory complexity driving demand",
+        "remote_adoption": "Moderate hybrid adoption in financial services"
+      }
+    }
+  },
+  "ai_impact": {
+    "ai_in_recruitment": {
+      "adoption_rates": {
+        "organizations_using_ai_2025": "43% (up from 26% in 2024)",
+        "firms_using_ai_in_hiring": "51% currently, expected 68% by end of 2025",
+        "some_form_of_ai": "67% of organizations use some form in recruitment",
+        "fortune_500": "99% use AI tools (HireVue, LinkedIn Recruiter, SAP, Oracle)",
+        "by_industry": {
+          "technology": "89%",
+          "financial_services": "76%",
+          "healthcare": "62%"
+        },
+        "2026_projection": "80%+ of enterprises expected to use AI for significant hiring parts",
+        "voice_screening": "80% of high-volume recruiting expected to begin with AI voice screening by Q2 2026",
+        "autonomous_agents": "50%+ of talent leaders planning autonomous AI agents in 2026"
+      },
+      "market_size": {
+        "current_2026": "$660M-$754M",
+        "projected_2030": "$1.1B+",
+        "cagr": "6.8-7.6%",
+        "total_ai_investment_2026": "$2 trillion expected by end of 2026"
+      },
+      "efficiency_gains": {
+        "cost_per_hire_reduction": "30%",
+        "time_to_hire_improvement": "25-31% faster",
+        "quality_of_hire": "50% improvement in metrics (SHRM)",
+        "screening_time_reduction": "71% reduction in initial review time (Workday)",
+        "most_advantageous_use": "Screening candidates (56%), nurturing candidates (55%)"
+      },
+      "generative_ai_in_hiring": {
+        "job_description_writing": "61% of job seekers find AI-written job ads easier to understand",
+        "candidate_ai_usage": {
+          "company_research": "70% use GenAI for research, cover letters, interview prep",
+          "resume_writing": "54% use AI to write resumes",
+          "cover_letters": "50%+ use AI for cover letters",
+          "writing_samples": "36% use AI for writing samples",
+          "assessment_answers": "29% use AI for assessment answers"
+        }
+      },
+      "ai_bias": {
+        "bias_detected": "Significant racial, gender, and intersectional bias in LLM resume ranking",
+        "gender_age_bias": "ChatGPT portrayed women as younger/less experienced; rated older men highest",
+        "human_mirroring": "When given AI recommendations, humans mirror AI bias ~90% of the time",
+        "bias_reduction_potential": "Properly implemented AI reduces hiring bias 56-61% when monitored",
+        "diverse_hires": "55% of companies using AI report more diverse new hires",
+        "candidate_resistance": "66% of US adults won't apply for jobs using AI in hiring decisions",
+        "candidate_concern": "32% fear AI may unfairly reject applications",
+        "acceptable_with_human_oversight": "67% comfortable with AI screening if human makes final decision"
+      },
+      "regulatory_landscape": {
+        "eu_ai_act": "General purpose AI obligations began August 2026",
+        "nyc_local_law_144": "Annual bias audit and candidate notices required",
+        "trend": "Increasing regulation of AI in hiring globally"
+      },
+      "seniority_bias": {
+        "finding": "GenAI adoption causes sharp junior employment decline while senior unchanged",
+        "impact": "AI-adopting firms hired 3.7 fewer junior workers per quarter",
+        "mechanism": "Driven by slower hiring rather than separations",
+        "concentration": "In occupations most exposed to GenAI capabilities"
+      }
+    },
+    "automation_impact": {
+      "jobs_at_risk": {
+        "global_displacement": "85 million jobs by end of 2026; 92 million by 2030 (WEF)",
+        "new_jobs_created": "170 million by 2030 (net gain of 78 million)",
+        "automatable_work_hours": "25% of global work hours (up from 18%)",
+        "most_at_risk": [
+          "Data entry clerks (7.5M positions by 2027)",
+          "Customer service representatives (80% automation potential)",
+          "Retail cashiers (65% automation risk)",
+          "Basic accounting/bookkeeping",
+          "Telemarketing",
+          "Administrative roles (-35.5% hiring)"
+        ]
+      },
+      "new_jobs_from_ai": {
+        "ai_related_jobs_added": "1.3 million new AI-related jobs in 2 years (LinkedIn)",
+        "ai_engineer_growth": "+143% year-over-year",
+        "prompt_engineer_growth": "+95% year-over-year",
+        "emerging_roles": "AI ethics officers, AI trainers, human-AI collaboration specialists"
+      },
+      "skills_gap": {
+        "upskilling_need": "40%+ of workers need significant upskilling by 2030",
+        "employer_plans": "85% plan to offer retraining, 77% AI training",
+        "barriers": "63% cite skills gaps as main barrier",
+        "training_reality": "Only 17% say organization is upskilling AI-impacted workers",
+        "no_ai_training": "71% haven't received AI training in last year",
+        "critical_skills": "AI literacy, data analysis, cybersecurity, emotional intelligence"
+      }
+    },
+    "ai_tools_in_recruitment": {
+      "screening_and_matching": {
+        "linkedin_ai_match": "Instant profile-to-job match analysis launched January 2025",
+        "indeed_ai": "AI-powered matching and candidate recommendations",
+        "ziprecruiter_phil": "Conversational AI career advisor",
+        "hirevue": "Video interview AI analysis (controversial but evolving)"
+      },
+      "conversational_ai": {
+        "paradox_olivia": "Market leader, acquired by Workday for $4.5B",
+        "market_size": "$2.03B (2025) to $5.41B (2030)",
+        "adoption": "83% of hiring managers using AI for resume screening",
+        "key_players": "Paradox, Mya (now Fountain), Ideal, XOR"
+      },
+      "predictive_analytics": {
+        "application": "Talent pipeline forecasting and demand planning",
+        "quality_prediction": "AI predicting candidate success and retention likelihood",
+        "workforce_planning": "Data-driven workforce planning and succession"
+      }
+    }
+  },
+  "compensation_trends": {
+    "wage_growth": {
+      "overall_2025": {
+        "bls_data": "3.68% increase December 2025 YoY",
+        "quarterly_q4_2025": "0.7% for 3-month period ending December 2025",
+        "annual_civilian_2025": "3.4% (12-month period ending December 2025)"
+      },
+      "2026_projections": {
+        "salary_budget_increases": "3.5-3.6% projected for 2026",
+        "decline_from_peak": "Down from 4.4% in 2023, 3.9% in 2024, 3.7% in 2025",
+        "merit_vs_flat": "48% giving merit-based increases, 44% giving flat 3.5% increases"
+      },
+      "by_sector": {
+        "above_average_growth": [
+          "Oil, Gas & Consumer Fuels",
+          "Electronic Equipment, Instruments & Components",
+          "Construction & Engineering",
+          "Skilled trades (maintenance technicians, machinists, automation specialists)"
+        ],
+        "below_average_growth": [
+          "Technology (0.5% decrease in planned increases for 2026)"
+        ]
+      },
+      "job_changers_vs_stayers": {
+        "stayers": "4.5% year-over-year growth (January 2026)",
+        "changers": "6.4% annualized gains (slowing from previous months)",
+        "gap_narrowing": "Tying with November 2025 as slowest for changers since February 2021",
+        "top_switching_premium": "Construction workers see 6.6% premium over stayers"
+      }
+    },
+    "benefits_evolution": {
+      "four_day_work_week": {
+        "uk_adoption": "2.7 million UK workers (11% of workforce) now on 4-day week",
+        "global_momentum": "Tokyo metropolitan government, Poland, Chile implementing or testing",
+        "ai_enablement": "Some companies using AI productivity gains to justify shortened week",
+        "2026_predictions": "Business leaders predict possible tipping point",
+        "challenges": "High intensity required, may attract candidates for wrong reasons",
+        "us_adoption": "Remains rare among US firms"
+      },
+      "mental_health_benefits": {
+        "top_new_benefit": "46% of organizations cite as top newly added benefit",
+        "gen_z_priority": "61% would consider leaving for better mental health benefits",
+        "expectations": "Mental health days, counseling, EAP, and supportive environment"
+      },
+      "financial_wellness": {
+        "employer_plans": "47% plan to offer financial wellness benefit by 2026",
+        "student_loan": "Growing as employer benefit",
+        "dependent_care_fsa": "Limit increased to $7,500 in 2026 (first increase since inception)"
+      },
+      "healthcare_costs": {
+        "benefit_share": "Benefits account for ~30% of total compensation",
+        "cost_projection": "Employer healthcare costs projected to rise ~10% in 2026"
+      },
+      "parental_leave": {
+        "gender_neutral": "More employers moving toward gender-neutral policies",
+        "expanded_coverage": "Extending to adoptive and nontraditional families"
+      },
+      "unlimited_pto": {
+        "trend": "Growing adoption, particularly in tech and professional services",
+        "reality": "Often results in employees taking fewer days off"
+      }
+    },
+    "pay_transparency": {
+      "us_state_laws": {
+        "current_count": "14 states have enacted pay transparency laws",
+        "no_federal_law": "No federal pay transparency mandate currently",
+        "2025_2026_developments": [
+          "California amended law effective January 1, 2026",
+          "New Jersey law effective June 1, 2025",
+          "Vermont law effective July 1, 2025",
+          "Delaware enacted September 2025"
+        ]
+      },
+      "employer_adoption": {
+        "targeting_transparency": "49% targeting organization-wide or fully public transparency in 2026 (up from 33% in 2025)",
+        "evolution": "Moving from simple salary range posting to 'Total Rewards Transparency'",
+        "total_rewards_scope": "Equity, bonuses, mental health stipends, professional development, benefits"
+      },
+      "eu_directive": {
+        "deadline": "EU member states must implement by June 2026",
+        "requirements": "Disclose gender pay gaps, take action to close gaps",
+        "threshold": "5% pay gap triggers mandatory Joint Pay Assessment",
+        "employer_burden": "Burden of proof shifts to employer",
+        "salary_history_ban": "Bans salary history inquiries"
+      },
+      "gen_z_impact": {
+        "ghosting_trigger": "44% of Gen Z would ghost if salary range not disclosed in interview",
+        "transparency_expectation": "Gen Z leading demand for salary transparency",
+        "glassdoor_influence": "Employer review sites amplifying pay transparency expectations"
+      }
+    },
+    "sign_on_bonuses": {
+      "new_graduate_rate": "45.6% of organizations offer sign-on bonuses to new graduates",
+      "prevalence": "Declining from pandemic-era peaks but still common in competitive sectors",
+      "hot_sectors": "Healthcare, cybersecurity, skilled trades, AI/ML engineering"
+    },
+    "equity_compensation": {
+      "tech_trend": "Stock options/RSUs remain common in tech",
+      "startup_appeal": "Important for attracting talent to startups vs established companies",
+      "total_comp_communication": "Growing emphasis on communicating total compensation package"
+    },
+    "salary_negotiation_by_generation": {
+      "gen_z": "Higher salary expectations ($101,500 starting) but less negotiation experience",
+      "millennials": "Most experienced negotiators, leverage skills-based value",
+      "gen_x": "Focus on financial security, less likely to negotiate aggressively",
+      "boomers": "More modest expectations ($99,874 for financial success)"
+    },
+    "overtime_tax_exemption": {
+      "new_law": "One Big Beautiful Bill Act exempts qualifying overtime wages from federal income tax",
+      "impact": "Reshaping employer compensation strategies in 2026",
+      "employer_response": "Potential shift in overtime policies and compensation structures"
+    }
+  },
+  "key_statistics_summary": {
+    "labor_market_overview_2026": {
+      "environment": "Low hire, low fire — cautious, selective, uneven",
+      "employer_leverage": "Job openings per unemployed below 1.0",
+      "healthcare_dominance": "63-95% of recent job growth from healthcare sector",
+      "white_collar_weakness": "Tech, media, professional services well below pre-pandemic levels",
+      "entry_level_decline": "29% fewer entry-level postings since January 2024"
+    },
+    "generational_workforce_composition": {
+      "gen_z": "27% by 2026",
+      "millennials": "Together with Gen Z, 74% by 2030",
+      "gen_x": "31% currently",
+      "boomers": "25% currently, declining rapidly (11,400 turning 65 daily)"
+    },
+    "technology_adoption": {
+      "ai_in_hiring": "43-67% of organizations using AI (rapidly rising toward 80%+)",
+      "skills_based_hiring": "55-65% of employers adopting",
+      "genai_at_work": "56-57% of Millennials/Gen Z using GenAI daily",
+      "formal_ai_training_gap": "Only 25% of workers receive employer AI training"
+    },
+    "cost_benchmarks": {
+      "cpc_inflation": "12.88% average increase 2024-2025",
+      "salary_budget_growth": "3.5-3.6% projected for 2026",
+      "healthcare_cost_increase": "~10% projected for 2026",
+      "programmatic_job_ad_fraud": "40-50% without verification tools"
+    }
+  }
+}

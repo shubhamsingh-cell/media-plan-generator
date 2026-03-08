@@ -204,15 +204,45 @@ def _extract_cpc_from_synthesized(
     """
     Try to pull a real CPC value from enrichment / synthesized data.
 
-    Checks google_ads_data, meta_ads_data, linkedin_ads_data, and
-    bing_ads_data nested under the synthesized dict.  Returns None
-    when no live data is available so the caller can fall back.
+    First checks the synthesized ``ad_platform_analysis`` (fused output
+    with keys like "google", "meta", "linkedin", etc.).
+    Then falls back to raw enrichment keys (``google_ads_data``,
+    ``meta_ads_data``, etc.) when available.
+    Returns None when no live data is available so the caller can fall back.
     """
     if not synthesized_data:
         return None
 
-    # Map category to the enrichment keys we should inspect
-    search_keys: Dict[str, List[str]] = {
+    candidate_cpcs: List[float] = []
+
+    # --- Path 1: Synthesized ad_platform_analysis (preferred) ---
+    ad_analysis = synthesized_data.get("ad_platform_analysis")
+    if isinstance(ad_analysis, dict):
+        # Map budget category -> synthesized platform keys
+        synth_platform_keys: Dict[str, List[str]] = {
+            "search": ["google", "bing"],
+            "display": ["google"],
+            "social": ["meta", "linkedin", "tiktok"],
+            "programmatic": ["google"],
+            "job_board": ["google"],
+            "niche_board": ["google"],
+            "regional": ["google"],
+            "email": [],
+            "career_site": [],
+            "referral": [],
+            "events": [],
+            "staffing": [],
+            "employer_branding": ["linkedin"],
+        }
+        for plat_key in synth_platform_keys.get(category, []):
+            plat = ad_analysis.get(plat_key) or {}
+            # Synthesized entries have avg_cpc (float)
+            cpc_val = plat.get("avg_cpc", 0)
+            if isinstance(cpc_val, (int, float)) and cpc_val > 0:
+                candidate_cpcs.append(float(cpc_val))
+
+    # --- Path 2: Raw enrichment keys (fallback) ---
+    raw_keys: Dict[str, List[str]] = {
         "search": ["google_ads_data", "bing_ads_data"],
         "display": ["google_ads_data"],
         "social": ["meta_ads_data", "linkedin_ads_data", "tiktok_ads_data"],
@@ -228,25 +258,25 @@ def _extract_cpc_from_synthesized(
         "employer_branding": ["linkedin_ads_data"],
     }
 
-    candidate_cpcs: List[float] = []
-    for data_key in search_keys.get(category, []):
-        platform_data = synthesized_data.get(data_key) or {}
-        # Per-role keyword data (Google Ads shape)
-        keywords = platform_data.get("keywords") or {}
-        for _role, kw_data in keywords.items():
-            cpc_val = kw_data.get("avg_cpc_usd", 0)
-            if isinstance(cpc_val, (int, float)) and cpc_val > 0:
-                candidate_cpcs.append(float(cpc_val))
-        # Platform-level summary (Meta / LinkedIn shape)
-        for sub_key in ("facebook", "instagram", "linkedin", "tiktok"):
-            sub = platform_data.get(sub_key) or {}
-            cpc_val = sub.get("avg_cpc_usd", 0)
-            if isinstance(cpc_val, (int, float)) and cpc_val > 0:
-                candidate_cpcs.append(float(cpc_val))
-        # Top-level avg_cpc_usd
-        top_cpc = platform_data.get("avg_cpc_usd", 0)
-        if isinstance(top_cpc, (int, float)) and top_cpc > 0:
-            candidate_cpcs.append(float(top_cpc))
+    if not candidate_cpcs:
+        for data_key in raw_keys.get(category, []):
+            platform_data = synthesized_data.get(data_key) or {}
+            # Per-role keyword data (Google Ads shape)
+            keywords = platform_data.get("keywords") or {}
+            for _role, kw_data in keywords.items():
+                cpc_val = kw_data.get("avg_cpc_usd", 0)
+                if isinstance(cpc_val, (int, float)) and cpc_val > 0:
+                    candidate_cpcs.append(float(cpc_val))
+            # Platform-level summary (Meta / LinkedIn shape)
+            for sub_key in ("facebook", "instagram", "linkedin", "tiktok"):
+                sub = platform_data.get(sub_key) or {}
+                cpc_val = sub.get("avg_cpc_usd", 0)
+                if isinstance(cpc_val, (int, float)) and cpc_val > 0:
+                    candidate_cpcs.append(float(cpc_val))
+            # Top-level avg_cpc_usd
+            top_cpc = platform_data.get("avg_cpc_usd", 0)
+            if isinstance(top_cpc, (int, float)) and top_cpc > 0:
+                candidate_cpcs.append(float(top_cpc))
 
     if candidate_cpcs:
         return round(sum(candidate_cpcs) / len(candidate_cpcs), 2)
@@ -384,8 +414,19 @@ def compute_location_cost_multipliers(
         return {"default": 1.0}
 
     multipliers: Dict[str, float] = {}
+    # Try raw teleport_data first, then synthesized location_profiles
     teleport = (synthesized_data or {}).get("teleport_data", {})
     teleport_cities = teleport.get("cities", {}) if isinstance(teleport, dict) else {}
+    # Also check synthesized location_profiles for COLI data
+    loc_profiles = (synthesized_data or {}).get("location_profiles", {})
+    if isinstance(loc_profiles, dict):
+        for _lp_key, _lp_val in loc_profiles.items():
+            if isinstance(_lp_val, dict) and "cost_of_living_index" in _lp_val:
+                if _lp_key not in teleport_cities:
+                    teleport_cities[_lp_key] = {
+                        "cost_of_living": {"cost_of_living_index": _lp_val["cost_of_living_index"]},
+                        "quality_scores": {"Cost of Living": _lp_val.get("quality_of_life_score", 0)},
+                    }
 
     # Known fallback multipliers for major metro areas (relative to US avg)
     _FALLBACK_MULTIPLIERS: Dict[str, float] = {

@@ -1,0 +1,2218 @@
+{
+  "last_updated": "2026-03-08",
+  "sources": [
+    "Bureau of Labor Statistics (BLS)",
+    "Joveo Publisher Network (1238 active publishers)",
+    "LinkedIn Economic Graph",
+    "Indeed Hiring Lab",
+    "Glassdoor Economic Research",
+    "Appcast Recruitment Marketing Benchmark Reports",
+    "SHRM State of the Workplace Reports",
+    "Eurostat Labour Market Statistics",
+    "UK Office for National Statistics (ONS)",
+    "German Federal Employment Agency (Bundesagentur für Arbeit)",
+    "France Travail (formerly Pole Emploi)",
+    "Australian Bureau of Statistics (ABS)",
+    "India NASSCOM Reports",
+    "Ministry of Manpower Singapore",
+    "Japan Ministry of Health Labour and Welfare",
+    "ILO Global Employment Trends"
+  ],
+  "regions": {
+    "us_northeast": {
+      "name": "US Northeast",
+      "timezone": "America/New_York (ET, UTC-5/-4)",
+      "markets": {
+        "boston_ma": {
+          "name": "Boston, MA",
+          "metro_population": 4900000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Dominant general board, highest traffic", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Strong for professional/tech roles", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "Good for SMB hiring", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Employer branding + applications", "joveo_available": true},
+            {"rank": 5, "name": "Handshake", "strength": "MIT, Harvard, BU, Northeastern pipeline", "joveo_available": true},
+            {"rank": 6, "name": "BuiltIn Boston", "strength": "Local tech community board", "joveo_available": true},
+            {"rank": 7, "name": "Dice", "strength": "Tech/biotech specialist roles", "joveo_available": true},
+            {"rank": 8, "name": "CareerBuilder", "strength": "Legacy general board", "joveo_available": true},
+            {"rank": 9, "name": "BostonJobs.com", "strength": "Local niche board", "joveo_available": false},
+            {"rank": 10, "name": "MassCareers (state)", "strength": "Government/public sector roles", "joveo_available": false}
+          ],
+          "dominant_industries": [
+            {"industry": "Biotechnology & Life Sciences", "share": "18%", "growth": "high", "key_employers": ["Moderna", "Vertex Pharmaceuticals", "Boston Scientific", "Takeda"]},
+            {"industry": "Healthcare & Hospitals", "share": "22%", "growth": "high", "key_employers": ["Mass General Brigham", "Beth Israel Deaconess", "Dana-Farber"]},
+            {"industry": "Higher Education", "share": "12%", "growth": "stable", "key_employers": ["Harvard", "MIT", "Boston University", "Northeastern"]},
+            {"industry": "Technology", "share": "15%", "growth": "high", "key_employers": ["HubSpot", "Wayfair", "Toast", "DraftKings"]},
+            {"industry": "Financial Services", "share": "10%", "growth": "moderate", "key_employers": ["Fidelity Investments", "State Street", "John Hancock"]},
+            {"industry": "Defense & Aerospace", "share": "6%", "growth": "moderate", "key_employers": ["Raytheon", "General Dynamics", "L3Harris"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 95000, "mid": 140000, "senior": 185000},
+            "registered_nurse": {"entry": 72000, "mid": 92000, "senior": 115000},
+            "data_scientist": {"entry": 90000, "mid": 135000, "senior": 175000},
+            "marketing_manager": {"entry": 65000, "mid": 95000, "senior": 135000},
+            "administrative_assistant": {"entry": 42000, "mid": 52000, "senior": 62000},
+            "warehouse_worker": {"entry": 36000, "mid": 42000, "senior": 50000},
+            "biotech_researcher": {"entry": 70000, "mid": 100000, "senior": 145000}
+          },
+          "talent_dynamics": {
+            "overall_market": "tight",
+            "shortage_roles": ["biotech researchers", "specialized nurses", "AI/ML engineers", "cybersecurity analysts", "data engineers"],
+            "surplus_roles": ["entry-level marketing", "general admin", "retail associates"],
+            "unemployment_rate": "3.2%",
+            "labor_force_participation": "67.5%",
+            "avg_time_to_fill_days": 42,
+            "candidate_supply_index": "low (0.8 candidates per opening)"
+          },
+          "best_channels": [
+            {"channel": "LinkedIn Ads", "effectiveness": "high", "best_for": "professional/tech/biotech roles", "avg_cpc": "$4.50-8.00"},
+            {"channel": "Indeed Sponsored", "effectiveness": "high", "best_for": "all role types", "avg_cpc": "$0.35-1.20"},
+            {"channel": "Google Ads (Jobs)", "effectiveness": "medium-high", "best_for": "high-intent searchers", "avg_cpc": "$1.50-4.00"},
+            {"channel": "Facebook/Meta Ads", "effectiveness": "medium", "best_for": "hourly/healthcare/retail", "avg_cpc": "$0.50-2.00"},
+            {"channel": "Handshake", "effectiveness": "high", "best_for": "early career/campus", "avg_cpc": "flat fee"},
+            {"channel": "Programmatic (Appcast/Joveo)", "effectiveness": "high", "best_for": "volume hiring across boards", "avg_cpc": "$0.25-0.80"},
+            {"channel": "Reddit r/bostonjobs", "effectiveness": "low-medium", "best_for": "tech roles, organic reach", "avg_cpc": "free/organic"}
+          ],
+          "cpa_benchmark": {
+            "professional_roles": "$35-55",
+            "tech_roles": "$40-65",
+            "healthcare_roles": "$30-50",
+            "hourly_roles": "$15-30",
+            "executive_roles": "$75-150"
+          },
+          "hiring_regulations": {
+            "state": "Massachusetts",
+            "salary_transparency": "Required as of 2025 (employers 25+ must include pay ranges)",
+            "ban_the_box": true,
+            "non_compete_ban": true,
+            "at_will_employment": true,
+            "notice_period": "At-will (none legally required, 2 weeks customary)",
+            "paid_family_leave": "Up to 26 weeks via PFML program",
+            "minimum_wage": "$15.00/hr (2024), adjusted annually"
+          },
+          "cultural_norms": {
+            "interview_rounds": "3-5 for professional roles",
+            "decision_speed": "2-4 weeks typical",
+            "negotiation_style": "Direct but professional, salary negotiation expected",
+            "remote_work": "Hybrid dominant (3 days office common), fully remote declining",
+            "diversity_focus": "High emphasis, strong DEI programs"
+          },
+          "language_requirements": "English (primary). Portuguese useful for some healthcare/service roles.",
+          "key_job_fairs": ["Boston Career Forum (Nov)", "Mass TLC Tech Job Fair", "BioTech Job Fair Boston"]
+        },
+        "hartford_ct": {
+          "name": "Hartford, CT",
+          "metro_population": 1210000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Highest volume", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Insurance/finance professionals", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "SMB and mid-market", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Employer research focus", "joveo_available": true},
+            {"rank": 5, "name": "CareerBuilder", "strength": "Manufacturing/general", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Insurance", "share": "25%", "growth": "stable", "key_employers": ["Aetna/CVS Health", "The Hartford", "Travelers", "Lincoln Financial"]},
+            {"industry": "Healthcare", "share": "20%", "growth": "moderate", "key_employers": ["Hartford HealthCare", "Yale New Haven Health"]},
+            {"industry": "Defense/Aerospace", "share": "12%", "growth": "moderate", "key_employers": ["Pratt & Whitney", "Sikorsky/Lockheed Martin"]},
+            {"industry": "Manufacturing", "share": "10%", "growth": "declining", "key_employers": ["Stanley Black & Decker", "Hubbell"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 80000, "mid": 115000, "senior": 155000},
+            "insurance_underwriter": {"entry": 55000, "mid": 80000, "senior": 115000},
+            "registered_nurse": {"entry": 68000, "mid": 85000, "senior": 105000},
+            "actuary": {"entry": 75000, "mid": 120000, "senior": 180000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["actuaries", "underwriters", "skilled trades", "nurses"],
+            "surplus_roles": ["general office admin", "retail"],
+            "unemployment_rate": "4.0%",
+            "avg_time_to_fill_days": 38
+          },
+          "best_channels": [
+            {"channel": "Indeed Sponsored", "effectiveness": "high", "best_for": "all roles", "avg_cpc": "$0.30-0.90"},
+            {"channel": "LinkedIn Ads", "effectiveness": "high", "best_for": "insurance/finance professionals", "avg_cpc": "$3.50-7.00"},
+            {"channel": "Programmatic (Appcast/Joveo)", "effectiveness": "medium-high", "best_for": "volume hiring", "avg_cpc": "$0.20-0.60"}
+          ],
+          "cpa_benchmark": {
+            "professional_roles": "$28-45",
+            "hourly_roles": "$12-25"
+          }
+        },
+        "providence_ri": {
+          "name": "Providence, RI",
+          "metro_population": 1630000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Highest volume", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Professional roles", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "Good local coverage", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Research + apply", "joveo_available": true},
+            {"rank": 5, "name": "Snagajob/JobGet", "strength": "Hourly/hospitality", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Healthcare", "share": "24%", "growth": "high", "key_employers": ["Lifespan", "Care New England", "CVS Health HQ"]},
+            {"industry": "Education", "share": "15%", "growth": "stable", "key_employers": ["Brown University", "RISD", "Providence College"]},
+            {"industry": "Manufacturing", "share": "10%", "growth": "stable", "key_employers": ["Textron", "Amgen RI"]},
+            {"industry": "Hospitality/Tourism", "share": "8%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 75000, "mid": 110000, "senior": 145000},
+            "registered_nurse": {"entry": 65000, "mid": 82000, "senior": 100000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["nurses", "skilled trades", "tech roles"],
+            "surplus_roles": ["hospitality workers seasonally", "entry-level admin"],
+            "unemployment_rate": "3.8%",
+            "avg_time_to_fill_days": 35
+          },
+          "cpa_benchmark": {"professional_roles": "$25-40", "hourly_roles": "$10-22"}
+        },
+        "portland_me": {
+          "name": "Portland, ME",
+          "metro_population": 550000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Primary board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Professional roles", "joveo_available": true},
+            {"rank": 3, "name": "MaineBiz Jobs", "strength": "Local business community", "joveo_available": false},
+            {"rank": 4, "name": "ZipRecruiter", "strength": "Growing presence", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Healthcare", "share": "25%", "growth": "high", "key_employers": ["MaineHealth", "Northern Light Health"]},
+            {"industry": "Tourism/Hospitality", "share": "15%", "growth": "seasonal", "key_employers": []},
+            {"industry": "Insurance/Financial", "share": "10%", "growth": "stable", "key_employers": ["Unum Group", "IDEXX Laboratories"]},
+            {"industry": "Technology", "share": "8%", "growth": "high", "key_employers": ["WEX", "Tyler Technologies"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 70000, "mid": 100000, "senior": 135000},
+            "registered_nurse": {"entry": 60000, "mid": 75000, "senior": 92000}
+          },
+          "talent_dynamics": {
+            "overall_market": "tight",
+            "shortage_roles": ["healthcare workers", "skilled trades", "tech talent"],
+            "surplus_roles": ["seasonal hospitality"],
+            "unemployment_rate": "3.0%",
+            "avg_time_to_fill_days": 40,
+            "notes": "Aging population creates persistent labor shortages"
+          },
+          "cpa_benchmark": {"professional_roles": "$22-38", "hourly_roles": "$10-20"}
+        },
+        "nyc_ny": {
+          "name": "New York City, NY",
+          "metro_population": 20100000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Highest volume nationally, massive NYC traffic", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Dominant for finance/tech/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "Strong SMB presence", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Key for employer branding in competitive market", "joveo_available": true},
+            {"rank": 5, "name": "BuiltIn NYC", "strength": "Tech/startup community", "joveo_available": true},
+            {"rank": 6, "name": "Dice", "strength": "Tech specialist", "joveo_available": true},
+            {"rank": 7, "name": "Handshake", "strength": "Columbia, NYU, CUNY pipeline", "joveo_available": true},
+            {"rank": 8, "name": "Ladders", "strength": "$100K+ professional roles", "joveo_available": true},
+            {"rank": 9, "name": "Snagajob/JobGet", "strength": "Hourly/restaurant/retail", "joveo_available": true},
+            {"rank": 10, "name": "Craigslist NYC", "strength": "Still used for service/gig work", "joveo_available": false}
+          ],
+          "dominant_industries": [
+            {"industry": "Financial Services & Banking", "share": "18%", "growth": "moderate", "key_employers": ["JPMorgan Chase", "Goldman Sachs", "Citigroup", "Morgan Stanley", "BlackRock"]},
+            {"industry": "Technology", "share": "14%", "growth": "high", "key_employers": ["Google NYC", "Meta", "Amazon", "Spotify", "Datadog"]},
+            {"industry": "Healthcare", "share": "16%", "growth": "high", "key_employers": ["NYU Langone", "Mount Sinai", "NewYork-Presbyterian"]},
+            {"industry": "Media & Entertainment", "share": "8%", "growth": "moderate", "key_employers": ["NBCUniversal", "ViacomCBS", "Warner Bros Discovery", "The New York Times"]},
+            {"industry": "Professional Services", "share": "10%", "growth": "moderate", "key_employers": ["Deloitte", "EY", "McKinsey", "PwC"]},
+            {"industry": "Fashion & Retail", "share": "6%", "growth": "stable", "key_employers": ["Ralph Lauren", "PVH", "Macy's"]},
+            {"industry": "Real Estate", "share": "5%", "growth": "moderate", "key_employers": ["Brookfield", "Related Companies", "SL Green"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 105000, "mid": 155000, "senior": 210000},
+            "investment_banker": {"entry": 110000, "mid": 200000, "senior": 350000},
+            "registered_nurse": {"entry": 82000, "mid": 100000, "senior": 125000},
+            "data_scientist": {"entry": 100000, "mid": 145000, "senior": 195000},
+            "marketing_manager": {"entry": 70000, "mid": 105000, "senior": 150000},
+            "administrative_assistant": {"entry": 45000, "mid": 58000, "senior": 72000},
+            "restaurant_worker": {"entry": 35000, "mid": 42000, "senior": 55000},
+            "warehouse_worker": {"entry": 38000, "mid": 45000, "senior": 55000}
+          },
+          "talent_dynamics": {
+            "overall_market": "competitive",
+            "shortage_roles": ["AI/ML engineers", "cybersecurity", "specialized nurses", "skilled trades", "quant developers"],
+            "surplus_roles": ["entry-level finance", "media/journalism", "fashion/retail associates"],
+            "unemployment_rate": "4.5%",
+            "labor_force_participation": "62.0%",
+            "avg_time_to_fill_days": 45,
+            "candidate_supply_index": "moderate (1.2 candidates per opening overall, 0.5 for tech)"
+          },
+          "best_channels": [
+            {"channel": "LinkedIn Ads", "effectiveness": "very high", "best_for": "finance/tech/professional", "avg_cpc": "$5.00-10.00"},
+            {"channel": "Indeed Sponsored", "effectiveness": "high", "best_for": "all role types at volume", "avg_cpc": "$0.40-1.50"},
+            {"channel": "Google Ads (Jobs)", "effectiveness": "high", "best_for": "high-intent searchers", "avg_cpc": "$2.00-5.00"},
+            {"channel": "Facebook/Meta Ads", "effectiveness": "medium-high", "best_for": "hourly/retail/healthcare", "avg_cpc": "$0.60-2.50"},
+            {"channel": "Programmatic (Appcast/Joveo)", "effectiveness": "very high", "best_for": "volume hiring, CPA optimization", "avg_cpc": "$0.30-1.00"},
+            {"channel": "Instagram Ads", "effectiveness": "medium", "best_for": "fashion/creative/hospitality employer branding", "avg_cpc": "$0.80-3.00"},
+            {"channel": "BuiltIn NYC", "effectiveness": "high", "best_for": "startup/tech roles", "avg_cpc": "flat fee per slot"}
+          ],
+          "cpa_benchmark": {
+            "professional_roles": "$40-65",
+            "tech_roles": "$50-80",
+            "finance_roles": "$45-70",
+            "healthcare_roles": "$35-55",
+            "hourly_roles": "$18-35",
+            "executive_roles": "$100-200"
+          },
+          "hiring_regulations": {
+            "state": "New York",
+            "city": "New York City",
+            "salary_transparency": "Required (NYC Local Law 32, effective Nov 2022; NY State law effective Sep 2023)",
+            "ban_the_box": true,
+            "non_compete": "Proposed restrictions (not yet enacted statewide)",
+            "at_will_employment": true,
+            "notice_period": "At-will (none legally required, 2 weeks customary)",
+            "paid_family_leave": "Up to 12 weeks at 67% pay via NY PFL",
+            "minimum_wage": "$16.00/hr NYC (2024), adjusted annually",
+            "nyc_specific": "Automated employment decision tools (AEDT) law requires bias audits, freelance protection act"
+          },
+          "cultural_norms": {
+            "interview_rounds": "3-6 for professional roles, finance can be 8+",
+            "decision_speed": "2-6 weeks (finance slower, startups faster)",
+            "negotiation_style": "Aggressive negotiation expected, especially finance",
+            "remote_work": "Hybrid dominant (RTO mandates increasing 2025-2026), some fully remote tech",
+            "diversity_focus": "Very high emphasis, regulatory requirements for bias audits"
+          },
+          "language_requirements": "English (primary). Spanish highly valuable. Mandarin, Cantonese, Korean useful in specific sectors.",
+          "key_job_fairs": ["TechDay NYC", "NYC Career Fair (multiple per year)", "Diversity Employment Day"]
+        },
+        "philadelphia_pa": {
+          "name": "Philadelphia, PA",
+          "metro_population": 6250000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Highest volume", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Professional/pharma/finance", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "Good mid-market coverage", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Employer branding", "joveo_available": true},
+            {"rank": 5, "name": "Snagajob/JobGet", "strength": "Hourly/service", "joveo_available": true},
+            {"rank": 6, "name": "CareerBuilder", "strength": "Legacy presence", "joveo_available": true},
+            {"rank": 7, "name": "Handshake", "strength": "UPenn, Drexel, Temple pipeline", "joveo_available": true},
+            {"rank": 8, "name": "Dice", "strength": "Tech roles", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Healthcare & Pharma", "share": "25%", "growth": "high", "key_employers": ["Penn Medicine", "Jefferson Health", "GSK", "Merck (nearby)"]},
+            {"industry": "Education", "share": "12%", "growth": "stable", "key_employers": ["UPenn", "Temple", "Drexel", "Villanova"]},
+            {"industry": "Financial Services", "share": "10%", "growth": "moderate", "key_employers": ["Vanguard", "Comcast", "Lincoln Financial"]},
+            {"industry": "Technology", "share": "9%", "growth": "high", "key_employers": ["Comcast NBCUniversal", "SAP", "Susquehanna International Group"]},
+            {"industry": "Manufacturing", "share": "7%", "growth": "stable"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 82000, "mid": 120000, "senior": 165000},
+            "registered_nurse": {"entry": 68000, "mid": 85000, "senior": 108000},
+            "pharmacist": {"entry": 110000, "mid": 130000, "senior": 155000},
+            "warehouse_worker": {"entry": 34000, "mid": 40000, "senior": 48000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate-tight",
+            "shortage_roles": ["pharmacists", "specialized nurses", "software engineers", "data scientists"],
+            "surplus_roles": ["entry-level admin", "general labor"],
+            "unemployment_rate": "4.2%",
+            "avg_time_to_fill_days": 38
+          },
+          "cpa_benchmark": {"professional_roles": "$30-50", "healthcare_roles": "$28-45", "hourly_roles": "$14-28"},
+          "hiring_regulations": {
+            "state": "Pennsylvania",
+            "salary_transparency": "Philadelphia requires salary history ban (cannot ask)",
+            "ban_the_box": true,
+            "at_will_employment": true,
+            "minimum_wage": "$7.25/hr state (Philadelphia $15.00+ for city contractors)"
+          }
+        },
+        "newark_nj": {
+          "name": "Newark/Northern NJ",
+          "metro_population": 2050000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Highest volume", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Pharma/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "SMB hiring", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Research + apply", "joveo_available": true},
+            {"rank": 5, "name": "NJ.com Jobs", "strength": "Local reach", "joveo_available": false}
+          ],
+          "dominant_industries": [
+            {"industry": "Pharmaceuticals", "share": "18%", "growth": "high", "key_employers": ["Johnson & Johnson", "Merck", "Novo Nordisk US", "BD"]},
+            {"industry": "Financial Services", "share": "12%", "growth": "moderate", "key_employers": ["Prudential Financial", "ADP"]},
+            {"industry": "Logistics/Warehousing", "share": "15%", "growth": "high", "key_employers": ["Amazon", "FedEx", "UPS"]},
+            {"industry": "Healthcare", "share": "14%", "growth": "high"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 88000, "mid": 130000, "senior": 175000},
+            "warehouse_worker": {"entry": 36000, "mid": 44000, "senior": 52000},
+            "pharma_researcher": {"entry": 75000, "mid": 110000, "senior": 155000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["warehouse workers", "CDL drivers", "pharma scientists", "nurses"],
+            "surplus_roles": ["general admin", "retail"],
+            "unemployment_rate": "4.5%",
+            "avg_time_to_fill_days": 35
+          },
+          "cpa_benchmark": {"professional_roles": "$30-48", "hourly_roles": "$14-28", "warehouse_roles": "$12-22"}
+        },
+        "pittsburgh_pa": {
+          "name": "Pittsburgh, PA",
+          "metro_population": 2370000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Primary board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Tech/robotics/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "Good local traction", "joveo_available": true},
+            {"rank": 4, "name": "BuiltIn Pittsburgh", "strength": "Growing tech community", "joveo_available": true},
+            {"rank": 5, "name": "CareerBuilder", "strength": "Manufacturing/general", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Healthcare", "share": "22%", "growth": "high", "key_employers": ["UPMC", "Highmark Health", "Allegheny Health Network"]},
+            {"industry": "Technology & Robotics", "share": "12%", "growth": "very high", "key_employers": ["Google Pittsburgh", "Apple", "Duolingo", "Aurora Innovation"]},
+            {"industry": "Education", "share": "10%", "growth": "stable", "key_employers": ["Carnegie Mellon University", "University of Pittsburgh"]},
+            {"industry": "Financial Services", "share": "9%", "growth": "moderate", "key_employers": ["PNC Financial", "BNY Mellon"]},
+            {"industry": "Energy", "share": "7%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 78000, "mid": 115000, "senior": 155000},
+            "robotics_engineer": {"entry": 80000, "mid": 120000, "senior": 165000},
+            "registered_nurse": {"entry": 60000, "mid": 75000, "senior": 95000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["AI/ML engineers", "robotics specialists", "nurses", "skilled trades"],
+            "surplus_roles": ["general admin", "legacy manufacturing workers"],
+            "unemployment_rate": "3.8%",
+            "avg_time_to_fill_days": 36,
+            "notes": "CMU pipeline creates strong tech talent but high competition from FAANG"
+          },
+          "cpa_benchmark": {"professional_roles": "$25-42", "tech_roles": "$35-55", "hourly_roles": "$12-24"}
+        },
+        "baltimore_md": {
+          "name": "Baltimore, MD",
+          "metro_population": 2840000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Primary board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Defense/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "SMB presence", "joveo_available": true},
+            {"rank": 4, "name": "ClearanceJobs", "strength": "Defense/cleared positions", "joveo_available": true},
+            {"rank": 5, "name": "USAJOBS", "strength": "Federal government", "joveo_available": false}
+          ],
+          "dominant_industries": [
+            {"industry": "Healthcare", "share": "22%", "growth": "high", "key_employers": ["Johns Hopkins Health System", "MedStar Health", "University of Maryland Medical"]},
+            {"industry": "Defense & Cybersecurity", "share": "15%", "growth": "high", "key_employers": ["NSA (Fort Meade)", "Northrop Grumman", "Leidos", "Booz Allen Hamilton"]},
+            {"industry": "Education & Research", "share": "12%", "growth": "stable", "key_employers": ["Johns Hopkins University", "University of Maryland"]},
+            {"industry": "Federal Government", "share": "10%", "growth": "stable"},
+            {"industry": "Logistics/Port", "share": "8%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 85000, "mid": 125000, "senior": 170000},
+            "cybersecurity_analyst": {"entry": 80000, "mid": 115000, "senior": 155000},
+            "registered_nurse": {"entry": 65000, "mid": 82000, "senior": 105000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate-tight",
+            "shortage_roles": ["cybersecurity (cleared)", "nurses", "data engineers", "skilled trades"],
+            "surplus_roles": ["general admin", "retail"],
+            "unemployment_rate": "3.5%",
+            "avg_time_to_fill_days": 40,
+            "notes": "Security clearance requirement creates significant bottleneck for defense roles"
+          },
+          "cpa_benchmark": {"professional_roles": "$28-48", "defense_cleared_roles": "$50-90", "hourly_roles": "$13-26"}
+        },
+        "washington_dc": {
+          "name": "Washington, DC Metro",
+          "metro_population": 6380000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Highest volume", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Dominant for professional/policy/tech", "joveo_available": true},
+            {"rank": 3, "name": "USAJOBS", "strength": "Federal government hiring portal", "joveo_available": false},
+            {"rank": 4, "name": "ClearanceJobs", "strength": "Essential for cleared positions", "joveo_available": true},
+            {"rank": 5, "name": "ZipRecruiter", "strength": "Private sector SMB", "joveo_available": true},
+            {"rank": 6, "name": "Glassdoor", "strength": "Employer branding", "joveo_available": true},
+            {"rank": 7, "name": "Dice", "strength": "Tech/IT contractor roles", "joveo_available": true},
+            {"rank": 8, "name": "Idealist", "strength": "Nonprofit/NGO/government", "joveo_available": true},
+            {"rank": 9, "name": "BuiltIn DC", "strength": "Tech community", "joveo_available": true},
+            {"rank": 10, "name": "Handshake", "strength": "Georgetown, GWU, Howard pipeline", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Federal Government", "share": "25%", "growth": "variable (administration dependent)", "key_employers": ["US Federal agencies", "military"]},
+            {"industry": "Defense & Intelligence", "share": "18%", "growth": "high", "key_employers": ["Booz Allen Hamilton", "Leidos", "SAIC", "ManTech", "CACI"]},
+            {"industry": "Technology & Cybersecurity", "share": "15%", "growth": "very high", "key_employers": ["Amazon (HQ2 Arlington)", "Microsoft", "Google", "Palantir"]},
+            {"industry": "Consulting & Professional Services", "share": "12%", "growth": "moderate", "key_employers": ["Deloitte", "Accenture Federal", "McKinsey"]},
+            {"industry": "Associations & Nonprofits", "share": "8%", "growth": "stable"},
+            {"industry": "Healthcare", "share": "10%", "growth": "high"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 95000, "mid": 140000, "senior": 190000},
+            "cybersecurity_analyst": {"entry": 85000, "mid": 125000, "senior": 170000},
+            "policy_analyst": {"entry": 55000, "mid": 85000, "senior": 120000},
+            "federal_gs13": {"base": 93000, "with_locality": 120000},
+            "defense_contractor_pm": {"entry": 80000, "mid": 120000, "senior": 165000},
+            "registered_nurse": {"entry": 70000, "mid": 90000, "senior": 115000}
+          },
+          "talent_dynamics": {
+            "overall_market": "tight",
+            "shortage_roles": ["cleared cybersecurity professionals", "cloud architects (cleared)", "AI/ML engineers", "nurses", "skilled trades"],
+            "surplus_roles": ["policy/political science graduates", "entry-level nonprofit"],
+            "unemployment_rate": "3.0%",
+            "labor_force_participation": "70.2%",
+            "avg_time_to_fill_days": 48,
+            "candidate_supply_index": "very low for cleared tech (0.4 per opening)"
+          },
+          "best_channels": [
+            {"channel": "LinkedIn Ads", "effectiveness": "very high", "best_for": "professional/tech/defense", "avg_cpc": "$5.00-9.00"},
+            {"channel": "ClearanceJobs", "effectiveness": "very high", "best_for": "cleared positions", "avg_cpc": "subscription model"},
+            {"channel": "Indeed Sponsored", "effectiveness": "high", "best_for": "general roles", "avg_cpc": "$0.35-1.20"},
+            {"channel": "Google Ads", "effectiveness": "high", "best_for": "high-intent tech searchers", "avg_cpc": "$2.00-5.00"},
+            {"channel": "Programmatic (Appcast/Joveo)", "effectiveness": "high", "best_for": "volume hiring", "avg_cpc": "$0.30-0.90"}
+          ],
+          "cpa_benchmark": {
+            "professional_roles": "$38-60",
+            "tech_roles": "$45-75",
+            "cleared_roles": "$60-120",
+            "federal_roles": "$35-55 (via USAJOBS)",
+            "hourly_roles": "$16-32"
+          },
+          "hiring_regulations": {
+            "jurisdiction": "DC / Virginia / Maryland (tri-state)",
+            "salary_transparency": "DC requires pay ranges in postings (2024). Maryland requires on request.",
+            "ban_the_box": true,
+            "at_will_employment": true,
+            "minimum_wage": "$17.50/hr DC (2025), $12.41 VA, $15.00 MD"
+          },
+          "cultural_norms": {
+            "interview_rounds": "3-5 for private, government hiring process can take 3-6 months",
+            "decision_speed": "Private: 2-4 weeks. Government: 2-6 months",
+            "negotiation_style": "Professional, data-driven. Government salaries are fixed GS scale",
+            "remote_work": "High remote/hybrid adoption, federal RTO mandates creating tension in 2025-2026",
+            "diversity_focus": "Very high, federal EEOC requirements plus strong private sector focus"
+          },
+          "language_requirements": "English (primary). Spanish valuable. Many multilingual roles (diplomatic/international orgs)."
+        }
+      }
+    },
+    "us_southeast": {
+      "name": "US Southeast",
+      "timezone": "America/New_York (ET) and America/Chicago (CT for some areas)",
+      "markets": {
+        "charlotte_nc": {
+          "name": "Charlotte, NC",
+          "metro_population": 2750000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Dominant volume", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Banking/finance/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "Growing SMB presence", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Banking employer branding", "joveo_available": true},
+            {"rank": 5, "name": "Snagajob/JobGet", "strength": "Hourly/retail", "joveo_available": true},
+            {"rank": 6, "name": "CareerBuilder", "strength": "Legacy presence", "joveo_available": true},
+            {"rank": 7, "name": "BuiltIn Charlotte", "strength": "Growing tech scene", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Banking & Financial Services", "share": "22%", "growth": "moderate", "key_employers": ["Bank of America", "Wells Fargo", "Truist Financial", "LPL Financial"]},
+            {"industry": "Healthcare", "share": "16%", "growth": "high", "key_employers": ["Atrium Health", "Novant Health"]},
+            {"industry": "Technology", "share": "12%", "growth": "very high", "key_employers": ["Microsoft Charlotte", "Honeywell HQ", "Lowe's HQ"]},
+            {"industry": "Energy", "share": "8%", "growth": "moderate", "key_employers": ["Duke Energy HQ"]},
+            {"industry": "Logistics", "share": "7%", "growth": "high"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 80000, "mid": 118000, "senior": 160000},
+            "financial_analyst": {"entry": 60000, "mid": 85000, "senior": 125000},
+            "registered_nurse": {"entry": 60000, "mid": 75000, "senior": 95000},
+            "warehouse_worker": {"entry": 32000, "mid": 38000, "senior": 46000}
+          },
+          "talent_dynamics": {
+            "overall_market": "growing rapidly",
+            "shortage_roles": ["software engineers", "data scientists", "nurses", "skilled trades"],
+            "surplus_roles": ["general admin", "entry-level banking"],
+            "unemployment_rate": "3.4%",
+            "avg_time_to_fill_days": 35,
+            "notes": "Major relocation destination from Northeast; talent pipeline expanding rapidly"
+          },
+          "cpa_benchmark": {"professional_roles": "$25-42", "tech_roles": "$32-55", "hourly_roles": "$12-24"},
+          "hiring_regulations": {
+            "state": "North Carolina",
+            "salary_transparency": "Not required",
+            "ban_the_box": false,
+            "at_will_employment": true,
+            "right_to_work": true,
+            "minimum_wage": "$7.25/hr (federal minimum)"
+          }
+        },
+        "raleigh_nc": {
+          "name": "Raleigh-Durham (Research Triangle), NC",
+          "metro_population": 2100000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Primary board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Tech/pharma/research", "joveo_available": true},
+            {"rank": 3, "name": "BuiltIn Raleigh", "strength": "Strong tech community", "joveo_available": true},
+            {"rank": 4, "name": "ZipRecruiter", "strength": "SMB coverage", "joveo_available": true},
+            {"rank": 5, "name": "Dice", "strength": "Tech specialist", "joveo_available": true},
+            {"rank": 6, "name": "Handshake", "strength": "Duke, UNC, NC State pipeline", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Technology", "share": "20%", "growth": "very high", "key_employers": ["Cisco", "Red Hat/IBM", "Epic Games", "SAS Institute", "Lenovo US HQ"]},
+            {"industry": "Biotech & Life Sciences", "share": "15%", "growth": "very high", "key_employers": ["Biogen", "Fujifilm Diosynth", "IQVIA"]},
+            {"industry": "Education & Research", "share": "14%", "growth": "stable", "key_employers": ["Duke University", "UNC Chapel Hill", "NC State"]},
+            {"industry": "Healthcare", "share": "12%", "growth": "high", "key_employers": ["Duke Health", "UNC Health", "WakeMed"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 82000, "mid": 120000, "senior": 165000},
+            "biotech_researcher": {"entry": 65000, "mid": 95000, "senior": 135000},
+            "data_scientist": {"entry": 80000, "mid": 115000, "senior": 160000}
+          },
+          "talent_dynamics": {
+            "overall_market": "tight",
+            "shortage_roles": ["software engineers", "biotech researchers", "AI engineers", "clinical research associates"],
+            "surplus_roles": ["entry-level recent grads (large university pipeline)"],
+            "unemployment_rate": "3.0%",
+            "avg_time_to_fill_days": 38
+          },
+          "cpa_benchmark": {"professional_roles": "$28-45", "tech_roles": "$35-58", "hourly_roles": "$12-22"}
+        },
+        "atlanta_ga": {
+          "name": "Atlanta, GA",
+          "metro_population": 6200000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Highest volume", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Professional/tech/corporate", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "Strong SMB presence", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Employer branding", "joveo_available": true},
+            {"rank": 5, "name": "BuiltIn Atlanta", "strength": "Growing tech hub", "joveo_available": true},
+            {"rank": 6, "name": "Snagajob/JobGet", "strength": "Hourly/hospitality", "joveo_available": true},
+            {"rank": 7, "name": "Handshake", "strength": "Georgia Tech, Emory, Morehouse pipeline", "joveo_available": true},
+            {"rank": 8, "name": "Dice", "strength": "Tech roles", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Logistics & Transportation", "share": "15%", "growth": "high", "key_employers": ["Delta Air Lines HQ", "UPS HQ", "Norfolk Southern HQ"]},
+            {"industry": "Technology", "share": "14%", "growth": "very high", "key_employers": ["Microsoft ATL", "Google ATL", "Mailchimp/Intuit", "NCR Voyix"]},
+            {"industry": "Healthcare", "share": "13%", "growth": "high", "key_employers": ["Emory Healthcare", "Piedmont Healthcare", "WellStar"]},
+            {"industry": "Film & Entertainment", "share": "6%", "growth": "high", "key_employers": ["Major studios (Georgia film tax credits)"]},
+            {"industry": "Financial Services", "share": "10%", "growth": "moderate", "key_employers": ["Intercontinental Exchange", "Invesco", "Global Payments"]},
+            {"industry": "Consumer Products", "share": "8%", "growth": "stable", "key_employers": ["Coca-Cola HQ", "Home Depot HQ", "Chick-fil-A HQ"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 80000, "mid": 120000, "senior": 165000},
+            "data_scientist": {"entry": 78000, "mid": 112000, "senior": 155000},
+            "registered_nurse": {"entry": 60000, "mid": 75000, "senior": 95000},
+            "logistics_manager": {"entry": 55000, "mid": 78000, "senior": 110000},
+            "warehouse_worker": {"entry": 30000, "mid": 36000, "senior": 44000}
+          },
+          "talent_dynamics": {
+            "overall_market": "competitive",
+            "shortage_roles": ["software engineers", "cybersecurity analysts", "nurses", "CDL drivers", "skilled trades"],
+            "surplus_roles": ["entry-level business grads", "general admin"],
+            "unemployment_rate": "3.5%",
+            "avg_time_to_fill_days": 37,
+            "notes": "Major tech hub growth; HBCU pipeline (Morehouse, Spelman, Clark Atlanta) drives diverse talent"
+          },
+          "cpa_benchmark": {"professional_roles": "$28-48", "tech_roles": "$35-58", "hourly_roles": "$12-25"}
+        },
+        "miami_fl": {
+          "name": "Miami-Fort Lauderdale, FL",
+          "metro_population": 6200000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Highest volume", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Professional/finance/tech", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "SMB presence", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Research + apply", "joveo_available": true},
+            {"rank": 5, "name": "Snagajob/JobGet", "strength": "Hospitality/hourly", "joveo_available": true},
+            {"rank": 6, "name": "BuiltIn Miami", "strength": "Emerging tech scene", "joveo_available": true},
+            {"rank": 7, "name": "Empleos Miami (Spanish boards)", "strength": "Bilingual market", "joveo_available": false}
+          ],
+          "dominant_industries": [
+            {"industry": "Tourism & Hospitality", "share": "18%", "growth": "high"},
+            {"industry": "Healthcare", "share": "15%", "growth": "high", "key_employers": ["Baptist Health", "Jackson Health System"]},
+            {"industry": "Finance & Fintech", "share": "12%", "growth": "very high", "key_employers": ["Citadel (relocated)", "Point72", "various hedge funds/crypto"]},
+            {"industry": "International Trade & Logistics", "share": "10%", "growth": "moderate"},
+            {"industry": "Real Estate & Construction", "share": "10%", "growth": "high"},
+            {"industry": "Technology", "share": "10%", "growth": "very high", "key_employers": ["Microsoft LATAM hub", "Spotify Miami"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 78000, "mid": 115000, "senior": 160000},
+            "hospitality_manager": {"entry": 45000, "mid": 65000, "senior": 90000},
+            "registered_nurse": {"entry": 62000, "mid": 78000, "senior": 95000},
+            "bilingual_customer_service": {"entry": 32000, "mid": 40000, "senior": 50000}
+          },
+          "talent_dynamics": {
+            "overall_market": "competitive",
+            "shortage_roles": ["tech workers", "nurses", "skilled trades", "hospitality workers post-COVID"],
+            "surplus_roles": ["entry-level hospitality seasonally"],
+            "unemployment_rate": "3.2%",
+            "avg_time_to_fill_days": 34,
+            "notes": "Massive influx of finance/tech relocations from NYC. Bilingual (English/Spanish) is baseline requirement for many roles."
+          },
+          "cpa_benchmark": {"professional_roles": "$28-48", "hourly_roles": "$12-25", "bilingual_roles": "$20-35"},
+          "language_requirements": "English and Spanish equally important. Portuguese (Brazilian community) valuable. Creole useful for some healthcare/service roles."
+        },
+        "tampa_fl": {
+          "name": "Tampa-St. Petersburg, FL",
+          "metro_population": 3300000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Primary board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Professional/finance", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "SMB", "joveo_available": true},
+            {"rank": 4, "name": "Snagajob/JobGet", "strength": "Hourly", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Financial Services", "share": "15%", "growth": "high", "key_employers": ["USAA", "Citigroup operations", "Raymond James HQ"]},
+            {"industry": "Healthcare", "share": "18%", "growth": "high", "key_employers": ["BayCare Health", "AdventHealth", "Moffitt Cancer Center"]},
+            {"industry": "Technology", "share": "10%", "growth": "high", "key_employers": ["ConnectWise", "KnowBe4", "ReliaQuest"]},
+            {"industry": "Tourism", "share": "8%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 72000, "mid": 108000, "senior": 148000},
+            "registered_nurse": {"entry": 58000, "mid": 72000, "senior": 90000}
+          },
+          "talent_dynamics": {
+            "overall_market": "growing",
+            "shortage_roles": ["tech workers", "nurses", "cybersecurity", "skilled trades"],
+            "unemployment_rate": "3.3%",
+            "avg_time_to_fill_days": 33
+          },
+          "cpa_benchmark": {"professional_roles": "$24-40", "hourly_roles": "$10-22"}
+        },
+        "orlando_fl": {
+          "name": "Orlando, FL",
+          "metro_population": 2700000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Primary board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Professional roles", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "SMB", "joveo_available": true},
+            {"rank": 4, "name": "Snagajob/JobGet", "strength": "Theme parks/hospitality", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Tourism & Theme Parks", "share": "22%", "growth": "moderate", "key_employers": ["Walt Disney World", "Universal Orlando", "SeaWorld"]},
+            {"industry": "Healthcare", "share": "15%", "growth": "high", "key_employers": ["AdventHealth", "Orlando Health"]},
+            {"industry": "Defense & Simulation", "share": "10%", "growth": "high", "key_employers": ["Lockheed Martin", "L3Harris HQ"]},
+            {"industry": "Technology", "share": "8%", "growth": "high"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 70000, "mid": 105000, "senior": 142000},
+            "theme_park_operations": {"entry": 28000, "mid": 35000, "senior": 48000},
+            "registered_nurse": {"entry": 58000, "mid": 70000, "senior": 88000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["nurses", "simulation engineers", "tech workers"],
+            "surplus_roles": ["hospitality entry-level"],
+            "unemployment_rate": "3.5%",
+            "avg_time_to_fill_days": 32
+          },
+          "cpa_benchmark": {"professional_roles": "$22-38", "hourly_roles": "$10-20"}
+        },
+        "jacksonville_fl": {
+          "name": "Jacksonville, FL",
+          "metro_population": 1650000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Primary board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Finance/logistics", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "SMB", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Financial Services", "share": "18%", "growth": "moderate", "key_employers": ["FIS HQ", "Fidelity National Information Services", "Deutsche Bank"]},
+            {"industry": "Healthcare", "share": "16%", "growth": "high", "key_employers": ["Mayo Clinic Jacksonville", "Baptist Health"]},
+            {"industry": "Logistics & Port", "share": "12%", "growth": "high", "key_employers": ["CSX HQ", "JAXPORT operations"]},
+            {"industry": "Military", "share": "10%", "growth": "stable", "key_employers": ["Naval Station Mayport", "NAS Jacksonville"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 68000, "mid": 100000, "senior": 138000},
+            "registered_nurse": {"entry": 56000, "mid": 68000, "senior": 85000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["tech workers", "nurses", "CDL drivers"],
+            "unemployment_rate": "3.6%",
+            "avg_time_to_fill_days": 32
+          },
+          "cpa_benchmark": {"professional_roles": "$22-38", "hourly_roles": "$10-20"}
+        },
+        "nashville_tn": {
+          "name": "Nashville, TN",
+          "metro_population": 2050000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Dominant board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Healthcare/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "Growing SMB", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Employer branding", "joveo_available": true},
+            {"rank": 5, "name": "BuiltIn Nashville", "strength": "Tech community", "joveo_available": true},
+            {"rank": 6, "name": "Snagajob/JobGet", "strength": "Hospitality/music industry hourly", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Healthcare Management", "share": "20%", "growth": "very high", "key_employers": ["HCA Healthcare HQ", "Community Health Systems", "Envision Healthcare"]},
+            {"industry": "Music & Entertainment", "share": "8%", "growth": "high"},
+            {"industry": "Technology", "share": "12%", "growth": "very high", "key_employers": ["Amazon Operations Hub", "Oracle Health HQ", "AllianceBernstein"]},
+            {"industry": "Hospitality & Tourism", "share": "10%", "growth": "high"},
+            {"industry": "Finance", "share": "8%", "growth": "high", "key_employers": ["AllianceBernstein HQ (relocated from NYC)"]},
+            {"industry": "Automotive", "share": "6%", "growth": "moderate", "key_employers": ["Nissan North America HQ", "Bridgestone Americas HQ"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 75000, "mid": 112000, "senior": 152000},
+            "healthcare_admin": {"entry": 50000, "mid": 75000, "senior": 110000},
+            "registered_nurse": {"entry": 58000, "mid": 72000, "senior": 90000}
+          },
+          "talent_dynamics": {
+            "overall_market": "tight",
+            "shortage_roles": ["tech workers", "nurses", "healthcare IT", "skilled trades", "hospitality workers"],
+            "surplus_roles": ["music industry entry-level"],
+            "unemployment_rate": "2.8%",
+            "avg_time_to_fill_days": 34,
+            "notes": "Fastest growing major US metro; massive corporate relocations driving demand"
+          },
+          "cpa_benchmark": {"professional_roles": "$25-42", "healthcare_roles": "$22-38", "hourly_roles": "$10-22"},
+          "hiring_regulations": {
+            "state": "Tennessee",
+            "salary_transparency": "Not required",
+            "right_to_work": true,
+            "at_will_employment": true,
+            "minimum_wage": "$7.25/hr (federal minimum)",
+            "no_state_income_tax": true
+          }
+        },
+        "memphis_tn": {
+          "name": "Memphis, TN",
+          "metro_population": 1350000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Primary board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Logistics/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "SMB", "joveo_available": true},
+            {"rank": 4, "name": "Snagajob/JobGet", "strength": "Warehouse/hourly", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Logistics & Distribution", "share": "25%", "growth": "high", "key_employers": ["FedEx World HQ", "Amazon fulfillment"]},
+            {"industry": "Healthcare", "share": "18%", "growth": "high", "key_employers": ["St. Jude Children's Research Hospital", "Methodist Le Bonheur"]},
+            {"industry": "Manufacturing", "share": "8%", "growth": "stable"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "logistics_manager": {"entry": 48000, "mid": 72000, "senior": 105000},
+            "warehouse_worker": {"entry": 28000, "mid": 35000, "senior": 42000},
+            "registered_nurse": {"entry": 55000, "mid": 68000, "senior": 85000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["CDL drivers", "warehouse workers", "nurses", "skilled trades"],
+            "unemployment_rate": "4.2%",
+            "avg_time_to_fill_days": 30
+          },
+          "cpa_benchmark": {"professional_roles": "$20-35", "hourly_roles": "$8-18"}
+        },
+        "birmingham_al": {
+          "name": "Birmingham, AL",
+          "metro_population": 1150000,
+          "dominant_industries": [
+            {"industry": "Healthcare", "share": "22%", "growth": "high", "key_employers": ["UAB Health System", "Grandview Medical Center"]},
+            {"industry": "Banking", "share": "12%", "growth": "moderate", "key_employers": ["Regions Financial HQ"]},
+            {"industry": "Manufacturing/Steel", "share": "8%", "growth": "stable"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 65000, "mid": 95000, "senior": 130000},
+            "registered_nurse": {"entry": 52000, "mid": 65000, "senior": 82000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["nurses", "tech workers", "skilled trades"],
+            "unemployment_rate": "3.5%",
+            "avg_time_to_fill_days": 30
+          },
+          "cpa_benchmark": {"professional_roles": "$18-32", "hourly_roles": "$8-16"}
+        },
+        "new_orleans_la": {
+          "name": "New Orleans, LA",
+          "metro_population": 1270000,
+          "dominant_industries": [
+            {"industry": "Tourism & Hospitality", "share": "22%", "growth": "moderate"},
+            {"industry": "Energy/Oil & Gas", "share": "12%", "growth": "variable"},
+            {"industry": "Healthcare", "share": "15%", "growth": "high", "key_employers": ["Ochsner Health System"]},
+            {"industry": "Port & Maritime", "share": "8%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 62000, "mid": 92000, "senior": 125000},
+            "hospitality_manager": {"entry": 38000, "mid": 52000, "senior": 72000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate-loose",
+            "shortage_roles": ["nurses", "skilled trades", "tech workers"],
+            "surplus_roles": ["hospitality entry-level"],
+            "unemployment_rate": "4.8%",
+            "avg_time_to_fill_days": 30
+          },
+          "cpa_benchmark": {"professional_roles": "$18-32", "hourly_roles": "$8-16"}
+        }
+      },
+      "regional_hiring_regulations": {
+        "right_to_work_states": ["FL", "GA", "NC", "SC", "TN", "AL", "MS", "LA"],
+        "general_at_will": true,
+        "salary_transparency_trend": "Not yet widely adopted in Southeast",
+        "minimum_wages_generally_lower": true,
+        "no_state_income_tax": ["FL", "TN"],
+        "notes": "Southeast generally employer-friendly regulations; lower labor costs than Northeast"
+      }
+    },
+    "us_midwest": {
+      "name": "US Midwest",
+      "timezone": "America/Chicago (CT, UTC-6/-5) and America/New_York (ET) for some eastern areas",
+      "markets": {
+        "chicago_il": {
+          "name": "Chicago, IL",
+          "metro_population": 9500000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Highest volume", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Finance/tech/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "Strong SMB presence", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Employer branding", "joveo_available": true},
+            {"rank": 5, "name": "BuiltIn Chicago", "strength": "Leading tech community board", "joveo_available": true},
+            {"rank": 6, "name": "Dice", "strength": "Tech specialist", "joveo_available": true},
+            {"rank": 7, "name": "Handshake", "strength": "Northwestern, UChicago, UIUC pipeline", "joveo_available": true},
+            {"rank": 8, "name": "Snagajob/JobGet", "strength": "Hourly/hospitality", "joveo_available": true},
+            {"rank": 9, "name": "CareerBuilder", "strength": "Legacy general board", "joveo_available": true},
+            {"rank": 10, "name": "Jobcase", "strength": "Blue collar/hourly", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Financial Services & Trading", "share": "14%", "growth": "moderate", "key_employers": ["CME Group", "Citadel", "Morningstar", "Northern Trust"]},
+            {"industry": "Technology", "share": "12%", "growth": "high", "key_employers": ["Google Chicago", "Salesforce", "Grubhub", "Tempus AI"]},
+            {"industry": "Healthcare", "share": "14%", "growth": "high", "key_employers": ["Northwestern Medicine", "Rush University Medical", "Advocate Aurora"]},
+            {"industry": "Manufacturing", "share": "10%", "growth": "stable", "key_employers": ["Caterpillar", "Abbott Laboratories", "Baxter International"]},
+            {"industry": "Food & Beverage", "share": "8%", "growth": "stable", "key_employers": ["McDonald's HQ", "Conagra Brands", "Mondelez"]},
+            {"industry": "Professional Services", "share": "10%", "growth": "moderate", "key_employers": ["Deloitte", "BCG", "Accenture"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 85000, "mid": 125000, "senior": 170000},
+            "data_scientist": {"entry": 82000, "mid": 120000, "senior": 165000},
+            "registered_nurse": {"entry": 65000, "mid": 82000, "senior": 105000},
+            "financial_analyst": {"entry": 62000, "mid": 88000, "senior": 125000},
+            "warehouse_worker": {"entry": 32000, "mid": 40000, "senior": 48000},
+            "marketing_manager": {"entry": 60000, "mid": 88000, "senior": 125000}
+          },
+          "talent_dynamics": {
+            "overall_market": "competitive",
+            "shortage_roles": ["AI/ML engineers", "cybersecurity", "nurses", "skilled trades", "CDL drivers"],
+            "surplus_roles": ["entry-level marketing", "general admin", "retail associates"],
+            "unemployment_rate": "4.2%",
+            "avg_time_to_fill_days": 40
+          },
+          "best_channels": [
+            {"channel": "LinkedIn Ads", "effectiveness": "very high", "best_for": "finance/tech/professional", "avg_cpc": "$4.50-8.50"},
+            {"channel": "Indeed Sponsored", "effectiveness": "high", "best_for": "all role types", "avg_cpc": "$0.35-1.10"},
+            {"channel": "Google Ads", "effectiveness": "high", "best_for": "high-intent", "avg_cpc": "$1.80-4.50"},
+            {"channel": "Facebook/Meta Ads", "effectiveness": "medium-high", "best_for": "hourly/healthcare", "avg_cpc": "$0.50-2.00"},
+            {"channel": "Programmatic (Appcast/Joveo)", "effectiveness": "high", "best_for": "volume hiring", "avg_cpc": "$0.25-0.80"},
+            {"channel": "BuiltIn Chicago", "effectiveness": "high", "best_for": "tech/startup roles", "avg_cpc": "flat fee"}
+          ],
+          "cpa_benchmark": {
+            "professional_roles": "$32-52",
+            "tech_roles": "$38-62",
+            "healthcare_roles": "$28-48",
+            "hourly_roles": "$14-28"
+          },
+          "hiring_regulations": {
+            "state": "Illinois",
+            "salary_transparency": "Required (Illinois law effective 2025, employers 15+)",
+            "ban_the_box": true,
+            "ai_hiring_law": "Illinois AI Video Interview Act requires consent",
+            "at_will_employment": true,
+            "minimum_wage": "$14.00/hr state, Chicago $15.80/hr (2024)"
+          }
+        },
+        "detroit_mi": {
+          "name": "Detroit, MI",
+          "metro_population": 4390000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Primary board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Automotive/engineering/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "SMB", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Employer branding", "joveo_available": true},
+            {"rank": 5, "name": "CareerBuilder", "strength": "Automotive/manufacturing legacy", "joveo_available": true},
+            {"rank": 6, "name": "Snagajob/JobGet", "strength": "Manufacturing hourly", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Automotive", "share": "22%", "growth": "transitioning (EV shift)", "key_employers": ["GM", "Ford", "Stellantis", "Rivian (nearby)"]},
+            {"industry": "Healthcare", "share": "16%", "growth": "high", "key_employers": ["Beaumont Health", "Henry Ford Health"]},
+            {"industry": "Technology (Mobility/AV)", "share": "10%", "growth": "very high", "key_employers": ["Argo AI", "Waymo (testing)", "various mobility startups"]},
+            {"industry": "Defense", "share": "6%", "growth": "moderate"},
+            {"industry": "Manufacturing (Advanced)", "share": "12%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 75000, "mid": 110000, "senior": 150000},
+            "automotive_engineer": {"entry": 72000, "mid": 100000, "senior": 140000},
+            "registered_nurse": {"entry": 58000, "mid": 72000, "senior": 90000},
+            "skilled_trades": {"entry": 40000, "mid": 58000, "senior": 78000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["EV/battery engineers", "software engineers (automotive)", "skilled trades", "nurses"],
+            "surplus_roles": ["traditional auto assembly (due to automation)", "general admin"],
+            "unemployment_rate": "4.8%",
+            "avg_time_to_fill_days": 36,
+            "notes": "EV transition creating massive reskilling needs; strong union presence (UAW)"
+          },
+          "cpa_benchmark": {"professional_roles": "$25-42", "tech_roles": "$32-52", "hourly_roles": "$10-22"}
+        },
+        "cleveland_oh": {
+          "name": "Cleveland, OH",
+          "metro_population": 2090000,
+          "dominant_industries": [
+            {"industry": "Healthcare", "share": "24%", "growth": "high", "key_employers": ["Cleveland Clinic", "University Hospitals", "MetroHealth"]},
+            {"industry": "Manufacturing", "share": "14%", "growth": "stable", "key_employers": ["Parker Hannifin", "Sherwin-Williams HQ"]},
+            {"industry": "Financial Services", "share": "8%", "growth": "moderate", "key_employers": ["KeyCorp", "Progressive Insurance (nearby)"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 68000, "mid": 98000, "senior": 135000},
+            "registered_nurse": {"entry": 55000, "mid": 68000, "senior": 85000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["nurses", "tech workers", "skilled trades"],
+            "unemployment_rate": "4.5%",
+            "avg_time_to_fill_days": 33
+          },
+          "cpa_benchmark": {"professional_roles": "$22-38", "hourly_roles": "$10-20"}
+        },
+        "columbus_oh": {
+          "name": "Columbus, OH",
+          "metro_population": 2150000,
+          "dominant_industries": [
+            {"industry": "Technology", "share": "14%", "growth": "very high", "key_employers": ["Intel (new fab)", "Amazon AWS", "JPMorgan Chase (tech hub)"]},
+            {"industry": "Healthcare", "share": "16%", "growth": "high", "key_employers": ["Ohio State Wexner Medical Center", "OhioHealth"]},
+            {"industry": "Insurance/Finance", "share": "12%", "growth": "moderate", "key_employers": ["Nationwide Insurance HQ", "Huntington Bancshares"]},
+            {"industry": "Education", "share": "10%", "growth": "stable", "key_employers": ["Ohio State University"]},
+            {"industry": "Logistics", "share": "8%", "growth": "high"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 72000, "mid": 108000, "senior": 148000},
+            "registered_nurse": {"entry": 56000, "mid": 70000, "senior": 88000}
+          },
+          "talent_dynamics": {
+            "overall_market": "tight",
+            "shortage_roles": ["semiconductor engineers (Intel fab)", "software engineers", "nurses", "construction workers"],
+            "unemployment_rate": "3.2%",
+            "avg_time_to_fill_days": 35,
+            "notes": "Intel fab investment creating massive hiring wave; Ohio State pipeline strong"
+          },
+          "cpa_benchmark": {"professional_roles": "$24-40", "tech_roles": "$30-50", "hourly_roles": "$10-22"}
+        },
+        "indianapolis_in": {
+          "name": "Indianapolis, IN",
+          "metro_population": 2110000,
+          "dominant_industries": [
+            {"industry": "Healthcare & Pharma", "share": "18%", "growth": "high", "key_employers": ["Eli Lilly HQ", "IU Health", "Anthem/Elevance Health HQ"]},
+            {"industry": "Motorsports & Manufacturing", "share": "10%", "growth": "stable"},
+            {"industry": "Technology", "share": "10%", "growth": "high", "key_employers": ["Salesforce (major hub)", "Genesys"]},
+            {"industry": "Logistics", "share": "8%", "growth": "high"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 70000, "mid": 102000, "senior": 140000},
+            "pharma_researcher": {"entry": 65000, "mid": 95000, "senior": 135000},
+            "registered_nurse": {"entry": 55000, "mid": 68000, "senior": 85000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate-tight",
+            "shortage_roles": ["pharma researchers (Eli Lilly expansion)", "tech workers", "nurses"],
+            "unemployment_rate": "3.2%",
+            "avg_time_to_fill_days": 32,
+            "notes": "Eli Lilly massive expansion ($10B+ investment) driving pharma hiring boom"
+          },
+          "cpa_benchmark": {"professional_roles": "$22-38", "hourly_roles": "$10-20"}
+        },
+        "milwaukee_wi": {
+          "name": "Milwaukee, WI",
+          "metro_population": 1570000,
+          "dominant_industries": [
+            {"industry": "Manufacturing", "share": "18%", "growth": "stable", "key_employers": ["Rockwell Automation", "Johnson Controls", "Harley-Davidson"]},
+            {"industry": "Healthcare", "share": "16%", "growth": "high", "key_employers": ["Froedtert Health", "Aurora Health Care"]},
+            {"industry": "Financial Services", "share": "10%", "growth": "moderate", "key_employers": ["Northwestern Mutual HQ", "Robert W. Baird"]},
+            {"industry": "Food & Beverage", "share": "6%", "growth": "stable"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 68000, "mid": 98000, "senior": 135000},
+            "registered_nurse": {"entry": 58000, "mid": 72000, "senior": 90000},
+            "manufacturing_engineer": {"entry": 60000, "mid": 82000, "senior": 110000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["skilled trades", "nurses", "tech workers", "manufacturing engineers"],
+            "unemployment_rate": "3.5%",
+            "avg_time_to_fill_days": 33
+          },
+          "cpa_benchmark": {"professional_roles": "$22-38", "hourly_roles": "$10-20"}
+        },
+        "minneapolis_mn": {
+          "name": "Minneapolis-St. Paul, MN",
+          "metro_population": 3700000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Primary board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Corporate/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "SMB", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Fortune 500 employer branding", "joveo_available": true},
+            {"rank": 5, "name": "BuiltIn Minneapolis", "strength": "Tech community", "joveo_available": true},
+            {"rank": 6, "name": "MinnesotaWorks.net", "strength": "State job bank", "joveo_available": false}
+          ],
+          "dominant_industries": [
+            {"industry": "Healthcare & Medical Devices", "share": "18%", "growth": "high", "key_employers": ["UnitedHealth Group HQ", "Mayo Clinic (nearby)", "Medtronic HQ", "3M Healthcare"]},
+            {"industry": "Retail & Consumer", "share": "12%", "growth": "moderate", "key_employers": ["Target HQ", "Best Buy HQ", "General Mills"]},
+            {"industry": "Financial Services", "share": "10%", "growth": "moderate", "key_employers": ["U.S. Bancorp", "Ameriprise Financial"]},
+            {"industry": "Technology", "share": "10%", "growth": "high"},
+            {"industry": "Manufacturing", "share": "8%", "growth": "stable", "key_employers": ["3M HQ", "Honeywell (former HQ)"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 78000, "mid": 115000, "senior": 155000},
+            "data_scientist": {"entry": 76000, "mid": 110000, "senior": 150000},
+            "registered_nurse": {"entry": 62000, "mid": 78000, "senior": 98000}
+          },
+          "talent_dynamics": {
+            "overall_market": "tight",
+            "shortage_roles": ["tech workers", "nurses", "skilled trades", "medical device engineers"],
+            "surplus_roles": ["entry-level business grads"],
+            "unemployment_rate": "2.8%",
+            "avg_time_to_fill_days": 38,
+            "notes": "Very low unemployment; 19 Fortune 500 HQs create intense competition for talent"
+          },
+          "cpa_benchmark": {"professional_roles": "$28-45", "tech_roles": "$32-55", "hourly_roles": "$12-24"}
+        },
+        "kansas_city_mo": {
+          "name": "Kansas City, MO-KS",
+          "metro_population": 2200000,
+          "dominant_industries": [
+            {"industry": "Technology", "share": "12%", "growth": "high", "key_employers": ["Cerner/Oracle Health", "Garmin HQ", "Sprint/T-Mobile"]},
+            {"industry": "Healthcare", "share": "14%", "growth": "high"},
+            {"industry": "Financial Services", "share": "8%", "growth": "moderate"},
+            {"industry": "Agriculture/Food Processing", "share": "6%", "growth": "stable"},
+            {"industry": "Automotive Manufacturing", "share": "6%", "growth": "moderate", "key_employers": ["GM Fairfax", "Ford Claycomo"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 68000, "mid": 100000, "senior": 138000},
+            "registered_nurse": {"entry": 55000, "mid": 68000, "senior": 85000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["tech workers", "nurses", "skilled trades"],
+            "unemployment_rate": "3.2%",
+            "avg_time_to_fill_days": 32
+          },
+          "cpa_benchmark": {"professional_roles": "$20-35", "hourly_roles": "$9-18"}
+        },
+        "st_louis_mo": {
+          "name": "St. Louis, MO-IL",
+          "metro_population": 2820000,
+          "dominant_industries": [
+            {"industry": "Healthcare & Bioscience", "share": "18%", "growth": "high", "key_employers": ["BJC HealthCare", "Mercy Health", "Bayer Crop Science"]},
+            {"industry": "Financial Services", "share": "10%", "growth": "moderate", "key_employers": ["Edward Jones HQ", "Stifel Financial"]},
+            {"industry": "Defense & Aerospace", "share": "8%", "growth": "moderate", "key_employers": ["Boeing Defense (major facility)"]},
+            {"industry": "Food & Beverage", "share": "5%", "growth": "stable", "key_employers": ["Anheuser-Busch"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 70000, "mid": 102000, "senior": 140000},
+            "registered_nurse": {"entry": 55000, "mid": 70000, "senior": 88000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["tech workers", "nurses", "skilled trades", "bioscience researchers"],
+            "unemployment_rate": "3.8%",
+            "avg_time_to_fill_days": 33
+          },
+          "cpa_benchmark": {"professional_roles": "$22-38", "hourly_roles": "$10-20"}
+        },
+        "des_moines_ia": {
+          "name": "Des Moines, IA",
+          "metro_population": 700000,
+          "dominant_industries": [
+            {"industry": "Insurance & Financial Services", "share": "25%", "growth": "moderate", "key_employers": ["Principal Financial HQ", "Wellmark Blue Cross", "EMC Insurance"]},
+            {"industry": "Agriculture/Agribusiness", "share": "10%", "growth": "stable"},
+            {"industry": "Technology", "share": "8%", "growth": "high", "key_employers": ["Microsoft data centers"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 65000, "mid": 95000, "senior": 130000},
+            "actuary": {"entry": 68000, "mid": 105000, "senior": 160000}
+          },
+          "talent_dynamics": {
+            "overall_market": "tight",
+            "shortage_roles": ["tech workers", "actuaries", "skilled trades"],
+            "unemployment_rate": "2.5%",
+            "avg_time_to_fill_days": 32
+          },
+          "cpa_benchmark": {"professional_roles": "$18-32", "hourly_roles": "$8-16"}
+        },
+        "omaha_ne": {
+          "name": "Omaha, NE",
+          "metro_population": 970000,
+          "dominant_industries": [
+            {"industry": "Financial Services", "share": "18%", "growth": "moderate", "key_employers": ["Berkshire Hathaway HQ", "Mutual of Omaha", "First National Bank"]},
+            {"industry": "Technology", "share": "10%", "growth": "high"},
+            {"industry": "Food Processing", "share": "8%", "growth": "stable", "key_employers": ["ConAgra", "Tyson Foods (operations)"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 65000, "mid": 95000, "senior": 130000},
+            "registered_nurse": {"entry": 55000, "mid": 68000, "senior": 85000}
+          },
+          "talent_dynamics": {
+            "overall_market": "tight",
+            "shortage_roles": ["tech workers", "nurses", "skilled trades"],
+            "unemployment_rate": "2.6%",
+            "avg_time_to_fill_days": 30
+          },
+          "cpa_benchmark": {"professional_roles": "$18-32", "hourly_roles": "$8-16"}
+        }
+      }
+    },
+    "us_southwest": {
+      "name": "US Southwest",
+      "timezone": "America/Chicago (CT) for Texas, America/Denver (MT) and America/Phoenix (no DST) for Mountain region",
+      "markets": {
+        "houston_tx": {
+          "name": "Houston, TX",
+          "metro_population": 7200000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Dominant volume", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Energy/tech/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "Strong SMB", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Employer branding", "joveo_available": true},
+            {"rank": 5, "name": "Rigzone", "strength": "Oil & gas specialist", "joveo_available": true},
+            {"rank": 6, "name": "Snagajob/JobGet", "strength": "Hourly/service", "joveo_available": true},
+            {"rank": 7, "name": "CareerBuilder", "strength": "General/legacy", "joveo_available": true},
+            {"rank": 8, "name": "BuiltIn Houston", "strength": "Growing tech scene", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Energy (Oil & Gas + Renewables)", "share": "20%", "growth": "transitioning", "key_employers": ["ExxonMobil", "Chevron", "ConocoPhillips", "Baker Hughes", "Schlumberger"]},
+            {"industry": "Healthcare & Texas Medical Center", "share": "18%", "growth": "very high", "key_employers": ["MD Anderson Cancer Center", "Houston Methodist", "Memorial Hermann"]},
+            {"industry": "Aerospace & NASA", "share": "8%", "growth": "high", "key_employers": ["NASA Johnson Space Center", "Boeing Houston", "Axiom Space"]},
+            {"industry": "Technology", "share": "10%", "growth": "high", "key_employers": ["HP Enterprise", "BMC Software"]},
+            {"industry": "Manufacturing & Petrochemicals", "share": "8%", "growth": "stable"},
+            {"industry": "Port & Logistics", "share": "6%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 82000, "mid": 120000, "senior": 165000},
+            "petroleum_engineer": {"entry": 95000, "mid": 140000, "senior": 200000},
+            "registered_nurse": {"entry": 62000, "mid": 78000, "senior": 98000},
+            "data_scientist": {"entry": 80000, "mid": 115000, "senior": 158000},
+            "warehouse_worker": {"entry": 30000, "mid": 36000, "senior": 44000}
+          },
+          "talent_dynamics": {
+            "overall_market": "competitive",
+            "shortage_roles": ["energy transition engineers", "nurses", "software engineers", "cybersecurity", "skilled trades"],
+            "surplus_roles": ["traditional oil & gas during downturns", "entry-level admin"],
+            "unemployment_rate": "4.0%",
+            "avg_time_to_fill_days": 36
+          },
+          "cpa_benchmark": {"professional_roles": "$28-48", "energy_roles": "$35-60", "hourly_roles": "$12-25"},
+          "language_requirements": "English (primary). Spanish very valuable (large Hispanic population). Vietnamese useful in certain areas.",
+          "hiring_regulations": {
+            "state": "Texas",
+            "salary_transparency": "Not required",
+            "right_to_work": true,
+            "at_will_employment": true,
+            "no_state_income_tax": true,
+            "minimum_wage": "$7.25/hr (federal minimum)"
+          }
+        },
+        "dallas_tx": {
+          "name": "Dallas-Fort Worth, TX",
+          "metro_population": 7900000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Dominant volume", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Corporate/tech/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "Strong SMB", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Employer branding", "joveo_available": true},
+            {"rank": 5, "name": "BuiltIn Dallas", "strength": "Tech community", "joveo_available": true},
+            {"rank": 6, "name": "Dice", "strength": "Telecom/tech", "joveo_available": true},
+            {"rank": 7, "name": "Snagajob/JobGet", "strength": "Hourly/retail", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Technology & Telecom", "share": "16%", "growth": "very high", "key_employers": ["AT&T HQ", "Texas Instruments", "Salesforce Dallas"]},
+            {"industry": "Financial Services", "share": "12%", "growth": "high", "key_employers": ["Charles Schwab HQ (relocated)", "Goldman Sachs Dallas"]},
+            {"industry": "Healthcare", "share": "14%", "growth": "high", "key_employers": ["Baylor Scott & White", "Texas Health Resources", "UT Southwestern"]},
+            {"industry": "Defense & Aerospace", "share": "8%", "growth": "moderate", "key_employers": ["Lockheed Martin (F-35 production)", "Bell Textron"]},
+            {"industry": "Corporate HQs", "share": "10%", "growth": "high", "key_employers": ["McKesson", "Kimberly-Clark", "Jacobs Engineering"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 82000, "mid": 122000, "senior": 168000},
+            "financial_analyst": {"entry": 60000, "mid": 88000, "senior": 128000},
+            "registered_nurse": {"entry": 60000, "mid": 76000, "senior": 95000},
+            "warehouse_worker": {"entry": 30000, "mid": 36000, "senior": 44000}
+          },
+          "talent_dynamics": {
+            "overall_market": "competitive",
+            "shortage_roles": ["software engineers", "data engineers", "nurses", "skilled trades", "cybersecurity"],
+            "unemployment_rate": "3.5%",
+            "avg_time_to_fill_days": 35,
+            "notes": "Massive corporate relocation destination; strong population growth"
+          },
+          "cpa_benchmark": {"professional_roles": "$28-46", "tech_roles": "$32-55", "hourly_roles": "$12-24"}
+        },
+        "austin_tx": {
+          "name": "Austin, TX",
+          "metro_population": 2350000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Dominant board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Tech/professional dominant", "joveo_available": true},
+            {"rank": 3, "name": "BuiltIn Austin", "strength": "Leading tech community board", "joveo_available": true},
+            {"rank": 4, "name": "ZipRecruiter", "strength": "Growing SMB", "joveo_available": true},
+            {"rank": 5, "name": "Glassdoor", "strength": "Tech employer branding", "joveo_available": true},
+            {"rank": 6, "name": "Dice", "strength": "Tech specialist", "joveo_available": true},
+            {"rank": 7, "name": "Handshake", "strength": "UT Austin pipeline", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Technology", "share": "25%", "growth": "very high", "key_employers": ["Tesla HQ", "Apple (major campus)", "Google Austin", "Meta Austin", "Oracle HQ (relocated)", "Samsung Austin Semiconductor"]},
+            {"industry": "Semiconductors", "share": "8%", "growth": "very high", "key_employers": ["Samsung", "NXP Semiconductors", "AMD"]},
+            {"industry": "State Government", "share": "10%", "growth": "stable", "key_employers": ["State of Texas (capital)"]},
+            {"industry": "Education", "share": "8%", "growth": "stable", "key_employers": ["University of Texas at Austin"]},
+            {"industry": "Healthcare", "share": "10%", "growth": "high"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 90000, "mid": 135000, "senior": 185000},
+            "data_scientist": {"entry": 88000, "mid": 125000, "senior": 172000},
+            "product_manager": {"entry": 85000, "mid": 130000, "senior": 180000},
+            "registered_nurse": {"entry": 60000, "mid": 76000, "senior": 95000}
+          },
+          "talent_dynamics": {
+            "overall_market": "very competitive",
+            "shortage_roles": ["senior software engineers", "AI/ML engineers", "semiconductor engineers", "cybersecurity"],
+            "surplus_roles": ["entry-level tech (bootcamp grads)", "general admin"],
+            "unemployment_rate": "3.0%",
+            "avg_time_to_fill_days": 38,
+            "notes": "Silicon Hills - major tech hub rivaling Bay Area; massive growth but affordability declining"
+          },
+          "cpa_benchmark": {"professional_roles": "$30-50", "tech_roles": "$38-65", "hourly_roles": "$12-24"}
+        },
+        "san_antonio_tx": {
+          "name": "San Antonio, TX",
+          "metro_population": 2600000,
+          "dominant_industries": [
+            {"industry": "Military & Defense", "share": "18%", "growth": "stable", "key_employers": ["Joint Base San Antonio", "USAA HQ"]},
+            {"industry": "Healthcare", "share": "16%", "growth": "high"},
+            {"industry": "Cybersecurity", "share": "8%", "growth": "very high", "key_employers": ["NSA Texas", "various defense contractors"]},
+            {"industry": "Tourism", "share": "8%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 72000, "mid": 105000, "senior": 145000},
+            "cybersecurity_analyst": {"entry": 70000, "mid": 100000, "senior": 140000},
+            "registered_nurse": {"entry": 58000, "mid": 72000, "senior": 90000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["cybersecurity analysts", "nurses", "tech workers"],
+            "unemployment_rate": "3.8%",
+            "avg_time_to_fill_days": 32
+          },
+          "cpa_benchmark": {"professional_roles": "$22-38", "hourly_roles": "$10-20"},
+          "language_requirements": "English (primary). Spanish very valuable (67% Hispanic population)."
+        },
+        "phoenix_az": {
+          "name": "Phoenix, AZ",
+          "metro_population": 5100000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Highest volume", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Tech/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "Strong SMB", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Employer branding", "joveo_available": true},
+            {"rank": 5, "name": "BuiltIn Arizona", "strength": "Growing tech", "joveo_available": true},
+            {"rank": 6, "name": "Snagajob/JobGet", "strength": "Hourly/service", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Semiconductors & Manufacturing", "share": "15%", "growth": "very high", "key_employers": ["TSMC (new fab)", "Intel (Chandler)", "ON Semiconductor"]},
+            {"industry": "Healthcare", "share": "16%", "growth": "high", "key_employers": ["Banner Health", "HonorHealth", "Mayo Clinic AZ"]},
+            {"industry": "Financial Services", "share": "10%", "growth": "moderate", "key_employers": ["American Express", "Discover Financial"]},
+            {"industry": "Technology", "share": "12%", "growth": "high"},
+            {"industry": "Real Estate & Construction", "share": "8%", "growth": "variable"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 78000, "mid": 115000, "senior": 158000},
+            "semiconductor_engineer": {"entry": 82000, "mid": 120000, "senior": 168000},
+            "registered_nurse": {"entry": 62000, "mid": 78000, "senior": 98000}
+          },
+          "talent_dynamics": {
+            "overall_market": "tight",
+            "shortage_roles": ["semiconductor engineers (TSMC/Intel fabs)", "nurses", "construction workers", "tech workers"],
+            "unemployment_rate": "3.4%",
+            "avg_time_to_fill_days": 34,
+            "notes": "CHIPS Act investments driving massive semiconductor hiring; TSMC fab bringing thousands of jobs"
+          },
+          "cpa_benchmark": {"professional_roles": "$25-42", "tech_roles": "$30-52", "hourly_roles": "$11-22"},
+          "hiring_regulations": {
+            "state": "Arizona",
+            "salary_transparency": "Not required",
+            "right_to_work": true,
+            "at_will_employment": true,
+            "minimum_wage": "$14.35/hr (2024)",
+            "note": "Arizona does not observe DST (stays on MST year-round)"
+          }
+        },
+        "denver_co": {
+          "name": "Denver, CO",
+          "metro_population": 2970000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Primary board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Tech/outdoor industry/professional", "joveo_available": true},
+            {"rank": 3, "name": "BuiltIn Colorado", "strength": "Strong tech community", "joveo_available": true},
+            {"rank": 4, "name": "ZipRecruiter", "strength": "SMB", "joveo_available": true},
+            {"rank": 5, "name": "Glassdoor", "strength": "Employer branding", "joveo_available": true},
+            {"rank": 6, "name": "Dice", "strength": "Tech/aerospace", "joveo_available": true},
+            {"rank": 7, "name": "ConnectingColorado", "strength": "State job bank", "joveo_available": false}
+          ],
+          "dominant_industries": [
+            {"industry": "Technology", "share": "16%", "growth": "high", "key_employers": ["Arrow Electronics HQ", "IHS Markit", "Palantir (Denver office)", "Guild Education"]},
+            {"industry": "Aerospace & Defense", "share": "12%", "growth": "high", "key_employers": ["Lockheed Martin Space", "Ball Aerospace", "United Launch Alliance"]},
+            {"industry": "Healthcare", "share": "14%", "growth": "high", "key_employers": ["UCHealth", "SCL Health"]},
+            {"industry": "Energy (Renewables)", "share": "8%", "growth": "high", "key_employers": ["Xcel Energy", "various solar/wind"]},
+            {"industry": "Outdoor Recreation/Cannabis", "share": "5%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 82000, "mid": 122000, "senior": 168000},
+            "aerospace_engineer": {"entry": 78000, "mid": 110000, "senior": 152000},
+            "registered_nurse": {"entry": 65000, "mid": 82000, "senior": 102000}
+          },
+          "talent_dynamics": {
+            "overall_market": "competitive",
+            "shortage_roles": ["software engineers", "aerospace engineers", "nurses", "skilled trades"],
+            "unemployment_rate": "3.2%",
+            "avg_time_to_fill_days": 36
+          },
+          "cpa_benchmark": {"professional_roles": "$28-48", "tech_roles": "$35-58", "hourly_roles": "$12-24"},
+          "hiring_regulations": {
+            "state": "Colorado",
+            "salary_transparency": "Required (Equal Pay for Equal Work Act, 2021 - first state to mandate)",
+            "ban_the_box": true,
+            "at_will_employment": true,
+            "minimum_wage": "$14.42/hr (2024)"
+          }
+        },
+        "salt_lake_city_ut": {
+          "name": "Salt Lake City, UT",
+          "metro_population": 1260000,
+          "dominant_industries": [
+            {"industry": "Technology (Silicon Slopes)", "share": "18%", "growth": "very high", "key_employers": ["Adobe Utah", "Qualtrics", "Pluralsight", "Domo"]},
+            {"industry": "Healthcare", "share": "14%", "growth": "high", "key_employers": ["Intermountain Health HQ"]},
+            {"industry": "Financial Services", "share": "8%", "growth": "moderate", "key_employers": ["Goldman Sachs SLC", "Zions Bancorporation"]},
+            {"industry": "Outdoor Recreation", "share": "5%", "growth": "high"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 75000, "mid": 112000, "senior": 155000},
+            "registered_nurse": {"entry": 58000, "mid": 72000, "senior": 90000}
+          },
+          "talent_dynamics": {
+            "overall_market": "tight",
+            "shortage_roles": ["software engineers", "data scientists", "nurses"],
+            "unemployment_rate": "2.5%",
+            "avg_time_to_fill_days": 34,
+            "notes": "Silicon Slopes tech hub growing rapidly; young workforce (median age 31)"
+          },
+          "cpa_benchmark": {"professional_roles": "$24-40", "tech_roles": "$30-50", "hourly_roles": "$10-20"}
+        },
+        "las_vegas_nv": {
+          "name": "Las Vegas, NV",
+          "metro_population": 2300000,
+          "dominant_industries": [
+            {"industry": "Hospitality & Gaming", "share": "30%", "growth": "moderate", "key_employers": ["MGM Resorts", "Caesars Entertainment", "Wynn Resorts", "Las Vegas Sands"]},
+            {"industry": "Healthcare", "share": "12%", "growth": "high"},
+            {"industry": "Construction", "share": "10%", "growth": "variable"},
+            {"industry": "Logistics", "share": "6%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 70000, "mid": 105000, "senior": 142000},
+            "hospitality_manager": {"entry": 42000, "mid": 62000, "senior": 90000},
+            "dealer_casino": {"entry": 25000, "mid": 40000, "senior": 60000}
+          },
+          "talent_dynamics": {
+            "overall_market": "variable",
+            "shortage_roles": ["nurses", "tech workers", "skilled trades", "hospitality staff post-COVID"],
+            "unemployment_rate": "5.2%",
+            "avg_time_to_fill_days": 30
+          },
+          "cpa_benchmark": {"professional_roles": "$22-38", "hourly_roles": "$10-20", "hospitality_roles": "$8-16"}
+        },
+        "albuquerque_nm": {
+          "name": "Albuquerque, NM",
+          "metro_population": 920000,
+          "dominant_industries": [
+            {"industry": "National Labs & Defense", "share": "15%", "growth": "high", "key_employers": ["Sandia National Labs", "Kirtland AFB"]},
+            {"industry": "Healthcare", "share": "18%", "growth": "high"},
+            {"industry": "Technology", "share": "8%", "growth": "moderate", "key_employers": ["Intel (Rio Rancho fab)"]},
+            {"industry": "Film/Entertainment", "share": "4%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 68000, "mid": 98000, "senior": 135000},
+            "registered_nurse": {"entry": 58000, "mid": 72000, "senior": 90000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["cleared engineers", "nurses", "tech workers"],
+            "unemployment_rate": "4.5%",
+            "avg_time_to_fill_days": 32
+          },
+          "cpa_benchmark": {"professional_roles": "$18-32", "hourly_roles": "$8-16"}
+        },
+        "el_paso_tx": {
+          "name": "El Paso, TX",
+          "metro_population": 870000,
+          "dominant_industries": [
+            {"industry": "Military", "share": "20%", "growth": "stable", "key_employers": ["Fort Bliss"]},
+            {"industry": "Healthcare", "share": "15%", "growth": "high"},
+            {"industry": "International Trade/Logistics", "share": "12%", "growth": "moderate"},
+            {"industry": "Manufacturing (Maquiladora related)", "share": "10%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 58000, "mid": 85000, "senior": 118000},
+            "registered_nurse": {"entry": 52000, "mid": 65000, "senior": 82000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate-loose",
+            "shortage_roles": ["nurses", "tech workers"],
+            "unemployment_rate": "4.8%",
+            "avg_time_to_fill_days": 28
+          },
+          "cpa_benchmark": {"professional_roles": "$15-28", "hourly_roles": "$7-14"},
+          "language_requirements": "English and Spanish equally important (80%+ Hispanic population). Bilingual is baseline."
+        }
+      }
+    },
+    "us_west_coast": {
+      "name": "US West Coast",
+      "timezone": "America/Los_Angeles (PT, UTC-8/-7). Hawaii: Pacific/Honolulu (HST, UTC-10). Alaska: America/Anchorage (AKST, UTC-9/-8)",
+      "markets": {
+        "los_angeles_ca": {
+          "name": "Los Angeles, CA",
+          "metro_population": 13200000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Massive volume", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Entertainment/tech/professional", "joveo_available": true},
+            {"rank": 3, "name": "ZipRecruiter", "strength": "HQ in Santa Monica, very strong locally", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Employer branding", "joveo_available": true},
+            {"rank": 5, "name": "BuiltIn LA", "strength": "Silicon Beach tech community", "joveo_available": true},
+            {"rank": 6, "name": "Dice", "strength": "Tech roles", "joveo_available": true},
+            {"rank": 7, "name": "Snagajob/JobGet", "strength": "Hourly/hospitality/retail", "joveo_available": true},
+            {"rank": 8, "name": "Handshake", "strength": "UCLA, USC, CalTech pipeline", "joveo_available": true},
+            {"rank": 9, "name": "Entertainment Careers (industry specific)", "strength": "Film/TV/media", "joveo_available": false},
+            {"rank": 10, "name": "Craigslist LA", "strength": "Gig/creative/service", "joveo_available": false}
+          ],
+          "dominant_industries": [
+            {"industry": "Entertainment & Media", "share": "12%", "growth": "moderate (AI disruption)", "key_employers": ["Disney", "Warner Bros Discovery", "Netflix (nearby)", "Paramount", "NBCUniversal"]},
+            {"industry": "Technology (Silicon Beach)", "share": "14%", "growth": "high", "key_employers": ["Snap", "TikTok US", "SpaceX", "Riot Games", "Hulu"]},
+            {"industry": "Healthcare", "share": "14%", "growth": "high", "key_employers": ["Kaiser Permanente", "Cedars-Sinai", "UCLA Health"]},
+            {"industry": "Aerospace & Defense", "share": "8%", "growth": "high", "key_employers": ["SpaceX HQ", "Northrop Grumman", "Raytheon"]},
+            {"industry": "International Trade & Logistics", "share": "8%", "growth": "moderate", "key_employers": ["Port of LA/Long Beach operations"]},
+            {"industry": "Fashion & Apparel", "share": "4%", "growth": "stable"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 95000, "mid": 142000, "senior": 195000},
+            "data_scientist": {"entry": 92000, "mid": 135000, "senior": 185000},
+            "registered_nurse": {"entry": 85000, "mid": 110000, "senior": 140000},
+            "entertainment_production": {"entry": 45000, "mid": 75000, "senior": 120000},
+            "warehouse_worker": {"entry": 36000, "mid": 44000, "senior": 52000}
+          },
+          "talent_dynamics": {
+            "overall_market": "competitive",
+            "shortage_roles": ["AI/ML engineers", "nurses", "aerospace engineers", "skilled trades", "CDL drivers"],
+            "surplus_roles": ["entertainment industry workers (post-strikes)", "entry-level marketing", "gig workers"],
+            "unemployment_rate": "5.0%",
+            "avg_time_to_fill_days": 42
+          },
+          "cpa_benchmark": {
+            "professional_roles": "$38-60",
+            "tech_roles": "$45-75",
+            "healthcare_roles": "$35-55",
+            "hourly_roles": "$18-35"
+          },
+          "hiring_regulations": {
+            "state": "California",
+            "salary_transparency": "Required (SB 1162, effective Jan 2023, all employers 15+)",
+            "ban_the_box": true,
+            "non_compete_ban": true,
+            "at_will_employment": true,
+            "minimum_wage": "$16.00/hr state (2024), fast food $20.00/hr, healthcare $25.00/hr",
+            "paid_family_leave": "Up to 8 weeks at 60-70% pay via SDI",
+            "additional": "WARN Act (60-day notice for mass layoffs), Cal/OSHA requirements, meal/rest break requirements"
+          },
+          "language_requirements": "English (primary). Spanish essential for many roles. Korean, Mandarin, Tagalog valuable in specific communities."
+        },
+        "san_francisco_ca": {
+          "name": "San Francisco Bay Area, CA",
+          "metro_population": 4750000,
+          "top_job_boards": [
+            {"rank": 1, "name": "LinkedIn", "strength": "Dominant (HQ in Sunnyvale)", "joveo_available": true},
+            {"rank": 2, "name": "Indeed", "strength": "High volume", "joveo_available": true},
+            {"rank": 3, "name": "BuiltIn SF", "strength": "Core tech community board", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Essential employer branding", "joveo_available": true},
+            {"rank": 5, "name": "AngelList/Wellfound", "strength": "Startup hiring essential", "joveo_available": false},
+            {"rank": 6, "name": "Dice", "strength": "Tech specialist", "joveo_available": true},
+            {"rank": 7, "name": "Handshake", "strength": "Stanford, Berkeley, SJSU pipeline", "joveo_available": true},
+            {"rank": 8, "name": "Hacker News Who's Hiring", "strength": "Elite tech hiring (organic)", "joveo_available": false},
+            {"rank": 9, "name": "ZipRecruiter", "strength": "SMB presence", "joveo_available": true},
+            {"rank": 10, "name": "Y Combinator Work at a Startup", "strength": "YC portfolio hiring", "joveo_available": false}
+          ],
+          "dominant_industries": [
+            {"industry": "Technology & Software", "share": "30%", "growth": "high (AI boom)", "key_employers": ["Apple", "Google/Alphabet", "Meta", "Salesforce", "OpenAI", "Anthropic", "Stripe"]},
+            {"industry": "AI & Machine Learning", "share": "8%", "growth": "explosive", "key_employers": ["OpenAI", "Anthropic", "xAI", "Scale AI", "Databricks"]},
+            {"industry": "Biotech & Life Sciences", "share": "8%", "growth": "high", "key_employers": ["Genentech", "Gilead Sciences", "BioMarin"]},
+            {"industry": "Financial Services/Fintech", "share": "6%", "growth": "moderate", "key_employers": ["Wells Fargo", "Visa", "Square/Block"]},
+            {"industry": "Venture Capital & Startups", "share": "5%", "growth": "high"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 120000, "mid": 180000, "senior": 260000},
+            "ai_ml_engineer": {"entry": 140000, "mid": 210000, "senior": 350000},
+            "data_scientist": {"entry": 115000, "mid": 165000, "senior": 230000},
+            "product_manager": {"entry": 110000, "mid": 165000, "senior": 240000},
+            "registered_nurse": {"entry": 95000, "mid": 125000, "senior": 160000},
+            "marketing_manager": {"entry": 80000, "mid": 120000, "senior": 170000}
+          },
+          "talent_dynamics": {
+            "overall_market": "very competitive (especially AI)",
+            "shortage_roles": ["AI/ML engineers (extreme shortage)", "senior SWE", "AI researchers", "specialized nurses"],
+            "surplus_roles": ["junior SWE (post-layoffs)", "product managers (tech layoff displaced)", "recruiters"],
+            "unemployment_rate": "3.8%",
+            "avg_time_to_fill_days": 50,
+            "candidate_supply_index": "extremely low for AI talent (0.2 per opening), moderate for general SWE"
+          },
+          "cpa_benchmark": {
+            "professional_roles": "$50-80",
+            "tech_roles": "$60-100",
+            "ai_roles": "$80-150",
+            "healthcare_roles": "$40-65",
+            "hourly_roles": "$20-40"
+          }
+        },
+        "san_diego_ca": {
+          "name": "San Diego, CA",
+          "metro_population": 3340000,
+          "dominant_industries": [
+            {"industry": "Defense & Military", "share": "18%", "growth": "stable", "key_employers": ["US Navy", "General Atomics", "Northrop Grumman"]},
+            {"industry": "Biotech & Life Sciences", "share": "14%", "growth": "high", "key_employers": ["Illumina", "Dexcom", "Qualcomm"]},
+            {"industry": "Technology", "share": "12%", "growth": "high", "key_employers": ["Qualcomm HQ", "Intuit"]},
+            {"industry": "Healthcare", "share": "12%", "growth": "high"},
+            {"industry": "Tourism", "share": "8%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 90000, "mid": 132000, "senior": 180000},
+            "biotech_researcher": {"entry": 72000, "mid": 105000, "senior": 148000},
+            "registered_nurse": {"entry": 82000, "mid": 105000, "senior": 130000}
+          },
+          "talent_dynamics": {
+            "overall_market": "competitive",
+            "shortage_roles": ["biotech researchers", "software engineers", "cleared defense workers", "nurses"],
+            "unemployment_rate": "3.5%",
+            "avg_time_to_fill_days": 38
+          },
+          "cpa_benchmark": {"professional_roles": "$35-55", "tech_roles": "$42-68", "hourly_roles": "$16-30"}
+        },
+        "portland_or": {
+          "name": "Portland, OR",
+          "metro_population": 2510000,
+          "top_job_boards": [
+            {"rank": 1, "name": "Indeed", "strength": "Primary board", "joveo_available": true},
+            {"rank": 2, "name": "LinkedIn", "strength": "Tech/professional", "joveo_available": true},
+            {"rank": 3, "name": "BuiltIn Portland", "strength": "Tech community", "joveo_available": true},
+            {"rank": 4, "name": "ZipRecruiter", "strength": "SMB", "joveo_available": true},
+            {"rank": 5, "name": "Mac's List", "strength": "Local professional community board", "joveo_available": false}
+          ],
+          "dominant_industries": [
+            {"industry": "Technology", "share": "15%", "growth": "high", "key_employers": ["Intel (Hillsboro)", "Nike HQ (nearby)", "Adidas NA HQ"]},
+            {"industry": "Athletic/Outdoor Industry", "share": "8%", "growth": "moderate", "key_employers": ["Nike", "Adidas", "Columbia Sportswear HQ", "Under Armour PDX"]},
+            {"industry": "Healthcare", "share": "14%", "growth": "high", "key_employers": ["OHSU", "Providence Health"]},
+            {"industry": "Manufacturing (Semiconductors)", "share": "10%", "growth": "high", "key_employers": ["Intel (largest private employer in OR)"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 82000, "mid": 122000, "senior": 168000},
+            "registered_nurse": {"entry": 72000, "mid": 92000, "senior": 115000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate-tight",
+            "shortage_roles": ["software engineers", "semiconductor workers", "nurses", "skilled trades"],
+            "unemployment_rate": "3.8%",
+            "avg_time_to_fill_days": 36
+          },
+          "cpa_benchmark": {"professional_roles": "$28-45", "tech_roles": "$35-55", "hourly_roles": "$14-26"},
+          "hiring_regulations": {
+            "state": "Oregon",
+            "salary_transparency": "Required (Oregon Equal Pay Act, employers must provide salary ranges on request)",
+            "ban_the_box": true,
+            "at_will_employment": true,
+            "minimum_wage": "$14.70/hr standard, $15.95 Portland metro (2024)",
+            "no_sales_tax": true
+          }
+        },
+        "seattle_wa": {
+          "name": "Seattle, WA",
+          "metro_population": 4020000,
+          "top_job_boards": [
+            {"rank": 1, "name": "LinkedIn", "strength": "Dominant for tech/professional", "joveo_available": true},
+            {"rank": 2, "name": "Indeed", "strength": "High volume", "joveo_available": true},
+            {"rank": 3, "name": "BuiltIn Seattle", "strength": "Strong tech community", "joveo_available": true},
+            {"rank": 4, "name": "Glassdoor", "strength": "Tech employer branding", "joveo_available": true},
+            {"rank": 5, "name": "ZipRecruiter", "strength": "Growing presence", "joveo_available": true},
+            {"rank": 6, "name": "Dice", "strength": "Tech/cloud specialist", "joveo_available": true},
+            {"rank": 7, "name": "Handshake", "strength": "UW pipeline", "joveo_available": true}
+          ],
+          "dominant_industries": [
+            {"industry": "Technology & Cloud", "share": "28%", "growth": "high", "key_employers": ["Amazon HQ", "Microsoft (Redmond)", "Google Seattle", "Meta Seattle"]},
+            {"industry": "Aerospace", "share": "8%", "growth": "moderate", "key_employers": ["Boeing (reduced presence)", "Blue Origin"]},
+            {"industry": "Healthcare", "share": "12%", "growth": "high", "key_employers": ["UW Medicine", "Swedish Medical"]},
+            {"industry": "E-commerce & Logistics", "share": "10%", "growth": "high", "key_employers": ["Amazon operations"]},
+            {"industry": "Gaming", "share": "4%", "growth": "moderate", "key_employers": ["Nintendo of America", "Valve", "Bungie"]}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 115000, "mid": 170000, "senior": 240000},
+            "cloud_architect": {"entry": 120000, "mid": 175000, "senior": 250000},
+            "data_scientist": {"entry": 108000, "mid": 155000, "senior": 215000},
+            "registered_nurse": {"entry": 80000, "mid": 100000, "senior": 128000},
+            "warehouse_worker": {"entry": 38000, "mid": 46000, "senior": 55000}
+          },
+          "talent_dynamics": {
+            "overall_market": "very competitive",
+            "shortage_roles": ["cloud engineers", "AI/ML engineers", "senior SWE", "nurses"],
+            "surplus_roles": ["junior SWE (post-layoffs)", "recruiters", "general PM"],
+            "unemployment_rate": "3.5%",
+            "avg_time_to_fill_days": 45
+          },
+          "cpa_benchmark": {
+            "professional_roles": "$42-68",
+            "tech_roles": "$55-90",
+            "healthcare_roles": "$35-55",
+            "hourly_roles": "$18-35"
+          },
+          "hiring_regulations": {
+            "state": "Washington",
+            "salary_transparency": "Required (SB 5761, effective Jan 2023, all employers 15+)",
+            "ban_the_box": true,
+            "at_will_employment": true,
+            "minimum_wage": "$16.28/hr state (2024), Seattle $19.97/hr",
+            "paid_family_leave": "Up to 12 weeks via WA PFML",
+            "no_state_income_tax": true
+          }
+        },
+        "hawaii": {
+          "name": "Honolulu, HI",
+          "metro_population": 1000000,
+          "dominant_industries": [
+            {"industry": "Tourism & Hospitality", "share": "25%", "growth": "moderate"},
+            {"industry": "Military", "share": "20%", "growth": "stable", "key_employers": ["Joint Base Pearl Harbor-Hickam", "US Pacific Command"]},
+            {"industry": "Healthcare", "share": "14%", "growth": "high"},
+            {"industry": "Education", "share": "8%", "growth": "stable"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 72000, "mid": 105000, "senior": 142000},
+            "registered_nurse": {"entry": 78000, "mid": 95000, "senior": 118000},
+            "hospitality_manager": {"entry": 42000, "mid": 58000, "senior": 80000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate (high cost limits talent pool)",
+            "shortage_roles": ["nurses", "tech workers", "skilled trades", "teachers"],
+            "unemployment_rate": "3.0%",
+            "avg_time_to_fill_days": 38,
+            "notes": "Very high cost of living; difficulty attracting mainland talent; aging workforce"
+          },
+          "cpa_benchmark": {"professional_roles": "$28-45", "hourly_roles": "$14-28"}
+        },
+        "alaska": {
+          "name": "Anchorage, AK",
+          "metro_population": 400000,
+          "dominant_industries": [
+            {"industry": "Oil & Gas", "share": "20%", "growth": "variable"},
+            {"industry": "Federal Government & Military", "share": "18%", "growth": "stable"},
+            {"industry": "Healthcare", "share": "15%", "growth": "high"},
+            {"industry": "Fishing & Maritime", "share": "8%", "growth": "stable"},
+            {"industry": "Tourism", "share": "6%", "growth": "moderate (seasonal)"}
+          ],
+          "avg_salaries": {
+            "currency": "USD",
+            "software_engineer": {"entry": 72000, "mid": 105000, "senior": 140000},
+            "registered_nurse": {"entry": 75000, "mid": 92000, "senior": 115000},
+            "oil_field_worker": {"entry": 55000, "mid": 80000, "senior": 120000}
+          },
+          "talent_dynamics": {
+            "overall_market": "very tight",
+            "shortage_roles": ["nearly all professional roles", "nurses", "teachers", "skilled trades"],
+            "unemployment_rate": "5.2%",
+            "avg_time_to_fill_days": 45,
+            "notes": "Remote location creates persistent talent shortages; high pay premiums needed"
+          },
+          "cpa_benchmark": {"professional_roles": "$30-52", "hourly_roles": "$15-30"}
+        }
+      }
+    },
+    "canada": {
+      "name": "Canada",
+      "timezone": "Multiple: America/Toronto (ET), America/Winnipeg (CT), America/Edmonton (MT), America/Vancouver (PT), America/Halifax (AT), America/St_Johns (NT)",
+      "hiring_regulations": {
+        "notice_periods": "1-8 weeks depending on province and tenure (varies by province)",
+        "probation_period": "Typically 3 months",
+        "benefits_requirements": "Provincial healthcare (universal), CPP/EI mandatory employer contributions",
+        "work_permits": "LMIA required for most foreign workers; Express Entry for skilled immigration",
+        "official_languages": "English and French (bilingual requirement in federal government and Quebec)",
+        "minimum_wage_range": "$15.00-$16.77 CAD depending on province (2024)",
+        "vacation_minimum": "2 weeks minimum (3 weeks in some provinces after 5 years)"
+      },
+      "cultural_norms": {
+        "interview_rounds": "2-4 typical",
+        "decision_speed": "2-4 weeks",
+        "negotiation_style": "Polite, less aggressive than US; benefits and work-life balance valued highly",
+        "remote_work": "Hybrid dominant; strong remote culture especially post-COVID",
+        "diversity_focus": "High emphasis; federal Employment Equity Act requirements"
+      },
+      "top_platforms": [
+        {"rank": 1, "name": "Indeed Canada", "strength": "Highest volume", "joveo_available": true},
+        {"rank": 2, "name": "LinkedIn Canada", "strength": "Professional/tech dominant", "joveo_available": true},
+        {"rank": 3, "name": "Job Bank (federal govt)", "strength": "Government employment service", "joveo_available": true},
+        {"rank": 4, "name": "Glassdoor Canada", "strength": "Employer branding", "joveo_available": true},
+        {"rank": 5, "name": "ZipRecruiter Canada", "strength": "Growing presence", "joveo_available": true},
+        {"rank": 6, "name": "Workopolis", "strength": "Legacy Canadian board (integrated with Indeed)", "joveo_available": false},
+        {"rank": 7, "name": "Jobillico", "strength": "Strong in Quebec/French Canada", "joveo_available": false},
+        {"rank": 8, "name": "Eluta.ca", "strength": "Canadian aggregator", "joveo_available": false},
+        {"rank": 9, "name": "CareerBuilder Canada", "strength": "General", "joveo_available": true},
+        {"rank": 10, "name": "Jobboom", "strength": "Quebec market", "joveo_available": false}
+      ],
+      "markets": {
+        "toronto_on": {
+          "name": "Toronto, ON (Greater Toronto Area)",
+          "metro_population": 6700000,
+          "dominant_industries": [
+            {"industry": "Financial Services", "share": "18%", "growth": "moderate", "key_employers": ["Royal Bank of Canada", "TD Bank", "BMO", "Scotiabank", "Manulife"]},
+            {"industry": "Technology", "share": "16%", "growth": "very high", "key_employers": ["Shopify (nearby)", "Google Toronto", "Microsoft Canada", "Amazon Toronto"]},
+            {"industry": "Healthcare", "share": "12%", "growth": "high"},
+            {"industry": "Film & Entertainment", "share": "5%", "growth": "high", "key_employers": ["Hollywood North productions"]},
+            {"industry": "Mining HQs", "share": "4%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "CAD",
+            "software_engineer": {"entry": 75000, "mid": 110000, "senior": 155000},
+            "data_scientist": {"entry": 72000, "mid": 105000, "senior": 145000},
+            "registered_nurse": {"entry": 65000, "mid": 82000, "senior": 100000},
+            "financial_analyst": {"entry": 55000, "mid": 78000, "senior": 110000},
+            "usd_equivalent_multiplier": 0.74
+          },
+          "talent_dynamics": {
+            "overall_market": "competitive",
+            "shortage_roles": ["senior software engineers", "AI/ML engineers", "nurses", "skilled trades", "cybersecurity"],
+            "surplus_roles": ["entry-level business grads", "new immigrants seeking first Canadian experience"],
+            "unemployment_rate": "6.5%",
+            "avg_time_to_fill_days": 40,
+            "notes": "Largest Canadian metro; major tech hub growth; strong immigrant talent pipeline"
+          },
+          "cpa_benchmark": {"professional_roles": "CAD $35-55", "tech_roles": "CAD $42-68", "hourly_roles": "CAD $15-28"}
+        },
+        "ottawa_on": {
+          "name": "Ottawa, ON",
+          "metro_population": 1500000,
+          "dominant_industries": [
+            {"industry": "Federal Government", "share": "25%", "growth": "stable", "key_employers": ["Government of Canada departments"]},
+            {"industry": "Technology", "share": "15%", "growth": "high", "key_employers": ["Shopify HQ", "BlackBerry QNX", "Nokia (formerly Nortel campus)"]},
+            {"industry": "Defense", "share": "6%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "CAD",
+            "software_engineer": {"entry": 70000, "mid": 100000, "senior": 140000},
+            "federal_employee_mid": {"base": 85000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate-tight",
+            "shortage_roles": ["bilingual (EN/FR) professionals", "tech workers", "cleared staff"],
+            "unemployment_rate": "5.5%",
+            "avg_time_to_fill_days": 38
+          },
+          "cpa_benchmark": {"professional_roles": "CAD $30-48", "hourly_roles": "CAD $12-24"},
+          "language_requirements": "English and French both required for most government roles. Tech sector primarily English."
+        },
+        "montreal_qc": {
+          "name": "Montreal, QC",
+          "metro_population": 4300000,
+          "dominant_industries": [
+            {"industry": "AI & Deep Learning", "share": "8%", "growth": "explosive", "key_employers": ["MILA (AI Institute)", "Google Brain Montreal", "Samsung AI", "Microsoft Research"]},
+            {"industry": "Aerospace", "share": "10%", "growth": "moderate", "key_employers": ["Bombardier", "CAE", "Pratt & Whitney Canada"]},
+            {"industry": "Gaming", "share": "6%", "growth": "high", "key_employers": ["Ubisoft Montreal", "EA Montreal", "Warner Bros Montreal"]},
+            {"industry": "Financial Services", "share": "10%", "growth": "moderate", "key_employers": ["National Bank of Canada", "Desjardins"]},
+            {"industry": "Healthcare/Pharma", "share": "8%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "CAD",
+            "software_engineer": {"entry": 65000, "mid": 95000, "senior": 135000},
+            "ai_researcher": {"entry": 85000, "mid": 130000, "senior": 200000},
+            "game_developer": {"entry": 55000, "mid": 80000, "senior": 115000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["AI researchers", "bilingual tech workers", "nurses", "skilled trades"],
+            "surplus_roles": ["entry-level bilingual admin"],
+            "unemployment_rate": "5.8%",
+            "avg_time_to_fill_days": 36,
+            "notes": "Global AI hub (MILA/Yoshua Bengio); lower salaries than Toronto attract companies but talent competition is fierce in AI"
+          },
+          "cpa_benchmark": {"professional_roles": "CAD $28-45", "tech_roles": "CAD $35-55", "hourly_roles": "CAD $12-22"},
+          "language_requirements": "French required by law (Bill 96) for most positions. English also needed for many roles. Job postings must be in French.",
+          "hiring_regulations_specific": {
+            "language_law": "Quebec Bill 96 requires French as working language for companies 25+ employees",
+            "job_posting_language": "Must be posted in French (can be bilingual but French required)"
+          }
+        },
+        "vancouver_bc": {
+          "name": "Vancouver, BC",
+          "metro_population": 2640000,
+          "dominant_industries": [
+            {"industry": "Technology", "share": "16%", "growth": "high", "key_employers": ["Amazon Vancouver", "Microsoft Vancouver", "SAP", "Hootsuite HQ"]},
+            {"industry": "Film & VFX", "share": "8%", "growth": "high", "key_employers": ["Industrial Light & Magic", "DNEG", "Sony Pictures Imageworks"]},
+            {"industry": "Gaming", "share": "5%", "growth": "high", "key_employers": ["EA Vancouver", "Relic Entertainment"]},
+            {"industry": "Natural Resources & Mining", "share": "6%", "growth": "moderate"},
+            {"industry": "Real Estate & Construction", "share": "8%", "growth": "variable"},
+            {"industry": "Port & Trade", "share": "5%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "CAD",
+            "software_engineer": {"entry": 72000, "mid": 108000, "senior": 150000},
+            "vfx_artist": {"entry": 55000, "mid": 80000, "senior": 115000},
+            "registered_nurse": {"entry": 68000, "mid": 85000, "senior": 105000}
+          },
+          "talent_dynamics": {
+            "overall_market": "competitive",
+            "shortage_roles": ["software engineers", "VFX artists", "nurses", "construction trades"],
+            "surplus_roles": ["entry-level marketing", "retail"],
+            "unemployment_rate": "5.0%",
+            "avg_time_to_fill_days": 38,
+            "notes": "High cost of living limits talent retention; strong Asian-Canadian community (Mandarin/Cantonese valuable)"
+          },
+          "cpa_benchmark": {"professional_roles": "CAD $32-52", "tech_roles": "CAD $38-62", "hourly_roles": "CAD $14-26"},
+          "language_requirements": "English (primary). Mandarin and Cantonese valuable. Punjabi useful in some sectors."
+        },
+        "calgary_ab": {
+          "name": "Calgary, AB",
+          "metro_population": 1600000,
+          "dominant_industries": [
+            {"industry": "Energy (Oil & Gas)", "share": "22%", "growth": "variable/transitioning", "key_employers": ["Suncor", "Canadian Natural Resources", "Cenovus"]},
+            {"industry": "Technology", "share": "10%", "growth": "high", "key_employers": ["growing startup ecosystem"]},
+            {"industry": "Financial Services", "share": "8%", "growth": "moderate"},
+            {"industry": "Agriculture", "share": "5%", "growth": "stable"}
+          ],
+          "avg_salaries": {
+            "currency": "CAD",
+            "software_engineer": {"entry": 70000, "mid": 102000, "senior": 140000},
+            "petroleum_engineer": {"entry": 85000, "mid": 125000, "senior": 175000},
+            "registered_nurse": {"entry": 72000, "mid": 88000, "senior": 108000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["tech workers (diversification efforts)", "nurses", "skilled trades"],
+            "surplus_roles": ["oil & gas workers during downturns"],
+            "unemployment_rate": "6.2%",
+            "avg_time_to_fill_days": 34,
+            "notes": "Economy diversifying from energy; no provincial sales tax; lower cost than Toronto/Vancouver"
+          },
+          "cpa_benchmark": {"professional_roles": "CAD $25-42", "hourly_roles": "CAD $12-22"}
+        },
+        "edmonton_ab": {
+          "name": "Edmonton, AB",
+          "metro_population": 1520000,
+          "dominant_industries": [
+            {"industry": "Government (Provincial Capital)", "share": "18%", "growth": "stable"},
+            {"industry": "Energy Services", "share": "15%", "growth": "variable"},
+            {"industry": "Healthcare & Education", "share": "20%", "growth": "high", "key_employers": ["University of Alberta", "Alberta Health Services"]},
+            {"industry": "AI Research", "share": "4%", "growth": "high", "key_employers": ["Amii (Alberta Machine Intelligence Institute)", "DeepMind Edmonton"]}
+          ],
+          "avg_salaries": {
+            "currency": "CAD",
+            "software_engineer": {"entry": 65000, "mid": 95000, "senior": 132000},
+            "registered_nurse": {"entry": 70000, "mid": 85000, "senior": 105000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["nurses", "tech workers", "skilled trades"],
+            "unemployment_rate": "6.5%",
+            "avg_time_to_fill_days": 33
+          },
+          "cpa_benchmark": {"professional_roles": "CAD $22-38", "hourly_roles": "CAD $10-20"}
+        },
+        "maritime_provinces": {
+          "name": "Maritime Provinces (Halifax, Saint John, Charlottetown, Fredericton, St. John's)",
+          "combined_population": 2500000,
+          "dominant_industries": [
+            {"industry": "Government & Public Sector", "share": "20%", "growth": "stable"},
+            {"industry": "Healthcare", "share": "18%", "growth": "high"},
+            {"industry": "Fisheries & Ocean Economy", "share": "10%", "growth": "moderate"},
+            {"industry": "Technology (growing)", "share": "6%", "growth": "high", "key_employers": ["Halifax tech startups"]},
+            {"industry": "Military", "share": "8%", "growth": "stable", "key_employers": ["CFB Halifax"]}
+          ],
+          "avg_salaries": {
+            "currency": "CAD",
+            "software_engineer": {"entry": 55000, "mid": 78000, "senior": 110000},
+            "registered_nurse": {"entry": 60000, "mid": 75000, "senior": 92000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate-tight (brain drain concern)",
+            "shortage_roles": ["nearly all professional roles", "healthcare workers", "tech workers", "skilled trades"],
+            "unemployment_rate": "6.0-8.0% varies by province",
+            "avg_time_to_fill_days": 35,
+            "notes": "Aging population; youth migration to Toronto/Vancouver; growing immigration programs to address shortages"
+          },
+          "cpa_benchmark": {"professional_roles": "CAD $18-32", "hourly_roles": "CAD $8-16"}
+        }
+      }
+    },
+    "united_kingdom": {
+      "name": "United Kingdom",
+      "timezone": "Europe/London (GMT/BST, UTC+0/+1)",
+      "hiring_regulations": {
+        "notice_periods": "1 week minimum (up to 1 month standard, 3 months for senior roles)",
+        "probation_period": "Typically 3-6 months",
+        "benefits_requirements": "NHS (universal healthcare), statutory pension auto-enrollment (min 8% total contribution), 28 days minimum holiday (including bank holidays), statutory sick pay, maternity (52 weeks, 39 paid), paternity (2 weeks)",
+        "right_to_work": "Right to work check mandatory; Skilled Worker visa (sponsor license required)",
+        "employment_law": "Employment Rights Act 1996, Equality Act 2010",
+        "minimum_wage": "GBP 11.44/hr National Living Wage (21+), GBP 8.60 (18-20) as of Apr 2024",
+        "ir35": "Off-payroll working rules for contractors",
+        "redundancy": "Statutory redundancy pay after 2+ years; consultation requirements for 20+ employees"
+      },
+      "cultural_norms": {
+        "interview_rounds": "2-4 typical (assessment centres common for graduate schemes)",
+        "decision_speed": "2-4 weeks private sector; 4-8 weeks public sector",
+        "negotiation_style": "Reserved but professional; less aggressive than US; focus on total package",
+        "remote_work": "Hybrid dominant (2-3 days office common); right to request flexible working from day 1 (2024)",
+        "diversity_focus": "High emphasis; gender pay gap reporting mandatory for 250+ employers"
+      },
+      "top_platforms": [
+        {"rank": 1, "name": "Reed.co.uk", "strength": "UK #1 job site, 200K+ jobs", "joveo_available": true},
+        {"rank": 2, "name": "Indeed UK", "strength": "Highest traffic aggregator", "joveo_available": true},
+        {"rank": 3, "name": "LinkedIn UK", "strength": "Professional/corporate dominant", "joveo_available": true},
+        {"rank": 4, "name": "Totaljobs", "strength": "StepStone Group owned, strong general board", "joveo_available": true},
+        {"rank": 5, "name": "CV-Library", "strength": "20.7M CVs, strong mid-market", "joveo_available": true},
+        {"rank": 6, "name": "Glassdoor UK", "strength": "Employer branding + apply", "joveo_available": true},
+        {"rank": 7, "name": "Adzuna UK", "strength": "Aggregator, govt Find a Job contract", "joveo_available": true},
+        {"rank": 8, "name": "CWJobs", "strength": "IT/tech specialist", "joveo_available": true},
+        {"rank": 9, "name": "Jobsite", "strength": "General board (StepStone)", "joveo_available": true},
+        {"rank": 10, "name": "Guardian Jobs", "strength": "Charity/public sector/education", "joveo_available": true}
+      ],
+      "markets": {
+        "london": {
+          "name": "London",
+          "metro_population": 9700000,
+          "dominant_industries": [
+            {"industry": "Financial Services (City/Canary Wharf)", "share": "18%", "growth": "moderate", "key_employers": ["HSBC", "Barclays", "Lloyd's of London", "Goldman Sachs London"]},
+            {"industry": "Technology", "share": "14%", "growth": "high", "key_employers": ["Google London", "Amazon UK", "Meta London", "DeepMind", "Revolut"]},
+            {"industry": "Professional Services", "share": "12%", "growth": "moderate", "key_employers": ["Deloitte", "PwC", "EY", "KPMG"]},
+            {"industry": "Creative & Media", "share": "8%", "growth": "moderate", "key_employers": ["BBC", "ITV", "WPP", "Dentsu"]},
+            {"industry": "Healthcare (NHS)", "share": "10%", "growth": "high"},
+            {"industry": "Government", "share": "6%", "growth": "stable"}
+          ],
+          "avg_salaries": {
+            "currency": "GBP",
+            "software_engineer": {"entry": 45000, "mid": 70000, "senior": 100000},
+            "data_scientist": {"entry": 42000, "mid": 65000, "senior": 95000},
+            "investment_banker": {"entry": 55000, "mid": 95000, "senior": 180000},
+            "registered_nurse": {"entry": 29000, "mid": 37000, "senior": 48000},
+            "marketing_manager": {"entry": 32000, "mid": 50000, "senior": 75000},
+            "warehouse_worker": {"entry": 24000, "mid": 28000, "senior": 32000},
+            "usd_equivalent_multiplier": 1.27
+          },
+          "talent_dynamics": {
+            "overall_market": "competitive",
+            "shortage_roles": ["AI/ML engineers", "cybersecurity", "NHS nurses/doctors", "skilled trades (plumbers, electricians)", "data engineers"],
+            "surplus_roles": ["entry-level marketing", "junior recruiters", "retail associates"],
+            "unemployment_rate": "4.5%",
+            "avg_time_to_fill_days": 42
+          },
+          "best_channels": [
+            {"channel": "LinkedIn Ads", "effectiveness": "very high", "best_for": "professional/finance/tech", "avg_cpc": "GBP 3.50-7.00"},
+            {"channel": "Reed.co.uk", "effectiveness": "very high", "best_for": "all levels", "avg_cpc": "GBP 0.50-2.00"},
+            {"channel": "Indeed UK Sponsored", "effectiveness": "high", "best_for": "volume hiring", "avg_cpc": "GBP 0.25-0.90"},
+            {"channel": "Google Ads (UK Jobs)", "effectiveness": "high", "best_for": "high-intent", "avg_cpc": "GBP 1.20-3.50"},
+            {"channel": "Facebook/Meta Ads", "effectiveness": "medium-high", "best_for": "hourly/NHS/retail", "avg_cpc": "GBP 0.40-1.50"},
+            {"channel": "Programmatic (Joveo)", "effectiveness": "high", "best_for": "multi-board optimization", "avg_cpc": "GBP 0.20-0.70"}
+          ],
+          "cpa_benchmark": {
+            "professional_roles": "GBP 25-45",
+            "tech_roles": "GBP 30-55",
+            "finance_roles": "GBP 28-50",
+            "nhs_healthcare": "GBP 20-40",
+            "hourly_roles": "GBP 10-22"
+          }
+        },
+        "southeast_england": {
+          "name": "South East England (excl. London)",
+          "population": 9400000,
+          "dominant_industries": [
+            {"industry": "Technology", "share": "12%", "growth": "high", "key_employers": ["Arm Holdings (Cambridge)", "tech corridor"]},
+            {"industry": "Pharmaceuticals", "share": "8%", "growth": "high", "key_employers": ["AstraZeneca (Cambridge)", "GSK"]},
+            {"industry": "Aerospace & Defense", "share": "6%", "growth": "moderate", "key_employers": ["BAE Systems", "QinetiQ"]},
+            {"industry": "Financial Services", "share": "8%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "GBP",
+            "software_engineer": {"entry": 35000, "mid": 55000, "senior": 80000},
+            "registered_nurse": {"entry": 28000, "mid": 35000, "senior": 44000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate-tight",
+            "shortage_roles": ["tech workers", "nurses", "skilled trades"],
+            "unemployment_rate": "3.5%",
+            "avg_time_to_fill_days": 36
+          },
+          "cpa_benchmark": {"professional_roles": "GBP 22-38", "hourly_roles": "GBP 8-18"}
+        },
+        "midlands": {
+          "name": "Midlands (Birmingham, Coventry, Nottingham, Leicester)",
+          "population": 11000000,
+          "dominant_industries": [
+            {"industry": "Automotive", "share": "10%", "growth": "transitioning (EV)", "key_employers": ["JLR (Jaguar Land Rover)", "Aston Martin"]},
+            {"industry": "Manufacturing", "share": "14%", "growth": "stable"},
+            {"industry": "Healthcare (NHS)", "share": "16%", "growth": "high"},
+            {"industry": "Logistics", "share": "10%", "growth": "high"},
+            {"industry": "Financial Services", "share": "8%", "growth": "moderate", "key_employers": ["HSBC UK HQ (Birmingham)"]},
+            {"industry": "Technology", "share": "8%", "growth": "high"}
+          ],
+          "avg_salaries": {
+            "currency": "GBP",
+            "software_engineer": {"entry": 30000, "mid": 45000, "senior": 65000},
+            "registered_nurse": {"entry": 27000, "mid": 34000, "senior": 42000},
+            "manufacturing_engineer": {"entry": 28000, "mid": 40000, "senior": 55000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["EV engineers", "nurses", "HGV drivers", "software engineers"],
+            "unemployment_rate": "4.5%",
+            "avg_time_to_fill_days": 34
+          },
+          "cpa_benchmark": {"professional_roles": "GBP 18-32", "hourly_roles": "GBP 8-16"}
+        },
+        "north_england": {
+          "name": "North England (Manchester, Leeds, Liverpool, Newcastle, Sheffield)",
+          "population": 15500000,
+          "dominant_industries": [
+            {"industry": "Technology & Digital", "share": "12%", "growth": "very high", "key_employers": ["MediaCityUK (Salford)", "BBC North", "Booking.com Manchester"]},
+            {"industry": "Financial Services", "share": "10%", "growth": "high", "key_employers": ["NatWest", "First Direct (Leeds)", "Yorkshire Building Society"]},
+            {"industry": "Healthcare (NHS)", "share": "18%", "growth": "high"},
+            {"industry": "Manufacturing", "share": "10%", "growth": "stable"},
+            {"industry": "Higher Education", "share": "8%", "growth": "stable", "key_employers": ["University of Manchester", "University of Leeds"]},
+            {"industry": "Media & Broadcasting", "share": "5%", "growth": "high"}
+          ],
+          "avg_salaries": {
+            "currency": "GBP",
+            "software_engineer": {"entry": 28000, "mid": 42000, "senior": 62000},
+            "data_scientist": {"entry": 30000, "mid": 45000, "senior": 65000},
+            "registered_nurse": {"entry": 27000, "mid": 34000, "senior": 42000}
+          },
+          "talent_dynamics": {
+            "overall_market": "growing (Northern Powerhouse initiative)",
+            "shortage_roles": ["software engineers", "data engineers", "nurses", "skilled trades"],
+            "surplus_roles": ["retail", "entry-level admin"],
+            "unemployment_rate": "4.2%",
+            "avg_time_to_fill_days": 32,
+            "notes": "Manchester emerging as UK's #2 tech hub; lower costs attract London companies to open Northern offices"
+          },
+          "cpa_benchmark": {"professional_roles": "GBP 16-28", "tech_roles": "GBP 20-35", "hourly_roles": "GBP 7-14"}
+        },
+        "scotland": {
+          "name": "Scotland (Edinburgh, Glasgow, Aberdeen, Dundee)",
+          "population": 5450000,
+          "dominant_industries": [
+            {"industry": "Financial Services", "share": "12%", "growth": "moderate", "key_employers": ["Royal Bank of Scotland", "Standard Life Aberdeen", "Baillie Gifford"]},
+            {"industry": "Energy (Oil & Gas + Renewables)", "share": "10%", "growth": "transitioning", "key_employers": ["Shell Aberdeen", "TotalEnergies", "SSE"]},
+            {"industry": "Technology", "share": "10%", "growth": "high", "key_employers": ["Skyscanner (Edinburgh)", "FanDuel"]},
+            {"industry": "Healthcare (NHS Scotland)", "share": "16%", "growth": "high"},
+            {"industry": "Higher Education", "share": "8%", "growth": "stable"},
+            {"industry": "Gaming", "share": "4%", "growth": "high", "key_employers": ["Rockstar North (Edinburgh)"]}
+          ],
+          "avg_salaries": {
+            "currency": "GBP",
+            "software_engineer": {"entry": 28000, "mid": 42000, "senior": 60000},
+            "petroleum_engineer": {"entry": 35000, "mid": 55000, "senior": 80000},
+            "registered_nurse": {"entry": 27000, "mid": 34000, "senior": 42000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["software engineers", "renewable energy engineers", "nurses", "skilled trades"],
+            "unemployment_rate": "3.8%",
+            "avg_time_to_fill_days": 34,
+            "notes": "Edinburgh growing as fintech hub; Aberdeen transitioning from oil to renewables"
+          },
+          "cpa_benchmark": {"professional_roles": "GBP 18-32", "hourly_roles": "GBP 7-14"},
+          "specific_platforms": [
+            {"name": "s1jobs.com", "strength": "Scotland-specific job board"},
+            {"name": "myjobscotland.gov.uk", "strength": "Scottish public sector"}
+          ]
+        },
+        "wales": {
+          "name": "Wales (Cardiff, Swansea, Newport)",
+          "population": 3100000,
+          "dominant_industries": [
+            {"industry": "Public Sector & Government", "share": "25%", "growth": "stable"},
+            {"industry": "Healthcare (NHS Wales)", "share": "18%", "growth": "high"},
+            {"industry": "Manufacturing", "share": "12%", "growth": "stable"},
+            {"industry": "Financial Services", "share": "8%", "growth": "moderate", "key_employers": ["Admiral Group HQ (Cardiff)"]}
+          ],
+          "avg_salaries": {
+            "currency": "GBP",
+            "software_engineer": {"entry": 26000, "mid": 38000, "senior": 55000},
+            "registered_nurse": {"entry": 27000, "mid": 34000, "senior": 42000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate-loose",
+            "shortage_roles": ["nurses", "tech workers", "Welsh-speaking roles"],
+            "unemployment_rate": "4.0%",
+            "avg_time_to_fill_days": 30
+          },
+          "cpa_benchmark": {"professional_roles": "GBP 14-26", "hourly_roles": "GBP 6-12"},
+          "language_requirements": "English (primary). Welsh language skills valued/required in some public sector roles."
+        },
+        "northern_ireland": {
+          "name": "Northern Ireland (Belfast, Derry)",
+          "population": 1900000,
+          "dominant_industries": [
+            {"industry": "Technology & Cybersecurity", "share": "10%", "growth": "high", "key_employers": ["Kainos", "Allstate NI", "Citi Belfast"]},
+            {"industry": "Healthcare (HSC)", "share": "18%", "growth": "high"},
+            {"industry": "Public Sector", "share": "22%", "growth": "stable"},
+            {"industry": "Manufacturing", "share": "10%", "growth": "stable"},
+            {"industry": "Financial Services", "share": "8%", "growth": "moderate"}
+          ],
+          "avg_salaries": {
+            "currency": "GBP",
+            "software_engineer": {"entry": 24000, "mid": 36000, "senior": 52000},
+            "registered_nurse": {"entry": 26000, "mid": 32000, "senior": 40000}
+          },
+          "talent_dynamics": {
+            "overall_market": "moderate",
+            "shortage_roles": ["tech workers", "nurses", "skilled trades"],
+            "unemployment_rate": "3.5%",
+            "avg_time_to_fill_days": 30,
+            "notes": "Growing tech hub with competitive costs; dual UK/EU market access post-Windsor Framework"
+          },
+          "cpa_benchmark": {"professional_roles": "GBP 14-24", "hourly_roles": "GBP 6-12"}
+        }
+      },
+      "language_requirements": "English. Welsh in Wales public sector. Gaelic in some Scottish contexts."
+    }
+  }
+}

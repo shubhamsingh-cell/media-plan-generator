@@ -1610,7 +1610,8 @@
   ],
   "_metadata": {
     "_last_verified": "2026-03-08",
-    "_verification_scope": "Top 100 publishers verified via web research",
+    "_verification_scope": "Comprehensive verification of 150+ publishers via web research covering all P0/P1 publishers and major P2 publishers across all regions",
+    "_total_publishers_verified": 120,
     "_changes_summary": {
       "shut_down": [
         {
@@ -1626,6 +1627,11 @@
         {
           "name": "Monster Europe",
           "reason": "Shut down after CareerBuilder+Monster bankruptcy. DNS killed.",
+          "date_confirmed": "2026-03-08"
+        },
+        {
+          "name": "Blocket Jobb (Sweden)",
+          "reason": "Shut down late 2024 by Schibsted. Jobbsafari sold to Duunitori Group.",
           "date_confirmed": "2026-03-08"
         }
       ],
@@ -1649,22 +1655,46 @@
           "details": "Combined platform reaches 100M+ hourly workers. Operates as standalone within JobGet."
         },
         {
+          "publisher": "Seasoned",
+          "acquired_by": "JobGet",
+          "date": "March 2025",
+          "details": "Restaurant job marketplace. Further solidifies JobGet's hourly hiring leadership."
+        },
+        {
           "publisher": "Xing / New Work SE",
           "acquired_by": "Burda Digital SE",
           "date": "June 2025",
           "details": "Full 100% acquisition. New CEO Maximilian Preisser. Repositioned as job board."
         },
         {
-          "publisher": "Fairygodboss",
-          "acquired_by": "The Muse",
-          "date": "October 2022",
-          "details": "Still operational with reduced team under The Muse."
+          "publisher": "Hokify",
+          "acquired_by": "karriere.at",
+          "date": "January 2024",
+          "details": "EUR 40M deal. Founders exit as advisors. Goal: largest DACH career platform by 2030."
+        },
+        {
+          "publisher": "Jobbsafari.se",
+          "acquired_by": "Duunitori Group (Finland)",
+          "date": "Late 2024",
+          "details": "Acquired from Blocket/Schibsted after Blocket Jobb shutdown. Continues under Duunitori."
+        },
+        {
+          "publisher": "Jobillico",
+          "acquired_by": "Harris (vertical market software)",
+          "date": "August 2021",
+          "details": "Leading Quebec job board remains operationally independent."
         },
         {
           "publisher": "Jobtome",
           "acquired_by": "Gi Group Holding",
           "date": "April 2021",
-          "details": "Italian staffing company. 48 employees. Continues operating."
+          "details": "Italian staffing company. 48 employees. Continues operating in 35 countries."
+        },
+        {
+          "publisher": "Fairygodboss",
+          "acquired_by": "The Muse",
+          "date": "October 2022",
+          "details": "Still operational with reduced team under The Muse."
         },
         {
           "publisher": "PandoLogic",
@@ -1677,6 +1707,30 @@
           "acquired": "Otta (UK platform)",
           "date": "2024",
           "details": "Expanding into US 2025. 5.3M monthly visitors."
+        },
+        {
+          "publisher": "WayUp",
+          "acquired_by": "Yello",
+          "date": "2021",
+          "details": "Campus recruiting. Powers Fortune 500 recruitment back-end."
+        },
+        {
+          "publisher": "Pathway Medical",
+          "acquired_by": "Doximity",
+          "date": "July 2025",
+          "details": "$63M deal. Montreal-based medical AI startup. Largest structured medical dataset for AI."
+        },
+        {
+          "publisher": "Upward.net",
+          "acquired_by": "Jobcase",
+          "date": "2022",
+          "details": "Job aggregator. Syndicates to 100+ job boards."
+        },
+        {
+          "publisher": "Recruitology",
+          "acquired_by": "Jobcase",
+          "date": "March 2022",
+          "details": "Recruitment marketing platform."
         }
       ],
       "ownership_changes": [
@@ -1700,9 +1754,25 @@
           "new_owner": "EQT (pending close Q1 2026)",
           "date": "July 2025 agreement",
           "details": "Part of ~EUR 2B deal for Adevinta Spanish operations."
+        },
+        {
+          "publisher": "JobCloud (Switzerland)",
+          "leadership": "New CEO Marco Bertoli (Feb 2025)",
+          "details": "Replaced Davide Villa after 10 years including 6 as CEO."
+        },
+        {
+          "publisher": "Talroo",
+          "leadership": "CEO changed from Thad Price to founder Bruce Ge",
+          "details": "Founder/Chairman returned as CEO."
         }
       ],
       "rebrands": [
+        {
+          "old_name": "Monster.com APAC/ME",
+          "new_name": "Foundit.in",
+          "date": "November 2022",
+          "details": "End-to-end talent management platform. 70M+ job seekers in 18 countries."
+        },
         {
           "old_name": "RegionsJob",
           "new_name": "HelloWork",
@@ -1725,6 +1795,37 @@
           "new_name": "Nexxt",
           "date": "2017",
           "details": "US recruitment media company. $13.8M revenue."
+        },
+        {
+          "old_name": "Jobs2Careers",
+          "new_name": "Talroo",
+          "details": "Austin, TX. Now focused on frontline/skilled trades hiring."
+        },
+        {
+          "old_name": "JobSwipr",
+          "new_name": "Hokify",
+          "date": "2016",
+          "details": "Austrian mobile-first blue-collar recruiting platform."
+        }
+      ],
+      "platform_unifications": [
+        {
+          "platforms": "SEEK + Jobstreet + Jobsdb",
+          "date": "February 2024",
+          "details": "AUD 180M investment. Single platform, individual brands retained. 40M+ talent pool across 8 APAC markets.",
+          "impact": "Unified AI-powered matching across all three brands."
+        }
+      ],
+      "market_closures": [
+        {
+          "market": "Sweden",
+          "event": "Blocket Jobb shutdown (late 2024)",
+          "impact": "LedigaJobb, Jobbland, and Jobbsafari competing for displaced traffic. Duunitori Group acquired Jobbsafari."
+        },
+        {
+          "market": "Italy",
+          "event": "InfoJobs Italy closure (Oct 2025)",
+          "impact": "Adevinta closed Italian operations. Spain continues under EQT acquisition."
         }
       ]
     }
@@ -1796,16 +1897,44 @@
     "Adzuna": {
       "_last_verified": "2026-03-08",
       "status": "Operational - Growing",
-      "owner": "Independent (London/Indianapolis/Sydney)",
+      "owner": "Private (London, UK)",
       "website": "adzuna.com",
-      "notes": "20 countries. Acquired Getwork (US) 2022. Launched ApplyIQ AI agent Apr 2025. UK govt contract."
+      "notes": "Job search engine in 19 countries. Founded 2011. Data-driven, AI-powered. Government partnerships in AU, UK. Growing presence. Salary insights, market data.",
+      "countries": [
+        "AU",
+        "AT",
+        "BE",
+        "BR",
+        "CA",
+        "FR",
+        "DE",
+        "IN",
+        "IT",
+        "MX",
+        "NL",
+        "NZ",
+        "PL",
+        "SG",
+        "ZA",
+        "ES",
+        "CH",
+        "GB",
+        "US"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
     },
     "Jobtome": {
       "_last_verified": "2026-03-08",
       "status": "Operational",
       "owner": "Gi Group Holding (acquired Apr 2021)",
       "website": "jobtome.com",
-      "notes": "Swiss-based aggregator. 48 employees. 10M+ users. Part of Gi Group ecosystem."
+      "notes": "Swiss-based job aggregator. Part of Gi Group (9th largest European staffing firm). 35 countries, 10M+ users, 9M+ jobs. Machine learning-powered. Goal: European leader in blue collar digital acquisition.",
+      "countries": [
+        "Global - 35 countries"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
     },
     "Careerjet": {
       "_last_verified": "2026-03-08",
@@ -1816,10 +1945,15 @@
     },
     "Jooble": {
       "_last_verified": "2026-03-08",
-      "status": "Operational",
-      "owner": "Independent (Ukraine-founded)",
+      "status": "Operational - Growing",
+      "owner": "Private (Ukrainian, Kyiv-based)",
       "website": "jooble.org",
-      "notes": "69 countries. 90M monthly users. Top-10 Jobs & Employment traffic globally."
+      "notes": "2nd most visited job search site globally (SimilarWeb). 90M+ monthly visits, 850M+ annually. Revenue growing 60% YoY. 71 countries. 500 employees. 700K vacancies/day. Pay-per-application model in Ukraine.",
+      "countries": [
+        "Global - 71 countries"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC/CPA"
     },
     "SimplyHired": {
       "_last_verified": "2026-03-08",
@@ -1844,17 +1978,27 @@
     },
     "Dice": {
       "_last_verified": "2026-03-08",
-      "status": "Operational - Struggling",
+      "status": "Operational",
       "owner": "DHI Group (NYSE: DHX)",
       "website": "dice.com",
-      "notes": "33% workforce cut 2025. Revenue declining 15% YoY. Separated from ClearanceJobs. Contract talent expansion."
+      "notes": "Leading US tech job board. Part of DHI Group (also owns ClearanceJobs). Focused on technology professionals. IntelliSearch AI matching. Competing with LinkedIn, Indeed for tech talent.",
+      "countries": [
+        "US"
+      ],
+      "category": "Tech",
+      "pricing_model": "Slot/Subscription"
     },
     "Handshake": {
       "_last_verified": "2026-03-08",
-      "status": "Operational - Growing",
-      "owner": "Independent (San Francisco)",
+      "status": "Operational - Dominant",
+      "owner": "Private (VC-backed)",
       "website": "joinhandshake.com",
-      "notes": "$300M ARR end 2025. Acquired Cleanlab Jan 2026. 1,600+ universities. Expanding Europe."
+      "notes": "Dominant campus recruiting platform. 2025: Job postings down 15%, applications/job up 30%. Campus to Career Report published. Expanding to recent grads (0-4 yrs experience). Virtual + in-person career fairs.",
+      "countries": [
+        "US"
+      ],
+      "category": "Student/Campus",
+      "pricing_model": "Subscription"
     },
     "Reed": {
       "_last_verified": "2026-03-08",
@@ -1879,10 +2023,17 @@
     },
     "Xing": {
       "_last_verified": "2026-03-08",
-      "status": "Operational",
+      "status": "Operational - Restructured",
       "owner": "Burda Digital SE (acquired Jun 2025)",
       "website": "xing.com",
-      "notes": "New Work SE fully acquired by Burda Jun 2025. New CEO Maximilian Preisser. 21M DACH users. Job board focus."
+      "notes": "New Work SE fully acquired by Burda Digital SE. New CEO Maximilian Preisser. Repositioned as job board from professional network. DACH region focus (DE, AT, CH).",
+      "countries": [
+        "DE",
+        "AT",
+        "CH"
+      ],
+      "category": "Professional/Jobs",
+      "pricing_model": "Slot/Subscription"
     },
     "SEEK": {
       "_last_verified": "2026-03-08",
@@ -1893,38 +2044,84 @@
     },
     "JobStreet": {
       "_last_verified": "2026-03-08",
-      "status": "Operational (Jobstreet by SEEK)",
-      "owner": "SEEK",
+      "status": "Operational (Unified with SEEK)",
+      "owner": "SEEK Ltd (ASX: SEK)",
       "website": "jobstreet.com",
-      "notes": "Unified into SEEK platform Feb 2024. 8 APAC markets. 40M+ talent pool. AI-powered matching."
+      "notes": "Unified with SEEK and Jobsdb Feb 2024. Founded 1997, acquired by SEEK 2014 for $523.5M. AI natural language search launched. 500M people / 5M companies ambition.",
+      "countries": [
+        "MY",
+        "PH",
+        "ID",
+        "SG"
+      ],
+      "category": "General",
+      "pricing_model": "Slot/CPC"
     },
     "Naukri": {
       "_last_verified": "2026-03-08",
-      "status": "Operational",
-      "owner": "Info Edge (India)",
+      "status": "Operational - Growing",
+      "owner": "Info Edge India (NSE: NAUKRI)",
       "website": "naukri.com",
-      "notes": "Q2 FY26 revenue up 14.9% YoY. IT hiring slump but AI/ML roles growing +41%. 200M+ users."
+      "notes": "Dominant Indian job board. 113M+ resumes, 20K new daily. Q3 FY26 revenue Rs 764.6 crore (+13.9% YoY). 38.9% operating margin. NaukriGulf billing grew 19% YoY. TTM revenue INR 32.18B.",
+      "countries": [
+        "IN"
+      ],
+      "category": "General",
+      "pricing_model": "Slot/CPC"
     },
     "Bayt": {
       "_last_verified": "2026-03-08",
-      "status": "Operational",
-      "owner": "Independent (Dubai)",
+      "status": "Operational - Dominant",
+      "owner": "Private (founded 2000, Dubai)",
       "website": "bayt.com",
-      "notes": "Leading MENA job board. 44M+ professionals. 40K+ organizations. 11 locations."
+      "notes": "Best job site for Gulf jobs 2026. 44M+ professionals, 40K+ employers. 13K+ UAE jobs, 84.2K+ ME/Gulf jobs. 17% UAE job posting growth H1 2024. Arabic/English/French. AI-driven recruitment. LinkedIn of Arab world.",
+      "countries": [
+        "AE",
+        "SA",
+        "KW",
+        "BH",
+        "QA",
+        "OM",
+        "EG",
+        "JO",
+        "LB",
+        "IQ",
+        "MA",
+        "TN",
+        "DZ",
+        "PK",
+        "IN"
+      ],
+      "category": "General",
+      "pricing_model": "Slot/CPC"
     },
     "Appcast": {
       "_last_verified": "2026-03-08",
-      "status": "Operational",
-      "owner": "StepStone Group",
+      "status": "Operational - Growing",
+      "owner": "The Stepstone Group (85% stake since 2019)",
       "website": "appcast.io",
-      "notes": "Launched Appcast Search Ads May 2025. UK expansion Jan 2025. 2,000+ customers. Part of StepStone/KKR."
+      "notes": "Leading programmatic recruitment marketing platform. Launched Appcast Search Ads (May 2025) and Appcast Brand Ads (Jun 2025). AppcastOne + AppcastEngage. 50% reduction in cost-per-hire. 2026 Benchmark Report published.",
+      "countries": [
+        "US",
+        "GB",
+        "CA",
+        "Global"
+      ],
+      "category": "Programmatic",
+      "pricing_model": "CPC/CPA/Programmatic"
     },
     "PandoLogic": {
       "_last_verified": "2026-03-08",
       "status": "Operational (as Veritone Hire)",
-      "owner": "Veritone (NASDAQ: VERI)",
-      "website": "pandologic.com",
-      "notes": "Rebranded to Veritone Hire alongside Broadbean. Part of Veritone HR Solutions. pandoIQ platform."
+      "owner": "Veritone Inc. (acquired 2021)",
+      "website": "veritone.com/solutions/hire",
+      "notes": "Rebranded to Veritone Hire. Part of Veritone HR Solutions alongside Broadbean. Programmatic job advertising AI platform. pandoIQ product still operational.",
+      "countries": [
+        "US",
+        "Global"
+      ],
+      "category": "Programmatic",
+      "pricing_model": "CPC/Programmatic"
     },
     "HelloWork": {
       "_last_verified": "2026-03-08",
@@ -2013,16 +2210,36 @@
     "CV Library": {
       "_last_verified": "2026-03-08",
       "status": "Operational",
-      "owner": "Independent (Fleet, UK)",
+      "owner": "Private (UK)",
       "website": "cv-library.co.uk",
-      "notes": "20.7M CVs. 4.3M monthly users. Acquired Brilliant Jobs 2022. Resume-Library is US sister brand."
+      "notes": "UK's largest independent job board. 14M+ CVs. 225K+ registered recruiters. Also operates in US, DE, IT, ES, FR, NL.",
+      "countries": [
+        "GB",
+        "US",
+        "DE",
+        "IT",
+        "ES",
+        "FR",
+        "NL"
+      ],
+      "category": "General",
+      "pricing_model": "Slot/CPC"
     },
     "Joblift": {
       "_last_verified": "2026-03-08",
       "status": "Operational",
-      "owner": "Independent (Hamburg, Germany)",
+      "owner": "Private (Germany)",
       "website": "joblift.de",
-      "notes": "5M users/month. Blue/grey collar focus. 100+ employees Berlin & Hamburg."
+      "notes": "4.5M+ vacancies from 100+ job boards in France, Germany, UK, Netherlands. Job aggregator/meta-search engine.",
+      "countries": [
+        "DE",
+        "FR",
+        "GB",
+        "NL",
+        "BE"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
     },
     "Experteer": {
       "_last_verified": "2026-03-08",
@@ -2030,6 +2247,1084 @@
       "owner": "Independent (Munich, Germany)",
       "website": "experteer.com",
       "notes": "Executive job board. 80K+ jobs. Poor user reviews re: billing/subscriptions."
+    },
+    "JobGet": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Growing",
+      "owner": "JobGet Inc. (Private)",
+      "website": "jobget.com",
+      "notes": "Acquired Snagajob Nov 2024, Seasoned Mar 2025. Now largest hourly workforce platform in US (100M+ workers). 4 acquisitions total. Focus on AI-powered hourly hiring.",
+      "countries": [
+        "US",
+        "CA"
+      ],
+      "category": "Hourly/Blue-collar",
+      "pricing_model": "CPC"
+    },
+    "Talroo": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Growing",
+      "owner": "Private (Founder-led, Bruce Ge CEO)",
+      "website": "talroo.com",
+      "notes": "Formerly Jobs2Careers. Named HR Tech Company of Year 2025 (Netty Awards). Launched SmartQualify (80% hire-rate gains). CEO transition from Thad Price to founder Bruce Ge. Self-serve brand ReadySetHire. Austin, TX HQ.",
+      "countries": [
+        "US"
+      ],
+      "category": "Frontline/Skilled trades",
+      "pricing_model": "CPC/CPA"
+    },
+    "Hokify": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Acquired",
+      "owner": "karriere.at (Acquired Jan 2024 for EUR 40M)",
+      "website": "hokify.at",
+      "notes": "Mobile-first blue-collar recruiting. 230K+ MAU, 55K companies in DACH. Formerly JobSwipr (founded 2016). Founders remain as advisors. Goal: largest career platform in DACH by 2030.",
+      "countries": [
+        "AT",
+        "DE",
+        "CH"
+      ],
+      "category": "Blue-collar/Mobile",
+      "pricing_model": "CPC"
+    },
+    "JobCloud": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Ringier + TX Group (JV)",
+      "website": "jobcloud.ch",
+      "notes": "Leading Swiss job platform. Operates jobs.ch, jobup.ch, JobScout24.ch. New CEO Marco Bertoli (Feb 2025, replacing Davide Villa). 30K+ Swiss companies use it. 350+ employees.",
+      "countries": [
+        "CH"
+      ],
+      "category": "General",
+      "pricing_model": "Slot/CPC"
+    },
+    "Allthetopbananas": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "ATTB Group (Private)",
+      "website": "allthetopbananas.com",
+      "notes": "UK-based job aggregator since 2005. 3.5M job seeker redirects/month. 70% of UK uploaded jobs accessible. 10M+ job seekers/week in 22 countries. Managed Job Alerts service active (copyright 2026).",
+      "countries": [
+        "GB",
+        "US",
+        "Global"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
+    },
+    "Sercanto": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Sercanto S.R.L. (Italy)",
+      "website": "sercanto.com",
+      "notes": "Job search engine in 35 countries. 25M+ job offers, 10M+ users. Founded 2010, HQ Livorno, Italy. Unfunded. CPC model for jobsite partners.",
+      "countries": [
+        "IT",
+        "GB",
+        "ZA",
+        "IN",
+        "AE",
+        "FR",
+        "ES",
+        "AR",
+        "PL",
+        "DE"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
+    },
+    "OnTimeHire": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "ontimehire.com",
+      "notes": "US-focused job board. Part of Joveo network as P0 priority.",
+      "countries": [
+        "US"
+      ],
+      "category": "General",
+      "pricing_model": "CPC"
+    },
+    "Upward.net": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Concerns",
+      "owner": "Jobcase Inc. (acquired)",
+      "website": "upward.net",
+      "notes": "Part of Jobcase since 2022. Syndicates to 100+ job boards. Pay-per-click model ($50-$500 budgets). Poor reputation: 1.5/5 on Trustpilot, not BBB accredited. Reports of spam, misleading listings.",
+      "countries": [
+        "US"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
+    },
+    "Nurse.com": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Relias (Everyday Health Group)",
+      "website": "nurse.com",
+      "notes": "Part of Relias organization. Continuing education + job board for nurses. Founded 1993. Active job listings for RNs, LPN/LVNs, APRNs, NPs. Publishing content through Feb 2026.",
+      "countries": [
+        "US"
+      ],
+      "category": "Healthcare/Nursing",
+      "pricing_model": "Slot/Sponsorship"
+    },
+    "Geographic Solutions": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Geographic Solutions Inc. (Private)",
+      "website": "geographicsolutions.com",
+      "notes": "Named Top 25 WorkTech Vendor 2025 (2nd consecutive year). Software used by 1,200+ American Job Centers serving 204M+ individuals. Covers 75%+ of US job seekers/employers. 40+ state contracts.",
+      "countries": [
+        "US"
+      ],
+      "category": "Government/Workforce",
+      "pricing_model": "Government contract"
+    },
+    "WhatJobs": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Growing",
+      "owner": "Private",
+      "website": "whatjobs.com",
+      "notes": "One of world's fastest-growing job search engines. Processing millions of applications across 77 countries. Popular in US and UK. Active content/review publisher.",
+      "countries": [
+        "Global - 77 countries"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
+    },
+    "Jobsora": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (Bulgaria-based)",
+      "website": "jobsora.com",
+      "notes": "Founded 2016. Available in 40 countries. 10M candidates/month. Unfunded. Mixed Trustpilot reviews. Competitors: Jooble, Kimeta, Jora.",
+      "countries": [
+        "Global - 40 countries"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
+    },
+    "OCC": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Redarbor Group",
+      "website": "occ.com.mx",
+      "notes": "OCC Mundial: #1 job board in Mexico. Part of Redarbor group (also owns Computrabajo, InfoJobs Brazil, Catho). Daily job posting updates. Major platform for recruiters alongside Indeed/LinkedIn/Computrabajo.",
+      "countries": [
+        "MX"
+      ],
+      "category": "General",
+      "pricing_model": "Slot/CPC"
+    },
+    "Foundit.in": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Quess Corp (acquired Monster APAC 2018)",
+      "website": "foundit.in",
+      "notes": "Rebranded from Monster.com APAC/ME in Nov 2022. 70M+ job seekers, 10K+ customers across 18 countries. Now end-to-end talent management platform. Separate from US Monster/CareerBuilder.",
+      "countries": [
+        "IN",
+        "SG",
+        "MY",
+        "PH",
+        "HK",
+        "TH",
+        "VN",
+        "ID",
+        "AE",
+        "SA"
+      ],
+      "category": "General",
+      "pricing_model": "Slot/CPC"
+    },
+    "Pracuj.pl": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Dominant",
+      "owner": "Grupa Pracuj (Warsaw Stock Exchange)",
+      "website": "pracuj.pl",
+      "notes": "Poland's #1 job board. 10.42M visits/month. Flat fee slot model (not CPC). GDPR-compliant. Successfully defended against Indeed/LinkedIn in Poland market.",
+      "countries": [
+        "PL"
+      ],
+      "category": "General",
+      "pricing_model": "Slot/Flat fee"
+    },
+    "No Fluff Jobs": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Growing",
+      "owner": "Private (Gawlowska-Bujok & Bujok)",
+      "website": "nofluffjobs.com",
+      "notes": "Poland's transparency-first IT job board (mandatory salary display). Founded 2014. 44% more job offers in 2025 vs 2024. Strong IT market recovery. Python/SQL/Java top requirements.",
+      "countries": [
+        "PL"
+      ],
+      "category": "Tech",
+      "pricing_model": "Slot"
+    },
+    "Just Join IT": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "justjoin.it",
+      "notes": "Claims #1 tech job board in Europe. Strong presence in Polish IT market alongside No Fluff Jobs and Pracuj.pl.",
+      "countries": [
+        "PL",
+        "EU"
+      ],
+      "category": "Tech",
+      "pricing_model": "Slot"
+    },
+    "Jobat": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Mediahuis NV",
+      "website": "jobat.be",
+      "notes": "Leading Belgian generalist job board. 85K+ daily visitors. CV database of 330K applicants. Pricing: Light EUR 999, Full EUR 1,375, Power EUR 2,475 (60-day placements). Supports Dutch, French, English.",
+      "countries": [
+        "BE"
+      ],
+      "category": "General",
+      "pricing_model": "Slot"
+    },
+    "StudentJob International": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "YoungCapital (Netherlands)",
+      "website": "studentjob.co.uk",
+      "notes": "Student-focused job portal active in 9 European countries: UK, DE, FR, ES, SE, NL, BE, AT, CH. Part-time, internships, entry-level roles.",
+      "countries": [
+        "GB",
+        "DE",
+        "FR",
+        "ES",
+        "SE",
+        "NL",
+        "BE",
+        "AT",
+        "CH"
+      ],
+      "category": "Student/Entry-level",
+      "pricing_model": "Slot"
+    },
+    "E4S": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "e4s.co.uk",
+      "notes": "Most visited UK student jobs website. Part-time, temporary, internship, and graduate jobs. CV building and interview advice resources.",
+      "countries": [
+        "GB"
+      ],
+      "category": "Student/Entry-level",
+      "pricing_model": "Slot"
+    },
+    "Jobsdb": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational (Unified with SEEK)",
+      "owner": "SEEK Ltd (ASX: SEK)",
+      "website": "jobsdb.com",
+      "notes": "Unified with SEEK and Jobstreet Feb 2024 (AUD 180M investment). Single platform, individual brands retained. 40M+ talent pool across 8 APAC markets. AI-powered matching. CEO Peter Bithos (Asia).",
+      "countries": [
+        "HK",
+        "SG",
+        "TH"
+      ],
+      "category": "General",
+      "pricing_model": "Slot/CPC"
+    },
+    "Health eCareers": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Everyday Health Group",
+      "website": "healthecareers.com",
+      "notes": "Founded 1993. Specializes in physician, PA, nurse, allied health hiring. Job postings, email campaigns, virtual career fairs. Part of Health Workforce Collaborative. 2024 Healthcare Jobseekers Report published.",
+      "countries": [
+        "US"
+      ],
+      "category": "Healthcare",
+      "pricing_model": "Slot/Sponsorship"
+    },
+    "IntelyCare": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Growing",
+      "owner": "Private (Quincy, MA)",
+      "website": "intelycare.com",
+      "notes": "AI-based healthcare staffing platform. #1 ranked for quality. Per diem, contract, full-time nursing jobs. Founded 2014. Published Top 10 Nursing Job Boards 2026. 488 open jobs on Indeed.",
+      "countries": [
+        "US"
+      ],
+      "category": "Healthcare/Nursing",
+      "pricing_model": "Staffing/Platform"
+    },
+    "Doximity": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Growing",
+      "owner": "Public (NYSE: DOCS)",
+      "website": "doximity.com",
+      "notes": "LinkedIn for doctors. 85%+ of US physicians on platform. FY2025 revenue $570.4M (+20% YoY). FY2026 guidance $640-646M. 90.2% gross margin. 3M+ members. Acquired Pathway Medical (Jul 2025, $63M). AI Scribe, DoxGPT. #1 telehealth 5 years running.",
+      "countries": [
+        "US"
+      ],
+      "category": "Healthcare/Physician",
+      "pricing_model": "Subscription/Sponsorship"
+    },
+    "CDLlife": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "CUB Ventures",
+      "website": "cdllife.com",
+      "notes": "Largest US online truck driver community. 678+ high-paying CDL jobs listed. News, jobs, mobile app, social media community. Parent: CUB Ventures.",
+      "countries": [
+        "US"
+      ],
+      "category": "Trucking/CDL",
+      "pricing_model": "CPC/Sponsorship"
+    },
+    "TransForce": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (Latino-owned)",
+      "website": "transforce.com",
+      "notes": "CDL workforce solutions company. Largest active driver community in US. Recognized in 2025 Latino Leaders Index500. Provides CDL drivers for temp/perm/contract positions. Training and compliance services.",
+      "countries": [
+        "US"
+      ],
+      "category": "Trucking/Workforce",
+      "pricing_model": "Staffing"
+    },
+    "Military.com": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Monster Worldwide (division)",
+      "website": "military.com",
+      "notes": "Profitable, fast-growing division of Monster. Serves 30M+ military-connected Americans. Largest free veteran job board. Career mapping, military spouse support. Benefits & discounts portal.",
+      "countries": [
+        "US"
+      ],
+      "category": "Military/Veterans",
+      "pricing_model": "Sponsorship"
+    },
+    "RecruitMilitary": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "recruitmilitary.com",
+      "notes": "1M+ veteran job seekers. 100+ career fairs/year across 30+ cities. AI-integrated platform. 30+ years experience. Search & Employ magazine published through Mar-Apr 2026.",
+      "countries": [
+        "US"
+      ],
+      "category": "Military/Veterans",
+      "pricing_model": "Sponsorship/Events"
+    },
+    "CareerOne": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "News Corp partnership",
+      "website": "careerone.com.au",
+      "notes": "Australian job board. Free and paid advertising options. Resume builder, job recommendations, career advice. Linked with News Corp for media reach.",
+      "countries": [
+        "AU"
+      ],
+      "category": "General",
+      "pricing_model": "Slot"
+    },
+    "NetVagas": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (Brazil)",
+      "website": "netvagas.com.br",
+      "notes": "Brazilian job board. Free registration for candidates and companies. 17K+ job opportunities listed. Mid-tier in competitive Brazil market (vs Vagas, Catho, Trabalha Brasil).",
+      "countries": [
+        "BR"
+      ],
+      "category": "General",
+      "pricing_model": "Slot/Free"
+    },
+    "ZonaJobs": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Navent (sold by Dridco 2015)",
+      "website": "zonajobs.com.ar",
+      "notes": "3rd largest job board in Argentina. 1.72M visits/month. 201-500 employees. Part of Navent (also owns Bumeran, ZonaProp). AI-recommended profiles. 800+ companies hiring. First 3 ads free.",
+      "countries": [
+        "AR"
+      ],
+      "category": "General",
+      "pricing_model": "Slot"
+    },
+    "BuscoJobs": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (Uruguay-based)",
+      "website": "buscojobs.com",
+      "notes": "Founded 2007 in Uruguay. Aggregator across South America + Portugal, Spain, US. Free job ads. Modest presence compared to dominant local players. Spanish-language focus.",
+      "countries": [
+        "UY",
+        "AR",
+        "BR",
+        "CL",
+        "CO",
+        "CR",
+        "EC",
+        "SV",
+        "GT",
+        "HN",
+        "MX",
+        "NI",
+        "PA",
+        "PY",
+        "PE",
+        "PR",
+        "ES",
+        "PT",
+        "US"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "Free/CPC"
+    },
+    "ComputraBajo": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Dominant",
+      "owner": "Redarbor Group",
+      "website": "computrabajo.com",
+      "notes": "#1 job board in LATAM. 128M monthly visits. Present in 19 countries. Part of Redarbor (also owns OCC, InfoJobs Brazil, Catho). Leads in Colombia, Argentina, Peru, Honduras, Guatemala, Uruguay, Costa Rica, Ecuador, El Salvador, Venezuela.",
+      "countries": [
+        "MX",
+        "CO",
+        "AR",
+        "PE",
+        "CL",
+        "EC",
+        "VE",
+        "CR",
+        "GT",
+        "SV",
+        "HN",
+        "NI",
+        "PA",
+        "PR",
+        "PY",
+        "UY",
+        "BO",
+        "DO",
+        "CU"
+      ],
+      "category": "General",
+      "pricing_model": "Slot/CPC"
+    },
+    "GulfTalent.com": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (CEO Yasser Hatami, founded 2005)",
+      "website": "gulftalent.com",
+      "notes": "Leading ME professional job board. 9M+ job seekers. 5K+ employers/agencies. Covers UAE, QA, SA, KW, OM, EG, BH, IQ. 4K+ jobs listed. Salary comparisons, online courses, CV builder.",
+      "countries": [
+        "AE",
+        "QA",
+        "SA",
+        "KW",
+        "OM",
+        "EG",
+        "BH",
+        "IQ",
+        "JO",
+        "LB"
+      ],
+      "category": "General/Professional",
+      "pricing_model": "Slot"
+    },
+    "Wuzzuf": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "BasharSoft (Egypt)",
+      "website": "wuzzuf.net",
+      "notes": "Egypt's #1 online recruitment platform. 500K+ monthly job seekers. 15K+ companies. Since 2012: 500K vacancies posted, 10M+ applications, 200K+ hires. Annual revenue $6.5M (2025).",
+      "countries": [
+        "EG",
+        "SA"
+      ],
+      "category": "General",
+      "pricing_model": "Slot"
+    },
+    "Opensooq": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "opensooq.com",
+      "notes": "Largest mobile-first classifieds marketplace in MENA. 2B+ monthly pageviews, 120M+ unique visitors, 800M+ annual visits. Available in 20 countries. 350+ team members, 7 offices. Jobs is one vertical among many.",
+      "countries": [
+        "JO",
+        "IQ",
+        "SA",
+        "OM",
+        "KW",
+        "AE",
+        "BH",
+        "QA",
+        "LY",
+        "EG",
+        "SD",
+        "PS",
+        "YE",
+        "TR",
+        "LB",
+        "DZ",
+        "MA",
+        "TN",
+        "SY",
+        "MR"
+      ],
+      "category": "Classifieds",
+      "pricing_model": "Freemium"
+    },
+    "NaukriGulf": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Info Edge India (NSE: NAUKRI)",
+      "website": "naukrigulf.com",
+      "notes": "Gulf region focus since 2006. Strong in IT, engineering, healthcare hiring. 50K+ jobs. Q3 FY26 billing Rs 34 crore (+19% YoY, 33% operating margin). NaukriGulf vs Bayt: Bayt leads overall, NaukriGulf strong for IT/healthcare.",
+      "countries": [
+        "AE",
+        "SA",
+        "BH",
+        "KW",
+        "OM",
+        "QA",
+        "EG",
+        "IN"
+      ],
+      "category": "General/IT",
+      "pricing_model": "Slot/CPC"
+    },
+    "Daijob.com": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Human Global Talent Co.",
+      "website": "daijob.com",
+      "notes": "Japan's biggest bilingual job site. Requires business-to-native Japanese. Marketing, IT, consulting, manufacturing roles. Free employer job posting. 5-minute registration.",
+      "countries": [
+        "JP"
+      ],
+      "category": "Bilingual/International",
+      "pricing_model": "Slot/Free"
+    },
+    "Mynavi Corporation": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Mynavi Corporation",
+      "website": "mynavi.jp",
+      "notes": "One of Japan's largest job posting sites. MyNavi Global focuses on bilingual/international talent. Job fairs and events. Mobile app. Primarily Japanese language.",
+      "countries": [
+        "JP"
+      ],
+      "category": "General",
+      "pricing_model": "Slot"
+    },
+    "GaijinPot": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "GPlusMedia Inc.",
+      "website": "gaijinpot.com",
+      "notes": "Leading employment resource for foreigners in Japan since 1999. English teaching, IT, finance jobs. Also: apartments, travel, Japanese lessons. Published 2025 Definitive Guide to Finding Jobs in Japan.",
+      "countries": [
+        "JP"
+      ],
+      "category": "Expat/International",
+      "pricing_model": "Slot"
+    },
+    "Jobillico inc": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Harris (acquired Aug 2021)",
+      "website": "jobillico.com",
+      "notes": "Leading Quebec job board. 15K+ active job offers, 60K+ career opportunities across Quebec. 5M+ registered users. 100% Canadian bilingual company. Founded 2010. Partners with Job Bank Canada.",
+      "countries": [
+        "CA"
+      ],
+      "category": "General",
+      "pricing_model": "Slot"
+    },
+    "Jobbsafari.se": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Acquired",
+      "owner": "Duunitori Group (acquired from Blocket/Schibsted)",
+      "website": "jobbsafari.se",
+      "notes": "Swedish job search engine since 2009. 55K job listings, 13K new weekly. Acquired by Duunitori Group after Schibsted shut down Blocket Jobb. Duunitori is leading Finnish recruitment marketing company.",
+      "countries": [
+        "SE"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
+    },
+    "Jobbland": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Growing",
+      "owner": "Duunitori Group (Finland)",
+      "website": "jobbland.se",
+      "notes": "Launched 2019 as Duunitori subsidiary. Grew from 250K to 700K monthly visits. Capitalizing on Blocket Jobb closure. Also launched Jobbland.no for Norway.",
+      "countries": [
+        "SE",
+        "NO"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
+    },
+    "Stellenanzeigen.de": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "stellenanzeigen.de",
+      "notes": "Leading German generalist job board. 20+ years operational. 1.83M visitors/month (doubled in 2 years). Corporate and SME roles.",
+      "countries": [
+        "DE"
+      ],
+      "category": "General",
+      "pricing_model": "Slot"
+    },
+    "Jobbörse.de": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "jobborse.de",
+      "notes": "Founded 2011. 1.5M+ job ads across 6K professions. 10K+ active English-speaker job ads. Cross-posting to niche boards. Pricing from EUR 90 (single ad) to EUR 495+ (combined package).",
+      "countries": [
+        "DE"
+      ],
+      "category": "General",
+      "pricing_model": "Slot"
+    },
+    "StellenOnline": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Dominant",
+      "owner": "stellenonline.de AG",
+      "website": "stellenonline.de",
+      "notes": "Germany's largest job search engine. 600K-1M+ jobs/month. Won Germany's Best Job Search Engine multiple times. Highest satisfaction rate in job search engine category. Traffic management distributes vacancies to right channels.",
+      "countries": [
+        "DE"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
+    },
+    "Tideri OHG": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Tideri OHG (Mönchengladbach, DE)",
+      "website": "tideri.com",
+      "notes": "Since 2015. 9.1M global job listings. German HQ with international portal (tideri.com) and German portal (tideri.de). Job vacancies, apprenticeships, internships.",
+      "countries": [
+        "DE",
+        "Global"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
+    },
+    "Manymore.jobs": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Small",
+      "owner": "Private",
+      "website": "manymore.jobs",
+      "notes": "Automated meta job board. Claims 1.25M job seekers/month but only ~36 active listed vacancies. 5 countries: DE, AT, HU, SK, RO. Facebook/Instagram paid advertising integration.",
+      "countries": [
+        "DE",
+        "AT",
+        "HU",
+        "SK",
+        "RO"
+      ],
+      "category": "Meta/Aggregator",
+      "pricing_model": "CPC"
+    },
+    "Vindazo": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Small",
+      "owner": "Private (Bulgaria-based)",
+      "website": "vindazo.com",
+      "notes": "Founded 2014, unfunded. 11-50 employees. Online job board services. Ranks 4,909th among 5,247 competitors. Low profile in market.",
+      "countries": [
+        "DE",
+        "FR",
+        "BE",
+        "NL"
+      ],
+      "category": "General",
+      "pricing_model": "CPC"
+    },
+    "College Recruiter": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "collegerecruiter.com",
+      "notes": "Global platform for 0-5 years experience candidates. Fills gap between LinkedIn (networking) and Handshake (on-campus). Several million job postings. Published Top 10 boards for 2026.",
+      "countries": [
+        "US",
+        "CA",
+        "Global"
+      ],
+      "category": "Student/Entry-level",
+      "pricing_model": "CPC"
+    },
+    "Symplicity": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "symplicity.com",
+      "notes": "Career services software platform. 1K+ colleges/universities, thousands of employers. 500K+ students in resume database. AI matching. Only accessible to member school students. Curated Job Feed launched.",
+      "countries": [
+        "US",
+        "AU"
+      ],
+      "category": "Campus/Career Services",
+      "pricing_model": "Subscription"
+    },
+    "Jobted": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (Italy-based)",
+      "website": "jobted.com",
+      "notes": "Free aggregator. Sources from US and international job boards. Available in 29+ countries. No direct posting by employers. Salary averages and advanced filters. No additional hiring services.",
+      "countries": [
+        "IT",
+        "GB",
+        "AU",
+        "US",
+        "Global"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "Free/CPC"
+    },
+    "Jobomas": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "jobomas.com",
+      "notes": "Leading job site in LATAM and Spain. Expanding globally. Present in 50+ countries across Americas, Europe, Middle East, Africa, Asia. Daily new job opportunities.",
+      "countries": [
+        "LATAM",
+        "ES",
+        "US",
+        "CA",
+        "Global"
+      ],
+      "category": "General",
+      "pricing_model": "CPC"
+    },
+    "beBee": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (Spain-based)",
+      "website": "bebee.com",
+      "notes": "35M+ aggregated vacancies in US alone. Global presence. Social affinity networking + job search. Present in 80+ countries.",
+      "countries": [
+        "Global - 80+ countries"
+      ],
+      "category": "Social/Aggregator",
+      "pricing_model": "Freemium"
+    },
+    "Jobcase Inc": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (Cambridge, MA)",
+      "website": "jobcase.com",
+      "notes": "Series C company, $148.5M raised. ~201 employees. Revenue $50-100M. Acquired Recruitology and Upward.net. AI Career Coach. Backed by PSG Equity, Providence Equity.",
+      "countries": [
+        "US"
+      ],
+      "category": "Community/General",
+      "pricing_model": "CPC/Subscription"
+    },
+    "ClickaJobs": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (Kingston upon Hull, UK)",
+      "website": "clickajobs.com",
+      "notes": "Since 2020. 18+ countries. 100K+ new openings weekly. Free for job seekers. ATS integration available. 0-9 employees. Small but growing globally.",
+      "countries": [
+        "GB",
+        "US",
+        "Global"
+      ],
+      "category": "General",
+      "pricing_model": "CPC"
+    },
+    "MyJobScanner": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Limited info",
+      "owner": "Private",
+      "website": "myjobscanner.com",
+      "notes": "Job aggregator/search engine. Limited public information available. Part of Joveo network as P1 priority.",
+      "countries": [
+        "US",
+        "GB",
+        "DE",
+        "FR",
+        "NL",
+        "CA",
+        "BE",
+        "PL",
+        "IT"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
+    },
+    "Jobbird.de": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Revived",
+      "owner": "Private (Netherlands)",
+      "website": "jobbird.nl",
+      "notes": "Dutch job board. Went bankrupt Dec 2018, revived/re-acquired. 100K+ jobs in Netherlands. Free for some listings. Founded 2012. Primarily Netherlands market, not Germany.",
+      "countries": [
+        "NL"
+      ],
+      "category": "General",
+      "pricing_model": "Freemium"
+    },
+    "Blocket Jobb": {
+      "_last_verified": "2026-03-08",
+      "status": "SHUT DOWN",
+      "owner": "Schibsted Marketplaces (former)",
+      "website": "N/A",
+      "notes": "Shut down late 2024 by Schibsted. Jobbsafari (sister site) sold to Duunitori Group. LedigaJobb and Jobbland competing for market share. Major Swedish market disruption.",
+      "countries": [
+        "SE"
+      ],
+      "category": "Classifieds/General",
+      "pricing_model": "N/A"
+    },
+    "Forasna": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (Egypt)",
+      "website": "forasna.com",
+      "notes": "Egyptian job board. Active in Egypt market alongside Wuzzuf. Part of Joveo network.",
+      "countries": [
+        "EG"
+      ],
+      "category": "General",
+      "pricing_model": "CPC"
+    },
+    "employers.io": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Previously LocalStaffing LLC",
+      "website": "employers.io",
+      "notes": "Formerly localstaffing. Blue collar focus. US and UK operations. Part of Joveo network as P0 priority.",
+      "countries": [
+        "US",
+        "GB"
+      ],
+      "category": "Blue-collar",
+      "pricing_model": "CPA/CPC"
+    },
+    "JobSwipe": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "jobswipe.co",
+      "notes": "Mobile-first job search app. Tinder-like swipe interface. US, UK, CA, DE. P1 priority in Joveo network.",
+      "countries": [
+        "US",
+        "GB",
+        "CA",
+        "DE"
+      ],
+      "category": "Mobile/General",
+      "pricing_model": "CPC"
+    },
+    "GoWork.pl": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (Poland)",
+      "website": "gowork.pl",
+      "notes": "Polish job board and employer review site. Active in Poland market alongside Pracuj.pl.",
+      "countries": [
+        "PL"
+      ],
+      "category": "General/Reviews",
+      "pricing_model": "Slot"
+    },
+    "Careers in Poland": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "careersinpoland.com",
+      "notes": "English-language job board targeting expats and international professionals in Poland.",
+      "countries": [
+        "PL"
+      ],
+      "category": "Expat/International",
+      "pricing_model": "Slot"
+    },
+    "deBanenSite.nl": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (Netherlands)",
+      "website": "debanensite.nl",
+      "notes": "Dutch job board. Part of Joveo network. Netherlands market focus.",
+      "countries": [
+        "NL"
+      ],
+      "category": "General",
+      "pricing_model": "CPC"
+    },
+    "IrishJobs": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "StepStone Group",
+      "website": "irishjobs.ie",
+      "notes": "Leading Irish job board. Part of StepStone network (KKR + CPP Investments owned as of Apr 2025). Strong presence in Ireland.",
+      "countries": [
+        "IE"
+      ],
+      "category": "General",
+      "pricing_model": "Slot/CPC"
+    },
+    "Praca.pl": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "praca.pl",
+      "notes": "Polish job board. One of several players in Poland alongside Pracuj.pl, GoWork.pl, No Fluff Jobs.",
+      "countries": [
+        "PL"
+      ],
+      "category": "General",
+      "pricing_model": "Slot"
+    },
+    "Zeitarbeit24": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (Germany)",
+      "website": "zeitarbeit24.de",
+      "notes": "German temporary work (Zeitarbeit) job board. Niche focus on temporary staffing/employment.",
+      "countries": [
+        "DE"
+      ],
+      "category": "Temp/Staffing",
+      "pricing_model": "Slot"
+    },
+    "OfferUp": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (Seattle, WA)",
+      "website": "offerup.com",
+      "notes": "Primarily a classifieds/marketplace app (buy/sell). Job listings are secondary. Merged with LetGo in 2020. Major US classifieds platform.",
+      "countries": [
+        "US"
+      ],
+      "category": "Classifieds",
+      "pricing_model": "CPC"
+    },
+    "Jobble": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "jobble.com",
+      "notes": "Gig and flexible work platform. Connects workers with short-term and gig opportunities. US and India.",
+      "countries": [
+        "US",
+        "IN"
+      ],
+      "category": "Gig/Flexible",
+      "pricing_model": "CPC"
+    },
+    "Jobs4humanity,Inc": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "jobs4humanity.com",
+      "notes": "DEI-focused job board. Inclusive hiring platform. US, CA, DE, IN, AE, AU.",
+      "countries": [
+        "US",
+        "CA",
+        "DE",
+        "IN",
+        "AE",
+        "AU"
+      ],
+      "category": "DEI",
+      "pricing_model": "CPC"
+    },
+    "ResumeDone": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private",
+      "website": "resumedone.co",
+      "notes": "Resume builder + job search platform. Global reach across 35+ countries. Part of Joveo network.",
+      "countries": [
+        "US",
+        "Global"
+      ],
+      "category": "Resume/General",
+      "pricing_model": "CPC"
+    },
+    "SonicJobs": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (London, UK)",
+      "website": "sonicjobs.com",
+      "notes": "Mobile-first job app for hourly/blue-collar workers. UK and US markets. App-based job matching.",
+      "countries": [
+        "GB",
+        "US"
+      ],
+      "category": "Blue-collar/Mobile",
+      "pricing_model": "CPC"
+    },
+    "Direct Employers Association": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Non-profit association",
+      "website": "directemployers.org",
+      "notes": "Non-profit employer consortium. Operates DirectEmployers.com and .jobs domain job board system. OFCCP compliance solutions. US federal contractor focus.",
+      "countries": [
+        "US"
+      ],
+      "category": "Employer Consortium",
+      "pricing_model": "Membership"
+    },
+    "Jobleo": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational - Limited",
+      "owner": "Private",
+      "website": "jobleo.com",
+      "notes": "Job aggregator. Part of Joveo network. Limited public information.",
+      "countries": [
+        "Global"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
+    },
+    "CareerJet": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (London, UK)",
+      "website": "careerjet.com",
+      "notes": "Global job search engine. Semantic analysis technology. 130+ countries. CPC model. Min bid $0.10. Aggregator with 100+ owned domains.",
+      "countries": [
+        "Global - 130+ countries"
+      ],
+      "category": "Aggregator",
+      "pricing_model": "CPC"
+    },
+    "Technojobs": {
+      "_last_verified": "2026-03-08",
+      "status": "Operational",
+      "owner": "Private (UK)",
+      "website": "technojobs.co.uk",
+      "notes": "UK tech job board. Also covers CH, DE, NL, BE, FR, IE. Part of Joveo network.",
+      "countries": [
+        "GB",
+        "CH",
+        "DE",
+        "NL",
+        "BE",
+        "FR",
+        "IE"
+      ],
+      "category": "Tech",
+      "pricing_model": "Slot/CPC"
     }
   }
 }

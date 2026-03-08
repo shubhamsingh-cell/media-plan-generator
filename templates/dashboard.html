@@ -9,10 +9,10 @@
             --navy: #08294A;
             --navy-light: #0E3A6B;
             --navy-lighter: #14497A;
-            --purple: #7C3AED;
-            --purple-light: #A78BFA;
-            --purple-pale: #EDE9FE;
-            --purple-dark: #5B21B6;
+            --accent-blue: #0A66C9;
+            --accent-light: #5BA3E6;
+            --accent-pale: #D1E8FF;
+            --accent-dark: #08294A;
             --blue-primary: #0A66C9;
             --blue-light: #D1E8FF;
             --green: #10B981;
@@ -49,7 +49,7 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
-        ::selection { background: var(--purple); color: white; }
+        ::selection { background: var(--accent-blue); color: white; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -89,7 +89,7 @@
         }
 
         .sidebar-brand .brand-accent {
-            color: var(--purple-light);
+            color: var(--accent-light);
         }
 
         .sidebar-brand p {
@@ -134,7 +134,7 @@
         }
 
         .sidebar-nav a.active {
-            background: rgba(124, 58, 237, 0.2);
+            background: rgba(10, 102, 201, 0.2);
             color: white;
         }
 
@@ -159,7 +159,7 @@
         }
 
         .sidebar-footer .refresh-info span {
-            color: var(--purple-light);
+            color: var(--accent-light);
             font-weight: 600;
         }
 
@@ -241,12 +241,12 @@
         }
 
         .btn-primary {
-            background: var(--purple);
+            background: var(--accent-blue);
             color: white;
         }
         .btn-primary:hover {
-            background: var(--purple-dark);
-            box-shadow: 0 4px 12px rgba(124,58,237,0.3);
+            background: var(--accent-dark);
+            box-shadow: 0 4px 12px rgba(10,102,201,0.3);
         }
 
         .btn-outline {
@@ -310,7 +310,7 @@
             height: 3px;
         }
 
-        .stat-card:nth-child(1)::before { background: var(--purple); }
+        .stat-card:nth-child(1)::before { background: var(--accent-blue); }
         .stat-card:nth-child(2)::before { background: var(--green); }
         .stat-card:nth-child(3)::before { background: var(--blue-primary); }
         .stat-card:nth-child(4)::before { background: var(--amber); }
@@ -328,7 +328,7 @@
             margin-bottom: 12px;
         }
 
-        .stat-card:nth-child(1) .stat-icon { background: var(--purple-pale); }
+        .stat-card:nth-child(1) .stat-icon { background: var(--accent-pale); }
         .stat-card:nth-child(2) .stat-icon { background: var(--green-light); }
         .stat-card:nth-child(3) .stat-icon { background: var(--blue-light); }
         .stat-card:nth-child(4) .stat-icon { background: var(--amber-light); }
@@ -402,8 +402,8 @@
         }
 
         .search-box:focus-within {
-            border-color: var(--purple);
-            box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(10,102,201,0.1);
             background: white;
         }
 
@@ -467,7 +467,7 @@
 
         thead th.sorted .sort-arrow {
             opacity: 1;
-            color: var(--purple);
+            color: var(--accent-blue);
         }
 
         tbody tr {
@@ -518,7 +518,7 @@
         }
 
         .download-link {
-            color: var(--purple);
+            color: var(--accent-blue);
             text-decoration: none;
             font-weight: 500;
             font-size: 12px;
@@ -528,7 +528,7 @@
             transition: color 0.2s;
         }
         .download-link:hover {
-            color: var(--purple-dark);
+            color: var(--accent-dark);
             text-decoration: underline;
         }
 
@@ -573,7 +573,7 @@
         }
 
         .doc-card:hover {
-            border-color: var(--purple-light);
+            border-color: var(--accent-light);
             box-shadow: var(--shadow-md);
             transform: translateY(-2px);
         }
@@ -587,7 +587,7 @@
         .doc-card-icon {
             width: 42px;
             height: 42px;
-            background: linear-gradient(135deg, var(--purple), var(--purple-dark));
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-dark));
             border-radius: var(--radius-xs);
             display: flex;
             align-items: center;
@@ -636,8 +636,8 @@
             justify-content: center;
             gap: 6px;
             padding: 8px 16px;
-            background: var(--purple-pale);
-            color: var(--purple-dark);
+            background: var(--accent-pale);
+            color: var(--accent-dark);
             border-radius: var(--radius-xs);
             text-decoration: none;
             font-size: 12px;
@@ -646,7 +646,7 @@
         }
 
         .doc-card-download:hover {
-            background: var(--purple);
+            background: var(--accent-blue);
             color: white;
         }
 
@@ -671,7 +671,7 @@
             width: 32px;
             height: 32px;
             border: 3px solid var(--gray-200);
-            border-top-color: var(--purple);
+            border-top-color: var(--accent-blue);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }

@@ -15,6 +15,7 @@ try:
 except ImportError:
     fcntl = None  # Windows compatibility: file locking handled below
 import logging
+import threading
 import urllib.request
 import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -534,8 +535,12 @@ except (FileNotFoundError, json.JSONDecodeError, OSError):
     pass
 
 def load_channels_db():
-    with open(os.path.join(DATA_DIR, "channels_db.json"), "r") as f:
-        return json.load(f)
+    try:
+        with open(os.path.join(DATA_DIR, "channels_db.json"), "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
+        logger.error(f"Failed to load channels_db.json: {e}")
+        return {}
 
 def load_joveo_publishers():
     path = os.path.join(DATA_DIR, "joveo_publishers.json")
@@ -793,39 +798,39 @@ def generate_excel(data):
     BLUE = "0A66C9"
     MEDIUM_BLUE = "004082"
     LIGHT_BLUE = "D1E8FF"
-    GOLD = "0A66C9"          # Joveo blue (accent)
-    LIGHT_GOLD = "5BA3E6"    # Light Joveo blue
-    PALE_GOLD = "E8F0FE"     # Pale Joveo blue
+    ACCENT = "0A66C9"          # Joveo blue (accent)
+    ACCENT_LIGHT = "5BA3E6"    # Light Joveo blue
+    ACCENT_PALE = "E8F0FE"     # Pale Joveo blue
     OFF_WHITE = "F2F2F0"
     WARM_GRAY = "EBE6E0"
     GREEN_GOOD = "2E7D32"
     AMBER_WARN = "F57C00"
 
     # LinkedIn-style fills
-    gold_fill = PatternFill(start_color=GOLD, end_color=GOLD, fill_type="solid")
-    light_gold_fill = PatternFill(start_color=LIGHT_GOLD, end_color=LIGHT_GOLD, fill_type="solid")
-    pale_gold_fill = PatternFill(start_color=PALE_GOLD, end_color=PALE_GOLD, fill_type="solid")
+    accent_fill = PatternFill(start_color=ACCENT, end_color=ACCENT, fill_type="solid")
+    accent_light_fill = PatternFill(start_color=ACCENT_LIGHT, end_color=ACCENT_LIGHT, fill_type="solid")
+    accent_pale_fill = PatternFill(start_color=ACCENT_PALE, end_color=ACCENT_PALE, fill_type="solid")
     off_white_fill = PatternFill(start_color=OFF_WHITE, end_color=OFF_WHITE, fill_type="solid")
     warm_gray_fill = PatternFill(start_color=WARM_GRAY, end_color=WARM_GRAY, fill_type="solid")
     light_blue_fill = PatternFill(start_color=LIGHT_BLUE, end_color=LIGHT_BLUE, fill_type="solid")
     green_fill = PatternFill(start_color="E8F5E9", end_color="E8F5E9", fill_type="solid")
     amber_fill = PatternFill(start_color="FFF3E0", end_color="FFF3E0", fill_type="solid")
-    gold_accent_border = Border(
-        left=Side(style="medium", color=GOLD),
+    accent_border = Border(
+        left=Side(style="medium", color=ACCENT),
         right=Side(style="thin", color=WARM_GRAY),
         top=Side(style="thin", color=WARM_GRAY),
         bottom=Side(style="thin", color=WARM_GRAY),
     )
-    gold_bottom_border = Border(bottom=Side(style="medium", color=GOLD))
+    accent_bottom_border = Border(bottom=Side(style="medium", color=ACCENT))
 
     def style_section_header(ws, row, col_start, col_end, title):
-        """Style a section header with navy text and purple accent border."""
+        """Style a section header with navy text and blue accent border."""
         ws.merge_cells(start_row=row, start_column=col_start, end_row=row, end_column=col_end)
         cell = ws.cell(row=row, column=col_start, value=title)
         cell.font = Font(name="Calibri", bold=True, size=14, color=NAVY)
         cell.border = Border(
-            bottom=Side(style="medium", color=GOLD),
-            left=Side(style="thick", color=GOLD),
+            bottom=Side(style="medium", color=ACCENT),
+            left=Side(style="thick", color=ACCENT),
         )
         return cell
 
@@ -937,7 +942,7 @@ def generate_excel(data):
     overview_items = [
         ("Client Name", data.get("client_name", "")),
         ("Client Website", data.get("client_website", "") or "Not specified"),
-        ("Client's Use Case", data.get("use_case", "")),
+        ("Client's Use Case", data.get("use_case", "") or "Not specified"),
         ("Industry", data.get("industry_label", industry_label_map.get(industry, industry))),
         ("NAICS Sector", f"{data.get('bls_sector', 'General')} (NAICS {data.get('naics_code', '00')})"),
         ("Talent Profile", data.get("talent_profile", "General / Mixed Workforce")),
@@ -1024,7 +1029,7 @@ def generate_excel(data):
     navy_fill = PatternFill(start_color="1B2A4A", end_color="1B2A4A", fill_type="solid")
     metric_fill = PatternFill(start_color=OFF_WHITE, end_color=OFF_WHITE, fill_type="solid")
     blue_accent_border = Border(
-        left=Side(style="medium", color=GOLD),
+        left=Side(style="medium", color=ACCENT),
         right=Side(style="thin", color=WARM_GRAY),
         top=Side(style="thin", color=WARM_GRAY),
         bottom=Side(style="thin", color=WARM_GRAY),
@@ -1044,14 +1049,14 @@ def generate_excel(data):
         ws_exec.cell(row=2, column=c).fill = navy_fill
     ws_exec.row_dimensions[2].height = 50
 
-    # Purple accent subtitle bar
+    # Blue accent subtitle bar
     ws_exec.merge_cells("B3:G3")
     ws_exec["B3"].value = f"{industry_label_val}  |  Generated {datetime.datetime.now().strftime('%B %d, %Y')}"
     ws_exec["B3"].font = Font(name="Calibri", bold=True, size=11, color=NAVY)
-    ws_exec["B3"].fill = gold_fill
+    ws_exec["B3"].fill = accent_fill
     ws_exec["B3"].alignment = Alignment(horizontal="center", vertical="center")
     for c in range(3, 8):
-        ws_exec.cell(row=3, column=c).fill = gold_fill
+        ws_exec.cell(row=3, column=c).fill = accent_fill
     ws_exec.row_dimensions[3].height = 30
 
     # Insert logo on executive summary if available
@@ -1066,7 +1071,7 @@ def generate_excel(data):
         except Exception:
             pass
 
-    # Campaign Snapshot section with purple accent
+    # Campaign Snapshot section with blue accent
     exec_row = 5
     style_section_header(ws_exec, exec_row, 2, 7, "Campaign Snapshot")
     exec_row += 1
@@ -1081,7 +1086,7 @@ def generate_excel(data):
     # Large hero stat row
     ws_exec.merge_cells(f"B{exec_row}:C{exec_row}")
     hero_cell = ws_exec.cell(row=exec_row, column=2, value=str(budget_range_val))
-    hero_cell.font = Font(name="Calibri", bold=True, size=24, color=GOLD)
+    hero_cell.font = Font(name="Calibri", bold=True, size=24, color=ACCENT)
     hero_cell.fill = off_white_fill
     hero_cell.alignment = Alignment(horizontal="center", vertical="center")
     ws_exec.cell(row=exec_row, column=3).fill = off_white_fill
@@ -1094,7 +1099,7 @@ def generate_excel(data):
     ws_exec.row_dimensions[exec_row].height = 45
     exec_row += 1
 
-    # 2x3 metric cards with off-white backgrounds and purple value highlights
+    # 2x3 metric cards with off-white backgrounds and blue value highlights
     metric_grid = [
         ("Campaign Duration", campaign_duration_val, "Hire Volume", str(hire_volume_val)),
         ("Target Locations", f"{loc_count} location(s)", "Target Roles", f"{role_count} role(s)" if role_count > 0 else "Roles not specified"),
@@ -1416,7 +1421,7 @@ def generate_excel(data):
         exec_row += 1
         apis_used = ", ".join(enrichment_summary["apis_succeeded"])
         ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-        ws_exec.cell(row=exec_row, column=2, value=f"Live API data sourced from: {apis_used} (fetched {enrichment_summary.get('total_time_seconds', 0):.1f}s ago)").font = Font(name="Calibri", italic=True, size=9, color="7C3AED")
+        ws_exec.cell(row=exec_row, column=2, value=f"Live API data sourced from: {apis_used} (fetched {enrichment_summary.get('total_time_seconds', 0):.1f}s ago)").font = Font(name="Calibri", italic=True, size=9, color="0A66C9")
 
     exec_row += 2
 
@@ -1832,7 +1837,7 @@ def generate_excel(data):
             # Alternating row fill
             if list(tier_groups.keys()).index(tier_name) % 2 == 0:
                 for c in range(2, 8):
-                    ws_exec.cell(row=exec_row, column=c).fill = pale_gold_fill
+                    ws_exec.cell(row=exec_row, column=c).fill = accent_pale_fill
 
             ws_exec.row_dimensions[exec_row].height = 30
             exec_row += 1
@@ -1990,10 +1995,10 @@ def generate_excel(data):
         c4.border = thin_border
         c4.alignment = wrap_alignment
 
-        # Alternating row fill with pale purple
+        # Alternating row fill with pale blue
         if idx % 2 == 0:
             for c in range(2, 6):
-                ws_exec.cell(row=exec_row, column=c).fill = pale_gold_fill
+                ws_exec.cell(row=exec_row, column=c).fill = accent_pale_fill
 
         exec_row += 1
 
@@ -2228,7 +2233,7 @@ def generate_excel(data):
 
         if idx % 2 == 0:
             for c in range(2, 6):
-                ws_exec.cell(row=exec_row, column=c).fill = pale_gold_fill
+                ws_exec.cell(row=exec_row, column=c).fill = accent_pale_fill
         exec_row += 1
 
     # ── Donut Chart for Channel Distribution ──
@@ -2239,7 +2244,7 @@ def generate_excel(data):
         ws_exec.cell(row=exec_row, column=8, value="Channel").font = Font(name="Calibri", bold=True, size=9, color="999999")
         ws_exec.cell(row=exec_row, column=9, value="Allocation %").font = Font(name="Calibri", bold=True, size=9, color="999999")
         exec_row += 1
-        donut_colors = [NAVY, BLUE, GOLD, LIGHT_BLUE, WARM_GRAY, MEDIUM_BLUE, LIGHT_GOLD, "A8D4FF"]
+        donut_colors = [NAVY, BLUE, ACCENT, LIGHT_BLUE, WARM_GRAY, MEDIUM_BLUE, ACCENT_LIGHT, "A8D4FF"]
         for ch_idx, (ch_name, ch_pct, _desc, _color, _impact) in enumerate(normalized):
             ws_exec.cell(row=exec_row, column=8, value=ch_name).font = Font(name="Calibri", size=8, color="999999")
             ws_exec.cell(row=exec_row, column=9, value=ch_pct).font = Font(name="Calibri", size=8, color="999999")
@@ -2294,10 +2299,10 @@ def generate_excel(data):
     ]
 
     for idx, (metric, label, desc, color) in enumerate(eb_metrics):
-        # Metric value in large font with purple background
+        # Metric value in large font with blue background
         c1 = ws_exec.cell(row=exec_row, column=2, value=metric)
         c1.font = Font(name="Calibri", bold=True, size=18, color=NAVY)
-        c1.fill = gold_fill
+        c1.fill = accent_fill
         c1.border = thin_border
         c1.alignment = center_alignment
 
@@ -2326,10 +2331,10 @@ def generate_excel(data):
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     rec_cell = ws_exec.cell(row=exec_row, column=2, value="  RECOMMENDATION: Allocate 5-10% of total recruitment marketing budget to employer branding for sustained pipeline quality improvement.")
     rec_cell.font = Font(name="Calibri", bold=True, italic=True, size=10, color=NAVY)
-    rec_cell.fill = light_gold_fill
-    rec_cell.border = Border(left=Side(style="thick", color=GOLD), bottom=Side(style="thin", color=GOLD))
+    rec_cell.fill = accent_light_fill
+    rec_cell.border = Border(left=Side(style="thick", color=ACCENT), bottom=Side(style="thin", color=ACCENT))
     for c in range(3, 8):
-        ws_exec.cell(row=exec_row, column=c).fill = light_gold_fill
+        ws_exec.cell(row=exec_row, column=c).fill = accent_light_fill
 
     # ── Quality of Hire Expected Outcomes ──
     exec_row += 3
@@ -2377,7 +2382,7 @@ def generate_excel(data):
         c3.alignment = center_alignment
 
         c4 = ws_exec.cell(row=exec_row, column=5, value=quality)
-        c4.font = Font(name="Calibri", size=12, color=GOLD)
+        c4.font = Font(name="Calibri", size=12, color=ACCENT)
         c4.border = thin_border
         c4.alignment = center_alignment
 
@@ -2388,7 +2393,7 @@ def generate_excel(data):
 
         if is_joveo:
             for c in range(2, 7):
-                ws_exec.cell(row=exec_row, column=c).fill = light_gold_fill
+                ws_exec.cell(row=exec_row, column=c).fill = accent_light_fill
         elif idx % 2 == 0:
             for c in range(2, 7):
                 ws_exec.cell(row=exec_row, column=c).fill = off_white_fill
@@ -2398,10 +2403,10 @@ def generate_excel(data):
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     joveo_rec = ws_exec.cell(row=exec_row, column=2, value="  Joveo's programmatic approach combines the speed of automation with quality optimization (CPQA), delivering the best balance of time-to-fill, retention, and cost efficiency.")
     joveo_rec.font = Font(name="Calibri", bold=True, italic=True, size=10, color=NAVY)
-    joveo_rec.fill = light_gold_fill
-    joveo_rec.border = Border(left=Side(style="thick", color=GOLD))
+    joveo_rec.fill = accent_light_fill
+    joveo_rec.border = Border(left=Side(style="thick", color=ACCENT))
     for c in range(3, 8):
-        ws_exec.cell(row=exec_row, column=c).fill = light_gold_fill
+        ws_exec.cell(row=exec_row, column=c).fill = accent_light_fill
 
     # ── Quality & ROI Metrics (2x2 card grid) ──
     exec_row += 3
@@ -2447,11 +2452,11 @@ def generate_excel(data):
             ws_exec.merge_cells(start_row=exec_row, start_column=col_start, end_row=exec_row, end_column=col_start + 2)
             num_cell = ws_exec.cell(row=exec_row, column=col_start, value=val)
             num_cell.font = Font(name="Calibri", bold=True, size=22, color=NAVY)
-            num_cell.fill = gold_fill
+            num_cell.fill = accent_fill
             num_cell.alignment = Alignment(horizontal="center", vertical="center")
             num_cell.border = card_border
             for cc in range(col_start + 1, col_start + 3):
-                ws_exec.cell(row=exec_row, column=cc).fill = gold_fill
+                ws_exec.cell(row=exec_row, column=cc).fill = accent_fill
                 ws_exec.cell(row=exec_row, column=cc).border = card_border
         ws_exec.row_dimensions[exec_row].height = 40
         exec_row += 1
@@ -2548,9 +2553,9 @@ def generate_excel(data):
         c1.border = thin_border
 
         if is_client:
-            # Client row: purple highlight with navy text
+            # Client row: blue highlight with navy text
             c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
-            c1.fill = gold_fill
+            c1.fill = accent_fill
         else:
             c1.font = Font(name="Calibri", bold=False, size=10, color=NAVY)
 
@@ -2561,7 +2566,7 @@ def generate_excel(data):
             cell.alignment = center_alignment
             if is_client:
                 cell.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
-                cell.fill = gold_fill
+                cell.fill = accent_fill
             else:
                 cell.font = Font(name="Calibri", size=10, color=NAVY)
 
@@ -2611,7 +2616,7 @@ def generate_excel(data):
 
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
-    ws_exec.cell(row=exec_row, column=2, value="Your industry row is highlighted in purple. \u25B2 = easier than average (green), \u25BC = harder than average (amber). Use this to calibrate budget expectations.").font = Font(name="Calibri", italic=True, size=8, color="999999")
+    ws_exec.cell(row=exec_row, column=2, value="Your industry row is highlighted in blue. \u25B2 = easier than average (green), \u25BC = harder than average (amber). Use this to calibrate budget expectations.").font = Font(name="Calibri", italic=True, size=8, color="999999")
 
     # Move Executive Summary to first position
     wb.move_sheet("Executive Summary", offset=-(len(wb.sheetnames) - 1))
@@ -2627,7 +2632,7 @@ def generate_excel(data):
     ws_trends.merge_cells(start_row=2, start_column=2, end_row=2, end_column=2 + len(locations))
     ws_trends["B2"].value = "Market Trends & Labor Market Analysis"
     ws_trends["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-    ws_trends["B2"].border = gold_bottom_border
+    ws_trends["B2"].border = accent_bottom_border
 
     row = 4
     headers = ["Market Trends Factor"] + locations
@@ -2997,7 +3002,7 @@ def generate_excel(data):
     ws_strategy.merge_cells("B2:F2")
     ws_strategy["B2"].value = "Channel Strategy"
     ws_strategy["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-    ws_strategy["B2"].border = gold_bottom_border
+    ws_strategy["B2"].border = accent_bottom_border
 
     row = 4
     strat_headers = ["Channel", "Reasoning", "How to Use", "KPIs / Metrics", "Niche / Non-Traditional Channels"]
@@ -3157,7 +3162,7 @@ def generate_excel(data):
     ws_trad.merge_cells("B2:F2")
     ws_trad["B2"].value = "Traditional Channels"
     ws_trad["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-    ws_trad["B2"].border = gold_bottom_border
+    ws_trad["B2"].border = accent_bottom_border
 
     roles_str = f" | Target Roles: {', '.join(roles[:5])}" if roles else ""
     _trad_pubs = joveo_pubs.get('total_active_publishers', 1238)
@@ -3236,7 +3241,7 @@ def generate_excel(data):
     ws_nontrad.merge_cells("B2:C2")
     ws_nontrad["B2"].value = "Non-Traditional Channels"
     ws_nontrad["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-    ws_nontrad["B2"].border = gold_bottom_border
+    ws_nontrad["B2"].border = accent_bottom_border
 
     ws_nontrad["B3"].value = f"Target: {', '.join(locations)}"
     ws_nontrad["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
@@ -3384,7 +3389,7 @@ def generate_excel(data):
         ws_global.merge_cells("B2:G2")
         ws_global["B2"].value = "Global Supply Strategy"
         ws_global["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-        ws_global["B2"].border = gold_bottom_border
+        ws_global["B2"].border = accent_bottom_border
         ws_global["B3"].value = f"Markets: {', '.join(locations)}"
         ws_global["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
 
@@ -3489,7 +3494,7 @@ def generate_excel(data):
         ws_dei.merge_cells("B2:E2")
         ws_dei["B2"].value = "DEI & Diversity Channels"
         ws_dei["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-        ws_dei["B2"].border = gold_bottom_border
+        ws_dei["B2"].border = accent_bottom_border
         ws_dei["B3"].value = f"Target Markets: {', '.join(locations)}"
         ws_dei["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
 
@@ -3597,7 +3602,7 @@ def generate_excel(data):
         ws_innov.merge_cells("B2:F2")
         ws_innov["B2"].value = "Innovative Channels 2025+"
         ws_innov["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-        ws_innov["B2"].border = gold_bottom_border
+        ws_innov["B2"].border = accent_bottom_border
         ws_innov["B3"].value = "Emerging recruitment channels: CTV, DOOH, Retail Media, Gaming, Podcasts, Messaging Apps & more"
         ws_innov["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
 
@@ -3668,7 +3673,7 @@ def generate_excel(data):
         ws_budget.merge_cells("B2:E2")
         ws_budget["B2"].value = "Budget & Pricing Guide"
         ws_budget["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-        ws_budget["B2"].border = gold_bottom_border
+        ws_budget["B2"].border = accent_bottom_border
 
         row = 4
         # Billing Models
@@ -3745,13 +3750,50 @@ def generate_excel(data):
 
         # Try to read CPA benchmarks from channels_db; fall back to hardcoded values
         cpa_from_db = db.get("cpa_rate_benchmarks", {})
-        if cpa_from_db:
-            cpa_benchmarks = [
-                (region_name, region_info.get("range", "N/A"), region_info.get("notes", ""))
-                for region_name, region_info in cpa_from_db.items()
-                if isinstance(region_info, dict)
-            ]
-        else:
+        cpa_benchmarks = []
+        if isinstance(cpa_from_db, dict) and cpa_from_db:
+            # channels_db structure: {region: {low_cpa: {range, publishers}, mid_cpa: {...}, high_cpa: {...}}}
+            _region_labels = {
+                "north_america": "North America (US/Canada)",
+                "europe": "Europe (UK/DE/FR/NL)",
+                "apac": "APAC (India/Japan/AU/SG)",
+                "latam": "LATAM (Brazil/Mexico/Argentina)",
+                "mea": "MEA (UAE/South Africa/Kenya)",
+            }
+            for region_key, region_data in cpa_from_db.items():
+                if not isinstance(region_data, dict):
+                    continue
+                region_label = _region_labels.get(region_key.lower(), region_key.replace("_", " ").title())
+                # Build CPA range from low/mid/high tiers
+                tier_ranges = []
+                tier_publishers = []
+                for tier_key in ("low_cpa", "mid_cpa", "high_cpa"):
+                    tier = region_data.get(tier_key, {})
+                    if isinstance(tier, dict):
+                        t_range = tier.get("range", "")
+                        if t_range:
+                            tier_ranges.append(f"{tier_key.replace('_cpa', '').title()}: {t_range}")
+                        t_pubs = tier.get("publishers", [])
+                        if isinstance(t_pubs, list):
+                            tier_publishers.extend(t_pubs[:3])
+                cpa_range_str = " | ".join(tier_ranges) if tier_ranges else "N/A"
+                notes_str = f"Key publishers: {', '.join(tier_publishers[:5])}" if tier_publishers else ""
+                cpa_benchmarks.append((region_label, cpa_range_str, notes_str))
+
+        # Enrich with platform-level CPA data from ad_platform_analysis synthesis
+        _synth_ad = data.get("_synthesized", {}).get("ad_platform_analysis", {})
+        if isinstance(_synth_ad, dict) and _synth_ad:
+            _plat_cpas = []
+            for pname, pdata in _synth_ad.items():
+                if not isinstance(pdata, dict) or pname.startswith("_"):
+                    continue
+                _p_cpa = pdata.get("avg_cpa", pdata.get("cpa", None))
+                if isinstance(_p_cpa, (int, float)) and _p_cpa > 0:
+                    _plat_cpas.append(f"{pname}: ${_p_cpa:.2f}")
+            if _plat_cpas:
+                cpa_benchmarks.append(("Platform-Specific (Synthesized)", " | ".join(_plat_cpas[:6]), "CPA from ad platform analysis synthesis"))
+
+        if not cpa_benchmarks:
             cpa_benchmarks = [
                 ("North America (US/Canada)", "$15 - $45", "High competition, strong CPC performance on Indeed/ZipRecruiter"),
                 ("Europe (UK/DE/FR/NL)", "$12 - $40", "Mixed CPC/Posting models; StepStone, Reed, Totaljobs common"),
@@ -3780,11 +3822,12 @@ def generate_excel(data):
         for region, cpa_range, notes in cpa_benchmarks:
             region_key = region.split("(")[0].strip()
             keywords = region_map.get(region_key, [])
-            if any(kw in location_str for kw in keywords):
+            # Always include platform-specific synthesized data and matching regions
+            if region_key.startswith("Platform") or any(kw in location_str for kw in keywords):
                 filtered_benchmarks.append((region, cpa_range, notes))
-        # Default to North America if nothing matched
+        # Default to North America + any platform data if nothing matched
         if not filtered_benchmarks:
-            filtered_benchmarks = [b for b in cpa_benchmarks if "North America" in b[0]]
+            filtered_benchmarks = [b for b in cpa_benchmarks if "North America" in b[0] or "Platform" in b[0]]
         for region, cpa_range, notes in filtered_benchmarks:
             style_body_cell(ws_budget, row, 2, region)
             ws_budget.cell(row=row, column=2).font = Font(name="Calibri", bold=True, size=10)
@@ -4073,7 +4116,7 @@ def generate_excel(data):
     ws_timeline.merge_cells("B2:G2")
     ws_timeline["B2"].value = "Campaign Timeline"
     ws_timeline["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-    ws_timeline["B2"].border = gold_bottom_border
+    ws_timeline["B2"].border = accent_bottom_border
 
     # Use actual campaign duration instead of hardcoded "Standard 12 Weeks"
     actual_duration = data.get("campaign_duration", "Not specified")
@@ -4101,7 +4144,7 @@ def generate_excel(data):
         "Phase 1": PatternFill(start_color="D6E4F0", end_color="D6E4F0", fill_type="solid"),  # blue
         "Phase 2": PatternFill(start_color="D9EAD3", end_color="D9EAD3", fill_type="solid"),  # green
         "Phase 3": PatternFill(start_color="FCE5CD", end_color="FCE5CD", fill_type="solid"),  # orange
-        "Phase 4": PatternFill(start_color="E4D1F0", end_color="E4D1F0", fill_type="solid"),  # purple
+        "Phase 4": PatternFill(start_color="ECFEFF", end_color="ECFEFF", fill_type="solid"),  # pale teal
     }
 
     # Build timeline phases based on actual campaign_weeks
@@ -4207,7 +4250,7 @@ def generate_excel(data):
         ws_edu.merge_cells("B2:C2")
         ws_edu["B2"].value = "Educational Partners & Training Programs"
         ws_edu["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-        ws_edu["B2"].border = gold_bottom_border
+        ws_edu["B2"].border = accent_bottom_border
         row = 4
         for i, h in enumerate(["Institution", "Talent Focus / Strategic Fit"]):
             cell = ws_edu.cell(row=row, column=2 + i, value=h)
@@ -4254,7 +4297,7 @@ def generate_excel(data):
         ws_events.merge_cells("B2:G2")
         ws_events["B2"].value = "Events & Career Fairs"
         ws_events["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-        ws_events["B2"].border = gold_bottom_border
+        ws_events["B2"].border = accent_bottom_border
         row = 4
         for i, h in enumerate(["Primary Partners", "Location", "Type", "Branding & Recruitment Impact", "Reach", "Budget Est."]):
             cell = ws_events.cell(row=row, column=2 + i, value=h)
@@ -4285,7 +4328,7 @@ def generate_excel(data):
         ws_radio.merge_cells("B2:E2")
         ws_radio["B2"].value = "Radio & Podcasts"
         ws_radio["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-        ws_radio["B2"].border = gold_bottom_border
+        ws_radio["B2"].border = accent_bottom_border
         row = 4
         for i, h in enumerate(["Channel / Station", "Weekly Listeners / Downloads", "Format / Genre", "Audience Type"]):
             cell = ws_radio.cell(row=row, column=2 + i, value=h)
@@ -4907,7 +4950,7 @@ def generate_excel(data):
         ws_media.merge_cells("B2:G2")
         ws_media["B2"].value = f"Media & Print Platforms — {ind_label}"
         ws_media["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-        ws_media["B2"].border = gold_bottom_border
+        ws_media["B2"].border = accent_bottom_border
 
         ws_media.merge_cells("B3:G3")
         ws_media["B3"].value = f"Recommended recruitment marketing channels for {ind_label} roles in {loc_context}. These platforms complement digital programmatic channels to reach passive candidates and build employer brand."
@@ -5000,7 +5043,7 @@ def generate_excel(data):
         ws_adplat.merge_cells("B2:I2")
         ws_adplat["B2"].value = "Ad Platform Analysis"
         ws_adplat["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-        ws_adplat["B2"].border = gold_bottom_border
+        ws_adplat["B2"].border = accent_bottom_border
 
         adp_row = 4
         # Recommendation row
@@ -5093,7 +5136,7 @@ def generate_excel(data):
     _sal_intel = _synth.get("salary_intelligence", {})
     if isinstance(_sal_intel, dict) and _sal_intel:
         ws_salary = wb.create_sheet("Salary Intelligence")
-        ws_salary.sheet_properties.tabColor = "7C3AED"
+        ws_salary.sheet_properties.tabColor = "0A66C9"
         ws_salary.column_dimensions["A"].width = 3
         ws_salary.column_dimensions["B"].width = 30
         ws_salary.column_dimensions["C"].width = 14
@@ -5107,7 +5150,7 @@ def generate_excel(data):
         ws_salary.merge_cells("B2:I2")
         ws_salary["B2"].value = "Salary Intelligence"
         ws_salary["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-        ws_salary["B2"].border = gold_bottom_border
+        ws_salary["B2"].border = accent_bottom_border
 
         sal_row = 4
         ws_salary.merge_cells(f"B{sal_row}:I{sal_row}")
@@ -5184,7 +5227,7 @@ def generate_excel(data):
         ws_demand.merge_cells("B2:H2")
         ws_demand["B2"].value = "Market Demand Analysis"
         ws_demand["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-        ws_demand["B2"].border = gold_bottom_border
+        ws_demand["B2"].border = accent_bottom_border
 
         dem_row = 4
         ws_demand.merge_cells(f"B{dem_row}:H{dem_row}")
@@ -5253,6 +5296,283 @@ def generate_excel(data):
         ws_demand.merge_cells(f"B{dem_row}:H{dem_row}")
         ws_demand.cell(row=dem_row, column=2, value="Temperature: Hot = high demand/low supply (hardest to hire), Cold = low demand/high supply (easiest). Competition Index reflects employer competition for the same talent.").font = Font(name="Calibri", italic=True, size=9, color="596780")
 
+    # ── Sheet: Location Intelligence ──
+    _loc_profiles = _synth.get("location_profiles", {})
+    if isinstance(_loc_profiles, dict) and _loc_profiles:
+        ws_loc = wb.create_sheet("Location Intelligence")
+        ws_loc.sheet_properties.tabColor = "0A66C9"
+        ws_loc.column_dimensions["A"].width = 3
+        ws_loc.column_dimensions["B"].width = 26
+        ws_loc.column_dimensions["C"].width = 16
+        ws_loc.column_dimensions["D"].width = 16
+        ws_loc.column_dimensions["E"].width = 18
+        ws_loc.column_dimensions["F"].width = 16
+        ws_loc.column_dimensions["G"].width = 16
+        ws_loc.column_dimensions["H"].width = 16
+        ws_loc.column_dimensions["I"].width = 18
+
+        ws_loc.merge_cells("B2:I2")
+        ws_loc["B2"].value = "Location Intelligence"
+        ws_loc["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_loc["B2"].border = accent_bottom_border
+
+        loc_row = 4
+        ws_loc.merge_cells(f"B{loc_row}:I{loc_row}")
+        ws_loc.cell(row=loc_row, column=2, value="Per-location economic and workforce profiles fused from Census, GeoNames, Teleport, REST Countries, IMF, and World Bank data sources.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+        loc_row += 2
+
+        loc_headers = ["Location", "Population", "Workforce Est.", "Cost of Living", "Timezone", "Quality of Life", "Infrastructure", "Sources"]
+        for i, h in enumerate(loc_headers):
+            cell = ws_loc.cell(row=loc_row, column=2 + i, value=h)
+            cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+            cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+            cell.border = thin_border
+            cell.alignment = center_alignment
+        loc_row += 1
+
+        for lidx, (loc_name, loc_data) in enumerate(_loc_profiles.items()):
+            if not isinstance(loc_data, dict):
+                continue
+            _row_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if lidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+
+            _loc_pop = loc_data.get("population", "N/A")
+            _loc_wf = loc_data.get("workforce_estimate", "N/A")
+            _loc_col = loc_data.get("cost_of_living", {})
+            if isinstance(_loc_col, dict):
+                _col_idx = _loc_col.get("index", _loc_col.get("cost_index", ""))
+                _col_display = f"{_col_idx:.1f}" if isinstance(_col_idx, (int, float)) else str(_col_idx) if _col_idx else "N/A"
+            else:
+                _col_display = str(_loc_col) if _loc_col else "N/A"
+            _loc_tz = loc_data.get("timezone", "N/A")
+            _loc_qol = loc_data.get("quality_of_life_score", "N/A")
+            _loc_infra = loc_data.get("infrastructure_score", "N/A")
+            _loc_meta = loc_data.get("_meta", {})
+            _loc_src_count = _loc_meta.get("source_count", 0) if isinstance(_loc_meta, dict) else 0
+
+            if isinstance(_loc_pop, (int, float)):
+                _loc_pop = f"{_loc_pop:,.0f}"
+            if isinstance(_loc_wf, (int, float)):
+                _loc_wf = f"{_loc_wf:,.0f}"
+            if isinstance(_loc_qol, (int, float)):
+                _loc_qol = f"{_loc_qol:.1f}"
+            if isinstance(_loc_infra, (int, float)):
+                _loc_infra = f"{_loc_infra:.2f}"
+
+            _loc_vals = [
+                loc_data.get("location", loc_name),
+                str(_loc_pop),
+                str(_loc_wf),
+                _col_display,
+                str(_loc_tz),
+                str(_loc_qol),
+                str(_loc_infra),
+                str(_loc_src_count),
+            ]
+            for ci, val in enumerate(_loc_vals):
+                cell = ws_loc.cell(row=loc_row, column=2 + ci, value=val)
+                cell.font = Font(name="Calibri", size=10, bold=(ci == 0))
+                cell.fill = _row_fill
+                cell.border = thin_border
+                cell.alignment = center_alignment if ci > 0 else wrap_alignment
+            loc_row += 1
+
+            # Show economic indicators if available
+            _econ = loc_data.get("economic_indicators", {})
+            _wb_ind = loc_data.get("world_bank_indicators", {})
+            if (isinstance(_econ, dict) and _econ) or (isinstance(_wb_ind, dict) and _wb_ind):
+                _gdp_g = _econ.get("gdp_growth", _wb_ind.get("gdp_growth", None)) if isinstance(_econ, dict) else (_wb_ind.get("gdp_growth", None) if isinstance(_wb_ind, dict) else None)
+                _unemp = _econ.get("unemployment", _wb_ind.get("unemployment_rate", None)) if isinstance(_econ, dict) else (_wb_ind.get("unemployment_rate", None) if isinstance(_wb_ind, dict) else None)
+                _infl = _econ.get("inflation", None) if isinstance(_econ, dict) else None
+                econ_parts = []
+                if isinstance(_gdp_g, (int, float)):
+                    econ_parts.append(f"GDP Growth: {_gdp_g:.1f}%")
+                if isinstance(_unemp, (int, float)):
+                    econ_parts.append(f"Unemployment: {_unemp:.1f}%")
+                if isinstance(_infl, (int, float)):
+                    econ_parts.append(f"Inflation: {_infl:.1f}%")
+                if econ_parts:
+                    ws_loc.merge_cells(f"C{loc_row}:I{loc_row}")
+                    ws_loc.cell(row=loc_row, column=2, value="").fill = _row_fill
+                    ws_loc.cell(row=loc_row, column=3, value=f"Economic: {' | '.join(econ_parts)}").font = Font(name="Calibri", italic=True, size=9, color="596780")
+                    loc_row += 1
+
+            # Show country info if available
+            _country = loc_data.get("country_info", {})
+            if isinstance(_country, dict) and _country:
+                _currencies = _country.get("currencies", {})
+                _languages = _country.get("languages", {})
+                _region = _country.get("region", "")
+                country_parts = []
+                if _region:
+                    country_parts.append(f"Region: {_region}")
+                if isinstance(_currencies, dict) and _currencies:
+                    curr_names = [v.get("name", k) if isinstance(v, dict) else str(v) for k, v in list(_currencies.items())[:3]]
+                    country_parts.append(f"Currency: {', '.join(curr_names)}")
+                if isinstance(_languages, dict) and _languages:
+                    lang_names = list(_languages.values())[:3] if all(isinstance(v, str) for v in _languages.values()) else list(_languages.keys())[:3]
+                    country_parts.append(f"Languages: {', '.join(str(l) for l in lang_names)}")
+                if country_parts:
+                    ws_loc.merge_cells(f"C{loc_row}:I{loc_row}")
+                    ws_loc.cell(row=loc_row, column=2, value="").fill = _row_fill
+                    ws_loc.cell(row=loc_row, column=3, value=f"Country: {' | '.join(country_parts)}").font = Font(name="Calibri", italic=True, size=9, color="596780")
+                    loc_row += 1
+
+        loc_row += 1
+        ws_loc.merge_cells(f"B{loc_row}:I{loc_row}")
+        ws_loc.cell(row=loc_row, column=2, value="Sources include US Census Bureau, DataUSA, GeoNames, Teleport QoL Index, REST Countries, IMF WEO, and World Bank. Source count indicates number of independent data sources contributing to each profile.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+
+    # ── Sheet: Competitive Landscape ──
+    _comp_intel = _synth.get("competitive_intelligence", {})
+    if isinstance(_comp_intel, dict) and _comp_intel:
+        ws_comp = wb.create_sheet("Competitive Landscape")
+        ws_comp.sheet_properties.tabColor = "0891B2"
+        ws_comp.column_dimensions["A"].width = 3
+        ws_comp.column_dimensions["B"].width = 28
+        ws_comp.column_dimensions["C"].width = 30
+        ws_comp.column_dimensions["D"].width = 20
+        ws_comp.column_dimensions["E"].width = 22
+        ws_comp.column_dimensions["F"].width = 18
+        ws_comp.column_dimensions["G"].width = 18
+
+        ws_comp.merge_cells("B2:G2")
+        ws_comp["B2"].value = "Competitive Landscape"
+        ws_comp["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+        ws_comp["B2"].border = accent_bottom_border
+
+        comp_row = 4
+
+        # Company profile section
+        _comp_profile = _comp_intel.get("company_profile", {})
+        if isinstance(_comp_profile, dict) and _comp_profile:
+            style_section_header(ws_comp, comp_row, 2, 7, "Company Profile")
+            comp_row += 2
+
+            _profile_fields = [
+                ("Company Name", _comp_profile.get("name", "N/A")),
+                ("Description", _comp_profile.get("description", "N/A")),
+                ("Domain", _comp_profile.get("domain", "N/A")),
+                ("SEC Ticker", _comp_profile.get("sec_ticker", "N/A") or "N/A"),
+                ("SIC Industry", _comp_profile.get("sec_sic_description", "N/A") or "N/A"),
+                ("Publicly Traded", "Yes" if _comp_profile.get("is_public") else "No"),
+            ]
+            for fidx, (flabel, fval) in enumerate(_profile_fields):
+                if fval and str(fval) != "N/A" and str(fval).strip():
+                    _pf_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if fidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                    c1 = ws_comp.cell(row=comp_row, column=2, value=flabel)
+                    c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                    c1.fill = _pf_fill
+                    c1.border = thin_border
+                    ws_comp.merge_cells(f"C{comp_row}:G{comp_row}")
+                    c2 = ws_comp.cell(row=comp_row, column=3, value=str(fval)[:200])
+                    c2.font = Font(name="Calibri", size=10)
+                    c2.fill = _pf_fill
+                    c2.border = thin_border
+                    c2.alignment = wrap_alignment
+                    comp_row += 1
+
+        # Competitors table
+        _competitors = _comp_intel.get("competitors", {})
+        if isinstance(_competitors, dict) and _competitors:
+            comp_row += 1
+            style_section_header(ws_comp, comp_row, 2, 7, "Competitor Companies")
+            comp_row += 2
+
+            comp_tbl_headers = ["Competitor", "Domain", "Logo URL"]
+            for i, h in enumerate(comp_tbl_headers):
+                cell = ws_comp.cell(row=comp_row, column=2 + i, value=h)
+                cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+                cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+                cell.border = thin_border
+                cell.alignment = center_alignment
+            comp_row += 1
+
+            for cidx, (cname, cdata) in enumerate(_competitors.items()):
+                if not isinstance(cdata, dict):
+                    continue
+                _row_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if cidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                _c_vals = [
+                    cdata.get("name", cname),
+                    cdata.get("domain", "N/A"),
+                    cdata.get("logo_url", "N/A"),
+                ]
+                for ci, val in enumerate(_c_vals):
+                    cell = ws_comp.cell(row=comp_row, column=2 + ci, value=str(val))
+                    cell.font = Font(name="Calibri", size=10, bold=(ci == 0))
+                    cell.fill = _row_fill
+                    cell.border = thin_border
+                    cell.alignment = wrap_alignment
+                comp_row += 1
+
+        # Industry hiring trends
+        _hiring = _comp_intel.get("hiring_trends", {})
+        if isinstance(_hiring, dict) and _hiring:
+            comp_row += 1
+            style_section_header(ws_comp, comp_row, 2, 7, "Industry Hiring Trends")
+            comp_row += 2
+
+            _trend_fields = [
+                ("Total Employment", _hiring.get("employment_count")),
+                ("Avg Weekly Wage", _hiring.get("average_weekly_wage")),
+                ("Establishments", _hiring.get("establishment_count")),
+                ("Data Source", _hiring.get("source")),
+            ]
+            for fidx, (flabel, fval) in enumerate(_trend_fields):
+                if fval is not None:
+                    _tf_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if fidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                    c1 = ws_comp.cell(row=comp_row, column=2, value=flabel)
+                    c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                    c1.fill = _tf_fill
+                    c1.border = thin_border
+                    if isinstance(fval, (int, float)):
+                        fval_str = f"{fval:,.0f}" if fval > 100 else f"${fval:,.2f}"
+                    else:
+                        fval_str = str(fval)
+                    ws_comp.merge_cells(f"C{comp_row}:D{comp_row}")
+                    c2 = ws_comp.cell(row=comp_row, column=3, value=fval_str)
+                    c2.font = Font(name="Calibri", size=10)
+                    c2.fill = _tf_fill
+                    c2.border = thin_border
+                    comp_row += 1
+
+            # Market context
+            _mkt_ctx = _hiring.get("market_context", {})
+            if isinstance(_mkt_ctx, dict) and _mkt_ctx:
+                comp_row += 1
+                _mkt_state = _mkt_ctx.get("market_state", "N/A")
+                _ai_adoption = _mkt_ctx.get("ai_adoption", "N/A")
+                ws_comp.merge_cells(f"B{comp_row}:G{comp_row}")
+                ws_comp.cell(row=comp_row, column=2, value=f"Market State: {_mkt_state} | AI Adoption in Recruiting: {_ai_adoption}").font = Font(name="Calibri", italic=True, size=10, color="596780")
+                comp_row += 1
+
+        # Market positioning
+        _mkt_pos = _comp_intel.get("market_positioning", {})
+        if isinstance(_mkt_pos, dict) and _mkt_pos:
+            comp_row += 1
+            style_section_header(ws_comp, comp_row, 2, 7, "Market Positioning")
+            comp_row += 2
+            _pos_items = [
+                ("Industry Sector", _mkt_pos.get("industry_sector", "N/A")),
+                ("Publicly Traded", "Yes" if _mkt_pos.get("is_public_company") else "No"),
+                ("Known Competitors", str(_mkt_pos.get("competitor_count", 0))),
+                ("SEC Filings Available", "Yes" if _mkt_pos.get("has_sec_filings") else "No"),
+            ]
+            for fidx, (plabel, pval) in enumerate(_pos_items):
+                _mp_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if fidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                c1 = ws_comp.cell(row=comp_row, column=2, value=plabel)
+                c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                c1.fill = _mp_fill
+                c1.border = thin_border
+                ws_comp.merge_cells(f"C{comp_row}:D{comp_row}")
+                c2 = ws_comp.cell(row=comp_row, column=3, value=str(pval))
+                c2.font = Font(name="Calibri", size=10)
+                c2.fill = _mp_fill
+                c2.border = thin_border
+                comp_row += 1
+
+        comp_row += 1
+        ws_comp.merge_cells(f"B{comp_row}:G{comp_row}")
+        ws_comp.cell(row=comp_row, column=2, value="Data sourced from Wikipedia, Clearbit, SEC EDGAR filings, BLS QCEW, and internal knowledge base. Competitor data based on industry classification and domain analysis.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+
     # ── Sheet: Budget Allocation ──
     _budget_alloc = data.get("_budget_allocation", {})
     if isinstance(_budget_alloc, dict) and _budget_alloc:
@@ -5273,7 +5593,7 @@ def generate_excel(data):
         ws_ba.merge_cells("B2:K2")
         ws_ba["B2"].value = "Budget Allocation & Projected Outcomes"
         ws_ba["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-        ws_ba["B2"].border = gold_bottom_border
+        ws_ba["B2"].border = accent_bottom_border
 
         ba_row = 4
 
@@ -5300,10 +5620,10 @@ def generate_excel(data):
             ws_ba.merge_cells(start_row=ba_row, start_column=col_start, end_row=ba_row, end_column=col_end)
             hcell = ws_ba.cell(row=ba_row, column=col_start, value=hval)
             hcell.font = Font(name="Calibri", bold=True, size=18, color="FFFFFF")
-            hcell.fill = PatternFill(start_color=GOLD, end_color=GOLD, fill_type="solid")
+            hcell.fill = PatternFill(start_color=ACCENT, end_color=ACCENT, fill_type="solid")
             hcell.alignment = Alignment(horizontal="center", vertical="center")
             for cc in range(col_start, col_end + 1):
-                ws_ba.cell(row=ba_row, column=cc).fill = PatternFill(start_color=GOLD, end_color=GOLD, fill_type="solid")
+                ws_ba.cell(row=ba_row, column=cc).fill = PatternFill(start_color=ACCENT, end_color=ACCENT, fill_type="solid")
             ws_ba.merge_cells(start_row=ba_row + 1, start_column=col_start, end_row=ba_row + 1, end_column=col_end)
             lcell = ws_ba.cell(row=ba_row + 1, column=col_start, value=hlabel)
             lcell.font = Font(name="Calibri", bold=True, size=9, color="FFFFFF")
@@ -5421,8 +5741,10 @@ def generate_excel(data):
                 ws_ba.cell(row=ba_row, column=2, value=f"  {ridx + 1}. {rec_text}").font = Font(name="Calibri", size=10, color="333333")
                 ba_row += 1
 
-    # ── Sheet: Data Confidence (removed — internal metric, not client-facing) ──
-    if False:  # disabled per user request
+    # ── Sheet: Data Confidence ──
+    _conf_scores = _synth.get("confidence_scores", {})
+    _data_quality = _synth.get("data_quality", {})
+    if isinstance(_conf_scores, dict) and _conf_scores:
         ws_conf = wb.create_sheet("Data Confidence")
         ws_conf.sheet_properties.tabColor = "F57C00"
         ws_conf.column_dimensions["A"].width = 3
@@ -5434,7 +5756,7 @@ def generate_excel(data):
         ws_conf.merge_cells("B2:E2")
         ws_conf["B2"].value = "Data Confidence Report"
         ws_conf["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
-        ws_conf["B2"].border = gold_bottom_border
+        ws_conf["B2"].border = accent_bottom_border
 
         conf_row = 4
 
@@ -5480,10 +5802,10 @@ def generate_excel(data):
             cell.alignment = center_alignment
         conf_row += 1
 
-        _sections = _conf_scores.get("sections", _conf_scores)
+        _sections = _conf_scores.get("per_section", _conf_scores.get("sections", _conf_scores))
         if isinstance(_sections, dict):
             for cidx, (sec_name, sec_data) in enumerate(_sections.items()):
-                if sec_name in ("overall", "overall_score", "sections", "metadata"):
+                if sec_name in ("overall", "overall_score", "sections", "per_section", "metadata", "data_quality_grade"):
                     continue
                 _row_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if cidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
 
@@ -5577,12 +5899,20 @@ def generate_excel(data):
 
 
 ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
+if not ADMIN_API_KEY:
+    logger.warning("ADMIN_API_KEY not set - admin endpoints unprotected (dev mode)")
 
 # Simple in-memory rate limiter
 from collections import defaultdict
 _rate_limit_store = defaultdict(list)
+_rate_limit_lock = threading.Lock()
 _RATE_LIMIT_WINDOW = 60   # seconds
 _RATE_LIMIT_MAX = 10       # requests per window per IP
+
+_ALLOWED_ORIGINS = {
+    "http://localhost:10000", "http://localhost:5001", "http://127.0.0.1:10000",
+    "http://127.0.0.1:5001", "https://media-plan-generator.onrender.com",
+}
 
 class MediaPlanHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -5594,6 +5924,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
         super().end_headers()
+
+    def _get_cors_origin(self):
+        """Return the request Origin if it is in the allowlist, else empty string."""
+        origin = self.headers.get("Origin", "")
+        if origin in _ALLOWED_ORIGINS or os.environ.get("CORS_ALLOW_ALL") == "1":
+            return origin
+        return ""  # No CORS header = browser blocks
 
     def _check_admin_auth(self):
         """Check for admin API key in query params or Authorization header."""
@@ -5612,18 +5949,19 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         """Simple per-IP rate limiting for generate endpoint."""
         client_ip = self.client_address[0]
         now = time.time()
-        _rate_limit_store[client_ip] = [
-            t for t in _rate_limit_store[client_ip]
-            if now - t < _RATE_LIMIT_WINDOW
-        ]
-        if len(_rate_limit_store[client_ip]) >= _RATE_LIMIT_MAX:
-            return False
-        _rate_limit_store[client_ip].append(now)
-        # Periodic cleanup: evict IPs with no recent requests (every 100th call)
-        if sum(1 for _ in _rate_limit_store) > 1000:
-            stale = [ip for ip, ts in _rate_limit_store.items() if not ts or now - max(ts) > _RATE_LIMIT_WINDOW * 10]
-            for ip in stale:
-                del _rate_limit_store[ip]
+        with _rate_limit_lock:
+            _rate_limit_store[client_ip] = [
+                t for t in _rate_limit_store[client_ip]
+                if now - t < _RATE_LIMIT_WINDOW
+            ]
+            if len(_rate_limit_store[client_ip]) >= _RATE_LIMIT_MAX:
+                return False
+            _rate_limit_store[client_ip].append(now)
+            # Periodic cleanup: evict IPs with no recent requests
+            if len(_rate_limit_store) > 1000:
+                stale = [ip for ip, ts in _rate_limit_store.items() if not ts or now - max(ts) > _RATE_LIMIT_WINDOW * 10]
+                for ip in stale:
+                    del _rate_limit_store[ip]
         return True
 
     def do_GET(self):
@@ -5725,6 +6063,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(response.encode())
         elif parsed.path.startswith("/api/documents/"):
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized — admin key required")
+                return
             fname = parsed.path.split("/")[-1]
             # Security: sanitize filename to prevent path traversal
             fname = re.sub(r'[^\w\.\-]', '', fname)
@@ -6039,13 +6380,22 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             _locs_for_ba.append({"city": loc.get("city", ""), "state": loc.get("state", ""), "country": loc.get("country", "")})
 
                     synthesized_for_ba = data.get("_synthesized", {})
+                    enriched_for_ba = data.get("_enriched", {})
+                    # Merge raw enrichment + synthesized so budget engine can
+                    # access both raw API keys (google_ads_data, teleport_data)
+                    # and synthesized fusion keys (ad_platform_analysis, etc.)
+                    merged_for_ba = {}
+                    if isinstance(enriched_for_ba, dict):
+                        merged_for_ba.update(enriched_for_ba)
+                    if isinstance(synthesized_for_ba, dict):
+                        merged_for_ba.update(synthesized_for_ba)
                     budget_result = calculate_budget_allocation(
                         total_budget=_bval_ba,
                         roles=_roles_for_ba,
                         locations=_locs_for_ba,
                         industry=data.get("industry", "General"),
                         channel_percentages=channel_pcts,
-                        synthesized_data=synthesized_for_ba if isinstance(synthesized_for_ba, dict) else {},
+                        synthesized_data=merged_for_ba,
                         knowledge_base=kb,
                     )
                     data["_budget_allocation"] = budget_result
@@ -6153,6 +6503,15 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 log_request(data, "success", file_size=len(excel_bytes), generation_time=generation_time, doc_filename=doc_filename)
         elif parsed.path == "/api/chat":
             # ── Joveo IQ Chat Endpoint ──
+            if not self._check_rate_limit():
+                self.send_response(429)
+                self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Rate limit exceeded. Please wait a moment."}).encode())
+                return
             try:
                 content_len = int(self.headers.get("Content-Length", 0))
             except (ValueError, TypeError):
@@ -6160,7 +6519,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             if content_len > 1 * 1024 * 1024:  # 1MB limit for chat
                 self.send_response(413)
                 self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Request too large"}).encode())
                 return
@@ -6170,7 +6531,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
@@ -6184,12 +6547,14 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     "sources": [],
                     "confidence": 0.0,
                     "tools_used": [],
-                    "error": str(chat_err),
+                    "error": "Internal error processing request",
                 }
             resp_body = json.dumps(response).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
+            cors_origin = self._get_cors_origin()
+            if cors_origin:
+                self.send_header("Access-Control-Allow-Origin", cors_origin)
             self.send_header("Content-Length", str(len(resp_body)))
             self.end_headers()
             self.wfile.write(resp_body)
@@ -6298,7 +6663,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 response = handle_admin_unanswered(data)
             except Exception as admin_err:
                 logger.error("Nova admin error: %s", admin_err, exc_info=True)
-                response = {"error": str(admin_err)}
+                response = {"error": "Internal error processing request"}
             resp_body = json.dumps(response).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -6337,7 +6702,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 response = handle_chat_standalone(data)
             except Exception as chat_err:
                 logger.error("Nova chat error: %s", chat_err, exc_info=True)
-                response = {"error": str(chat_err)}
+                response = {"error": "Internal error processing request"}
             resp_body = json.dumps(response).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -6350,7 +6715,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         """Handle CORS preflight requests."""
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        cors_origin = self._get_cors_origin()
+        if cors_origin:
+            self.send_header("Access-Control-Allow-Origin", cors_origin)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.send_header("Access-Control-Max-Age", "86400")
@@ -6363,6 +6730,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", f"{content_type}; charset=utf-8")
             self.send_header("Content-Length", str(len(content)))
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.end_headers()
             self.wfile.write(content)
         except FileNotFoundError:

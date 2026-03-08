@@ -1,0 +1,1590 @@
+{
+  "last_updated": "2026-03-08",
+  "data_period": "2024-2026",
+  "sources": [
+    {
+      "name": "Appcast 2025 Recruitment Marketing Benchmark Report (2024 data)",
+      "url": "https://www.appcast.io/2025-benchmark-report/",
+      "data_scope": "379M job ad clicks, 30M+ applies, 1,300+ employers",
+      "release_date": "2025-02-11"
+    },
+    {
+      "name": "Appcast 2026 Recruitment Marketing Benchmark Report (2025 data)",
+      "url": "https://info.appcast.io/whitepaper/2022-recruitment-marketing-benchmark-report-website",
+      "data_scope": "302M clicks, 27M applications, 1,200 employers",
+      "release_date": "2026-02-17"
+    },
+    {
+      "name": "Recruitics Talent Market Index (monthly, 2025-2026)",
+      "url": "https://www.recruitics.com/labor-market-index",
+      "data_scope": "Monthly talent attraction pricing across 9 job sectors"
+    },
+    {
+      "name": "SHRM 2025 Talent Acquisition Benchmarking Report",
+      "url": "https://www.shrm.org/topics-tools/research/2025-recruiting-benchmarking",
+      "data_scope": "88 individual data sets across industry, sector, org size, regions"
+    },
+    {
+      "name": "iCIMS Workforce Reports (monthly, 2025-2026)",
+      "url": "https://www.icims.com/resources/insights/all/",
+      "data_scope": "3M+ global platform users, 200M+ applications, 5.5M+ hires annually"
+    },
+    {
+      "name": "Employ/Jobvite 2025 Recruiter Nation Report",
+      "url": "https://www.employinc.com/news_item/recruiter-nation-2025-whats-shaping-talent-acquisition-today/",
+      "data_scope": "22,000+ Employ customers, 1,200 TA professionals surveyed"
+    },
+    {
+      "name": "Gem 2025 Recruiting Benchmarks Report",
+      "url": "https://www.gem.com/resource/2025-recruiting-benchmarks",
+      "data_scope": "140M+ applications, 14M candidates, 1M+ hires (Jan 2021-Dec 2024)"
+    },
+    {
+      "name": "Gem 2026 Recruiting Benchmarks Report",
+      "url": "https://www.gem.com/resource/recruiting-benchmarks",
+      "data_scope": "165M+ applicants, 1.2M hires (Jun 2021-May 2025)"
+    },
+    {
+      "name": "Indeed Hiring Lab (2025-2026)",
+      "url": "https://www.hiringlab.org/",
+      "data_scope": "Job postings, wage growth, labor market data across verticals"
+    },
+    {
+      "name": "LinkedIn Talent Solutions (2025-2026)",
+      "url": "https://business.linkedin.com/talent-solutions",
+      "data_scope": "Platform-specific hiring benchmarks and recruiter pricing"
+    },
+    {
+      "name": "Glassdoor Economic Research (2025-2026)",
+      "url": "https://www.glassdoor.com/blog/category/research/",
+      "data_scope": "Worklife trends, salary data, hiring rate trends"
+    },
+    {
+      "name": "ZipRecruiter Economic Research (2025-2026)",
+      "url": "https://www.ziprecruiter-research.org/",
+      "data_scope": "Employer surveys, new hires surveys, labor market predictions"
+    },
+    {
+      "name": "Recruitonomics (Appcast) Healthcare/Finance Snapshots",
+      "url": "https://recruitonomics.com/reports/",
+      "data_scope": "Weekly CPA forecasts by sector using Appcast data"
+    },
+    {
+      "name": "PandoLogic/Veritone Hire programmatic benchmarks",
+      "url": "https://pandologic.com/",
+      "data_scope": "200B+ historical job performance data points"
+    },
+    {
+      "name": "Radancy (TMP Worldwide) Talent Acquisition Cloud",
+      "url": "https://www.radancy.com/",
+      "data_scope": "Enterprise recruitment marketing platform data"
+    },
+    {
+      "name": "Greenhouse 2025 Workforce & Hiring Report",
+      "url": "https://www.greenhouse.com/blog/greenhouse-2025-workforce-hiring-report",
+      "data_scope": "ATS pipeline data, passthrough rates, hiring manager surveys"
+    },
+    {
+      "name": "SHRM Benchmarking: Average Cost-Per-Hire $4,129",
+      "url": "https://www.shrm.org/topics-tools/news/shrm-benchmarking-report-4129-average-cost-per-hire",
+      "data_scope": "Historical CPH benchmarking across industries"
+    },
+    {
+      "name": "NSI 2025 National Health Care Retention & RN Staffing Report",
+      "url": "https://www.nsinursingsolutions.com/",
+      "data_scope": "RN turnover, retention, staffing cost benchmarks"
+    },
+    {
+      "name": "Deloitte Cost-Per-Hire Benchmark Report (2024)",
+      "url": "https://www.deloitte.com/",
+      "data_scope": "U.S. company cost-per-hire benchmarks by role type"
+    },
+    {
+      "name": "iHire State of Online Recruiting 2025",
+      "url": "https://www.ihire.com/resourcecenter/employer/pages/the-state-of-online-recruiting-2025",
+      "data_scope": "Source of hire, channel effectiveness surveys"
+    },
+    {
+      "name": "CareerPlug Recruiting Metrics & KPIs (2025)",
+      "url": "https://www.careerplug.com/recruiting-metrics-and-kpis/",
+      "data_scope": "Applicant-to-hire ratios, funnel benchmarks by industry"
+    }
+  ],
+
+  "industry_benchmarks": {
+    "healthcare_medical": {
+      "cpa": {
+        "range": "$35-$58+",
+        "median": "$41",
+        "easy_to_fill": "$12",
+        "hard_to_fill": "$58-$400",
+        "specialized_nursing_competitive_markets": "$200-$400",
+        "trend_yoy": "+15-20%",
+        "2024": "$35 average",
+        "2025": "$41+ (record high, 2yr peak)",
+        "notes": "Frontline 'standing-up' roles remain costly and hard to fill. Healthcare is structurally constrained."
+      },
+      "cpc": {
+        "range": "$0.50-$1.44+",
+        "median": "$1.36",
+        "easy_to_fill_floor": "$0.50",
+        "hard_to_fill_ceiling": "$1.44+",
+        "trend_yoy": "+10-15%",
+        "2024": "$1.20",
+        "2025": "$1.36 (near record high)"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$800-$1,200",
+        "total_cost_per_hire": "$9,000-$12,000",
+        "physician_recruitment": "$180,000-$250,000",
+        "rn_specialized": "$15,000-$25,000",
+        "notes": "Includes background checks, credential verification, drug testing, compliance measures"
+      },
+      "apply_rate": {
+        "2024": "4.5-5.5%",
+        "2025": "Declining relative to white-collar",
+        "notes": "Below average apply rates; among hardest-to-fill sectors"
+      },
+      "time_to_fill": {
+        "average_days": 49,
+        "primary_care": "125+ days",
+        "cardiology_psychiatry": "180+ days",
+        "nursing_general": "45-60 days",
+        "notes": "Twice the national average; longest of any major industry"
+      },
+      "offer_acceptance_rate": "78-85%",
+      "quality_of_hire": {
+        "first_year_rn_turnover": "22.3%",
+        "cost_of_1pct_rn_turnover": "$289,000/year per hospital",
+        "notes": "NSI 2025 National Health Care Retention Report"
+      },
+      "source_of_hire": {
+        "job_boards": "30-35%",
+        "career_site": "20-25%",
+        "employee_referrals": "15-20%",
+        "staffing_agencies": "15-25%",
+        "social_media": "5-10%",
+        "notes": "Heavy reliance on staffing agencies for specialized roles"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "September"],
+        "trough_months": ["June", "July"],
+        "notes": "Year-round demand with surges in Q1 and September. Vacation season causes summer dip. Healthcare accounted for 75% of net job growth in 2025."
+      }
+    },
+
+    "technology_engineering": {
+      "cpa": {
+        "range": "$25-$89",
+        "median": "$45",
+        "entry_level": "$25-$40",
+        "senior_specialized": "$65-$89",
+        "ai_ml_roles": "$75-$120",
+        "trend_yoy": "+8-12%",
+        "2024": "$40 median",
+        "2025": "$45-$89 (highest CPA of any sector per some measures)",
+        "notes": "Technology had highest apply rate (6.41%) in 2024 but specialized roles remain very expensive"
+      },
+      "cpc": {
+        "range": "$0.75-$3.50",
+        "linkedin_cpc": "$1.50-$4.50",
+        "indeed_cpc": "$0.50-$2.00",
+        "google_ads_cpc": "$2.50-$5.00",
+        "median": "$1.50",
+        "trend_yoy": "+15-20%"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$700-$1,500",
+        "total_cost_per_hire_standard": "$6,000-$7,000",
+        "total_cost_per_hire_specialized": "$12,000-$20,000",
+        "with_hidden_engineering_time": "$22,750",
+        "external_recruiter_fee": "15-30% of first-year salary ($18,000-$36,000 for $120K role)",
+        "notes": "Deloitte 2024 benchmark. Hidden costs include engineering team evaluation time."
+      },
+      "apply_rate": {
+        "2024": "6.41% (highest of all industries)",
+        "2025": "Rising further due to white-collar recession",
+        "applications_per_opening": "110+ (51% above average)",
+        "notes": "AI-generated applications inflating volumes significantly"
+      },
+      "time_to_fill": {
+        "average_days": "33-52 days",
+        "median": "48 days (26% slower than global median)",
+        "senior_roles": "57-82+ days",
+        "notes": "Multiple technical interview rounds drive longer timelines. SmartRecruiters suggests 26% reduction possible by accelerating interview-to-offer stage."
+      },
+      "offer_acceptance_rate": "80-86%",
+      "applicants_per_hire": 110,
+      "interview_to_hire_ratio": "10:1 (10 interviews per hire)",
+      "source_of_hire": {
+        "job_boards": "20-25%",
+        "direct_sourcing": "25-30%",
+        "employee_referrals": "20-25%",
+        "career_site": "15-20%",
+        "agencies": "10-15%",
+        "notes": "Direct sourcing and referrals dominate quality hires in tech"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "September"],
+        "trough_months": ["June", "July", "August", "December"],
+        "notes": "AI/ML demand surged 25% in 2025 (CompTIA). Tech postings remain 30% below pre-pandemic despite stabilization."
+      }
+    },
+
+    "finance_banking": {
+      "cpa": {
+        "range": "$11-$25",
+        "median": "$13.84",
+        "trend_yoy": "Stable to +5%",
+        "2024": "$12-$14",
+        "2025": "$13.84 median (Recruitonomics/Appcast)",
+        "notes": "Finance CPAs relatively stable. Sitting-down occupation with higher apply rates."
+      },
+      "cpc": {
+        "range": "$0.80-$3.44",
+        "median": "$1.46",
+        "linkedin_cpc": "$4.50-$7.00",
+        "indeed_cpc": "$0.50-$1.50",
+        "trend_yoy": "+10-15%",
+        "notes": "LinkedIn premium for financial services roles"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$600-$1,000",
+        "total_cost_per_hire": "$4,500-$8,000",
+        "executive_finance": "$20,000-$30,000",
+        "notes": "Strict background checks, compliance requirements add to costs"
+      },
+      "apply_rate": {
+        "2024": "9.8% (above average)",
+        "2025": "9.5-10%",
+        "notes": "White-collar roles seeing elevated apply rates in softer market"
+      },
+      "time_to_fill": {
+        "average_days": "44.7 days",
+        "investment_banking": "21-60 days",
+        "cpa_required_roles": "73 days (41% longer than non-CPA roles)",
+        "notes": "CPA shortage driving longer fill times for credentialed positions"
+      },
+      "offer_acceptance_rate": "82-88%",
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October"],
+        "trough_months": ["June", "July", "August", "December"],
+        "cpa_seasonal_note": "Tax season prep (Q4-Q1) creates biggest demand spike for accounting/finance roles",
+        "notes": "Budget cycles drive Q1 hiring. Tariff-driven volatility affecting 2025-2026 hiring patterns."
+      }
+    },
+
+    "retail_consumer": {
+      "cpa": {
+        "range": "$8-$25",
+        "median": "$15",
+        "hourly_roles": "$8-$15",
+        "management": "$20-$35",
+        "trend_yoy": "+5-8%",
+        "2024": "$12-$18",
+        "2025": "$15 median"
+      },
+      "cpc": {
+        "range": "$0.20-$1.00",
+        "median": "$0.45",
+        "indeed_cpc": "$0.20-$0.75",
+        "trend_yoy": "Stable",
+        "notes": "Lowest CPC of major industries due to high candidate volume"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$400-$800",
+        "total_cost_per_hire": "$2,700",
+        "seasonal_hiring": "$480 (per seasonal worker, example)",
+        "notes": "High-volume, entry-level hiring keeps costs low"
+      },
+      "apply_rate": {
+        "2024": "5.5-7%",
+        "2025": "6-8%",
+        "notes": "Good apply rates but high abandonment for hourly roles"
+      },
+      "time_to_fill": {
+        "average_days": "20.7 days",
+        "hourly_roles": "14-21 days",
+        "management": "30-45 days",
+        "notes": "Fastest hiring cycle among major industries"
+      },
+      "offer_acceptance_rate": "75-82%",
+      "applicants_per_hire": 57,
+      "seasonal_patterns": {
+        "peak_months": ["March", "April", "May", "October", "November"],
+        "holiday_seasonal_hiring": "October-December",
+        "trough_months": ["January", "February"],
+        "notes": "2025 seasonal retail postings were flat YoY (+1%), seasonal sales roles down 10% YoY. E-commerce shifting seasonal demand to logistics."
+      }
+    },
+
+    "hospitality_travel": {
+      "cpa": {
+        "range": "$10-$30",
+        "median": "$18",
+        "hourly_roles": "$10-$18",
+        "management": "$25-$45",
+        "trend_yoy_yoy": "+41% (persistent long-term pressure)",
+        "2024": "$15-$20",
+        "2025": "$18 median; short-term easing but YoY still elevated"
+      },
+      "cpc": {
+        "range": "$0.25-$1.00",
+        "median": "$0.50",
+        "trend_yoy": "Volatile (+53.2% MoM in July 2025 per Recruitics)"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$400-$700",
+        "total_cost_per_hire": "$1,500-$3,500",
+        "accommodation_food_service": "$1,070 average"
+      },
+      "apply_rate": {
+        "2024": "4-6%",
+        "mobile_apply_rate": "78% of applications via mobile",
+        "notes": "Highest application abandonment and interview no-show rates of any industry (iCIMS)"
+      },
+      "time_to_fill": {
+        "average_days": "14-20 days",
+        "notes": "Fast hiring cycles due to standardized requirements and high volume needs"
+      },
+      "offer_acceptance_rate": "70-78%",
+      "seasonal_patterns": {
+        "peak_months": ["March", "April", "May", "September"],
+        "operational_peak": "April-September",
+        "trough_months": ["November", "January"],
+        "notes": "Hospitality attraction prices dropped 39% MoM in March 2025 but were 41% higher YoY (Recruitics May 2025)."
+      }
+    },
+
+    "logistics_supply_chain": {
+      "cpa": {
+        "range": "$12-$35",
+        "median": "$20",
+        "warehouse_hourly": "$12-$18",
+        "cdl_drivers": "$25-$50",
+        "supply_chain_management": "$30-$55",
+        "trend_yoy": "+8-12%"
+      },
+      "cpc": {
+        "range": "$0.30-$1.50",
+        "median": "$0.65",
+        "notes": "Indeed and ZipRecruiter strongest platforms for logistics hiring"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$600-$1,000",
+        "total_cost_per_hire": "$5,000+",
+        "notes": "76% of transport/logistics employers report difficulty filling roles"
+      },
+      "apply_rate": {
+        "2024": "5-7%",
+        "2025": "5.5-7.5%",
+        "notes": "Improved slightly as market softened but structural constraints persist"
+      },
+      "time_to_fill": {
+        "average_days": "25-40 days",
+        "cdl_drivers": "30-50 days",
+        "warehouse_hourly": "14-25 days"
+      },
+      "offer_acceptance_rate": "75-82%",
+      "seasonal_patterns": {
+        "peak_months": ["August", "September", "October", "November"],
+        "holiday_logistics_surge": "Driving jobs up 153% from mid-Nov levels; loading/stocking up 49%",
+        "trough_months": ["January", "February", "March"],
+        "notes": "E-commerce growth shifting seasonal demand from retail to logistics. 31% of companies paused hiring in 2025 but key logistics roles remain in demand."
+      }
+    },
+
+    "blue_collar_skilled_trades": {
+      "cpa": {
+        "range": "$15-$50",
+        "median": "$28",
+        "general_labor": "$15-$22",
+        "electricians_hvac": "$30-$50",
+        "specialized_certifications": "$40-$65",
+        "trend_yoy": "+10-15%",
+        "notes": "Among hardest-to-fill occupational categories. CPA above $15 but below $35 range for most roles (Appcast 2025)."
+      },
+      "cpc": {
+        "range": "$0.40-$1.50",
+        "median": "$0.75",
+        "notes": "Indeed and niche job boards most effective for skilled trades"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$700-$1,200",
+        "total_cost_per_hire": "$4,000-$8,000",
+        "with_signing_bonuses": "$6,000-$12,000",
+        "notes": "439,000 new net skilled craft workers needed in 2025 to meet demand"
+      },
+      "apply_rate": {
+        "2024": "3.5-5%",
+        "2025": "4-5.5%",
+        "notes": "Standing-up jobs have lower apply rates than sitting-down jobs across the board"
+      },
+      "time_to_fill": {
+        "average_days": "30-50 days",
+        "certified_electricians": "35-55 days",
+        "crane_operators": "40-60 days"
+      },
+      "offer_acceptance_rate": "80-85%",
+      "labor_market_context": {
+        "wage_growth": "4-5% annually since 2019",
+        "hourly_range_experienced": "$40-$50/hr for electricians and HVAC techs",
+        "bls_growth_outlook": "Electricians +11%, HVAC +9% (2023-2033)",
+        "apprentice_pipeline": "680,000 active registered apprentices in FY2024, up from 562K in 2020"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["March", "April", "May", "September", "October"],
+        "trough_months": ["December", "January", "February"],
+        "notes": "Construction and outdoor trades peak in spring/summer. Infrastructure spending driving year-round demand."
+      }
+    },
+
+    "pharma_biotech": {
+      "cpa": {
+        "range": "$35-$90",
+        "median": "$55",
+        "research_scientist": "$50-$90",
+        "clinical_operations": "$40-$70",
+        "manufacturing_quality": "$30-$55",
+        "trend_yoy": "+10-15%",
+        "notes": "Among most expensive industries to recruit. Talent scarcity and specialized skill requirements drive premium."
+      },
+      "cpc": {
+        "range": "$1.00-$4.00",
+        "median": "$2.00",
+        "linkedin_cpc": "$3.00-$5.00",
+        "niche_job_boards": "$2.00-$5.00"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$1,000-$2,000",
+        "total_cost_per_hire": "$8,000-$15,000",
+        "executive_search": "25-35% of first-year compensation",
+        "agency_placement_fee": "20-25% of salary (industry standard)",
+        "notes": "Years of schooling and high-risk environment make compensation higher than most industries"
+      },
+      "apply_rate": {
+        "2024": "4-6%",
+        "2025": "4.5-6.5%",
+        "notes": "Specialized roles have lower apply rates; general pharma manufacturing better"
+      },
+      "time_to_fill": {
+        "average_days": "45-65 days",
+        "research_roles": "50-75 days",
+        "regulatory_compliance": "40-60 days",
+        "executive": "90-120 days"
+      },
+      "offer_acceptance_rate": "82-88%",
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October"],
+        "trough_months": ["June", "July", "December"],
+        "notes": "Budget cycles and clinical trial timelines drive hiring patterns. Q1 and Q3 are strongest."
+      }
+    },
+
+    "aerospace_defense": {
+      "cpa": {
+        "range": "$40-$100",
+        "median": "$60",
+        "cleared_positions": "$70-$120",
+        "engineering": "$50-$85",
+        "trend_yoy": "+12-18%",
+        "notes": "Security clearance requirement drastically shrinks candidate pool. Only ~2M people hold active clearance (0.6% of population)."
+      },
+      "cpc": {
+        "range": "$1.50-$5.00",
+        "median": "$2.50",
+        "niche_cleared_job_boards": "$3.00-$7.00"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$1,200-$2,500",
+        "total_cost_per_hire": "$10,000-$20,000",
+        "cleared_specialists": "$15,000-$30,000",
+        "notes": "Hiring cited as top operational constraint by industry leaders in 2025 CNBC report"
+      },
+      "apply_rate": {
+        "2024": "3-5%",
+        "2025": "3.5-5.5%",
+        "notes": "Extremely limited candidate pool for cleared positions"
+      },
+      "time_to_fill": {
+        "average_days": "50-80 days",
+        "cleared_positions": "60-120 days",
+        "notes": "Security clearance verification adds significant time"
+      },
+      "offer_acceptance_rate": "85-90%",
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "October"],
+        "trough_months": ["July", "August", "December"],
+        "notes": "Government fiscal year (Oct-Sep) and defense budget cycles drive hiring. Q4 government fiscal year-end creates urgency."
+      }
+    },
+
+    "energy_utilities": {
+      "cpa": {
+        "range": "$25-$65",
+        "median": "$40",
+        "field_operations": "$20-$35",
+        "engineering_technical": "$40-$65",
+        "renewable_energy": "$35-$60",
+        "trend_yoy": "+8-12%",
+        "notes": "Safety credentials and specialized certifications add to recruitment complexity"
+      },
+      "cpc": {
+        "range": "$0.75-$3.00",
+        "median": "$1.50"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$800-$1,500",
+        "total_cost_per_hire": "$6,000-$12,000",
+        "executive": "$20,000-$35,000",
+        "notes": "Similar cost tier to healthcare and tech due to specialized, safety-credentialed workforce"
+      },
+      "apply_rate": {
+        "2024": "4-6%",
+        "2025": "4.5-6.5%"
+      },
+      "time_to_fill": {
+        "average_days": "40-60 days",
+        "field_technicians": "30-45 days",
+        "engineers": "45-70 days"
+      },
+      "offer_acceptance_rate": "82-88%",
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October"],
+        "trough_months": ["June", "July", "December"],
+        "notes": "Utility maintenance cycles and energy demand patterns influence hiring. Renewable energy sector growing rapidly."
+      }
+    },
+
+    "construction_real_estate": {
+      "cpa": {
+        "range": "$18-$50",
+        "median": "$30",
+        "general_labor": "$18-$25",
+        "project_management": "$35-$55",
+        "specialized_trades": "$30-$50",
+        "trend_yoy": "+10-15%",
+        "notes": "439,000 new net skilled craft workers needed in 2025. Wages growing 4-5% annually."
+      },
+      "cpc": {
+        "range": "$0.40-$2.00",
+        "median": "$0.85",
+        "google_ads_real_estate": "$7.20 (general advertising, not recruitment-specific)"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$700-$1,300",
+        "total_cost_per_hire": "$5,000-$10,000",
+        "up_to_3_4x_salary_total_cost": "For a $60K role, up to $180,000-$240,000 total investment"
+      },
+      "apply_rate": {
+        "2024": "3.5-5.5%",
+        "2025": "4-6%",
+        "notes": "Among hardest-to-fill industries per Appcast"
+      },
+      "time_to_fill": {
+        "average_days": "30-50 days",
+        "project_managers": "40-60 days",
+        "general_labor": "20-35 days"
+      },
+      "offer_acceptance_rate": "80-86%",
+      "seasonal_patterns": {
+        "peak_months": ["February", "March", "April", "May"],
+        "trough_months": ["November", "December", "January"],
+        "notes": "Spring ramp-up for construction season. Weather-dependent markets have more pronounced seasonality."
+      }
+    },
+
+    "education": {
+      "cpa": {
+        "range": "$10-$30",
+        "median": "$18",
+        "k12_teachers": "$10-$20",
+        "higher_ed_faculty": "$25-$50",
+        "administrative": "$15-$25",
+        "trend_yoy": "+5-8%"
+      },
+      "cpc": {
+        "range": "$0.30-$2.00",
+        "median": "$0.75",
+        "linkedin_education_cpc": "$3.50-$5.50"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$400-$800",
+        "total_cost_per_hire": "$3,000-$6,000",
+        "tenured_faculty": "$10,000-$20,000",
+        "notes": "Constrained budgets; mission-driven attraction reduces some costs"
+      },
+      "apply_rate": {
+        "2024": "6-9%",
+        "2025": "7-10%",
+        "notes": "Education has relatively good apply rates but limited candidate pools for specialized subjects"
+      },
+      "applicants_per_hire": 57,
+      "time_to_fill": {
+        "average_days": "30-50 days",
+        "faculty_positions": "60-120 days (academic calendar-dependent)",
+        "support_staff": "20-35 days"
+      },
+      "offer_acceptance_rate": "80-87%",
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "April", "May"],
+        "trough_months": ["September", "October", "November"],
+        "notes": "Academic calendar drives hiring. Spring semester hiring for next academic year. Mid-year replacements are urgent fills."
+      }
+    },
+
+    "government": {
+      "cpa": {
+        "range": "$12-$35",
+        "median": "$22",
+        "entry_level_civil_service": "$12-$18",
+        "specialized_technical": "$25-$45",
+        "trend_yoy": "Stable (+2-5%)",
+        "notes": "Structured pay scales and civil service processes. USAJOBS primary platform."
+      },
+      "cpc": {
+        "range": "$0.40-$2.00",
+        "median": "$0.80"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$500-$1,000",
+        "total_cost_per_hire": "$4,000-$7,000",
+        "notes": "Budget rigidity and lengthy approval processes can drive up indirect costs"
+      },
+      "apply_rate": {
+        "2024": "6-10%",
+        "2025": "7-11%",
+        "notes": "Government roles attract steady interest; lowest turnover (quit rate 0.8%)"
+      },
+      "time_to_fill": {
+        "average_days": "60-90 days",
+        "federal_positions": "80-120 days",
+        "state_local": "45-70 days",
+        "notes": "Bureaucratic processes and security clearance requirements extend timelines significantly"
+      },
+      "offer_acceptance_rate": "85-92%",
+      "turnover_rate": "0.8% quit rate (lowest of any sector)",
+      "seasonal_patterns": {
+        "peak_months": ["July", "August", "September", "October"],
+        "trough_months": ["November", "December", "January"],
+        "notes": "Federal fiscal year (Oct 1) drives hiring. End-of-fiscal-year budget spending creates Q4 surge. Hiring freezes common at administration changes."
+      }
+    },
+
+    "insurance": {
+      "cpa": {
+        "range": "$13-$25",
+        "median": "$15.86",
+        "trend_yoy": "+5-8%",
+        "2024": "$14-$16",
+        "2025": "$15.86 median (Recruitonomics/Appcast)",
+        "notes": "Slightly higher than finance. Apply rates declining (7.3% in 2025)."
+      },
+      "cpc": {
+        "range": "$0.60-$2.50",
+        "median": "$1.20",
+        "notes": "Insurance PPC for customer acquisition is extremely expensive ($900-$1,100 CPC) but recruitment CPC is much lower"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$600-$1,000",
+        "total_cost_per_hire": "$4,000-$7,000",
+        "actuarial_roles": "$10,000-$18,000"
+      },
+      "apply_rate": {
+        "2024": "8-9%",
+        "2025": "7.3% (declining)",
+        "notes": "Apply rates declined in 2025 as market tightened for insurance talent"
+      },
+      "time_to_fill": {
+        "average_days": "35-50 days",
+        "actuarial": "50-75 days",
+        "claims_adjuster": "25-40 days"
+      },
+      "offer_acceptance_rate": "82-88%",
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September"],
+        "trough_months": ["June", "July", "December"],
+        "notes": "Open enrollment periods and regulatory changes drive hiring cycles"
+      }
+    },
+
+    "telecommunications": {
+      "cpa": {
+        "range": "$20-$55",
+        "median": "$35",
+        "field_technicians": "$20-$35",
+        "network_engineers": "$40-$65",
+        "sales": "$18-$30",
+        "trend_yoy": "+8-12%"
+      },
+      "cpc": {
+        "range": "$0.75-$3.00",
+        "median": "$1.50",
+        "linkedin_cpc": "$3.50-$6.00"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$800-$1,500",
+        "total_cost_per_hire_technical": "$10,000-$20,000",
+        "total_cost_per_hire_general": "$5,000-$8,000"
+      },
+      "apply_rate": {
+        "2024": "5-7%",
+        "2025": "5.5-7.5%"
+      },
+      "time_to_fill": {
+        "average_days": "35-55 days",
+        "field_roles": "25-40 days",
+        "engineering": "45-65 days"
+      },
+      "offer_acceptance_rate": "80-86%",
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "September", "October"],
+        "trough_months": ["June", "July", "December"],
+        "notes": "5G rollout and infrastructure investment driving demand. Technology overlap means competition with pure tech companies for talent."
+      }
+    },
+
+    "automotive_manufacturing": {
+      "cpa": {
+        "range": "$12-$40",
+        "median": "$22",
+        "production_hourly": "$12-$20",
+        "engineering": "$30-$55",
+        "management": "$35-$50",
+        "trend_yoy": "+5-10%"
+      },
+      "cpc": {
+        "range": "$0.35-$1.50",
+        "median": "$0.65"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$600-$1,000",
+        "total_cost_per_hire": "$3,497 (manufacturing average)",
+        "total_cost_including_all_factors": "Up to 3-4x position salary",
+        "notes": "Technical assessments and specialized evaluations add significant cost"
+      },
+      "apply_rate": {
+        "2024": "5-7%",
+        "2025": "5.5-8%",
+        "notes": "Manufacturing openings up 2% YoY per iCIMS January 2026"
+      },
+      "applicants_per_hire": 234,
+      "time_to_fill": {
+        "average_days": "25-44 days",
+        "production_roles": "20-30 days",
+        "engineering": "40-55 days",
+        "notes": "800,000 open manufacturing positions nationally"
+      },
+      "offer_acceptance_rate": "80-85%",
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October", "November"],
+        "trough_months": ["June", "July", "August"],
+        "notes": "Model year changeovers and production ramp-ups drive seasonal patterns. EV transition creating new talent needs."
+      }
+    },
+
+    "food_beverage": {
+      "cpa": {
+        "range": "$8-$25",
+        "median": "$14",
+        "hourly_production": "$8-$15",
+        "management": "$20-$35",
+        "food_science": "$30-$50",
+        "trend_yoy": "+5-8%"
+      },
+      "cpc": {
+        "range": "$0.20-$0.80",
+        "median": "$0.40"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$350-$700",
+        "total_cost_per_hire": "$1,070 (accommodation and food service)",
+        "food_manufacturing": "$3,000-$5,000"
+      },
+      "apply_rate": {
+        "2024": "5-8%",
+        "2025": "6-9%",
+        "notes": "High volume of applications for hourly roles"
+      },
+      "time_to_fill": {
+        "average_days": "15-30 days",
+        "hourly_roles": "10-20 days",
+        "management": "30-45 days"
+      },
+      "offer_acceptance_rate": "72-80%",
+      "seasonal_patterns": {
+        "peak_months": ["March", "April", "May", "September", "October"],
+        "trough_months": ["January", "February"],
+        "notes": "Seasonal food production cycles and holiday preparation drive patterns. Food service wage growth (2.9% YoY to Dec 2025) lagging retail."
+      }
+    },
+
+    "media_entertainment": {
+      "cpa": {
+        "range": "$20-$55",
+        "median": "$32",
+        "creative_roles": "$25-$45",
+        "technical_digital": "$35-$65",
+        "production_front_line": "$15-$25",
+        "trend_yoy": "+8-12%"
+      },
+      "cpc": {
+        "range": "$0.75-$3.00",
+        "median": "$1.40",
+        "linkedin_cpc": "$3.00-$6.00"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$700-$1,300",
+        "total_cost_per_hire": "$5,000-$10,000",
+        "notes": "Wide variance between front-line entertainment and digital/tech roles"
+      },
+      "apply_rate": {
+        "marketing_advertising": "6.31% (2024, second highest per Appcast)",
+        "2025": "6-8%"
+      },
+      "time_to_fill": {
+        "average_days": "30-50 days",
+        "creative_roles": "35-55 days",
+        "digital_streaming": "40-60 days"
+      },
+      "offer_acceptance_rate": "78-84%",
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "September", "October"],
+        "trough_months": ["June", "July", "December"],
+        "notes": "Media sector remains significantly weaker than pre-pandemic per Indeed. Content production cycles drive hiring."
+      }
+    },
+
+    "legal_services": {
+      "cpa": {
+        "range": "$25-$65",
+        "median": "$40",
+        "paralegals_support": "$20-$35",
+        "associate_attorneys": "$40-$70",
+        "partners_senior": "$60-$100+",
+        "trend_yoy": "+8-12%"
+      },
+      "cpc": {
+        "range": "$1.00-$4.00",
+        "median": "$2.00",
+        "google_ads_legal": "$8.58 (general advertising)",
+        "linkedin_cpc": "$4.00-$7.00"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$900-$1,800",
+        "total_cost_per_hire": "$6,000-$12,000",
+        "lateral_partner": "$25,000-$50,000+",
+        "average_annual_salary": "$83,944 (Glassdoor)",
+        "notes": "Hiring costs can average $16,789 per legal hire"
+      },
+      "apply_rate": {
+        "2024": "5-7%",
+        "2025": "5.5-8%",
+        "notes": "Sitting-down occupation with moderate apply rates"
+      },
+      "time_to_fill": {
+        "average_days": "40-60 days",
+        "associate": "35-50 days",
+        "partner": "60-120 days"
+      },
+      "offer_acceptance_rate": "82-88%",
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "September", "October"],
+        "trough_months": ["June", "July", "December"],
+        "notes": "Law firm budget cycles and associate class hiring timelines drive patterns. Summer associate programs are separate pipeline."
+      }
+    },
+
+    "professional_services_consulting": {
+      "cpa": {
+        "range": "$20-$55",
+        "median": "$35",
+        "junior_analyst": "$20-$30",
+        "senior_consultant": "$35-$55",
+        "partner_level": "$50-$80",
+        "trend_yoy": "+6-10%"
+      },
+      "cpc": {
+        "range": "$1.00-$4.00",
+        "median": "$2.00",
+        "linkedin_cpc": "$4.00-$8.00"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$800-$1,500",
+        "total_cost_per_hire": "$5,000-$10,000",
+        "average_annual_salary": "$103,535 (Glassdoor)",
+        "hiring_cost_estimate": "$20,707 (Glassdoor)",
+        "notes": "Professional services includes accounting, advertising, marketing, consulting"
+      },
+      "apply_rate": {
+        "2024": "6.29% (business & consumer services per Appcast)",
+        "2025": "6.5-8%",
+        "notes": "Among higher apply rate sectors"
+      },
+      "time_to_fill": {
+        "average_days": "35-55 days",
+        "junior_roles": "25-40 days",
+        "senior_partner": "60-90 days"
+      },
+      "offer_acceptance_rate": "82-87%",
+      "funnel_benchmarks": {
+        "application_to_interview": "2-3%",
+        "resume_screen_out": "75% at top consulting firms",
+        "notes": "Gem data: only 2-3% of applicants invited to interview for consultant/analyst roles"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October"],
+        "trough_months": ["June", "July", "August", "December"],
+        "notes": "Campus recruiting cycles (fall) and project-driven hiring create bimodal pattern."
+      }
+    },
+
+    "nonprofit": {
+      "cpa": {
+        "range": "$10-$30",
+        "median": "$18",
+        "program_staff": "$10-$20",
+        "leadership_executive": "$25-$50",
+        "trend_yoy": "+3-6%",
+        "notes": "Mission-driven attraction reduces some costs. Smaller budgets limit paid advertising."
+      },
+      "cpc": {
+        "range": "$0.30-$1.50",
+        "median": "$0.60"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$400-$800",
+        "total_cost_per_hire": "$3,000-$5,000",
+        "executive_director": "$10,000-$20,000"
+      },
+      "apply_rate": {
+        "2024": "6-9%",
+        "2025": "7-10%",
+        "notes": "Good apply rates due to mission alignment. Smaller applicant pools overall."
+      },
+      "time_to_fill": {
+        "average_days": "30-45 days",
+        "executive_positions": "60-90 days",
+        "notes": "Hiring typically takes ~30 days for nonprofits (faster than hospitals)"
+      },
+      "offer_acceptance_rate": "80-86%",
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September"],
+        "trough_months": ["June", "July", "November", "December"],
+        "notes": "Grant cycles and fiscal year budgets drive hiring. Year-end fundraising season limits bandwidth for hiring."
+      }
+    },
+
+    "agriculture": {
+      "cpa": {
+        "range": "$10-$35",
+        "median": "$20",
+        "seasonal_labor": "$10-$18",
+        "agricultural_science": "$30-$50",
+        "management": "$25-$40",
+        "trend_yoy": "+5-10%"
+      },
+      "cpc": {
+        "range": "$0.25-$1.00",
+        "median": "$0.50"
+      },
+      "cph": {
+        "recruitment_marketing_only": "$400-$800",
+        "total_cost_per_hire": "$2,500-$5,000",
+        "seasonal_workers": "$1,000-$2,500"
+      },
+      "apply_rate": {
+        "2024": "4-7%",
+        "2025": "4.5-7.5%",
+        "notes": "Rural locations and seasonal nature limit candidate pools"
+      },
+      "time_to_fill": {
+        "average_days": "20-40 days",
+        "seasonal_labor": "10-20 days",
+        "technical_specialist": "35-55 days"
+      },
+      "offer_acceptance_rate": "75-82%",
+      "seasonal_patterns": {
+        "peak_months": ["February", "March", "April", "May"],
+        "harvest_season_hiring": ["August", "September", "October"],
+        "trough_months": ["November", "December", "January"],
+        "notes": "Strongly seasonal. Planting and harvest seasons drive bulk of hiring. H-2A visa program critical for seasonal labor."
+      }
+    }
+  },
+
+  "funnel_conversion_rates": {
+    "overall_benchmarks": {
+      "job_ad_impression_to_click": {
+        "ctr_job_boards": "1.5-4%",
+        "ctr_social_media": "0.5-1.5%",
+        "ctr_google_ads": "3-8%",
+        "ctr_programmatic": "0.8-2%",
+        "notes": "CTR varies significantly by platform, ad creative, and targeting"
+      },
+      "click_to_application_start": {
+        "desktop": "8.2% (2025, down from 11.7% in 2023)",
+        "mobile": "1.5%",
+        "average": "5-8%",
+        "apply_rate_2024_overall": "6.1%",
+        "apply_rate_2025_overall": "5.19%",
+        "notes": "Mobile now 67% of all applications (July 2025). Apply rates declined in 2025."
+      },
+      "application_start_to_completion": {
+        "under_5_minutes": "70-80% completion",
+        "5_to_15_minutes": "50-65% completion",
+        "over_15_minutes": "30-40% completion (365% higher abandonment)",
+        "under_25_questions": "10.6% completion rate",
+        "over_50_questions": "5.7% completion rate",
+        "each_additional_screen_reduction": "12% lower completion",
+        "each_additional_minute_reduction": "5-10% lower completion",
+        "overall_benchmark": "50%+ is healthy; below 30% needs immediate attention",
+        "best_in_class": "70%+",
+        "cost_per_applicant_under_5_min": "$4",
+        "cost_per_applicant_over_15_min": "$13.85"
+      },
+      "application_to_screening": {
+        "rate": "25-40%",
+        "notes": "Varies widely. Some ATS auto-screen out 60-75% of applicants."
+      },
+      "screening_to_interview": {
+        "rate": "2-3% of total applicants",
+        "from_screened_pool": "15-25%",
+        "top_consulting_firms": "2-3% of applicants invited",
+        "notes": "75% of candidates screened out at resume review stage in top firms"
+      },
+      "interview_to_offer": {
+        "rate": "20-30%",
+        "interviews_per_hire_2024": "20 interviews per hire",
+        "interviews_per_hire_2021": "14 interviews per hire",
+        "change": "+42% more interviews per hire since 2021",
+        "final_round_candidates_per_opening": "2-3"
+      },
+      "offer_to_acceptance": {
+        "overall_rate": "65-85%",
+        "2024_average": "84% (Gem)",
+        "2025_average": "73-82%",
+        "2021_pandemic_era": "81%",
+        "best_in_class": "85-90%+",
+        "below_60_pct": "Indicates serious compensation or process issues",
+        "notes": "Candidates 12% less likely to reject offers in 2025 vs 2023 (Glassdoor). Trend toward higher acceptance as market softens."
+      },
+      "overall_applicant_to_hire": {
+        "ratio": "1 in 180 (0.56%)",
+        "automotive_industry": "234 applicants per hire",
+        "education_childcare": "57 applicants per hire",
+        "technology": "110 applicants per hire",
+        "linkedin_average": "57 applicants per hire",
+        "change_vs_3_years_ago": "3x less likely to be hired",
+        "gem_2026_report": "0.5% receive offers; 0.3-0.7% hired depending on company size"
+      }
+    },
+
+    "by_candidate_source": {
+      "inbound_job_board": {
+        "pct_of_applications": "49%",
+        "pct_of_hires": "24.6%",
+        "conversion_to_hire": "~0.3%"
+      },
+      "direct_sourcing_outbound": {
+        "pct_of_applications": "2.6%",
+        "pct_of_hires": "11%",
+        "conversion_multiplier": "5-8x more likely to be hired than inbound",
+        "notes": "4x yield ratio. Sourced candidates are the most efficient hire source."
+      },
+      "employee_referrals": {
+        "conversion_multiplier": "11x the rate of inbound applicants",
+        "used_by_pct_employers": "71-82%",
+        "retention_rate_referrals_social": "45%",
+        "retention_rate_traditional": "25%"
+      },
+      "internal_mobility": {
+        "conversion_multiplier": "32x the rate of inbound applicants",
+        "internal_applications_yoy_change": "+8% YoY (iCIMS Jan 2026)",
+        "notes": "Highest conversion source by far"
+      },
+      "rediscovered_crm_ats": {
+        "pct_of_sourced_hires_2024": "44%",
+        "pct_of_sourced_hires_2021": "29.1%",
+        "gem_2026": "46%",
+        "trend": "Rising rapidly; talent rediscovery is a major efficiency lever"
+      },
+      "career_site": {
+        "used_by_pct_employers": "49.5%",
+        "notes": "Strong inbound channel when employer brand is strong"
+      },
+      "social_media": {
+        "linkedin_recruiter_usage": "87% of recruiters use LinkedIn",
+        "used_by_pct_employers": "43.5%",
+        "notes": "LinkedIn dominates; organizations using LinkedIn 8x more likely to hire well than job boards only"
+      },
+      "agencies_third_party": {
+        "notes": "Usage increasing when internal channels underperform. Fees 15-30% of first-year salary."
+      },
+      "alumni_networks_career_centers": {
+        "used_by_pct_employers_2025": "34.4%",
+        "used_by_pct_employers_2024": "28.3%",
+        "notes": "Growing channel, especially for reaching younger generations"
+      }
+    },
+
+    "by_company_size": {
+      "small_companies": {
+        "application_to_pre_onsite": "25% advance",
+        "full_funnel_hire_rate": "0.3%",
+        "notes": "Advance more candidates early but filter aggressively later"
+      },
+      "large_companies": {
+        "application_to_pre_onsite": "Less than 10% advance",
+        "full_funnel_hire_rate": "0.7%",
+        "notes": "Fewer advance early but stronger later-stage conversion. Double the hire rate of smaller companies."
+      }
+    },
+
+    "remote_vs_onsite_vs_hybrid": {
+      "remote": {
+        "application_volume_vs_onsite": "+340% more applications",
+        "time_to_hire_vs_onsite": "-16% faster",
+        "offer_acceptance_rate": "+13% higher",
+        "interview_to_offer_ratio": "5.8:1 (higher due to expanded pool)",
+        "candidate_pool_expansion": "340% larger",
+        "pct_of_job_postings_2025": "6-12%",
+        "notes": "Remote roles attract dramatically more applicants but increase screening burden"
+      },
+      "hybrid": {
+        "pct_of_new_postings": "24%",
+        "employee_preference": "60% of remote-capable employees prefer hybrid",
+        "would_quit_if_forced_onsite": "46%",
+        "notes": "Dominant model emerging. Balances cost efficiency with collaboration."
+      },
+      "onsite": {
+        "higher_cpa": "+34% vs remote in markets with <3.5% unemployment",
+        "longer_vacancy_duration": "+67% in tight markets",
+        "notes": "Facing higher CPAs and slower fill times, especially in tight labor markets"
+      },
+      "salary_transparency_impact": {
+        "apply_rate_increase_with_salary": "+31%",
+        "notes": "Salary disclosure significantly improves apply rates regardless of work model"
+      }
+    },
+
+    "dei_passthrough_rates": {
+      "women": {
+        "end_to_end_passthrough": "0.8% (vs 0.7% for men)",
+        "offer_rate_after_onsites": "41% (vs 35% for men)",
+        "lower_early_stage": "Lower passthrough at top of funnel",
+        "higher_late_stage": "Higher success in later stages",
+        "notes": "Gem data: Despite imbalance in outreach, women have higher end-to-end passthrough rates"
+      }
+    }
+  },
+
+  "programmatic_benchmarks": {
+    "market_overview": {
+      "global_market_size_2025": "$1.08 billion",
+      "projected_size_2033": "$1.86 billion",
+      "cagr": "7.02%",
+      "growth_vs_overall_job_advertising": "2x faster",
+      "enterprise_adoption_rate": "34%",
+      "notes": "Only 34% of enterprise companies use programmatic job advertising despite proven ROI"
+    },
+    "performance_vs_manual": {
+      "cost_per_hire_reduction": "20-30%",
+      "time_to_fill_improvement": "2x more likely to improve",
+      "cost_per_hire_likelihood": "3x more likely to improve",
+      "pandologic_case_study": "472% increase in applicant volume with 533% cost decrease (Dominos)",
+      "ai_automation_reduction": "Up to 75% reduction in hiring costs, 71% decrease in CPH for AI-based recruitment automation"
+    },
+    "rtb_real_time_bidding": {
+      "pct_of_programmatic_transactions": "60-65%",
+      "cpm_savings_vs_direct": "25-45% lower CPMs",
+      "effective_ad_impressions_q1_2025": "41% of budget (up from 36% in 2023)",
+      "optimization_gap": "37.8% of open web ad spending goes to non-quality impressions",
+      "notes": "Programmatic direct and preferred deals offer price certainty. Open exchange RTB offers scale and dynamic pricing."
+    },
+    "bidding_models": {
+      "cpc": {
+        "best_for": "Volume-focused campaigns, driving career site traffic",
+        "avg_cpc_programmatic": "$0.25-$2.00",
+        "notes": "Most common model for recruitment advertising"
+      },
+      "cpa": {
+        "best_for": "Budget predictability, performance-based outcomes",
+        "notes": "Guarantees cost per completed application"
+      },
+      "cpm": {
+        "best_for": "Brand awareness, employer branding campaigns",
+        "avg_cpm_programmatic": "$2-$10",
+        "notes": "Less common for direct recruitment, more for awareness"
+      },
+      "cpqa": {
+        "description": "Cost Per Qualified Application",
+        "trend": "Emerging as preferred metric over CPA",
+        "rationale": "AI-generated applications inflating CPA metrics with low-quality resumes",
+        "notes": "Measures cost of applications meeting predefined qualification standards"
+      }
+    },
+    "budget_allocation_best_practices": {
+      "dynamic_reallocation": "Shift budget from filled roles to hard-to-fill automatically",
+      "critical_roles_priority": "Fully fund critical openings rather than spreading thin",
+      "mobile_optimization_impact": "+45% higher completion rates vs non-mobile-optimized",
+      "multi_channel_distribution": "100+ publisher sites with real-time optimization",
+      "recommended_split": {
+        "programmatic_pct": "60-70% for high-volume hiring",
+        "direct_postings_pct": "20-30%",
+        "social_and_search_pct": "10-20%",
+        "notes": "Balance depends on role type, urgency, and budget. Programmatic recommended for volume; direct for niche/premium."
+      }
+    },
+    "publisher_performance": {
+      "notes": "Publisher performance data varies by role type and geography. Key insight: platforms continuously analyze performance across 100+ sites and reallocate budget in real time to channels delivering the most qualified traffic.",
+      "indeed": "Best for volume/hourly hiring, strong apply rates",
+      "linkedin": "Best for professional/senior roles, highest CPC but strongest targeting",
+      "ziprecruiter": "Good for high-volume hiring, subscription model",
+      "glassdoor": "Strong employer branding, bundled with Indeed",
+      "google_for_jobs": "Growing organic channel, no direct advertising cost",
+      "niche_job_boards": "Best for specialized roles (Dice for tech, Health eCareers for healthcare, ClearanceJobs for defense)"
+    },
+    "key_kpis_to_track": [
+      "Cost Per Application (CPA)",
+      "Cost Per Quality Application (CPQA)",
+      "Cost Per Hire (CPH)",
+      "Apply Rate (Click to Apply conversion)",
+      "Time to Fill",
+      "Click-Through Rate (CTR)",
+      "Application Completion Rate",
+      "Source Channel ROI",
+      "Budget Utilization Rate",
+      "Candidate Quality Score"
+    ]
+  },
+
+  "seasonal_patterns": {
+    "general_patterns": {
+      "january_february": {
+        "activity_level": "Peak",
+        "description": "New budgets, highest job postings, strong candidate engagement. Hiring spree from backlog of roles and new annual goals.",
+        "recommended_action": "Maximize budget allocation. Launch major campaigns."
+      },
+      "march_april_may": {
+        "activity_level": "Moderate-High",
+        "description": "Continued momentum. Spring construction/outdoor trades ramp up. Hospitality begins seasonal hiring.",
+        "recommended_action": "Maintain strong spend. Target seasonal industries."
+      },
+      "june_july_august": {
+        "activity_level": "Trough",
+        "description": "Summer slowdown. PTO schedules, reduced availability. Stalled decisions.",
+        "recommended_action": "Lower CPA bids may be possible. Good time for employer branding."
+      },
+      "september_october": {
+        "activity_level": "Second Peak (September Surge)",
+        "description": "Post-Labor Day hiring push. Companies rush to fill before year-end. Federal fiscal year-end spending.",
+        "recommended_action": "Increase budget. CPAs tend to rise with competition."
+      },
+      "november_december": {
+        "activity_level": "Mixed",
+        "description": "Holiday retail/logistics surge. White-collar hiring slows. Year-end projects and budget planning.",
+        "recommended_action": "Focus on seasonal hiring (logistics +153%, loading +49%). Reduce white-collar spend."
+      }
+    },
+    "industry_specific_seasonality": {
+      "healthcare": {
+        "peak_months": ["January", "February", "September"],
+        "trough_months": ["June", "July"],
+        "cpa_variance": "+20% above average in peak; -10% in trough",
+        "notes": "Year-round demand with predictable surges"
+      },
+      "technology": {
+        "peak_months": ["January", "February", "September"],
+        "trough_months": ["June", "July", "August"],
+        "cpa_variance": "+15% in Q1 peak; stable in Q3",
+        "notes": "Less seasonal than other industries but follows budget cycles"
+      },
+      "retail": {
+        "peak_months": ["March", "April", "May", "October", "November"],
+        "trough_months": ["January", "February"],
+        "cpa_variance": "+25-30% during holiday seasonal hiring",
+        "notes": "2025 seasonal retail flat (+1% YoY); demand shifting to logistics"
+      },
+      "hospitality": {
+        "peak_hiring": ["March", "April", "May"],
+        "operational_peak": ["April", "May", "June", "July", "August", "September"],
+        "trough_months": ["November", "January"],
+        "cpa_variance": "+50% variance between peak and trough (Recruitics data)"
+      },
+      "construction": {
+        "peak_months": ["February", "March", "April", "May"],
+        "trough_months": ["November", "December", "January"],
+        "cpa_variance": "+30% in spring ramp-up",
+        "notes": "Strongly weather-dependent; Sun Belt less seasonal"
+      },
+      "logistics": {
+        "peak_months": ["August", "September", "October", "November"],
+        "trough_months": ["January", "February", "March"],
+        "cpa_variance": "+40% during holiday logistics surge",
+        "notes": "E-commerce driving logistics demand; seasonal driving jobs up 153%"
+      },
+      "education": {
+        "peak_months": ["January", "February", "March", "April", "May"],
+        "trough_months": ["September", "October", "November"],
+        "notes": "Academic calendar driven. Spring hiring for next academic year."
+      },
+      "government": {
+        "peak_months": ["July", "August", "September", "October"],
+        "trough_months": ["November", "December", "January"],
+        "notes": "Federal fiscal year (Oct 1) drives end-of-year spending and hiring urgency"
+      },
+      "agriculture": {
+        "peak_months": ["February", "March", "April", "May", "August", "September", "October"],
+        "trough_months": ["November", "December", "January"],
+        "notes": "Strongly seasonal: planting (spring) and harvest (fall) create bimodal peaks"
+      }
+    },
+    "cpa_monthly_fluctuation_patterns": {
+      "q1_jan_mar": {
+        "trend": "Rising CPAs",
+        "reason": "High competition from new budgets, January hiring surge",
+        "recommendation": "Budget heavily but optimize bids carefully"
+      },
+      "q2_apr_jun": {
+        "trend": "Stabilizing to declining CPAs",
+        "reason": "Post-peak normalization, summer approaching",
+        "recommendation": "Good value period for proactive hiring"
+      },
+      "q3_jul_sep": {
+        "trend": "Low then rising CPAs",
+        "reason": "Summer trough gives way to September Surge",
+        "recommendation": "Take advantage of July-August dip, prepare for September rise"
+      },
+      "q4_oct_dec": {
+        "trend": "Rising then declining CPAs",
+        "reason": "Year-end push followed by holiday slowdown",
+        "recommendation": "Front-load October hiring; CPAs may soften in December"
+      }
+    }
+  },
+
+  "platform_cpc_benchmarks": {
+    "indeed": {
+      "cpc_range": "$0.10-$5.00",
+      "average_cpc": "$0.25-$1.50",
+      "model": "Pay-per-click for sponsored listings",
+      "free_postings": "Up to 3 free job postings/month (30 days, lower visibility)",
+      "best_for": "Volume hiring, hourly/blue-collar roles",
+      "notes": "CPC varies heavily by industry, seniority, geography. Partnership with Glassdoor bundles postings."
+    },
+    "linkedin": {
+      "job_ad_cpc_range": "$1.50-$4.50",
+      "b2b_ad_cpc_range": "$5.26-$10.48",
+      "staffing_recruiting_cpc": "$4.00-$6.00",
+      "daily_minimum_spend": "$7.00-$10.00",
+      "cost_per_applicant_us_average": "$2.83",
+      "applicants_per_hire": 57,
+      "estimated_ad_cost_per_hire": "$161",
+      "inmail_response_rate": "18-25%",
+      "recruiter_lite_annual": "$1,680-$2,040",
+      "recruiter_corporate_annual": "$10,800+",
+      "model": "Pay-per-click + subscription for Recruiter products",
+      "best_for": "Professional/senior roles, employer branding",
+      "industry_cpc": {
+        "b2b_saas_technology": "$5.00-$8.00",
+        "financial_services": "$4.50-$7.00",
+        "education_training": "$3.50-$5.50",
+        "staffing_recruiting": "$4.00-$6.00",
+        "healthcare_b2b": "$3.00-$5.00"
+      }
+    },
+    "ziprecruiter": {
+      "model": "Subscription-based",
+      "monthly_pricing": "$249-$700+/month",
+      "per_job_pricing": "$299+ per job",
+      "matching_efficiency": "80% of employers receive quality candidate in first 24 hours",
+      "best_for": "High-volume hiring, small-medium businesses"
+    },
+    "glassdoor": {
+      "model": "Bundled with Indeed (pay-per-click)",
+      "employer_branding_value": "Strong; Glassdoor ratings improve apply rates",
+      "best_for": "Employer branding + hiring combined",
+      "notes": "Sponsoring a job on Indeed now gets posted on Glassdoor too"
+    },
+    "google_ads_for_recruitment": {
+      "average_cpc": "$2.69 (search)",
+      "range_by_industry": "$1.60-$10.25",
+      "model": "Pay-per-click",
+      "best_for": "High-intent search traffic, employer branding",
+      "notes": "Google for Jobs (organic) is free and growing. Paid Google Ads can target recruitment keywords."
+    },
+    "programmatic_platforms": {
+      "appcast": {
+        "cpc_range": "$0.25-$2.00",
+        "model": "Programmatic CPC/CPA",
+        "data_points": "200B+ historical data points for optimization"
+      },
+      "pandologic": {
+        "model": "AI-driven programmatic, CPC/CPA",
+        "data_points": "50+ job attributes, 200B+ historical data points",
+        "typical_cph_reduction": "20-30%"
+      },
+      "joveo": {
+        "model": "Programmatic job advertising",
+        "notes": "Multi-publisher optimization across 100+ sites"
+      },
+      "recruitics": {
+        "model": "Programmatic + analytics",
+        "notes": "Talent Market Index provides monthly pricing benchmarks across 9 sectors"
+      }
+    }
+  },
+
+  "application_experience_benchmarks": {
+    "mobile_vs_desktop": {
+      "mobile_pct_of_all_applications_2025": "67%",
+      "mobile_pct_2024": "52%",
+      "mobile_completion_rate_improvement_mobile_optimized": "+45%",
+      "mobile_completion_time_vs_desktop": "+47% longer on mobile",
+      "mobile_apply_rate_by_industry": {
+        "retail_hospitality": "78%",
+        "professional_services": "58%"
+      }
+    },
+    "application_abandonment": {
+      "overall_abandonment_rate": "50% (typical)",
+      "average_time_before_abandonment": "1 minute 40 seconds",
+      "average_time_for_completion": "1 minute 25 seconds",
+      "where_candidates_drop_off": {
+        "application_stage": "22%",
+        "interview_stage": "25% (highest drop-off)",
+        "notes": "33% of companies lack confidence in interviewing capabilities; 50% believe they've lost hires to poor interviews"
+      }
+    },
+    "optimization_levers": {
+      "application_length_impact": {
+        "under_25_questions": "10.6% completion rate",
+        "over_50_questions": "5.7% completion rate",
+        "each_screen_added": "-12% completion",
+        "each_minute_added": "-5-10% completion",
+        "under_5_min_cost": "$4 per applicant",
+        "over_15_min_cost": "$13.85 per applicant (65% higher)"
+      },
+      "ai_generated_applications": {
+        "trend": "Inflating application volumes with generic, poorly matched resumes",
+        "impact": "Inflates CPA metrics while offering little hiring value",
+        "response": "Shift to CPQA (Cost Per Qualified Application) as primary metric"
+      }
+    }
+  },
+
+  "recruiter_efficiency_benchmarks": {
+    "workload_trends": {
+      "open_reqs_per_recruiter_2024": 14,
+      "open_reqs_per_recruiter_2021": 9,
+      "change": "+56%",
+      "applications_per_recruiter_2024": "2,500+",
+      "applications_per_recruiter_2021": "~930",
+      "change_applications": "+2.7x",
+      "team_size_average_2024": 24,
+      "team_size_average_2022": 31,
+      "hires_per_recruiter_change": "-43% (despite working harder)",
+      "hours_searching_per_week": 7.3,
+      "hours_searching_annually": 380,
+      "quarterly_targets_business": "8-12 hires",
+      "quarterly_targets_technology": "4-6 hires",
+      "team_ratio": "3 Recruiters : 1 Sourcer : 1 Coordinator"
+    },
+    "time_metrics": {
+      "average_time_to_hire_2024": "41 days",
+      "average_time_to_hire_2021": "33 days",
+      "change": "+24%",
+      "time_to_fill_national_average_2026": "63-68 days",
+      "screening_interviewing_avg": "8-9 days each",
+      "pct_time_on_scheduling": "35% of recruiter time",
+      "average_requisitions_managed": "~20 per recruiter"
+    },
+    "ai_and_technology": {
+      "pct_planning_ai_investment": "84% say improving recruiter efficiency through AI is top priority",
+      "pct_using_ai_screening": "25% of hiring managers use AI to screen",
+      "concerns_legal_compliance": "87%",
+      "concerns_candidate_trust": "66%",
+      "concerns_bias": "65%",
+      "pct_investing_in_tech_2025": "93% of companies",
+      "skills_based_hiring_adoption": "38% of employers using skills assessments"
+    }
+  },
+
+  "labor_market_context_2025_2026": {
+    "macro_trends": {
+      "the_great_stay": "Quits, hires, and layoffs all declining. Employees staying put.",
+      "the_great_freeze": "Employee turnover dropped from 177% (2023) to 50% (2025) - historic low",
+      "white_collar_recession": "Tech, media, professional services postings well below pre-pandemic. Apply rates rising as supply exceeds demand.",
+      "healthcare_dominance": "Healthcare accounted for 75% of net job growth in 2025",
+      "hiring_rate": "At 10-year low (Glassdoor)",
+      "job_openings_estimate_year_end_2025": "7.2 million (Indeed)",
+      "job_openings_estimate_year_end_2026": "6.8 million (Indeed)",
+      "unemployment_rate_2025": "~4.1%",
+      "labor_force_participation_2025": "62.3%"
+    },
+    "employer_sentiment": {
+      "pct_planning_to_increase_hiring": "63%",
+      "pct_focused_on_retention": "75.8% (primary focus)",
+      "pct_focused_on_recruiting_new": "15.7%",
+      "recruiter_optimism": "92% optimistic about hiring (Jobvite 2025)",
+      "recruiter_stress": "54% found job more stressful than prior year",
+      "pct_budgets_flat_or_declining": "53%"
+    },
+    "compensation_trends": {
+      "pct_new_hires_higher_pay": "56.4% (Q4 2025, down from 60.8% Q3)",
+      "pct_lateral_moves": "16.3% (up from 14.7%)",
+      "pct_accepting_pay_cuts": "27.3% (up from 24.5%)",
+      "pct_employers_keeping_pay_unchanged": "57%",
+      "pct_planning_salary_raises": "61%",
+      "signing_bonuses_declining": "Only 15.4% received in Q4 2025 (down from 21.7% Q3)",
+      "offer_rejection_rate_decline": "12% less likely to reject in 2025 vs 2023"
+    },
+    "quality_of_hire_benchmarks": {
+      "pct_organizations_tracking_qoh": "20%",
+      "pct_recognizing_importance": "89%",
+      "pct_confident_measuring": "25%",
+      "performance_lift_from_mastering_qoh": "+30% better business performance",
+      "new_hire_90_day_retention_target": "85%+",
+      "first_year_retention_target": "80%+",
+      "pct_new_hires_quit_within_90_days": "33%",
+      "pct_turnover_in_first_45_days": "20%",
+      "onboarding_impact_on_retention": "+82% retention with structured onboarding (Glassdoor/SHRM)",
+      "overall_voluntary_turnover_2025": "13.5% (Mercer, down from 17.3% in 2023)",
+      "retail_voluntary_turnover": "24.9%",
+      "government_quit_rate": "0.8% (lowest)"
+    }
+  },
+
+  "recruitics_talent_market_index_monthly": {
+    "description": "Monthly talent attraction pricing data across 9 job sectors from Recruitics",
+    "july_2025": {
+      "sectors_with_mom_gains": "7 of 9 sectors",
+      "top_gainers_mom": {
+        "sales": "+78.7%",
+        "hospitality": "+53.2%",
+        "finance_ops": "+33.3%"
+      },
+      "yoy_trends": {
+        "sales_retail_hospitality": "Double-digit increases YoY",
+        "it_light_industrial_healthcare": "Deflationary YoY"
+      },
+      "healthcare_specific": "+2.9% MoM but -15% YoY"
+    },
+    "june_2025": {
+      "sectors_with_gains": "5 of 9 sectors",
+      "top_gainers_mom": {
+        "finance_ops": "+89.8%",
+        "it_related": "+28.9%"
+      },
+      "notes": "AI reshaping white-collar hiring bifurcation"
+    },
+    "may_2025": {
+      "trend": "Broad-based declines across all segments",
+      "it_related_mom": "-19%",
+      "it_related_yoy": "-10.75%",
+      "hospitality_mom": "-39%",
+      "hospitality_yoy": "+41%"
+    }
+  }
+}

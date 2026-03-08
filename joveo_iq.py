@@ -1055,11 +1055,11 @@ You have access to the following proprietary data through tools:
 
         if section == "executive_summary" or section == "all":
             exec_sum = gw_data.get("executive_summary", {})
-            result = f"**Guidewire LinkedIn Hiring Review**\n"
+            result = f"*Guidewire LinkedIn Hiring Review*\n"
             result += f"Headline: {exec_sum.get('headline', 'N/A')}\n"
             result += f"Context: {exec_sum.get('context', 'N/A')}\n\n"
             for theme in exec_sum.get("key_themes", []):
-                result += f"**{theme.get('theme', '')}**\n"
+                result += f"*{theme.get('theme', '')}*\n"
                 for pt in theme.get("points", []):
                     result += f"- {pt}\n"
                 result += "\n"
@@ -1070,10 +1070,10 @@ You have access to the following proprietary data through tools:
             # Return hiring performance data
             hp = gw_data.get("hiring_performance", gw_data.get("hiring_performance_l12m", {}))
             if isinstance(hp, dict):
-                result_hp = "**Hiring Performance (L12M)**\n"
+                result_hp = "*Hiring Performance (L12M)*\n"
                 for key, val in hp.items():
                     if isinstance(val, dict):
-                        result_hp += f"\n**{key.replace('_', ' ').title()}**:\n"
+                        result_hp += f"\n*{key.replace('_', ' ').title()}*:\n"
                         for k2, v2 in val.items():
                             result_hp += f"  - {k2}: {v2}\n"
                     else:
@@ -1085,10 +1085,10 @@ You have access to the following proprietary data through tools:
         if section == "hire_efficiency" or section == "all":
             he = gw_data.get("hire_efficiency", {})
             if isinstance(he, dict):
-                result_he = "**Hire Efficiency**\n"
+                result_he = "*Hire Efficiency*\n"
                 for key, val in he.items():
                     if isinstance(val, dict):
-                        result_he += f"\n**{key.replace('_', ' ').title()}**:\n"
+                        result_he += f"\n*{key.replace('_', ' ').title()}*:\n"
                         for k2, v2 in val.items():
                             result_he += f"  - {k2}: {v2}\n"
                     else:
@@ -1283,15 +1283,15 @@ You have access to the following proprietary data through tools:
                                 or is_trend_question or is_cpc_cpa_question or _is_guidewire):
             return {
                 "response": (
-                    "Hello! I'm **Joveo IQ**, your recruitment marketing intelligence assistant. "
-                    "I have access to data from **1,238+ publishers**, job boards across **30+ countries**, "
+                    "Hello! I'm *Joveo IQ*, your recruitment marketing intelligence assistant. "
+                    "I have access to data from *1,238+ publishers*, job boards across *30+ countries*, "
                     "and comprehensive industry benchmarks.\n\n"
                     "Here are some things I can help with:\n\n"
-                    "- **Publisher & Board Recommendations**: \"What publishers work best for nursing roles?\"\n"
-                    "- **Industry Benchmarks**: \"What's the average CPA for tech roles?\"\n"
-                    "- **Budget Planning**: \"How should I allocate a $50K budget for 10 engineering hires?\"\n"
-                    "- **Market Intelligence**: \"What's the talent supply for tech roles in Germany?\"\n"
-                    "- **DEI Strategy**: \"What DEI-focused job boards are available in the US?\"\n\n"
+                    "- *Publisher & Board Recommendations*: \"What publishers work best for nursing roles?\"\n"
+                    "- *Industry Benchmarks*: \"What's the average CPA for tech roles?\"\n"
+                    "- *Budget Planning*: \"How should I allocate a $50K budget for 10 engineering hires?\"\n"
+                    "- *Market Intelligence*: \"What's the talent supply for tech roles in Germany?\"\n"
+                    "- *DEI Strategy*: \"What DEI-focused job boards are available in the US?\"\n\n"
                     "What would you like to know?"
                 ),
                 "sources": [],
@@ -1304,17 +1304,17 @@ You have access to the following proprietary data through tools:
             gw_data = self._data_cache.get("linkedin_guidewire", {})
             if gw_data:
                 exec_sum = gw_data.get("executive_summary", {})
-                response_parts = [f"**Guidewire Software — LinkedIn Hiring Intelligence**\n"]
+                response_parts = [f"*Guidewire Software — LinkedIn Hiring Intelligence*\n"]
                 response_parts.append(f"{exec_sum.get('headline', '')}\n")
                 for theme in exec_sum.get("key_themes", [])[:3]:
-                    response_parts.append(f"\n**{theme.get('theme', '')}**")
+                    response_parts.append(f"\n*{theme.get('theme', '')}*")
                     for pt in theme.get("points", [])[:3]:
                         response_parts.append(f"- {pt}")
 
                 # Add peer comparison if available
                 peers = gw_data.get("document_metadata", {}).get("peer_companies", [])
                 if peers:
-                    response_parts.append(f"\n**Peer Companies**: {', '.join(peers)}")
+                    response_parts.append(f"\n*Peer Companies*: {', '.join(peers)}")
 
                 return {
                     "response": "\n".join(response_parts),
@@ -1333,26 +1333,26 @@ You have access to the following proprietary data through tools:
             cats = pub_data.get("categories", {})
             countries_covered = pub_data.get("countries_covered", 0)
             count_parts = [
-                f"### Joveo Publisher Network\n",
-                f"Joveo has **{total:,} active publishers** across **{countries_covered} countries**.\n",
+                f"*Joveo Publisher Network*\n",
+                f"Joveo has *{total:,} active publishers* across *{countries_covered} countries*.\n",
             ]
             if detected_country:
                 # Also show country-specific count
                 country_pub = self._query_publishers({"country": detected_country})
                 c_count = country_pub.get("count", 0)
                 c_pubs = country_pub.get("publishers", [])
-                count_parts.append(f"**In {detected_country}**: {c_count} publishers")
+                count_parts.append(f"*In {detected_country}*: {c_count} publishers")
                 if c_pubs:
                     for p in c_pubs[:10]:
                         count_parts.append(f"- {p}")
                     if len(c_pubs) > 10:
-                        count_parts.append(f"*...and {len(c_pubs) - 10} more*")
+                        count_parts.append(f"_...and {len(c_pubs) - 10} more_")
             else:
                 # Show category breakdown
                 if cats:
-                    count_parts.append("**By Category:**")
+                    count_parts.append("*By Category:*")
                     for cat, count in sorted(cats.items(), key=lambda x: x[1], reverse=True)[:12]:
-                        count_parts.append(f"- **{cat}**: {count} publishers")
+                        count_parts.append(f"- *{cat}*: {count} publishers")
             sections.append("\n".join(count_parts))
 
         # ── Publisher / Job Board questions ──
@@ -1487,7 +1487,7 @@ You have access to the following proprietary data through tools:
                 pub_data = self._query_publishers(pub_params)
                 tools_used.append("query_publishers")
                 sources.add("Joveo Publisher Network")
-                sections.append(f"\n### Recommended Channels for {roles_for_budget[0] if roles_for_budget else role_cat.title()}\n" +
+                sections.append(f"\n*Recommended Channels for {roles_for_budget[0] if roles_for_budget else role_cat.title()}*\n" +
                                 _format_publisher_response(pub_data))
 
         # ── Comparison questions (vs / compare) ──
@@ -1499,41 +1499,106 @@ You have access to the following proprietary data through tools:
             tools_used.append("query_knowledge_base")
             sources.add("Recruitment Industry Knowledge Base")
 
-            comp_sections = ["### Comparison Analysis\n"]
-            for i, part in enumerate(comparison_parts[:2]):
-                part_clean = part.strip().rstrip("?.,!")
-                if not part_clean:
-                    continue
-                label = part_clean.title()
-                comp_sections.append(f"**{label}:**")
+            comp_sections = ["*Comparison Analysis*\n"]
 
-                # Check if it's a role type
-                is_blue_collar = any(kw in part for kw in ["blue collar", "hourly", "warehouse", "driver", "construction", "retail"])
-                is_white_collar = any(kw in part for kw in ["white collar", "professional", "office", "corporate", "engineer", "analyst"])
+            # Detect if this is a platform comparison (e.g. Indeed vs LinkedIn)
+            _platform_names = {
+                "indeed": "Indeed", "linkedin": "LinkedIn", "ziprecruiter": "ZipRecruiter",
+                "glassdoor": "Glassdoor", "google ads": "Google Ads", "google": "Google Ads",
+                "meta": "Meta/Facebook", "facebook": "Meta/Facebook", "careerbuilder": "CareerBuilder",
+                "dice": "Dice", "snagajob": "Snagajob", "jobget": "JobGet",
+                "craigslist": "Craigslist", "monster": "Monster", "handshake": "Handshake",
+                "appcast": "Appcast", "pandologic": "PandoLogic", "recruitics": "Recruitics",
+            }
 
-                if is_blue_collar:
-                    comp_sections.append("- **Typical CPA**: $15-$40")
-                    comp_sections.append("- **Apply Rate**: 8-15%")
-                    comp_sections.append("- **Top Channels**: Snagajob, Indeed, Craigslist, Wonolo, Instawork, ShiftPixy")
-                    comp_sections.append("- **Best Platforms**: Google Ads, Meta (mobile-first targeting)")
-                    comp_sections.append("- **Key Trait**: High volume, mobile-first, quick apply needed")
-                elif is_white_collar:
-                    comp_sections.append("- **Typical CPA**: $50-$150")
-                    comp_sections.append("- **Apply Rate**: 3-6%")
-                    comp_sections.append("- **Top Channels**: LinkedIn, Indeed, Glassdoor, ZipRecruiter, niche boards")
-                    comp_sections.append("- **Best Platforms**: LinkedIn Ads, Google Ads, programmatic DSP")
-                    comp_sections.append("- **Key Trait**: Quality over quantity, employer brand matters")
-                else:
-                    # Generic: pull benchmarks from KB
-                    comp_sections.append(f"- Search recruitment benchmarks for '{label}' in the knowledge base")
+            # Determine if either side of the comparison is a known platform
+            platform_matches = []
+            for part in comparison_parts[:2]:
+                part_clean = part.strip().rstrip("?.,!").lower()
+                matched_platform = None
+                for alias, canonical in _platform_names.items():
+                    if alias in part_clean:
+                        matched_platform = canonical
+                        break
+                platform_matches.append(matched_platform)
 
-                comp_sections.append("")
+            is_platform_comparison = all(pm is not None for pm in platform_matches[:2]) and len(platform_matches) >= 2
 
-            if len(comparison_parts) >= 2:
-                comp_sections.append("**Key Differences:**")
-                comp_sections.append("- Blue-collar: higher apply rates, lower CPA, mobile-centric, speed matters")
-                comp_sections.append("- White-collar: lower apply rates, higher CPA, brand-driven, quality-focused")
-                comp_sections.append("- Budget split: blue-collar favors job boards (60%+), white-collar favors LinkedIn + programmatic (50%+)")
+            if is_platform_comparison:
+                # Platform-specific comparison using knowledge base data
+                cpc_data = self._query_knowledge_base({"topic": "benchmarks", "metric": "cpc"})
+                cpc_by_platform = cpc_data.get("benchmarks", {}).get("cost_per_click", {}).get("by_platform", {})
+
+                for idx, pm in enumerate(platform_matches[:2]):
+                    if pm is None:
+                        continue
+                    comp_sections.append(f"*{pm}:*")
+                    # Look up CPC data for this platform
+                    plat_key_lower = pm.lower().replace(" ", "_").replace("/", "_")
+                    found_data = None
+                    for k, v in cpc_by_platform.items():
+                        if plat_key_lower in k.lower() or k.lower() in plat_key_lower:
+                            found_data = v
+                            break
+                    if found_data and isinstance(found_data, dict):
+                        for fk, fv in list(found_data.items())[:5]:
+                            comp_sections.append(f"  - {fk.replace('_', ' ').title()}: {fv}")
+                    else:
+                        # Provide hardcoded platform summaries
+                        _platform_summaries = {
+                            "Indeed": "- CPC Range: $0.25-$1.50\n- Model: CPC (pay per click)\n- Best For: High-volume hiring across all roles\n- Reach: Largest job site globally",
+                            "LinkedIn": "- CPC Range: $2.00-$5.00+\n- Model: CPC / Sponsored Jobs\n- Best For: White-collar, professional, executive roles\n- Reach: 900M+ professionals",
+                            "ZipRecruiter": "- CPC Range: $0.50-$2.00\n- Model: Pay-per-click with AI matching\n- Best For: SMB hiring, broad role types\n- Reach: Strong US coverage",
+                            "Glassdoor": "- CPC Range: $0.50-$2.00\n- Model: CPC (merging with Indeed)\n- Best For: Employer brand-driven hiring\n- Reach: Merging into Indeed",
+                            "Google Ads": "- CPC Range: $1.00-$4.00 (job-related keywords)\n- Model: PPC auction\n- Best For: Programmatic reach, candidate capture\n- Reach: Broadest search traffic",
+                            "Meta/Facebook": "- CPC Range: $0.50-$2.50\n- Model: Social PPC\n- Best For: Hourly, local, blue-collar roles\n- Reach: 3B+ users, mobile-first",
+                        }
+                        summary = _platform_summaries.get(pm, f"- Contact Joveo for detailed {pm} benchmarks")
+                        for line in summary.split("\n"):
+                            comp_sections.append(f"  {line}")
+                    comp_sections.append("")
+
+                if len(platform_matches) >= 2 and platform_matches[0] and platform_matches[1]:
+                    comp_sections.append(f"*Key Differences ({platform_matches[0]} vs {platform_matches[1]}):*")
+                    comp_sections.append("- Compare CPC ranges and pricing models to choose based on your budget")
+                    comp_sections.append("- Consider your target role type — niche platforms outperform generalists for specialized roles")
+                    comp_sections.append("- Programmatic platforms (via Joveo) can optimize spend across both automatically")
+            else:
+                # Category-based comparison (blue-collar vs white-collar, etc.)
+                for i, part in enumerate(comparison_parts[:2]):
+                    part_clean = part.strip().rstrip("?.,!")
+                    if not part_clean:
+                        continue
+                    label = part_clean.title()
+                    comp_sections.append(f"*{label}:*")
+
+                    # Check if it's a role type
+                    is_blue_collar = any(kw in part for kw in ["blue collar", "hourly", "warehouse", "driver", "construction", "retail"])
+                    is_white_collar = any(kw in part for kw in ["white collar", "professional", "office", "corporate", "engineer", "analyst"])
+
+                    if is_blue_collar:
+                        comp_sections.append("- *Typical CPA*: $15-$40")
+                        comp_sections.append("- *Apply Rate*: 8-15%")
+                        comp_sections.append("- *Top Channels*: Snagajob, Indeed, Craigslist, Wonolo, Instawork, ShiftPixy")
+                        comp_sections.append("- *Best Platforms*: Google Ads, Meta (mobile-first targeting)")
+                        comp_sections.append("- *Key Trait*: High volume, mobile-first, quick apply needed")
+                    elif is_white_collar:
+                        comp_sections.append("- *Typical CPA*: $50-$150")
+                        comp_sections.append("- *Apply Rate*: 3-6%")
+                        comp_sections.append("- *Top Channels*: LinkedIn, Indeed, Glassdoor, ZipRecruiter, niche boards")
+                        comp_sections.append("- *Best Platforms*: LinkedIn Ads, Google Ads, programmatic DSP")
+                        comp_sections.append("- *Key Trait*: Quality over quantity, employer brand matters")
+                    else:
+                        # Generic: pull benchmarks from KB
+                        comp_sections.append(f"- Search recruitment benchmarks for '{label}' in the knowledge base")
+
+                    comp_sections.append("")
+
+                if len(comparison_parts) >= 2:
+                    comp_sections.append("*Key Differences:*")
+                    comp_sections.append("- Blue-collar: higher apply rates, lower CPA, mobile-centric, speed matters")
+                    comp_sections.append("- White-collar: lower apply rates, higher CPA, brand-driven, quality-focused")
+                    comp_sections.append("- Budget split: blue-collar favors job boards (60%+), white-collar favors LinkedIn + programmatic (50%+)")
 
             sections.append("\n".join(comp_sections))
 
@@ -1555,22 +1620,22 @@ You have access to the following proprietary data through tools:
         # ── Remote work questions ── (before market demand so "remote" doesn't fall through)
         if "remote" in detected_roles and not sections:
             remote_boards = [
-                "**FlexJobs** - Curated remote & flexible job listings",
-                "**We Work Remotely** - Largest remote work community",
-                "**Remote.co** - Remote jobs across all industries",
-                "**Remote OK** - Remote job aggregator with salary data",
-                "**Jobspresso** - Curated remote positions in tech, marketing, support",
-                "**Working Nomads** - Digital nomad and remote job listings",
-                "**Himalayas** - Remote jobs with company transparency data",
-                "**Remotive** - Remote tech jobs community",
-                "**AngelList / Wellfound** - Startup remote positions",
-                "**LinkedIn (Remote filter)** - Largest professional network with remote job filter",
+                "*FlexJobs* - Curated remote & flexible job listings",
+                "*We Work Remotely* - Largest remote work community",
+                "*Remote.co* - Remote jobs across all industries",
+                "*Remote OK* - Remote job aggregator with salary data",
+                "*Jobspresso* - Curated remote positions in tech, marketing, support",
+                "*Working Nomads* - Digital nomad and remote job listings",
+                "*Himalayas* - Remote jobs with company transparency data",
+                "*Remotive* - Remote tech jobs community",
+                "*AngelList / Wellfound* - Startup remote positions",
+                "*LinkedIn (Remote filter)* - Largest professional network with remote job filter",
             ]
-            parts = ["### Remote Work Job Boards & Channels\n"]
+            parts = ["*Remote Work Job Boards & Channels*\n"]
             parts.append("Here are the top platforms for posting remote/work-from-home positions:\n")
             for b in remote_boards:
                 parts.append(f"- {b}")
-            parts.append("\n**Tips for Remote Hiring:**")
+            parts.append("\n*Tips for Remote Hiring:*")
             parts.append("- Use the 'remote' filter on major boards (Indeed, LinkedIn, ZipRecruiter)")
             parts.append("- Consider time-zone-specific targeting for distributed teams")
             parts.append("- Remote roles typically see 2-3x higher application volumes")
@@ -1607,7 +1672,7 @@ You have access to the following proprietary data through tools:
         is_injection = any(_re.search(pat, msg_lower) for pat in _injection_patterns)
         if is_injection and not sections:
             sections.append(
-                "I'm **Joveo IQ**, a recruitment marketing intelligence assistant. "
+                "I'm *Joveo IQ*, a recruitment marketing intelligence assistant. "
                 "I can only help with recruitment-related questions such as job board recommendations, "
                 "CPC/CPA benchmarks, budget allocation, and hiring market data.\n\n"
                 "I cannot share system configuration details or respond to prompt manipulation attempts. "
@@ -1626,7 +1691,7 @@ You have access to the following proprietary data through tools:
             sections.append(
                 "I'm unable to assist with that request. As a recruitment marketing intelligence tool, "
                 "I can only help with legitimate recruitment activities.\n\n"
-                "Here's what I **can** help with:\n"
+                "Here's what I *can* help with:\n"
                 "- Job board and publisher recommendations\n"
                 "- CPC/CPA/CPH industry benchmarks\n"
                 "- Budget allocation and ROI projections\n"
@@ -1648,17 +1713,17 @@ You have access to the following proprietary data through tools:
         if not sections:
             if is_off_topic:
                 response_text = (
-                    "I appreciate your question, but I'm specifically designed for **recruitment marketing intelligence**. "
+                    "I appreciate your question, but I'm specifically designed for *recruitment marketing intelligence*. "
                     "I can't help with general knowledge questions.\n\n"
                     "Here's what I can help with:\n\n"
-                    "- **Job boards and publishers** for specific countries or industries\n"
-                    "- **CPC, CPA, and cost-per-hire benchmarks** by industry and platform\n"
-                    "- **Budget allocation** recommendations with projected outcomes\n"
-                    "- **Salary intelligence** for specific roles and locations\n"
-                    "- **DEI recruitment channels** and diversity-focused boards\n"
-                    "- **Market trends** in recruitment advertising\n\n"
-                    "Try asking something like: *\"What's the average CPC for tech roles?\"* "
-                    "or *\"How should I allocate a $100K hiring budget?\"*"
+                    "- *Job boards and publishers* for specific countries or industries\n"
+                    "- *CPC, CPA, and cost-per-hire benchmarks* by industry and platform\n"
+                    "- *Budget allocation* recommendations with projected outcomes\n"
+                    "- *Salary intelligence* for specific roles and locations\n"
+                    "- *DEI recruitment channels* and diversity-focused boards\n"
+                    "- *Market trends* in recruitment advertising\n\n"
+                    "Try asking something like: _\"What's the average CPC for tech roles?\"_ "
+                    "or _\"How should I allocate a $100K hiring budget?\"_"
                 )
             else:
                 # Try a general knowledge base search
@@ -1668,14 +1733,14 @@ You have access to the following proprietary data through tools:
 
                 response_text = (
                     "I can help you with recruitment marketing intelligence. "
-                    "Based on Joveo's data across **1,238+ publishers** in **30+ countries**, "
+                    "Based on Joveo's data across *1,238+ publishers* in *30+ countries*, "
                     "I can answer questions about:\n\n"
-                    "- **Job boards and publishers** for specific countries or industries\n"
-                    "- **CPC, CPA, and cost-per-hire benchmarks** by industry and platform\n"
-                    "- **Budget allocation** recommendations with projected outcomes\n"
-                    "- **Salary intelligence** for specific roles and locations\n"
-                    "- **DEI recruitment channels** and diversity-focused boards\n"
-                    "- **Market trends** in recruitment advertising\n\n"
+                    "- *Job boards and publishers* for specific countries or industries\n"
+                    "- *CPC, CPA, and cost-per-hire benchmarks* by industry and platform\n"
+                    "- *Budget allocation* recommendations with projected outcomes\n"
+                    "- *Salary intelligence* for specific roles and locations\n"
+                    "- *DEI recruitment channels* and diversity-focused boards\n"
+                    "- *Market trends* in recruitment advertising\n\n"
                     "Could you rephrase your question with more specifics? "
                     "For example, mention a role, location, industry, or metric."
                 )
@@ -1916,21 +1981,21 @@ def _format_supply_response(data: dict, country: str, is_dei: bool = False) -> s
         dei = data.get("dei_boards", {})
         boards = dei.get("boards", dei.get("global", []))
         if boards:
-            parts.append(f"### DEI Job Boards{' for ' + country if country else ''}\n")
+            parts.append(f"*DEI Job Boards{' for ' + country if country else ''}*\n")
             for b in boards[:10]:
                 if isinstance(b, dict):
-                    parts.append(f"- **{b.get('name', 'N/A')}** - Focus: {b.get('focus', 'General')} ({b.get('regions', 'Global')})")
+                    parts.append(f"- *{b.get('name', 'N/A')}* - Focus: {b.get('focus', 'General')} ({b.get('regions', 'Global')})")
                 else:
                     parts.append(f"- {b}")
             if len(boards) > 10:
-                parts.append(f"\n*...and {len(boards) - 10} more DEI boards available*")
+                parts.append(f"\n_...and {len(boards) - 10} more DEI boards available_")
         return "\n".join(parts)
 
     cb = data.get("country_boards", {})
     if cb and "boards" in cb:
-        parts.append(f"### Job Boards in {cb.get('country', country)}\n")
-        parts.append(f"**Monthly Spend**: {cb.get('monthly_spend', 'N/A')}")
-        parts.append(f"**Key Metros**: {', '.join(cb.get('key_metros', []))}\n")
+        parts.append(f"*Job Boards in {cb.get('country', country)}*\n")
+        parts.append(f"*Monthly Spend*: {cb.get('monthly_spend', 'N/A')}")
+        parts.append(f"*Key Metros*: {', '.join(cb.get('key_metros', []))}\n")
 
         # Group by tier
         boards = cb["boards"]
@@ -1941,15 +2006,15 @@ def _format_supply_response(data: dict, country: str, is_dei: bool = False) -> s
 
         for tier in ["Tier 1", "Tier 2", "Niche", "Govt"]:
             if tier in tiers:
-                parts.append(f"**{tier}:**")
+                parts.append(f"*{tier}:*")
                 for b in tiers[tier]:
                     parts.append(f"- {b['name']} ({b.get('billing', 'N/A')}) - {b.get('category', 'General')}")
                 parts.append("")
 
     elif "available_countries" in data:
-        parts.append("### Available Countries in Joveo's Global Supply Data\n")
+        parts.append("*Available Countries in Joveo's Global Supply Data*\n")
         countries = data["available_countries"]
-        parts.append(f"We have job board data for **{len(countries)} countries**: {', '.join(countries[:15])}{'...' if len(countries) > 15 else ''}")
+        parts.append(f"We have job board data for *{len(countries)} countries*: {', '.join(countries[:15])}{'...' if len(countries) > 15 else ''}")
 
     return "\n".join(parts) if parts else "No supply data available for this query."
 
@@ -1961,23 +2026,23 @@ def _format_publisher_response(data: dict) -> str:
 
     if "search_results" in data:
         matches = data["search_results"]
-        parts.append(f"### Publisher Search Results ({data.get('match_count', 0)} matches)\n")
+        parts.append(f"*Publisher Search Results ({data.get('match_count', 0)} matches)*\n")
         for m in matches[:15]:
-            parts.append(f"- **{m['name']}** (Category: {m['category']})")
+            parts.append(f"- *{m['name']}* (Category: {m['category']})")
     elif "publishers" in data:
         pubs = data["publishers"]
         label = data.get("country", data.get("category", ""))
-        parts.append(f"### Joveo Publishers{' in ' + label if label else ''} ({data.get('count', len(pubs))} publishers)\n")
+        parts.append(f"*Joveo Publishers{' in ' + label if label else ''} ({data.get('count', len(pubs))} publishers)*\n")
         for p in pubs[:15]:
             parts.append(f"- {p}")
         if len(pubs) > 15:
-            parts.append(f"\n*...and {len(pubs) - 15} more publishers*")
+            parts.append(f"\n_...and {len(pubs) - 15} more publishers_")
     elif "categories" in data:
-        parts.append(f"### Joveo Publisher Network Overview\n")
-        parts.append(f"**Total Active Publishers**: {total:,}\n")
+        parts.append(f"*Joveo Publisher Network Overview*\n")
+        parts.append(f"*Total Active Publishers*: {total:,}\n")
         cats = data["categories"]
         for cat, count in sorted(cats.items(), key=lambda x: x[1], reverse=True)[:12]:
-            parts.append(f"- **{cat}**: {count} publishers")
+            parts.append(f"- *{cat}*: {count} publishers")
 
     return "\n".join(parts) if parts else ""
 
@@ -1985,23 +2050,23 @@ def _format_publisher_response(data: dict) -> str:
 def _format_channel_response(data: dict, industry: str) -> str:
     """Format channel data into a readable response."""
     parts = []
-    parts.append("### Recruitment Channels\n")
+    parts.append("*Recruitment Channels*\n")
 
     if "niche_industry_channels" in data:
         nic = data["niche_industry_channels"]
-        parts.append(f"**Niche Channels for {nic.get('industry', industry)}:**")
+        parts.append(f"*Niche Channels for {nic.get('industry', industry)}:*")
         for ch in nic.get("channels", [])[:12]:
             parts.append(f"- {ch}")
         parts.append("")
 
     if "regional_local" in data:
-        parts.append(f"**Regional/Local Boards** ({len(data['regional_local'])} channels):")
+        parts.append(f"*Regional/Local Boards* ({len(data['regional_local'])} channels):")
         for ch in data["regional_local"][:8]:
             parts.append(f"- {ch}")
         parts.append("")
 
     if "global_reach" in data:
-        parts.append(f"**Global Reach** ({len(data['global_reach'])} channels):")
+        parts.append(f"*Global Reach* ({len(data['global_reach'])} channels):")
         for ch in data["global_reach"][:8]:
             parts.append(f"- {ch}")
 
@@ -2016,7 +2081,7 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
     # When no specific metric is requested, show a summary of available benchmark categories
     if "benchmark_categories" in data and not bm:
         categories = data["benchmark_categories"]
-        parts.append("### Recruitment Advertising Benchmarks Overview\n")
+        parts.append("*Recruitment Advertising Benchmarks Overview*\n")
         parts.append("Joveo's knowledge base covers the following benchmark categories:\n")
         cat_descriptions = {
             "cost_per_click": "CPC benchmarks by platform (Indeed, LinkedIn, Google, Meta, etc.)",
@@ -2031,17 +2096,17 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
         for cat in categories:
             desc = cat_descriptions.get(cat, "")
             nice_name = cat.replace("_", " ").title()
-            parts.append(f"- **{nice_name}**: {desc}" if desc else f"- **{nice_name}**")
-        parts.append("\nAsk about a specific metric for detailed data (e.g., *\"What is the average CPC?\"*)")
+            parts.append(f"- *{nice_name}*: {desc}" if desc else f"- *{nice_name}*")
+        parts.append("\nAsk about a specific metric for detailed data (e.g., _\"What is the average CPC?\"_)")
         return "\n".join(parts)
 
     if not bm or "message" in bm:
         # Try industry benchmarks
         ind_bm = data.get("industry_benchmarks", {})
         if ind_bm and "message" not in ind_bm:
-            parts.append(f"### Industry Benchmarks\n")
+            parts.append(f"*Industry Benchmarks*\n")
             for ind_key, ind_data in ind_bm.items():
-                parts.append(f"**{ind_key.replace('_', ' ').title()}:**")
+                parts.append(f"*{ind_key.replace('_', ' ').title()}:*")
                 if isinstance(ind_data, dict):
                     for k, v in list(ind_data.items())[:8]:
                         parts.append(f"- {k.replace('_', ' ').title()}: {v}")
@@ -2053,16 +2118,16 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
 
     for bm_key, bm_data in bm.items():
         nice_key = bm_key.replace("_", " ").title()
-        parts.append(f"### {nice_key} Benchmarks\n")
+        parts.append(f"*{nice_key} Benchmarks*\n")
 
         if isinstance(bm_data, dict):
             desc = bm_data.get("description", "")
             if desc:
-                parts.append(f"*{desc}*\n")
+                parts.append(f"_{desc}_\n")
 
             # Format platform-specific data
             if "by_platform" in bm_data:
-                parts.append("**By Platform:**")
+                parts.append("*By Platform:*")
                 for plat, plat_data in bm_data["by_platform"].items():
                     if isinstance(plat_data, dict):
                         key_val = ""
@@ -2071,14 +2136,14 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
                             if k in plat_data:
                                 key_val = f"{plat_data[k]}"
                                 break
-                        parts.append(f"- **{plat.replace('_', ' ').title()}**: {key_val}")
+                        parts.append(f"- *{plat.replace('_', ' ').title()}*: {key_val}")
 
             # Format report data
             for rkey in ["appcast_2025_report", "appcast_2026_report", "shrm_2025", "shrm_2026",
                          "google_ads_benchmark", "joveo_historical"]:
                 if rkey in bm_data:
                     rdata = bm_data[rkey]
-                    parts.append(f"\n**{rkey.replace('_', ' ').title()}:**")
+                    parts.append(f"\n*{rkey.replace('_', ' ').title()}:*")
                     if isinstance(rdata, dict):
                         for k, v in list(rdata.items())[:6]:
                             if k not in ("year", "dataset"):
@@ -2090,7 +2155,7 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
     if industry:
         ind_bm = data.get("industry_benchmarks", {})
         for ind_key, ind_data in ind_bm.items():
-            parts.append(f"\n### Industry-Specific: {ind_key.replace('_', ' ').title()}\n")
+            parts.append(f"\n*Industry-Specific: {ind_key.replace('_', ' ').title()}*\n")
             if isinstance(ind_data, dict):
                 for k, v in list(ind_data.items())[:8]:
                     parts.append(f"- {k.replace('_', ' ').title()}: {v}")
@@ -2101,16 +2166,16 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
 def _format_salary_response(data: dict) -> str:
     """Format salary data into a readable response."""
     parts = []
-    parts.append(f"### Salary Intelligence: {data.get('role', 'N/A')}\n")
-    parts.append(f"**Location**: {data.get('location', 'National')}")
-    parts.append(f"**Role Tier**: {data.get('role_tier', 'N/A')}")
-    parts.append(f"**Estimated Range**: {data.get('salary_range_estimate', 'N/A')}")
+    parts.append(f"*Salary Intelligence: {data.get('role', 'N/A')}*\n")
+    parts.append(f"*Location*: {data.get('location', 'National')}")
+    parts.append(f"*Role Tier*: {data.get('role_tier', 'N/A')}")
+    parts.append(f"*Estimated Range*: {data.get('salary_range_estimate', 'N/A')}")
     if data.get("notes"):
-        parts.append(f"*{data['notes']}*\n")
+        parts.append(f"_{data['notes']}_\n")
 
     cph = data.get("cost_per_hire_benchmark", {})
     if cph:
-        parts.append("**Cost-per-Hire Benchmarks:**")
+        parts.append("*Cost-per-Hire Benchmarks:*")
         parts.append(f"- SHRM Average: {cph.get('shrm_average', 'N/A')}")
         parts.append(f"- Executive Median: {cph.get('executive', 'N/A')}")
         parts.append(f"- Non-Executive Median: {cph.get('non_executive', 'N/A')}")
@@ -2121,22 +2186,20 @@ def _format_salary_response(data: dict) -> str:
 def _format_budget_response(data: dict, budget: float) -> str:
     """Format budget projection data into a readable response."""
     parts = []
-    parts.append(f"### Budget Allocation: ${budget:,.0f}\n")
+    parts.append(f"*Budget Allocation: ${budget:,.0f}*\n")
 
     if "channel_allocations" in data:
         allocs = data["channel_allocations"]
-        parts.append("**Channel Spend Breakdown:**\n")
-        parts.append("| Channel | Spend | Proj. Clicks | Proj. Applications |")
-        parts.append("|---------|-------|-------------|-------------------|")
+        parts.append("*Channel Spend Breakdown:*\n")
         for ch_name, ch_data in allocs.items():
             spend = ch_data.get("dollar_amount", ch_data.get("dollars", ch_data.get("spend", 0)))
             clicks = ch_data.get("projected_clicks", 0)
             apps = ch_data.get("projected_applications", 0)
-            parts.append(f"| {ch_name} | ${spend:,.0f} | {clicks:,.0f} | {apps:,.0f} |")
+            parts.append(f"- *{ch_name}*: ${spend:,.0f} | Clicks: {clicks:,.0f} | Applications: {apps:,.0f}")
 
         total = data.get("total_projected", {})
         if total:
-            parts.append(f"\n**Projected Totals:**")
+            parts.append(f"\n*Projected Totals:*")
             parts.append(f"- Total Clicks: {total.get('clicks', 0):,.0f}")
             parts.append(f"- Total Applications: {total.get('applications', 0):,.0f}")
             parts.append(f"- Projected Hires: {total.get('hires', 0):,.0f}")
@@ -2146,14 +2209,14 @@ def _format_budget_response(data: dict, budget: float) -> str:
 
     elif "estimated_allocation" in data:
         allocs = data["estimated_allocation"]
-        parts.append("**Estimated Channel Allocation:**\n")
+        parts.append("*Estimated Channel Allocation:*\n")
         for ch_name, ch_data in allocs.items():
             nice_name = ch_name.replace("_", " ").title()
-            parts.append(f"- **{nice_name}**: ${ch_data['amount']:,.0f} ({ch_data['pct']}%)")
+            parts.append(f"- *{nice_name}*: ${ch_data['amount']:,.0f} ({ch_data['pct']}%)")
 
     recs = data.get("recommendations", [])
     if recs:
-        parts.append("\n**Optimization Recommendations:**")
+        parts.append("\n*Optimization Recommendations:*")
         for rec in recs[:4]:
             if isinstance(rec, str):
                 parts.append(f"- {rec}")
@@ -2171,11 +2234,11 @@ def _format_dei_response(data: dict, country: str) -> str:
 def _format_trend_response(data: dict) -> str:
     """Format trend data into a readable response."""
     parts = []
-    parts.append("### Recruitment Market Trends (2025-2026)\n")
+    parts.append("*Recruitment Market Trends (2025-2026)*\n")
 
     summaries = data.get("trend_summaries", {})
     for tk, tv in list(summaries.items())[:6]:
-        parts.append(f"**{tv.get('title', tk.replace('_', ' ').title())}**")
+        parts.append(f"*{tv.get('title', tk.replace('_', ' ').title())}*")
         desc = tv.get("description", "")
         if desc:
             parts.append(f"{desc}\n")
@@ -2186,17 +2249,17 @@ def _format_trend_response(data: dict) -> str:
 def _format_demand_response(data: dict, role: str) -> str:
     """Format market demand data."""
     parts = []
-    parts.append(f"### Market Demand: {role}\n")
+    parts.append(f"*Market Demand: {role}*\n")
 
     apo = data.get("applicants_per_opening", {})
     if apo:
         icims = apo.get("icims_2025", {})
         if icims:
-            parts.append(f"**Applicants per Opening**: {icims.get('ratio', 'N/A')} (iCIMS 2025)")
+            parts.append(f"*Applicants per Opening*: {icims.get('ratio', 'N/A')} (iCIMS 2025)")
 
     soh = data.get("source_of_hire", {})
     if soh:
-        parts.append("\n**Source of Hire Breakdown:**")
+        parts.append("\n*Source of Hire Breakdown:*")
         parts.append(f"- Job Boards: {soh.get('job_boards_usage', 'N/A')}")
         parts.append(f"- Referrals: {soh.get('referrals_usage', 'N/A')}")
         parts.append(f"- Career Sites: {soh.get('career_sites_usage', 'N/A')}")
@@ -2204,7 +2267,7 @@ def _format_demand_response(data: dict, role: str) -> str:
 
     ind = data.get("industry_demand", {})
     if ind:
-        parts.append(f"\n**Industry Demand ({ind.get('industry', 'N/A')}):**")
+        parts.append(f"\n*Industry Demand ({ind.get('industry', 'N/A')}):*")
         parts.append(f"- Hiring Strength: {ind.get('hiring_strength', 'N/A')}")
         parts.append(f"- Recruitment Difficulty: {ind.get('recruitment_difficulty', 'N/A')}")
 
