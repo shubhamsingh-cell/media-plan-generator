@@ -7157,6 +7157,16 @@ except ImportError as _mon_err:
     def health_check_readiness():
         return {"status": "healthy", "version": "2.2.0"}
 
+# Data matrix health monitor (background checks every 12h)
+try:
+    from data_matrix_monitor import get_data_matrix_monitor
+    _data_matrix = get_data_matrix_monitor()
+    _data_matrix.start_background()
+    logger.info("Data matrix monitor started (checks every 12h)")
+except ImportError as _dm_err:
+    logger.warning("data_matrix_monitor not available: %s", _dm_err)
+    _data_matrix = None
+
 # Simple in-memory rate limiter
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -7306,6 +7316,27 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+        elif parsed.path == "/api/health/data-matrix":
+            # Data matrix health monitor (admin-protected)
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            if _data_matrix:
+                dm_result = _data_matrix.get_status()
+                dm_code = 200 if dm_result.get("status") != "degraded" else 503
+                dm_body = json.dumps(dm_result, indent=2).encode("utf-8")
+                self.send_response(dm_code)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(dm_body)))
+                self.end_headers()
+                self.wfile.write(dm_body)
+            else:
+                dm_err_body = json.dumps({"error": "Data matrix monitor not available"}).encode("utf-8")
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(dm_err_body)))
+                self.end_headers()
+                self.wfile.write(dm_err_body)
         elif parsed.path == "/api/metrics":
             # Metrics endpoint (admin-protected)
             if not self._check_admin_auth():
@@ -8388,6 +8419,7 @@ if __name__ == "__main__":
     logger.info("PPTX: %s | API enrichment: %s",
                 "available" if generate_pptx else "unavailable",
                 "available" if enrich_data else "unavailable")
+    logger.info("Data Matrix: %s", "monitoring" if _data_matrix else "unavailable")
     logger.info("=" * 60)
 
     try:
