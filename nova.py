@@ -22,6 +22,8 @@ import logging
 import math
 import os
 import re
+import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -37,9 +39,18 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 # Constants
 # ---------------------------------------------------------------------------
 JOVEO_PRIMARY_COLOR = "#0066CC"
-MAX_HISTORY_TURNS = 20
+MAX_HISTORY_TURNS = 6
 MAX_MESSAGE_LENGTH = 4000
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
+CLAUDE_MODEL_PRIMARY = "claude-haiku-4-5-20241022"    # $1/$5 per M tokens
+CLAUDE_MODEL_FALLBACK = "claude-sonnet-4-20250514"    # $3/$15 per M tokens
+CLAUDE_MODEL = CLAUDE_MODEL_PRIMARY
+
+# Response cache settings
+RESPONSE_CACHE_TTL = 7 * 86400  # 7 days
+RESPONSE_CACHE_FILE = DATA_DIR / "nova_response_cache.json"
+MAX_RESPONSE_CACHE_SIZE = 200
+_response_cache: Dict[str, Any] = {}
+_response_cache_lock = threading.Lock()
 
 # Country name aliases for fuzzy matching
 _COUNTRY_ALIASES: Dict[str, str] = {
@@ -132,6 +143,227 @@ _METRIC_KEYWORDS: Dict[str, List[str]] = {
                    "metrics that matter"],
 }
 
+# ---------------------------------------------------------------------------
+# Stop words for cache key normalization and keyword extraction
+# ---------------------------------------------------------------------------
+_CACHE_STOP_WORDS = frozenset(
+    {
+        "what", "is", "the", "a", "an", "how", "does", "can", "for", "in",
+        "of", "to", "and", "or", "my", "our", "we", "do", "are", "it",
+        "this", "that", "which", "with", "about", "on", "at", "be", "by",
+        "from", "has", "have", "i", "me", "you", "your", "they", "their",
+        "was", "were", "been", "being", "will", "would", "could", "should",
+        "may", "might", "shall", "not", "no", "so", "if", "but", "up",
+        "out", "there", "here", "when", "where", "why", "who", "whom",
+    }
+)
+
+# Preloaded learned answers (same as nova_slack.py)
+_PRELOADED_ANSWERS = [
+    {"question": "how many publishers does joveo have", "answer": "Joveo has **10,238+ Supply Partners** across **70+ countries**, including major job boards, niche boards, programmatic platforms, and social channels.", "keywords": ["publishers", "supply partners", "how many"], "confidence": 0.95},
+    {"question": "what is joveo", "answer": "Joveo is a **recruitment marketing platform** that uses programmatic advertising technology to optimize job ad spend across 10,238+ Supply Partners globally. It helps employers reach the right candidates at the right time on the right channels.", "keywords": ["joveo", "what is"], "confidence": 0.95},
+    {"question": "what countries does joveo operate in", "answer": "Joveo operates across **70+ countries** including the US, UK, Canada, Germany, France, India, Australia, Japan, UAE, Brazil, and many more across EMEA, APAC, and AMER regions.", "keywords": ["countries", "regions", "operate"], "confidence": 0.90},
+    {"question": "what is programmatic job advertising", "answer": "Programmatic job advertising uses **data-driven automation** to buy, place, and optimize job ads in real-time across multiple channels. It maximizes ROI by dynamically adjusting bids, budgets, and targeting based on performance data. Average CPC ranges from $0.50-$2.50 depending on role and industry.", "keywords": ["programmatic", "advertising", "explain"], "confidence": 0.90},
+    {"question": "what is cpc cpa cph", "answer": "**CPC** (Cost Per Click): You pay each time a candidate clicks your job ad ($0.50-$5.00 typical).\n**CPA** (Cost Per Application): You pay when a candidate completes an application ($5-$50 typical).\n**CPH** (Cost Per Hire): Total cost to fill a position ($1,500-$10,000+ depending on role).\nCPC is best for volume, CPA for quality, CPH for executive/niche roles.", "keywords": ["cpc", "cpa", "cph", "cost per"], "confidence": 0.95},
+    {"question": "what pricing models does joveo support", "answer": "Joveo supports multiple pricing models: **CPC** (Cost Per Click), **CPA** (Cost Per Application), **TCPA** (Target CPA with auto-optimization), **Flat CPC**, **ORG** (Organic/free postings), and **PPP** (Pay Per Post). The optimal model depends on your hiring volume and role type.", "keywords": ["pricing", "models", "commission"], "confidence": 0.90},
+    {"question": "top job boards in the us", "answer": "The top job boards in the US by traffic and performance:\n1. **Indeed** -- largest globally, CPC model\n2. **LinkedIn** -- best for white-collar/professional\n3. **ZipRecruiter** -- strong AI matching\n4. **Glassdoor** (merging into Indeed) -- employer brand focused\n5. **CareerBuilder** (under Bold Holdings post-bankruptcy)\n6. **Dice** -- tech-specific\n7. **Snagajob/JobGet** -- hourly/blue-collar\n8. **Handshake** -- early career/campus", "keywords": ["top", "job boards", "us", "united states", "best"], "confidence": 0.85},
+    {"question": "what happened to monster and careerbuilder", "answer": "Monster and CareerBuilder filed for **Chapter 11 bankruptcy** in July 2025. They were acquired by **Bold Holdings for $28M**. Monster Europe has been shut down (DNS killed). CareerBuilder continues operating in the US under new ownership but with reduced scale.", "keywords": ["monster", "careerbuilder", "bankruptcy", "shut down"], "confidence": 0.95},
+    {"question": "what is glassdoor status", "answer": "Glassdoor's operations are **merging into Indeed** (both owned by Recruit Holdings). The Glassdoor CEO stepped down in late 2025. The platform still operates but is increasingly integrated with Indeed's infrastructure.", "keywords": ["glassdoor", "status", "indeed"], "confidence": 0.90},
+    {"question": "best boards for nursing hiring", "answer": "Top job boards for **nursing/healthcare** hiring:\n1. **Health eCareers** -- largest healthcare niche board\n2. **Nurse.com** -- RN-focused\n3. **NursingJobs.us** -- US nursing specific\n4. **Indeed** -- high-volume nursing traffic\n5. **Vivian Health** -- travel nursing marketplace\n6. **Incredible Health** -- RN matching platform\n7. **AlliedHealthJobs** -- allied health professionals\nRecommended channel mix: 30% niche boards, 22% programmatic, 15% global boards.", "keywords": ["nursing", "nurse", "healthcare", "boards"], "confidence": 0.90},
+    {"question": "best boards for blue collar hiring", "answer": "Top channels for **blue-collar/hourly** hiring:\n1. **JobGet** (acquired Snagajob) -- 100M+ hourly workers\n2. **Indeed** -- highest blue-collar volume\n3. **Craigslist** -- local trades & service\n4. **Facebook Jobs** -- mobile-first hourly workers\n5. **Wonolo** -- on-demand warehouse/logistics\n6. **Instawork** -- gig/flexible workers\n7. **ShiftPixy** -- restaurant/hospitality shifts\nBudget tip: 40%+ should go to programmatic/mobile-first channels.", "keywords": ["blue collar", "hourly", "warehouse", "driver", "trades"], "confidence": 0.90},
+    {"question": "joveo vs competitors", "answer": "Joveo's key differentiators vs competitors:\n- **PandoLogic** (now Veritone Hire): Joveo has broader global publisher network (70+ vs ~20 countries)\n- **Appcast** (owned by StepStone): Joveo offers more pricing models (CPC+CPA+TCPA)\n- **Recruitics**: Joveo has stronger programmatic optimization and niche board access\n- **Radancy**: Joveo focuses on performance marketing, Radancy on employer branding\nJoveo uniquely offers access to 10,238+ Supply Partners with real-time bid optimization.", "keywords": ["competitor", "vs", "pandologic", "appcast", "recruitics"], "confidence": 0.85},
+]
+
+_PARTIAL_MATCH_THRESHOLD = 0.35
+
+
+def _normalize_cache_key(question: str) -> str:
+    """Normalize a question into a canonical cache key.
+
+    Lowercase, strip punctuation, expand contractions, remove stop words,
+    sort remaining words alphabetically.
+    """
+    text = question.lower().strip()
+    # Expand common contractions
+    text = text.replace("what's", "what is").replace("how's", "how is")
+    text = text.replace("it's", "it is").replace("who's", "who is")
+    text = text.replace("where's", "where is").replace("there's", "there is")
+    text = text.replace("that's", "that is").replace("doesn't", "does not")
+    text = text.replace("don't", "do not").replace("can't", "cannot")
+    text = text.replace("won't", "will not").replace("isn't", "is not")
+    # Strip punctuation
+    text = re.sub(r"[^\w\s]", "", text)
+    # Tokenize and remove stop words
+    words = text.split()
+    filtered = [w for w in words if w not in _CACHE_STOP_WORDS]
+    # Sort alphabetically for order-invariant key
+    filtered.sort()
+    return " ".join(filtered)
+
+
+def _extract_keywords(text: str) -> set:
+    """Tokenise *text* into a set of lower-case keywords, minus stop-words."""
+    words = set(re.findall(r"\w+", text.lower()))
+    return words - _CACHE_STOP_WORDS
+
+
+def _check_learned_answers(question: str) -> Optional[Dict[str, Any]]:
+    """Check preloaded + on-disk learned answers using Jaccard similarity."""
+    # Merge preloaded with disk-based learned answers
+    all_answers = list(_PRELOADED_ANSWERS)
+    try:
+        learned_file = DATA_DIR / "nova_learned_answers.json"
+        if learned_file.exists():
+            with open(learned_file, "r", encoding="utf-8") as f:
+                disk_data = json.load(f)
+                disk_answers = disk_data.get("answers", [])
+                all_answers.extend(disk_answers)
+    except Exception as exc:
+        logger.warning("Could not load learned answers from disk: %s", exc)
+
+    q_words = _extract_keywords(question)
+    if not q_words:
+        return None
+
+    best_match: Optional[dict] = None
+    best_score: float = 0.0
+
+    for entry in all_answers:
+        a_words = _extract_keywords(entry.get("question", ""))
+        if not a_words:
+            continue
+        overlap = len(q_words & a_words)
+        union = len(q_words | a_words)
+        score = overlap / union if union else 0.0
+        if score > best_score:
+            best_score = score
+            best_match = entry
+
+    if best_match and best_score >= _PARTIAL_MATCH_THRESHOLD:
+        logger.info("Learned answer match (score=%.2f): %s", best_score, best_match.get("question", ""))
+        return {
+            "response": best_match["answer"],
+            "confidence": min(best_score * 1.2, 1.0),
+            "sources": ["Joveo Knowledge Base (learned answers)"],
+            "tools_used": [],
+            "cached": True,
+        }
+
+    return None
+
+
+def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
+    """Check response cache: memory first, then disk. Returns cached result or None."""
+    now = time.time()
+
+    # 1) Memory check
+    with _response_cache_lock:
+        if key in _response_cache:
+            entry = _response_cache[key]
+            if entry.get("expires", 0) > now:
+                logger.info("Nova cache HIT (memory)")
+                return entry.get("data")
+            else:
+                del _response_cache[key]
+
+    # 2) Disk check
+    try:
+        if RESPONSE_CACHE_FILE.exists():
+            with open(RESPONSE_CACHE_FILE, "r", encoding="utf-8") as f:
+                disk_cache = json.load(f)
+            if key in disk_cache:
+                entry = disk_cache[key]
+                if entry.get("expires", 0) > now:
+                    logger.info("Nova cache HIT (disk)")
+                    data = entry.get("data")
+                    # Promote to memory
+                    with _response_cache_lock:
+                        _response_cache[key] = entry
+                    return data
+    except Exception as exc:
+        logger.warning("Disk cache read error: %s", exc)
+
+    return None
+
+
+def _set_response_cache(key: str, data: Dict[str, Any], ttl: int = RESPONSE_CACHE_TTL) -> None:
+    """Write to memory cache (with LRU eviction) + disk (atomic write)."""
+    now = time.time()
+    entry = {"data": data, "expires": now + ttl, "created": now}
+
+    # 1) Memory write with LRU eviction
+    with _response_cache_lock:
+        _response_cache[key] = entry
+        if len(_response_cache) > MAX_RESPONSE_CACHE_SIZE:
+            # Evict oldest entry
+            oldest_key = min(_response_cache, key=lambda k: _response_cache[k].get("created", 0))
+            del _response_cache[oldest_key]
+
+    # 2) Disk write (atomic via tmp + rename, evict expired on write)
+    try:
+        disk_cache: Dict[str, Any] = {}
+        if RESPONSE_CACHE_FILE.exists():
+            try:
+                with open(RESPONSE_CACHE_FILE, "r", encoding="utf-8") as f:
+                    disk_cache = json.load(f)
+            except (json.JSONDecodeError, IOError):
+                disk_cache = {}
+
+        # Evict expired entries
+        disk_cache = {k: v for k, v in disk_cache.items() if v.get("expires", 0) > now}
+        disk_cache[key] = entry
+
+        # Atomic write via temp file + rename
+        fd, tmp_path = tempfile.mkstemp(dir=str(DATA_DIR), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as tmp_f:
+                json.dump(disk_cache, tmp_f, default=str)
+            os.replace(tmp_path, str(RESPONSE_CACHE_FILE))
+        except Exception:
+            # Clean up temp file on failure
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+    except Exception as exc:
+        logger.warning("Disk cache write error: %s", exc)
+
+
+def _classify_query_complexity(user_message: str) -> int:
+    """Classify query complexity to determine adaptive max_tokens.
+
+    Returns:
+        1024 for simple queries, 2048 for medium, 4096 for complex.
+    """
+    msg_lower = user_message.lower().strip()
+
+    # Complex keywords -> 4096
+    complex_patterns = [
+        "budget", "plan", "strategy", "compare", "versus", " vs ",
+        "allocat", "media plan", "hiring plan", "project",
+        "how should i", "recommend", "analyze", "analysis",
+    ]
+    if any(p in msg_lower for p in complex_patterns):
+        return 4096
+
+    # Simple patterns -> 1024
+    simple_patterns = [
+        r"^(hi|hello|hey|good morning|good afternoon)\b",
+        r"^what is\s",
+        r"^who is\s",
+        r"^what does\s",
+        r"^define\s",
+        r"^explain\s",
+        r"^(thanks|thank you|ok|okay|got it)",
+    ]
+    if any(re.search(p, msg_lower) for p in simple_patterns):
+        return 1024
+
+    # Default medium
+    return 2048
+
+
 # Industry keywords
 _INDUSTRY_KEYWORDS: Dict[str, List[str]] = {
     "healthcare": ["healthcare", "health care", "hospital", "medical", "pharma", "biotech"],
@@ -217,177 +449,66 @@ class Nova:
     # ------------------------------------------------------------------
 
     def get_system_prompt(self) -> str:
-        """Build the system prompt for Claude with full context about Joveo's capabilities."""
-        kb = self._data_cache.get("knowledge_base", {})
+        """Build the compressed system prompt for Claude."""
         publishers = self._data_cache.get("joveo_publishers", {})
         total_pubs = publishers.get("total_active_publishers", 0)
-        pub_categories = list(publishers.get("by_category", {}).keys())
         pub_countries = list(publishers.get("by_country", {}).keys())
 
         supply = self._data_cache.get("global_supply", {})
         supply_countries = list(supply.get("country_job_boards", {}).keys())
 
-        channels = self._data_cache.get("channels_db", {})
-        channel_industries = list(channels.get("traditional_channels", {}).get("niche_by_industry", {}).keys())
-
-        return f"""You are Nova, Joveo's AI-powered recruitment marketing intelligence assistant.
-
-Joveo is a leader in programmatic recruitment advertising, helping employers optimize their hiring spend across job boards, social channels, and programmatic networks worldwide.
+        return f"""You are Nova, Joveo's recruitment marketing AI assistant. Joveo optimizes job ad spend across {total_pubs:,}+ publishers in {len(pub_countries)} countries via programmatic advertising.
 
 ## CRITICAL: ASK BEFORE ANSWERING
 
 Before providing data, check if the user's question has enough specifics. If ANY of these are missing, ASK FIRST:
-- **Salary questions** without a location/country → Ask: "Which country or region? Salary ranges vary significantly by location."
-- **Budget questions** without a budget amount → Ask: "What's your total budget? I need a number to create an allocation plan."
-- **Channel/board questions** without a country → Ask: "Which country or region are you hiring in?"
-- **Benchmark questions** without an industry → Ask: "Which industry? Benchmarks differ dramatically by sector."
+- **Salary questions** without a location/country -> Ask: "Which country or region? Salary ranges vary significantly by location."
+- **Budget questions** without a budget amount -> Ask: "What's your total budget? I need a number to create an allocation plan."
+- **Channel/board questions** without a country -> Ask: "Which country or region are you hiring in?"
+- **Benchmark questions** without an industry -> Ask: "Which industry? Benchmarks differ dramatically by sector."
 
 Do NOT default to US/USD data when the user hasn't specified a location. Always ask first.
 
-When a country IS specified:
-- Use LOCAL CURRENCY (INR for India, GBP for UK, EUR for Germany, etc.), never default to USD
-- Reference LOCAL job boards and platforms relevant to that market
-- Cite local hiring norms and regulations when relevant
+When a country IS specified: use LOCAL CURRENCY (INR for India, GBP for UK, EUR for Germany, etc.), reference local boards, cite local norms.
 
-## REASONING APPROACH
+## REASONING
 
-Before answering any question, follow this structured reasoning process:
+- Identify intent, check for missing parameters (location, role, industry, budget), ask before calling tools if unclear.
+- Call multiple tools when questions span domains. Cross-reference and flag discrepancies.
+- Synthesize data into actionable insights; do not dump raw data.
 
-1. **Identify the intent**: What is the user really asking? (benchmark lookup, budget planning, channel recommendation, market intelligence, comparison, or general knowledge)
-2. **Check for missing parameters**: Does the question specify location, role, industry, budget? If not, ask for clarification BEFORE calling tools.
-3. **Determine required data**: Which of your tools contain the relevant data? Call multiple tools when the question spans different domains.
-4. **Cross-reference sources**: When you have data from multiple tools, compare and validate. Flag discrepancies.
-5. **Synthesize and recommend**: Combine data into actionable insights. Do not just dump raw data -- interpret it for the user's specific context.
-6. **Assess confidence**: Rate your confidence based on data freshness, source count, and agreement between sources.
+## DATA SOURCES (via tools)
 
-## YOUR DATA SOURCES (accessible via tools)
+1. `query_publishers` -- {total_pubs:,}+ publishers, {len(pub_countries)} countries, search by name/category/country
+2. `query_global_supply` -- {len(supply_countries)} countries: boards, DEI boards, monthly spend
+3. `query_channels` -- channel recs by industry (traditional + non-traditional)
+4. `query_knowledge_base` -- 42 sources: CPC/CPA/CPH benchmarks, trends, platform insights
+5. `query_budget_projection` -- spend allocation with projected clicks/apps/hires
+6. `query_salary_data` -- compensation ranges by role and location
+7. `query_market_demand` -- applicant ratios, source-of-hire, hiring strength
+8. `query_platform_deep` -- 91 platforms: CPC, CPA, apply rates, features, pros/cons (best for comparisons)
+9. `query_recruitment_benchmarks` -- 22 industries: CPA/CPC/CPH with YoY trends (use over query_knowledge_base for industry data)
+10. `query_employer_branding` -- ROI data, best practices, channel effectiveness
+11. `query_regional_market` -- US regions + global markets: boards, salaries, regulations
+12. `query_supply_ecosystem` -- programmatic mechanics, bidding, publisher waterfall
+13. `query_workforce_trends` -- Gen-Z, remote work, DEI, salary expectations
+14. `query_white_papers` -- 47 industry reports (use when citing research)
+15. `query_linkedin_guidewire` -- LinkedIn hiring case study, peer benchmarks
+16. `query_location_profile` -- location cost, workforce, supply data
+17. `query_ad_platform` -- platform recs by role type with CPC benchmarks
+18. `suggest_smart_defaults` -- auto-detect budget/channel defaults from partial info
 
-1. **Joveo Publisher Network** ({total_pubs:,} active publishers, {len(pub_countries)} countries)
-   - Categories: {', '.join(pub_categories[:10])}{'...' if len(pub_categories) > 10 else ''}
-   - Tool: `query_publishers` -- use for publisher counts, publisher search by name/category/country
+## TOOL STRATEGY
 
-2. **Global Supply Intelligence** ({len(supply_countries)} countries)
-   - Country-specific job boards, DEI boards, women-focused boards, monthly spend data
-   - Tool: `query_global_supply` -- use for country-specific board lists and spend benchmarks
+Always call tools before answering data questions. Use `query_platform_deep` for platform comparisons, `query_recruitment_benchmarks` for industry-specific data, `query_white_papers` for evidence.
 
-3. **Channel Database** (traditional + non-traditional)
-   - Industry niches: {', '.join(channel_industries[:8])}{'...' if len(channel_industries) > 8 else ''}
-   - Tool: `query_channels` -- use for channel recommendations by industry
+## RESPONSE RULES
 
-4. **Recruitment Industry Knowledge Base** (42 sources)
-   - CPC/CPA/CPH benchmarks, apply rates, conversion funnels, market trends, platform insights
-   - Tool: `query_knowledge_base` -- use for benchmarks, trends, and platform comparisons
-
-5. **Budget Projection Engine**
-   - Models spend allocation with projected clicks, applications, and hires
-   - Tool: `query_budget_projection` -- use when user asks about budgets, ROI, or hiring spend
-
-6. **Salary Intelligence** (BLS, O*NET, commercial sources)
-   - Tool: `query_salary_data` -- use for compensation ranges by role and location
-
-7. **Market Demand Signals** (posting volumes, growth trends, competition)
-   - Tool: `query_market_demand` -- use for labor market context
-
-8. **Platform Intelligence** (91 job boards and ad platforms)
-   - Detailed CPC, CPA, apply rates, demographics, DEI features, AI features, pros/cons
-   - Tool: `query_platform_deep` -- use for deep dives on specific platforms or platform comparisons
-
-9. **Recruitment Benchmarks** (22 industries with YoY trends)
-   - Industry-specific CPA, CPC, CPH, apply rates, time-to-fill, funnel conversion rates
-   - Tool: `query_recruitment_benchmarks` -- use for industry-specific performance data
-
-10. **Employer Branding Intelligence**
-    - ROI data, best practices, channel effectiveness
-    - Tool: `query_employer_branding` -- use for employer brand strategy questions
-
-11. **Regional Hiring Intelligence** (US regions + global markets)
-    - Top job boards by market, dominant industries, talent dynamics, hiring regulations
-    - Tool: `query_regional_market` -- use for location-specific hiring strategies
-
-12. **Supply Ecosystem Intelligence**
-    - Programmatic advertising mechanics, bidding models, publisher waterfall, budget pacing
-    - Tool: `query_supply_ecosystem` -- use for questions about how programmatic works
-
-13. **Workforce Trends** (generational data, remote work, DEI)
-    - Gen-Z behavior, platform preferences, salary expectations
-    - Tool: `query_workforce_trends` -- use for demographic and trend questions
-
-14. **Industry White Papers** (47 reports from Appcast, Radancy, Recruitics, PandoLogic, Joveo)
-    - Tool: `query_white_papers` -- use for citing industry research and specific study findings
-
-15. **LinkedIn Hiring Intelligence** (Guidewire case study)
-    - Influenced hire rates, skill density, recruiter efficiency, peer benchmarks
-    - Tool: `query_linkedin_guidewire` -- use for LinkedIn ROI and tech company benchmarks
-
-16. **Location Profiles**
-    - Cost of living, workforce density, infrastructure data by city/country
-    - Tool: `query_location_profile` -- use for location-specific context
-
-17. **Ad Platform Recommendations**
-    - Platform recommendations by role type with CPC benchmarks
-    - Tool: `query_ad_platform` -- use for "which platform should I use" questions
-
-## TOOL USE STRATEGY
-
-- **Always call tools** before answering data questions. Never guess at numbers.
-- **Call multiple tools** when questions span domains. Example: "How should I hire nurses in Texas?" requires `query_salary_data`, `query_recruitment_benchmarks` (healthcare), `query_regional_market` (us_south), and `query_publishers` (country=US, category=Health).
-- **Use `query_platform_deep`** for detailed platform comparisons instead of `query_knowledge_base` when comparing specific job boards.
-- **Use `query_recruitment_benchmarks`** for industry-specific CPA/CPH data rather than the general knowledge base.
-- **Use `query_white_papers`** when the user asks for evidence or research backing a claim.
-
-## RESPONSE GUIDELINES
-
-### Source Citation (REQUIRED)
-- Every data point MUST cite its source: "According to Joveo's platform intelligence data..." or "Based on BLS salary data via our knowledge base..."
-- When multiple sources agree, note the convergence: "Both our recruitment benchmarks (22-industry dataset) and the Appcast 2025 benchmark report show..."
-- When sources disagree, present both: "Our knowledge base shows CPC of $1.20, while Adzuna market data suggests $0.95 -- the difference likely reflects..."
-
-### Confidence Communication (REQUIRED)
-- **High confidence** (3+ sources agree): State facts directly. "The average CPA for healthcare is $45-65."
-- **Medium confidence** (1-2 sources): Qualify with source. "Based on our recruitment benchmarks data, healthcare CPA averages $52."
-- **Low confidence** (extrapolated/estimated): Be explicit. "I don't have direct data for this market, but based on similar industries, I'd estimate..."
-- **No data**: Say so clearly. "I don't have specific data on [X]. Here's what I can tell you about the closest related data..."
-
-### Hallucination Prevention
-- NEVER invent statistics, benchmarks, or data points. If a tool returns no data, say so.
-- NEVER present estimates as facts. Always label estimates with words like "approximately", "estimated", or "based on similar roles".
-- If you are unsure, say "I'm not confident in this answer" rather than guessing.
-- Do not extrapolate trends beyond what the data supports.
-
-### Response Structure
-- Lead with the direct answer, then provide supporting data.
-- Use markdown formatting: headers, bold for key numbers, bullet points for lists.
-- For budget questions, always include a table or structured breakdown.
-- End complex answers with a "Key Takeaway" or "Recommendation" section.
-- Keep responses focused and actionable for recruitment marketing professionals.
-
-### GEO-Friendly Response Formatting
-When providing data-driven answers, structure responses for citation-friendliness:
-- Lead with the key factual claim or statistic
-- Include specific numbers, percentages, and benchmarks
-- Cite the data source (e.g., "According to Joveo platform intelligence data..." or "Based on BLS salary benchmarks...")
-- Use clear, definitive statements rather than hedged language
-- Structure complex answers with numbered lists or clear sections
-
-### Proactive Intelligence
-- When answering about one topic, proactively surface related insights the user may find useful.
-- For budget questions, always mention if the budget seems too low or high for the goals.
-- For channel recommendations, mention emerging alternatives and explain why.
-- Recommend Joveo's programmatic approach when relevant but do not be overtly promotional.
-
-## FEW-SHOT EXAMPLES
-
-**Example 1 -- Budget Planning**
-User: "How should I allocate $100K for hiring 20 nurses in Texas?"
-Good response approach: Call query_budget_projection, query_salary_data (Registered Nurse, Texas), query_recruitment_benchmarks (healthcare), query_regional_market (us_south), and query_publishers (country=US, category=Health). Synthesize into a channel allocation table with projected outcomes, flag if budget is sufficient for 20 hires based on healthcare CPH benchmarks.
-
-**Example 2 -- Platform Comparison**
-User: "Indeed vs LinkedIn for software engineer hiring"
-Good response approach: Call query_platform_deep for both platforms. Compare CPC, CPA, apply rates, candidate quality, and best-use cases. Provide a recommendation based on the specific role type.
-
-**Example 3 -- Market Intelligence**
-User: "What's the hiring landscape for data scientists?"
-Good response approach: Call query_salary_data, query_market_demand, query_recruitment_benchmarks (technology), and query_workforce_trends. Synthesize salary ranges, competition level, best channels, and emerging trends.
+- Cite sources for every data point. Note convergence or flag discrepancies.
+- High confidence (3+ sources): state directly. Medium (1-2): qualify. Low: label as estimate. No data: say so.
+- NEVER invent statistics. NEVER present estimates as facts.
+- Lead with the answer, use markdown, end complex answers with a recommendation.
+- Proactively surface related insights. Flag if budget is too low/high.
 """
 
     # ------------------------------------------------------------------
@@ -395,339 +516,231 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
     # ------------------------------------------------------------------
 
     def get_tool_definitions(self) -> list:
-        """Define tools that Claude can call to access Joveo's data.
-
-        Each tool description follows a structured pattern:
-        - WHAT: What data this tool provides
-        - WHEN: When to use this tool (specific triggers)
-        - WHEN NOT: When to use a different tool instead
-        - RETURNS: What the response contains
-        """
+        """Define tools that Claude can call to access Joveo's data."""
         return [
             {
                 "name": "query_global_supply",
-                "description": "Get country-specific job board listings, DEI-focused boards, women-focused boards, and monthly spend data from Joveo's global supply intelligence. USE WHEN: the user asks about job boards in a specific country, DEI/diversity boards, or monthly hiring spend by country. DO NOT USE for general recruitment benchmarks (use query_knowledge_base) or for detailed platform data (use query_platform_deep). RETURNS: list of boards with tier, billing model, category; monthly spend estimates; key metros.",
+                "description": "Country-specific job boards, DEI boards, women-focused boards, monthly spend. Use for boards in a specific country or DEI boards. Not for benchmarks (query_knowledge_base) or platform details (query_platform_deep).",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "country": {
-                            "type": "string",
-                            "description": "Country name (e.g., 'United States', 'Germany', 'India'). Omit to get a list of all available countries."
-                        },
-                        "board_type": {
-                            "type": "string",
-                            "enum": ["general", "dei", "women", "all"],
-                            "description": "Filter by board type. Use 'dei' for diversity/equity/inclusion boards. Use 'women' for women-focused boards. Default: 'all'."
-                        },
-                        "category": {
-                            "type": "string",
-                            "description": "Board category filter (e.g., 'Tech', 'Healthcare', 'General'). Only applies when board_type is 'general' or 'all'."
-                        }
+                        "country": {"type": "string", "description": "Country name. Omit for all countries."},
+                        "board_type": {"type": "string", "enum": ["general", "dei", "women", "all"], "description": "Board type filter. Default: 'all'."},
+                        "category": {"type": "string", "description": "Board category filter (e.g., 'Tech', 'Healthcare')."}
                     },
                     "required": []
                 }
             },
             {
                 "name": "query_channels",
-                "description": "Get recruitment channel recommendations organized by type: regional/local boards, global job boards, niche industry boards, and non-traditional channels (social media, community boards, etc.). USE WHEN: the user asks about channel strategy, non-traditional recruitment sources, or industry-specific niche boards. DO NOT USE for publisher network counts (use query_publishers) or for specific platform CPC data (use query_platform_deep). RETURNS: channel lists grouped by type and industry.",
+                "description": "Channel recommendations by type: regional, global, niche industry, non-traditional. Use for channel strategy or niche boards. Not for publisher counts (query_publishers) or platform CPC (query_platform_deep).",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "industry": {
-                            "type": "string",
-                            "description": "Industry to filter niche channels (e.g., 'healthcare_medical', 'tech_engineering', 'transportation', 'construction_real_estate'). Omit to get all channel types."
-                        },
-                        "channel_type": {
-                            "type": "string",
-                            "enum": ["regional_local", "global_reach", "niche_by_industry", "non_traditional", "all"],
-                            "description": "Specific channel category to query. Default: 'all'."
-                        }
+                        "industry": {"type": "string", "description": "Industry filter (e.g., 'healthcare_medical', 'tech_engineering')."},
+                        "channel_type": {"type": "string", "enum": ["regional_local", "global_reach", "niche_by_industry", "non_traditional", "all"], "description": "Channel category. Default: 'all'."}
                     },
                     "required": []
                 }
             },
             {
                 "name": "query_publishers",
-                "description": "Search Joveo's active supply partner network of 10,238+ Supply Partners by country, category, or name. USE WHEN: the user asks how many publishers/supply partners Joveo has, wants to find a specific publisher by name, or wants publisher lists filtered by country/category. DO NOT USE for job board performance benchmarks (use query_platform_deep) or for channel strategy (use query_channels). RETURNS: publisher names, counts, and category/country breakdowns.",
+                "description": "Search Joveo's 10,238+ publisher network by country, category, or name. Use for publisher counts, name search, or filtered lists. Not for performance benchmarks (query_platform_deep).",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "country": {
-                            "type": "string",
-                            "description": "Country to filter publishers (e.g., 'United States', 'Germany')"
-                        },
-                        "category": {
-                            "type": "string",
-                            "description": "Publisher category (e.g., 'DEI', 'Health', 'Tech', 'Social Media', 'Programmatic')"
-                        },
-                        "search_term": {
-                            "type": "string",
-                            "description": "Search publishers by name (e.g., 'indeed', 'glassdoor'). Case-insensitive substring match."
-                        }
+                        "country": {"type": "string", "description": "Country filter"},
+                        "category": {"type": "string", "description": "Category (e.g., 'DEI', 'Health', 'Tech', 'Programmatic')"},
+                        "search_term": {"type": "string", "description": "Name search (case-insensitive substring)"}
                     },
                     "required": []
                 }
             },
             {
                 "name": "query_knowledge_base",
-                "description": "Search Joveo's core recruitment industry knowledge base with CPC/CPA/CPH benchmarks, apply rates, market trends, platform insights, and industry-specific data from 42 sources. USE WHEN: the user asks for general recruitment benchmarks, CPC by platform, market trends (AI in recruiting, programmatic, skills-based hiring), or platform insights. DO NOT USE for deep platform comparisons (use query_platform_deep) or for industry-specific benchmarks with YoY trends (use query_recruitment_benchmarks). RETURNS: benchmark data by metric, trend summaries, platform CPC comparisons.",
+                "description": "Core recruitment KB: CPC/CPA/CPH benchmarks, market trends, platform insights from 42 sources. Use for general benchmarks and trends. Not for industry-specific data (query_recruitment_benchmarks) or platform comparisons (query_platform_deep).",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "topic": {
-                            "type": "string",
-                            "enum": ["benchmarks", "trends", "platforms", "regional", "industry_specific", "all"],
-                            "description": "Topic area. 'benchmarks' for CPC/CPA/CPH data. 'trends' for market trends. 'platforms' for platform insights. 'industry_specific' for per-industry benchmarks. 'all' returns an overview."
-                        },
-                        "metric": {
-                            "type": "string",
-                            "description": "Specific metric: 'cpc', 'cpa', 'cost_per_hire', 'apply_rate', 'time_to_fill', 'source_of_hire', 'conversion_rate'. Only relevant when topic='benchmarks'."
-                        },
-                        "industry": {
-                            "type": "string",
-                            "description": "Industry for industry-specific benchmarks (e.g., 'healthcare', 'technology', 'retail_hospitality')"
-                        },
-                        "platform": {
-                            "type": "string",
-                            "description": "Platform name to filter (e.g., 'indeed', 'linkedin', 'google_ads'). Only relevant when topic='platforms' or 'benchmarks'."
-                        }
+                        "topic": {"type": "string", "enum": ["benchmarks", "trends", "platforms", "regional", "industry_specific", "all"], "description": "Topic area."},
+                        "metric": {"type": "string", "description": "Metric: 'cpc', 'cpa', 'cost_per_hire', 'apply_rate', 'time_to_fill', 'source_of_hire', 'conversion_rate'."},
+                        "industry": {"type": "string", "description": "Industry filter."},
+                        "platform": {"type": "string", "description": "Platform name filter."}
                     },
                     "required": []
                 }
             },
             {
                 "name": "query_salary_data",
-                "description": "Get salary intelligence for specific roles and locations. Returns compensation ranges with role tier classification and cost-per-hire benchmarks. USE WHEN: the user asks about salaries, compensation, pay ranges, or wages for specific job titles. Also useful as context for budget planning. RETURNS: salary range estimate, role tier, cost-per-hire benchmarks from SHRM data.",
+                "description": "Salary ranges by role and location with tier classification and CPH benchmarks. Use for compensation, pay, and wage questions.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "role": {
-                            "type": "string",
-                            "description": "Job role or title (e.g., 'Registered Nurse', 'Software Engineer', 'CDL Driver', 'Marketing Manager')"
-                        },
-                        "location": {
-                            "type": "string",
-                            "description": "Location (city, state, or country)"
-                        }
+                        "role": {"type": "string", "description": "Job title (e.g., 'Registered Nurse', 'Software Engineer')"},
+                        "location": {"type": "string", "description": "Location (city, state, or country)"}
                     },
                     "required": ["role"]
                 }
             },
             {
                 "name": "query_market_demand",
-                "description": "Get job market demand signals including applicants-per-opening ratios, source-of-hire breakdowns, hiring strength by industry, and labor market trends. USE WHEN: the user asks about talent supply/demand, how competitive a role is to fill, or where hires come from. RETURNS: applicant-per-opening data, source-of-hire percentages, industry hiring strength.",
+                "description": "Job market demand: applicant ratios, source-of-hire, hiring strength, labor trends. Use for talent supply/demand and competition questions.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "role": {
-                            "type": "string",
-                            "description": "Job role or title"
-                        },
-                        "location": {
-                            "type": "string",
-                            "description": "Location (city, state, or country)"
-                        },
-                        "industry": {
-                            "type": "string",
-                            "description": "Industry context"
-                        }
+                        "role": {"type": "string", "description": "Job title"},
+                        "location": {"type": "string", "description": "Location"},
+                        "industry": {"type": "string", "description": "Industry"}
                     },
                     "required": []
                 }
             },
             {
                 "name": "query_budget_projection",
-                "description": "Project budget allocation across channels (Programmatic, Job Boards, Niche Boards, Social Media, Regional, Employer Branding) with projected clicks, applications, and hires. USE WHEN: the user provides a dollar budget and asks how to allocate it, or asks about ROI projections, or asks 'how much should I spend to hire X people'. RETURNS: channel-by-channel allocation with dollar amounts, projected click/apply/hire counts, budget sufficiency assessment, and recommendations.",
+                "description": "Budget allocation across 6 channels with projected clicks, applications, hires. Use when user provides a dollar budget or asks about ROI/spend allocation.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "budget": {
-                            "type": "number",
-                            "description": "Total budget in USD"
-                        },
-                        "roles": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "List of role titles to hire for"
-                        },
-                        "locations": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "List of hiring locations"
-                        },
-                        "industry": {
-                            "type": "string",
-                            "description": "Industry classification"
-                        }
+                        "budget": {"type": "number", "description": "Total budget in USD"},
+                        "roles": {"type": "array", "items": {"type": "string"}, "description": "Role titles"},
+                        "locations": {"type": "array", "items": {"type": "string"}, "description": "Hiring locations"},
+                        "industry": {"type": "string", "description": "Industry"}
                     },
                     "required": ["budget"]
                 }
             },
             {
                 "name": "query_location_profile",
-                "description": "Get location intelligence including monthly hiring spend, key metros, publisher availability, and supply data for a city or country. USE WHEN: the user asks about a specific location's hiring market, cost of hiring in a city, or available publishers in a location. Useful as supplementary context for budget questions. RETURNS: monthly spend, key metros, total boards, publisher count for the location.",
+                "description": "Location intelligence: monthly spend, key metros, publisher availability. Use for location-specific hiring market context.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "city": {"type": "string", "description": "City name"},
-                        "state": {"type": "string", "description": "State or province"},
-                        "country": {"type": "string", "description": "Country name"}
+                        "city": {"type": "string", "description": "City"},
+                        "state": {"type": "string", "description": "State/province"},
+                        "country": {"type": "string", "description": "Country"}
                     },
                     "required": []
                 }
             },
             {
                 "name": "query_ad_platform",
-                "description": "Get ad platform recommendations organized by role type (executive, professional, hourly, clinical, trades) with primary/secondary platform picks and CPC benchmarks. USE WHEN: the user asks 'which platform should I use for [role type]' or wants ad platform recommendations by role category. DO NOT USE for deep platform comparisons (use query_platform_deep instead). RETURNS: primary and secondary platform recommendations with rationale, plus CPC benchmarks.",
+                "description": "Platform recommendations by role type with CPC benchmarks. Use for 'which platform for [role type]' questions. Not for detailed comparisons (query_platform_deep).",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "role_type": {
-                            "type": "string",
-                            "enum": ["executive", "professional", "hourly", "clinical", "trades"],
-                            "description": "Type of role to advertise"
-                        },
-                        "platforms": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Specific platforms to query"
-                        }
+                        "role_type": {"type": "string", "enum": ["executive", "professional", "hourly", "clinical", "trades"], "description": "Role type"},
+                        "platforms": {"type": "array", "items": {"type": "string"}, "description": "Specific platforms"}
                     },
                     "required": []
                 }
             },
             {
                 "name": "query_linkedin_guidewire",
-                "description": "Access LinkedIn Hiring Value Review data for Guidewire Software -- a comprehensive case study with hiring performance metrics, influenced hire data, skill density analysis, recruiter efficiency benchmarks, peer company comparisons (Stripe, GitLab, Coinbase, NerdWallet, Qualtrics, TCS, Sabre, Robinhood, Talkdesk), and LinkedIn product adoption rates. USE WHEN: the user asks about Guidewire, LinkedIn ROI, LinkedIn hiring value, influenced hires, or tech company hiring benchmarks. RETURNS: executive summary, hiring performance data (L12M), hire efficiency metrics, InMail response rates.",
+                "description": "LinkedIn Hiring Value Review for Guidewire Software: hiring performance, influenced hires, skill density, recruiter efficiency, peer benchmarks. Use for Guidewire, LinkedIn ROI, or tech company benchmarks.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "section": {
-                            "type": "string",
-                            "enum": ["executive_summary", "hiring_performance", "hire_efficiency", "all"],
-                            "description": "Which section of the LinkedIn review to query"
-                        },
-                        "metric": {
-                            "type": "string",
-                            "description": "Specific metric to look up (e.g., 'influenced_hires', 'skill_density', 'inmail_response_rate')"
-                        }
+                        "section": {"type": "string", "enum": ["executive_summary", "hiring_performance", "hire_efficiency", "all"], "description": "Section to query"},
+                        "metric": {"type": "string", "description": "Specific metric (e.g., 'influenced_hires', 'skill_density')"}
                     },
                     "required": []
                 }
             },
             {
                 "name": "query_platform_deep",
-                "description": "Get DETAILED platform intelligence for a specific job board or ad platform from our 91-platform database. Returns CPC, CPA, apply rates, monthly visitors, mobile traffic %, candidate demographics, DEI features, AI features, ATS integrations, pros/cons, programmatic compatibility, and best-use-case categories. USE WHEN: the user asks about a specific platform in detail, compares two platforms, or asks 'tell me about [platform]'. This is the BEST tool for platform comparisons -- pass both platform and compare_with parameters. RETURNS: comprehensive platform profile with performance metrics and feature lists.",
+                "description": "Detailed 91-platform database: CPC, CPA, apply rates, visitors, mobile %, demographics, DEI/AI features, pros/cons. BEST tool for platform comparisons -- pass platform and compare_with.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "platform": {"type": "string", "description": "Platform name (e.g., 'indeed', 'linkedin', 'ziprecruiter', 'glassdoor')"},
-                        "compare_with": {"type": "string", "description": "Optional second platform to compare against"},
+                        "platform": {"type": "string", "description": "Platform name (e.g., 'indeed', 'linkedin')"},
+                        "compare_with": {"type": "string", "description": "Second platform to compare"}
                     },
-                    "required": ["platform"],
-                },
+                    "required": ["platform"]
+                }
             },
             {
                 "name": "query_recruitment_benchmarks",
-                "description": "Get INDUSTRY-SPECIFIC recruitment benchmarks including CPA, CPC, CPH, apply rates, time-to-fill, funnel conversion rates, and year-over-year trends. Covers 22 industries with deep data. USE WHEN: the user asks about benchmarks for a specific industry (e.g., 'what is the average CPA in healthcare?') or wants industry-level performance data. This is MORE DETAILED than query_knowledge_base for industry-specific questions. RETURNS: per-industry CPA, CPC, CPH, apply rate, time-to-fill, and funnel data with YoY trends.",
+                "description": "Industry-specific benchmarks (22 industries): CPA, CPC, CPH, apply rates, time-to-fill, funnel data with YoY trends. More detailed than query_knowledge_base for industry questions.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "industry": {"type": "string", "description": "Industry name (e.g., 'healthcare', 'technology', 'finance')"},
-                        "metric": {"type": "string", "description": "Specific metric: 'cpa', 'cpc', 'cph', 'apply_rate', 'time_to_fill', or 'all'"},
+                        "industry": {"type": "string", "description": "Industry (e.g., 'healthcare', 'technology', 'finance')"},
+                        "metric": {"type": "string", "description": "Metric: 'cpa', 'cpc', 'cph', 'apply_rate', 'time_to_fill', or 'all'"}
                     },
-                    "required": ["industry"],
-                },
+                    "required": ["industry"]
+                }
             },
             {
                 "name": "query_employer_branding",
-                "description": "Get employer branding intelligence from 34 sources: ROI data (cost-per-hire reduction, retention impact, offer acceptance rates), best practices, and channel effectiveness for employer brand campaigns. USE WHEN: the user asks about employer branding, employer value proposition (EVP), Glassdoor ratings impact, or brand-driven hiring strategies. RETURNS: ROI metrics, best practices, and channel effectiveness data.",
+                "description": "Employer branding intel (34 sources): ROI data, best practices, channel effectiveness. Use for EVP, Glassdoor impact, or brand strategy questions.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "aspect": {"type": "string", "description": "Aspect to query: 'roi', 'best_practices', 'channel_effectiveness', or 'all'"},
+                        "aspect": {"type": "string", "description": "'roi', 'best_practices', 'channel_effectiveness', or 'all'"}
                     },
-                    "required": [],
-                },
+                    "required": []
+                }
             },
             {
                 "name": "query_regional_market",
-                "description": "Get regional hiring intelligence for specific US and global markets from 16 sources. Includes top job boards by market, dominant industries, average salaries, talent dynamics, hiring regulations, cultural norms, and CPA benchmarks. USE WHEN: the user asks about hiring in a specific US region or metro area (Boston, NYC, Chicago, etc.). Available regions: us_northeast, us_southeast, us_midwest, us_west, us_south. RETURNS: per-market profiles with population, top boards, industries, salary data, and hiring tips.",
+                "description": "US regional + global market hiring intel (16 sources): top boards, industries, salaries, regulations. Regions: us_northeast, us_southeast, us_midwest, us_west, us_south.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "region": {"type": "string", "description": "Region key (e.g., 'us_northeast', 'us_southeast', 'us_midwest', 'us_west', 'us_south')"},
-                        "market": {"type": "string", "description": "Market key (e.g., 'boston_ma', 'new_york_ny', 'chicago_il')"},
+                        "region": {"type": "string", "description": "Region key (e.g., 'us_northeast', 'us_south')"},
+                        "market": {"type": "string", "description": "Market key (e.g., 'boston_ma', 'new_york_ny')"}
                     },
-                    "required": ["region"],
-                },
+                    "required": ["region"]
+                }
             },
             {
                 "name": "query_supply_ecosystem",
-                "description": "Get programmatic job advertising ecosystem intelligence from 24 sources. Covers how programmatic recruitment advertising works, bidding models (CPC, CPA, CPM), publisher waterfall mechanics, XML feed requirements, quality signals, and budget pacing strategies. USE WHEN: the user asks 'how does programmatic work?', about bidding strategies, publisher waterfall, budget pacing, or programmatic advertising mechanics. RETURNS: overview of programmatic ecosystem, bidding model details, quality signal explanations.",
+                "description": "Programmatic advertising mechanics (24 sources): bidding models, publisher waterfall, quality signals, budget pacing. Use for 'how does programmatic work' questions.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "topic": {"type": "string", "description": "Topic: 'how_it_works', 'bidding_models', 'publisher_waterfall', 'quality_signals', 'budget_pacing', or 'all'"},
+                        "topic": {"type": "string", "description": "'how_it_works', 'bidding_models', 'publisher_waterfall', 'quality_signals', 'budget_pacing', or 'all'"}
                     },
-                    "required": [],
-                },
+                    "required": []
+                }
             },
             {
                 "name": "query_workforce_trends",
-                "description": "Get workforce trends intelligence from 44 sources: Gen-Z job search behavior, platform preferences (TikTok, Instagram, LinkedIn), remote work trends, DEI expectations, salary expectations by generation, job-hopping patterns, and supply partner trends. USE WHEN: the user asks about Gen-Z hiring, generational differences, remote work trends, or which platforms candidates prefer. RETURNS: generational workforce data, platform usage statistics, workplace expectation breakdowns.",
+                "description": "Workforce trends (44 sources): Gen-Z behavior, platform preferences, remote work, DEI, salary expectations. Use for generational and demographic questions.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "topic": {"type": "string", "description": "Topic: 'gen_z', 'remote_work', 'dei', 'salary_expectations', 'platform_preferences', or 'all'"},
+                        "topic": {"type": "string", "description": "'gen_z', 'remote_work', 'dei', 'salary_expectations', 'platform_preferences', or 'all'"}
                     },
-                    "required": [],
-                },
+                    "required": []
+                }
             },
             {
                 "name": "query_white_papers",
-                "description": "Search 47 industry reports and white papers from Appcast, Radancy, Recruitics, PandoLogic, Joveo, and other sources. Returns key findings, benchmarks, and methodology from recruitment industry research. USE WHEN: the user asks for evidence/research to back up a claim, wants to cite a specific study, or asks 'what does the research say about [topic]'. Also useful when you need to cite specific data points in your answer. RETURNS: report titles, publishers, years, and top key findings.",
+                "description": "47 industry reports from Appcast, Radancy, Recruitics, PandoLogic, Joveo. Use when citing research or backing claims with evidence.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "search_term": {"type": "string", "description": "Search term to find relevant reports (e.g., 'CPA trends', 'healthcare hiring', 'programmatic')"},
-                        "report_key": {"type": "string", "description": "Specific report key if known (e.g., 'appcast_benchmark_2025')"},
+                        "search_term": {"type": "string", "description": "Search term (e.g., 'CPA trends', 'healthcare hiring')"},
+                        "report_key": {"type": "string", "description": "Specific report key if known"}
                     },
-                    "required": [],
-                },
+                    "required": []
+                }
             },
             {
                 "name": "suggest_smart_defaults",
-                "description": "Auto-detect optimal hiring parameters when the user provides partial information. Given roles and/or locations, this tool suggests: recommended budget range, optimal channel split percentages, expected CPA/CPH, and estimated hires for different budget levels. USE WHEN: the user asks 'how much should I budget for [X] hires?' or 'what's a good budget for hiring [role]?' or provides roles but no budget. Also useful when the user says 'help me plan' without full details. RETURNS: budget recommendations by tier (minimum, recommended, premium), channel split suggestions, and projected outcomes per tier.",
+                "description": "Auto-detect budget range, channel split, CPA/CPH from partial info (roles, locations). Use when user asks 'how much should I budget' or provides roles without budget.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "roles": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "List of role titles (e.g., ['Software Engineer', 'Data Scientist'])"
-                        },
-                        "hire_count": {
-                            "type": "integer",
-                            "description": "Number of hires needed. Default: 10"
-                        },
-                        "locations": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "List of hiring locations (e.g., ['New York', 'San Francisco'])"
-                        },
-                        "industry": {
-                            "type": "string",
-                            "description": "Industry classification"
-                        },
-                        "urgency": {
-                            "type": "string",
-                            "enum": ["standard", "urgent", "critical"],
-                            "description": "Hiring urgency. 'urgent' adds 20% budget premium, 'critical' adds 40%."
-                        }
+                        "roles": {"type": "array", "items": {"type": "string"}, "description": "Role titles"},
+                        "hire_count": {"type": "integer", "description": "Number of hires. Default: 10"},
+                        "locations": {"type": "array", "items": {"type": "string"}, "description": "Hiring locations"},
+                        "industry": {"type": "string", "description": "Industry"},
+                        "urgency": {"type": "string", "enum": ["standard", "urgent", "critical"], "description": "Urgency level"}
                     },
                     "required": ["roles"]
-                },
+                }
             },
         ]
 
@@ -1835,6 +1848,21 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
         # Truncate message
         user_message = user_message.strip()[:MAX_MESSAGE_LENGTH]
 
+        # --- Learned answers (fastest exit path, 0 API tokens) ---
+        learned = _check_learned_answers(user_message)
+        if learned:
+            logger.info("NOVA MODE: Learned answer match -- returning cached answer")
+            return learned
+
+        # --- Response cache (standalone questions only) ---
+        history = conversation_history or []
+        cache_key = _normalize_cache_key(user_message)
+        if len(history) <= 2 and cache_key:
+            cached = _get_response_cache(cache_key)
+            if cached:
+                logger.info("NOVA MODE: Cache hit -- returning cached response")
+                return cached
+
         # Check for Claude API mode
         api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
         if api_key:
@@ -1842,6 +1870,9 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
                 logger.info("NOVA MODE: Using Claude API (Anthropic) for chat")
                 result = self._chat_with_claude(user_message, conversation_history, enrichment_context, api_key)
                 logger.info("NOVA MODE: Claude API response received successfully")
+                # Cache successful responses with sufficient confidence
+                if result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
+                    _set_response_cache(cache_key, result)
                 return result
             except Exception as e:
                 logger.error("Claude API call failed, falling back to rule-based: %s", e)
@@ -1897,13 +1928,27 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
         tool_call_details = []  # Track detailed tool interactions for debugging
         max_iterations = 8  # Allow more iterations for complex multi-tool queries
 
+        adaptive_max_tokens = _classify_query_complexity(user_message)
+        tool_defs = self.get_tool_definitions()
+
+        # --- Prompt caching: structured system + cache_control on last tool ---
+        system_content = [
+            {
+                "type": "text",
+                "text": system_prompt,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ]
+        if tool_defs:
+            tool_defs[-1]["cache_control"] = {"type": "ephemeral"}
+
         for iteration in range(max_iterations):
             payload = {
                 "model": CLAUDE_MODEL,
-                "max_tokens": 4096,  # Increased for richer responses
-                "system": system_prompt,
+                "max_tokens": adaptive_max_tokens,
+                "system": system_content,
                 "messages": messages,
-                "tools": self.get_tool_definitions(),
+                "tools": tool_defs,
             }
 
             try:
@@ -1914,6 +1959,7 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
                         "Content-Type": "application/json",
                         "x-api-key": api_key,
                         "anthropic-version": "2023-06-01",
+                        "anthropic-beta": "prompt-caching-2024-07-31",
                     },
                 )
 
