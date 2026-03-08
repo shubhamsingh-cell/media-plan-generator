@@ -41,6 +41,7 @@ _INITIAL_DELAY = 120             # 2 min after startup (let services warm up)
 _WEEKLY_INTERVAL = 7 * 24 * 3600 # 7 days between self-upgrade cycles
 _WEEKLY_INITIAL_DELAY = 300      # 5 min after startup for first weekly check
 _MAX_HISTORY = 30                # Keep last 30 run results
+_PER_TEST_TIMEOUT = 45           # seconds -- hard ceiling per individual test
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 QC_RESULTS_FILE = DATA_DIR / "auto_qc_results.json"
@@ -261,7 +262,63 @@ class AutoQC:
     def _get_static_test_names(self) -> List[str]:
         return [name for name in dir(self) if name.startswith("_test_")]
 
+    def _run_single_test_with_timeout(self, name: str, method, timeout: int = _PER_TEST_TIMEOUT) -> TestResult:
+        """Run a single test method with a hard timeout.
+
+        Prevents ANY individual test from hanging the entire test run,
+        whether it calls Claude API, external HTTP APIs, or does heavy
+        computation.
+        """
+        result_holder: List[TestResult] = []
+        error_holder: List[str] = []
+        t0 = time.time()
+
+        def _exec():
+            try:
+                result_holder.append(method())
+            except Exception as e:
+                error_holder.append(str(e))
+
+        worker = threading.Thread(target=_exec, daemon=True)
+        worker.start()
+        worker.join(timeout=timeout)
+        elapsed_ms = (time.time() - t0) * 1000
+
+        if worker.is_alive():
+            logger.warning("AutoQC: test %s timed out after %ds", name, timeout)
+            return TestResult(
+                name=name.replace("_test_", ""),
+                passed=False,
+                detail=f"Timeout after {timeout}s",
+                duration_ms=elapsed_ms,
+            )
+        if error_holder:
+            return TestResult(
+                name=name.replace("_test_", ""),
+                passed=False,
+                detail=f"Exception: {error_holder[0]}",
+                duration_ms=elapsed_ms,
+            )
+        if result_holder:
+            result_holder[0].duration_ms = elapsed_ms
+            return result_holder[0]
+        return TestResult(
+            name=name.replace("_test_", ""),
+            passed=False,
+            detail="No result returned",
+            duration_ms=elapsed_ms,
+        )
+
     def _run_static_tests(self) -> List[TestResult]:
+        results = []
+        for name in sorted(self._get_static_test_names()):
+            method = getattr(self, name)
+            result = self._run_single_test_with_timeout(name, method)
+            results.append(result)
+        return results
+
+    def _run_static_tests_DISABLED(self) -> List[TestResult]:
+        """Old version without per-test timeout (kept for reference)."""
         results = []
         for name in sorted(self._get_static_test_names()):
             method = getattr(self, name)
