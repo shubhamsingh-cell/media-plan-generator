@@ -993,30 +993,39 @@ let sortAsc = false;
 let countdownValue = 60;
 let countdownTimer = null;
 
-// ===== DATA FETCHING =====
+// ===== DATA FETCHING (with timeout) =====
 async function fetchRequests() {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     try {
-        const res = await fetch('/api/requests');
+        const res = await fetch('/api/requests', { signal: controller.signal });
+        clearTimeout(timeoutId);
         if (!res.ok) throw new Error('Failed to fetch requests');
         const data = await res.json();
         allRequests = data.requests || [];
         updateStats();
         renderTable();
     } catch (err) {
+        clearTimeout(timeoutId);
         console.error('Error fetching requests:', err);
+        const msg = err.name === 'AbortError' ? 'Request timed out' : 'Failed to load request data';
         document.getElementById('requestTableBody').innerHTML =
-            '<tr><td colspan="13"><div class="table-empty"><div class="empty-icon">&#x26A0;</div>Failed to load request data</div></td></tr>';
+            '<tr><td colspan="13"><div class="table-empty"><div class="empty-icon">&#x26A0;</div>' + escapeHtml(msg) + '</div></td></tr>';
     }
 }
 
 async function fetchDocuments() {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     try {
-        const res = await fetch('/api/documents');
+        const res = await fetch('/api/documents', { signal: controller.signal });
+        clearTimeout(timeoutId);
         if (!res.ok) throw new Error('Failed to fetch documents');
         const data = await res.json();
         allDocuments = data.documents || [];
         renderDocuments();
     } catch (err) {
+        clearTimeout(timeoutId);
         console.error('Error fetching documents:', err);
         document.getElementById('docsGrid').innerHTML =
             '<div class="docs-empty"><div class="empty-icon" style="font-size:40px;opacity:0.3;">&#x26A0;</div><p>Failed to load documents</p></div>';
@@ -1262,7 +1271,9 @@ function exportCSV() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `media_plan_requests_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
     a.click();
+    a.remove();
     URL.revokeObjectURL(url);
 }
 

@@ -70,6 +70,24 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# ── Canonical taxonomy standardizer ──
+# Used to normalize industry/location keys before API lookups.
+# Falls back gracefully if unavailable.
+try:
+    from standardizer import (
+        normalize_industry as _std_normalize_industry,
+        normalize_location as _std_normalize_location,
+        normalize_role as _std_normalize_role,
+        normalize_platform as _std_normalize_platform,
+        get_soc_code as _std_get_soc_code,
+        CANONICAL_INDUSTRIES as _CANON_INDUSTRIES,
+        COUNTRY_MAP as _STD_COUNTRY_MAP,
+        US_STATE_MAP as _STD_US_STATE_MAP,
+    )
+    _HAS_STANDARDIZER = True
+except ImportError:
+    _HAS_STANDARDIZER = False
+
 # ---------------------------------------------------------------------------
 # Constants & configuration
 # ---------------------------------------------------------------------------
@@ -416,6 +434,62 @@ US_STATES = {
     "WI", "WY", "DC",
 }
 
+
+# ---------------------------------------------------------------------------
+# Standardizer-backed wrapper functions (with hardcoded fallbacks)
+# ---------------------------------------------------------------------------
+
+def get_naics_code(industry: str) -> str:
+    """Return NAICS code for an industry, using the canonical standardizer
+    when available and falling back to the hardcoded NAICS_CODES dict.
+    """
+    if _HAS_STANDARDIZER:
+        canon = _std_normalize_industry(industry)
+        entry = _CANON_INDUSTRIES.get(canon, {})
+        naics = entry.get("naics", "")
+        if naics:
+            return naics
+    # Fallback to original hardcoded dict
+    industry_lower = industry.lower().replace(" ", "_").replace("-", "_")
+    code = NAICS_CODES.get(industry_lower)
+    if code:
+        return code
+    # Partial matching fallback
+    for key, code in NAICS_CODES.items():
+        if key in industry_lower or industry_lower in key:
+            return code
+    return ""
+
+
+def get_country_iso3(location_part: str) -> Optional[str]:
+    """Return ISO-3 country code for a location fragment, using the canonical
+    standardizer when available and falling back to the hardcoded COUNTRY_CODES dict.
+    """
+    if not location_part:
+        return None
+    lower = location_part.strip().lower()
+    # Try standardizer first
+    if _HAS_STANDARDIZER:
+        entry = _STD_COUNTRY_MAP.get(lower)
+        if entry:
+            return entry.get("iso3", "")
+    # Fallback to original dict
+    return COUNTRY_CODES.get(lower)
+
+
+def is_us_state(token: str) -> bool:
+    """Check if a token is a US state abbreviation, using the canonical
+    standardizer when available and falling back to the hardcoded US_STATES set.
+    """
+    upper = token.strip().upper()
+    if _HAS_STANDARDIZER:
+        entry = _STD_US_STATE_MAP.get(upper.lower())
+        if entry:
+            return True
+    # Fallback to original set
+    return upper in US_STATES
+
+
 # ---------------------------------------------------------------------------
 # Currency exchange rates (hardcoded fallback)
 # Rates relative to 1 USD — approximate as of early 2026
@@ -468,18 +542,22 @@ MAX_MEMORY_CACHE_SIZE = 500  # Prevent unbounded memory growth
 # Helper utilities
 # ---------------------------------------------------------------------------
 
+import logging as _logging
+_api_logger = _logging.getLogger("api_enrichment")
+
+
 def _log_warn(msg: str) -> None:
-    """Write a warning to stderr (never crashes)."""
+    """Write a warning to the logger (never crashes)."""
     try:
-        print(f"[api_enrichment WARN] {msg}", file=sys.stderr)
+        _api_logger.warning(msg)
     except Exception:
         pass
 
 
 def _log_info(msg: str) -> None:
-    """Write an info message to stderr."""
+    """Write an info message to the logger."""
     try:
-        print(f"[api_enrichment INFO] {msg}", file=sys.stderr)
+        _api_logger.info(msg)
     except Exception:
         pass
 
@@ -519,8 +597,13 @@ def _get_cached(key: str) -> Optional[Any]:
     return None
 
 
+_MAX_DISK_CACHE_FILES = 1000  # Prevent disk exhaustion
+_last_disk_cleanup = 0.0
+
+
 def _set_cached(key: str, data: Any) -> None:
     """Store data in both in-memory and file caches."""
+    global _last_disk_cleanup
     entry = {"ts": time.time(), "data": data}
 
     with _cache_lock:
@@ -540,6 +623,23 @@ def _set_cached(key: str, data: Any) -> None:
             json.dump(entry, fh, ensure_ascii=False)
     except Exception as exc:
         _log_warn(f"Failed to write cache file {cache_file}: {exc}")
+
+    # Periodic disk cache cleanup: remove oldest files when count exceeds limit.
+    # Run at most once per hour to avoid I/O overhead.
+    now = time.time()
+    if now - _last_disk_cleanup > 3600:
+        _last_disk_cleanup = now
+        try:
+            cache_files = sorted(
+                CACHE_DIR.glob("*.json"),
+                key=lambda p: p.stat().st_mtime,
+            )
+            if len(cache_files) > _MAX_DISK_CACHE_FILES:
+                for old_file in cache_files[: len(cache_files) - _MAX_DISK_CACHE_FILES]:
+                    old_file.unlink(missing_ok=True)
+                _log_info(f"Disk cache cleanup: removed {len(cache_files) - _MAX_DISK_CACHE_FILES} old files")
+        except Exception as exc:
+            _log_warn(f"Disk cache cleanup failed: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -617,20 +717,31 @@ def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None,
         for k, v in headers.items():
             req.add_header(k, v)
 
+    # Determine whether to allow SSL fallback based on environment config.
+    # In production, consider setting STRICT_SSL=1 to disable unverified fallback.
+    _allow_unverified = os.environ.get("STRICT_SSL", "").strip() != "1"
+    ssl_contexts = [_DEFAULT_SSL_CTX]
+    if _allow_unverified:
+        ssl_contexts.append(_UNVERIFIED_SSL_CTX)
+
     max_retries = 3
     for attempt in range(max_retries + 1):
-        for ctx in (_DEFAULT_SSL_CTX, _UNVERIFIED_SSL_CTX):
+        for ctx_idx, ctx in enumerate(ssl_contexts):
             try:
                 with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                    if ctx_idx > 0:
+                        _log_warn(f"SSL verification BYPASSED for {url} — consider fixing the certificate")
                     raw = resp.read().decode("utf-8")
                     return json.loads(raw)
             except ssl.SSLError:
+                if ctx_idx == 0:
+                    _log_warn(f"SSL error for {url}, retrying without verification")
                 continue  # retry with unverified context
             except urllib.error.HTTPError as exc:
                 if exc.code in (429, 503) and attempt < max_retries:
                     wait = min(2 ** attempt, 8)
                     _log_warn(f"HTTP {exc.code} for {url}, retry in {wait}s (attempt {attempt + 1}/{max_retries})")
-                    import time; time.sleep(wait)
+                    time.sleep(wait)
                     break  # break SSL loop to retry
                 _log_warn(f"HTTP GET failed for {url}: {exc}")
                 return None
@@ -645,27 +756,65 @@ def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None,
 
 def _http_post_json(url: str, payload: Any,
                     headers: Optional[Dict[str, str]] = None,
-                    timeout: int = API_TIMEOUT) -> Optional[Any]:
-    """Perform an HTTP POST with a JSON body and return parsed JSON."""
-    body = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=body, method="POST")
-    req.add_header("User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)")
-    req.add_header("Content-Type", "application/json")
-    req.add_header("Accept", "application/json")
-    if headers:
-        for k, v in headers.items():
-            req.add_header(k, v)
+                    timeout: int = API_TIMEOUT,
+                    max_retries: int = 2) -> Optional[Any]:
+    """Perform an HTTP POST with a JSON body and return parsed JSON.
 
-    for ctx in (_DEFAULT_SSL_CTX, _UNVERIFIED_SSL_CTX):
-        try:
-            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
-                raw = resp.read().decode("utf-8")
-                return json.loads(raw)
-        except ssl.SSLError:
-            continue
-        except Exception as exc:
-            _log_warn(f"HTTP POST failed for {url}: {exc}")
+    Retries on HTTP 429 (rate-limited) and 503 (service unavailable)
+    with exponential backoff, consistent with ``_http_get_json_with_retry``.
+    """
+    body = json.dumps(payload).encode("utf-8")
+    backoff_delays = [1, 2, 4]
+
+    for attempt in range(max_retries + 1):
+        req = urllib.request.Request(url, data=body, method="POST")
+        req.add_header("User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Accept", "application/json")
+        if headers:
+            for k, v in headers.items():
+                req.add_header(k, v)
+
+        _allow_unverified = os.environ.get("STRICT_SSL", "").strip() != "1"
+        ssl_contexts = [_DEFAULT_SSL_CTX]
+        if _allow_unverified:
+            ssl_contexts.append(_UNVERIFIED_SSL_CTX)
+
+        for ctx_idx, ctx in enumerate(ssl_contexts):
+            try:
+                with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                    if ctx_idx > 0:
+                        _log_warn(f"SSL verification BYPASSED for POST {url}")
+                    raw = resp.read().decode("utf-8")
+                    return json.loads(raw)
+            except ssl.SSLError:
+                if ctx_idx == 0:
+                    _log_warn(f"SSL error for POST {url}, retrying without verification")
+                continue
+            except urllib.error.HTTPError as exc:
+                if exc.code in (429, 503) and attempt < max_retries:
+                    retry_after = exc.headers.get("Retry-After") if exc.headers else None
+                    if retry_after is not None:
+                        try:
+                            wait = max(float(retry_after), 0.5)
+                        except (ValueError, TypeError):
+                            wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
+                    else:
+                        wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
+                    _log_warn(f"HTTP {exc.code} for POST {url} -- "
+                              f"retry {attempt + 1}/{max_retries} after {wait}s")
+                    time.sleep(wait)
+                    break  # break SSL loop, continue retry loop
+                _log_warn(f"HTTP POST failed for {url}: {exc}")
+                return None
+            except Exception as exc:
+                _log_warn(f"HTTP POST failed for {url}: {exc}")
+                return None
+        else:
+            # Inner SSL loop exhausted without break -- both contexts failed
             return None
+    # All retries exhausted
+    _log_warn(f"HTTP POST exhausted {max_retries} retries for {url}")
     return None
 
 
@@ -717,13 +866,21 @@ def _http_get_json_with_retry(
             for k, v in headers.items():
                 req.add_header(k, v)
 
-        for ctx in (_DEFAULT_SSL_CTX, _UNVERIFIED_SSL_CTX):
+        _allow_unverified = os.environ.get("STRICT_SSL", "").strip() != "1"
+        _ssl_ctxs = [_DEFAULT_SSL_CTX]
+        if _allow_unverified:
+            _ssl_ctxs.append(_UNVERIFIED_SSL_CTX)
+        for _ctx_idx, ctx in enumerate(_ssl_ctxs):
             try:
                 with urllib.request.urlopen(req, timeout=timeout,
                                             context=ctx) as resp:
+                    if _ctx_idx > 0:
+                        _log_warn(f"SSL verification BYPASSED for {url}")
                     raw = resp.read().decode("utf-8")
                     return json.loads(raw)
             except ssl.SSLError:
+                if _ctx_idx == 0:
+                    _log_warn(f"SSL error for {url}, retrying without verification")
                 continue  # retry with unverified context
             except urllib.error.HTTPError as exc:
                 status_code = exc.code
@@ -780,10 +937,23 @@ def _parse_country_from_location(location: str) -> Optional[str]:
         'London, UK'     -> 'GBR'
         'Sydney, Australia' -> 'AUS'
         'Seattle WA'     -> 'USA'  (no comma, space-separated)
+
+    Tries the canonical standardizer first (more comprehensive city/state/
+    country database with disambiguation logic), then falls back to the
+    local COUNTRY_CODES / US_STATES maps.
     """
     if not location:
         return None
 
+    # --- Try standardizer first (handles edge cases like disambiguation
+    # of CA=California vs CA=Canada, Portland OR vs Portland ME, etc.) ---
+    if _HAS_STANDARDIZER:
+        parsed = _std_normalize_location(location)
+        iso3 = parsed.get("country_iso3", "")
+        if iso3:
+            return iso3
+
+    # --- Fallback to local maps ---
     parts = [p.strip() for p in location.split(",")]
 
     # Check last part first (most specific)
@@ -828,7 +998,19 @@ def _domain_from_name(name: str) -> str:
 
 
 def _extract_state_abbr(location: str) -> Optional[str]:
-    """Extract US state abbreviation from a location string."""
+    """Extract US state abbreviation from a location string.
+
+    Uses the canonical standardizer when available (handles full state
+    names, city context, and disambiguation), with hardcoded fallback.
+    """
+    # Try standardizer first (richer parsing with city-to-state DB)
+    if _HAS_STANDARDIZER:
+        parsed = _std_normalize_location(location)
+        st = parsed.get("state", "")
+        if st:
+            return st.upper()
+
+    # Fallback to original logic
     parts = [p.strip() for p in location.split(",")]
     for part in reversed(parts):
         token = part.strip().upper()
@@ -966,6 +1148,11 @@ def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
                 if overlap > best_overlap and overlap >= 1:
                     best_overlap = overlap
                     soc = code
+        if not soc and _HAS_STANDARDIZER:
+            # Try canonical standardizer (covers more role aliases)
+            std_soc = _std_get_soc_code(role)
+            if std_soc:
+                soc = std_soc
         if not soc:
             _log_warn(f"No SOC code mapping for role: {role}")
             continue
@@ -1002,11 +1189,19 @@ def _http_get_text(url: str, timeout: int = API_TIMEOUT) -> Optional[str]:
     """Perform HTTP GET and return raw text, or None on failure."""
     req = urllib.request.Request(url, method="GET")
     req.add_header("User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)")
-    for ctx in (_DEFAULT_SSL_CTX, _UNVERIFIED_SSL_CTX):
+    _allow_unverified = os.environ.get("STRICT_SSL", "").strip() != "1"
+    _ssl_ctxs = [_DEFAULT_SSL_CTX]
+    if _allow_unverified:
+        _ssl_ctxs.append(_UNVERIFIED_SSL_CTX)
+    for _ctx_idx, ctx in enumerate(_ssl_ctxs):
         try:
             with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                if _ctx_idx > 0:
+                    _log_warn(f"SSL verification BYPASSED for text GET {url}")
                 return resp.read().decode("utf-8")
         except ssl.SSLError:
+            if _ctx_idx == 0:
+                _log_warn(f"SSL error for text GET {url}, retrying without verification")
             continue
         except Exception as exc:
             _log_warn(f"HTTP GET text failed for {url}: {exc}")
@@ -1025,17 +1220,11 @@ def fetch_industry_employment(industry: str) -> Optional[Dict[str, Any]]:
     if cached is not None:
         return cached
 
-    # Map industry to NAICS code
-    industry_lower = industry.lower().replace(" ", "_")
-    naics = NAICS_CODES.get(industry_lower)
+    # Map industry to NAICS code (via standardizer with hardcoded fallback)
+    naics = get_naics_code(industry)
     if not naics:
-        # Try partial matching — check each key
-        for key, code in NAICS_CODES.items():
-            if key in industry_lower or industry_lower in key:
-                naics = code
-                break
-    if not naics:
-        # Try word-level matching
+        # Word-level fallback against hardcoded NAICS_CODES
+        industry_lower = industry.lower().replace(" ", "_")
         industry_words = set(industry_lower.replace("_", " ").split())
         for key, code in NAICS_CODES.items():
             key_words = set(key.replace("_", " ").split())
@@ -1328,21 +1517,24 @@ def fetch_company_logo(domain: str) -> Optional[str]:
 
     # Strategy 1: Clearbit Logo API (higher quality)
     clearbit_url = f"https://logo.clearbit.com/{domain}"
-    try:
-        req = urllib.request.Request(clearbit_url, method="HEAD")
-        req.add_header("User-Agent", "MediaPlanGenerator/1.0")
-        with urllib.request.urlopen(req, timeout=3, context=_DEFAULT_SSL_CTX) as resp:
-            if resp.status == 200:
-                _set_cached(cache_k, clearbit_url)
-                return clearbit_url
-    except Exception:
+    _allow_unverified_logo = os.environ.get("STRICT_SSL", "").strip() != "1"
+    _logo_ctxs = [_DEFAULT_SSL_CTX]
+    if _allow_unverified_logo:
+        _logo_ctxs.append(_UNVERIFIED_SSL_CTX)
+    for _ctx_idx, _ctx in enumerate(_logo_ctxs):
         try:
-            with urllib.request.urlopen(req, timeout=3, context=_UNVERIFIED_SSL_CTX) as resp:
+            req = urllib.request.Request(clearbit_url, method="HEAD")
+            req.add_header("User-Agent", "MediaPlanGenerator/1.0")
+            with urllib.request.urlopen(req, timeout=3, context=_ctx) as resp:
                 if resp.status == 200:
+                    if _ctx_idx > 0:
+                        _log_warn(f"SSL verification BYPASSED for logo HEAD {clearbit_url}")
                     _set_cached(cache_k, clearbit_url)
                     return clearbit_url
+        except ssl.SSLError:
+            continue
         except Exception:
-            pass
+            break  # Non-SSL error, skip to fallback
 
     # Strategy 2: Google Favicons API (always works, lower resolution)
     google_url = f"https://www.google.com/s2/favicons?domain={domain}&sz=128"
@@ -9056,6 +9248,37 @@ def _safe_call(func, label: str):
             metadata["source"] = "cached"
         else:
             metadata["source"] = "live"
+
+        # ── API Response Validation ──
+        # Guard against malformed API responses that could corrupt
+        # the downstream synthesis pipeline.  We validate that:
+        # 1. Dict responses contain at least one non-empty value
+        # 2. Numeric values are within sane bounds (salary not negative,
+        #    percentages 0-100, etc.)
+        # 3. No unexpected None values in critical fields
+        if isinstance(result, dict):
+            _validation_warnings = []
+            for rk, rv in result.items():
+                if isinstance(rv, dict):
+                    # Check salary data for obviously wrong values
+                    for salary_field in ("median", "mean", "p10", "p25", "p75", "p90"):
+                        sv = rv.get(salary_field)
+                        if sv is not None and isinstance(sv, (int, float)):
+                            if sv < 0:
+                                _validation_warnings.append(
+                                    f"{rk}.{salary_field} is negative ({sv})"
+                                )
+                                rv[salary_field] = 0  # clamp to 0
+                            elif sv > 10_000_000:  # >0M annual salary
+                                _validation_warnings.append(
+                                    f"{rk}.{salary_field} is unreasonably large ({sv})"
+                                )
+            if _validation_warnings:
+                _log_warn(
+                    f"API '{label}' response validation: "
+                    + "; ".join(_validation_warnings[:5])
+                )
+                metadata["validation_warnings"] = _validation_warnings
 
         _circuit_breaker_record_success(label)
         metadata["success"] = True

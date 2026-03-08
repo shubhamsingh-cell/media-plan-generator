@@ -2,10 +2,36 @@ services:
   - type: web
     name: media-plan-generator
     runtime: python
+    plan: starter  # Explicit plan declaration
     buildCommand: pip install -r requirements.txt
     startCommand: python app.py
+    healthCheckPath: /health
+    numInstances: 1
     envVars:
       - key: PORT
         value: 10000
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: LOG_LEVEL
+        value: INFO
+      # --- Secrets (set via Render dashboard, not committed) ---
+      - key: ADMIN_API_KEY
+        sync: false  # Must be set in Render dashboard
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SLACK_BOT_TOKEN
+        sync: false
+      - key: SLACK_SIGNING_SECRET
+        sync: false
+      - key: BLS_API_KEY
+        sync: false
+      - key: FRED_API_KEY
+        sync: false
+      - key: ADZUNA_APP_ID
+        sync: false
+      - key: ADZUNA_APP_KEY
+        sync: false
+    disk:
+      name: media-plan-data
+      mountPath: /data/persistent
+      sizeGB: 1

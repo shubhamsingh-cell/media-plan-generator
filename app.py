@@ -19,6 +19,7 @@ import threading
 import urllib.request
 import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from urllib.parse import urlparse
 from pathlib import Path
 from openpyxl import Workbook
@@ -85,36 +86,110 @@ _INDUSTRY_KEY_TO_KB_KEY = {
 
 
 def load_knowledge_base() -> dict:
-    """Load the recruitment industry knowledge base from disk.
+    """Load and merge all knowledge base files into unified dict.
 
-    Uses a module-level cache so the 63 KB JSON file is read at most once.
-    Maps legacy industry keys to the KB's ``industry_specific_benchmarks``
-    section via ``_INDUSTRY_KEY_TO_KB_KEY``.
+    Loads 8 JSON data files from the ``data/`` directory, each into its own
+    section key.  The ``core`` section (recruitment_industry_knowledge.json) is
+    additionally merged into the top level for backward compatibility so that
+    existing code referencing ``kb["benchmarks"]``, ``kb["salary_trends"]``,
+    etc. continues to work.
+
+    Uses a module-level cache so the files are read at most once.
 
     Returns:
-        Parsed dict with the full knowledge base, or an empty dict on failure.
+        Merged dict with section keys + backward-compat top-level keys,
+        or a minimal dict on failure.
     """
     global _knowledge_base
     if _knowledge_base is not None:
         return _knowledge_base
 
-    kb_path = Path(__file__).resolve().parent / "data" / "recruitment_industry_knowledge.json"
-    try:
-        with open(kb_path, "r", encoding="utf-8") as fh:
-            _knowledge_base = json.load(fh)
-        logger.info("Knowledge base loaded from %s (%d top-level keys)",
-                     kb_path, len(_knowledge_base))
-    except FileNotFoundError:
-        logger.warning("Knowledge base file not found at %s", kb_path)
-        _knowledge_base = {}
-    except json.JSONDecodeError as exc:
-        logger.error("Knowledge base JSON parse error: %s", exc)
-        _knowledge_base = {}
-    except Exception as exc:
-        logger.error("Unexpected error loading knowledge base: %s", exc)
-        _knowledge_base = {}
+    files = {
+        "core":                   "recruitment_industry_knowledge.json",
+        "platform_intelligence":  "platform_intelligence_deep.json",
+        "recruitment_benchmarks": "recruitment_benchmarks_deep.json",
+        "recruitment_strategy":   "recruitment_strategy_intelligence.json",
+        "regional_hiring":        "regional_hiring_intelligence.json",
+        "supply_ecosystem":       "supply_ecosystem_intelligence.json",
+        "workforce_trends":       "workforce_trends_intelligence.json",
+        "white_papers":           "industry_white_papers.json",
+    }
 
-    return _knowledge_base
+    kb = {}
+    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+    loaded_count = 0
+    for section_key, filename in files.items():
+        fpath = os.path.join(data_dir, filename)
+        try:
+            with open(fpath, "r", encoding="utf-8") as f:
+                kb[section_key] = json.load(f)
+                loaded_count += 1
+                logger.info("KB loaded %s (%s)", section_key, filename)
+        except FileNotFoundError:
+            kb[section_key] = {}
+            logger.warning("KB file not found: %s", filename)
+        except json.JSONDecodeError as e:
+            kb[section_key] = {}
+            logger.error("KB JSON error in %s: %s", filename, e)
+        except Exception as e:
+            kb[section_key] = {}
+            logger.error("KB load error for %s: %s", filename, e)
+
+    # Backward compatibility: merge core keys to top level so existing
+    # code that accesses kb["benchmarks"], kb["salary_trends"], etc. still works
+    core = kb.get("core", {})
+    for k, v in core.items():
+        if k not in kb:  # don't overwrite section keys
+            kb[k] = v
+
+    # ── Data Freshness Validation ──
+    # Check last_updated metadata in each KB section and warn if data is
+    # older than 90 days.  This prevents silently serving stale benchmarks
+    # when JSON files haven't been regenerated in a long time.
+    stale_sections = []
+    try:
+        today = datetime.datetime.now()
+        max_age_days = 90
+        for section_key, section_data in kb.items():
+            if not isinstance(section_data, dict):
+                continue
+            # Check top-level and nested metadata for last_updated
+            last_updated_str = None
+            if isinstance(section_data.get("metadata"), dict):
+                last_updated_str = section_data["metadata"].get("last_updated")
+            if not last_updated_str:
+                last_updated_str = section_data.get("last_updated")
+            if last_updated_str and isinstance(last_updated_str, str):
+                try:
+                    lu_date = datetime.datetime.strptime(
+                        last_updated_str[:10], "%Y-%m-%d"
+                    )
+                    age_days = (today - lu_date).days
+                    if age_days > max_age_days:
+                        stale_sections.append(
+                            (section_key, last_updated_str, age_days)
+                        )
+                except (ValueError, TypeError):
+                    pass
+        if stale_sections:
+            for skey, sdate, sage in stale_sections:
+                logger.warning(
+                    "KB DATA FRESHNESS WARNING: '%s' last updated %s "
+                    "(%d days ago, threshold=%d days)",
+                    skey, sdate, sage, max_age_days,
+                )
+            kb["_freshness_warnings"] = [
+                {"section": s, "last_updated": d, "age_days": a}
+                for s, d, a in stale_sections
+            ]
+    except Exception as e:
+        logger.warning("KB freshness check failed (non-fatal): %s", e)
+
+    logger.info("Knowledge base loaded: %d/%d files, %d total keys",
+                loaded_count, len(files), len(kb))
+    _knowledge_base = kb
+    return kb
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -380,52 +455,78 @@ def log_request(data, status, file_size=0, generation_time=0, error_msg=None, do
         "enrichment_apis": data.get("_enriched", {}).get("enrichment_summary", {}).get("apis_succeeded", []) if isinstance(data.get("_enriched"), dict) else [],
     }
     # Use file locking to prevent concurrent write corruption
-    os.makedirs(os.path.dirname(REQUEST_LOG_LOCK), exist_ok=True)
-    lock_fd = open(REQUEST_LOG_LOCK, "w")
     try:
-        if fcntl:
-            fcntl.flock(lock_fd, fcntl.LOCK_EX)
-        log = load_request_log()
-        log.append(entry)
-        # Keep only last 1000 entries to prevent unbounded growth
-        if len(log) > 1000:
-            log = log[-1000:]
-        save_request_log(log)
-    finally:
-        if fcntl:
-            fcntl.flock(lock_fd, fcntl.LOCK_UN)
-        lock_fd.close()
+        os.makedirs(os.path.dirname(REQUEST_LOG_LOCK), exist_ok=True)
+        with open(REQUEST_LOG_LOCK, "w") as lock_fd:
+            try:
+                if fcntl:
+                    fcntl.flock(lock_fd, fcntl.LOCK_EX)
+                log = load_request_log()
+                log.append(entry)
+                # Keep only last 1000 entries to prevent unbounded growth
+                if len(log) > 1000:
+                    log = log[-1000:]
+                save_request_log(log)
+            finally:
+                if fcntl:
+                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+    except OSError as e:
+        logger.error("Failed to write request log: %s", e)
     return entry
 
 # Import research module for real data
 sys.path.insert(0, BASE_DIR)
 import research
+
+# ── Canonical taxonomy standardizer ──
+# Normalizes industry, role, location, platform, and metric names across
+# the entire pipeline so that every subsystem uses the same canonical keys.
+# Without this, industry/role/location strings from the frontend can arrive
+# in dozens of variant forms and silently miss KB lookups downstream.
+try:
+    from standardizer import (
+        normalize_industry as std_normalize_industry,
+        normalize_role as std_normalize_role,
+        normalize_location as std_normalize_location,
+        normalize_platform as std_normalize_platform,
+        normalize_metric as std_normalize_metric,
+        CANONICAL_INDUSTRIES,
+        CANONICAL_ROLES,
+        get_soc_code as std_get_soc_code,
+        get_role_tier as std_get_role_tier,
+    )
+    _STANDARDIZER_AVAILABLE = True
+    logger.info("standardizer loaded successfully")
+except ImportError as e:
+    _STANDARDIZER_AVAILABLE = False
+    logger.warning("standardizer import failed: %s", e)
+
 try:
     from ppt_generator import generate_pptx
-    print("ppt_generator loaded successfully", file=sys.stderr)
+    logger.info("ppt_generator loaded successfully")
 except ImportError as e:
-    print(f"WARNING: ppt_generator import failed: {e}", file=sys.stderr)
+    logger.warning("ppt_generator import failed: %s", e)
     generate_pptx = None
 
 try:
     from api_enrichment import enrich_data
-    print("api_enrichment loaded successfully", file=sys.stderr)
+    logger.info("api_enrichment loaded successfully")
 except ImportError as e:
-    print(f"WARNING: api_enrichment import failed: {e}", file=sys.stderr)
+    logger.warning("api_enrichment import failed: %s", e)
     enrich_data = None
 
 try:
     from data_synthesizer import synthesize as data_synthesize
-    print("data_synthesizer loaded successfully", file=sys.stderr)
+    logger.info("data_synthesizer loaded successfully")
 except ImportError as e:
-    print(f"WARNING: data_synthesizer import failed: {e}", file=sys.stderr)
+    logger.warning("data_synthesizer import failed: %s", e)
     data_synthesize = None
 
 try:
     from budget_engine import calculate_budget_allocation
-    print("budget_engine loaded successfully", file=sys.stderr)
+    logger.info("budget_engine loaded successfully")
 except ImportError as e:
-    print(f"WARNING: budget_engine import failed: {e}", file=sys.stderr)
+    logger.warning("budget_engine import failed: %s", e)
     calculate_budget_allocation = None
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -534,20 +635,39 @@ try:
 except (FileNotFoundError, json.JSONDecodeError, OSError):
     pass
 
+_channels_db_cache = None
+_joveo_publishers_cache = None
+
 def load_channels_db():
+    global _channels_db_cache
+    if _channels_db_cache is not None:
+        return _channels_db_cache
     try:
         with open(os.path.join(DATA_DIR, "channels_db.json"), "r") as f:
-            return json.load(f)
+            _channels_db_cache = json.load(f)
+            return _channels_db_cache
     except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
-        logger.error(f"Failed to load channels_db.json: {e}")
+        logger.error("Failed to load channels_db.json: %s", e)
         return {}
 
 def load_joveo_publishers():
+    global _joveo_publishers_cache
+    if _joveo_publishers_cache is not None:
+        return _joveo_publishers_cache
     path = os.path.join(DATA_DIR, "joveo_publishers.json")
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            return json.load(f)
-    return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            _joveo_publishers_cache = json.load(f)
+            return _joveo_publishers_cache
+    except FileNotFoundError:
+        logger.warning("joveo_publishers.json not found at %s", path)
+        return {}
+    except json.JSONDecodeError as e:
+        logger.error("joveo_publishers.json JSON parse error: %s", e)
+        return {}
+    except OSError as e:
+        logger.error("Failed to read joveo_publishers.json: %s", e)
+        return {}
 
 
 def fetch_client_logo(client_name, client_website=""):
@@ -775,6 +895,15 @@ def generate_excel(data):
 
     wb = Workbook()
 
+    # Set workbook metadata for GEO/SEO discoverability
+    wb.properties.title = f"Recruitment Media Plan - {data.get('client_name', 'Client')}"
+    wb.properties.creator = "Nova AI by Joveo"
+    wb.properties.subject = f"AI-generated recruitment media plan for {data.get('client_name', 'Client')}"
+    wb.properties.keywords = f"recruitment media plan, {data.get('industry', '').replace('_', ' ').title()}, job advertising"
+    wb.properties.description = f"Generated by Nova AI Media Plan Generator. Data from 25 APIs, 91+ platforms."
+    wb.properties.category = "Recruitment Advertising"
+    wb.properties.lastModifiedBy = "Nova AI by Joveo"
+
     # Styles
     header_font = Font(name="Calibri", bold=True, size=14, color="FFFFFF")
     header_fill = PatternFill(start_color="1B2A4A", end_color="1B2A4A", fill_type="solid")
@@ -914,7 +1043,8 @@ def generate_excel(data):
 
     ws_overview.merge_cells("B2:C2")
     title_cell = ws_overview["B2"]
-    title_cell.value = "AI Media Planner — Overview"
+    _overview_client = data.get("client_name", "").strip()
+    title_cell.value = f"Media Plan — {_overview_client}" if _overview_client else "AI Media Planner — Overview"
     title_cell.font = Font(name="Calibri", bold=True, size=18, color="1B2A4A")
 
     # Try to fetch and insert client logo (prefer website URL for accuracy)
@@ -5569,6 +5699,168 @@ def generate_excel(data):
                 c2.border = thin_border
                 comp_row += 1
 
+        # --- Clearbit Company Intelligence ---
+        _clearbit_co = _comp_intel.get("company_clearbit", {})
+        if isinstance(_clearbit_co, dict) and _clearbit_co:
+            comp_row += 2
+            style_section_header(ws_comp, comp_row, 2, 7, "Company Intelligence (Clearbit)")
+            comp_row += 2
+            _cb_fields = [
+                ("Domain", _clearbit_co.get("domain", "N/A")),
+                ("Industry", _clearbit_co.get("industry", "N/A")),
+                ("Employee Count", f"{_clearbit_co.get('employee_count', 'N/A'):,}" if isinstance(_clearbit_co.get("employee_count"), (int, float)) else str(_clearbit_co.get("employee_count", "N/A"))),
+                ("Annual Revenue", f"${_clearbit_co.get('annual_revenue', 0):,.0f}" if isinstance(_clearbit_co.get("annual_revenue"), (int, float)) and _clearbit_co.get("annual_revenue") else "N/A"),
+            ]
+            _cb_tags = _clearbit_co.get("tags", [])
+            if isinstance(_cb_tags, list) and _cb_tags:
+                _cb_fields.append(("Tags", ", ".join(str(t) for t in _cb_tags[:8])))
+            _cb_tech = _clearbit_co.get("tech_stack", [])
+            if isinstance(_cb_tech, list) and _cb_tech:
+                _cb_fields.append(("Tech Stack", ", ".join(str(t) for t in _cb_tech[:10])))
+
+            for fidx, (flabel, fval) in enumerate(_cb_fields):
+                if fval and str(fval) != "N/A" and str(fval).strip():
+                    _pf_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if fidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                    c1 = ws_comp.cell(row=comp_row, column=2, value=flabel)
+                    c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                    c1.fill = _pf_fill
+                    c1.border = thin_border
+                    ws_comp.merge_cells(f"C{comp_row}:G{comp_row}")
+                    c2 = ws_comp.cell(row=comp_row, column=3, value=str(fval)[:300])
+                    c2.font = Font(name="Calibri", size=10)
+                    c2.fill = _pf_fill
+                    c2.border = thin_border
+                    c2.alignment = wrap_alignment
+                    comp_row += 1
+
+        # --- Wikipedia Company Summary ---
+        _wiki_co = _comp_intel.get("company_wikipedia", {})
+        if isinstance(_wiki_co, dict) and _wiki_co:
+            _wiki_desc = _wiki_co.get("description", "")
+            _wiki_founded = _wiki_co.get("founded")
+            _wiki_hq = _wiki_co.get("headquarters")
+            _wiki_url = _wiki_co.get("url")
+            if _wiki_desc or _wiki_founded or _wiki_hq:
+                comp_row += 2
+                style_section_header(ws_comp, comp_row, 2, 7, "Company Background (Wikipedia)")
+                comp_row += 2
+                _wiki_fields = []
+                if _wiki_desc:
+                    _wiki_fields.append(("Description", str(_wiki_desc)[:400]))
+                if _wiki_founded:
+                    _wiki_fields.append(("Founded", str(_wiki_founded)))
+                if _wiki_hq:
+                    _wiki_fields.append(("Headquarters", str(_wiki_hq)))
+                if _wiki_url:
+                    _wiki_fields.append(("Wikipedia URL", str(_wiki_url)))
+
+                for fidx, (flabel, fval) in enumerate(_wiki_fields):
+                    _pf_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if fidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                    c1 = ws_comp.cell(row=comp_row, column=2, value=flabel)
+                    c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                    c1.fill = _pf_fill
+                    c1.border = thin_border
+                    ws_comp.merge_cells(f"C{comp_row}:G{comp_row}")
+                    c2 = ws_comp.cell(row=comp_row, column=3, value=fval)
+                    c2.font = Font(name="Calibri", size=10)
+                    c2.fill = _pf_fill
+                    c2.border = thin_border
+                    c2.alignment = wrap_alignment
+                    comp_row += 1
+
+        # --- SEC EDGAR Filings ---
+        _sec_co = _comp_intel.get("company_sec", {})
+        if isinstance(_sec_co, dict) and _sec_co:
+            _sec_cik = _sec_co.get("cik")
+            _sec_filings = _sec_co.get("filings", [])
+            _sec_sic = _sec_co.get("sic_code")
+            _sec_fy = _sec_co.get("fiscal_year_end")
+            if _sec_cik or _sec_filings:
+                comp_row += 2
+                style_section_header(ws_comp, comp_row, 2, 7, "SEC EDGAR Filings")
+                comp_row += 2
+
+                _sec_meta = [
+                    ("CIK", str(_sec_cik) if _sec_cik else "N/A"),
+                    ("SIC Code", str(_sec_sic) if _sec_sic else "N/A"),
+                    ("Fiscal Year End", str(_sec_fy) if _sec_fy else "N/A"),
+                ]
+                for fidx, (flabel, fval) in enumerate(_sec_meta):
+                    if fval != "N/A":
+                        _pf_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if fidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                        c1 = ws_comp.cell(row=comp_row, column=2, value=flabel)
+                        c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                        c1.fill = _pf_fill
+                        c1.border = thin_border
+                        ws_comp.merge_cells(f"C{comp_row}:D{comp_row}")
+                        c2 = ws_comp.cell(row=comp_row, column=3, value=fval)
+                        c2.font = Font(name="Calibri", size=10)
+                        c2.fill = _pf_fill
+                        c2.border = thin_border
+                        comp_row += 1
+
+                if isinstance(_sec_filings, list) and _sec_filings:
+                    comp_row += 1
+                    _filing_headers = ["Filing Type", "Date", "Description"]
+                    for i, h in enumerate(_filing_headers):
+                        cell = ws_comp.cell(row=comp_row, column=2 + i, value=h)
+                        cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+                        cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+                        cell.border = thin_border
+                        cell.alignment = center_alignment
+                    comp_row += 1
+
+                    for fidx, filing in enumerate(_sec_filings[:5]):
+                        if not isinstance(filing, dict):
+                            continue
+                        _row_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if fidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                        _f_vals = [
+                            filing.get("form", filing.get("type", "N/A")),
+                            filing.get("filed", filing.get("date", "N/A")),
+                            filing.get("description", filing.get("primaryDocDescription", "N/A")),
+                        ]
+                        for ci, val in enumerate(_f_vals):
+                            cell = ws_comp.cell(row=comp_row, column=2 + ci, value=str(val)[:100])
+                            cell.font = Font(name="Calibri", size=10)
+                            cell.fill = _row_fill
+                            cell.border = thin_border
+                            cell.alignment = wrap_alignment if ci == 2 else center_alignment
+                        comp_row += 1
+
+        # --- Competitor Logos (enriched) ---
+        _comp_logos = _comp_intel.get("competitor_logos", {})
+        if isinstance(_comp_logos, dict) and _comp_logos:
+            comp_row += 2
+            style_section_header(ws_comp, comp_row, 2, 7, "Competitor Brand Assets")
+            comp_row += 2
+
+            _logo_headers = ["Competitor", "Logo URL", "Domain"]
+            for i, h in enumerate(_logo_headers):
+                cell = ws_comp.cell(row=comp_row, column=2 + i, value=h)
+                cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+                cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+                cell.border = thin_border
+                cell.alignment = center_alignment
+            comp_row += 1
+
+            for cidx, (cname, cdata) in enumerate(_comp_logos.items()):
+                _row_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if cidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                if isinstance(cdata, dict):
+                    _logo_url = cdata.get("logo", cdata.get("url", "N/A"))
+                    _domain = cdata.get("domain", "N/A")
+                elif isinstance(cdata, str):
+                    _logo_url = cdata
+                    _domain = "N/A"
+                else:
+                    continue
+                for ci, val in enumerate([cname, str(_logo_url), str(_domain)]):
+                    cell = ws_comp.cell(row=comp_row, column=2 + ci, value=val)
+                    cell.font = Font(name="Calibri", size=10, bold=(ci == 0))
+                    cell.fill = _row_fill
+                    cell.border = thin_border
+                    cell.alignment = wrap_alignment
+                comp_row += 1
+
         comp_row += 1
         ws_comp.merge_cells(f"B{comp_row}:G{comp_row}")
         ws_comp.cell(row=comp_row, column=2, value="Data sourced from Wikipedia, Clearbit, SEC EDGAR filings, BLS QCEW, and internal knowledge base. Competitor data based on industry classification and domain analysis.").font = Font(name="Calibri", italic=True, size=9, color="596780")
@@ -5726,6 +6018,55 @@ def generate_excel(data):
                 ws_ba.cell(row=ba_row, column=2, value=f"  Warning: {w}").font = Font(name="Calibri", size=10, color="C62828")
                 ba_row += 1
 
+        # Budget Reality Check section
+        _ba_suff = _budget_alloc.get("sufficiency", {})
+        ba_reality = _ba_suff.get("budget_reality_check", {}) if isinstance(_ba_suff, dict) else {}
+        if ba_reality:
+            tier = ba_reality.get("feasibility_tier", "")
+            if tier in ("impossible", "severely_underfunded", "underfunded"):
+                ba_row += 1
+                style_section_header(ws_ba, ba_row, 2, 11, "BUDGET REALITY CHECK")
+                # Override the section header color to red for urgency
+                for col_idx in range(2, 12):
+                    _rc = ws_ba.cell(row=ba_row, column=col_idx)
+                    if _rc.value:
+                        _rc.font = Font(name="Calibri", bold=True, size=13, color="FF0000")
+                ba_row += 2
+
+                _rc_label = ba_reality.get("feasibility_label", "WARNING")
+                _rc_msg = ba_reality.get("feasibility_message", "")
+                _rc_color = "C00000" if tier == "impossible" else "E65100" if tier == "severely_underfunded" else "F57C00"
+
+                ws_ba.merge_cells(f"B{ba_row}:K{ba_row}")
+                _lbl_cell = ws_ba.cell(row=ba_row, column=2, value=_rc_label)
+                _lbl_cell.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+                _lbl_cell.fill = PatternFill(start_color=_rc_color, end_color=_rc_color, fill_type="solid")
+                _lbl_cell.alignment = Alignment(horizontal="center", vertical="center")
+                for _cc in range(2, 12):
+                    ws_ba.cell(row=ba_row, column=_cc).fill = PatternFill(start_color=_rc_color, end_color=_rc_color, fill_type="solid")
+                ba_row += 1
+
+                ws_ba.merge_cells(f"B{ba_row}:K{ba_row}")
+                _msg_cell = ws_ba.cell(row=ba_row, column=2, value=_rc_msg)
+                _msg_cell.font = Font(name="Calibri", size=10, color=_rc_color)
+                _msg_cell.alignment = Alignment(wrap_text=True, vertical="center")
+                ws_ba.row_dimensions[ba_row].height = 45
+                ba_row += 2
+
+                _rc_details = [
+                    ("Budget per Hire:", f"${ba_reality.get('budget_per_hire', 0):,.0f}"),
+                    ("Industry Avg CPH:", f"${ba_reality.get('industry_avg_cph', 0):,.0f}"),
+                    ("Realistic Hires at This Budget:", str(ba_reality.get('realistic_hires', 'N/A'))),
+                    ("Target Hires:", str(ba_reality.get('target_hires', 'N/A'))),
+                    ("Recommended Min Budget:", f"${ba_reality.get('min_viable_budget', 0):,.0f}"),
+                ]
+                for _dl, _dv in _rc_details:
+                    ws_ba.cell(row=ba_row, column=2, value=f"  {_dl}").font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                    ws_ba.merge_cells(f"D{ba_row}:F{ba_row}")
+                    ws_ba.cell(row=ba_row, column=4, value=_dv).font = Font(name="Calibri", size=10, color="333333")
+                    ba_row += 1
+                ba_row += 1
+
         # Optimization recommendations
         _recs = _budget_alloc.get("recommendations", [])
         if _recs and isinstance(_recs, list):
@@ -5740,6 +6081,864 @@ def generate_excel(data):
                 ws_ba.merge_cells(f"B{ba_row}:K{ba_row}")
                 ws_ba.cell(row=ba_row, column=2, value=f"  {ridx + 1}. {rec_text}").font = Font(name="Calibri", size=10, color="333333")
                 ba_row += 1
+
+    # ── Sheet: Campaign Projections (structured estimates) ──
+    if isinstance(_budget_alloc, dict) and _budget_alloc:
+        try:
+            ws_proj = wb.create_sheet("Campaign Projections")
+            ws_proj.sheet_properties.tabColor = "0A66C9"
+            ws_proj.column_dimensions["A"].width = 3
+            ws_proj.column_dimensions["B"].width = 30
+            ws_proj.column_dimensions["C"].width = 18
+            ws_proj.column_dimensions["D"].width = 16
+            ws_proj.column_dimensions["E"].width = 16
+            ws_proj.column_dimensions["F"].width = 16
+            ws_proj.column_dimensions["G"].width = 16
+            ws_proj.column_dimensions["H"].width = 16
+            ws_proj.column_dimensions["I"].width = 16
+            ws_proj.column_dimensions["J"].width = 16
+            ws_proj.column_dimensions["K"].width = 16
+            ws_proj.column_dimensions["L"].width = 16
+
+            _proj_navy_fill = PatternFill(start_color="08294A", end_color="08294A", fill_type="solid")
+            _proj_white_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+            _proj_alt_fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
+            _proj_header_font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+            _proj_data_font = Font(name="Calibri", size=10)
+            _proj_data_bold_font = Font(name="Calibri", bold=True, size=10)
+
+            # Sheet title
+            ws_proj.merge_cells("B2:L2")
+            ws_proj["B2"].value = "Campaign Projections & Estimates"
+            ws_proj["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+            ws_proj["B2"].border = accent_bottom_border
+
+            ws_proj.merge_cells("B3:L3")
+            ws_proj["B3"].value = "All projections generated by Joveo's budget allocation engine based on industry benchmarks, channel CPC data, and historical conversion rates."
+            ws_proj["B3"].font = Font(name="Calibri", italic=True, size=9, color="596780")
+
+            proj_row = 5
+
+            # ── TABLE 1: Campaign Summary Projections ──
+            _proj_total = _budget_alloc.get("total_projected", {})
+            if not isinstance(_proj_total, dict):
+                _proj_total = {}
+            _proj_meta = _budget_alloc.get("metadata", {})
+            if not isinstance(_proj_meta, dict):
+                _proj_meta = {}
+            _proj_tb = _proj_meta.get("total_budget", 0)
+
+            style_section_header(ws_proj, proj_row, 2, 6, "Campaign Summary Projections")
+            proj_row += 2
+
+            # Header row
+            for ci, hdr in enumerate(["Metric", "Value", "Confidence", "Source", "Notes"]):
+                cell = ws_proj.cell(row=proj_row, column=2 + ci, value=hdr)
+                cell.font = _proj_header_font
+                cell.fill = _proj_navy_fill
+                cell.border = thin_border
+                cell.alignment = center_alignment
+            proj_row += 1
+
+            _proj_clicks = _proj_total.get("clicks", 0)
+            _proj_apps = _proj_total.get("applications", 0)
+            _proj_hires = _proj_total.get("hires", 0)
+            _proj_cpc_avg = _proj_total.get("cost_per_click", 0)
+            _proj_cpa_avg = _proj_total.get("cost_per_application", 0)
+            _proj_cph_avg = _proj_total.get("cost_per_hire", 0)
+            _proj_util = ((_proj_clicks * _proj_cpc_avg) / _proj_tb * 100) if _proj_tb > 0 and _proj_cpc_avg > 0 and _proj_clicks > 0 else 100.0
+
+            _summary_rows = [
+                ("Total Budget", f"${_proj_tb:,.0f}" if _proj_tb > 0 else "N/A", "-", "User Input", "Campaign investment amount"),
+                ("Projected Total Clicks", f"{_proj_clicks:,.0f}" if _proj_clicks else "N/A", "Medium", "Budget Engine", "Aggregate across all channels"),
+                ("Projected Total Applications", f"{_proj_apps:,.0f}" if _proj_apps else "N/A", "Medium", "Budget Engine", "Based on channel apply rates"),
+                ("Projected Total Hires", f"{_proj_hires:,.0f}" if _proj_hires else "N/A", "Medium", "Budget Engine", "Based on tier-blended hire rates"),
+                ("Avg Cost Per Click", f"${_proj_cpc_avg:,.2f}" if _proj_cpc_avg > 0 else "N/A", "Medium", "Budget Engine", "Weighted average across channels"),
+                ("Avg Cost Per Application", f"${_proj_cpa_avg:,.2f}" if _proj_cpa_avg > 0 else "N/A", "Medium", "Budget Engine", "Total budget / projected applications"),
+                ("Avg Cost Per Hire", f"${_proj_cph_avg:,.0f}" if _proj_cph_avg > 0 else "N/A", "Medium", "Budget Engine", "Total budget / projected hires"),
+                ("Budget Utilization", f"{min(_proj_util, 100):.1f}%", "High", "Budget Engine", "Percentage of budget allocated to channels"),
+            ]
+
+            for ridx, (metric, val, conf, src, note) in enumerate(_summary_rows):
+                _rfill = _proj_white_fill if ridx % 2 == 0 else _proj_alt_fill
+                for ci, cell_val in enumerate([metric, val, conf, src, note]):
+                    cell = ws_proj.cell(row=proj_row, column=2 + ci, value=cell_val)
+                    cell.font = _proj_data_bold_font if ci == 0 else _proj_data_font
+                    cell.fill = _rfill
+                    cell.border = thin_border
+                    cell.alignment = center_alignment if ci > 0 else wrap_alignment
+                proj_row += 1
+
+            proj_row += 2
+
+            # ── TABLE 2: Channel-by-Channel Projections ──
+            _proj_ch_allocs = _budget_alloc.get("channel_allocations", {})
+            if not isinstance(_proj_ch_allocs, dict):
+                _proj_ch_allocs = {}
+
+            if _proj_ch_allocs:
+                style_section_header(ws_proj, proj_row, 2, 12, "Channel-by-Channel Projections")
+                proj_row += 2
+
+                _ch_headers = ["Channel", "Budget", "% Share", "CPC", "Clicks", "Applications", "Hires", "CPA", "Cost/Hire", "ROI Score", "Confidence"]
+                for ci, hdr in enumerate(_ch_headers):
+                    cell = ws_proj.cell(row=proj_row, column=2 + ci, value=hdr)
+                    cell.font = _proj_header_font
+                    cell.fill = _proj_navy_fill
+                    cell.border = thin_border
+                    cell.alignment = center_alignment
+                proj_row += 1
+
+                _ch_total_spend = 0
+                _ch_total_clicks = 0
+                _ch_total_apps = 0
+                _ch_total_hires = 0
+
+                # Sort channels by dollar amount descending
+                _sorted_chs = sorted(
+                    _proj_ch_allocs.items(),
+                    key=lambda x: x[1].get("dollar_amount", x[1].get("dollars", 0)) if isinstance(x[1], dict) else 0,
+                    reverse=True
+                )
+
+                for chidx, (ch_name, ch_data) in enumerate(_sorted_chs):
+                    if not isinstance(ch_data, dict):
+                        continue
+                    _rfill = _proj_white_fill if chidx % 2 == 0 else _proj_alt_fill
+                    _ch_dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
+                    _ch_pct = ch_data.get("percentage", 0)
+                    _ch_cpc = ch_data.get("cpc", 0)
+                    _ch_clicks = ch_data.get("projected_clicks", 0)
+                    _ch_apps = ch_data.get("projected_applications", 0)
+                    _ch_hires = ch_data.get("projected_hires", 0)
+                    _ch_cpa = ch_data.get("cpa", ch_data.get("cost_per_application", 0))
+                    _ch_cph = ch_data.get("cost_per_hire", 0)
+                    _ch_roi = ch_data.get("roi_score", 0)
+                    _ch_conf = ch_data.get("confidence", "low").title()
+
+                    _ch_total_spend += _ch_dollars if isinstance(_ch_dollars, (int, float)) else 0
+                    _ch_total_clicks += _ch_clicks if isinstance(_ch_clicks, (int, float)) else 0
+                    _ch_total_apps += _ch_apps if isinstance(_ch_apps, (int, float)) else 0
+                    _ch_total_hires += _ch_hires if isinstance(_ch_hires, (int, float)) else 0
+
+                    _ch_vals = [
+                        ch_name.replace("_", " ").title(),
+                        f"${_ch_dollars:,.0f}" if isinstance(_ch_dollars, (int, float)) else str(_ch_dollars),
+                        f"{_ch_pct:.1f}%" if isinstance(_ch_pct, (int, float)) else str(_ch_pct),
+                        f"${_ch_cpc:.2f}" if isinstance(_ch_cpc, (int, float)) and _ch_cpc > 0 else "N/A",
+                        f"{_ch_clicks:,.0f}" if isinstance(_ch_clicks, (int, float)) else str(_ch_clicks),
+                        f"{_ch_apps:,.0f}" if isinstance(_ch_apps, (int, float)) else str(_ch_apps),
+                        f"{_ch_hires:,.1f}" if isinstance(_ch_hires, (int, float)) else str(_ch_hires),
+                        f"${_ch_cpa:.2f}" if isinstance(_ch_cpa, (int, float)) and _ch_cpa > 0 else "N/A",
+                        f"${_ch_cph:,.0f}" if isinstance(_ch_cph, (int, float)) and _ch_cph > 0 else "N/A",
+                        f"{_ch_roi:.1f}/10" if isinstance(_ch_roi, (int, float)) else str(_ch_roi),
+                        _ch_conf,
+                    ]
+                    for ci, val in enumerate(_ch_vals):
+                        cell = ws_proj.cell(row=proj_row, column=2 + ci, value=val)
+                        cell.font = _proj_data_bold_font if ci == 0 else _proj_data_font
+                        cell.fill = _rfill
+                        cell.border = thin_border
+                        cell.alignment = center_alignment if ci > 0 else wrap_alignment
+                    proj_row += 1
+
+                # Totals row
+                _ch_totals_vals = [
+                    "TOTAL",
+                    f"${_ch_total_spend:,.0f}",
+                    "100%",
+                    "",
+                    f"{_ch_total_clicks:,.0f}",
+                    f"{_ch_total_apps:,.0f}",
+                    f"{_ch_total_hires:,.1f}",
+                    f"${_ch_total_spend / max(_ch_total_apps, 1):,.2f}" if _ch_total_apps > 0 else "N/A",
+                    f"${_ch_total_spend / max(_ch_total_hires, 1):,.0f}" if _ch_total_hires > 0 else "N/A",
+                    "",
+                    "",
+                ]
+                for ci, val in enumerate(_ch_totals_vals):
+                    cell = ws_proj.cell(row=proj_row, column=2 + ci, value=val)
+                    cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+                    cell.fill = _proj_navy_fill
+                    cell.border = thin_border
+                    cell.alignment = center_alignment
+                proj_row += 2
+
+            # ── TABLE 3: Role-by-Role Budget Distribution ──
+            _proj_role_allocs = _budget_alloc.get("role_allocations", {})
+            if not isinstance(_proj_role_allocs, dict):
+                _proj_role_allocs = {}
+
+            if _proj_role_allocs:
+                proj_row += 1
+                style_section_header(ws_proj, proj_row, 2, 8, "Role-by-Role Budget Distribution")
+                proj_row += 2
+
+                _role_headers = ["Role", "Budget Share", "Dollar Amount", "Tier", "Openings", "$ Per Opening", "Notes"]
+                for ci, hdr in enumerate(_role_headers):
+                    cell = ws_proj.cell(row=proj_row, column=2 + ci, value=hdr)
+                    cell.font = _proj_header_font
+                    cell.fill = _proj_navy_fill
+                    cell.border = thin_border
+                    cell.alignment = center_alignment
+                proj_row += 1
+
+                _sorted_roles = sorted(
+                    _proj_role_allocs.items(),
+                    key=lambda x: x[1].get("dollar_amount", 0) if isinstance(x[1], dict) else 0,
+                    reverse=True
+                )
+
+                for ridx, (role_name, role_data) in enumerate(_sorted_roles):
+                    if not isinstance(role_data, dict):
+                        continue
+                    _rfill = _proj_white_fill if ridx % 2 == 0 else _proj_alt_fill
+                    _r_share = role_data.get("budget_share", 0)
+                    _r_dollars = role_data.get("dollar_amount", 0)
+                    _r_tier = role_data.get("tier", "default").replace("_", " ").title()
+                    _r_openings = role_data.get("openings", role_data.get("headcount", 1))
+                    _r_per_opening = _r_dollars / max(_r_openings, 1) if _r_dollars > 0 else 0
+                    _r_mult = role_data.get("multiplier", 1.0)
+
+                    _r_notes = ""
+                    if _r_mult > 1.2:
+                        _r_notes = "High-priority (elevated spend multiplier)"
+                    elif _r_mult < 0.8:
+                        _r_notes = "Lower complexity (reduced spend multiplier)"
+
+                    _role_vals = [
+                        role_name.strip().title(),
+                        f"{_r_share * 100:.1f}%",
+                        f"${_r_dollars:,.0f}",
+                        _r_tier,
+                        str(int(_r_openings)),
+                        f"${_r_per_opening:,.0f}",
+                        _r_notes,
+                    ]
+                    for ci, val in enumerate(_role_vals):
+                        cell = ws_proj.cell(row=proj_row, column=2 + ci, value=val)
+                        cell.font = _proj_data_bold_font if ci == 0 else _proj_data_font
+                        cell.fill = _rfill
+                        cell.border = thin_border
+                        cell.alignment = center_alignment if ci > 0 else wrap_alignment
+                    proj_row += 1
+
+                proj_row += 1
+
+            # ── TABLE 4: Budget Feasibility Assessment ──
+            _proj_suff = _budget_alloc.get("sufficiency", {})
+            if not isinstance(_proj_suff, dict):
+                _proj_suff = {}
+
+            if _proj_suff:
+                proj_row += 1
+                style_section_header(ws_proj, proj_row, 2, 6, "Budget Feasibility Assessment")
+                proj_row += 2
+
+                for ci, hdr in enumerate(["Assessment", "Value", "Details", "Status", "Action Required"]):
+                    cell = ws_proj.cell(row=proj_row, column=2 + ci, value=hdr)
+                    cell.font = _proj_header_font
+                    cell.fill = _proj_navy_fill
+                    cell.border = thin_border
+                    cell.alignment = center_alignment
+                proj_row += 1
+
+                _suff_sufficient = _proj_suff.get("sufficient", False)
+                _suff_bpo = _proj_suff.get("budget_per_opening", 0)
+                _suff_avg_cph = _proj_suff.get("industry_avg_cost_per_hire", 0)
+                _suff_gap = _proj_suff.get("gap_amount", 0)
+                _suff_proj_hires = _proj_suff.get("total_projected_hires", 0)
+                _suff_openings = _proj_meta.get("total_openings", 0)
+
+                # Determine feasibility label
+                if _suff_sufficient and _suff_bpo >= _suff_avg_cph:
+                    _feas_label = "Well Funded"
+                    _feas_status = "PASS"
+                elif _suff_sufficient:
+                    _feas_label = "Adequate"
+                    _feas_status = "PASS"
+                else:
+                    _feas_label = "Underfunded"
+                    _feas_status = "WARNING"
+
+                _assess_rows = [
+                    ("Feasibility Rating", _feas_label, f"Budget is {'sufficient' if _suff_sufficient else 'below recommended levels'} for target openings", _feas_status, "Review if WARNING"),
+                    ("Budget Per Opening", f"${_suff_bpo:,.0f}" if _suff_bpo > 0 else "N/A", f"Total budget divided by {_suff_openings} openings" if _suff_openings > 0 else "Based on total budget allocation", "INFO", "-"),
+                    ("Industry Avg CPH", f"${_suff_avg_cph:,.0f}" if _suff_avg_cph > 0 else "N/A", f"Average cost-per-hire for {_proj_meta.get('industry', 'general').replace('_', ' ').title()}", "BENCHMARK", "-"),
+                    ("Projected Hires", f"{_suff_proj_hires:,.0f}" if _suff_proj_hires else "N/A", f"Against target of {_suff_openings}" if _suff_openings > 0 else "Budget engine projection", "INFO", "Monitor during campaign"),
+                    ("Budget Gap", f"${_suff_gap:,.0f}" if _suff_gap > 0 else "$0 (No Gap)", "Additional budget needed to meet all openings at industry avg CPH" if _suff_gap > 0 else "Budget covers projected needs", "WARNING" if _suff_gap > 0 else "PASS", "Consider increasing budget" if _suff_gap > 0 else "-"),
+                ]
+
+                for ridx, (assess, val, detail, status, action) in enumerate(_assess_rows):
+                    _rfill = _proj_white_fill if ridx % 2 == 0 else _proj_alt_fill
+                    # Color-code the status
+                    _status_color = "2E7D32" if status == "PASS" else "F57C00" if status == "WARNING" else "333333"
+
+                    for ci, cell_val in enumerate([assess, val, detail, status, action]):
+                        cell = ws_proj.cell(row=proj_row, column=2 + ci, value=cell_val)
+                        if ci == 3:
+                            cell.font = Font(name="Calibri", bold=True, size=10, color=_status_color)
+                        elif ci == 0:
+                            cell.font = _proj_data_bold_font
+                        else:
+                            cell.font = _proj_data_font
+                        cell.fill = _rfill
+                        cell.border = thin_border
+                        cell.alignment = center_alignment if ci > 0 else wrap_alignment
+                    proj_row += 1
+
+                # Warnings subsection
+                _proj_warnings = _budget_alloc.get("warnings", [])
+                if _proj_warnings and isinstance(_proj_warnings, list):
+                    proj_row += 1
+                    ws_proj.merge_cells(f"B{proj_row}:F{proj_row}")
+                    ws_proj.cell(row=proj_row, column=2, value="Warnings").font = Font(name="Calibri", bold=True, size=11, color="C62828")
+                    proj_row += 1
+                    for w in _proj_warnings:
+                        ws_proj.merge_cells(f"B{proj_row}:L{proj_row}")
+                        ws_proj.cell(row=proj_row, column=2, value=f"  {w}").font = Font(name="Calibri", size=10, color="C62828")
+                        ws_proj.row_dimensions[proj_row].height = 30
+                        ws_proj.cell(row=proj_row, column=2).alignment = wrap_alignment
+                        proj_row += 1
+
+                # Recommendations subsection
+                _proj_recs = _budget_alloc.get("recommendations", [])
+                if _proj_recs and isinstance(_proj_recs, list):
+                    proj_row += 1
+                    ws_proj.merge_cells(f"B{proj_row}:F{proj_row}")
+                    ws_proj.cell(row=proj_row, column=2, value="Optimization Recommendations").font = Font(name="Calibri", bold=True, size=11, color="2E7D32")
+                    proj_row += 1
+                    for ridx, rec in enumerate(_proj_recs):
+                        if isinstance(rec, dict):
+                            rec_text = rec.get("recommendation", rec.get("message", str(rec)))
+                        else:
+                            rec_text = str(rec)
+                        ws_proj.merge_cells(f"B{proj_row}:L{proj_row}")
+                        ws_proj.cell(row=proj_row, column=2, value=f"  {ridx + 1}. {rec_text}").font = Font(name="Calibri", size=10, color="333333")
+                        ws_proj.row_dimensions[proj_row].height = 30
+                        ws_proj.cell(row=proj_row, column=2).alignment = wrap_alignment
+                        proj_row += 1
+
+            # ── Optimization Suggestions ──
+            _proj_opt_sugg = _budget_alloc.get("optimization_suggestions", [])
+            if _proj_opt_sugg and isinstance(_proj_opt_sugg, list):
+                proj_row += 2
+                ws_proj.merge_cells(f"B{proj_row}:L{proj_row}")
+                ws_proj.cell(row=proj_row, column=2, value="Optimization Suggestions").font = Font(name="Calibri", bold=True, size=11, color=ACCENT)
+                proj_row += 1
+                for sidx, sugg in enumerate(_proj_opt_sugg):
+                    ws_proj.merge_cells(f"B{proj_row}:L{proj_row}")
+                    ws_proj.cell(row=proj_row, column=2, value=f"  {sidx + 1}. {sugg}").font = Font(name="Calibri", size=10, color="333333")
+                    ws_proj.row_dimensions[proj_row].height = 30
+                    ws_proj.cell(row=proj_row, column=2).alignment = wrap_alignment
+                    proj_row += 1
+
+            # Footer note
+            proj_row += 2
+            ws_proj.merge_cells(f"B{proj_row}:L{proj_row}")
+            ws_proj.cell(row=proj_row, column=2, value="Projections are estimates based on industry benchmarks, historical channel performance data, and Joveo's ML models. Actual results may vary based on market conditions, job posting quality, and campaign optimization.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+            ws_proj.row_dimensions[proj_row].height = 30
+            ws_proj.cell(row=proj_row, column=2).alignment = wrap_alignment
+
+        except Exception:
+            pass  # Graceful fallback: skip Campaign Projections sheet if data is malformed
+
+    # ── Sheet: Workforce Trends ──
+    _workforce = _synth.get("workforce_insights", {})
+    if isinstance(_workforce, dict) and _workforce:
+        try:
+            ws_wf = wb.create_sheet("Workforce Trends")
+            ws_wf.sheet_properties.tabColor = "7B1FA2"
+            ws_wf.column_dimensions["A"].width = 3
+            ws_wf.column_dimensions["B"].width = 30
+            ws_wf.column_dimensions["C"].width = 22
+            ws_wf.column_dimensions["D"].width = 22
+            ws_wf.column_dimensions["E"].width = 22
+            ws_wf.column_dimensions["F"].width = 22
+            ws_wf.column_dimensions["G"].width = 22
+
+            ws_wf.merge_cells("B2:G2")
+            ws_wf["B2"].value = "Workforce Trends & Insights"
+            ws_wf["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+            ws_wf["B2"].border = accent_bottom_border
+
+            wf_row = 4
+            ws_wf.merge_cells(f"B{wf_row}:G{wf_row}")
+            ws_wf.cell(row=wf_row, column=2, value="Workforce intelligence derived from industry research, white papers, and knowledge base data. Use these insights to tailor messaging, channel selection, and employer brand positioning.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+            wf_row += 2
+
+            # --- Gen-Z Insights ---
+            _gen_z = _workforce.get("gen_z_insights", {})
+            if isinstance(_gen_z, dict) and _gen_z:
+                style_section_header(ws_wf, wf_row, 2, 7, "Gen-Z Workforce Insights")
+                wf_row += 2
+
+                _gz_share = _gen_z.get("workforce_share")
+                if _gz_share:
+                    ws_wf.merge_cells(f"B{wf_row}:G{wf_row}")
+                    ws_wf.cell(row=wf_row, column=2, value=f"Gen-Z Workforce Share: {_gz_share}").font = Font(name="Calibri", bold=True, size=11, color=ACCENT)
+                    wf_row += 2
+
+                # Platform Usage
+                _gz_platforms = _gen_z.get("job_search_platforms", {})
+                if isinstance(_gz_platforms, dict) and _gz_platforms:
+                    ws_wf.cell(row=wf_row, column=2, value="Job Search Platform Preferences").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                    wf_row += 1
+                    for i, h in enumerate(["Platform", "Usage Rate"]):
+                        cell = ws_wf.cell(row=wf_row, column=2 + i, value=h)
+                        cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+                        cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+                        cell.border = thin_border
+                        cell.alignment = center_alignment
+                    wf_row += 1
+                    for pidx, (pname, pval) in enumerate(_gz_platforms.items()):
+                        _wf_rf = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if pidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                        c1 = ws_wf.cell(row=wf_row, column=2, value=str(pname))
+                        c1.font = Font(name="Calibri", bold=True, size=10)
+                        c1.fill = _wf_rf
+                        c1.border = thin_border
+                        _pval_str = f"{pval}" if not isinstance(pval, (int, float)) else f"{pval:.0%}" if pval <= 1 else f"{pval}%"
+                        c2 = ws_wf.cell(row=wf_row, column=3, value=_pval_str)
+                        c2.font = Font(name="Calibri", size=10)
+                        c2.fill = _wf_rf
+                        c2.border = thin_border
+                        c2.alignment = center_alignment
+                        wf_row += 1
+                    wf_row += 1
+
+                # Mobile vs Desktop
+                _mobile = _gen_z.get("mobile_vs_desktop", {})
+                if isinstance(_mobile, dict) and _mobile:
+                    ws_wf.cell(row=wf_row, column=2, value="Mobile vs Desktop Behavior").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                    wf_row += 1
+                    for mkey, mval in _mobile.items():
+                        _wf_mf = PatternFill(start_color="E8F0FE", end_color="E8F0FE", fill_type="solid")
+                        c1 = ws_wf.cell(row=wf_row, column=2, value=str(mkey).replace("_", " ").title())
+                        c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                        c1.fill = _wf_mf
+                        c1.border = thin_border
+                        ws_wf.merge_cells(f"C{wf_row}:D{wf_row}")
+                        c2 = ws_wf.cell(row=wf_row, column=3, value=str(mval))
+                        c2.font = Font(name="Calibri", size=10)
+                        c2.fill = _wf_mf
+                        c2.border = thin_border
+                        c2.alignment = wrap_alignment
+                        wf_row += 1
+                    wf_row += 1
+
+                # Social Media Habits
+                _social = _gen_z.get("social_media_habits", {})
+                if isinstance(_social, dict) and _social:
+                    ws_wf.cell(row=wf_row, column=2, value="Social Media Habits").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                    wf_row += 1
+                    for skey, sval in _social.items():
+                        c1 = ws_wf.cell(row=wf_row, column=2, value=str(skey).replace("_", " ").title())
+                        c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                        c1.border = thin_border
+                        ws_wf.merge_cells(f"C{wf_row}:G{wf_row}")
+                        c2 = ws_wf.cell(row=wf_row, column=3, value=str(sval)[:300])
+                        c2.font = Font(name="Calibri", size=10)
+                        c2.border = thin_border
+                        c2.alignment = wrap_alignment
+                        wf_row += 1
+                    wf_row += 1
+
+                # Workplace Expectations
+                _expectations = _gen_z.get("workplace_expectations", {})
+                if isinstance(_expectations, dict) and _expectations:
+                    style_section_header(ws_wf, wf_row, 2, 7, "Gen-Z Workplace Expectations")
+                    wf_row += 2
+                    for exp_key, exp_data in _expectations.items():
+                        if not isinstance(exp_data, dict) or not exp_data:
+                            continue
+                        ws_wf.cell(row=wf_row, column=2, value=str(exp_key).replace("_", " ").title()).font = Font(name="Calibri", bold=True, size=11, color=ACCENT)
+                        wf_row += 1
+                        for ekey, eval_val in exp_data.items():
+                            _wf_ef = PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                            c1 = ws_wf.cell(row=wf_row, column=2, value=str(ekey).replace("_", " ").title())
+                            c1.font = Font(name="Calibri", size=10, color="333333")
+                            c1.fill = _wf_ef
+                            c1.border = thin_border
+                            ws_wf.merge_cells(f"C{wf_row}:G{wf_row}")
+                            c2 = ws_wf.cell(row=wf_row, column=3, value=str(eval_val)[:300])
+                            c2.font = Font(name="Calibri", size=10)
+                            c2.fill = _wf_ef
+                            c2.border = thin_border
+                            c2.alignment = wrap_alignment
+                            wf_row += 1
+                        wf_row += 1
+
+                # Salary Expectations
+                _salary_exp = _gen_z.get("salary_expectations", {})
+                if isinstance(_salary_exp, dict) and _salary_exp:
+                    ws_wf.cell(row=wf_row, column=2, value="Gen-Z Salary Expectations").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                    wf_row += 1
+                    for skey, sval in _salary_exp.items():
+                        c1 = ws_wf.cell(row=wf_row, column=2, value=str(skey).replace("_", " ").title())
+                        c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                        c1.border = thin_border
+                        ws_wf.merge_cells(f"C{wf_row}:D{wf_row}")
+                        c2 = ws_wf.cell(row=wf_row, column=3, value=str(sval))
+                        c2.font = Font(name="Calibri", size=10)
+                        c2.border = thin_border
+                        wf_row += 1
+                    wf_row += 1
+
+                # Tenure & Job Hopping
+                _tenure = _gen_z.get("tenure", {})
+                if isinstance(_tenure, dict) and _tenure:
+                    ws_wf.cell(row=wf_row, column=2, value="Gen-Z Tenure & Job Hopping").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                    wf_row += 1
+                    for tkey, tval in _tenure.items():
+                        c1 = ws_wf.cell(row=wf_row, column=2, value=str(tkey).replace("_", " ").title())
+                        c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                        c1.border = thin_border
+                        ws_wf.merge_cells(f"C{wf_row}:D{wf_row}")
+                        c2 = ws_wf.cell(row=wf_row, column=3, value=str(tval))
+                        c2.font = Font(name="Calibri", size=10)
+                        c2.border = thin_border
+                        c2.alignment = wrap_alignment
+                        wf_row += 1
+                    wf_row += 1
+
+            # --- Employer Branding ---
+            _eb = _workforce.get("employer_branding", {})
+            if isinstance(_eb, dict) and _eb:
+                style_section_header(ws_wf, wf_row, 2, 7, "Employer Branding Intelligence")
+                wf_row += 2
+                _roi_data = _eb.get("roi_data", {})
+                if isinstance(_roi_data, dict) and _roi_data:
+                    ws_wf.cell(row=wf_row, column=2, value="Employer Branding ROI").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                    wf_row += 1
+                    for rkey, rval in _roi_data.items():
+                        c1 = ws_wf.cell(row=wf_row, column=2, value=str(rkey).replace("_", " ").title())
+                        c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                        c1.border = thin_border
+                        ws_wf.merge_cells(f"C{wf_row}:G{wf_row}")
+                        c2 = ws_wf.cell(row=wf_row, column=3, value=str(rval)[:300])
+                        c2.font = Font(name="Calibri", size=10)
+                        c2.border = thin_border
+                        c2.alignment = wrap_alignment
+                        wf_row += 1
+                    wf_row += 1
+                _bp = _eb.get("best_practices", {})
+                if isinstance(_bp, dict) and _bp:
+                    ws_wf.cell(row=wf_row, column=2, value="Employer Branding Best Practices").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                    wf_row += 1
+                    for bkey, bval in _bp.items():
+                        c1 = ws_wf.cell(row=wf_row, column=2, value=str(bkey).replace("_", " ").title())
+                        c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                        c1.border = thin_border
+                        ws_wf.merge_cells(f"C{wf_row}:G{wf_row}")
+                        c2 = ws_wf.cell(row=wf_row, column=3, value=str(bval)[:300])
+                        c2.font = Font(name="Calibri", size=10)
+                        c2.border = thin_border
+                        c2.alignment = wrap_alignment
+                        wf_row += 1
+                    wf_row += 1
+                _ch_eff = _eb.get("channel_effectiveness", {})
+                if isinstance(_ch_eff, dict) and _ch_eff:
+                    ws_wf.cell(row=wf_row, column=2, value="Employer Brand Channel Effectiveness").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                    wf_row += 1
+                    for ckey, cval in _ch_eff.items():
+                        c1 = ws_wf.cell(row=wf_row, column=2, value=str(ckey).replace("_", " ").title())
+                        c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                        c1.border = thin_border
+                        ws_wf.merge_cells(f"C{wf_row}:G{wf_row}")
+                        c2 = ws_wf.cell(row=wf_row, column=3, value=str(cval)[:300])
+                        c2.font = Font(name="Calibri", size=10)
+                        c2.border = thin_border
+                        c2.alignment = wrap_alignment
+                        wf_row += 1
+                    wf_row += 1
+
+            # --- Supply Partner Trends ---
+            _sp_trends = _workforce.get("supply_partner_trends", {})
+            if isinstance(_sp_trends, dict) and _sp_trends:
+                style_section_header(ws_wf, wf_row, 2, 7, "Supply Partner Trends")
+                wf_row += 2
+                for spkey, spval in _sp_trends.items():
+                    c1 = ws_wf.cell(row=wf_row, column=2, value=str(spkey).replace("_", " ").title())
+                    c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                    c1.border = thin_border
+                    ws_wf.merge_cells(f"C{wf_row}:G{wf_row}")
+                    c2 = ws_wf.cell(row=wf_row, column=3, value=str(spval)[:300])
+                    c2.font = Font(name="Calibri", size=10)
+                    c2.border = thin_border
+                    c2.alignment = wrap_alignment
+                    wf_row += 1
+                wf_row += 1
+
+            # --- Job Type Trends ---
+            _jt_trends = _workforce.get("job_type_trends", {})
+            if isinstance(_jt_trends, dict) and _jt_trends:
+                style_section_header(ws_wf, wf_row, 2, 7, "Job Type Trends")
+                wf_row += 2
+                for jtkey, jtval in _jt_trends.items():
+                    c1 = ws_wf.cell(row=wf_row, column=2, value=str(jtkey).replace("_", " ").title())
+                    c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                    c1.border = thin_border
+                    ws_wf.merge_cells(f"C{wf_row}:G{wf_row}")
+                    c2 = ws_wf.cell(row=wf_row, column=3, value=str(jtval)[:300])
+                    c2.font = Font(name="Calibri", size=10)
+                    c2.border = thin_border
+                    c2.alignment = wrap_alignment
+                    wf_row += 1
+                wf_row += 1
+
+            # Footer
+            ws_wf.merge_cells(f"B{wf_row}:G{wf_row}")
+            ws_wf.cell(row=wf_row, column=2, value="Data sourced from recruitment industry knowledge base, workforce trends intelligence, and employer branding research. Gen-Z data reflects 2024-2026 behavioral studies.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+
+        except Exception as _wf_err:
+            logger.warning("Workforce Trends sheet generation failed: %s", _wf_err)
+
+    # ── Sheet: Sources & References ──
+    _wf_for_refs = _synth.get("workforce_insights", {})
+    _relevant_research = _wf_for_refs.get("relevant_research", []) if isinstance(_wf_for_refs, dict) else []
+    if isinstance(_relevant_research, list) and _relevant_research:
+        try:
+            ws_refs = wb.create_sheet("Sources & References")
+            ws_refs.sheet_properties.tabColor = "455A64"
+            ws_refs.column_dimensions["A"].width = 3
+            ws_refs.column_dimensions["B"].width = 5
+            ws_refs.column_dimensions["C"].width = 40
+            ws_refs.column_dimensions["D"].width = 22
+            ws_refs.column_dimensions["E"].width = 12
+            ws_refs.column_dimensions["F"].width = 55
+            ws_refs.column_dimensions["G"].width = 14
+
+            ws_refs.merge_cells("B2:G2")
+            ws_refs["B2"].value = "Sources & References"
+            ws_refs["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+            ws_refs["B2"].border = accent_bottom_border
+
+            ref_row = 4
+            ws_refs.merge_cells(f"B{ref_row}:G{ref_row}")
+            ws_refs.cell(row=ref_row, column=2, value="Industry research reports and white papers referenced in this media plan. Reports are selected for relevance to your industry, target roles, and recruitment strategy.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+            ref_row += 2
+
+            style_section_header(ws_refs, ref_row, 2, 7, "Research Reports & White Papers")
+            ref_row += 2
+
+            _ref_headers = ["#", "Report Title", "Publisher", "Year", "Key Findings", "Findings Count"]
+            for i, h in enumerate(_ref_headers):
+                cell = ws_refs.cell(row=ref_row, column=2 + i, value=h)
+                cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+                cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+                cell.border = thin_border
+                cell.alignment = center_alignment
+            ref_row += 1
+
+            for ridx, report in enumerate(_relevant_research):
+                if not isinstance(report, dict):
+                    continue
+                _ref_rf = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if ridx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                _r_title = report.get("title", "N/A")
+                _r_publisher = report.get("publisher", "N/A")
+                _r_year = report.get("year", "N/A")
+                _r_findings = report.get("top_findings", [])
+                _r_count = report.get("finding_count", 0)
+                if isinstance(_r_findings, list) and _r_findings:
+                    _findings_display = "; ".join(str(f)[:120] for f in _r_findings[:3])
+                else:
+                    _findings_display = "N/A"
+                _r_vals = [
+                    ridx + 1, str(_r_title), str(_r_publisher),
+                    str(_r_year) if _r_year else "N/A", _findings_display,
+                    str(_r_count) if isinstance(_r_count, (int, float)) else "N/A",
+                ]
+                for ci, val in enumerate(_r_vals):
+                    cell = ws_refs.cell(row=ref_row, column=2 + ci, value=val)
+                    cell.font = Font(name="Calibri", size=10, bold=(ci == 1))
+                    cell.fill = _ref_rf
+                    cell.border = thin_border
+                    cell.alignment = center_alignment if ci in (0, 3, 5) else wrap_alignment
+                ws_refs.row_dimensions[ref_row].height = 45
+                ref_row += 1
+
+            ref_row += 1
+            ws_refs.merge_cells(f"B{ref_row}:G{ref_row}")
+            ws_refs.cell(row=ref_row, column=2, value="Reports are ranked by relevance to your industry and recruitment objectives. Findings are summarized from original publications.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+
+        except Exception as _ref_err:
+            logger.warning("Sources & References sheet generation failed: %s", _ref_err)
+
+    # ── Sheet: Regional Intelligence ──
+    _loc_profiles = _synth.get("location_profiles", {})
+    if isinstance(_loc_profiles, dict) and _loc_profiles:
+        _has_regional = any(
+            isinstance(lp, dict) and isinstance(lp.get("regional_intelligence"), dict)
+            for lp in _loc_profiles.values()
+        )
+        if _has_regional:
+            try:
+                ws_reg = wb.create_sheet("Regional Intelligence")
+                ws_reg.sheet_properties.tabColor = "00695C"
+                ws_reg.column_dimensions["A"].width = 3
+                ws_reg.column_dimensions["B"].width = 24
+                ws_reg.column_dimensions["C"].width = 20
+                ws_reg.column_dimensions["D"].width = 26
+                ws_reg.column_dimensions["E"].width = 26
+                ws_reg.column_dimensions["F"].width = 28
+                ws_reg.column_dimensions["G"].width = 28
+                ws_reg.column_dimensions["H"].width = 22
+
+                ws_reg.merge_cells("B2:H2")
+                ws_reg["B2"].value = "Regional Intelligence"
+                ws_reg["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+                ws_reg["B2"].border = accent_bottom_border
+
+                reg_row = 4
+                ws_reg.merge_cells(f"B{reg_row}:H{reg_row}")
+                ws_reg.cell(row=reg_row, column=2, value="Per-market hiring intelligence including top job boards, dominant industries, talent dynamics, hiring regulations, cultural norms, and CPA benchmarks. Data sourced from regional hiring knowledge base.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+                reg_row += 2
+
+                for loc_name, loc_data in _loc_profiles.items():
+                    if not isinstance(loc_data, dict):
+                        continue
+                    _ri = loc_data.get("regional_intelligence", {})
+                    if not isinstance(_ri, dict) or not _ri:
+                        continue
+
+                    style_section_header(ws_reg, reg_row, 2, 8, str(loc_name))
+                    reg_row += 1
+                    _ri_region = _ri.get("region", "N/A")
+                    _ri_market = _ri.get("market", "N/A")
+                    ws_reg.merge_cells(f"B{reg_row}:H{reg_row}")
+                    ws_reg.cell(row=reg_row, column=2, value=f"Region: {_ri_region}  |  Market: {_ri_market}").font = Font(name="Calibri", italic=True, size=10, color="596780")
+                    reg_row += 2
+
+                    # Top Job Boards
+                    _top_boards = _ri.get("top_job_boards", [])
+                    if isinstance(_top_boards, list) and _top_boards:
+                        ws_reg.cell(row=reg_row, column=2, value="Top Job Boards").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                        reg_row += 1
+                        for i, h in enumerate(["Platform", "Specialty", "Pricing Model", "Monthly Traffic", "Notes"]):
+                            cell = ws_reg.cell(row=reg_row, column=2 + i, value=h)
+                            cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+                            cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+                            cell.border = thin_border
+                            cell.alignment = center_alignment
+                        reg_row += 1
+                        for bidx, board in enumerate(_top_boards):
+                            _reg_rf = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if bidx % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                            if isinstance(board, dict):
+                                _b_vals = [board.get("name", board.get("platform", "N/A")), board.get("specialty", board.get("focus", "N/A")), board.get("pricing_model", board.get("pricing", "N/A")), board.get("monthly_traffic", board.get("traffic", "N/A")), board.get("notes", board.get("description", ""))]
+                            elif isinstance(board, str):
+                                _b_vals = [board, "", "", "", ""]
+                            else:
+                                continue
+                            for ci, val in enumerate(_b_vals):
+                                _val_str = f"{val:,.0f}" if isinstance(val, (int, float)) and ci == 3 else str(val)[:150] if val else ""
+                                cell = ws_reg.cell(row=reg_row, column=2 + ci, value=_val_str)
+                                cell.font = Font(name="Calibri", size=10, bold=(ci == 0))
+                                cell.fill = _reg_rf
+                                cell.border = thin_border
+                                cell.alignment = wrap_alignment
+                            reg_row += 1
+                        reg_row += 1
+
+                    # Dominant Industries
+                    _dom_ind = _ri.get("dominant_industries", [])
+                    if isinstance(_dom_ind, list) and _dom_ind:
+                        ws_reg.cell(row=reg_row, column=2, value="Dominant Industries").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                        reg_row += 1
+                        _ind_names = [ind.get("name", ind.get("industry", str(ind))) if isinstance(ind, dict) else str(ind) for ind in _dom_ind]
+                        ws_reg.merge_cells(f"B{reg_row}:H{reg_row}")
+                        ws_reg.cell(row=reg_row, column=2, value=", ".join(str(d) for d in _ind_names[:15])).font = Font(name="Calibri", size=10, color="333333")
+                        ws_reg.cell(row=reg_row, column=2).border = thin_border
+                        reg_row += 2
+
+                    # Talent Dynamics
+                    _talent_dyn = _ri.get("talent_dynamics", {})
+                    if isinstance(_talent_dyn, dict) and _talent_dyn:
+                        ws_reg.cell(row=reg_row, column=2, value="Talent Dynamics").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                        reg_row += 1
+                        for tkey, tval in _talent_dyn.items():
+                            _td_f = PatternFill(start_color="E8F0FE", end_color="E8F0FE", fill_type="solid")
+                            c1 = ws_reg.cell(row=reg_row, column=2, value=str(tkey).replace("_", " ").title())
+                            c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                            c1.fill = _td_f
+                            c1.border = thin_border
+                            ws_reg.merge_cells(f"C{reg_row}:H{reg_row}")
+                            c2 = ws_reg.cell(row=reg_row, column=3, value=str(tval)[:300])
+                            c2.font = Font(name="Calibri", size=10)
+                            c2.fill = _td_f
+                            c2.border = thin_border
+                            c2.alignment = wrap_alignment
+                            reg_row += 1
+                        reg_row += 1
+
+                    # Hiring Regulations
+                    _hire_regs = _ri.get("hiring_regulations", {})
+                    if isinstance(_hire_regs, dict) and _hire_regs:
+                        ws_reg.cell(row=reg_row, column=2, value="Hiring Regulations").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                        reg_row += 1
+                        for rkey, rval in _hire_regs.items():
+                            c1 = ws_reg.cell(row=reg_row, column=2, value=str(rkey).replace("_", " ").title())
+                            c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                            c1.border = thin_border
+                            ws_reg.merge_cells(f"C{reg_row}:H{reg_row}")
+                            c2 = ws_reg.cell(row=reg_row, column=3, value=str(rval)[:300])
+                            c2.font = Font(name="Calibri", size=10)
+                            c2.border = thin_border
+                            c2.alignment = wrap_alignment
+                            reg_row += 1
+                        reg_row += 1
+
+                    # Cultural Norms
+                    _cult_norms = _ri.get("cultural_norms", {})
+                    if isinstance(_cult_norms, dict) and _cult_norms:
+                        ws_reg.cell(row=reg_row, column=2, value="Cultural Norms").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                        reg_row += 1
+                        for ckey, cval in _cult_norms.items():
+                            c1 = ws_reg.cell(row=reg_row, column=2, value=str(ckey).replace("_", " ").title())
+                            c1.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                            c1.border = thin_border
+                            ws_reg.merge_cells(f"C{reg_row}:H{reg_row}")
+                            c2 = ws_reg.cell(row=reg_row, column=3, value=str(cval)[:300])
+                            c2.font = Font(name="Calibri", size=10)
+                            c2.border = thin_border
+                            c2.alignment = wrap_alignment
+                            reg_row += 1
+                        reg_row += 1
+
+                    # CPA Benchmarks
+                    _cpa_bench = _ri.get("cpa_benchmark", {})
+                    if isinstance(_cpa_bench, dict) and _cpa_bench:
+                        ws_reg.cell(row=reg_row, column=2, value="CPA Benchmarks").font = Font(name="Calibri", bold=True, size=11, color=NAVY)
+                        reg_row += 1
+                        for i, h in enumerate(["Metric", "Value"]):
+                            cell = ws_reg.cell(row=reg_row, column=2 + i, value=h)
+                            cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+                            cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+                            cell.border = thin_border
+                            cell.alignment = center_alignment
+                        reg_row += 1
+                        for cbkey, cbval in _cpa_bench.items():
+                            _cb_f = PatternFill(start_color="E8F5E9", end_color="E8F5E9", fill_type="solid")
+                            c1 = ws_reg.cell(row=reg_row, column=2, value=str(cbkey).replace("_", " ").title())
+                            c1.font = Font(name="Calibri", bold=True, size=10, color="2E7D32")
+                            c1.fill = _cb_f
+                            c1.border = thin_border
+                            _cbval_str = f"${cbval:,.2f}" if isinstance(cbval, (int, float)) else str(cbval)
+                            c2 = ws_reg.cell(row=reg_row, column=3, value=_cbval_str)
+                            c2.font = Font(name="Calibri", size=10, color="2E7D32")
+                            c2.fill = _cb_f
+                            c2.border = thin_border
+                            c2.alignment = center_alignment
+                            reg_row += 1
+                        reg_row += 1
+
+                    reg_row += 1  # Extra spacing between locations
+
+                # Footer
+                ws_reg.merge_cells(f"B{reg_row}:H{reg_row}")
+                ws_reg.cell(row=reg_row, column=2, value="Regional intelligence sourced from regional hiring knowledge base, local market research, and industry-specific talent data. CPA benchmarks are market-specific estimates.").font = Font(name="Calibri", italic=True, size=9, color="596780")
+
+            except Exception as _reg_err:
+                logger.warning("Regional Intelligence sheet generation failed: %s", _reg_err)
 
     # ── Sheet: Data Confidence ──
     _conf_scores = _synth.get("confidence_scores", {})
@@ -5892,6 +7091,34 @@ def generate_excel(data):
             ws_conf.merge_cells(f"B{conf_row}:E{conf_row}")
             ws_conf.cell(row=conf_row, column=2, value="All APIs responded successfully. No circuit breakers triggered.").font = Font(name="Calibri", size=10, color="2E7D32")
 
+    # ── Universal data source attribution footer ──
+    # Add a "Data Sources" footer to each main content sheet so every printed/shared
+    # page carries provenance info.  This is a critical trust signal for Fortune 500
+    # clients and procurement teams who review deliverables.
+    _attribution_sheets = [
+        "Market Trends", "Labour Market Intelligence", "Channel Strategy",
+        "Traditional Channels", "Non-Traditional Channels",
+    ]
+    _enrichment_summary = data.get("_enriched", {}).get("enrichment_summary", {}) if isinstance(data.get("_enriched"), dict) else {}
+    _apis_used_list = _enrichment_summary.get("apis_succeeded", []) if _enrichment_summary else []
+    _apis_used_str = ", ".join(_apis_used_list[:8]) if _apis_used_list else ""
+
+    for _sheet_name in _attribution_sheets:
+        if _sheet_name not in wb.sheetnames:
+            continue
+        _ws = wb[_sheet_name]
+        _last_row = _ws.max_row + 2
+        _ws.merge_cells(f"B{_last_row}:F{_last_row}")
+        _ws.cell(row=_last_row, column=2,
+                 value="Data sourced from Joveo internal knowledge base, Appcast Recruitment Marketing Benchmark, SHRM Benchmarking, and BLS/JOLTS labor market data."
+                ).font = Font(name="Calibri", italic=True, size=9, color="596780")
+        if _apis_used_str:
+            _last_row += 1
+            _ws.merge_cells(f"B{_last_row}:F{_last_row}")
+            _ws.cell(row=_last_row, column=2,
+                     value=f"Live API data enrichment: {_apis_used_str}"
+                    ).font = Font(name="Calibri", italic=True, size=9, color="0A66C9")
+
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
@@ -5902,8 +7129,34 @@ ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
 if not ADMIN_API_KEY:
     logger.warning("ADMIN_API_KEY not set - admin endpoints unprotected (dev mode)")
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# MONITORING & OBSERVABILITY
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from monitoring import (
+        configure_logging, get_metrics, health_check_liveness,
+        health_check_readiness, GracefulShutdown, get_system_info,
+    )
+    configure_logging(os.environ.get("LOG_LEVEL", "INFO"))
+    _metrics = get_metrics()
+    _shutdown = GracefulShutdown(timeout=30.0)
+    logger.info("Monitoring module loaded successfully")
+except ImportError as _mon_err:
+    logger.warning("monitoring module not available: %s", _mon_err)
+    _metrics = None
+    _shutdown = None
+
+    def health_check_liveness():
+        return {"status": "ok", "version": "2.2.0", "timestamp": datetime.datetime.now().isoformat()}
+
+    def health_check_readiness():
+        return {"status": "healthy", "version": "2.2.0"}
+
 # Simple in-memory rate limiter
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+# Bounded thread pool for async Slack event processing (max 4 concurrent)
+_slack_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="slack-event")
 _rate_limit_store = defaultdict(list)
 _rate_limit_lock = threading.Lock()
 _RATE_LIMIT_WINDOW = 60   # seconds
@@ -5916,13 +7169,33 @@ _ALLOWED_ORIGINS = {
 
 class MediaPlanHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
-        print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {format % args}", file=sys.stderr)
+        logger.info(format, *args)
 
     def end_headers(self):
         """Add security headers to all responses."""
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        # Prevent browsers from running inline scripts from injected content
+        self.send_header("X-XSS-Protection", "1; mode=block")
+        # Strict-Transport-Security: tell browsers to only use HTTPS
+        self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        # Permissions-Policy: disable sensitive browser APIs not needed by this app
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        # Content-Security-Policy: restrict resource origins (unsafe-inline needed for
+        # inline styles/scripts used throughout templates)
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob:; "
+            "font-src 'self'; "
+            "connect-src 'self'; "
+            "object-src 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self';"
+        )
         super().end_headers()
 
     def _get_cors_origin(self):
@@ -5933,7 +7206,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         return ""  # No CORS header = browser blocks
 
     def _check_admin_auth(self):
-        """Check for admin API key in query params or Authorization header."""
+        """Check for admin API key in query params or Authorization header.
+        Uses hmac.compare_digest for timing-safe comparison to prevent
+        timing side-channel attacks on the API key."""
         if not ADMIN_API_KEY:
             return True  # No key configured = development mode
         parsed = urlparse(self.path)
@@ -5943,13 +7218,20 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             auth = self.headers.get("Authorization", "")
             if auth.startswith("Bearer "):
                 key = auth[7:]
-        return key == ADMIN_API_KEY
+        if not key:
+            return False
+        import hmac
+        return hmac.compare_digest(key, ADMIN_API_KEY)
 
     def _check_rate_limit(self):
-        """Simple per-IP rate limiting for generate endpoint."""
+        """Simple per-IP rate limiting for generate endpoint.
+
+        Thread-safe. Cleans up stale entries to prevent unbounded memory growth.
+        """
         client_ip = self.client_address[0]
         now = time.time()
         with _rate_limit_lock:
+            # Purge expired timestamps for this IP
             _rate_limit_store[client_ip] = [
                 t for t in _rate_limit_store[client_ip]
                 if now - t < _RATE_LIMIT_WINDOW
@@ -5957,24 +7239,133 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             if len(_rate_limit_store[client_ip]) >= _RATE_LIMIT_MAX:
                 return False
             _rate_limit_store[client_ip].append(now)
-            # Periodic cleanup: evict IPs with no recent requests
-            if len(_rate_limit_store) > 1000:
-                stale = [ip for ip, ts in _rate_limit_store.items() if not ts or now - max(ts) > _RATE_LIMIT_WINDOW * 10]
+            # Periodic cleanup: evict IPs with no recent requests.
+            # Run cleanup when store exceeds 500 IPs (not 1000) to stay lean.
+            if len(_rate_limit_store) > 500:
+                stale = [
+                    ip for ip, ts in list(_rate_limit_store.items())
+                    if not ts or now - max(ts) > _RATE_LIMIT_WINDOW * 2
+                ]
                 for ip in stale:
-                    del _rate_limit_store[ip]
+                    _rate_limit_store.pop(ip, None)
         return True
 
     def do_GET(self):
+        _req_start = time.time()
+        if _metrics:
+            _metrics.enter_request()
+        try:
+            self._handle_GET()
+        finally:
+            if _metrics:
+                _metrics.exit_request()
+                _latency = (time.time() - _req_start) * 1000
+                parsed = urlparse(self.path)
+                _metrics.record_request(parsed.path, "GET", 200, _latency)
+
+    def _handle_GET(self):
         parsed = urlparse(self.path)
         if parsed.path == "/" or parsed.path == "":
             self._serve_file(os.path.join(TEMPLATES_DIR, "index.html"), "text/html")
         elif parsed.path in ("/api/health", "/health"):
-            self._send_json({
-                "status": "ok",
-                "version": "2.1.0",
-                "pptx_available": generate_pptx is not None,
-                "timestamp": datetime.datetime.now().isoformat()
-            })
+            # Lightweight liveness probe (fast, for Render.com health checks)
+            self._send_json(health_check_liveness())
+        elif parsed.path in ("/api/health/ready", "/ready"):
+            # Deep readiness probe (checks KB, disk, memory, modules)
+            result = health_check_readiness()
+            status_code = 200 if result.get("status") == "healthy" else 503
+            body = json.dumps(result).encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        elif parsed.path == "/api/metrics":
+            # Metrics endpoint (admin-protected)
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            metrics_data = _metrics.get_metrics() if _metrics else {"error": "Monitoring not available"}
+            self._send_json(metrics_data)
+        elif parsed.path == "/api/slack/status":
+            # ── Slack Bot Diagnostic Endpoint (admin-protected) ──
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            _slack_bot_token = os.environ.get("SLACK_BOT_TOKEN", "")
+            _slack_signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
+            diag = {
+                "slack_bot_token": "SET" if _slack_bot_token else "NOT SET",
+                "slack_bot_token_prefix": _slack_bot_token[:12] + "..." if len(_slack_bot_token) > 12 else ("TOO SHORT" if _slack_bot_token else "EMPTY"),
+                "slack_signing_secret": "SET" if _slack_signing_secret else "NOT SET",
+                "anthropic_api_key": "SET" if os.environ.get("ANTHROPIC_API_KEY", "") else "NOT SET",
+                "event_endpoint": "/api/slack/events",
+                "event_endpoint_url": "https://media-plan-generator.onrender.com/api/slack/events",
+                "admin_endpoint": "/api/admin/nova",
+            }
+            # Try to instantiate bot and check auth
+            try:
+                from nova_slack import get_nova_bot
+                bot = get_nova_bot()
+                diag["bot_user_id"] = bot.bot_user_id or "NOT AUTHENTICATED (auth.test failed)"
+                diag["nova_engine"] = "LOADED" if bot._iq_engine else "NOT LOADED"
+                diag["learned_answers_count"] = len(bot.learned_answers.get("answers", []))
+                diag["unanswered_count"] = len([q for q in bot.unanswered.get("questions", []) if q.get("status") == "pending"])
+            except Exception as e:
+                diag["bot_status"] = f"ERROR: {e}"
+            # Setup checklist
+            checks = []
+            if not _slack_bot_token:
+                checks.append("MISSING: Set SLACK_BOT_TOKEN env var (xoxb-...) in Render dashboard")
+            elif not _slack_bot_token.startswith("xoxb-"):
+                checks.append("WRONG FORMAT: SLACK_BOT_TOKEN should start with 'xoxb-'")
+            if not _slack_signing_secret:
+                checks.append("MISSING: Set SLACK_SIGNING_SECRET env var in Render dashboard")
+            if not os.environ.get("ANTHROPIC_API_KEY", ""):
+                checks.append("MISSING: Set ANTHROPIC_API_KEY for Nova chatbot intelligence")
+            if diag.get("bot_user_id", "").startswith("NOT"):
+                checks.append("AUTH FAILED: Bot token invalid or bot not installed to workspace")
+            if not checks:
+                checks.append("ALL CHECKS PASSED - Slack bot should be operational")
+            diag["setup_checklist"] = checks
+            diag["required_slack_scopes"] = [
+                "app_mentions:read", "chat:write", "channels:history",
+                "channels:read", "im:history", "im:read", "im:write", "users:read",
+            ]
+            diag["required_bot_events"] = ["app_mention", "message.im"]
+            self._send_json(diag)
+        elif parsed.path == "/robots.txt":
+            robots_content = (
+                "User-agent: *\n"
+                "Allow: /\n"
+                "Disallow: /api/\n"
+                "Disallow: /admin/\n"
+                "Disallow: /health\n"
+                "Disallow: /ready\n"
+                "\n"
+                "Sitemap: https://media-plan-generator.onrender.com/sitemap.xml\n"
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.end_headers()
+            self.wfile.write(robots_content.encode("utf-8"))
+        elif parsed.path == "/sitemap.xml":
+            sitemap_content = (
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+                '  <url>\n'
+                '    <loc>https://media-plan-generator.onrender.com/</loc>\n'
+                '    <changefreq>weekly</changefreq>\n'
+                '    <priority>1.0</priority>\n'
+                '  </url>\n'
+                '</urlset>\n'
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/xml; charset=utf-8")
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.end_headers()
+            self.wfile.write(sitemap_content.encode("utf-8"))
         elif parsed.path == "/api/channels":
             db = load_channels_db()
             # Inject the full industry options list for frontend consumption
@@ -6093,7 +7484,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     self.send_response(500)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
-                    print(f"Document read error: {e}", file=sys.stderr)
+                    logger.error("Document read error: %s", e)
                     self.wfile.write(json.dumps({"error": "Failed to read document"}).encode())
             else:
                 self.send_response(404)
@@ -6120,12 +7511,20 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_error(404, "Nova admin page not found")
         elif parsed.path.startswith("/static/"):
             # Serve static files (JS, CSS, images) from the static/ directory
-            safe_path = parsed.path.lstrip("/")
-            # Security: prevent directory traversal
-            if ".." in safe_path or safe_path.startswith("/"):
+            # URL-decode the path first to catch encoded traversal (%2e%2e)
+            decoded_path = urllib.parse.unquote(parsed.path)
+            safe_path = decoded_path.lstrip("/")
+            # Security: reject directory traversal attempts
+            if ".." in safe_path or safe_path.startswith("/") or "\x00" in safe_path:
                 self.send_error(403)
                 return
             filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), safe_path)
+            # Resolve symlinks and verify the real path stays within static/
+            static_root = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static"))
+            real_filepath = os.path.realpath(filepath)
+            if not real_filepath.startswith(static_root + os.sep) and real_filepath != static_root:
+                self.send_error(403)
+                return
             ext = os.path.splitext(filepath)[1].lower()
             content_types = {
                 ".js": "application/javascript",
@@ -6139,13 +7538,36 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             }
             ctype = content_types.get(ext, "application/octet-stream")
             if os.path.isfile(filepath):
-                self._serve_file(filepath, ctype)
+                try:
+                    with open(filepath, "rb") as f:
+                        content = f.read()
+                    self.send_response(200)
+                    self.send_header("Content-Type", f"{ctype}; charset=utf-8")
+                    self.send_header("Content-Length", str(len(content)))
+                    self.send_header("Cache-Control", "public, max-age=604800")  # 7 days
+                    self.end_headers()
+                    self.wfile.write(content)
+                except FileNotFoundError:
+                    self.send_error(404)
             else:
                 self.send_error(404)
         else:
             self.send_error(404)
 
     def do_POST(self):
+        _req_start = time.time()
+        if _metrics:
+            _metrics.enter_request()
+        try:
+            self._handle_POST()
+        finally:
+            if _metrics:
+                _metrics.exit_request()
+                _latency = (time.time() - _req_start) * 1000
+                parsed = urlparse(self.path)
+                _metrics.record_request(parsed.path, "POST", 200, _latency)
+
+    def _handle_POST(self):
         parsed = urlparse(self.path)
         if parsed.path == "/api/generate":
             if not self._check_rate_limit():
@@ -6158,6 +7580,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 content_len = int(self.headers.get("Content-Length", 0))
             except (ValueError, TypeError):
                 content_len = 0
+            if content_len <= 0:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Empty request body"}).encode())
+                return
             if content_len > 10 * 1024 * 1024:  # 10MB limit
                 self.send_response(413)
                 self.send_header("Content-Type", "application/json")
@@ -6173,6 +7601,25 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
+
+            # Validate payload is a JSON object (not array/string/number)
+            if not isinstance(data, dict):
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Request body must be a JSON object"}).encode())
+                return
+
+            # Sanitize all string inputs: strip HTML/script tags to prevent stored XSS
+            def _sanitize_str(val):
+                if isinstance(val, str):
+                    return re.sub(r'<[^>]+>', '', val).strip()
+                return val
+            for _skey in list(data.keys()):
+                if isinstance(data[_skey], str):
+                    data[_skey] = _sanitize_str(data[_skey])
+                elif isinstance(data[_skey], list):
+                    data[_skey] = [_sanitize_str(v) if isinstance(v, str) else v for v in data[_skey]]
 
             # Validate required fields
             client_name_input = (data.get("client_name") or "").strip()
@@ -6251,15 +7698,76 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         campaign_weeks = int(mo_match.group(1)) * 4
             data["campaign_weeks"] = campaign_weeks
 
+            # ── Phase 0: Canonical Taxonomy Normalization ──
+            # Run the standardizer on all input fields BEFORE they enter
+            # the enrichment/synthesis pipeline.  This ensures every
+            # downstream lookup (KB, channels_db, BLS, etc.) uses
+            # consistent canonical keys instead of variant strings.
+            if _STANDARDIZER_AVAILABLE:
+                try:
+                    # -- Normalize industry --
+                    raw_ind = data.get("industry", "")
+                    canonical_ind = std_normalize_industry(raw_ind)
+                    data["_industry_original"] = raw_ind
+                    data["_industry_canonical"] = canonical_ind
+                    ind_meta = CANONICAL_INDUSTRIES.get(canonical_ind, {})
+                    data["_industry_legacy_key"] = ind_meta.get(
+                        "deep_bench_key", ind_meta.get("aliases", [""])[0]
+                    )
+                    data["_industry_kb_key"] = ind_meta.get("kb_key", "")
+
+                    # Update the primary industry key so the enrichment
+                    # pipeline (api_enrichment, data_synthesizer, etc.)
+                    # receives a canonical key instead of the raw variant.
+                    # The classify_industry call downstream will further
+                    # refine this to the legacy_key for backward compat.
+                    if canonical_ind and canonical_ind != "general":
+                        data["industry"] = canonical_ind
+                    elif data.get("_industry_legacy_key"):
+                        data["industry"] = data["_industry_legacy_key"]
+
+                    # -- Normalize roles (attach SOC + tier metadata) --
+                    for role_key in ("target_roles", "roles"):
+                        raw_roles = data.get(role_key, [])
+                        if isinstance(raw_roles, list):
+                            for r in raw_roles:
+                                if isinstance(r, dict):
+                                    title = r.get("title", "")
+                                    r["_canonical_role"] = std_normalize_role(title)
+                                    r["_soc_code"] = std_get_soc_code(title)
+                                    r["_role_tier"] = std_get_role_tier(title)
+
+                    # -- Normalize locations (attach region/market keys) --
+                    raw_locs = data.get("locations", [])
+                    if isinstance(raw_locs, list):
+                        parsed_locs = []
+                        for loc in raw_locs:
+                            loc_str = loc if isinstance(loc, str) else ""
+                            if isinstance(loc, dict):
+                                loc_str = ", ".join(filter(None, [
+                                    loc.get("city", ""),
+                                    loc.get("state", ""),
+                                    loc.get("country", ""),
+                                ]))
+                            parsed_locs.append(std_normalize_location(loc_str))
+                        data["_locations_parsed"] = parsed_locs
+
+                    logger.info(
+                        "Standardizer: industry=%s -> canonical=%s (kb_key=%s)",
+                        raw_ind, canonical_ind, data.get("_industry_kb_key", ""),
+                    )
+                except Exception as e:
+                    logger.warning("Standardizer normalization failed (non-fatal): %s", e)
+
             # Enrich data with live API data
             enriched = {}
             if enrich_data is not None:
                 try:
                     enriched = enrich_data(data)
                     data["_enriched"] = enriched
-                    print(f"API enrichment complete: {enriched.get('enrichment_summary', {})}", file=sys.stderr)
+                    logger.info("API enrichment complete: %s", enriched.get('enrichment_summary', {}))
                 except Exception as e:
-                    print(f"API enrichment failed (non-fatal): {e}", file=sys.stderr)
+                    logger.warning("API enrichment failed (non-fatal): %s", e)
                     data["_enriched"] = {}
             else:
                 data["_enriched"] = {}
@@ -6272,9 +7780,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 try:
                     synthesized = data_synthesize(enriched, kb, data)
                     data["_synthesized"] = synthesized
-                    print(f"Data synthesis complete: {list(synthesized.keys()) if isinstance(synthesized, dict) else 'N/A'}", file=sys.stderr)
+                    logger.info("Data synthesis complete: %s", list(synthesized.keys()) if isinstance(synthesized, dict) else 'N/A')
                 except Exception as e:
-                    print(f"Data synthesis failed (non-fatal): {e}", file=sys.stderr)
+                    logger.warning("Data synthesis failed (non-fatal): %s", e)
                     data["_synthesized"] = {}
             else:
                 data["_synthesized"] = {}
@@ -6358,7 +7866,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     # Final fallback: if budget still 0 but we know there's a budget string, use 100K default
                     if _bval_ba <= 0 and _bstr_ba:
                         _bval_ba = 100_000.0
-                    print(f"Budget allocation: parsed '{_bstr_ba}' → ${_bval_ba:,.2f}", file=sys.stderr)
+                    logger.info("Budget allocation: parsed '%s' -> $%s", _bstr_ba, f"{_bval_ba:,.2f}")
 
                     # Build role dicts from string list
                     _roles_raw = data.get("target_roles") or data.get("roles", [])
@@ -6399,9 +7907,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         knowledge_base=kb,
                     )
                     data["_budget_allocation"] = budget_result
-                    print(f"Budget allocation complete: {list(budget_result.keys()) if isinstance(budget_result, dict) else 'N/A'}", file=sys.stderr)
+                    logger.info("Budget allocation complete: %s", list(budget_result.keys()) if isinstance(budget_result, dict) else 'N/A')
                 except Exception as e:
-                    print(f"Budget allocation failed (non-fatal): {e}", file=sys.stderr)
+                    logger.warning("Budget allocation failed (non-fatal): %s", e)
                     data["_budget_allocation"] = {}
             else:
                 data["_budget_allocation"] = {}
@@ -6412,7 +7920,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 import traceback
                 tb = traceback.format_exc()
-                print(f"Excel generation error: {tb}", file=sys.stderr)
+                logger.error("Excel generation error: %s", tb)
                 generation_time = time.time() - start_time
                 log_request(data, "error", generation_time=generation_time, error_msg=str(e))
                 self.send_response(500)
@@ -6427,17 +7935,17 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
             # Generate Strategy PPT deck
             pptx_bytes = None
+            pptx_warning = None
             if generate_pptx is not None:
                 try:
                     pptx_bytes = generate_pptx(data)
-                    print(f"PPT generated: {len(pptx_bytes)} bytes", file=sys.stderr)
+                    logger.info("PPT generated: %d bytes", len(pptx_bytes))
                 except Exception as e:
-                    import traceback
-                    print(f"PPT generation error: {e}", file=sys.stderr)
-                    traceback.print_exc(file=sys.stderr)
+                    logger.error("PPT generation error: %s", e, exc_info=True)
                     pptx_bytes = None
+                    pptx_warning = "Strategy deck (PPT) could not be generated. Excel plan is included."
             else:
-                print("PPT generation skipped: ppt_generator not available", file=sys.stderr)
+                logger.info("PPT generation skipped: ppt_generator not available")
 
             if pptx_bytes:
                 # Bundle both files in a ZIP
@@ -6458,10 +7966,10 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     doc_path = os.path.join(docs_dir, doc_filename)
                     with open(doc_path, "wb") as df:
                         df.write(zip_bytes)
-                    print(f"Document saved: {doc_filename} ({len(zip_bytes)} bytes)", file=sys.stderr)
+                    logger.info("Document saved: %s (%d bytes)", doc_filename, len(zip_bytes))
                     _cleanup_old_docs(docs_dir)
                 except Exception as doc_err:
-                    print(f"WARNING: Could not save document copy: {doc_err}", file=sys.stderr)
+                    logger.warning("Could not save document copy: %s", doc_err)
                     doc_filename = None
 
                 self.send_response(200)
@@ -6472,6 +7980,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(zip_bytes)
                 generation_time = time.time() - start_time
                 log_request(data, "success", file_size=len(zip_bytes), generation_time=generation_time, doc_filename=doc_filename)
+                if _metrics:
+                    _metrics.record_generation(generation_time)
             else:
                 # Fallback to Excel only if PPT fails — save Excel as doc copy
                 doc_filename = None
@@ -6488,21 +7998,25 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     doc_path = os.path.join(docs_dir, doc_filename)
                     with open(doc_path, "wb") as df:
                         df.write(doc_zip_buffer.getvalue())
-                    print(f"Document saved (Excel only): {doc_filename}", file=sys.stderr)
+                    logger.info("Document saved (Excel only): %s", doc_filename)
                 except Exception as doc_err:
-                    print(f"WARNING: Could not save document copy: {doc_err}", file=sys.stderr)
+                    logger.warning("Could not save document copy: %s", doc_err)
                     doc_filename = None
 
                 self.send_response(200)
                 self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                 self.send_header("Content-Disposition", f'attachment; filename="{client_name}_Media_Plan.xlsx"')
                 self.send_header("Content-Length", str(len(excel_bytes)))
+                if pptx_warning:
+                    self.send_header("X-PPT-Warning", pptx_warning)
                 self.end_headers()
                 self.wfile.write(excel_bytes)
                 generation_time = time.time() - start_time
                 log_request(data, "success", file_size=len(excel_bytes), generation_time=generation_time, doc_filename=doc_filename)
+                if _metrics:
+                    _metrics.record_generation(generation_time)
         elif parsed.path == "/api/chat":
-            # ── Joveo IQ Chat Endpoint ──
+            # ── Nova Chat Endpoint ──
             if not self._check_rate_limit():
                 self.send_response(429)
                 self.send_header("Content-Type", "application/json")
@@ -6516,6 +8030,15 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 content_len = int(self.headers.get("Content-Length", 0))
             except (ValueError, TypeError):
                 content_len = 0
+            if content_len <= 0:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Empty request body"}).encode())
+                return
             if content_len > 1 * 1024 * 1024:  # 1MB limit for chat
                 self.send_response(413)
                 self.send_header("Content-Type", "application/json")
@@ -6538,10 +8061,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
             try:
-                from joveo_iq import handle_chat_request
+                from nova import handle_chat_request
                 response = handle_chat_request(data)
+                if _metrics:
+                    _metrics.record_chat()
             except Exception as chat_err:
-                logger.error("Joveo IQ chat error: %s", chat_err, exc_info=True)
+                logger.error("Nova chat error: %s", chat_err, exc_info=True)
                 response = {
                     "response": "An error occurred processing your request. Please try again.",
                     "sources": [],
@@ -6591,22 +8116,41 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
 
-            # FIX: Verify Slack request signature
-            try:
-                from nova_slack import get_nova_bot
-                _nova_bot = get_nova_bot()
-                _slack_ts = self.headers.get("X-Slack-Request-Timestamp", "")
-                _slack_sig = self.headers.get("X-Slack-Signature", "")
-                if not _nova_bot.verify_slack_signature(_slack_ts, body.decode("utf-8") if isinstance(body, bytes) else body, _slack_sig):
-                    logger.warning("Slack signature verification failed")
+            # Verify Slack request signature -- SECURITY: never skip on error
+            # in production. Only skip if SLACK_SIGNING_SECRET is not configured
+            # (i.e., the Slack bot is intentionally disabled).
+            _slack_signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
+            if _slack_signing_secret:
+                try:
+                    from nova_slack import get_nova_bot
+                    _nova_bot = get_nova_bot()
+                    _slack_ts = self.headers.get("X-Slack-Request-Timestamp", "")
+                    _slack_sig = self.headers.get("X-Slack-Signature", "")
+                    if not _nova_bot.verify_slack_signature(_slack_ts, body.decode("utf-8") if isinstance(body, bytes) else body, _slack_sig):
+                        logger.warning("Slack signature verification failed")
+                        self.send_response(403)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(json.dumps({"error": "Invalid signature"}).encode())
+                        return
+                except ImportError:
+                    # nova_slack module not available -- reject the request
+                    logger.error("Slack signing secret configured but nova_slack module unavailable")
+                    self.send_response(500)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Slack integration unavailable"}).encode())
+                    return
+                except Exception as sig_err:
+                    # Signature verification failed due to unexpected error -- reject
+                    logger.error("Slack signature verification error: %s", sig_err)
                     self.send_response(403)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
-                    self.wfile.write(json.dumps({"error": "Invalid signature"}).encode())
+                    self.wfile.write(json.dumps({"error": "Signature verification failed"}).encode())
                     return
-            except Exception as sig_err:
-                # Don't block events if signature verification module has issues
-                logger.warning("Slack signature check skipped: %s", sig_err)
+            else:
+                logger.debug("SLACK_SIGNING_SECRET not set -- skipping signature verification (dev mode)")
 
             # Respond to Slack immediately (within 3 seconds), process async
             self.send_response(200)
@@ -6622,15 +8166,21 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
             self.wfile.write(json.dumps({"ok": True}).encode())
 
-            # FIX: Process event asynchronously in background thread
-            import threading
+            # Process event asynchronously via bounded thread pool (prevents thread explosion)
             def _process_slack_event_async(event_data):
                 try:
                     from nova_slack import handle_slack_event
                     handle_slack_event(event_data)
+                    if _metrics:
+                        _metrics.record_slack_event()
                 except Exception as slack_err:
                     logger.error("Nova Slack async event error: %s", slack_err, exc_info=True)
-            threading.Thread(target=_process_slack_event_async, args=(data,), daemon=True).start()
+            try:
+                _slack_executor.submit(_process_slack_event_async, data)
+            except RuntimeError:
+                # Thread pool shut down or full -- process synchronously as fallback
+                logger.warning("Slack thread pool unavailable, processing synchronously")
+                _process_slack_event_async(data)
         elif parsed.path == "/api/admin/nova":
             # ── Nova Admin API (unanswered questions management) ──
             if not self._check_admin_auth():
@@ -6745,8 +8295,57 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    """Handle each request in a separate thread so /api/generate (20-60s) does
+    not block health checks, static files, or other concurrent requests.
+    daemon_threads ensures threads don't block process shutdown."""
+    daemon_threads = True
+    # Allow port reuse to avoid "Address already in use" on quick restarts
+    allow_reuse_address = True
+
+
 if __name__ == "__main__":
+    import signal
+
     port = int(os.environ.get("PORT", sys.argv[1] if len(sys.argv) > 1 else 5001))
-    server = HTTPServer(("0.0.0.0", port), MediaPlanHandler)
-    print(f"AI Media Planner running at http://localhost:{port}", file=sys.stderr)
-    server.serve_forever()
+    server = ThreadedHTTPServer(("0.0.0.0", port), MediaPlanHandler)
+
+    # ── Graceful shutdown on SIGTERM (Render.com sends SIGTERM) ──
+    def _handle_signal(signum, frame):
+        sig_name = signal.Signals(signum).name
+        logger.info("Received %s -- initiating graceful shutdown", sig_name)
+        if _shutdown:
+            _shutdown.request_shutdown()
+            _shutdown.wait_for_completion()
+        server.shutdown()
+        logger.info("Server shut down cleanly")
+
+    signal.signal(signal.SIGTERM, _handle_signal)
+    signal.signal(signal.SIGINT, _handle_signal)
+
+    # ── Pre-warm knowledge base on startup ──
+    try:
+        kb = load_knowledge_base()
+        logger.info("Knowledge base pre-warmed: %d keys", len(kb))
+    except Exception as kb_err:
+        logger.error("Knowledge base pre-warm failed: %s", kb_err)
+
+    # ── Startup banner ──
+    logger.info("=" * 60)
+    logger.info("AI Media Planner v2.2.0")
+    logger.info("Port: %d | PID: %d | Threads: daemon", port, os.getpid())
+    logger.info("Health: http://localhost:%d/health", port)
+    logger.info("Readiness: http://localhost:%d/ready", port)
+    logger.info("Metrics: http://localhost:%d/api/metrics", port)
+    logger.info("PPTX: %s | API enrichment: %s",
+                "available" if generate_pptx else "unavailable",
+                "available" if enrich_data else "unavailable")
+    logger.info("=" * 60)
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt received -- shutting down")
+        server.shutdown()
+    finally:
+        logger.info("Server process exiting")

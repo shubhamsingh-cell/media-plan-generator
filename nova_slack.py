@@ -140,7 +140,7 @@ _STRONG_MATCH_THRESHOLD = 0.70
 # ============================================================================
 
 class NovaSlackBot:
-    """Nova Slack Bot -- connects Joveo IQ intelligence to Slack."""
+    """Nova Slack Bot -- connects Nova intelligence to Slack."""
 
     def __init__(
         self,
@@ -160,13 +160,20 @@ class NovaSlackBot:
         self.learned_answers: Dict[str, Any] = {}
         self.unanswered: Dict[str, Any] = {}
 
+        # Per-thread conversation history for multi-turn context
+        # Key: thread_ts, Value: list of {role, content, timestamp}
+        self._thread_history: Dict[str, List[Dict[str, str]]] = {}
+        self._thread_history_lock = threading.Lock()
+        self._max_thread_history = 20  # Max messages per thread
+        self._thread_ttl_seconds = 3600  # Expire threads after 1 hour of inactivity
+
         self._load_learned_answers()
         self._load_unanswered_questions()
 
         # Authenticate with Slack to populate bot_user_id
         self._auth_test()
 
-        # Joveo IQ engine (optional dependency)
+        # Nova engine (optional dependency)
         self._iq_engine: Any = None
         self._init_iq_engine()
 
@@ -175,18 +182,18 @@ class NovaSlackBot:
     # ------------------------------------------------------------------
 
     def _init_iq_engine(self) -> None:
-        """Import and initialise the Joveo IQ chat engine (if available)."""
+        """Import and initialise the Nova chat engine (if available)."""
         try:
-            from joveo_iq import JoveoIQ  # type: ignore[import-untyped]
+            from nova import Nova  # type: ignore[import-untyped]
 
-            self._iq_engine = JoveoIQ()
-            logger.info("Nova: Joveo IQ engine initialised successfully")
+            self._iq_engine = Nova()
+            logger.info("Nova: Nova engine initialised successfully")
         except ImportError:
             logger.warning(
-                "Nova: joveo_iq module not available -- running in standalone mode"
+                "Nova: nova module not available -- running in standalone mode"
             )
         except Exception as exc:
-            logger.error("Nova: Failed to initialise Joveo IQ engine: %s", exc)
+            logger.error("Nova: Failed to initialise Nova engine: %s", exc)
 
     # ------------------------------------------------------------------
     # Persistence -- learned answers
@@ -310,7 +317,11 @@ class NovaSlackBot:
         return {"ok": True}
 
     def _process_event(self, event: dict) -> dict:
-        """Process a single ``message`` or ``app_mention`` event."""
+        """Process a single ``message`` or ``app_mention`` event.
+
+        Maintains per-thread conversation history so Nova can reference
+        previous messages in multi-turn Slack threads.
+        """
         etype = event.get("type")
         text = event.get("text", "")
         user = event.get("user", "")
@@ -332,13 +343,81 @@ class NovaSlackBot:
         if not clean_text:
             return {"ok": True}
 
-        # Generate a response
-        response = self.answer_question(clean_text, user, channel, thread_ts)
+        # Record user message in thread history
+        self._add_to_thread_history(thread_ts, "user", clean_text)
+
+        # Get thread history for context
+        thread_history = self._get_thread_history(thread_ts)
+
+        # Generate a response with conversation context
+        response = self.answer_question(
+            clean_text, user, channel, thread_ts,
+            conversation_history=thread_history,
+        )
+
+        # Record assistant response in thread history
+        # Strip Slack formatting prefix for clean history
+        response_text = response.get("text", "")
+        clean_response = response_text.replace("*Nova says:*\n\n", "").split("\n\n_Source")[0]
+        self._add_to_thread_history(thread_ts, "assistant", clean_response)
 
         # Post to Slack (non-blocking best-effort)
-        self._post_message(channel, response["text"], thread_ts)
+        self._post_message(channel, response_text, thread_ts)
 
         return {"ok": True}
+
+    # ------------------------------------------------------------------
+    # Thread history management
+    # ------------------------------------------------------------------
+
+    def _add_to_thread_history(
+        self, thread_ts: str, role: str, content: str
+    ) -> None:
+        """Add a message to the per-thread conversation history."""
+        with self._thread_history_lock:
+            # Expire old threads first
+            self._expire_old_threads()
+
+            if thread_ts not in self._thread_history:
+                self._thread_history[thread_ts] = []
+
+            self._thread_history[thread_ts].append({
+                "role": role,
+                "content": content[:2000],  # Truncate long messages
+                "timestamp": time.time(),
+            })
+
+            # Trim to max history length
+            if len(self._thread_history[thread_ts]) > self._max_thread_history:
+                self._thread_history[thread_ts] = self._thread_history[thread_ts][
+                    -self._max_thread_history:
+                ]
+
+    def _get_thread_history(self, thread_ts: str) -> List[Dict[str, str]]:
+        """Get conversation history for a thread (excluding current message).
+
+        Returns a list of {role, content} dicts suitable for passing to
+        Nova's chat method as conversation_history.
+        """
+        with self._thread_history_lock:
+            messages = self._thread_history.get(thread_ts, [])
+            # Return all messages except the last one (current message)
+            history = messages[:-1] if len(messages) > 1 else []
+            return [{"role": m["role"], "content": m["content"]} for m in history]
+
+    def _expire_old_threads(self) -> None:
+        """Remove thread histories that have been inactive beyond TTL."""
+        now = time.time()
+        expired = []
+        for thread_ts, messages in self._thread_history.items():
+            if messages:
+                last_activity = messages[-1].get("timestamp", 0)
+                if now - last_activity > self._thread_ttl_seconds:
+                    expired.append(thread_ts)
+            else:
+                expired.append(thread_ts)
+        for ts in expired:
+            del self._thread_history[ts]
 
     # ------------------------------------------------------------------
     # Core Q&A pipeline
@@ -350,14 +429,24 @@ class NovaSlackBot:
         user_id: str = "",
         channel: str = "",
         thread_ts: str = "",
+        conversation_history: Optional[List[Dict[str, str]]] = None,
     ) -> Dict[str, Any]:
         """Answer a question using all available sources.
 
         Resolution order:
           1. Check learned answers (exact / fuzzy keyword match)
-          2. Query Joveo IQ engine (data sources + tools)
-          3. Fall back to partial learned match
-          4. If confidence < threshold, queue for human review
+          2. Search Slack channel history for relevant context
+          3. Query Nova engine with conversation history + enhanced context
+          4. Fall back to partial learned match
+          5. If confidence < threshold, queue for human review
+
+        Args:
+            question: The user's question text.
+            user_id: Slack user ID of the asker.
+            channel: Slack channel ID.
+            thread_ts: Thread timestamp for threading.
+            conversation_history: Previous messages in this thread for
+                multi-turn context. List of {role, content} dicts.
 
         Returns a dict with ``text``, ``confidence``, ``sources``, and
         ``queued_for_review``.
@@ -377,27 +466,51 @@ class NovaSlackBot:
                 "queued_for_review": False,
             }
 
-        # -- Step 2: Joveo IQ engine --------------------------------------
+        # -- Step 2: Search Slack channel history for context --------------
+        slack_context: list = []
+        if channel:
+            try:
+                slack_context = self._search_slack_context(question, channel)
+            except Exception as exc:
+                logger.warning("Nova: Slack context search failed: %s", exc)
+
+        # Build an enhanced question with Slack context for Nova engine
+        enhanced_question = question
+        if slack_context:
+            enhanced_question = (
+                f"[Relevant Slack context: {'; '.join(slack_context)}]\n\n"
+                f"User question: {question}"
+            )
+
+        # -- Step 3: Nova engine (with conversation history + enhanced context)
         iq_response: Optional[Dict[str, Any]] = None
         if self._iq_engine:
             try:
-                iq_response = self._iq_engine.chat(question)
+                iq_response = self._iq_engine.chat(
+                    enhanced_question,
+                    conversation_history=conversation_history,
+                )
                 if iq_response and iq_response.get("confidence", 0) >= 0.5:
-                    src_text = ", ".join(iq_response.get("sources", ["Joveo Data"]))
+                    sources = iq_response.get("sources", ["Joveo Data"])
+                    if slack_context:
+                        sources = list(sources) + ["Slack Channel History"]
+                    src_text = ", ".join(sources)
                     conf = iq_response["confidence"]
+                    tools_used = iq_response.get("tools_used", [])
+                    tool_info = f" | Tools: {len(set(tools_used))}" if tools_used else ""
                     return {
                         "text": (
                             f"*Nova says:*\n\n{iq_response['response']}\n\n"
-                            f"_Sources: {src_text} | Confidence: {conf:.0%}_"
+                            f"_Sources: {src_text} | Confidence: {conf:.0%}{tool_info}_"
                         ),
                         "confidence": conf,
-                        "sources": iq_response.get("sources", []),
+                        "sources": sources,
                         "queued_for_review": False,
                     }
             except Exception as exc:
                 logger.error("Nova: IQ engine error: %s", exc)
 
-        # -- Step 3: Partial learned match ---------------------------------
+        # -- Step 4: Partial learned match ---------------------------------
         if learned and learned["confidence"] >= 0.4:
             self._increment_usage(learned.get("original_question", ""))
             return {
@@ -411,7 +524,7 @@ class NovaSlackBot:
                 "queued_for_review": False,
             }
 
-        # -- Step 4: Low confidence -- queue for review --------------------
+        # -- Step 5: Low confidence -- queue for review --------------------
         partial_text = (
             iq_response.get("response", "") if iq_response else ""
         )
@@ -495,6 +608,136 @@ class NovaSlackBot:
                     break
 
     # ------------------------------------------------------------------
+    # Jaccard similarity helper
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _jaccard_similarity(set_a: set, set_b: set) -> float:
+        """Return the Jaccard similarity coefficient between two keyword sets."""
+        if not set_a or not set_b:
+            return 0.0
+        intersection = len(set_a & set_b)
+        union = len(set_a | set_b)
+        return intersection / union if union else 0.0
+
+    # ------------------------------------------------------------------
+    # Slack channel context search
+    # ------------------------------------------------------------------
+
+    # Rate-limit: track the last time we called conversations.history
+    _last_slack_context_call: float = 0.0
+    _slack_context_lock = threading.Lock()
+
+    def _search_slack_context(self, question: str, channel_id: str) -> list:
+        """Search recent channel messages for relevant context.
+
+        Fetches the last 100 messages from *channel_id* using the Slack
+        ``conversations.history`` API, scores each against *question*
+        using Jaccard keyword similarity, and returns the top 3 relevant
+        message texts.
+
+        Rate-limited to at most one API call per second.  Returns an
+        empty list on any error.
+        """
+        if not self.bot_token or not channel_id:
+            return []
+
+        # ---- Rate limiting (1 call/sec) ----
+        with self._slack_context_lock:
+            now = time.monotonic()
+            elapsed = now - self._last_slack_context_call
+            if elapsed < 1.0:
+                time.sleep(1.0 - elapsed)
+            self._last_slack_context_call = time.monotonic()
+
+        # ---- Fetch channel history via Slack API ----
+        import urllib.request
+        import urllib.error
+
+        url = (
+            "https://slack.com/api/conversations.history"
+            f"?channel={channel_id}&limit=100"
+        )
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {self.bot_token}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+            logger.warning("Nova: Failed to fetch Slack channel history: %s", exc)
+            return []
+        except Exception as exc:
+            logger.warning("Nova: Unexpected error fetching channel history: %s", exc)
+            return []
+
+        if not data.get("ok"):
+            logger.warning(
+                "Nova: Slack conversations.history error: %s",
+                data.get("error", "unknown"),
+            )
+            return []
+
+        messages = data.get("messages", [])
+        if not messages:
+            return []
+
+        # ---- Score relevance using Jaccard similarity ----
+        q_keywords = self._extract_keywords(question)
+        if not q_keywords:
+            return []
+
+        scored: list = []
+        for msg in messages:
+            msg_text = msg.get("text", "").strip()
+            if not msg_text:
+                continue
+            # Skip very short messages (reactions, single-word replies)
+            if len(msg_text) < 10:
+                continue
+            # Skip bot messages to avoid echoing ourselves
+            if msg.get("bot_id") or msg.get("subtype") == "bot_message":
+                continue
+
+            msg_keywords = self._extract_keywords(msg_text)
+            score = self._jaccard_similarity(q_keywords, msg_keywords)
+            if score > 0.1:  # Minimum relevance threshold
+                scored.append((score, msg_text))
+
+        # Sort by score descending, return top 3 message texts
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [text for _score, text in scored[:3]]
+
+    # ------------------------------------------------------------------
+    # Proactive recruitment-topic detection
+    # ------------------------------------------------------------------
+
+    _RECRUITMENT_KEYWORDS = frozenset({
+        "hiring", "budget", "cpa", "cpc", "job board", "candidate",
+        "salary", "recruiter", "talent", "application", "indeed",
+        "linkedin",
+    })
+
+    def _is_recruitment_topic(self, text: str) -> bool:
+        """Check whether *text* contains 2+ recruitment-related keywords.
+
+        This is informational only -- the bot does NOT auto-respond to
+        non-@mention messages based on this check.
+        """
+        if not text:
+            return False
+        text_lower = text.lower()
+        matches = sum(
+            1 for kw in self._RECRUITMENT_KEYWORDS if kw in text_lower
+        )
+        return matches >= 2
+
+    # ------------------------------------------------------------------
     # Unanswered-question management
     # ------------------------------------------------------------------
 
@@ -524,6 +767,17 @@ class NovaSlackBot:
         }
         with self._lock:
             self.unanswered.setdefault("questions", []).append(entry)
+            # Prevent unbounded growth: keep only last 500 questions
+            # (remove oldest resolved first, then oldest pending)
+            questions = self.unanswered["questions"]
+            if len(questions) > 500:
+                # Keep all pending, trim oldest resolved/dismissed
+                pending = [q for q in questions if q["status"] == "pending"]
+                resolved = [q for q in questions if q["status"] != "pending"]
+                # Keep latest 200 resolved + all pending (up to 500 total)
+                max_resolved = max(500 - len(pending), 100)
+                resolved_trimmed = resolved[-max_resolved:] if len(resolved) > max_resolved else resolved
+                self.unanswered["questions"] = resolved_trimmed + pending
             self.unanswered["metadata"]["total_queued"] = len(
                 [q for q in self.unanswered["questions"] if q["status"] == "pending"]
             )
@@ -549,8 +803,13 @@ class NovaSlackBot:
                     q["answered_by"] = answered_by
                     q["answered_at"] = datetime.utcnow().isoformat()
 
-                    # Persist to learned answers
-                    self.learned_answers.setdefault("answers", []).append(
+                    # Persist to learned answers (cap at 2000 to prevent unbounded growth)
+                    answers_list = self.learned_answers.setdefault("answers", [])
+                    if len(answers_list) >= 2000:
+                        # Evict least-used entries to make room
+                        answers_list.sort(key=lambda a: a.get("times_used", 0))
+                        del answers_list[:100]
+                    answers_list.append(
                         {
                             "question": q["question"],
                             "answer": answer,
@@ -876,6 +1135,10 @@ class NovaSlackBot:
                 a = pair.get("answer", "").strip()
                 if not q or not a:
                     continue
+                # Cap at 2000 learned answers to prevent memory/disk exhaustion
+                if len(self.learned_answers.get("answers", [])) >= 2000:
+                    logger.warning("Learned answers cap (2000) reached; skipping remaining imports")
+                    break
                 self.learned_answers.setdefault("answers", []).append(
                     {
                         "question": q,

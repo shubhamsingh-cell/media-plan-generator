@@ -28,6 +28,20 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+# ── Canonical taxonomy standardizer ──
+# Used to normalize industry/role/platform keys before KB lookups.
+# Falls back gracefully if unavailable.
+try:
+    from standardizer import (
+        normalize_industry as _std_industry,
+        normalize_role as _std_role,
+        normalize_platform as _std_platform,
+        CANONICAL_INDUSTRIES as _CANON_IND,
+    )
+    _HAS_STANDARDIZER = True
+except ImportError:
+    _HAS_STANDARDIZER = False
+
 
 # ---------------------------------------------------------------------------
 # Source reliability weights (higher = more trustworthy)
@@ -142,6 +156,66 @@ _INDUSTRY_TO_KB_KEY: Dict[str, str] = {
     "general": "retail_hospitality",
     "general_entry_level": "retail_hospitality",
     "media_entertainment": "technology",
+}
+
+# ---------------------------------------------------------------------------
+# Hardcoded fallback salary ranges by common role keywords.
+# Single source of truth -- referenced by fuse_salary_intelligence().
+# ---------------------------------------------------------------------------
+_ROLE_SALARY_FALLBACKS: Dict[str, Dict[str, int]] = {
+    "software":        {"median": 130000, "min": 90000, "p25": 110000, "p75": 155000, "max": 200000},
+    "engineer":        {"median": 120000, "min": 80000, "p25": 100000, "p75": 145000, "max": 190000},
+    "data scientist":  {"median": 135000, "min": 95000, "p25": 115000, "p75": 160000, "max": 210000},
+    "data":            {"median": 120000, "min": 80000, "p25": 100000, "p75": 145000, "max": 185000},
+    "product manager": {"median": 140000, "min": 100000, "p25": 120000, "p75": 165000, "max": 220000},
+    "product":         {"median": 130000, "min": 90000, "p25": 110000, "p75": 155000, "max": 200000},
+    "designer":        {"median": 110000, "min": 70000, "p25": 90000,  "p75": 135000, "max": 170000},
+    "ux":              {"median": 115000, "min": 75000, "p25": 95000,  "p75": 140000, "max": 175000},
+    "devops":          {"median": 135000, "min": 95000, "p25": 115000, "p75": 160000, "max": 200000},
+    "marketing":       {"median": 85000,  "min": 55000, "p25": 70000,  "p75": 105000, "max": 140000},
+    "sales":           {"median": 90000,  "min": 50000, "p25": 70000,  "p75": 115000, "max": 160000},
+    "hr":              {"median": 75000,  "min": 50000, "p25": 62000,  "p75": 92000,  "max": 120000},
+    "analyst":         {"median": 85000,  "min": 55000, "p25": 70000,  "p75": 105000, "max": 140000},
+    "manager":         {"median": 105000, "min": 70000, "p25": 85000,  "p75": 130000, "max": 170000},
+    "director":        {"median": 155000, "min": 110000, "p25": 130000, "p75": 180000, "max": 250000},
+    "nurse":           {"median": 82000,  "min": 58000, "p25": 70000,  "p75": 98000,  "max": 120000},
+    "driver":          {"median": 52000,  "min": 38000, "p25": 45000,  "p75": 62000,  "max": 78000},
+    "warehouse":       {"median": 42000,  "min": 32000, "p25": 37000,  "p75": 50000,  "max": 60000},
+    "mechanic":        {"median": 52000,  "min": 36000, "p25": 44000,  "p75": 62000,  "max": 75000},
+    "electrician":     {"median": 60000,  "min": 42000, "p25": 50000,  "p75": 72000,  "max": 90000},
+    "accountant":      {"median": 78000,  "min": 52000, "p25": 65000,  "p75": 95000,  "max": 125000},
+    "teacher":         {"median": 62000,  "min": 42000, "p25": 52000,  "p75": 75000,  "max": 95000},
+    "construction":    {"median": 55000,  "min": 38000, "p25": 46000,  "p75": 68000,  "max": 85000},
+}
+
+# ---------------------------------------------------------------------------
+# Hardcoded fallback demand data by common role keywords.
+# Single source of truth -- referenced by fuse_job_market_demand().
+# ---------------------------------------------------------------------------
+_ROLE_DEMAND_FALLBACKS: Dict[str, Dict[str, Any]] = {
+    "software":        {"job_postings": 150000, "search_interest": "High",      "talent_pool": 2500000, "competition_index": 7.2, "trend": "Growing (+8% YoY)"},
+    "engineer":        {"job_postings": 200000, "search_interest": "High",      "talent_pool": 3000000, "competition_index": 6.8, "trend": "Growing (+6% YoY)"},
+    "data scientist":  {"job_postings": 45000,  "search_interest": "Very High", "talent_pool": 800000,  "competition_index": 8.5, "trend": "Growing (+15% YoY)"},
+    "data":            {"job_postings": 120000, "search_interest": "High",      "talent_pool": 2000000, "competition_index": 7.0, "trend": "Growing (+10% YoY)"},
+    "product manager": {"job_postings": 60000,  "search_interest": "High",      "talent_pool": 900000,  "competition_index": 7.5, "trend": "Growing (+5% YoY)"},
+    "product":         {"job_postings": 80000,  "search_interest": "High",      "talent_pool": 1200000, "competition_index": 6.5, "trend": "Growing (+5% YoY)"},
+    "designer":        {"job_postings": 55000,  "search_interest": "Medium",    "talent_pool": 1100000, "competition_index": 5.8, "trend": "Stable (+2% YoY)"},
+    "ux":              {"job_postings": 40000,  "search_interest": "High",      "talent_pool": 700000,  "competition_index": 6.5, "trend": "Growing (+7% YoY)"},
+    "devops":          {"job_postings": 50000,  "search_interest": "High",      "talent_pool": 600000,  "competition_index": 8.0, "trend": "Growing (+12% YoY)"},
+    "marketing":       {"job_postings": 100000, "search_interest": "Medium",    "talent_pool": 2500000, "competition_index": 4.5, "trend": "Stable (+1% YoY)"},
+    "sales":           {"job_postings": 180000, "search_interest": "Medium",    "talent_pool": 4000000, "competition_index": 4.0, "trend": "Stable (+1% YoY)"},
+    "hr":              {"job_postings": 60000,  "search_interest": "Medium",    "talent_pool": 1500000, "competition_index": 4.2, "trend": "Stable (+2% YoY)"},
+    "analyst":         {"job_postings": 90000,  "search_interest": "High",      "talent_pool": 1800000, "competition_index": 5.5, "trend": "Growing (+6% YoY)"},
+    "manager":         {"job_postings": 250000, "search_interest": "High",      "talent_pool": 5000000, "competition_index": 5.0, "trend": "Stable (+2% YoY)"},
+    "director":        {"job_postings": 40000,  "search_interest": "Medium",    "talent_pool": 800000,  "competition_index": 5.5, "trend": "Stable (+1% YoY)"},
+    "nurse":           {"job_postings": 200000, "search_interest": "Very High", "talent_pool": 4000000, "competition_index": 9.0, "trend": "Growing (+12% YoY)"},
+    "driver":          {"job_postings": 300000, "search_interest": "High",      "talent_pool": 3500000, "competition_index": 8.5, "trend": "Growing (+10% YoY)"},
+    "warehouse":       {"job_postings": 250000, "search_interest": "High",      "talent_pool": 3000000, "competition_index": 7.5, "trend": "Growing (+8% YoY)"},
+    "mechanic":        {"job_postings": 80000,  "search_interest": "Medium",    "talent_pool": 1200000, "competition_index": 6.0, "trend": "Stable (+3% YoY)"},
+    "electrician":     {"job_postings": 70000,  "search_interest": "High",      "talent_pool": 900000,  "competition_index": 7.5, "trend": "Growing (+6% YoY)"},
+    "accountant":      {"job_postings": 85000,  "search_interest": "Medium",    "talent_pool": 1800000, "competition_index": 4.8, "trend": "Stable (+2% YoY)"},
+    "teacher":         {"job_postings": 120000, "search_interest": "Medium",    "talent_pool": 3500000, "competition_index": 3.5, "trend": "Stable (+1% YoY)"},
+    "construction":    {"job_postings": 180000, "search_interest": "High",      "talent_pool": 2500000, "competition_index": 7.0, "trend": "Growing (+5% YoY)"},
 }
 
 
@@ -276,8 +350,27 @@ def _trend_direction(values: List[float]) -> str:
 
 
 def _kb_industry_benchmarks(kb: dict, industry: str) -> dict:
-    """Look up industry-specific benchmarks from the knowledge base."""
-    kb_key = _INDUSTRY_TO_KB_KEY.get(industry, "")
+    """Look up industry-specific benchmarks from the knowledge base.
+
+    Resolution order:
+      1. Canonical standardizer lookup -> ``kb_key`` metadata field (preferred).
+      2. Direct match in ``_INDUSTRY_TO_KB_KEY`` (hardcoded fallback).
+      3. Fallback to empty dict.
+    """
+    kb_key = ""
+    # 1. Standardizer first (canonical taxonomy is the source of truth)
+    if _HAS_STANDARDIZER:
+        canonical = _std_industry(industry)
+        meta = _CANON_IND.get(canonical, {})
+        kb_key = meta.get("kb_key", "")
+        if kb_key:
+            logger.debug(
+                "KB industry resolved via standardizer: %s -> %s -> kb_key=%s",
+                industry, canonical, kb_key,
+            )
+    # 2. Fallback to hardcoded dict
+    if not kb_key:
+        kb_key = _INDUSTRY_TO_KB_KEY.get(industry, "")
     if not kb_key:
         return {}
     return _get_nested(kb, "industry_specific_benchmarks", kb_key, default={})
@@ -296,6 +389,93 @@ def _kb_platform_benchmarks(kb: dict) -> dict:
 def _kb_regional_data(kb: dict, region: str = "united_states") -> dict:
     """Return regional economic data from the KB."""
     return _get_nested(kb, "regional_data", region, default={})
+
+
+def _kb_platform_deep(kb: dict, platform: str) -> dict:
+    """Get deep platform intelligence for a specific platform.
+
+    Uses the canonical standardizer when available to resolve aliases
+    (e.g. ``"Facebook"`` -> ``"meta"``, ``"Bing"`` -> ``"microsoft_bing"``).
+    """
+    pi = kb.get("platform_intelligence", {})
+    platforms = pi.get("platforms", {})
+    # Try exact key first, then lowercase
+    result = platforms.get(platform, platforms.get(platform.lower(), {}))
+    if not result and _HAS_STANDARDIZER:
+        canon = _std_platform(platform)
+        result = platforms.get(canon, {})
+    return result
+
+
+def _kb_recruitment_benchmarks(kb: dict, industry: str) -> dict:
+    """Get recruitment benchmarks (CPA/CPH/apply-rate) for an industry.
+
+    The ``recruitment_benchmarks_deep.json`` file uses keys like
+    ``healthcare_medical``, ``technology_engineering`` etc. -- these are
+    the ``deep_bench_key`` values from CANONICAL_INDUSTRIES.  We resolve
+    via standardizer first, with direct-match fallback.
+    """
+    rb = kb.get("recruitment_benchmarks", {})
+    benchmarks = rb.get("industry_benchmarks", {})
+    result = {}
+    # 1. Standardizer first (deep_bench_key is the canonical mapping)
+    if _HAS_STANDARDIZER:
+        canonical = _std_industry(industry)
+        meta = _CANON_IND.get(canonical, {})
+        deep_key = meta.get("deep_bench_key", "")
+        if deep_key:
+            result = benchmarks.get(deep_key, {})
+    # 2. Fallback: try exact key, then common variants
+    if not result:
+        result = benchmarks.get(industry, {})
+    if not result:
+        result = benchmarks.get(industry.lower().replace(" ", "_"), {})
+    return result
+
+
+def _kb_regional_market(kb: dict, region: str, market: str = "") -> dict:
+    """Get regional hiring intelligence for a specific region/market."""
+    rh = kb.get("regional_hiring", {})
+    regions = rh.get("regions", {})
+    region_data = regions.get(region, {})
+    if market:
+        return region_data.get(market, {})
+    return region_data
+
+
+def _kb_employer_branding(kb: dict) -> dict:
+    """Get employer branding strategy intelligence."""
+    rs = kb.get("recruitment_strategy", {})
+    return rs.get("employer_branding", {})
+
+
+def _kb_workforce_trends(kb: dict, generation: str = "gen_z") -> dict:
+    """Get workforce trends for a specific generation."""
+    wt = kb.get("workforce_trends", {})
+    gt = wt.get("generational_trends", {})
+    return gt.get(generation, {})
+
+
+def _kb_white_papers(kb: dict, report_key: str = "") -> dict:
+    """Get white paper/report data. If report_key given, get specific report."""
+    wp = kb.get("white_papers", {})
+    reports = wp.get("reports", {})
+    if report_key:
+        return reports.get(report_key, {})
+    return reports
+
+
+def _kb_supply_ecosystem(kb: dict) -> dict:
+    """Get supply ecosystem / programmatic advertising intelligence."""
+    se = kb.get("supply_ecosystem", {})
+    return se.get("programmatic_ecosystem", {})
+
+
+def _kb_funnel_benchmarks(kb: dict) -> dict:
+    """Get funnel conversion rate benchmarks across industries."""
+    rb = kb.get("recruitment_benchmarks", {})
+    return rb.get("funnel_conversion_rates", {})
+
 
 
 def _parse_salary_range(range_str: str) -> Tuple[Optional[float], Optional[float]]:
@@ -569,34 +749,9 @@ def fuse_salary_intelligence(
             # Try industry-specific salary from KB
             industry_salaries = kb_benchmarks.get("salary_ranges", kb_benchmarks.get("compensation", {}))
 
-            # Hardcoded fallback salary ranges by common role keywords
-            _FALLBACK_SALARIES = {
-                "software": {"median": 130000, "min": 90000, "p25": 110000, "p75": 155000, "max": 200000},
-                "engineer": {"median": 120000, "min": 80000, "p25": 100000, "p75": 145000, "max": 190000},
-                "data scientist": {"median": 135000, "min": 95000, "p25": 115000, "p75": 160000, "max": 210000},
-                "data": {"median": 120000, "min": 80000, "p25": 100000, "p75": 145000, "max": 185000},
-                "product manager": {"median": 140000, "min": 100000, "p25": 120000, "p75": 165000, "max": 220000},
-                "product": {"median": 130000, "min": 90000, "p25": 110000, "p75": 155000, "max": 200000},
-                "designer": {"median": 110000, "min": 70000, "p25": 90000, "p75": 135000, "max": 170000},
-                "ux": {"median": 115000, "min": 75000, "p25": 95000, "p75": 140000, "max": 175000},
-                "devops": {"median": 135000, "min": 95000, "p25": 115000, "p75": 160000, "max": 200000},
-                "marketing": {"median": 85000, "min": 55000, "p25": 70000, "p75": 105000, "max": 140000},
-                "sales": {"median": 90000, "min": 50000, "p25": 70000, "p75": 115000, "max": 160000},
-                "hr": {"median": 75000, "min": 50000, "p25": 62000, "p75": 92000, "max": 120000},
-                "analyst": {"median": 85000, "min": 55000, "p25": 70000, "p75": 105000, "max": 140000},
-                "manager": {"median": 105000, "min": 70000, "p25": 85000, "p75": 130000, "max": 170000},
-                "director": {"median": 155000, "min": 110000, "p25": 130000, "p75": 180000, "max": 250000},
-                "nurse": {"median": 82000, "min": 58000, "p25": 70000, "p75": 98000, "max": 120000},
-                "driver": {"median": 52000, "min": 38000, "p25": 45000, "p75": 62000, "max": 78000},
-                "warehouse": {"median": 42000, "min": 32000, "p25": 37000, "p75": 50000, "max": 60000},
-                "mechanic": {"median": 52000, "min": 36000, "p25": 44000, "p75": 62000, "max": 75000},
-                "electrician": {"median": 60000, "min": 42000, "p25": 50000, "p75": 72000, "max": 90000},
-                "accountant": {"median": 78000, "min": 52000, "p25": 65000, "p75": 95000, "max": 125000},
-                "teacher": {"median": 62000, "min": 42000, "p25": 52000, "p75": 75000, "max": 95000},
-                "construction": {"median": 55000, "min": 38000, "p25": 46000, "p75": 68000, "max": 85000},
-            }
+            # Use module-level _ROLE_SALARY_FALLBACKS (single source of truth)
             role_lower = role.lower()
-            for keyword, sal_data in _FALLBACK_SALARIES.items():
+            for keyword, sal_data in _ROLE_SALARY_FALLBACKS.items():
                 if keyword in role_lower:
                     salary_points.append((sal_data["median"], 0.3, "Industry Benchmark"))
                     break
@@ -606,33 +761,9 @@ def fuse_salary_intelligence(
 
         # If only fallback data, use the full fallback structure with percentiles
         if len(salary_points) == 1 and salary_points[0][2] in ("Industry Benchmark", "General Benchmark"):
-            _FALLBACK_SALARIES_FULL = {
-                "software": {"median": 130000, "min": 90000, "p25": 110000, "p75": 155000, "max": 200000},
-                "engineer": {"median": 120000, "min": 80000, "p25": 100000, "p75": 145000, "max": 190000},
-                "data scientist": {"median": 135000, "min": 95000, "p25": 115000, "p75": 160000, "max": 210000},
-                "data": {"median": 120000, "min": 80000, "p25": 100000, "p75": 145000, "max": 185000},
-                "product manager": {"median": 140000, "min": 100000, "p25": 120000, "p75": 165000, "max": 220000},
-                "product": {"median": 130000, "min": 90000, "p25": 110000, "p75": 155000, "max": 200000},
-                "designer": {"median": 110000, "min": 70000, "p25": 90000, "p75": 135000, "max": 170000},
-                "ux": {"median": 115000, "min": 75000, "p25": 95000, "p75": 140000, "max": 175000},
-                "devops": {"median": 135000, "min": 95000, "p25": 115000, "p75": 160000, "max": 200000},
-                "marketing": {"median": 85000, "min": 55000, "p25": 70000, "p75": 105000, "max": 140000},
-                "sales": {"median": 90000, "min": 50000, "p25": 70000, "p75": 115000, "max": 160000},
-                "hr": {"median": 75000, "min": 50000, "p25": 62000, "p75": 92000, "max": 120000},
-                "analyst": {"median": 85000, "min": 55000, "p25": 70000, "p75": 105000, "max": 140000},
-                "manager": {"median": 105000, "min": 70000, "p25": 85000, "p75": 130000, "max": 170000},
-                "director": {"median": 155000, "min": 110000, "p25": 130000, "p75": 180000, "max": 250000},
-                "nurse": {"median": 82000, "min": 58000, "p25": 70000, "p75": 98000, "max": 120000},
-                "driver": {"median": 52000, "min": 38000, "p25": 45000, "p75": 62000, "max": 78000},
-                "warehouse": {"median": 42000, "min": 32000, "p25": 37000, "p75": 50000, "max": 60000},
-                "mechanic": {"median": 52000, "min": 36000, "p25": 44000, "p75": 62000, "max": 75000},
-                "electrician": {"median": 60000, "min": 42000, "p25": 50000, "p75": 72000, "max": 90000},
-                "accountant": {"median": 78000, "min": 52000, "p25": 65000, "p75": 95000, "max": 125000},
-                "teacher": {"median": 62000, "min": 42000, "p25": 52000, "p75": 75000, "max": 95000},
-                "construction": {"median": 55000, "min": 38000, "p25": 46000, "p75": 68000, "max": 85000},
-            }
+            # Use module-level _ROLE_SALARY_FALLBACKS (single source of truth)
             role_lower = role.lower()
-            for keyword, sal_data in _FALLBACK_SALARIES_FULL.items():
+            for keyword, sal_data in _ROLE_SALARY_FALLBACKS.items():
                 if keyword in role_lower:
                     result[role] = {
                         "median": sal_data["median"],
@@ -695,7 +826,13 @@ def fuse_salary_intelligence(
 
         # KB validation
         kb_validation = {"validated": False, "deviation": 0.0, "flag": None}
-        kb_industry_key = _INDUSTRY_TO_KB_KEY.get(industry, "")
+        kb_industry_key = ""
+        if _HAS_STANDARDIZER:
+            _canon = _std_industry(industry)
+            _meta = _CANON_IND.get(_canon, {})
+            kb_industry_key = _meta.get("kb_key", "")
+        if not kb_industry_key:
+            kb_industry_key = _INDUSTRY_TO_KB_KEY.get(industry, "")
         if kb_industry_key and kb_by_industry:
             industry_salary_data = kb_by_industry.get(kb_industry_key, {})
             if isinstance(industry_salary_data, dict):
@@ -726,6 +863,27 @@ def fuse_salary_intelligence(
                 "kb_validated": kb_validation.get("validated", False),
             },
         }
+
+
+    # --- Enrich from recruitment benchmarks KB ---
+    _rb = _kb_recruitment_benchmarks(kb, industry)
+    if _rb:
+        for _rk, _rv in result.items():
+            if isinstance(_rv, dict):
+                _rv["industry_cpa_benchmark"] = _rb.get("cpa", {}).get("median", None)
+                _rv["industry_cph_benchmark"] = _rb.get("cph", {}).get("median", None)
+                _rv["industry_time_to_fill"] = _rb.get("time_to_fill", {}).get("median", None)
+
+    # --- Enrich from DataUSA location data (previously orphaned) ---
+    _dusa_loc = enriched.get("datausa_location_data", {})
+    if isinstance(_dusa_loc, dict) and _dusa_loc:
+        for _rk, _rv in result.items():
+            if isinstance(_rv, dict) and not _rv.get("location_demographics"):
+                _rv["location_demographics"] = {
+                    "population": _dusa_loc.get("population"),
+                    "median_household_income": _dusa_loc.get("median_household_income"),
+                    "poverty_rate": _dusa_loc.get("poverty_rate"),
+                }
 
     logger.info("Salary intelligence fused for %d roles", len(result))
     return result
@@ -853,34 +1011,10 @@ def fuse_job_market_demand(
 
         # --- Fallback demand data when APIs return nothing ---
         if total_postings == 0 and search_volume == 0 and talent_pool == 0:
-            _FALLBACK_DEMAND = {
-                "software": {"job_postings": 150000, "search_interest": "High", "talent_pool": 2500000, "competition_index": 7.2, "trend": "Growing (+8% YoY)"},
-                "engineer": {"job_postings": 200000, "search_interest": "High", "talent_pool": 3000000, "competition_index": 6.8, "trend": "Growing (+6% YoY)"},
-                "data scientist": {"job_postings": 45000, "search_interest": "Very High", "talent_pool": 800000, "competition_index": 8.5, "trend": "Growing (+15% YoY)"},
-                "data": {"job_postings": 120000, "search_interest": "High", "talent_pool": 2000000, "competition_index": 7.0, "trend": "Growing (+10% YoY)"},
-                "product manager": {"job_postings": 60000, "search_interest": "High", "talent_pool": 900000, "competition_index": 7.5, "trend": "Growing (+5% YoY)"},
-                "product": {"job_postings": 80000, "search_interest": "High", "talent_pool": 1200000, "competition_index": 6.5, "trend": "Growing (+5% YoY)"},
-                "designer": {"job_postings": 55000, "search_interest": "Medium", "talent_pool": 1100000, "competition_index": 5.8, "trend": "Stable (+2% YoY)"},
-                "ux": {"job_postings": 40000, "search_interest": "High", "talent_pool": 700000, "competition_index": 6.5, "trend": "Growing (+7% YoY)"},
-                "devops": {"job_postings": 50000, "search_interest": "High", "talent_pool": 600000, "competition_index": 8.0, "trend": "Growing (+12% YoY)"},
-                "marketing": {"job_postings": 100000, "search_interest": "Medium", "talent_pool": 2500000, "competition_index": 4.5, "trend": "Stable (+1% YoY)"},
-                "sales": {"job_postings": 180000, "search_interest": "Medium", "talent_pool": 4000000, "competition_index": 4.0, "trend": "Stable (+1% YoY)"},
-                "hr": {"job_postings": 60000, "search_interest": "Medium", "talent_pool": 1500000, "competition_index": 4.2, "trend": "Stable (+2% YoY)"},
-                "analyst": {"job_postings": 90000, "search_interest": "High", "talent_pool": 1800000, "competition_index": 5.5, "trend": "Growing (+6% YoY)"},
-                "manager": {"job_postings": 250000, "search_interest": "High", "talent_pool": 5000000, "competition_index": 5.0, "trend": "Stable (+2% YoY)"},
-                "director": {"job_postings": 40000, "search_interest": "Medium", "talent_pool": 800000, "competition_index": 5.5, "trend": "Stable (+1% YoY)"},
-                "nurse": {"job_postings": 200000, "search_interest": "Very High", "talent_pool": 4000000, "competition_index": 9.0, "trend": "Growing (+12% YoY)"},
-                "driver": {"job_postings": 300000, "search_interest": "High", "talent_pool": 3500000, "competition_index": 8.5, "trend": "Growing (+10% YoY)"},
-                "warehouse": {"job_postings": 250000, "search_interest": "High", "talent_pool": 3000000, "competition_index": 7.5, "trend": "Growing (+8% YoY)"},
-                "mechanic": {"job_postings": 80000, "search_interest": "Medium", "talent_pool": 1200000, "competition_index": 6.0, "trend": "Stable (+3% YoY)"},
-                "electrician": {"job_postings": 70000, "search_interest": "High", "talent_pool": 900000, "competition_index": 7.5, "trend": "Growing (+6% YoY)"},
-                "accountant": {"job_postings": 85000, "search_interest": "Medium", "talent_pool": 1800000, "competition_index": 4.8, "trend": "Stable (+2% YoY)"},
-                "teacher": {"job_postings": 120000, "search_interest": "Medium", "talent_pool": 3500000, "competition_index": 3.5, "trend": "Stable (+1% YoY)"},
-                "construction": {"job_postings": 180000, "search_interest": "High", "talent_pool": 2500000, "competition_index": 7.0, "trend": "Growing (+5% YoY)"},
-            }
+            # Use module-level _ROLE_DEMAND_FALLBACKS (single source of truth)
             role_lower = role.lower()
             fallback_demand = None
-            for keyword, fb_data in _FALLBACK_DEMAND.items():
+            for keyword, fb_data in _ROLE_DEMAND_FALLBACKS.items():
                 if keyword in role_lower:
                     fallback_demand = fb_data
                     break
@@ -975,6 +1109,35 @@ def fuse_job_market_demand(
             role_result["by_location"] = location_breakdown
 
         result[role] = role_result
+
+
+    # --- Enrich from workforce trends KB ---
+    _wt = _kb_workforce_trends(kb)
+    if _wt:
+        for _rk, _rv in result.items():
+            if isinstance(_rv, dict):
+                _rv["workforce_trends"] = {
+                    "gen_z_platform_preferences": _wt.get("job_search_behavior", {}).get("platform_usage", {}),
+                    "remote_work_trends": _wt.get("workplace_expectations", {}).get("flexibility", {}),
+                }
+
+    # --- Enrich from Google Trends (previously orphaned) ---
+    _gtrends = enriched.get("search_trends", enriched.get("google_trends_data", {}))
+    if isinstance(_gtrends, dict) and _gtrends:
+        for _rk, _rv in result.items():
+            if isinstance(_rv, dict) and not _rv.get("search_trend"):
+                _rv["search_trend"] = _gtrends
+
+    # --- Enrich from FRED indicators (previously orphaned) ---
+    _fred = enriched.get("fred_indicators", enriched.get("fred_data", {}))
+    if isinstance(_fred, dict) and _fred:
+        for _rk, _rv in result.items():
+            if isinstance(_rv, dict):
+                _rv["macro_economic"] = {
+                    "unemployment_rate": _fred.get("unemployment_rate"),
+                    "labor_force_participation": _fred.get("labor_force_participation"),
+                    "job_openings_rate": _fred.get("job_openings_rate"),
+                }
 
     logger.info("Job market demand fused for %d roles", len(result))
     return result
@@ -1210,6 +1373,69 @@ def fuse_location_profiles(
 
         result[loc] = loc_profile
 
+
+    # --- Enrich from regional hiring KB ---
+    _rh_regions = kb.get("regional_hiring", {}).get("regions", {})
+    if _rh_regions:
+        for _lk, _lv in result.items():
+            if isinstance(_lv, dict):
+                # Try to match location to a region/market
+                _lk_lower = _lk.lower().replace(" ", "_").replace(",", "")
+                for _region_key, _region_data in _rh_regions.items():
+                    if isinstance(_region_data, dict):
+                        for _market_key, _market_data in _region_data.items():
+                            if isinstance(_market_data, dict):
+                                _mname = (_market_data.get("name", "") or "").lower()
+                                if _lk.lower() in _mname or _lk_lower in _market_key:
+                                    _lv["regional_intelligence"] = {
+                                        "region": _region_key,
+                                        "market": _market_key,
+                                        "top_job_boards": _market_data.get("top_job_boards", []),
+                                        "dominant_industries": _market_data.get("dominant_industries", []),
+                                        "talent_dynamics": _market_data.get("talent_dynamics", {}),
+                                        "hiring_regulations": _market_data.get("hiring_regulations", {}),
+                                        "cultural_norms": _market_data.get("cultural_norms", {}),
+                                        "cpa_benchmark": _market_data.get("cpa_benchmark", {}),
+                                    }
+                                    break
+
+    # --- Enrich from currency rates (previously orphaned) ---
+    _curr = enriched.get("currency_rates", enriched.get("exchange_rates", {}))
+    if isinstance(_curr, dict) and _curr:
+        for _lk, _lv in result.items():
+            if isinstance(_lv, dict) and not _lv.get("currency_data"):
+                _lv["currency_data"] = _curr
+
+    # --- Enrich from country data (previously orphaned) ---
+    _cdata = enriched.get("country_data", {})
+    if isinstance(_cdata, dict) and _cdata:
+        for _lk, _lv in result.items():
+            if isinstance(_lv, dict) and not _lv.get("country_profile"):
+                _lv["country_profile"] = {
+                    "gdp": _cdata.get("gdp"),
+                    "population": _cdata.get("population"),
+                    "gdp_per_capita": _cdata.get("gdp_per_capita"),
+                }
+
+    # --- Enrich from GeoNames (previously orphaned) ---
+    _geo = enriched.get("geonames_data", {})
+    if isinstance(_geo, dict) and _geo:
+        for _lk, _lv in result.items():
+            if isinstance(_lv, dict) and not _lv.get("geo_data"):
+                _lv["geo_data"] = {
+                    "timezone": _geo.get("timezone"),
+                    "population": _geo.get("population"),
+                    "latitude": _geo.get("latitude"),
+                    "longitude": _geo.get("longitude"),
+                }
+
+    # --- Enrich from IMF indicators (previously orphaned) ---
+    _imf = enriched.get("imf_indicators", enriched.get("imf_data", {}))
+    if isinstance(_imf, dict) and _imf:
+        for _lk, _lv in result.items():
+            if isinstance(_lv, dict) and not _lv.get("imf_data"):
+                _lv["imf_data"] = _imf
+
     logger.info("Location profiles fused for %d locations", len(result))
     return result
 
@@ -1405,6 +1631,49 @@ def fuse_ad_platform_analysis(
     result["_platform_ranking"] = [
         {"platform": p, "composite_score": s} for p, s in rankings
     ]
+
+
+    # --- Enrich from platform intelligence KB (91 platforms) ---
+    _pi = kb.get("platform_intelligence", {}).get("platforms", {})
+    if _pi:
+        for _pk, _pv in result.items():
+            if isinstance(_pv, dict):
+                _deep = _pi.get(_pk, _pi.get(_pk.lower(), {}))
+                if _deep:
+                    _pv["deep_intelligence"] = {
+                        "monthly_visitors": _deep.get("monthly_visitors"),
+                        "candidate_demographics": _deep.get("candidate_demographics", {}),
+                        "best_for": _deep.get("best_for", []),
+                        "programmatic_compatible": _deep.get("programmatic_compatible"),
+                        "apply_rate": _deep.get("apply_rate"),
+                        "mobile_traffic_pct": _deep.get("mobile_traffic_pct"),
+                        "dei_features": _deep.get("dei_features", []),
+                        "ai_features": _deep.get("ai_features", []),
+                        "ats_integrations": _deep.get("ats_integrations", []),
+                        "pros": _deep.get("pros", []),
+                        "cons": _deep.get("cons", []),
+                    }
+
+    # --- Enrich from supply ecosystem KB ---
+    _se = _kb_supply_ecosystem(kb)
+    if _se:
+        result["_programmatic_insights"] = {
+            "bidding_models": _se.get("bidding_models", {}),
+            "publisher_waterfall": _se.get("publisher_waterfall", {}),
+            "quality_signals": _se.get("key_concepts", {}).get("quality_signals", {}),
+        }
+
+    # --- Enrich from recruitment benchmarks KB (funnel rates) ---
+    _funnel = _kb_funnel_benchmarks(kb)
+    if _funnel:
+        result["_funnel_benchmarks"] = _funnel
+
+    # --- Enrich from employer branding KB ---
+    _eb = _kb_employer_branding(kb)
+    if _eb:
+        _channel_eff = _eb.get("channel_effectiveness", {})
+        if _channel_eff:
+            result["_employer_branding_effectiveness"] = _channel_eff
 
     logger.info("Ad platform analysis fused for %d platforms", len(result) - 1)
     return result
@@ -1771,6 +2040,44 @@ def fuse_competitive_intelligence(
         "kb_validated": kb_validated,
     }
 
+
+    # --- Enrich from company_info API (Clearbit, previously orphaned) ---
+    _cinfo = enriched.get("company_info", {})
+    if isinstance(_cinfo, dict) and _cinfo:
+        result["company_clearbit"] = {
+            "domain": _cinfo.get("domain"),
+            "industry": _cinfo.get("industry"),
+            "employee_count": _cinfo.get("metrics", {}).get("employees"),
+            "annual_revenue": _cinfo.get("metrics", {}).get("annualRevenue"),
+            "tech_stack": _cinfo.get("tech", []),
+            "tags": _cinfo.get("tags", []),
+        }
+
+    # --- Enrich from company_metadata API (Wikipedia, previously orphaned) ---
+    _cmeta = enriched.get("company_metadata", {})
+    if isinstance(_cmeta, dict) and _cmeta:
+        result["company_wikipedia"] = {
+            "description": _cmeta.get("extract", _cmeta.get("description", "")),
+            "founded": _cmeta.get("founded"),
+            "headquarters": _cmeta.get("headquarters"),
+            "url": _cmeta.get("url"),
+        }
+
+    # --- Enrich from SEC data (previously orphaned) ---
+    _sec = enriched.get("sec_company_data", enriched.get("sec_data", {}))
+    if isinstance(_sec, dict) and _sec:
+        result["company_sec"] = {
+            "cik": _sec.get("cik"),
+            "filings": _sec.get("recent_filings", [])[:5],
+            "sic_code": _sec.get("sic"),
+            "fiscal_year_end": _sec.get("fiscal_year_end"),
+        }
+
+    # --- Enrich from competitor logos (previously orphaned) ---
+    _logos = enriched.get("competitor_logos", {})
+    if isinstance(_logos, dict) and _logos:
+        result["competitor_logos"] = _logos
+
     logger.info("Competitive intelligence fused (%d sources)", source_count)
     return result
 
@@ -1823,6 +2130,83 @@ def _assess_data_quality(enriched: dict) -> Dict[str, Any]:
         "succeeded_list": summary.get("apis_succeeded", []),
         "failed_list": summary.get("apis_failed", []),
     }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FUSE: WORKFORCE INSIGHTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def fuse_workforce_insights(enriched: dict, kb: dict, industry: str) -> dict:
+    """Fuse workforce trends + employer branding intelligence.
+
+    Sources:
+    - workforce_trends_intelligence.json (Gen-Z, remote work, DEI)
+    - recruitment_strategy_intelligence.json (employer branding ROI)
+    - industry_white_papers.json (research findings)
+    """
+    result = {}
+
+    # Gen-Z trends
+    gen_z = _kb_workforce_trends(kb, "gen_z")
+    if gen_z:
+        result["gen_z_insights"] = {
+            "workforce_share": gen_z.get("workforce_share"),
+            "job_search_platforms": gen_z.get("job_search_behavior", {}).get("platform_usage", {}),
+            "mobile_vs_desktop": gen_z.get("job_search_behavior", {}).get("mobile_vs_desktop", {}),
+            "social_media_habits": gen_z.get("job_search_behavior", {}).get("social_media_habits", {}),
+            "workplace_expectations": {
+                "flexibility": gen_z.get("workplace_expectations", {}).get("flexibility", {}),
+                "mental_health": gen_z.get("workplace_expectations", {}).get("mental_health", {}),
+                "dei": gen_z.get("workplace_expectations", {}).get("dei_expectations", {}),
+                "purpose": gen_z.get("workplace_expectations", {}).get("purpose_driven_work", {}),
+            },
+            "salary_expectations": gen_z.get("salary_expectations", {}),
+            "tenure": gen_z.get("tenure_and_job_hopping", {}),
+        }
+
+    # Employer branding
+    eb = _kb_employer_branding(kb)
+    if eb:
+        result["employer_branding"] = {
+            "roi_data": eb.get("roi_data", {}),
+            "best_practices": eb.get("best_practices", {}),
+            "channel_effectiveness": eb.get("channel_effectiveness", {}),
+        }
+
+    # White paper highlights for this industry
+    reports = _kb_white_papers(kb)
+    if reports:
+        relevant_reports = []
+        industry_lower = industry.lower() if industry else ""
+        for rkey, rval in reports.items():
+            if isinstance(rval, dict):
+                title = (rval.get("title", "") or "").lower()
+                findings = rval.get("key_findings", [])
+                # Include if industry-relevant or general recruitment
+                if industry_lower in title or "recruit" in title or "hiring" in title or "benchmark" in title:
+                    relevant_reports.append({
+                        "key": rkey,
+                        "title": rval.get("title", ""),
+                        "publisher": rval.get("publisher", ""),
+                        "year": rval.get("year"),
+                        "finding_count": len(findings),
+                        "top_findings": findings[:3] if isinstance(findings, list) else [],
+                    })
+        result["relevant_research"] = relevant_reports[:10]  # Top 10 relevant reports
+
+    # Supply partner trends
+    sp_trends = kb.get("workforce_trends", {}).get("supply_partner_trends", {})
+    if sp_trends:
+        result["supply_partner_trends"] = sp_trends
+
+    # Job type trends
+    jt_trends = kb.get("workforce_trends", {}).get("job_type_trends", {})
+    if jt_trends:
+        result["job_type_trends"] = jt_trends
+
+    return result
+
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1910,6 +2294,15 @@ def synthesize(
         logger.error("fuse_competitive_intelligence failed: %s", exc, exc_info=True)
         synthesis["competitive_intelligence"] = {}
 
+    try:
+        _industry = input_data.get("industry", "")
+        synthesis["workforce_insights"] = fuse_workforce_insights(
+            enriched, knowledge_base, _industry
+        )
+    except Exception as exc:
+        logger.error("fuse_workforce_insights failed: %s", exc, exc_info=True)
+        synthesis["workforce_insights"] = {}
+
     # Compute confidence scores across all sections
     try:
         synthesis["confidence_scores"] = compute_confidence_scores(synthesis)
@@ -1924,10 +2317,222 @@ def synthesize(
     # Data quality assessment from enrichment metadata
     synthesis["data_quality"] = _assess_data_quality(enriched)
 
+    # AI-powered narrative synthesis (optional, requires ANTHROPIC_API_KEY)
+    # Always sets the key (empty dict if skipped) for consistent API shape.
+    try:
+        synthesis["ai_narratives"] = generate_ai_narratives(synthesis, input_data) or {}
+    except Exception as exc:
+        logger.warning("AI narrative generation skipped: %s", exc)
+        synthesis["ai_narratives"] = {}
+
     logger.info(
-        "Synthesis complete -- overall confidence=%.2f, quality_tier=%s",
+        "Synthesis complete -- overall confidence=%.2f, quality_tier=%s, ai_narratives=%s",
         synthesis["confidence_scores"].get("overall", 0.0),
         synthesis["data_quality"].get("quality_tier", "unknown"),
+        bool(synthesis.get("ai_narratives")),
     )
 
     return synthesis
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AI-POWERED NARRATIVE SYNTHESIS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def generate_ai_narratives(
+    synthesis: Dict[str, Any],
+    input_data: Dict[str, Any],
+) -> Dict[str, str]:
+    """Generate AI-powered narrative sections using Claude.
+
+    Takes the structured synthesis data and generates human-readable
+    narratives for:
+    1. Executive Summary - high-level overview of the market landscape
+    2. Strategic Recommendations - actionable channel/budget advice
+    3. Competitive Insights - market positioning analysis
+    4. Risk Assessment - potential challenges and mitigation strategies
+
+    This function is optional -- it gracefully returns an empty dict if
+    the ANTHROPIC_API_KEY is not set or if the API call fails.
+
+    Args:
+        synthesis: The structured synthesis dict from ``synthesize()``.
+        input_data: Original request with roles, locations, industry, budget.
+
+    Returns:
+        Dict with narrative keys: executive_summary, strategic_recommendations,
+        competitive_insights, risk_assessment. Empty dict on failure.
+    """
+    import os
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        return {}
+
+    # Build a compact data summary for Claude (avoid sending entire synthesis)
+    data_summary = _build_narrative_context(synthesis, input_data)
+    if not data_summary:
+        return {}
+
+    prompt = f"""You are a senior recruitment marketing strategist. Based on the following synthesized market data, generate concise, actionable narratives for a media plan document.
+
+## INPUT DATA
+{data_summary}
+
+## INSTRUCTIONS
+Generate exactly 4 sections. Each section must be 2-4 sentences. Be specific with numbers from the data. Do not invent statistics -- only reference data points from the input above. If data is missing for a topic, say "data not available" rather than guessing.
+
+Format your response as JSON with these exact keys:
+{{
+  "executive_summary": "2-4 sentence overview of the hiring market for these roles/locations",
+  "strategic_recommendations": "2-4 sentence actionable channel/budget advice based on the data",
+  "competitive_insights": "2-4 sentence analysis of market competitiveness and positioning",
+  "risk_assessment": "2-4 sentence assessment of hiring challenges and mitigation strategies"
+}}
+
+Respond with ONLY the JSON object, no markdown formatting or code blocks."""
+
+    try:
+        import urllib.request
+        import json as _json
+
+        payload = {
+            "model": "claude-sonnet-4-20250514",
+            "max_tokens": 1024,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+
+        req = urllib.request.Request(
+            "https://api.anthropic.com/v1/messages",
+            data=_json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+            },
+        )
+
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            resp_data = _json.loads(resp.read().decode("utf-8"))
+
+        text = ""
+        for block in resp_data.get("content", []):
+            if block.get("type") == "text":
+                text += block.get("text", "")
+
+        if not text:
+            return {}
+
+        # Parse JSON from response (handle potential markdown wrapping)
+        text = text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            text = text.rsplit("```", 1)[0]
+        text = text.strip()
+
+        narratives = _json.loads(text)
+
+        # Validate expected keys
+        expected_keys = {"executive_summary", "strategic_recommendations",
+                         "competitive_insights", "risk_assessment"}
+        if not isinstance(narratives, dict):
+            return {}
+        # Only keep expected keys
+        return {k: v for k, v in narratives.items() if k in expected_keys and isinstance(v, str)}
+
+    except Exception as exc:
+        logger.warning("AI narrative generation failed: %s", exc)
+        return {}
+
+
+def _build_narrative_context(
+    synthesis: Dict[str, Any],
+    input_data: Dict[str, Any],
+) -> str:
+    """Build a compact text summary of synthesis data for the AI narrator.
+
+    Extracts the most important data points from each synthesis section
+    and formats them as a readable text block that fits within token limits.
+    """
+    parts = []
+
+    # Input parameters
+    roles = input_data.get("roles", input_data.get("target_roles", []))
+    if isinstance(roles, list):
+        role_names = [r.get("title", str(r)) if isinstance(r, dict) else str(r) for r in roles[:5]]
+        parts.append(f"Roles: {', '.join(role_names)}")
+
+    locations = input_data.get("locations", [])
+    if isinstance(locations, list):
+        loc_names = []
+        for loc in locations[:5]:
+            if isinstance(loc, dict):
+                city = loc.get("city", "")
+                state = loc.get("state", "")
+                country = loc.get("country", "")
+                loc_names.append(f"{city}, {state}, {country}".strip(", "))
+            else:
+                loc_names.append(str(loc))
+        parts.append(f"Locations: {', '.join(loc_names)}")
+
+    industry = input_data.get("industry", "")
+    if industry:
+        parts.append(f"Industry: {industry}")
+
+    budget = input_data.get("budget", 0)
+    if budget:
+        parts.append(f"Budget: ${budget:,.0f}")
+
+    company = input_data.get("company_name", "")
+    if company:
+        parts.append(f"Company: {company}")
+
+    # Salary intelligence
+    salary_data = synthesis.get("salary_intelligence", {})
+    if salary_data:
+        for role_key, sal in salary_data.items():
+            if isinstance(sal, dict) and sal.get("median"):
+                sources_str = ", ".join(sal.get("sources", [])[:3])
+                parts.append(
+                    f"Salary ({role_key}): median ${sal['median']:,}, "
+                    f"range ${sal.get('p25', 0):,}-${sal.get('p75', 0):,}, "
+                    f"sources: {sources_str}"
+                )
+
+    # Job market demand
+    demand = synthesis.get("job_market_demand", {})
+    if isinstance(demand, dict):
+        for role_key, demand_data in demand.items():
+            if isinstance(demand_data, dict):
+                temp = demand_data.get("market_temperature", "")
+                competition = demand_data.get("competition_index", "")
+                posting_vol = demand_data.get("posting_volume", "")
+                if temp or competition:
+                    parts.append(
+                        f"Demand ({role_key}): temperature={temp}, "
+                        f"competition={competition}, postings={posting_vol}"
+                    )
+
+    # Confidence scores
+    confidence = synthesis.get("confidence_scores", {})
+    if confidence:
+        parts.append(f"Data quality: overall={confidence.get('overall', 0):.2f}, "
+                      f"grade={confidence.get('data_quality_grade', 'N/A')}")
+
+    # Data quality
+    dq = synthesis.get("data_quality", {})
+    if dq:
+        parts.append(f"APIs: {dq.get('apis_succeeded', 0)}/{dq.get('apis_called', 0)} succeeded, "
+                      f"quality_tier={dq.get('quality_tier', 'unknown')}")
+
+    # Ad platform analysis (top platforms)
+    ad_platforms = synthesis.get("ad_platform_analysis", {})
+    if isinstance(ad_platforms, dict):
+        top_platforms = []
+        for plat_key, plat_data in list(ad_platforms.items())[:5]:
+            if isinstance(plat_data, dict) and plat_data.get("recommended_cpc"):
+                top_platforms.append(f"{plat_key} (CPC: {plat_data['recommended_cpc']})")
+        if top_platforms:
+            parts.append(f"Top platforms: {', '.join(top_platforms)}")
+
+    return "\n".join(parts) if parts else ""

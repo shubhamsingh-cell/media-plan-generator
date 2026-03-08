@@ -17,6 +17,18 @@ from typing import Dict, List, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+# ── Canonical taxonomy standardizer ──
+# Used to normalize industry keys before CPH lookups.
+# Falls back gracefully if unavailable.
+try:
+    from standardizer import (
+        normalize_industry as _std_normalize_industry,
+        CANONICAL_INDUSTRIES as _CANON_INDUSTRIES,
+    )
+    _HAS_STANDARDIZER = True
+except ImportError:
+    _HAS_STANDARDIZER = False
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -147,6 +159,17 @@ _DEFAULT_CPH_RANGE: Tuple[float, float] = (4_000, 8_000)
 # Minimum viable budget per opening (USD).  Below this the plan is
 # essentially unfundable for most channels.
 _MIN_BUDGET_PER_OPENING: float = 200.0
+
+# Industry-specific realistic minimum cost-per-hire thresholds
+# Based on recruitment industry benchmarks
+_INDUSTRY_MIN_CPH = {
+    "technology": 4000, "healthcare": 3500, "finance": 4500,
+    "engineering": 5000, "executive": 8000, "legal": 5000,
+    "pharmaceutical": 6000, "energy": 4000, "aerospace": 5500,
+    "manufacturing": 2500, "construction": 2000, "retail": 1200,
+    "hospitality": 800, "logistics": 1500, "education": 2000,
+    "government": 2500, "nonprofit": 1800, "general": 2000,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -363,8 +386,34 @@ def _parse_dollar_value(val: Any) -> Optional[float]:
 
 
 def _industry_avg_cph(industry: str) -> float:
-    """Return the midpoint cost-per-hire for an industry."""
-    low, high = INDUSTRY_CPH_RANGES.get(industry, _DEFAULT_CPH_RANGE)
+    """Return the midpoint cost-per-hire for an industry.
+
+    Uses the canonical standardizer's ``deep_bench_key`` to map incoming
+    industry strings to ``INDUSTRY_CPH_RANGES`` keys, with direct-match
+    fallback.
+    """
+    # 1. Try direct match first (fast path for canonical keys)
+    if industry in INDUSTRY_CPH_RANGES:
+        low, high = INDUSTRY_CPH_RANGES[industry]
+        return (low + high) / 2.0
+
+    # 2. Try via standardizer -> deep_bench_key, then aliases
+    if _HAS_STANDARDIZER:
+        canonical = _std_normalize_industry(industry)
+        meta = _CANON_INDUSTRIES.get(canonical, {})
+        deep_key = meta.get("deep_bench_key", "")
+        if deep_key and deep_key in INDUSTRY_CPH_RANGES:
+            low, high = INDUSTRY_CPH_RANGES[deep_key]
+            return (low + high) / 2.0
+        # deep_bench_key might not match CPH keys exactly;
+        # scan aliases for a match in INDUSTRY_CPH_RANGES
+        for alias in meta.get("aliases", []):
+            if alias in INDUSTRY_CPH_RANGES:
+                low, high = INDUSTRY_CPH_RANGES[alias]
+                return (low + high) / 2.0
+
+    # 3. Fallback to default range
+    low, high = _DEFAULT_CPH_RANGE
     return (low + high) / 2.0
 
 
@@ -721,6 +770,7 @@ def assess_budget_sufficiency(
     recommendations: List[str] = []
 
     total_openings = max(total_openings, 1)
+    n_openings = total_openings  # alias for readability in feasibility block
     budget_per_opening = _safe_divide(total_budget, total_openings, 0.0)
     avg_cph = _industry_avg_cph(industry)
 
@@ -742,6 +792,72 @@ def assess_budget_sufficiency(
     total_proj_hires = sum(
         ch.get("projected_hires", 0) for ch in channel_allocations.values()
     )
+
+    # ── Budget Reality Check ──────────────────────────────────────
+    # Map the raw industry key (e.g. "healthcare_medical") to a
+    # simplified key for _INDUSTRY_MIN_CPH lookup.
+    _ind_lower = industry.lower().replace("-", "_") if industry else "general"
+    industry_key = "general"
+    for _cph_key in _INDUSTRY_MIN_CPH:
+        if _cph_key in _ind_lower:
+            industry_key = _cph_key
+            break
+
+    industry_min_cph = _INDUSTRY_MIN_CPH.get(industry_key, _INDUSTRY_MIN_CPH["general"])
+    min_viable_budget = industry_min_cph * n_openings
+    budget_utilization = (total_budget / min_viable_budget * 100) if min_viable_budget > 0 else 0
+
+    # Determine feasibility tier
+    if budget_per_opening < industry_min_cph * 0.1:
+        feasibility_tier = "impossible"
+        feasibility_label = "UNREALISTIC"
+        feasibility_msg = (
+            f"A budget of ${total_budget:,.0f} for {n_openings} hires "
+            f"translates to ${budget_per_opening:,.0f}/hire — far below the "
+            f"{industry_key} industry minimum of ~${industry_min_cph:,.0f}/hire. "
+            f"This budget could realistically support ~{max(1, int(total_budget / industry_min_cph))} hire(s). "
+            f"Recommended minimum budget: ${min_viable_budget:,.0f}."
+        )
+    elif budget_per_opening < industry_min_cph * 0.3:
+        feasibility_tier = "severely_underfunded"
+        feasibility_label = "SEVERELY UNDERFUNDED"
+        feasibility_msg = (
+            f"At ${budget_per_opening:,.0f}/hire, this budget covers only "
+            f"{budget_utilization:.0f}% of the minimum required. "
+            f"Realistically achievable hires: ~{max(1, int(total_budget / industry_min_cph))}. "
+            f"Recommended budget for {n_openings} hires: ${min_viable_budget:,.0f}."
+        )
+    elif budget_per_opening < industry_min_cph * 0.5:
+        feasibility_tier = "underfunded"
+        feasibility_label = "UNDERFUNDED"
+        feasibility_msg = (
+            f"Budget of ${budget_per_opening:,.0f}/hire is below the "
+            f"industry average of ~${industry_min_cph:,.0f}/hire. "
+            f"Consider reducing target to {max(1, int(total_budget / industry_min_cph))} hires "
+            f"or increasing budget to ${min_viable_budget:,.0f}."
+        )
+    elif budget_per_opening < industry_min_cph:
+        feasibility_tier = "tight"
+        feasibility_label = "TIGHT BUT FEASIBLE"
+        feasibility_msg = (
+            f"Budget of ${budget_per_opening:,.0f}/hire is below the "
+            f"industry average of ~${industry_min_cph:,.0f}/hire but achievable "
+            f"with optimized channel selection and programmatic buying."
+        )
+    elif budget_per_opening < industry_min_cph * 1.5:
+        feasibility_tier = "adequate"
+        feasibility_label = "ADEQUATE"
+        feasibility_msg = (
+            f"Budget of ${budget_per_opening:,.0f}/hire is within the normal range "
+            f"for {industry_key} hiring. Good foundation for a competitive campaign."
+        )
+    else:
+        feasibility_tier = "generous"
+        feasibility_label = "WELL-FUNDED"
+        feasibility_msg = (
+            f"Budget of ${budget_per_opening:,.0f}/hire exceeds the industry average. "
+            f"Consider investing surplus in employer branding or premium placements."
+        )
 
     # --- Warnings ---
     if budget_per_opening < _MIN_BUDGET_PER_OPENING:
@@ -803,7 +919,7 @@ def assess_budget_sufficiency(
             "or talent pipeline development for long-term ROI."
         )
 
-    return {
+    result = {
         "sufficient": sufficient,
         "budget_per_opening": round(budget_per_opening, 2),
         "industry_avg_cost_per_hire": round(avg_cph, 2),
@@ -812,6 +928,20 @@ def assess_budget_sufficiency(
         "warnings": warnings,
         "recommendations": recommendations,
     }
+
+    result["budget_reality_check"] = {
+        "feasibility_tier": feasibility_tier,
+        "feasibility_label": feasibility_label,
+        "feasibility_message": feasibility_msg,
+        "budget_per_hire": round(budget_per_opening, 2),
+        "industry_avg_cph": industry_min_cph,
+        "min_viable_budget": min_viable_budget,
+        "realistic_hires": max(1, int(total_budget / industry_min_cph)) if industry_min_cph > 0 else n_openings,
+        "budget_utilization_pct": round(budget_utilization, 1),
+        "target_hires": n_openings,
+    }
+
+    return result
 
 
 def optimize_allocation(

@@ -8,6 +8,18 @@ import re
 import json
 import os
 
+# ── Canonical taxonomy standardizer ──
+# Used to normalize country/location lookups via a single source of truth.
+try:
+    from standardizer import (
+        normalize_location as _std_normalize_location,
+        COUNTRY_MAP as _STD_COUNTRY_MAP,
+        US_STATE_MAP as _STD_US_STATE_MAP,
+    )
+    _HAS_STANDARDIZER = True
+except ImportError:
+    _HAS_STANDARDIZER = False
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # GLOBAL COUNTRY DATA - 40+ Countries
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -156,14 +168,38 @@ def _detect_country(location_str):
     for city, country in city_to_country.items():
         if city in loc_lower:
             return country
+    # --- Standardizer fallback: try canonical location normalization ---
+    # The standardizer has a richer alias set (50+ countries) than the local
+    # COUNTRY_ALIASES dict.  If the above didn't match, ask the standardizer.
+    if _HAS_STANDARDIZER:
+        try:
+            std_result = _std_normalize_location(location_str)
+            # normalize_location returns a dict with 'country' key
+            std_country = std_result.get("country", "") if isinstance(std_result, dict) else ""
+            if std_country and std_country in COUNTRY_DATA:
+                return std_country
+        except Exception:
+            pass  # Non-fatal; fall through to None
     return None
 
+_global_supply_cache = None
+
+
 def _load_global_supply():
-    """Load global supply data if available."""
+    """Load global supply data if available (cached after first successful load)."""
+    global _global_supply_cache
+    if _global_supply_cache is not None:
+        return _global_supply_cache
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "global_supply.json")
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            return json.load(f)
+    try:
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                _global_supply_cache = json.load(f)
+                return _global_supply_cache
+    except json.JSONDecodeError:
+        pass  # Corrupt JSON -- fall through to empty dict
+    except OSError:
+        pass  # File read error -- fall through to empty dict
     return {}
 
 # ═══════════════════════════════════════════════════════════════════════════════

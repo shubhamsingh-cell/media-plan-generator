@@ -329,22 +329,31 @@
     toastTimeout = setTimeout(function() { el.classList.remove('show'); }, 3000);
   }
 
-  // ---- API helper ----
+  // ---- API helper (fetch with timeout) ----
   function apiCall(payload, callback) {
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', API_BASE, true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.onreadystatechange = function() {
-      if (xhr.readyState === 4) {
-        if (xhr.status === 200) {
-          try { callback(null, JSON.parse(xhr.responseText)); }
-          catch(e) { callback(e); }
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
+
+    fetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+      .then(function(res) {
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function(data) { callback(null, data); })
+      .catch(function(err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          callback(new Error('Request timed out'));
         } else {
-          callback(new Error('HTTP ' + xhr.status));
+          callback(err);
         }
-      }
-    };
-    xhr.send(JSON.stringify(payload));
+      });
   }
 
   // ---- Load data ----
@@ -390,27 +399,29 @@
 
   function renderPendingCard(q) {
     var ts = q.timestamp ? new Date(q.timestamp).toLocaleString() : 'Unknown';
+    // Escape q.id for safe use in HTML attributes and JS onclick handlers
+    var safeId = escapeHtml(String(q.id || '').replace(/[^a-zA-Z0-9_-]/g, ''));
     var partial = '';
     if (q.partial_answer) {
       partial = '<div class="q-partial"><div class="q-partial-label">Nova\'s partial answer</div>' + escapeHtml(q.partial_answer) + '</div>';
     }
-    return '<div class="q-card" id="card-' + q.id + '">' +
+    return '<div class="q-card" id="card-' + safeId + '">' +
       '<div class="q-question">' + escapeHtml(q.question) + '</div>' +
       '<div class="q-meta">' +
-        '<span>Asked: ' + ts + '</span>' +
+        '<span>Asked: ' + escapeHtml(ts) + '</span>' +
         (q.asked_by ? '<span>By: ' + escapeHtml(q.asked_by) + '</span>' : '') +
         (q.channel ? '<span>Channel: ' + escapeHtml(q.channel) + '</span>' : '') +
       '</div>' +
       partial +
       '<div class="q-actions">' +
-        '<button class="btn btn-primary btn-sm" onclick="showAnswerForm(\'' + q.id + '\')">Answer</button>' +
-        '<button class="btn btn-danger btn-sm" onclick="dismissQuestion(\'' + q.id + '\')">Dismiss</button>' +
+        '<button class="btn btn-primary btn-sm" onclick="showAnswerForm(\'' + safeId + '\')">Answer</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="dismissQuestion(\'' + safeId + '\')">Dismiss</button>' +
       '</div>' +
-      '<div class="q-answer-form" id="form-' + q.id + '" style="display:none;">' +
-        '<textarea class="q-textarea" id="answer-' + q.id + '" placeholder="Type the answer Nova should learn..."></textarea>' +
+      '<div class="q-answer-form" id="form-' + safeId + '" style="display:none;">' +
+        '<textarea class="q-textarea" id="answer-' + safeId + '" placeholder="Type the answer Nova should learn..."></textarea>' +
         '<div class="q-form-actions">' +
-          '<button class="btn btn-success btn-sm" onclick="submitAnswer(\'' + q.id + '\')">Save Answer</button>' +
-          '<button class="btn btn-ghost btn-sm" onclick="hideAnswerForm(\'' + q.id + '\')">Cancel</button>' +
+          '<button class="btn btn-success btn-sm" onclick="submitAnswer(\'' + safeId + '\')">Save Answer</button>' +
+          '<button class="btn btn-ghost btn-sm" onclick="hideAnswerForm(\'' + safeId + '\')">Cancel</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -478,32 +489,37 @@
     document.getElementById('test-loading').style.display = 'inline';
     document.getElementById('test-result').style.display = 'none';
 
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/nova/chat', true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.onreadystatechange = function() {
-      document.getElementById('test-loading').style.display = 'none';
-      if (xhr.readyState === 4) {
+    var testController = new AbortController();
+    var testTimeout = setTimeout(function() { testController.abort(); }, 60000);
+
+    fetch('/api/nova/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({message: q}),
+      signal: testController.signal,
+    })
+      .then(function(res) {
+        clearTimeout(testTimeout);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function(resp) {
+        document.getElementById('test-loading').style.display = 'none';
         document.getElementById('test-result').style.display = 'block';
-        if (xhr.status === 200) {
-          try {
-            var resp = JSON.parse(xhr.responseText);
-            document.getElementById('test-response').textContent = resp.response || resp.text || 'No response';
-            var meta = 'Confidence: ' + ((resp.confidence || 0) * 100).toFixed(0) + '%';
-            if (resp.sources && resp.sources.length) meta += ' | Sources: ' + resp.sources.join(', ');
-            if (resp.queued_for_review) meta += ' | Queued for review';
-            document.getElementById('test-meta').textContent = meta;
-          } catch(e) {
-            document.getElementById('test-response').textContent = 'Error parsing response';
-            document.getElementById('test-meta').textContent = '';
-          }
-        } else {
-          document.getElementById('test-response').textContent = 'Error: HTTP ' + xhr.status;
-          document.getElementById('test-meta').textContent = '';
-        }
-      }
-    };
-    xhr.send(JSON.stringify({message: q}));
+        document.getElementById('test-response').textContent = resp.response || resp.text || 'No response';
+        var meta = 'Confidence: ' + ((resp.confidence || 0) * 100).toFixed(0) + '%';
+        if (resp.sources && resp.sources.length) meta += ' | Sources: ' + resp.sources.join(', ');
+        if (resp.queued_for_review) meta += ' | Queued for review';
+        document.getElementById('test-meta').textContent = meta;
+      })
+      .catch(function(err) {
+        clearTimeout(testTimeout);
+        document.getElementById('test-loading').style.display = 'none';
+        document.getElementById('test-result').style.display = 'block';
+        var errorMsg = err.name === 'AbortError' ? 'Request timed out' : 'Error: ' + err.message;
+        document.getElementById('test-response').textContent = errorMsg;
+        document.getElementById('test-meta').textContent = '';
+      });
   };
 
   // ---- Utilities ----
