@@ -234,15 +234,31 @@ class Nova:
 
 Joveo is a leader in programmatic recruitment advertising, helping employers optimize their hiring spend across job boards, social channels, and programmatic networks worldwide.
 
+## CRITICAL: ASK BEFORE ANSWERING
+
+Before providing data, check if the user's question has enough specifics. If ANY of these are missing, ASK FIRST:
+- **Salary questions** without a location/country → Ask: "Which country or region? Salary ranges vary significantly by location."
+- **Budget questions** without a budget amount → Ask: "What's your total budget? I need a number to create an allocation plan."
+- **Channel/board questions** without a country → Ask: "Which country or region are you hiring in?"
+- **Benchmark questions** without an industry → Ask: "Which industry? Benchmarks differ dramatically by sector."
+
+Do NOT default to US/USD data when the user hasn't specified a location. Always ask first.
+
+When a country IS specified:
+- Use LOCAL CURRENCY (INR for India, GBP for UK, EUR for Germany, etc.), never default to USD
+- Reference LOCAL job boards and platforms relevant to that market
+- Cite local hiring norms and regulations when relevant
+
 ## REASONING APPROACH
 
 Before answering any question, follow this structured reasoning process:
 
 1. **Identify the intent**: What is the user really asking? (benchmark lookup, budget planning, channel recommendation, market intelligence, comparison, or general knowledge)
-2. **Determine required data**: Which of your tools contain the relevant data? Call multiple tools when the question spans different domains.
-3. **Cross-reference sources**: When you have data from multiple tools, compare and validate. Flag discrepancies.
-4. **Synthesize and recommend**: Combine data into actionable insights. Do not just dump raw data -- interpret it for the user's specific context.
-5. **Assess confidence**: Rate your confidence based on data freshness, source count, and agreement between sources.
+2. **Check for missing parameters**: Does the question specify location, role, industry, budget? If not, ask for clarification BEFORE calling tools.
+3. **Determine required data**: Which of your tools contain the relevant data? Call multiple tools when the question spans different domains.
+4. **Cross-reference sources**: When you have data from multiple tools, compare and validate. Flag discrepancies.
+5. **Synthesize and recommend**: Combine data into actionable insights. Do not just dump raw data -- interpret it for the user's specific context.
+6. **Assess confidence**: Rate your confidence based on data freshness, source count, and agreement between sources.
 
 ## YOUR DATA SOURCES (accessible via tools)
 
@@ -1016,48 +1032,166 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
 
         kb = self._data_cache.get("knowledge_base", {})
         benchmarks = kb.get("benchmarks", {})
-        cph = benchmarks.get("cost_per_hire", {})
 
-        # Use knowledge base benchmarks for salary context
+        # Country-to-currency mapping
+        _CURRENCY_MAP = {
+            "India": {"symbol": "\u20b9", "code": "INR"},
+            "United Kingdom": {"symbol": "\u00a3", "code": "GBP"},
+            "Germany": {"symbol": "\u20ac", "code": "EUR"},
+            "France": {"symbol": "\u20ac", "code": "EUR"},
+            "Netherlands": {"symbol": "\u20ac", "code": "EUR"},
+            "Spain": {"symbol": "\u20ac", "code": "EUR"},
+            "Italy": {"symbol": "\u20ac", "code": "EUR"},
+            "Japan": {"symbol": "\u00a5", "code": "JPY"},
+            "Australia": {"symbol": "A$", "code": "AUD"},
+            "Canada": {"symbol": "C$", "code": "CAD"},
+            "Brazil": {"symbol": "R$", "code": "BRL"},
+            "Singapore": {"symbol": "S$", "code": "SGD"},
+            "UAE": {"symbol": "AED ", "code": "AED"},
+            "United Arab Emirates": {"symbol": "AED ", "code": "AED"},
+            "Mexico": {"symbol": "MX$", "code": "MXN"},
+            "China": {"symbol": "\u00a5", "code": "CNY"},
+            "South Korea": {"symbol": "\u20a9", "code": "KRW"},
+            "Philippines": {"symbol": "\u20b1", "code": "PHP"},
+            "Indonesia": {"symbol": "Rp", "code": "IDR"},
+        }
+
+        # Salary ranges by country and role tier (in local currency)
+        _SALARY_RANGES = {
+            "India": {
+                "Professional":  ("\u20b98,00,000",  "\u20b930,00,000"),
+                "Clinical":      ("\u20b94,00,000",  "\u20b915,00,000"),
+                "Executive":     ("\u20b925,00,000",  "\u20b91,00,00,000+"),
+                "Trades":        ("\u20b93,00,000",  "\u20b98,00,000"),
+                "Hourly":        ("\u20b92,00,000",  "\u20b94,50,000"),
+                "General":       ("\u20b94,00,000",  "\u20b918,00,000"),
+            },
+            "United Kingdom": {
+                "Professional":  ("\u00a335,000",  "\u00a390,000"),
+                "Clinical":      ("\u00a325,000",  "\u00a360,000"),
+                "Executive":     ("\u00a380,000",  "\u00a3250,000+"),
+                "Trades":        ("\u00a322,000",  "\u00a345,000"),
+                "Hourly":        ("\u00a318,000",  "\u00a328,000"),
+                "General":       ("\u00a328,000",  "\u00a365,000"),
+            },
+            "Germany": {
+                "Professional":  ("\u20ac45,000",  "\u20ac95,000"),
+                "Clinical":      ("\u20ac35,000",  "\u20ac70,000"),
+                "Executive":     ("\u20ac90,000",  "\u20ac250,000+"),
+                "Trades":        ("\u20ac28,000",  "\u20ac50,000"),
+                "Hourly":        ("\u20ac22,000",  "\u20ac35,000"),
+                "General":       ("\u20ac35,000",  "\u20ac75,000"),
+            },
+            "Canada": {
+                "Professional":  ("C$60,000",  "C$140,000"),
+                "Clinical":      ("C$50,000",  "C$100,000"),
+                "Executive":     ("C$120,000",  "C$350,000+"),
+                "Trades":        ("C$40,000",  "C$80,000"),
+                "Hourly":        ("C$30,000",  "C$50,000"),
+                "General":       ("C$45,000",  "C$95,000"),
+            },
+            "Australia": {
+                "Professional":  ("A$75,000",  "A$160,000"),
+                "Clinical":      ("A$55,000",  "A$120,000"),
+                "Executive":     ("A$150,000",  "A$400,000+"),
+                "Trades":        ("A$50,000",  "A$90,000"),
+                "Hourly":        ("A$40,000",  "A$55,000"),
+                "General":       ("A$55,000",  "A$110,000"),
+            },
+            "Japan": {
+                "Professional":  ("\u00a55,000,000",  "\u00a512,000,000"),
+                "Clinical":      ("\u00a54,000,000",  "\u00a58,000,000"),
+                "Executive":     ("\u00a510,000,000",  "\u00a530,000,000+"),
+                "Trades":        ("\u00a53,000,000",  "\u00a56,000,000"),
+                "Hourly":        ("\u00a52,500,000",  "\u00a54,000,000"),
+                "General":       ("\u00a54,000,000",  "\u00a59,000,000"),
+            },
+            "UAE": {
+                "Professional":  ("AED 180,000",  "AED 480,000"),
+                "Clinical":      ("AED 120,000",  "AED 360,000"),
+                "Executive":     ("AED 400,000",  "AED 1,200,000+"),
+                "Trades":        ("AED 60,000",  "AED 180,000"),
+                "Hourly":        ("AED 48,000",  "AED 96,000"),
+                "General":       ("AED 120,000",  "AED 360,000"),
+            },
+            "Singapore": {
+                "Professional":  ("S$60,000",  "S$150,000"),
+                "Clinical":      ("S$45,000",  "S$100,000"),
+                "Executive":     ("S$120,000",  "S$400,000+"),
+                "Trades":        ("S$30,000",  "S$60,000"),
+                "Hourly":        ("S$24,000",  "S$42,000"),
+                "General":       ("S$45,000",  "S$100,000"),
+            },
+            "Brazil": {
+                "Professional":  ("R$80,000",  "R$240,000"),
+                "Clinical":      ("R$50,000",  "R$150,000"),
+                "Executive":     ("R$200,000",  "R$700,000+"),
+                "Trades":        ("R$35,000",  "R$80,000"),
+                "Hourly":        ("R$25,000",  "R$45,000"),
+                "General":       ("R$50,000",  "R$150,000"),
+            },
+        }
+
+        # US salary ranges (default, in USD)
+        _US_RANGES = {
+            "Professional":  ("$75,000",  "$200,000"),
+            "Clinical":      ("$45,000",  "$120,000"),
+            "Executive":     ("$150,000", "$500,000+"),
+            "Trades":        ("$35,000",  "$80,000"),
+            "Hourly":        ("$25,000",  "$45,000"),
+            "General":       ("$50,000",  "$120,000"),
+        }
+
         result: Dict[str, Any] = {
             "source": "Joveo Salary Intelligence (KB + Industry Data)",
             "role": role,
             "location": location or "National",
         }
 
-        # Determine role tier for cost estimation
+        # Determine role tier
         role_lower = role.lower()
         tier = "Professional"
         if any(kw in role_lower for kw in ["nurse", "rn", "lpn", "therapist", "physician", "clinical"]):
             tier = "Clinical"
-            result["salary_range_estimate"] = "$45,000 - $120,000"
-            result["notes"] = "Healthcare roles vary significantly by specialization and location"
         elif any(kw in role_lower for kw in ["engineer", "developer", "data scientist", "software"]):
             tier = "Professional"
-            result["salary_range_estimate"] = "$75,000 - $200,000"
-            result["notes"] = "Tech salaries vary widely by specialization, experience, and metro area"
         elif any(kw in role_lower for kw in ["executive", "director", "vp", "chief", "president"]):
             tier = "Executive"
-            result["salary_range_estimate"] = "$150,000 - $500,000+"
-            result["notes"] = "Executive compensation often includes equity and bonuses"
         elif any(kw in role_lower for kw in ["driver", "warehouse", "construction", "electrician", "welder"]):
             tier = "Trades"
-            result["salary_range_estimate"] = "$35,000 - $80,000"
-            result["notes"] = "Trades roles in high-demand areas may command premium wages"
         elif any(kw in role_lower for kw in ["cashier", "retail", "hourly", "part-time", "entry"]):
             tier = "Hourly"
-            result["salary_range_estimate"] = "$25,000 - $45,000"
-            result["notes"] = "Hourly rates vary significantly by state minimum wage laws"
         else:
-            result["salary_range_estimate"] = "$50,000 - $120,000"
-            result["notes"] = "General professional role range; actual varies by industry and experience"
+            tier = "General"
 
-        result["role_tier"] = tier
-        result["cost_per_hire_benchmark"] = {
-            "shrm_average": cph.get("shrm_2026", {}).get("average_cost_per_hire", "$4,800"),
-            "executive": cph.get("shrm_2025", {}).get("median_executive", "$10,625"),
-            "non_executive": cph.get("shrm_2025", {}).get("median_non_executive", "$1,200"),
+        # Get country-specific salary range
+        loc_upper = location.strip()
+        country_match = None
+        for country_key in _SALARY_RANGES:
+            if country_key.lower() in loc_upper.lower():
+                country_match = country_key
+                break
+
+        if country_match:
+            ranges = _SALARY_RANGES[country_match]
+            low, high = ranges.get(tier, ranges.get("General", ("N/A", "N/A")))
+            result["salary_range_estimate"] = f"{low} - {high}"
+        else:
+            # Default to USD (US or unknown)
+            low, high = _US_RANGES.get(tier, _US_RANGES["General"])
+            result["salary_range_estimate"] = f"{low} - {high}"
+
+        # Notes by tier
+        _NOTES = {
+            "Clinical": "Healthcare roles vary significantly by specialization and location",
+            "Professional": "Tech salaries vary widely by specialization, experience, and metro area",
+            "Executive": "Executive compensation often includes equity and bonuses",
+            "Trades": "Trades roles in high-demand areas may command premium wages",
+            "Hourly": "Hourly rates vary significantly by local minimum wage laws",
+            "General": "General professional role range; actual varies by industry and experience",
         }
+        result["notes"] = _NOTES.get(tier, _NOTES["General"])
+        result["role_tier"] = tier
 
         return result
 
@@ -1710,7 +1844,7 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
                 logger.error("Claude API call failed, falling back to rule-based: %s", e)
 
         # Rule-based fallback
-        return self._chat_rule_based(user_message, enrichment_context)
+        return self._chat_rule_based(user_message, enrichment_context, conversation_history)
 
     def _chat_with_claude(self, user_message: str, conversation_history: Optional[list],
                           enrichment_context: Optional[dict], api_key: str) -> dict:
@@ -1875,7 +2009,8 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
             "tool_iterations": max_iterations,
         }
 
-    def _chat_rule_based(self, user_message: str, enrichment_context: Optional[dict] = None) -> dict:
+    def _chat_rule_based(self, user_message: str, enrichment_context: Optional[dict] = None,
+                         conversation_history: Optional[list] = None) -> dict:
         """Rule-based chat engine using keyword matching and data lookups."""
         msg_lower = user_message.lower()
         tools_used = []
@@ -1887,6 +2022,38 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
         detected_metrics = _detect_keywords(msg_lower, _METRIC_KEYWORDS)
         detected_industries = _detect_keywords(msg_lower, _INDUSTRY_KEYWORDS)
         detected_country = _detect_country(msg_lower)
+
+        # ── Conversation context: detect follow-up intent from history ──
+        _last_intent = None
+        _last_role_title = None
+        if conversation_history:
+            for prev_msg in reversed(conversation_history):
+                if prev_msg.get("role") == "user":
+                    prev_text = prev_msg.get("content", "").lower()
+                    if any(kw in prev_text for kw in ["salary", "compensation", "pay range", "wage"]):
+                        _last_intent = "salary"
+                        # Try to extract the role from the previous salary question
+                        prev_roles = _detect_keywords(prev_text, _ROLE_KEYWORDS)
+                        if prev_roles:
+                            _prev_role = _pick_best_role(prev_roles, prev_text)
+                            _role_titles = {
+                                "nursing": "Registered Nurse", "engineering": "Software Engineer",
+                                "technology": "Software Developer", "healthcare": "Healthcare Professional",
+                                "retail": "Retail Associate", "hospitality": "Hospitality Worker",
+                                "transportation": "CDL Driver", "finance": "Financial Analyst",
+                                "executive": "Senior Executive", "hourly": "Hourly Worker",
+                                "education": "Teacher", "construction": "Construction Worker",
+                                "sales": "Sales Representative", "marketing": "Marketing Manager",
+                                "remote": "Remote Worker",
+                            }
+                            _last_role_title = _role_titles.get(_prev_role, _prev_role.title())
+                    elif any(kw in prev_text for kw in ["budget", "allocat", "spend"]):
+                        _last_intent = "budget"
+                    elif any(kw in prev_text for kw in ["publisher", "job board", "board"]):
+                        _last_intent = "publisher"
+                    elif any(kw in prev_text for kw in ["benchmark", "cpc", "cpa"]):
+                        _last_intent = "benchmark"
+                    break
 
         # Detect question type
         is_publisher_question = any(kw in msg_lower for kw in ["publisher", "job board", "board", "where to post", "which board"])
@@ -1998,7 +2165,10 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
             sections.append("\n".join(count_parts))
 
         # ── Publisher / Job Board questions ──
-        elif is_publisher_question or (detected_country and not is_benchmark_question and not is_budget_question):
+        elif is_publisher_question or (detected_country and not is_benchmark_question and not is_budget_question
+                                        and not is_salary_question and not is_trend_question
+                                        and not is_cpc_cpa_question
+                                        and _last_intent not in ("salary", "budget", "benchmark")):
             country = detected_country or "United States"
             if is_dei_question:
                 data = self._query_global_supply({"country": country, "board_type": "dei"})
@@ -2034,10 +2204,21 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
         # ── Channel questions ──
         if is_channel_question and not is_publisher_question:
             industry = list(detected_industries)[0] if detected_industries else ""
-            ch_data = self._query_channels({"industry": industry, "channel_type": "all"})
-            tools_used.append("query_channels")
-            sources.add("Joveo Channel Database")
-            sections.append(_format_channel_response(ch_data, industry))
+            if not industry and not detected_country and not detected_roles:
+                # Ask for clarification -- channel recommendations depend on context
+                sections.append(
+                    "I can recommend the best recruitment channels, but I need a bit more context.\n\n"
+                    "Could you specify any of the following?\n"
+                    "- *Industry*: healthcare, technology, retail, etc.\n"
+                    "- *Country*: US, India, UK, Germany, etc.\n"
+                    "- *Role type*: nursing, engineering, hourly, executive, etc.\n\n"
+                    "For example: _\"What channels work best for tech hiring in India?\"_"
+                )
+            else:
+                ch_data = self._query_channels({"industry": industry, "channel_type": "all"})
+                tools_used.append("query_channels")
+                sources.add("Joveo Channel Database")
+                sections.append(_format_channel_response(ch_data, industry))
 
         # ── CPC / CPA / Benchmark questions ──
         if is_cpc_cpa_question or is_benchmark_question:
@@ -2056,10 +2237,34 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
                 metric = ""
 
             industry = list(detected_industries)[0] if detected_industries else ""
-            kb_data = self._query_knowledge_base({"topic": "benchmarks", "metric": metric, "industry": industry})
-            tools_used.append("query_knowledge_base")
-            sources.add("Recruitment Industry Knowledge Base")
-            sections.append(_format_benchmark_response(kb_data, metric, industry))
+            if not industry and not metric:
+                # Ask for specifics -- benchmarks are meaningless without context
+                sections.append(
+                    "I have benchmark data across *22 industries*, but results vary dramatically by sector.\n\n"
+                    "Could you specify:\n"
+                    "- *Which metric?* CPC, CPA, cost-per-hire, apply rate, or time-to-fill\n"
+                    "- *Which industry?* Healthcare, technology, retail, finance, etc.\n\n"
+                    "For example: _\"What's the average CPA for healthcare roles?\"_ or "
+                    "_\"What CPC should I expect for tech hiring?\"_"
+                )
+            else:
+                kb_data = self._query_knowledge_base({"topic": "benchmarks", "metric": metric, "industry": industry})
+                tools_used.append("query_knowledge_base")
+                sources.add("Recruitment Industry Knowledge Base")
+                sections.append(_format_benchmark_response(kb_data, metric, industry))
+
+        # ── Follow-up: country-only message after a salary question ──
+        if (detected_country and not is_publisher_question and not is_channel_question
+                and not is_benchmark_question and not is_budget_question
+                and not is_salary_question and not is_cpc_cpa_question
+                and not is_dei_question and not is_trend_question
+                and _last_intent == "salary"):
+            # User said something like "in india" after a salary question
+            role_title = _last_role_title or "General Professional"
+            sal_data = self._query_salary_data({"role": role_title, "location": detected_country})
+            tools_used.append("query_salary_data")
+            sources.add("Joveo Salary Intelligence")
+            sections.append(_format_salary_response(sal_data))
 
         # ── Salary questions ──
         if is_salary_question:
@@ -2078,59 +2283,89 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
             # Use state name if detected, otherwise country
             detected_state = _detect_us_state(user_message)
             location = detected_state or detected_country or ""
-            sal_data = self._query_salary_data({"role": role_title, "location": location})
-            tools_used.append("query_salary_data")
-            sources.add("Joveo Salary Intelligence")
-            sections.append(_format_salary_response(sal_data))
+            if not location:
+                # Ask for clarification -- salary varies hugely by country
+                sections.append(
+                    f"I can provide salary data for *{role_title}* roles, but compensation varies "
+                    "significantly by location.\n\n"
+                    "Which country or region are you interested in? For example:\n"
+                    "- United States (or a specific state like California, Texas)\n"
+                    "- India\n"
+                    "- United Kingdom\n"
+                    "- Germany\n\n"
+                    "Please specify a location so I can give you accurate data."
+                )
+            else:
+                sal_data = self._query_salary_data({"role": role_title, "location": location})
+                tools_used.append("query_salary_data")
+                sources.add("Joveo Salary Intelligence")
+                sections.append(_format_salary_response(sal_data))
 
         # ── Budget questions ──
         if is_budget_question:
             # Extract budget amount from message
             budget_amount = _extract_budget(msg_lower)
-            roles_for_budget = []
-            for r in detected_roles:
-                role_titles = {
-                    "nursing": "Registered Nurse", "engineering": "Software Engineer",
-                    "technology": "Software Developer", "healthcare": "Healthcare Professional",
-                    "retail": "Retail Associate", "transportation": "CDL Driver",
-                    "finance": "Financial Analyst", "executive": "Senior Executive",
-                    "hourly": "Hourly Worker", "education": "Teacher",
-                    "construction": "Construction Worker", "sales": "Sales Representative",
-                    "remote": "Remote Worker", "marketing": "Marketing Manager",
-                }
-                roles_for_budget.append(role_titles.get(r, r.title()))
 
-            locations_for_budget = [detected_country] if detected_country else ["United States"]
-            industry = list(detected_industries)[0] if detected_industries else "general"
+            # Check for missing critical parameters
+            _budget_missing = []
+            if budget_amount <= 0:
+                _budget_missing.append("*Budget amount*: How much is the total budget? (e.g., $50K, $100K)")
+            if not detected_roles:
+                _budget_missing.append("*Role(s)*: What positions are you hiring for? (e.g., software engineers, nurses)")
+            if not detected_country:
+                _budget_missing.append("*Location*: Which country or region? (e.g., US, India, UK)")
 
-            budget_data = self._query_budget_projection({
-                "budget": budget_amount,
-                "roles": roles_for_budget or ["General Hire"],
-                "locations": locations_for_budget,
-                "industry": industry,
-            })
-            tools_used.append("query_budget_projection")
-            sources.add("Joveo Budget Allocation Engine")
-            sections.append(_format_budget_response(budget_data, budget_amount))
+            if _budget_missing:
+                sections.append(
+                    "I can create a detailed budget allocation plan, but I need a few more details:\n\n"
+                    + "\n".join(f"- {m}" for m in _budget_missing) + "\n\n"
+                    "For example: _\"How should I allocate a $50K budget to hire 10 software engineers in the US?\"_"
+                )
+            else:
+                roles_for_budget = []
+                for r in detected_roles:
+                    role_titles = {
+                        "nursing": "Registered Nurse", "engineering": "Software Engineer",
+                        "technology": "Software Developer", "healthcare": "Healthcare Professional",
+                        "retail": "Retail Associate", "transportation": "CDL Driver",
+                        "finance": "Financial Analyst", "executive": "Senior Executive",
+                        "hourly": "Hourly Worker", "education": "Teacher",
+                        "construction": "Construction Worker", "sales": "Sales Representative",
+                        "remote": "Remote Worker", "marketing": "Marketing Manager",
+                    }
+                    roles_for_budget.append(role_titles.get(r, r.title()))
 
-            # Also add role-specific niche channel recommendations for budget questions
-            if detected_roles:
-                role_cat = list(detected_roles)[0]
-                cat_map = {
-                    "nursing": "Health", "healthcare": "Health", "engineering": "Tech",
-                    "technology": "Tech", "retail": "Retail", "finance": "Job Board",
-                    "transportation": "Transportation", "construction": "Construction",
-                    "education": "Education", "hourly": "Hourly",
-                }
-                country_for_ch = detected_country or "United States"
-                pub_params = {"country": country_for_ch}
-                if role_cat in cat_map:
-                    pub_params["category"] = cat_map[role_cat]
-                pub_data = self._query_publishers(pub_params)
-                tools_used.append("query_publishers")
-                sources.add("Joveo Publisher Network")
-                sections.append(f"\n*Recommended Channels for {roles_for_budget[0] if roles_for_budget else role_cat.title()}*\n" +
-                                _format_publisher_response(pub_data))
+                locations_for_budget = [detected_country] if detected_country else ["United States"]
+                industry = list(detected_industries)[0] if detected_industries else "general"
+
+                budget_data = self._query_budget_projection({
+                    "budget": budget_amount,
+                    "roles": roles_for_budget or ["General Hire"],
+                    "locations": locations_for_budget,
+                    "industry": industry,
+                })
+                tools_used.append("query_budget_projection")
+                sources.add("Joveo Budget Allocation Engine")
+                sections.append(_format_budget_response(budget_data, budget_amount))
+
+                # Also add role-specific niche channel recommendations for budget questions
+                if detected_roles:
+                    role_cat = list(detected_roles)[0]
+                    cat_map = {
+                        "nursing": "Health", "healthcare": "Health", "engineering": "Tech",
+                        "technology": "Tech", "retail": "Retail", "finance": "Job Board",
+                        "transportation": "Transportation", "construction": "Construction",
+                        "education": "Education", "hourly": "Hourly",
+                    }
+                    country_for_ch = detected_country or "United States"
+                    pub_params = {"country": country_for_ch}
+                    if role_cat in cat_map:
+                        pub_params["category"] = cat_map[role_cat]
+                    pub_data = self._query_publishers(pub_params)
+                    tools_used.append("query_publishers")
+                    sources.add("Joveo Publisher Network")
+                    sections.append(f"\n*Recommended Channels for {roles_for_budget[0] if roles_for_budget else role_cat.title()}*\n" +
+                                    _format_publisher_response(pub_data))
 
         # ── Comparison questions (vs / compare) ──
         is_comparison = any(kw in msg_lower for kw in [" vs ", " versus ", "compare ", "comparison"])
@@ -2918,14 +3153,7 @@ def _format_salary_response(data: dict) -> str:
     parts.append(f"*Role Tier*: {data.get('role_tier', 'N/A')}")
     parts.append(f"*Estimated Range*: {data.get('salary_range_estimate', 'N/A')}")
     if data.get("notes"):
-        parts.append(f"_{data['notes']}_\n")
-
-    cph = data.get("cost_per_hire_benchmark", {})
-    if cph:
-        parts.append("*Cost-per-Hire Benchmarks:*")
-        parts.append(f"- SHRM Average: {cph.get('shrm_average', 'N/A')}")
-        parts.append(f"- Executive Median: {cph.get('executive', 'N/A')}")
-        parts.append(f"- Non-Executive Median: {cph.get('non_executive', 'N/A')}")
+        parts.append(f"_{data['notes']}_")
 
     return "\n".join(parts)
 

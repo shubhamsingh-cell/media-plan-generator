@@ -5,12 +5,12 @@
  * Drop-in widget that can be embedded in any page.
  *
  * Usage:
- *   <script src="/static/joveo-iq-chat.js"></script>
- *   <div id="joveo-iq-chat"></div>
- *   <script>NovaChat.init({ containerId: 'joveo-iq-chat' });</script>
+ *   <script src="/static/nova-chat.js"></script>
+ *   <div id="nova-chat"></div>
+ *   <script>NovaChat.init({ containerId: 'nova-chat' });</script>
  *
  * Or use as floating widget (no container needed):
- *   <script src="/static/joveo-iq-chat.js"></script>
+ *   <script src="/static/nova-chat.js"></script>
  *   <script>NovaChat.init();</script>
  */
 (function () {
@@ -66,10 +66,10 @@
   // Styles (injected once)
   // ---------------------------------------------------------------------------
   function injectStyles() {
-    if (document.getElementById('joveo-iq-styles')) return;
+    if (document.getElementById('nova-styles')) return;
 
     var css = ''
-      + '#joveo-iq-float-btn {'
+      + '#nova-float-btn {'
       + '  position: fixed; bottom: 24px; right: 24px; z-index: 99999;'
       + '  width: 56px; height: 56px; border-radius: 16px;'
       + '  background: linear-gradient(135deg, ' + CONFIG.primaryDark + ' 0%, ' + CONFIG.primaryColor + ' 100%);'
@@ -79,16 +79,16 @@
       + '  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;'
       + '  font-size: 0;'
       + '}'
-      + '#joveo-iq-float-btn:hover {'
+      + '#nova-float-btn:hover {'
       + '  transform: translateY(-2px) scale(1.05);'
       + '  box-shadow: 0 8px 28px rgba(8,41,74,0.45), 0 0 0 1px rgba(255,255,255,0.15) inset;'
       + '}'
-      + '#joveo-iq-float-btn:active {'
+      + '#nova-float-btn:active {'
       + '  transform: scale(0.97);'
       + '}'
-      + '#joveo-iq-float-btn svg { width: 26px; height: 26px; }'
+      + '#nova-float-btn svg { width: 26px; height: 26px; }'
 
-      + '#joveo-iq-panel {'
+      + '#nova-panel {'
       + '  position: fixed; bottom: 92px; right: 24px; z-index: 99998;'
       + '  width: ' + CONFIG.widgetWidth + '; height: ' + CONFIG.widgetHeight + ';'
       + '  max-height: calc(100vh - 120px);'
@@ -101,15 +101,15 @@
       + '  font-family: "Calibri", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;'
       + '  border: 1px solid rgba(0,0,0,0.06);'
       + '}'
-      + '#joveo-iq-panel.joveo-iq-hidden {'
+      + '#nova-panel.nova-hidden {'
       + '  opacity: 0; transform: translateY(16px) scale(0.95); pointer-events: none;'
       + '}'
-      + '#joveo-iq-panel.joveo-iq-visible {'
+      + '#nova-panel.nova-visible {'
       + '  opacity: 1; transform: translateY(0) scale(1); pointer-events: auto;'
       + '}'
 
       // Header
-      + '.joveo-iq-header {'
+      + '.nova-header {'
       + '  background: linear-gradient(135deg, ' + CONFIG.primaryDark + ' 0%, ' + CONFIG.primaryColor + ' 100%);'
       + '  color: #fff; padding: 18px 20px;'
       + '  display: flex; align-items: center; justify-content: space-between;'
@@ -117,15 +117,15 @@
       + '  position: relative;'
       + '  overflow: hidden;'
       + '}'
-      + '.joveo-iq-header::after {'
+      + '.nova-header::after {'
       + '  content: "";'
       + '  position: absolute; bottom: 0; left: 0; right: 0; height: 1px;'
       + '  background: linear-gradient(90deg, transparent, rgba(34,211,238,0.4), transparent);'
       + '}'
-      + '.joveo-iq-header-left {'
+      + '.nova-header-left {'
       + '  display: flex; align-items: center; gap: 10px;'
       + '}'
-      + '.joveo-iq-header-icon {'
+      + '.nova-header-icon {'
       + '  width: 36px; height: 36px; border-radius: 10px;'
       + '  background: rgba(255,255,255,0.15);'
       + '  backdrop-filter: blur(8px);'
@@ -134,48 +134,48 @@
       + '  font-size: 18px;'
       + '  box-shadow: 0 2px 8px rgba(0,0,0,0.1);'
       + '}'
-      + '.joveo-iq-header-title {'
+      + '.nova-header-title {'
       + '  font-size: 16px; font-weight: 700; letter-spacing: 0.3px;'
       + '}'
-      + '.joveo-iq-header-subtitle {'
+      + '.nova-header-subtitle {'
       + '  font-size: 11px; opacity: 0.85; margin-top: 1px;'
       + '}'
-      + '.joveo-iq-close-btn {'
+      + '.nova-close-btn {'
       + '  background: none; border: none; color: #fff; cursor: pointer;'
       + '  padding: 4px; border-radius: 6px; line-height: 1;'
       + '  transition: background 0.15s;'
       + '}'
-      + '.joveo-iq-close-btn:hover { background: rgba(255,255,255,0.2); }'
-      + '.joveo-iq-close-btn svg { width: 20px; height: 20px; }'
+      + '.nova-close-btn:hover { background: rgba(255,255,255,0.2); }'
+      + '.nova-close-btn svg { width: 20px; height: 20px; }'
 
       // Messages area
-      + '.joveo-iq-messages {'
+      + '.nova-messages {'
       + '  flex: 1; overflow-y: auto; padding: 16px;'
       + '  display: flex; flex-direction: column; gap: 12px;'
       + '  background: ' + CONFIG.bgLight + ';'
       + '}'
-      + '.joveo-iq-messages::-webkit-scrollbar { width: 5px; }'
-      + '.joveo-iq-messages::-webkit-scrollbar-track { background: transparent; }'
-      + '.joveo-iq-messages::-webkit-scrollbar-thumb { background: ' + CONFIG.borderColor + '; border-radius: 4px; }'
+      + '.nova-messages::-webkit-scrollbar { width: 5px; }'
+      + '.nova-messages::-webkit-scrollbar-track { background: transparent; }'
+      + '.nova-messages::-webkit-scrollbar-thumb { background: ' + CONFIG.borderColor + '; border-radius: 4px; }'
 
       // Message bubbles
-      + '.joveo-iq-msg {'
+      + '.nova-msg {'
       + '  max-width: 85%; padding: 11px 15px; border-radius: 14px;'
       + '  font-size: 13.5px; line-height: 1.6; word-wrap: break-word;'
-      + '  animation: joveo-iq-msgIn 0.25s ease-out;'
+      + '  animation: nova-msgIn 0.25s ease-out;'
       + '}'
-      + '@keyframes joveo-iq-msgIn {'
+      + '@keyframes nova-msgIn {'
       + '  from { opacity: 0; transform: translateY(8px); }'
       + '  to { opacity: 1; transform: translateY(0); }'
       + '}'
-      + '.joveo-iq-msg-user {'
+      + '.nova-msg-user {'
       + '  align-self: flex-end;'
       + '  background: linear-gradient(135deg, ' + CONFIG.primaryDark + ', ' + CONFIG.primaryColor + ');'
       + '  color: #fff;'
       + '  border-bottom-right-radius: 4px;'
       + '  box-shadow: 0 1px 4px rgba(8,41,74,0.15);'
       + '}'
-      + '.joveo-iq-msg-assistant {'
+      + '.nova-msg-assistant {'
       + '  align-self: flex-start;'
       + '  background: ' + CONFIG.bgColor + '; color: ' + CONFIG.textColor + ';'
       + '  border: 1px solid ' + CONFIG.borderColor + ';'
@@ -184,87 +184,87 @@
       + '}'
 
       // Markdown inside messages
-      + '.joveo-iq-msg-assistant h3 {'
+      + '.nova-msg-assistant h3 {'
       + '  font-size: 14px; font-weight: 700; margin: 8px 0 4px 0;'
       + '  color: ' + CONFIG.primaryColor + ';'
       + '}'
-      + '.joveo-iq-msg-assistant h3:first-child { margin-top: 0; }'
-      + '.joveo-iq-msg-assistant strong { font-weight: 600; }'
-      + '.joveo-iq-msg-assistant em { font-style: italic; color: ' + CONFIG.textLight + '; }'
-      + '.joveo-iq-msg-assistant ul, .joveo-iq-msg-assistant ol {'
+      + '.nova-msg-assistant h3:first-child { margin-top: 0; }'
+      + '.nova-msg-assistant strong { font-weight: 600; }'
+      + '.nova-msg-assistant em { font-style: italic; color: ' + CONFIG.textLight + '; }'
+      + '.nova-msg-assistant ul, .nova-msg-assistant ol {'
       + '  margin: 4px 0; padding-left: 18px;'
       + '}'
-      + '.joveo-iq-msg-assistant li { margin-bottom: 2px; }'
-      + '.joveo-iq-msg-assistant table {'
+      + '.nova-msg-assistant li { margin-bottom: 2px; }'
+      + '.nova-msg-assistant table {'
       + '  border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12px;'
       + '}'
-      + '.joveo-iq-msg-assistant th, .joveo-iq-msg-assistant td {'
+      + '.nova-msg-assistant th, .nova-msg-assistant td {'
       + '  border: 1px solid ' + CONFIG.borderColor + '; padding: 4px 8px; text-align: left;'
       + '}'
-      + '.joveo-iq-msg-assistant th {'
+      + '.nova-msg-assistant th {'
       + '  background: ' + CONFIG.primaryLight + '; font-weight: 600;'
       + '}'
-      + '.joveo-iq-msg-assistant code {'
+      + '.nova-msg-assistant code {'
       + '  background: ' + CONFIG.bgLight + '; padding: 1px 4px; border-radius: 3px;'
       + '  font-family: "SF Mono", Monaco, Menlo, monospace; font-size: 12px;'
       + '}'
-      + '.joveo-iq-msg-assistant p {'
+      + '.nova-msg-assistant p {'
       + '  margin: 4px 0;'
       + '}'
 
       // Meta info (sources, confidence)
-      + '.joveo-iq-msg-meta {'
+      + '.nova-msg-meta {'
       + '  margin-top: 8px; padding-top: 6px;'
       + '  border-top: 1px solid ' + CONFIG.borderColor + ';'
       + '  display: flex; flex-wrap: wrap; gap: 4px; align-items: center;'
       + '}'
-      + '.joveo-iq-badge {'
+      + '.nova-badge {'
       + '  font-size: 10px; padding: 2px 6px; border-radius: 10px;'
       + '  background: ' + CONFIG.primaryLight + '; color: ' + CONFIG.primaryColor + ';'
       + '  font-weight: 500; white-space: nowrap;'
       + '}'
-      + '.joveo-iq-confidence {'
+      + '.nova-confidence {'
       + '  font-size: 10px; padding: 2px 6px; border-radius: 10px;'
       + '  font-weight: 500; white-space: nowrap;'
       + '}'
-      + '.joveo-iq-confidence-high { background: #D1FAE5; color: #065F46; }'
-      + '.joveo-iq-confidence-medium { background: #FEF3C7; color: #92400E; }'
-      + '.joveo-iq-confidence-low { background: #FEE2E2; color: #991B1B; }'
+      + '.nova-confidence-high { background: #D1FAE5; color: #065F46; }'
+      + '.nova-confidence-medium { background: #FEF3C7; color: #92400E; }'
+      + '.nova-confidence-low { background: #FEE2E2; color: #991B1B; }'
 
       // Typing indicator
-      + '.joveo-iq-typing {'
+      + '.nova-typing {'
       + '  align-self: flex-start; display: flex; gap: 4px;'
       + '  padding: 12px 16px; background: ' + CONFIG.bgColor + ';'
       + '  border: 1px solid ' + CONFIG.borderColor + ';'
       + '  border-radius: 12px; border-bottom-left-radius: 4px;'
       + '}'
-      + '.joveo-iq-typing-dot {'
+      + '.nova-typing-dot {'
       + '  width: 7px; height: 7px; border-radius: 50%;'
       + '  background: ' + CONFIG.textLight + ';'
-      + '  animation: joveo-iq-bounce 1.4s infinite;'
+      + '  animation: nova-bounce 1.4s infinite;'
       + '}'
-      + '.joveo-iq-typing-dot:nth-child(2) { animation-delay: 0.2s; }'
-      + '.joveo-iq-typing-dot:nth-child(3) { animation-delay: 0.4s; }'
-      + '@keyframes joveo-iq-bounce {'
+      + '.nova-typing-dot:nth-child(2) { animation-delay: 0.2s; }'
+      + '.nova-typing-dot:nth-child(3) { animation-delay: 0.4s; }'
+      + '@keyframes nova-bounce {'
       + '  0%, 60%, 100% { transform: translateY(0); }'
       + '  30% { transform: translateY(-6px); }'
       + '}'
 
       // Suggested questions
-      + '.joveo-iq-suggestions {'
+      + '.nova-suggestions {'
       + '  padding: 12px 16px 8px; display: flex; flex-direction: column; gap: 6px;'
       + '}'
-      + '.joveo-iq-suggestions-title {'
+      + '.nova-suggestions-title {'
       + '  font-size: 11px; color: ' + CONFIG.textLight + '; font-weight: 600;'
       + '  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;'
       + '}'
-      + '.joveo-iq-suggestion-btn {'
+      + '.nova-suggestion-btn {'
       + '  background: ' + CONFIG.bgColor + '; border: 1px solid ' + CONFIG.borderColor + ';'
       + '  padding: 9px 14px; border-radius: 10px; cursor: pointer;'
       + '  font-size: 12.5px; color: ' + CONFIG.textColor + '; text-align: left;'
       + '  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); line-height: 1.4;'
       + '}'
-      + '.joveo-iq-suggestion-btn:hover {'
+      + '.nova-suggestion-btn:hover {'
       + '  border-color: ' + CONFIG.accentColor + ';'
       + '  background: rgba(8,145,178,0.05);'
       + '  transform: translateX(3px);'
@@ -272,12 +272,12 @@
       + '}'
 
       // Input area
-      + '.joveo-iq-input-area {'
+      + '.nova-input-area {'
       + '  padding: 12px 16px; border-top: 1px solid ' + CONFIG.borderColor + ';'
       + '  display: flex; gap: 8px; align-items: flex-end;'
       + '  background: ' + CONFIG.bgColor + '; flex-shrink: 0;'
       + '}'
-      + '.joveo-iq-input {'
+      + '.nova-input {'
       + '  flex: 1; border: 1px solid ' + CONFIG.borderColor + ';'
       + '  border-radius: 10px; padding: 10px 14px;'
       + '  font-size: 13.5px; font-family: inherit;'
@@ -285,9 +285,9 @@
       + '  line-height: 1.4; background: ' + CONFIG.bgLight + ';'
       + '  transition: border-color 0.15s;'
       + '}'
-      + '.joveo-iq-input:focus { border-color: ' + CONFIG.primaryColor + '; background: #fff; }'
-      + '.joveo-iq-input::placeholder { color: ' + CONFIG.textLight + '; }'
-      + '.joveo-iq-send-btn {'
+      + '.nova-input:focus { border-color: ' + CONFIG.primaryColor + '; background: #fff; }'
+      + '.nova-input::placeholder { color: ' + CONFIG.textLight + '; }'
+      + '.nova-send-btn {'
       + '  width: 38px; height: 38px; border-radius: 10px;'
       + '  background: linear-gradient(135deg, ' + CONFIG.primaryDark + ', ' + CONFIG.primaryColor + ');'
       + '  color: #fff;'
@@ -297,16 +297,16 @@
       + '  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);'
       + '  box-shadow: 0 2px 6px rgba(8,41,74,0.2);'
       + '}'
-      + '.joveo-iq-send-btn:hover {'
+      + '.nova-send-btn:hover {'
       + '  transform: scale(1.05);'
       + '  box-shadow: 0 3px 10px rgba(8,41,74,0.3);'
       + '}'
-      + '.joveo-iq-send-btn:active { transform: scale(0.95); }'
-      + '.joveo-iq-send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }'
-      + '.joveo-iq-send-btn svg { width: 18px; height: 18px; }'
+      + '.nova-send-btn:active { transform: scale(0.95); }'
+      + '.nova-send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }'
+      + '.nova-send-btn svg { width: 18px; height: 18px; }'
 
       // Powered by
-      + '.joveo-iq-footer {'
+      + '.nova-footer {'
       + '  text-align: center; padding: 6px 12px; font-size: 10px;'
       + '  color: ' + CONFIG.textLight + '; background: ' + CONFIG.bgColor + ';'
       + '  flex-shrink: 0;'
@@ -316,16 +316,16 @@
 
       // Mobile responsive
       + '@media (max-width: ' + CONFIG.mobileBreakpoint + 'px) {'
-      + '  #joveo-iq-panel {'
+      + '  #nova-panel {'
       + '    width: calc(100vw - 16px); height: calc(100vh - 80px);'
       + '    max-height: none; bottom: 72px; right: 8px;'
       + '    border-radius: 12px;'
       + '  }'
-      + '  #joveo-iq-float-btn { bottom: 12px; right: 12px; }'
+      + '  #nova-float-btn { bottom: 12px; right: 12px; }'
       + '}';
 
     var styleEl = document.createElement('style');
-    styleEl.id = 'joveo-iq-styles';
+    styleEl.id = 'nova-styles';
     styleEl.textContent = css;
     document.head.appendChild(styleEl);
   }
@@ -435,12 +435,12 @@
     try {
       var sid = sessionStorage.getItem(CONFIG.sessionKey);
       if (!sid) {
-        sid = 'joveo-iq-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+        sid = 'nova-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
         sessionStorage.setItem(CONFIG.sessionKey, sid);
       }
       return sid;
     } catch (e) {
-      return 'joveo-iq-' + Date.now();
+      return 'nova-' + Date.now();
     }
   }
 
@@ -452,7 +452,7 @@
 
     // Floating button
     var btn = document.createElement('button');
-    btn.id = 'joveo-iq-float-btn';
+    btn.id = 'nova-float-btn';
     btn.innerHTML = ICONS.chat;
     btn.title = 'Open Nova Chat';
     btn.setAttribute('aria-label', 'Open Nova Chat');
@@ -462,39 +462,39 @@
 
     // Chat panel
     var panel = document.createElement('div');
-    panel.id = 'joveo-iq-panel';
-    panel.className = 'joveo-iq-hidden';
+    panel.id = 'nova-panel';
+    panel.className = 'nova-hidden';
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-label', 'Nova Chat');
 
     // Header
     var header = document.createElement('div');
-    header.className = 'joveo-iq-header';
+    header.className = 'nova-header';
     header.innerHTML = ''
-      + '<div class="joveo-iq-header-left">'
-      + '  <div class="joveo-iq-header-icon">' + ICONS.iq + '</div>'
+      + '<div class="nova-header-left">'
+      + '  <div class="nova-header-icon">' + ICONS.iq + '</div>'
       + '  <div>'
-      + '    <div class="joveo-iq-header-title">Nova</div>'
-      + '    <div class="joveo-iq-header-subtitle">Your Recruitment Intelligence, Illuminated</div>'
+      + '    <div class="nova-header-title">Nova</div>'
+      + '    <div class="nova-header-subtitle">Your Recruitment Intelligence, Illuminated</div>'
       + '  </div>'
       + '</div>'
-      + '<button class="joveo-iq-close-btn" aria-label="Close chat">' + ICONS.close + '</button>';
-    header.querySelector('.joveo-iq-close-btn').addEventListener('click', togglePanel);
+      + '<button class="nova-close-btn" aria-label="Close chat">' + ICONS.close + '</button>';
+    header.querySelector('.nova-close-btn').addEventListener('click', togglePanel);
     panel.appendChild(header);
 
     // Messages container
     var messagesDiv = document.createElement('div');
-    messagesDiv.className = 'joveo-iq-messages';
-    messagesDiv.id = 'joveo-iq-messages';
+    messagesDiv.className = 'nova-messages';
+    messagesDiv.id = 'nova-messages';
     panel.appendChild(messagesDiv);
 
     // Input area
     var inputArea = document.createElement('div');
-    inputArea.className = 'joveo-iq-input-area';
+    inputArea.className = 'nova-input-area';
 
     var textarea = document.createElement('textarea');
-    textarea.className = 'joveo-iq-input';
-    textarea.id = 'joveo-iq-input';
+    textarea.className = 'nova-input';
+    textarea.id = 'nova-input';
     textarea.placeholder = 'Ask about recruitment marketing...';
     textarea.rows = 1;
     textarea.setAttribute('aria-label', 'Chat message input');
@@ -512,8 +512,8 @@
     inputArea.appendChild(textarea);
 
     var sendBtn = document.createElement('button');
-    sendBtn.className = 'joveo-iq-send-btn';
-    sendBtn.id = 'joveo-iq-send-btn';
+    sendBtn.className = 'nova-send-btn';
+    sendBtn.id = 'nova-send-btn';
     sendBtn.innerHTML = ICONS.send;
     sendBtn.title = 'Send message';
     sendBtn.setAttribute('aria-label', 'Send message');
@@ -523,7 +523,7 @@
 
     // Footer
     var footer = document.createElement('div');
-    footer.className = 'joveo-iq-footer';
+    footer.className = 'nova-footer';
     footer.textContent = 'Powered by Nova \u00b7 Joveo';
     panel.appendChild(footer);
 
@@ -561,19 +561,19 @@
     state.isOpen = !state.isOpen;
     var panel = state.chatPanel;
     if (state.isOpen) {
-      panel.classList.remove('joveo-iq-hidden');
-      panel.classList.add('joveo-iq-visible');
+      panel.classList.remove('nova-hidden');
+      panel.classList.add('nova-visible');
       state.floatingBtn.innerHTML = ICONS.close;
       state.floatingBtn.title = 'Close Nova Chat';
       state.floatingBtn.setAttribute('aria-label', 'Close Nova Chat');
       // Focus input
       setTimeout(function () {
-        var input = document.getElementById('joveo-iq-input');
+        var input = document.getElementById('nova-input');
         if (input) input.focus();
       }, 300);
     } else {
-      panel.classList.remove('joveo-iq-visible');
-      panel.classList.add('joveo-iq-hidden');
+      panel.classList.remove('nova-visible');
+      panel.classList.add('nova-hidden');
       state.floatingBtn.innerHTML = ICONS.chat;
       state.floatingBtn.title = 'Open Nova Chat';
       state.floatingBtn.setAttribute('aria-label', 'Open Nova Chat');
@@ -584,7 +584,7 @@
   // Welcome + suggestions
   // ---------------------------------------------------------------------------
   function showWelcome() {
-    var messagesDiv = document.getElementById('joveo-iq-messages');
+    var messagesDiv = document.getElementById('nova-messages');
     if (!messagesDiv) return;
 
     // Welcome message
@@ -600,20 +600,20 @@
 
     // Suggestions
     var sugDiv = document.createElement('div');
-    sugDiv.className = 'joveo-iq-suggestions';
-    sugDiv.id = 'joveo-iq-suggestions';
+    sugDiv.className = 'nova-suggestions';
+    sugDiv.id = 'nova-suggestions';
 
     var title = document.createElement('div');
-    title.className = 'joveo-iq-suggestions-title';
+    title.className = 'nova-suggestions-title';
     title.textContent = 'Suggested questions';
     sugDiv.appendChild(title);
 
     SUGGESTED_QUESTIONS.forEach(function (q) {
       var btn = document.createElement('button');
-      btn.className = 'joveo-iq-suggestion-btn';
+      btn.className = 'nova-suggestion-btn';
       btn.textContent = q;
       btn.addEventListener('click', function () {
-        var input = document.getElementById('joveo-iq-input');
+        var input = document.getElementById('nova-input');
         if (input) input.value = q;
         sendMessage();
       });
@@ -627,17 +627,17 @@
   // Message rendering
   // ---------------------------------------------------------------------------
   function appendMessage(msg, persist) {
-    var messagesDiv = document.getElementById('joveo-iq-messages');
+    var messagesDiv = document.getElementById('nova-messages');
     if (!messagesDiv) return;
 
     // Remove suggestions on first user message
-    var sugEl = document.getElementById('joveo-iq-suggestions');
+    var sugEl = document.getElementById('nova-suggestions');
     if (sugEl && msg.role === 'user') {
       sugEl.remove();
     }
 
     var msgEl = document.createElement('div');
-    msgEl.className = 'joveo-iq-msg joveo-iq-msg-' + msg.role;
+    msgEl.className = 'nova-msg nova-msg-' + msg.role;
 
     if (msg.role === 'assistant') {
       msgEl.innerHTML = renderMarkdown(msg.content);
@@ -647,11 +647,11 @@
       var confidence = msg.confidence;
       if (sources.length > 0 || (typeof confidence === 'number' && confidence > 0)) {
         var metaDiv = document.createElement('div');
-        metaDiv.className = 'joveo-iq-msg-meta';
+        metaDiv.className = 'nova-msg-meta';
 
         sources.forEach(function (src) {
           var badge = document.createElement('span');
-          badge.className = 'joveo-iq-badge';
+          badge.className = 'nova-badge';
           badge.textContent = src;
           metaDiv.appendChild(badge);
         });
@@ -660,7 +660,7 @@
           var confBadge = document.createElement('span');
           var pct = Math.round(confidence * 100);
           var confClass = pct >= 75 ? 'high' : (pct >= 50 ? 'medium' : 'low');
-          confBadge.className = 'joveo-iq-confidence joveo-iq-confidence-' + confClass;
+          confBadge.className = 'nova-confidence nova-confidence-' + confClass;
           confBadge.textContent = pct + '% confidence';
           metaDiv.appendChild(confBadge);
         }
@@ -681,7 +681,7 @@
   }
 
   function renderAllMessages() {
-    var messagesDiv = document.getElementById('joveo-iq-messages');
+    var messagesDiv = document.getElementById('nova-messages');
     if (!messagesDiv) return;
     messagesDiv.innerHTML = '';
 
@@ -691,22 +691,22 @@
   }
 
   function showTyping() {
-    var messagesDiv = document.getElementById('joveo-iq-messages');
+    var messagesDiv = document.getElementById('nova-messages');
     if (!messagesDiv) return;
 
     var typing = document.createElement('div');
-    typing.className = 'joveo-iq-typing';
-    typing.id = 'joveo-iq-typing';
+    typing.className = 'nova-typing';
+    typing.id = 'nova-typing';
     typing.innerHTML = ''
-      + '<div class="joveo-iq-typing-dot"></div>'
-      + '<div class="joveo-iq-typing-dot"></div>'
-      + '<div class="joveo-iq-typing-dot"></div>';
+      + '<div class="nova-typing-dot"></div>'
+      + '<div class="nova-typing-dot"></div>'
+      + '<div class="nova-typing-dot"></div>';
     messagesDiv.appendChild(typing);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
   }
 
   function hideTyping() {
-    var el = document.getElementById('joveo-iq-typing');
+    var el = document.getElementById('nova-typing');
     if (el) el.remove();
   }
 
@@ -716,7 +716,7 @@
   function sendMessage() {
     if (state.isLoading) return;
 
-    var input = document.getElementById('joveo-iq-input');
+    var input = document.getElementById('nova-input');
     if (!input) return;
 
     var text = input.value.trim();
@@ -728,7 +728,7 @@
     input.style.height = 'auto';
 
     // Disable send button
-    var sendBtn = document.getElementById('joveo-iq-send-btn');
+    var sendBtn = document.getElementById('nova-send-btn');
     if (sendBtn) sendBtn.disabled = true;
     state.isLoading = true;
 
@@ -848,7 +848,7 @@
      */
     send: function (message) {
       if (!message) return;
-      var input = document.getElementById('joveo-iq-input');
+      var input = document.getElementById('nova-input');
       if (input) {
         input.value = message;
         sendMessage();
@@ -871,7 +871,7 @@
     clearHistory: function () {
       state.messages = [];
       saveHistory([]);
-      var messagesDiv = document.getElementById('joveo-iq-messages');
+      var messagesDiv = document.getElementById('nova-messages');
       if (messagesDiv) {
         messagesDiv.innerHTML = '';
         showWelcome();
