@@ -385,7 +385,20 @@ class DataMatrixMonitor:
                 self._record_heal(product, layer, "reimport", False)
                 logger.warning("Self-heal reimport %s failed: %s", layer, e)
 
-        # Strategy 2: Reset orchestrator lazy-load sentinel
+        # Strategy 2a: Import data_orchestrator itself if missing
+        if layer in _ORCH_LAYER_MAP and product in ("nova_chat", "slack_bot"):
+            if "data_orchestrator" not in sys.modules:
+                try:
+                    importlib.import_module("data_orchestrator")
+                    healed = True
+                    self._record_heal(product, layer,
+                                      "import_data_orchestrator", True)
+                except Exception as e:
+                    self._record_heal(product, layer,
+                                      "import_data_orchestrator", False)
+                    logger.warning("Self-heal import data_orchestrator failed: %s", e)
+
+        # Strategy 2b: Reset orchestrator lazy-load sentinel
         if layer in _ORCH_LAYER_MAP and product in ("nova_chat", "slack_bot"):
             try:
                 if "data_orchestrator" in sys.modules:
