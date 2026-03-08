@@ -182,6 +182,12 @@ def _detect_country(location_str):
             pass  # Non-fatal; fall through to None
     return None
 
+
+def detect_country(location_str):
+    """Public wrapper for _detect_country. Returns country name or None."""
+    return _detect_country(location_str)
+
+
 _global_supply_cache = None
 
 
@@ -1581,6 +1587,11 @@ def _get_role_salary_range(role, location_coli=100, enrichment_salary_data=None)
                 pass
 
     return salary
+
+
+def get_role_salary_range(role, location_coli=100, enrichment_salary_data=None):
+    """Public wrapper for _get_role_salary_range."""
+    return _get_role_salary_range(role, location_coli, enrichment_salary_data)
 
 
 def get_market_trends(locations, industry, roles, enrichment_salary_data=None):

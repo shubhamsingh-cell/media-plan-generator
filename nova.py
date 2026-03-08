@@ -31,6 +31,26 @@ from typing import Any, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Unified data orchestrator (lazy import to avoid circular deps)
+# ---------------------------------------------------------------------------
+_orchestrator = None
+_orchestrator_lock = threading.Lock()
+
+def _get_orchestrator():
+    global _orchestrator
+    if _orchestrator is None:
+        with _orchestrator_lock:
+            if _orchestrator is None:
+                try:
+                    import data_orchestrator
+                    _orchestrator = data_orchestrator
+                    logger.info("Nova: data_orchestrator loaded")
+                except Exception as e:
+                    logger.warning("Nova: data_orchestrator import failed: %s", e)
+                    _orchestrator = False  # sentinel: tried and failed
+    return _orchestrator if _orchestrator is not False else None
+
+# ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -395,47 +415,51 @@ def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
 
 
 def _set_response_cache(key: str, data: Dict[str, Any], ttl: int = RESPONSE_CACHE_TTL) -> None:
-    """Write to memory cache (with LRU eviction) + disk (atomic write)."""
+    """Write to memory cache (with LRU eviction) + disk (atomic write).
+
+    Both memory and disk writes are protected by _response_cache_lock to
+    prevent concurrent read-modify-write races on the disk cache file.
+    """
     now = time.time()
     entry = {"data": data, "expires": now + ttl, "created": now}
 
-    # 1) Memory write with LRU eviction
     with _response_cache_lock:
+        # 1) Memory write with LRU eviction
         _response_cache[key] = entry
         if len(_response_cache) > MAX_RESPONSE_CACHE_SIZE:
             # Evict oldest entry
             oldest_key = min(_response_cache, key=lambda k: _response_cache[k].get("created", 0))
             del _response_cache[oldest_key]
 
-    # 2) Disk write (atomic via tmp + rename, evict expired on write)
-    try:
-        disk_cache: Dict[str, Any] = {}
-        if RESPONSE_CACHE_FILE.exists():
-            try:
-                with open(RESPONSE_CACHE_FILE, "r", encoding="utf-8") as f:
-                    disk_cache = json.load(f)
-            except (json.JSONDecodeError, IOError):
-                disk_cache = {}
-
-        # Evict expired entries
-        disk_cache = {k: v for k, v in disk_cache.items() if v.get("expires", 0) > now}
-        disk_cache[key] = entry
-
-        # Atomic write via temp file + rename
-        fd, tmp_path = tempfile.mkstemp(dir=str(DATA_DIR), suffix=".tmp")
+        # 2) Disk write (atomic via tmp + rename, evict expired on write)
         try:
-            with os.fdopen(fd, "w", encoding="utf-8") as tmp_f:
-                json.dump(disk_cache, tmp_f, default=str)
-            os.replace(tmp_path, str(RESPONSE_CACHE_FILE))
-        except Exception:
-            # Clean up temp file on failure
+            disk_cache: Dict[str, Any] = {}
+            if RESPONSE_CACHE_FILE.exists():
+                try:
+                    with open(RESPONSE_CACHE_FILE, "r", encoding="utf-8") as f:
+                        disk_cache = json.load(f)
+                except (json.JSONDecodeError, IOError):
+                    disk_cache = {}
+
+            # Evict expired entries
+            disk_cache = {k: v for k, v in disk_cache.items() if v.get("expires", 0) > now}
+            disk_cache[key] = entry
+
+            # Atomic write via temp file + rename
+            fd, tmp_path = tempfile.mkstemp(dir=str(DATA_DIR), suffix=".tmp")
             try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
-    except Exception as exc:
-        logger.warning("Disk cache write error: %s", exc)
+                with os.fdopen(fd, "w", encoding="utf-8") as tmp_f:
+                    json.dump(disk_cache, tmp_f, default=str)
+                os.replace(tmp_path, str(RESPONSE_CACHE_FILE))
+            except Exception:
+                # Clean up temp file on failure
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
+        except Exception as exc:
+            logger.warning("Disk cache write error: %s", exc)
 
 
 def _classify_query_complexity(user_message: str) -> int:
@@ -455,18 +479,23 @@ def _classify_query_complexity(user_message: str) -> int:
     if any(p in msg_lower for p in complex_patterns):
         return 4096
 
-    # Simple patterns -> 1024
+    # Simple patterns -> 512 (short factual answers)
     simple_patterns = [
         r"^(hi|hello|hey|good morning|good afternoon)\b",
         r"^what is\s",
         r"^who is\s",
         r"^what does\s",
+        r"^which is\s",
+        r"^what('s| is) the (biggest|largest|best|top|most|cheapest)\s",
+        r"^name\s",
+        r"^list\s",
         r"^define\s",
         r"^explain\s",
+        r"^how many\s",
         r"^(thanks|thank you|ok|okay|got it)",
     ]
     if any(re.search(p, msg_lower) for p in simple_patterns):
-        return 1024
+        return 512
 
     # Default medium
     return 2048
@@ -609,6 +638,13 @@ When a country IS specified: use LOCAL CURRENCY (INR for India, GBP for UK, EUR 
 ## TOOL STRATEGY
 
 Always call tools before answering data questions. Use `query_platform_deep` for platform comparisons, `query_recruitment_benchmarks` for industry-specific data, `query_white_papers` for evidence.
+
+## RESPONSE LENGTH — MATCH THE QUESTION
+
+- **Simple factual questions** ("which is the biggest job board?", "what is CPC?"): Give a 1-3 sentence answer. Name the answer, add ONE key stat if relevant. Do NOT elaborate unless asked.
+- **Moderate questions** ("compare Indeed vs LinkedIn"): 1-2 short paragraphs with key data points.
+- **Complex/strategic questions** ("build me a media plan for healthcare hiring in Texas"): Full detailed response with sections, data, recommendations.
+- NEVER over-explain simple questions. If the user wants more detail, they will ask follow-up questions.
 
 ## RESPONSE RULES
 
@@ -886,7 +922,7 @@ Always call tools before answering data questions. Use `query_platform_deep` for
             return json.dumps(result, default=str)
         except Exception as e:
             logger.error("Tool %s failed: %s", tool_name, e, exc_info=True)
-            return json.dumps({"error": str(e)})
+            return json.dumps({"error": f"Tool '{tool_name}' encountered an internal error"})
 
     # ------------------------------------------------------------------
     # Tool handlers
@@ -1147,177 +1183,74 @@ Always call tools before answering data questions. Use `query_platform_deep` for
         return result
 
     def _query_salary_data(self, params: dict) -> dict:
-        """Get salary intelligence for roles and locations."""
+        """Get salary intelligence for roles and locations.
+
+        Uses DataOrchestrator to cascade:
+            research.py (COLI-adjusted) -> BLS API (cached 24h) -> KB fallback.
+        """
         role = params.get("role", "").strip()
         location = params.get("location", "").strip()
 
-        kb = self._data_cache.get("knowledge_base", {})
-        benchmarks = kb.get("benchmarks", {})
+        orch = _get_orchestrator()
+        if orch:
+            try:
+                enriched = orch.enrich_salary(role, location)
+                result: Dict[str, Any] = {
+                    "source": f"Joveo Salary Intelligence ({enriched.get('source', 'multi-source')})",
+                    "role": role,
+                    "location": location or "National",
+                    "salary_range_estimate": enriched.get("salary_range", "N/A"),
+                    "role_tier": enriched.get("role_tier", "Professional"),
+                }
+                if enriched.get("coli"):
+                    result["cost_of_living_index"] = enriched["coli"]
+                if enriched.get("metro_name"):
+                    result["metro_name"] = enriched["metro_name"]
+                if enriched.get("country"):
+                    result["country"] = enriched["country"]
+                if enriched.get("currency") and enriched["currency"] != "USD":
+                    result["currency"] = enriched["currency"]
+                if enriched.get("bls_percentiles"):
+                    result["bls_salary_percentiles"] = enriched["bls_percentiles"]
+                return result
+            except Exception as e:
+                logger.warning("Orchestrator enrich_salary failed, using KB fallback: %s", e)
 
-        # Country-to-currency mapping
-        _CURRENCY_MAP = {
-            "India": {"symbol": "\u20b9", "code": "INR"},
-            "United Kingdom": {"symbol": "\u00a3", "code": "GBP"},
-            "Germany": {"symbol": "\u20ac", "code": "EUR"},
-            "France": {"symbol": "\u20ac", "code": "EUR"},
-            "Netherlands": {"symbol": "\u20ac", "code": "EUR"},
-            "Spain": {"symbol": "\u20ac", "code": "EUR"},
-            "Italy": {"symbol": "\u20ac", "code": "EUR"},
-            "Japan": {"symbol": "\u00a5", "code": "JPY"},
-            "Australia": {"symbol": "A$", "code": "AUD"},
-            "Canada": {"symbol": "C$", "code": "CAD"},
-            "Brazil": {"symbol": "R$", "code": "BRL"},
-            "Singapore": {"symbol": "S$", "code": "SGD"},
-            "UAE": {"symbol": "AED ", "code": "AED"},
-            "United Arab Emirates": {"symbol": "AED ", "code": "AED"},
-            "Mexico": {"symbol": "MX$", "code": "MXN"},
-            "China": {"symbol": "\u00a5", "code": "CNY"},
-            "South Korea": {"symbol": "\u20a9", "code": "KRW"},
-            "Philippines": {"symbol": "\u20b1", "code": "PHP"},
-            "Indonesia": {"symbol": "Rp", "code": "IDR"},
-        }
-
-        # Salary ranges by country and role tier (in local currency)
-        _SALARY_RANGES = {
-            "India": {
-                "Professional":  ("\u20b98,00,000",  "\u20b930,00,000"),
-                "Clinical":      ("\u20b94,00,000",  "\u20b915,00,000"),
-                "Executive":     ("\u20b925,00,000",  "\u20b91,00,00,000+"),
-                "Trades":        ("\u20b93,00,000",  "\u20b98,00,000"),
-                "Hourly":        ("\u20b92,00,000",  "\u20b94,50,000"),
-                "General":       ("\u20b94,00,000",  "\u20b918,00,000"),
-            },
-            "United Kingdom": {
-                "Professional":  ("\u00a335,000",  "\u00a390,000"),
-                "Clinical":      ("\u00a325,000",  "\u00a360,000"),
-                "Executive":     ("\u00a380,000",  "\u00a3250,000+"),
-                "Trades":        ("\u00a322,000",  "\u00a345,000"),
-                "Hourly":        ("\u00a318,000",  "\u00a328,000"),
-                "General":       ("\u00a328,000",  "\u00a365,000"),
-            },
-            "Germany": {
-                "Professional":  ("\u20ac45,000",  "\u20ac95,000"),
-                "Clinical":      ("\u20ac35,000",  "\u20ac70,000"),
-                "Executive":     ("\u20ac90,000",  "\u20ac250,000+"),
-                "Trades":        ("\u20ac28,000",  "\u20ac50,000"),
-                "Hourly":        ("\u20ac22,000",  "\u20ac35,000"),
-                "General":       ("\u20ac35,000",  "\u20ac75,000"),
-            },
-            "Canada": {
-                "Professional":  ("C$60,000",  "C$140,000"),
-                "Clinical":      ("C$50,000",  "C$100,000"),
-                "Executive":     ("C$120,000",  "C$350,000+"),
-                "Trades":        ("C$40,000",  "C$80,000"),
-                "Hourly":        ("C$30,000",  "C$50,000"),
-                "General":       ("C$45,000",  "C$95,000"),
-            },
-            "Australia": {
-                "Professional":  ("A$75,000",  "A$160,000"),
-                "Clinical":      ("A$55,000",  "A$120,000"),
-                "Executive":     ("A$150,000",  "A$400,000+"),
-                "Trades":        ("A$50,000",  "A$90,000"),
-                "Hourly":        ("A$40,000",  "A$55,000"),
-                "General":       ("A$55,000",  "A$110,000"),
-            },
-            "Japan": {
-                "Professional":  ("\u00a55,000,000",  "\u00a512,000,000"),
-                "Clinical":      ("\u00a54,000,000",  "\u00a58,000,000"),
-                "Executive":     ("\u00a510,000,000",  "\u00a530,000,000+"),
-                "Trades":        ("\u00a53,000,000",  "\u00a56,000,000"),
-                "Hourly":        ("\u00a52,500,000",  "\u00a54,000,000"),
-                "General":       ("\u00a54,000,000",  "\u00a59,000,000"),
-            },
-            "UAE": {
-                "Professional":  ("AED 180,000",  "AED 480,000"),
-                "Clinical":      ("AED 120,000",  "AED 360,000"),
-                "Executive":     ("AED 400,000",  "AED 1,200,000+"),
-                "Trades":        ("AED 60,000",  "AED 180,000"),
-                "Hourly":        ("AED 48,000",  "AED 96,000"),
-                "General":       ("AED 120,000",  "AED 360,000"),
-            },
-            "Singapore": {
-                "Professional":  ("S$60,000",  "S$150,000"),
-                "Clinical":      ("S$45,000",  "S$100,000"),
-                "Executive":     ("S$120,000",  "S$400,000+"),
-                "Trades":        ("S$30,000",  "S$60,000"),
-                "Hourly":        ("S$24,000",  "S$42,000"),
-                "General":       ("S$45,000",  "S$100,000"),
-            },
-            "Brazil": {
-                "Professional":  ("R$80,000",  "R$240,000"),
-                "Clinical":      ("R$50,000",  "R$150,000"),
-                "Executive":     ("R$200,000",  "R$700,000+"),
-                "Trades":        ("R$35,000",  "R$80,000"),
-                "Hourly":        ("R$25,000",  "R$45,000"),
-                "General":       ("R$50,000",  "R$150,000"),
-            },
-        }
-
-        # US salary ranges (default, in USD)
-        _US_RANGES = {
-            "Professional":  ("$75,000",  "$200,000"),
-            "Clinical":      ("$45,000",  "$120,000"),
-            "Executive":     ("$150,000", "$500,000+"),
-            "Trades":        ("$35,000",  "$80,000"),
-            "Hourly":        ("$25,000",  "$45,000"),
-            "General":       ("$50,000",  "$120,000"),
-        }
-
-        result: Dict[str, Any] = {
-            "source": "Joveo Salary Intelligence (KB + Industry Data)",
+        # --- KB-only fallback (original logic) ---
+        result = {
+            "source": "Joveo Salary Intelligence (KB)",
             "role": role,
             "location": location or "National",
         }
-
-        # Determine role tier
         role_lower = role.lower()
         tier = "Professional"
         if any(kw in role_lower for kw in ["nurse", "rn", "lpn", "therapist", "physician", "clinical"]):
             tier = "Clinical"
-        elif any(kw in role_lower for kw in ["engineer", "developer", "data scientist", "software"]):
-            tier = "Professional"
         elif any(kw in role_lower for kw in ["executive", "director", "vp", "chief", "president"]):
             tier = "Executive"
         elif any(kw in role_lower for kw in ["driver", "warehouse", "construction", "electrician", "welder"]):
             tier = "Trades"
         elif any(kw in role_lower for kw in ["cashier", "retail", "hourly", "part-time", "entry"]):
             tier = "Hourly"
-        else:
+        elif not any(kw in role_lower for kw in ["engineer", "developer", "data scientist", "software"]):
             tier = "General"
 
-        # Get country-specific salary range
-        loc_upper = location.strip()
-        country_match = None
-        for country_key in _SALARY_RANGES:
-            if country_key.lower() in loc_upper.lower():
-                country_match = country_key
-                break
-
-        if country_match:
-            ranges = _SALARY_RANGES[country_match]
-            low, high = ranges.get(tier, ranges.get("General", ("N/A", "N/A")))
-            result["salary_range_estimate"] = f"{low} - {high}"
-        else:
-            # Default to USD (US or unknown)
-            low, high = _US_RANGES.get(tier, _US_RANGES["General"])
-            result["salary_range_estimate"] = f"{low} - {high}"
-
-        # Notes by tier
-        _NOTES = {
-            "Clinical": "Healthcare roles vary significantly by specialization and location",
-            "Professional": "Tech salaries vary widely by specialization, experience, and metro area",
-            "Executive": "Executive compensation often includes equity and bonuses",
-            "Trades": "Trades roles in high-demand areas may command premium wages",
-            "Hourly": "Hourly rates vary significantly by local minimum wage laws",
-            "General": "General professional role range; actual varies by industry and experience",
+        _US_RANGES = {
+            "Professional": ("$75,000", "$200,000"), "Clinical": ("$45,000", "$120,000"),
+            "Executive": ("$150,000", "$500,000+"), "Trades": ("$35,000", "$80,000"),
+            "Hourly": ("$25,000", "$45,000"), "General": ("$50,000", "$120,000"),
         }
-        result["notes"] = _NOTES.get(tier, _NOTES["General"])
+        low, high = _US_RANGES.get(tier, _US_RANGES["General"])
+        result["salary_range_estimate"] = f"{low} - {high}"
         result["role_tier"] = tier
-
         return result
 
     def _query_market_demand(self, params: dict) -> dict:
-        """Get job market demand signals for roles and locations."""
+        """Get job market demand signals for roles and locations.
+
+        Uses DataOrchestrator to cascade:
+            research.py (labor market intel) -> Adzuna/Jooble API -> KB fallback.
+        """
         role = params.get("role", "").strip()
         location = params.get("location", "").strip()
         industry = params.get("industry", "").strip()
@@ -1333,11 +1266,10 @@ Always call tools before answering data questions. Use `query_platform_deep` for
             "location": location or "National",
         }
 
-        # Applicants per opening data
+        # KB data (always include)
         apo = benchmarks.get("applicants_per_opening", {})
         result["applicants_per_opening"] = apo
 
-        # Source of hire breakdown
         soh = benchmarks.get("source_of_hire", {})
         result["source_of_hire"] = {
             "job_boards_usage": soh.get("job_boards", {}).get("employer_usage", "68.6%"),
@@ -1346,7 +1278,6 @@ Always call tools before answering data questions. Use `query_platform_deep` for
             "linkedin_usage": soh.get("linkedin_professional_networks", {}).get("employer_usage", "46.1%"),
         }
 
-        # Industry-specific demand signals
         if industry:
             ind_key = _match_industry_key(industry, list(industry_benchmarks.keys()))
             if ind_key:
@@ -1357,7 +1288,6 @@ Always call tools before answering data questions. Use `query_platform_deep` for
                     "recruitment_difficulty": ind_data.get("recruitment_difficulty", "N/A"),
                 }
 
-        # Labor market trends
         labor = trends.get("labor_market_shifts", {})
         if labor:
             result["labor_market"] = {
@@ -1365,10 +1295,31 @@ Always call tools before answering data questions. Use `query_platform_deep` for
                 "description": labor.get("description", ""),
             }
 
+        # Orchestrator enrichment (research.py + live API data)
+        orch = _get_orchestrator()
+        if orch:
+            try:
+                enriched = orch.enrich_market_demand(role, location, industry)
+                if enriched.get("labour_market"):
+                    result["research_labour_market"] = enriched["labour_market"]
+                    result["source"] = f"Joveo Market Demand Intelligence (KB + {enriched.get('source', 'Research')})"
+                if enriched.get("api_job_market"):
+                    result["live_job_market"] = enriched["api_job_market"]
+                if enriched.get("competitors"):
+                    result["top_competitors"] = enriched["competitors"]
+                if enriched.get("seasonal"):
+                    result["seasonal_patterns"] = enriched["seasonal"]
+            except Exception as e:
+                logger.debug("Orchestrator enrich_market_demand failed: %s", e)
+
         return result
 
     def _query_budget_projection(self, params: dict) -> dict:
-        """Project budget allocation for given parameters."""
+        """Project budget allocation for given parameters.
+
+        Uses DataOrchestrator to pass cached enrichment data to the budget
+        engine for more accurate projections (instead of synthesized_data=None).
+        """
         budget = params.get("budget", 0)
         roles_list = params.get("roles", [])
         locations_list = params.get("locations", [])
@@ -1383,60 +1334,65 @@ Always call tools before answering data questions. Use `query_platform_deep` for
             "industry": industry,
         }
 
-        # Try to use the budget engine
+        # Build role dicts
+        roles = []
+        for r in (roles_list or ["General Hire"]):
+            role_lower = r.lower() if isinstance(r, str) else ""
+            tier = "Professional / White-Collar"
+            if any(kw in role_lower for kw in ["nurse", "clinical", "therapist"]):
+                tier = "Clinical / Licensed"
+            elif any(kw in role_lower for kw in ["executive", "director", "vp"]):
+                tier = "Executive / Leadership"
+            elif any(kw in role_lower for kw in ["driver", "warehouse", "construction"]):
+                tier = "Skilled Trades / Technical"
+            elif any(kw in role_lower for kw in ["cashier", "hourly", "retail"]):
+                tier = "Hourly / Entry-Level"
+            roles.append({"title": r, "count": 1, "tier": tier})
+
+        # Build location dicts
+        locations = []
+        for loc in (locations_list or ["United States"]):
+            if isinstance(loc, str):
+                locations.append({"city": loc, "state": "", "country": "United States"})
+
+        kb = self._data_cache.get("knowledge_base", {})
+
+        # Try orchestrator first (passes cached enrichment data to budget engine)
+        orch = _get_orchestrator()
+        if orch:
+            try:
+                allocation = orch.enrich_budget(
+                    budget=budget, roles=roles, locations=locations,
+                    industry=industry, knowledge_base=kb,
+                )
+                if isinstance(allocation, dict) and "error" not in allocation:
+                    result["channel_allocations"] = allocation.get("channel_allocations", {})
+                    result["total_projected"] = allocation.get("total_projected", {})
+                    result["sufficiency"] = allocation.get("sufficiency", {})
+                    result["recommendations"] = allocation.get("recommendations", [])
+                    return result
+            except Exception as e:
+                logger.debug("Orchestrator enrich_budget failed: %s", e)
+
+        # Fallback: direct budget engine call without synthesized data
         try:
-            from budget_engine import calculate_budget_allocation, BASE_BENCHMARKS
-
-            # Build role dicts
-            roles = []
-            for r in (roles_list or ["General Hire"]):
-                role_lower = r.lower() if isinstance(r, str) else ""
-                tier = "Professional / White-Collar"
-                if any(kw in role_lower for kw in ["nurse", "clinical", "therapist"]):
-                    tier = "Clinical / Licensed"
-                elif any(kw in role_lower for kw in ["executive", "director", "vp"]):
-                    tier = "Executive / Leadership"
-                elif any(kw in role_lower for kw in ["driver", "warehouse", "construction"]):
-                    tier = "Skilled Trades / Technical"
-                elif any(kw in role_lower for kw in ["cashier", "hourly", "retail"]):
-                    tier = "Hourly / Entry-Level"
-                roles.append({"title": r, "count": 1, "tier": tier})
-
-            # Build location dicts
-            locations = []
-            for loc in (locations_list or ["United States"]):
-                if isinstance(loc, str):
-                    locations.append({"city": loc, "state": "", "country": "United States"})
-
-            # Default channel split
+            from budget_engine import calculate_budget_allocation
             channel_pcts = {
-                "Programmatic & DSP": 30,
-                "Global Job Boards": 25,
-                "Niche & Industry Boards": 15,
-                "Social Media Channels": 15,
-                "Regional & Local Boards": 10,
-                "Employer Branding": 5,
+                "Programmatic & DSP": 30, "Global Job Boards": 25,
+                "Niche & Industry Boards": 15, "Social Media Channels": 15,
+                "Regional & Local Boards": 10, "Employer Branding": 5,
             }
-
-            kb = self._data_cache.get("knowledge_base", {})
             allocation = calculate_budget_allocation(
-                total_budget=budget,
-                roles=roles,
-                locations=locations,
-                industry=industry,
-                channel_percentages=channel_pcts,
-                synthesized_data=None,
-                knowledge_base=kb,
+                total_budget=budget, roles=roles, locations=locations,
+                industry=industry, channel_percentages=channel_pcts,
+                synthesized_data=None, knowledge_base=kb,
             )
-
             result["channel_allocations"] = allocation.get("channel_allocations", {})
             result["total_projected"] = allocation.get("total_projected", {})
             result["sufficiency"] = allocation.get("sufficiency", {})
             result["recommendations"] = allocation.get("recommendations", [])
-
         except Exception as e:
             logger.error("Budget engine call failed: %s", e, exc_info=True)
-            # Provide a manual estimate
             result["estimated_allocation"] = {
                 "programmatic_dsp": {"pct": 30, "amount": round(budget * 0.30, 2)},
                 "global_job_boards": {"pct": 25, "amount": round(budget * 0.25, 2)},
@@ -1450,10 +1406,15 @@ Always call tools before answering data questions. Use `query_platform_deep` for
         return result
 
     def _query_location_profile(self, params: dict) -> dict:
-        """Get location cost, workforce, and supply data."""
+        """Get location cost, workforce, and supply data.
+
+        Uses DataOrchestrator to cascade:
+            research.py (40+ countries, 100+ metros) -> Census/World Bank API -> KB.
+        """
         city = params.get("city", "").strip()
         state = params.get("state", "").strip()
         country = params.get("country", "").strip()
+        location_str = city or state or country or "United States"
 
         country_resolved = _resolve_country(country) or _resolve_country(city) or "United States"
 
@@ -1466,10 +1427,37 @@ Always call tools before answering data questions. Use `query_platform_deep` for
             }
         }
 
-        # Pull supply data for this country
+        # Orchestrator enrichment (research.py + Census/World Bank)
+        orch = _get_orchestrator()
+        if orch:
+            try:
+                enriched = orch.enrich_location(location_str)
+                if enriched.get("coli"):
+                    result["cost_of_living_index"] = enriched["coli"]
+                if enriched.get("population") and enriched["population"] != "Data not available":
+                    result["population"] = enriched["population"]
+                if enriched.get("median_salary"):
+                    result["median_salary"] = enriched["median_salary"]
+                if enriched.get("unemployment"):
+                    result["unemployment_rate"] = enriched["unemployment"]
+                if enriched.get("major_employers"):
+                    result["major_industries"] = enriched["major_employers"]
+                if enriched.get("top_boards"):
+                    result["top_job_boards"] = enriched["top_boards"]
+                if enriched.get("currency") and enriched["currency"] != "USD":
+                    result["currency"] = enriched["currency"]
+                if enriched.get("region"):
+                    result["region"] = enriched["region"]
+                if enriched.get("recommended_boards"):
+                    result["recommended_boards"] = enriched["recommended_boards"]
+                if enriched.get("source"):
+                    result["source"] = f"Joveo Location Intelligence ({enriched['source']})"
+            except Exception as e:
+                logger.debug("Orchestrator enrich_location failed: %s", e)
+
+        # Supply data from KB (always include if available)
         supply = self._data_cache.get("global_supply", {})
         country_boards = supply.get("country_job_boards", {})
-
         if country_resolved in country_boards:
             entry = country_boards[country_resolved]
             result["supply_data"] = {
@@ -1478,7 +1466,7 @@ Always call tools before answering data questions. Use `query_platform_deep` for
                 "total_boards": len(entry.get("boards", [])),
             }
 
-        # Pull publisher count for country
+        # Publisher count from KB
         publishers = self._data_cache.get("joveo_publishers", {})
         by_country = publishers.get("by_country", {})
         if country_resolved in by_country:
@@ -1540,6 +1528,18 @@ Always call tools before answering data questions. Use `query_platform_deep` for
                         result.setdefault("platform_benchmarks", {})[key] = data
         else:
             result["platform_benchmarks"] = cpc_data
+
+        # Enrich with platform audience data from research.py
+        orch = _get_orchestrator()
+        if orch:
+            try:
+                # Use industry from params if available, else infer from role_type
+                _ind = params.get("industry", "")
+                audiences = orch.enrich_platform_audiences(_ind) if _ind else {}
+                if audiences:
+                    result["platform_audience_data"] = audiences
+            except Exception as e:
+                logger.debug("Orchestrator enrich_platform_audiences failed: %s", e)
 
         return result
 
@@ -2925,6 +2925,13 @@ def _detect_country(text: str) -> Optional[str]:
         # Use word boundary check to avoid false matches
         pattern = r'\b' + re.escape(alias) + r'\b'
         if re.search(pattern, text_lower):
+            # For short aliases (2 chars like "us", "uk"), require uppercase in
+            # original text to avoid false positives on common English words
+            # e.g. "help us find" should NOT match "United States"
+            if len(alias) <= 2:
+                upper_pat = r'\b' + re.escape(alias.upper()) + r'\b'
+                if not re.search(upper_pat, text):
+                    continue
             return _COUNTRY_ALIASES[alias]
     # Check US state aliases -- return "United States" if a US state is mentioned
     sorted_states = sorted(_US_STATE_ALIASES.keys(), key=len, reverse=True)
@@ -3433,15 +3440,18 @@ def _format_demand_response(data: dict, role: str) -> str:
 # HTTP HANDLER
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Module-level singleton
+# Module-level singleton (double-checked locking for thread safety)
 _nova_instance: Optional[Nova] = None
+_nova_init_lock = threading.Lock()
 
 
 def _get_iq() -> Nova:
-    """Get or create the Nova singleton."""
+    """Get or create the Nova singleton (thread-safe)."""
     global _nova_instance
     if _nova_instance is None:
-        _nova_instance = Nova()
+        with _nova_init_lock:
+            if _nova_instance is None:
+                _nova_instance = Nova()
     return _nova_instance
 
 
@@ -3510,7 +3520,7 @@ def handle_chat_request(request_data: dict) -> dict:
             "sources": [],
             "confidence": 0.0,
             "tools_used": [],
-            "error": str(e),
+            "error": "Internal error processing request",
         }
 
 

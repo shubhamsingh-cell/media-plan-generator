@@ -718,8 +718,8 @@ def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None,
             req.add_header(k, v)
 
     # Determine whether to allow SSL fallback based on environment config.
-    # In production, consider setting STRICT_SSL=1 to disable unverified fallback.
-    _allow_unverified = os.environ.get("STRICT_SSL", "").strip() != "1"
+    # SSL verification is strict by default. Set ALLOW_UNVERIFIED_SSL=1 to enable fallback (not recommended).
+    _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
     ssl_contexts = [_DEFAULT_SSL_CTX]
     if _allow_unverified:
         ssl_contexts.append(_UNVERIFIED_SSL_CTX)
@@ -775,7 +775,7 @@ def _http_post_json(url: str, payload: Any,
             for k, v in headers.items():
                 req.add_header(k, v)
 
-        _allow_unverified = os.environ.get("STRICT_SSL", "").strip() != "1"
+        _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
         ssl_contexts = [_DEFAULT_SSL_CTX]
         if _allow_unverified:
             ssl_contexts.append(_UNVERIFIED_SSL_CTX)
@@ -866,7 +866,7 @@ def _http_get_json_with_retry(
             for k, v in headers.items():
                 req.add_header(k, v)
 
-        _allow_unverified = os.environ.get("STRICT_SSL", "").strip() != "1"
+        _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
         _ssl_ctxs = [_DEFAULT_SSL_CTX]
         if _allow_unverified:
             _ssl_ctxs.append(_UNVERIFIED_SSL_CTX)
@@ -1189,7 +1189,7 @@ def _http_get_text(url: str, timeout: int = API_TIMEOUT) -> Optional[str]:
     """Perform HTTP GET and return raw text, or None on failure."""
     req = urllib.request.Request(url, method="GET")
     req.add_header("User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)")
-    _allow_unverified = os.environ.get("STRICT_SSL", "").strip() != "1"
+    _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
     _ssl_ctxs = [_DEFAULT_SSL_CTX]
     if _allow_unverified:
         _ssl_ctxs.append(_UNVERIFIED_SSL_CTX)
@@ -1517,7 +1517,7 @@ def fetch_company_logo(domain: str) -> Optional[str]:
 
     # Strategy 1: Clearbit Logo API (higher quality)
     clearbit_url = f"https://logo.clearbit.com/{domain}"
-    _allow_unverified_logo = os.environ.get("STRICT_SSL", "").strip() != "1"
+    _allow_unverified_logo = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
     _logo_ctxs = [_DEFAULT_SSL_CTX]
     if _allow_unverified_logo:
         _logo_ctxs.append(_UNVERIFIED_SSL_CTX)

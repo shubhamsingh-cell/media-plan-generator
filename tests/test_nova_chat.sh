@@ -33,7 +33,7 @@ chat() {
     local msg="$1"
     curl -s -X POST "${BASE_URL}/api/chat" \
         -H "Content-Type: application/json" \
-        -d "{\"message\": \"${msg}\"}" \
+        -d "$(python3 -c "import json,sys;print(json.dumps({'message':sys.argv[1]}))" "$msg")" \
         --max-time 60
 }
 
@@ -184,7 +184,7 @@ echo ""
 if [ -n "${ADMIN_API_KEY:-}" ]; then
     echo -e "${YELLOW}Test 11: Nova metrics endpoint${NC}"
     RESP=$(curl -s "${BASE_URL}/api/nova/metrics" \
-        -H "X-Admin-Key: ${ADMIN_API_KEY}" \
+        -H "Authorization: Bearer ${ADMIN_API_KEY}" \
         --max-time 10)
     assert_json_field "Has total_requests" "$RESP" "total_requests"
     assert_json_field "Has response_modes" "$RESP" "response_modes"

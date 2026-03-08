@@ -502,11 +502,12 @@ except ImportError as e:
     logger.warning("standardizer import failed: %s", e)
 
 try:
-    from ppt_generator import generate_pptx
+    from ppt_generator import generate_pptx, INDUSTRY_ALLOC_PROFILES
     logger.info("ppt_generator loaded successfully")
 except ImportError as e:
     logger.warning("ppt_generator import failed: %s", e)
     generate_pptx = None
+    INDUSTRY_ALLOC_PROFILES = None
 
 try:
     from api_enrichment import enrich_data
@@ -861,6 +862,10 @@ def generate_excel(data):
     db = load_channels_db()
     joveo_pubs = load_joveo_publishers()
     gs = global_supply_data  # global supply reference
+
+    # Pass publisher data and channels DB into data dict so PPT generator can access them
+    data["_joveo_publishers"] = joveo_pubs
+    data["_channels_db"] = db
     # Get global supply data via research module for international locations
     global_research = research.get_global_supply_data(
         data.get("locations", ["United States"]),
@@ -7162,6 +7167,11 @@ _rate_limit_lock = threading.Lock()
 _RATE_LIMIT_WINDOW = 60   # seconds
 _RATE_LIMIT_MAX = 10       # requests per window per IP
 
+# Global rate limit for /api/chat to prevent distributed API cost abuse
+_GLOBAL_CHAT_RATE_LIMIT_MAX = int(os.environ.get("GLOBAL_CHAT_RATE_LIMIT", "120"))  # per minute across all IPs
+_global_chat_timestamps: list = []
+_global_chat_lock = threading.Lock()
+
 _ALLOWED_ORIGINS = {
     "http://localhost:10000", "http://localhost:5001", "http://127.0.0.1:10000",
     "http://127.0.0.1:5001", "https://media-plan-generator.onrender.com",
@@ -7199,25 +7209,24 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         super().end_headers()
 
     def _get_cors_origin(self):
-        """Return the request Origin if it is in the allowlist, else empty string."""
+        """Return the request Origin if it is in the allowlist, else empty string.
+        SECURITY: CORS_ALLOW_ALL removed to prevent accidental exposure in production."""
         origin = self.headers.get("Origin", "")
-        if origin in _ALLOWED_ORIGINS or os.environ.get("CORS_ALLOW_ALL") == "1":
+        if origin in _ALLOWED_ORIGINS:
             return origin
         return ""  # No CORS header = browser blocks
 
     def _check_admin_auth(self):
-        """Check for admin API key in query params or Authorization header.
+        """Check for admin API key via Authorization header only.
         Uses hmac.compare_digest for timing-safe comparison to prevent
-        timing side-channel attacks on the API key."""
+        timing side-channel attacks on the API key.
+        SECURITY: Fails closed -- rejects if ADMIN_API_KEY is not configured."""
         if not ADMIN_API_KEY:
-            return True  # No key configured = development mode
-        parsed = urlparse(self.path)
-        params = urllib.parse.parse_qs(parsed.query)
-        key = params.get("key", [None])[0]
-        if not key:
-            auth = self.headers.get("Authorization", "")
-            if auth.startswith("Bearer "):
-                key = auth[7:]
+            return False  # No key configured = reject (fail closed)
+        auth = self.headers.get("Authorization", "")
+        key = None
+        if auth.startswith("Bearer "):
+            key = auth[7:]
         if not key:
             return False
         import hmac
@@ -7248,6 +7257,23 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 ]
                 for ip in stale:
                     _rate_limit_store.pop(ip, None)
+        return True
+
+    def _check_global_chat_rate_limit(self):
+        """Global rate limit across all IPs for /api/chat to prevent distributed cost abuse.
+
+        Thread-safe. Returns True if request is allowed, False if limit exceeded.
+        """
+        now = time.time()
+        with _global_chat_lock:
+            # Purge expired timestamps
+            _global_chat_timestamps[:] = [
+                t for t in _global_chat_timestamps
+                if now - t < _RATE_LIMIT_WINDOW
+            ]
+            if len(_global_chat_timestamps) >= _GLOBAL_CHAT_RATE_LIMIT_MAX:
+                return False
+            _global_chat_timestamps.append(now)
         return True
 
     def do_GET(self):
@@ -7296,7 +7322,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 from nova import get_nova_metrics
                 self._send_json(get_nova_metrics())
             except Exception as e:
-                self._send_json({"error": str(e)})
+                logger.error("Nova metrics error: %s", e, exc_info=True)
+                self._send_json({"error": "Failed to retrieve Nova metrics"})
         elif parsed.path == "/api/slack/status":
             # ── Slack Bot Diagnostic Endpoint (admin-protected) ──
             if not self._check_admin_auth():
@@ -7306,11 +7333,10 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             _slack_signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
             diag = {
                 "slack_bot_token": "SET" if _slack_bot_token else "NOT SET",
-                "slack_bot_token_prefix": _slack_bot_token[:12] + "..." if len(_slack_bot_token) > 12 else ("TOO SHORT" if _slack_bot_token else "EMPTY"),
                 "slack_signing_secret": "SET" if _slack_signing_secret else "NOT SET",
                 "anthropic_api_key": "SET" if os.environ.get("ANTHROPIC_API_KEY", "") else "NOT SET",
                 "event_endpoint": "/api/slack/events",
-                "event_endpoint_url": "https://media-plan-generator.onrender.com/api/slack/events",
+                "event_endpoint_url": os.environ.get("BASE_URL", "https://media-plan-generator.onrender.com") + "/api/slack/events",
                 "admin_endpoint": "/api/admin/nova",
             }
             # Try to instantiate bot and check auth
@@ -7621,15 +7647,16 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 return
 
             # Sanitize all string inputs: strip HTML/script tags to prevent stored XSS
-            def _sanitize_str(val):
+            def _sanitize_val(val):
                 if isinstance(val, str):
                     return re.sub(r'<[^>]+>', '', val).strip()
+                if isinstance(val, list):
+                    return [_sanitize_val(v) for v in val]
+                if isinstance(val, dict):
+                    return {k: _sanitize_val(v) for k, v in val.items()}
                 return val
             for _skey in list(data.keys()):
-                if isinstance(data[_skey], str):
-                    data[_skey] = _sanitize_str(data[_skey])
-                elif isinstance(data[_skey], list):
-                    data[_skey] = [_sanitize_str(v) if isinstance(v, str) else v for v in data[_skey]]
+                data[_skey] = _sanitize_val(data[_skey])
 
             # Validate required fields
             client_name_input = (data.get("client_name") or "").strip()
@@ -7784,6 +7811,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
             # ── Phase 2: Load Knowledge Base ──
             kb = load_knowledge_base()
+            data["_knowledge_base"] = kb  # Pass KB to PPT for fallback data
 
             # ── Phase 3: Data Synthesis ──
             if data_synthesize is not None:
@@ -7824,15 +7852,21 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             if calculate_budget_allocation is not None:
                 try:
                     _ind_key_ba = data.get("industry", "general_entry_level")
-                    _INDUSTRY_ALLOC_BA = {
-                        "healthcare_medical":     {"programmatic_dsp": 22, "global_boards": 15, "niche_boards": 30, "social_media": 10, "regional_boards": 10, "employer_branding": 8, "apac_regional": 3, "emea_regional": 2},
-                        "tech_engineering":       {"programmatic_dsp": 30, "global_boards": 15, "niche_boards": 20, "social_media": 18, "regional_boards": 5,  "employer_branding": 7, "apac_regional": 3, "emea_regional": 2},
-                        "finance_banking":        {"programmatic_dsp": 25, "global_boards": 18, "niche_boards": 25, "social_media": 10, "regional_boards": 7,  "employer_branding": 10, "apac_regional": 3, "emea_regional": 2},
-                        "retail_consumer":        {"programmatic_dsp": 38, "global_boards": 22, "niche_boards": 8,  "social_media": 20, "regional_boards": 7,  "employer_branding": 3, "apac_regional": 1, "emea_regional": 1},
-                        "general_entry_level":    {"programmatic_dsp": 40, "global_boards": 22, "niche_boards": 8,  "social_media": 15, "regional_boards": 10, "employer_branding": 3, "apac_regional": 1, "emea_regional": 1},
-                    }
                     _DEFAULT_ALLOC_BA = {"programmatic_dsp": 35, "global_boards": 20, "niche_boards": 15, "social_media": 12, "regional_boards": 8, "employer_branding": 5, "apac_regional": 3, "emea_regional": 2}
-                    channel_pcts = _INDUSTRY_ALLOC_BA.get(_ind_key_ba, _DEFAULT_ALLOC_BA)
+                    # Use the expanded 17-industry profiles from ppt_generator if available,
+                    # falling back to the default allocation
+                    if INDUSTRY_ALLOC_PROFILES is not None:
+                        channel_pcts = INDUSTRY_ALLOC_PROFILES.get(_ind_key_ba, _DEFAULT_ALLOC_BA)
+                    else:
+                        # Inline fallback if ppt_generator is not importable (5 industries)
+                        _INDUSTRY_ALLOC_BA_FALLBACK = {
+                            "healthcare_medical":     {"programmatic_dsp": 22, "global_boards": 15, "niche_boards": 30, "social_media": 10, "regional_boards": 10, "employer_branding": 8, "apac_regional": 3, "emea_regional": 2},
+                            "tech_engineering":       {"programmatic_dsp": 30, "global_boards": 15, "niche_boards": 20, "social_media": 18, "regional_boards": 5,  "employer_branding": 7, "apac_regional": 3, "emea_regional": 2},
+                            "finance_banking":        {"programmatic_dsp": 25, "global_boards": 18, "niche_boards": 25, "social_media": 10, "regional_boards": 7,  "employer_branding": 10, "apac_regional": 3, "emea_regional": 2},
+                            "retail_consumer":        {"programmatic_dsp": 38, "global_boards": 22, "niche_boards": 8,  "social_media": 20, "regional_boards": 7,  "employer_branding": 3, "apac_regional": 1, "emea_regional": 1},
+                            "general_entry_level":    {"programmatic_dsp": 40, "global_boards": 22, "niche_boards": 8,  "social_media": 15, "regional_boards": 10, "employer_branding": 3, "apac_regional": 1, "emea_regional": 1},
+                        }
+                        channel_pcts = _INDUSTRY_ALLOC_BA_FALLBACK.get(_ind_key_ba, _DEFAULT_ALLOC_BA)
 
                     # Parse budget to float — check both "budget" and "budget_range" keys
                     # Frontend sends budget_range (e.g. "$250,000 - $500,000", "< $50,000")
@@ -7939,9 +7973,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Generation failed. Please check your inputs and try again."}).encode())
                 return
 
-            import re as _re
             # Sanitize client_name to ASCII-safe characters (prevents CJK/Unicode crashes in filenames/headers)
-            client_name = _re.sub(r'[^a-zA-Z0-9_\-]', '_', data.get("client_name") or "Client")
+            client_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', data.get("client_name") or "Client")
 
             # Generate Strategy PPT deck
             pptx_bytes = None
@@ -8027,7 +8060,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     _metrics.record_generation(generation_time)
         elif parsed.path == "/api/chat":
             # ── Nova Chat Endpoint ──
-            if not self._check_rate_limit():
+            if not self._check_rate_limit() or not self._check_global_chat_rate_limit():
                 self.send_response(429)
                 self.send_header("Content-Type", "application/json")
                 cors_origin = self._get_cors_origin()
@@ -8049,7 +8082,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Empty request body"}).encode())
                 return
-            if content_len > 1 * 1024 * 1024:  # 1MB limit for chat
+            if content_len > 100 * 1024:  # 100KB limit for chat (4000 char msg + history)
                 self.send_response(413)
                 self.send_header("Content-Type", "application/json")
                 cors_origin = self._get_cors_origin()
@@ -8160,7 +8193,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     self.wfile.write(json.dumps({"error": "Signature verification failed"}).encode())
                     return
             else:
-                logger.debug("SLACK_SIGNING_SECRET not set -- skipping signature verification (dev mode)")
+                logger.warning("SLACK_SIGNING_SECRET not set -- rejecting Slack event (configure to enable)")
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Slack signing secret not configured"}).encode())
+                return
 
             # Respond to Slack immediately (within 3 seconds), process async
             self.send_response(200)

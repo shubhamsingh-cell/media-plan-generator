@@ -20,6 +20,11 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 
+try:
+    import research
+except ImportError:
+    research = None
+
 
 # ---------------------------------------------------------------------------
 # Constants & Color Palette (LinkedIn-inspired)
@@ -567,9 +572,42 @@ def _add_multi_run_paragraph(tf, runs_data: List[Tuple], alignment=PP_ALIGN.LEFT
     return p
 
 
-def _get_benchmarks(industry: str) -> Dict[str, str]:
-    """Return benchmark data for the given industry, falling back to general."""
-    return BENCHMARKS.get(industry, BENCHMARKS["general_entry_level"])
+def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str]:
+    """Return benchmark data for the given industry.
+
+    Checks synthesized ad_platform_analysis first for live CPC/CPA data.
+    Falls back to hardcoded BENCHMARKS dict if no live data available.
+    """
+    # Start with hardcoded fallback
+    result = dict(BENCHMARKS.get(industry, BENCHMARKS["general_entry_level"]))
+
+    # Override with live synthesized data if available
+    if data:
+        synthesized = data.get("_synthesized", {})
+        if isinstance(synthesized, dict):
+            ad_plat = synthesized.get("ad_platform_analysis", {})
+            if isinstance(ad_plat, dict) and ad_plat:
+                live_cpcs = []
+                live_cpas = []
+                for plat_name, plat_data in ad_plat.items():
+                    if not isinstance(plat_data, dict) or plat_name.startswith("_"):
+                        continue
+                    cpc = plat_data.get("avg_cpc") or plat_data.get("cpc")
+                    cpa = plat_data.get("avg_cpa") or plat_data.get("cpa")
+                    if cpc and isinstance(cpc, (int, float)) and cpc > 0:
+                        live_cpcs.append(cpc)
+                    if cpa and isinstance(cpa, (int, float)) and cpa > 0:
+                        live_cpas.append(cpa)
+                if live_cpcs:
+                    min_cpc = min(live_cpcs)
+                    max_cpc = max(live_cpcs)
+                    result["cpc"] = f"${min_cpc:.2f} - ${max_cpc:.2f}" if min_cpc != max_cpc else f"${min_cpc:.2f}"
+                if live_cpas:
+                    min_cpa = min(live_cpas)
+                    max_cpa = max(live_cpas)
+                    result["cpa"] = f"${min_cpa:.0f} - ${max_cpa:.0f}" if min_cpa != max_cpa else f"${min_cpa:.0f}"
+
+    return result
 
 
 def _get_complications(industry: str) -> List[str]:
@@ -983,7 +1021,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         sit_items.append(("Market Temp.", f"{market_temp_str.title()} ({temp_colors.get(market_temp_str, 'N/A')})"))
 
     # Add apply rate insight with appropriate framing
-    benchmarks = _get_benchmarks(industry)
+    benchmarks = _get_benchmarks(industry, data)
     apply_rate_str = benchmarks.get("apply_rate", "")
     if apply_rate_str:
         import re as _re_ar
@@ -1115,7 +1153,8 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         rt.text = ch["label"]
         _set_font(rt, size=9, bold=False, color=DARK_TEXT)
 
-    _add_paragraph(tf4, "\u2713  ML-optimized bidding across 1,200+ publishers",
+    _total_pubs = data.get("_joveo_publishers", {}).get("total_active_publishers", 10238)
+    _add_paragraph(tf4, f"\u2713  ML-optimized bidding across {_total_pubs:,}+ publishers",
                    font_size=9, color=DARK_TEXT, space_before=1, space_after=4)
 
     if goals:
@@ -1287,7 +1326,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     industry = data.get("industry", "general_entry_level")
     industry_label = data.get("industry_label", industry.replace("_", " ").title())
     channels = _selected_channels(data)
-    benchmarks = _get_benchmarks(industry)
+    benchmarks = _get_benchmarks(industry, data)
     today = datetime.date.today().strftime("%B %d, %Y")
 
     # Pull synthesized + budget allocation data (from pipeline)
@@ -1411,21 +1450,32 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         ("Apply Rate", benchmarks["apply_rate"]),
     ]
 
-    # Add real job market data from Adzuna enrichment if available
-    enriched = data.get("_enriched", {})
-    job_market = enriched.get("job_market", {}) if enriched else {}
+    # Add real job market data -- prefer synthesized over raw enrichment
+    job_market = synthesized.get("job_market_demand", {}) if isinstance(synthesized, dict) and synthesized else {}
+    if not job_market:
+        enriched = data.get("_enriched", {})
+        job_market = enriched.get("job_market", {}) if enriched else {}
     if job_market:
         try:
             for role_name, jm_data in list(job_market.items())[:2]:
-                posting_count = jm_data.get("posting_count", 0)
+                if not isinstance(jm_data, dict) or role_name.startswith("_"):
+                    continue
+                # Handle both synthesized (total_postings) and raw enriched (posting_count) keys
+                posting_count = jm_data.get("total_postings", jm_data.get("posting_count", 0))
                 avg_sal = jm_data.get("avg_salary", 0)
-                if posting_count > 0:
+                if posting_count and posting_count > 0:
                     bench_rows.append(
                         (f"Live Postings: {role_name}", f"{posting_count:,} active jobs")
                     )
-                if avg_sal > 0:
+                if avg_sal and avg_sal > 0:
                     bench_rows.append(
                         (f"Avg Salary: {role_name}", _format_salary(avg_sal))
+                    )
+                # Synthesized data may have market_temperature
+                market_temp = jm_data.get("market_temperature", "")
+                if market_temp and isinstance(market_temp, str):
+                    bench_rows.append(
+                        (f"Market Temp: {role_name}", market_temp.title())
                     )
         except (TypeError, AttributeError):
             pass
@@ -1686,7 +1736,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     real_avg_cpa = ba_total_proj.get("cost_per_application", 0)
     ba_avg_cph = ba_total_proj.get("cost_per_hire", 0)
 
-    benchmarks = _get_benchmarks(industry)
+    benchmarks = _get_benchmarks(industry, data)
     cpa_str = benchmarks.get("cpa", "$25")
     try:
         cpa_nums = re.findall(r'[\d.]+', cpa_str.replace(",", ""))
@@ -2345,7 +2395,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         proj_apps = ba_total_proj_comp.get("applications", 0)
 
         # Get industry benchmark CPA for comparison
-        bench = _get_benchmarks(industry)
+        bench = _get_benchmarks(industry, data)
         cpa_str = bench.get("cpa", "$25")
         try:
             cpa_nums = re.findall(r'[\d.]+', cpa_str.replace(",", ""))
@@ -3069,6 +3119,46 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
         if not isinstance(loc_profiles, dict):
             loc_profiles = {}
 
+        # Fallback: if no synthesized location profiles, build from research.COUNTRY_DATA
+        if not loc_profiles and research is not None and locations:
+            for loc_str in locations[:4]:
+                if not isinstance(loc_str, str):
+                    continue
+                # Try to detect a country name from the location string
+                country_name = research._detect_country(loc_str)
+                if country_name and country_name in research.COUNTRY_DATA:
+                    cd = research.COUNTRY_DATA[country_name]
+                    # Build a profile matching the expected location_profiles schema
+                    pop_str = cd.get("population", "")
+                    try:
+                        pop_val = int(re.sub(r'[^\d]', '', str(pop_str).replace("M", "000000").replace("B", "000000000")))
+                    except (ValueError, TypeError):
+                        pop_val = 0
+                    loc_profiles[country_name] = {
+                        "population": pop_val,
+                        "median_household_income": cd.get("median_salary", 0),
+                        "cost_of_living_index": cd.get("coli", 0),
+                        "currency": cd.get("currency", ""),
+                        "timezone": "",
+                        "top_job_boards": cd.get("top_boards", ""),
+                        "unemployment_rate": cd.get("unemployment", ""),
+                        "top_industries": cd.get("top_industries", ""),
+                    }
+                elif not country_name:
+                    # US location -- add a basic "United States" card if not already added
+                    if "United States" not in loc_profiles:
+                        us_data = research.COUNTRY_DATA.get("United States", {})
+                        loc_profiles[loc_str] = {
+                            "population": 333000000,
+                            "median_household_income": us_data.get("median_salary", 65000),
+                            "cost_of_living_index": us_data.get("coli", 100),
+                            "currency": "USD",
+                            "timezone": "",
+                            "top_job_boards": us_data.get("top_boards", ""),
+                            "unemployment_rate": us_data.get("unemployment", ""),
+                            "top_industries": us_data.get("top_industries", ""),
+                        }
+
         # Off-white background
         _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
 
@@ -3141,12 +3231,18 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
             talent_density = loc_data.get("talent_density", 0)
             if talent_density and talent_density > 0:
                 items.append(("Talent Density", f"{talent_density:.1%}"))
+            unemployment = loc_data.get("unemployment_rate", "")
+            if unemployment:
+                items.append(("Unemployment", str(unemployment)))
             currency = loc_data.get("currency", "")
             if currency:
                 items.append(("Currency", str(currency)))
             timezone = loc_data.get("timezone", "")
             if timezone:
                 items.append(("Timezone", str(timezone)[:18]))
+            top_boards = loc_data.get("top_job_boards", "")
+            if top_boards:
+                items.append(("Top Boards", str(top_boards)[:60]))
 
             box_loc, tf_loc = _add_textbox(slide, content_left, content_top,
                                             content_w, Inches(1.8))
@@ -3279,6 +3375,36 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         if not isinstance(comp_intel, dict):
             comp_intel = {}
 
+        # Fallback: if no competitive intelligence from synthesis, try knowledge base
+        if not comp_intel:
+            kb = data.get("_knowledge_base", {})
+            if isinstance(kb, dict) and kb:
+                industry_key = data.get("industry", "general_entry_level")
+                # Try recruitment_benchmarks section for industry-level data
+                rb = kb.get("recruitment_benchmarks", {})
+                if isinstance(rb, dict):
+                    ind_bench = rb.get("industry_benchmarks", {}).get(industry_key, {})
+                    if not isinstance(ind_bench, dict):
+                        # Try alternative key formats (e.g., "technology_engineering" vs "tech_engineering")
+                        for kb_key in rb.get("industry_benchmarks", {}):
+                            if industry_key.split("_")[0] in kb_key:
+                                ind_bench = rb["industry_benchmarks"][kb_key]
+                                break
+                    if ind_bench:
+                        # Build a minimal comp_intel from KB benchmarks
+                        hiring_trends_fb = {}
+                        if ind_bench.get("time_to_fill"):
+                            hiring_trends_fb["avg_time_to_fill"] = ind_bench["time_to_fill"]
+                        if ind_bench.get("offer_acceptance_rate"):
+                            hiring_trends_fb["offer_acceptance_rate"] = ind_bench["offer_acceptance_rate"]
+                        if ind_bench.get("quality_of_hire"):
+                            hiring_trends_fb["quality_metrics"] = ind_bench["quality_of_hire"]
+                        if ind_bench.get("source_of_hire"):
+                            hiring_trends_fb["top_sources"] = ind_bench["source_of_hire"]
+                        if hiring_trends_fb:
+                            comp_intel["hiring_trends"] = hiring_trends_fb
+                            comp_intel["company_profile"] = {"name": client}
+
         # Off-white background
         _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
 
@@ -3393,6 +3519,18 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             demand_drivers = kb_insights.get("demand_drivers", [])
             if isinstance(demand_drivers, list) and demand_drivers:
                 trend_items.append(f"Drivers: {', '.join(str(d) for d in demand_drivers[:3])}")
+
+        # KB benchmark fallback data (from _knowledge_base)
+        ttf = hiring_trends.get("avg_time_to_fill")
+        if ttf:
+            trend_items.append(f"Avg Time-to-Fill: {ttf}")
+        oar = hiring_trends.get("offer_acceptance_rate")
+        if oar:
+            trend_items.append(f"Offer Acceptance: {oar}")
+        top_src = hiring_trends.get("top_sources")
+        if isinstance(top_src, dict) and top_src:
+            src_items = [f"{k}: {v}" for k, v in list(top_src.items())[:3]]
+            trend_items.append(f"Top Sources: {', '.join(src_items)}")
 
         if not trend_items:
             trend_items = ["Industry trend data not available"]

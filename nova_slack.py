@@ -566,7 +566,7 @@ class NovaSlackBot:
         # Record assistant response in thread history
         # Strip Slack formatting prefix for clean history
         response_text = response.get("text", "")
-        clean_response = response_text.replace("*Nova says:*\n\n", "").split("\n\n_Source")[0]
+        clean_response = re.sub(r'\n\n_Sources?:.*$', '', response_text.replace("*Nova says:*\n\n", ""), flags=re.DOTALL)
         self._add_to_thread_history(thread_ts, "assistant", clean_response)
 
         # Post to Slack (non-blocking best-effort)
@@ -591,7 +591,7 @@ class NovaSlackBot:
 
             self._thread_history[thread_ts].append({
                 "role": role,
-                "content": content[:2000],  # Truncate long messages
+                "content": content[:2000] if role == "user" else content[:6000],  # Keep assistant responses longer for context
                 "timestamp": time.time(),
             })
 
