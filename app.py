@@ -7287,6 +7287,16 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 return
             metrics_data = _metrics.get_metrics() if _metrics else {"error": "Monitoring not available"}
             self._send_json(metrics_data)
+        elif parsed.path == "/api/nova/metrics":
+            # Nova chatbot metrics (admin-protected)
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            try:
+                from nova import get_nova_metrics
+                self._send_json(get_nova_metrics())
+            except Exception as e:
+                self._send_json({"error": str(e)})
         elif parsed.path == "/api/slack/status":
             # ── Slack Bot Diagnostic Endpoint (admin-protected) ──
             if not self._check_admin_auth():

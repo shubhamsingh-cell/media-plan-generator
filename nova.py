@@ -52,6 +52,114 @@ MAX_RESPONSE_CACHE_SIZE = 200
 _response_cache: Dict[str, Any] = {}
 _response_cache_lock = threading.Lock()
 
+# ---------------------------------------------------------------------------
+# Nova Metrics Tracker (lightweight, thread-safe)
+# ---------------------------------------------------------------------------
+class _NovaMetrics:
+    """Track Nova chatbot performance counters for the /api/nova/metrics endpoint."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._start_time = time.time()
+        # Response mode counters
+        self.learned_answer_hits: int = 0
+        self.cache_hits: int = 0
+        self.claude_api_calls: int = 0
+        self.rule_based_calls: int = 0
+        # Token tracking (from Claude API responses)
+        self.total_input_tokens: int = 0
+        self.total_output_tokens: int = 0
+        self.total_cache_creation_tokens: int = 0
+        self.total_cache_read_tokens: int = 0
+        # Latency tracking (last 200 response times in ms)
+        self._latencies: List[float] = []
+        # Error counter
+        self.api_errors: int = 0
+
+    def record_learned_answer(self) -> None:
+        with self._lock:
+            self.learned_answer_hits += 1
+
+    def record_cache_hit(self) -> None:
+        with self._lock:
+            self.cache_hits += 1
+
+    def record_claude_call(self, input_tokens: int = 0, output_tokens: int = 0,
+                           cache_creation: int = 0, cache_read: int = 0) -> None:
+        with self._lock:
+            self.claude_api_calls += 1
+            self.total_input_tokens += input_tokens
+            self.total_output_tokens += output_tokens
+            self.total_cache_creation_tokens += cache_creation
+            self.total_cache_read_tokens += cache_read
+
+    def record_rule_based(self) -> None:
+        with self._lock:
+            self.rule_based_calls += 1
+
+    def record_latency(self, ms: float) -> None:
+        with self._lock:
+            self._latencies.append(ms)
+            if len(self._latencies) > 200:
+                self._latencies = self._latencies[-200:]
+
+    def record_api_error(self) -> None:
+        with self._lock:
+            self.api_errors += 1
+
+    def snapshot(self) -> Dict[str, Any]:
+        """Return a metrics snapshot for the /api/nova/metrics endpoint."""
+        with self._lock:
+            total = (self.learned_answer_hits + self.cache_hits +
+                     self.claude_api_calls + self.rule_based_calls)
+            lats = sorted(self._latencies) if self._latencies else []
+            avg_lat = round(sum(lats) / len(lats), 1) if lats else 0
+            p95_lat = round(lats[int(len(lats) * 0.95)] if lats else 0, 1)
+
+            # Estimated cost (Haiku 4.5: $1/M input, $5/M output)
+            input_cost = self.total_input_tokens / 1_000_000 * 1.0
+            output_cost = self.total_output_tokens / 1_000_000 * 5.0
+            # Cache read tokens are 90% cheaper
+            cache_read_cost = self.total_cache_read_tokens / 1_000_000 * 0.1
+            cache_creation_cost = self.total_cache_creation_tokens / 1_000_000 * 1.25
+            total_cost = input_cost + output_cost + cache_read_cost + cache_creation_cost
+
+            return {
+                "total_requests": total,
+                "response_modes": {
+                    "learned_answers": self.learned_answer_hits,
+                    "cache_hits": self.cache_hits,
+                    "claude_api": self.claude_api_calls,
+                    "rule_based": self.rule_based_calls,
+                },
+                "cache_hit_rate_pct": round(
+                    (self.learned_answer_hits + self.cache_hits) / max(1, total) * 100, 1
+                ),
+                "tokens": {
+                    "total_input": self.total_input_tokens,
+                    "total_output": self.total_output_tokens,
+                    "total_cache_read": self.total_cache_read_tokens,
+                    "total_cache_creation": self.total_cache_creation_tokens,
+                    "avg_input_per_call": round(
+                        self.total_input_tokens / max(1, self.claude_api_calls)
+                    ),
+                    "avg_output_per_call": round(
+                        self.total_output_tokens / max(1, self.claude_api_calls)
+                    ),
+                },
+                "estimated_cost_usd": round(total_cost, 4),
+                "latency_ms": {
+                    "avg": avg_lat,
+                    "p95": p95_lat,
+                    "samples": len(lats),
+                },
+                "api_errors": self.api_errors,
+                "model": CLAUDE_MODEL,
+                "uptime_seconds": round(time.time() - self._start_time, 1),
+            }
+
+_nova_metrics = _NovaMetrics()
+
 # Country name aliases for fuzzy matching
 _COUNTRY_ALIASES: Dict[str, str] = {
     "us": "United States", "usa": "United States", "united states": "United States",
@@ -1849,9 +1957,12 @@ Always call tools before answering data questions. Use `query_platform_deep` for
         user_message = user_message.strip()[:MAX_MESSAGE_LENGTH]
 
         # --- Learned answers (fastest exit path, 0 API tokens) ---
+        _t0 = time.time()
         learned = _check_learned_answers(user_message)
         if learned:
             logger.info("NOVA MODE: Learned answer match -- returning cached answer")
+            _nova_metrics.record_learned_answer()
+            _nova_metrics.record_latency((time.time() - _t0) * 1000)
             return learned
 
         # --- Response cache (standalone questions only) ---
@@ -1861,6 +1972,8 @@ Always call tools before answering data questions. Use `query_platform_deep` for
             cached = _get_response_cache(cache_key)
             if cached:
                 logger.info("NOVA MODE: Cache hit -- returning cached response")
+                _nova_metrics.record_cache_hit()
+                _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 return cached
 
         # Check for Claude API mode
@@ -1870,18 +1983,23 @@ Always call tools before answering data questions. Use `query_platform_deep` for
                 logger.info("NOVA MODE: Using Claude API (Anthropic) for chat")
                 result = self._chat_with_claude(user_message, conversation_history, enrichment_context, api_key)
                 logger.info("NOVA MODE: Claude API response received successfully")
+                _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 # Cache successful responses with sufficient confidence
                 if result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
                     _set_response_cache(cache_key, result)
                 return result
             except Exception as e:
                 logger.error("Claude API call failed, falling back to rule-based: %s", e)
+                _nova_metrics.record_api_error()
         else:
             logger.info("NOVA MODE: No ANTHROPIC_API_KEY set, using rule-based mode")
 
         # Rule-based fallback
         logger.info("NOVA MODE: Using rule-based fallback")
-        return self._chat_rule_based(user_message, enrichment_context, conversation_history)
+        _nova_metrics.record_rule_based()
+        result = self._chat_rule_based(user_message, enrichment_context, conversation_history)
+        _nova_metrics.record_latency((time.time() - _t0) * 1000)
+        return result
 
     def _chat_with_claude(self, user_message: str, conversation_history: Optional[list],
                           enrichment_context: Optional[dict], api_key: str) -> dict:
@@ -1975,6 +2093,16 @@ Always call tools before answering data questions. Use `query_platform_deep` for
                 if iteration == 0:
                     raise
                 break
+
+            # Track token usage from API response
+            _usage = resp_data.get("usage", {})
+            _in_tok = _usage.get("input_tokens", 0)
+            _out_tok = _usage.get("output_tokens", 0)
+            _cache_create = _usage.get("cache_creation_input_tokens", 0)
+            _cache_read = _usage.get("cache_read_input_tokens", 0)
+            _nova_metrics.record_claude_call(_in_tok, _out_tok, _cache_create, _cache_read)
+            logger.info("Nova tokens: in=%d out=%d cache_read=%d cache_create=%d",
+                        _in_tok, _out_tok, _cache_read, _cache_create)
 
             stop_reason = resp_data.get("stop_reason", "end_turn")
             content_blocks = resp_data.get("content", [])
@@ -3384,3 +3512,8 @@ def handle_chat_request(request_data: dict) -> dict:
             "tools_used": [],
             "error": str(e),
         }
+
+
+def get_nova_metrics() -> Dict[str, Any]:
+    """Return Nova chatbot metrics snapshot for the health/metrics endpoint."""
+    return _nova_metrics.snapshot()
