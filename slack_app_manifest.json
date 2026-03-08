@@ -1,9 +1,9 @@
 {
   "display_information": {
     "name": "Nova by Joveo",
-    "description": "Joveo's recruitment marketing intelligence assistant. Ask Nova about publishers, channels, benchmarks, CPC/CPA data, and budget recommendations across 33 countries.",
+    "description": "Joveo's recruitment marketing intelligence assistant. Ask Nova about publishers, channels, benchmarks, CPC/CPA data, and budget recommendations across 70+ countries.",
     "background_color": "#0066CC",
-    "long_description": "Nova is Joveo's AI-powered recruitment marketing intelligence chatbot. It provides instant answers to questions about publisher performance, channel benchmarks, CPC/CPA metrics, salary data, budget allocation, and global supply across 33 countries and 1,238+ publishers. Nova learns from your team's answers and gets smarter over time."
+    "long_description": "Nova is Joveo's AI-powered recruitment marketing intelligence chatbot. It provides instant answers to questions about publisher performance, channel benchmarks, CPC/CPA metrics, salary data, budget allocation, and global supply across 70+ countries and 10,238+ Supply Partners. Nova learns from your team's answers and gets smarter over time."
   },
   "features": {
     "bot_user": {

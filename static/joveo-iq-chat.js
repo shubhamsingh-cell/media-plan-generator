@@ -591,8 +591,8 @@
     var welcomeMsg = {
       role: 'assistant',
       content: 'Hello! I\'m **Nova**, your recruitment marketing intelligence assistant. '
-        + 'I have access to data from **1,238+ publishers**, job boards across **30+ countries**, '
-        + 'and comprehensive industry benchmarks.\n\nHow can I help you today?',
+        + 'I have access to data from **10,238+ Supply Partners**, job boards across **70+ countries**, '
+        + 'and comprehensive industry benchmarks and salary data.\n\nHow can I help you today?',
       sources: [],
       confidence: 1.0,
     };

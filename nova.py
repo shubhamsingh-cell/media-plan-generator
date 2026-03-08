@@ -432,7 +432,7 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
             },
             {
                 "name": "query_publishers",
-                "description": "Search Joveo's active publisher network of 1,238+ publishers by country, category, or name. USE WHEN: the user asks how many publishers Joveo has, wants to find a specific publisher by name, or wants publisher lists filtered by country/category. DO NOT USE for job board performance benchmarks (use query_platform_deep) or for channel strategy (use query_channels). RETURNS: publisher names, counts, and category/country breakdowns.",
+                "description": "Search Joveo's active supply partner network of 10,238+ Supply Partners by country, category, or name. USE WHEN: the user asks how many publishers/supply partners Joveo has, wants to find a specific publisher by name, or wants publisher lists filtered by country/category. DO NOT USE for job board performance benchmarks (use query_platform_deep) or for channel strategy (use query_channels). RETURNS: publisher names, counts, and category/country breakdowns.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -1926,8 +1926,8 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
             return {
                 "response": (
                     "Hello! I'm *Nova*, your recruitment marketing intelligence assistant. "
-                    "I have access to data from *1,238+ publishers*, job boards across *30+ countries*, "
-                    "and comprehensive industry benchmarks.\n\n"
+                    "I have access to data from *10,238+ Supply Partners*, job boards across *70+ countries*, "
+                    "and comprehensive industry benchmarks and salary data.\n\n"
                     "Here are some things I can help with:\n\n"
                     "- *Publisher & Board Recommendations*: \"What publishers work best for nursing roles?\"\n"
                     "- *Industry Benchmarks*: \"What's the average CPA for tech roles?\"\n"
@@ -2375,7 +2375,7 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
 
                 response_text = (
                     "I can help you with recruitment marketing intelligence. "
-                    "Based on Joveo's data across *1,238+ publishers* in *30+ countries*, "
+                    "Based on Joveo's data across *10,238+ Supply Partners* in *70+ countries*, "
                     "I can answer questions about:\n\n"
                     "- *Job boards and publishers* for specific countries or industries\n"
                     "- *CPC, CPA, and cost-per-hire benchmarks* by industry and platform\n"
