@@ -1839,11 +1839,17 @@ Good response approach: Call query_salary_data, query_market_demand, query_recru
         api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
         if api_key:
             try:
-                return self._chat_with_claude(user_message, conversation_history, enrichment_context, api_key)
+                logger.info("NOVA MODE: Using Claude API (Anthropic) for chat")
+                result = self._chat_with_claude(user_message, conversation_history, enrichment_context, api_key)
+                logger.info("NOVA MODE: Claude API response received successfully")
+                return result
             except Exception as e:
                 logger.error("Claude API call failed, falling back to rule-based: %s", e)
+        else:
+            logger.info("NOVA MODE: No ANTHROPIC_API_KEY set, using rule-based mode")
 
         # Rule-based fallback
+        logger.info("NOVA MODE: Using rule-based fallback")
         return self._chat_rule_based(user_message, enrichment_context, conversation_history)
 
     def _chat_with_claude(self, user_message: str, conversation_history: Optional[list],
