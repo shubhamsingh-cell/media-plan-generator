@@ -23,6 +23,12 @@ services:
         sync: false
       - key: SLACK_SIGNING_SECRET
         sync: false
+      - key: SLACK_REFRESH_TOKEN
+        sync: false
+      - key: SLACK_CLIENT_ID
+        sync: false
+      - key: SLACK_CLIENT_SECRET
+        sync: false
       - key: BLS_API_KEY
         sync: false
       - key: FRED_API_KEY

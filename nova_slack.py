@@ -36,6 +36,13 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 UNANSWERED_FILE = DATA_DIR / "nova_unanswered_questions.json"
 LEARNED_ANSWERS_FILE = DATA_DIR / "nova_learned_answers.json"
 SLACK_HISTORY_CACHE_FILE = DATA_DIR / "nova_slack_history_cache.json"
+TOKEN_CACHE_FILE = DATA_DIR / "nova_slack_token_cache.json"
+
+# Token refresh constants
+_TOKEN_REFRESH_INTERVAL = 30 * 60        # Check every 30 minutes
+_TOKEN_EXPIRY_BUFFER = 2 * 60 * 60       # Refresh when within 2 hours of expiry
+_TOKEN_RETRY_DELAY = 5 * 60              # Retry after 5 minutes on failure
+_TOKEN_DEFAULT_LIFETIME = 12 * 60 * 60   # Assume 12-hour lifetime if unknown
 
 # ---------------------------------------------------------------------------
 # P1 FIX: Pre-loaded Q&A pairs that survive ephemeral filesystem redeploys
@@ -147,14 +154,37 @@ class NovaSlackBot:
         slack_bot_token: Optional[str] = None,
         slack_signing_secret: Optional[str] = None,
     ):
-        self.bot_token: str = slack_bot_token or os.environ.get("SLACK_BOT_TOKEN", "")
+        # Thread lock for file I/O
+        self._lock = threading.Lock()
+
+        # Token rotation state -- lock protects bot_token, refresh_token,
+        # _token_issued_at, and _token_expires_in from concurrent access
+        self._token_lock = threading.Lock()
+
+        # Token rotation credentials (from env)
+        self.slack_client_id: str = os.environ.get("SLACK_CLIENT_ID", "")
+        self.slack_client_secret: str = os.environ.get("SLACK_CLIENT_SECRET", "")
+        self.refresh_token: str = os.environ.get("SLACK_REFRESH_TOKEN", "")
+        self._token_issued_at: float = 0.0
+        self._token_expires_in: int = _TOKEN_DEFAULT_LIFETIME
+
+        # Resolve bot_token: try cached tokens first, then env / constructor arg
+        cached = self._load_token_cache()
+        if cached:
+            self.bot_token: str = cached["access_token"]
+            self.refresh_token = cached.get("refresh_token", self.refresh_token)
+            self._token_issued_at = cached.get("issued_at", 0.0)
+            self._token_expires_in = cached.get("expires_in", _TOKEN_DEFAULT_LIFETIME)
+            logger.info("Nova: Loaded cached Slack token (issued %s)",
+                        datetime.utcfromtimestamp(self._token_issued_at).isoformat()
+                        if self._token_issued_at else "unknown")
+        else:
+            self.bot_token = slack_bot_token or os.environ.get("SLACK_BOT_TOKEN", "")
+
         self.signing_secret: str = slack_signing_secret or os.environ.get(
             "SLACK_SIGNING_SECRET", ""
         )
         self.bot_user_id: Optional[str] = None  # Populated after auth.test
-
-        # Thread lock for file I/O
-        self._lock = threading.Lock()
 
         # In-memory caches (populated from disk)
         self.learned_answers: Dict[str, Any] = {}
@@ -172,6 +202,21 @@ class NovaSlackBot:
 
         # Authenticate with Slack to populate bot_user_id
         self._auth_test()
+
+        # Start background token refresh thread (daemon so it won't block exit)
+        if self._can_refresh_tokens():
+            self._refresh_thread = threading.Thread(
+                target=self._token_refresh_loop,
+                name="slack-token-refresh",
+                daemon=True,
+            )
+            self._refresh_thread.start()
+            logger.info("Nova: Token refresh background thread started")
+        else:
+            self._refresh_thread = None
+            logger.info("Nova: Token rotation not configured "
+                        "(missing SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, "
+                        "or SLACK_REFRESH_TOKEN)")
 
         # Nova engine (optional dependency)
         self._iq_engine: Any = None
@@ -194,6 +239,169 @@ class NovaSlackBot:
             )
         except Exception as exc:
             logger.error("Nova: Failed to initialise Nova engine: %s", exc)
+
+    # ------------------------------------------------------------------
+    # Token rotation -- cache, refresh, background loop
+    # ------------------------------------------------------------------
+
+    def _can_refresh_tokens(self) -> bool:
+        """Return True if token rotation credentials are configured."""
+        return bool(
+            self.slack_client_id
+            and self.slack_client_secret
+            and self.refresh_token
+        )
+
+    def _load_token_cache(self) -> Optional[Dict[str, Any]]:
+        """Load cached token data from disk. Returns None if unavailable."""
+        try:
+            if TOKEN_CACHE_FILE.exists():
+                with open(TOKEN_CACHE_FILE, "r") as fh:
+                    data = json.load(fh)
+                # Validate required fields
+                if data.get("access_token"):
+                    return data
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("Nova: Failed to load token cache: %s", exc)
+        return None
+
+    def _save_token_cache(
+        self, access_token: str, refresh_token: str,
+        expires_in: int, issued_at: float,
+    ) -> None:
+        """Persist token data to disk (thread-safe via _lock)."""
+        cache_data = {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "expires_in": expires_in,
+            "issued_at": issued_at,
+            "saved_at": datetime.utcnow().isoformat(),
+        }
+        with self._lock:
+            try:
+                DATA_DIR.mkdir(parents=True, exist_ok=True)
+                tmp = str(TOKEN_CACHE_FILE) + ".tmp"
+                with open(tmp, "w") as fh:
+                    json.dump(cache_data, fh, indent=2)
+                os.replace(tmp, TOKEN_CACHE_FILE)
+                logger.debug("Nova: Token cache saved to %s", TOKEN_CACHE_FILE)
+            except OSError as exc:
+                logger.error("Nova: Failed to save token cache: %s", exc)
+
+    def _refresh_token(self) -> bool:
+        """Exchange the refresh token for a new access token.
+
+        POSTs to ``https://slack.com/api/oauth.v2.access`` with
+        ``grant_type=refresh_token``.  On success, updates in-memory
+        token state and persists to disk cache.  Returns True on success.
+        """
+        import urllib.request
+        import urllib.error
+        import urllib.parse
+
+        if not self._can_refresh_tokens():
+            logger.warning("Nova: Cannot refresh -- missing credentials")
+            return False
+
+        with self._token_lock:
+            current_refresh = self.refresh_token
+
+        post_data = urllib.parse.urlencode({
+            "client_id": self.slack_client_id,
+            "client_secret": self.slack_client_secret,
+            "grant_type": "refresh_token",
+            "refresh_token": current_refresh,
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            "https://slack.com/api/oauth.v2.access",
+            data=post_data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+            logger.error("Nova: Token refresh HTTP error: %s", exc)
+            return False
+        except Exception as exc:
+            logger.error("Nova: Unexpected token refresh error: %s", exc)
+            return False
+
+        if not result.get("ok"):
+            logger.error(
+                "Nova: Token refresh API error: %s", result.get("error", "unknown")
+            )
+            return False
+
+        new_access = result.get("access_token", "")
+        new_refresh = result.get("refresh_token", current_refresh)
+        expires_in = result.get("expires_in", _TOKEN_DEFAULT_LIFETIME)
+        issued_at = time.time()
+
+        if not new_access:
+            logger.error("Nova: Token refresh returned empty access_token")
+            return False
+
+        # Update in-memory state (thread-safe)
+        with self._token_lock:
+            self.bot_token = new_access
+            self.refresh_token = new_refresh
+            self._token_issued_at = issued_at
+            self._token_expires_in = int(expires_in)
+
+        # Persist to disk
+        self._save_token_cache(new_access, new_refresh, int(expires_in), issued_at)
+
+        logger.info(
+            "Nova: Token refreshed successfully (expires_in=%ds, ~%.1fh)",
+            expires_in,
+            expires_in / 3600,
+        )
+        return True
+
+    def _token_near_expiry(self) -> bool:
+        """Return True if the current token is within the expiry buffer."""
+        with self._token_lock:
+            if self._token_issued_at <= 0:
+                # Unknown issue time -- assume it needs refreshing if rotation
+                # is configured (conservative approach)
+                return self._can_refresh_tokens()
+            elapsed = time.time() - self._token_issued_at
+            remaining = self._token_expires_in - elapsed
+        return remaining < _TOKEN_EXPIRY_BUFFER
+
+    def _token_refresh_loop(self) -> None:
+        """Background loop that proactively refreshes the token.
+
+        Runs every ``_TOKEN_REFRESH_INTERVAL`` seconds.  If the token is
+        within ``_TOKEN_EXPIRY_BUFFER`` of expiry, attempts a refresh.
+        On failure, retries after ``_TOKEN_RETRY_DELAY``.
+        """
+        logger.info("Nova: Token refresh loop started")
+        while True:
+            try:
+                time.sleep(_TOKEN_REFRESH_INTERVAL)
+                if self._token_near_expiry():
+                    logger.info("Nova: Token near expiry -- refreshing")
+                    if not self._refresh_token():
+                        logger.warning(
+                            "Nova: Token refresh failed -- retrying in %ds",
+                            _TOKEN_RETRY_DELAY,
+                        )
+                        time.sleep(_TOKEN_RETRY_DELAY)
+                        # Second attempt
+                        if not self._refresh_token():
+                            logger.error(
+                                "Nova: Token refresh retry also failed"
+                            )
+            except Exception as exc:
+                logger.error(
+                    "Nova: Error in token refresh loop: %s", exc
+                )
+                # Sleep before retrying to avoid tight error loops
+                time.sleep(_TOKEN_RETRY_DELAY)
 
     # ------------------------------------------------------------------
     # Persistence -- learned answers
@@ -628,7 +836,9 @@ class NovaSlackBot:
     _last_slack_context_call: float = 0.0
     _slack_context_lock = threading.Lock()
 
-    def _search_slack_context(self, question: str, channel_id: str) -> list:
+    def _search_slack_context(
+        self, question: str, channel_id: str, _retried: bool = False,
+    ) -> list:
         """Search recent channel messages for relevant context.
 
         Fetches the last 100 messages from *channel_id* using the Slack
@@ -637,7 +847,8 @@ class NovaSlackBot:
         message texts.
 
         Rate-limited to at most one API call per second.  Returns an
-        empty list on any error.
+        empty list on any error.  On token errors, refreshes and retries
+        once if token rotation is configured.
         """
         if not self.bot_token or not channel_id:
             return []
@@ -654,6 +865,9 @@ class NovaSlackBot:
         import urllib.request
         import urllib.error
 
+        with self._token_lock:
+            token = self.bot_token
+
         url = (
             "https://slack.com/api/conversations.history"
             f"?channel={channel_id}&limit=100"
@@ -661,7 +875,7 @@ class NovaSlackBot:
         req = urllib.request.Request(
             url,
             headers={
-                "Authorization": f"Bearer {self.bot_token}",
+                "Authorization": f"Bearer {token}",
                 "Content-Type": "application/x-www-form-urlencoded",
             },
         )
@@ -677,9 +891,23 @@ class NovaSlackBot:
             return []
 
         if not data.get("ok"):
+            error_code = data.get("error", "unknown")
+            # Token expired/invalid -- refresh and retry once
+            if (
+                error_code in self._TOKEN_ERROR_CODES
+                and not _retried
+                and self._can_refresh_tokens()
+            ):
+                logger.info(
+                    "Nova: Token error '%s' in context search -- refreshing",
+                    error_code,
+                )
+                if self._refresh_token():
+                    return self._search_slack_context(
+                        question, channel_id, _retried=True,
+                    )
             logger.warning(
-                "Nova: Slack conversations.history error: %s",
-                data.get("error", "unknown"),
+                "Nova: Slack conversations.history error: %s", error_code,
             )
             return []
 
@@ -1040,13 +1268,21 @@ class NovaSlackBot:
 
         return chunks
 
+    # Slack API error codes that indicate an expired or invalid token
+    _TOKEN_ERROR_CODES = frozenset({"token_expired", "invalid_auth", "token_revoked"})
+
     def _post_single_message(
         self,
         channel: str,
         text: str,
         thread_ts: Optional[str] = None,
+        _retried: bool = False,
     ) -> Optional[dict]:
-        """Post a single message chunk to Slack."""
+        """Post a single message chunk to Slack.
+
+        If the API returns a token-related error and token rotation is
+        configured, refreshes the token and retries once.
+        """
         import urllib.request
         import urllib.error
 
@@ -1059,12 +1295,15 @@ class NovaSlackBot:
         if thread_ts:
             payload["thread_ts"] = thread_ts
 
+        with self._token_lock:
+            token = self.bot_token
+
         req = urllib.request.Request(
             "https://slack.com/api/chat.postMessage",
             data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Content-Type": "application/json; charset=utf-8",
-                "Authorization": f"Bearer {self.bot_token}",
+                "Authorization": f"Bearer {token}",
             },
         )
 
@@ -1072,9 +1311,24 @@ class NovaSlackBot:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
                 if not result.get("ok"):
+                    error_code = result.get("error", "")
                     logger.error(
-                        "Nova: Slack API error: %s", result.get("error")
+                        "Nova: Slack API error: %s", error_code
                     )
+                    # Token expired/invalid -- refresh and retry once
+                    if (
+                        error_code in self._TOKEN_ERROR_CODES
+                        and not _retried
+                        and self._can_refresh_tokens()
+                    ):
+                        logger.info(
+                            "Nova: Token error '%s' -- refreshing and retrying",
+                            error_code,
+                        )
+                        if self._refresh_token():
+                            return self._post_single_message(
+                                channel, text, thread_ts, _retried=True,
+                            )
                 return result
         except urllib.error.URLError as exc:
             logger.error("Nova: Failed to post to Slack: %s", exc)
@@ -1083,11 +1337,11 @@ class NovaSlackBot:
             logger.error("Nova: Unexpected error posting to Slack: %s", exc)
             return None
 
-    def _auth_test(self) -> Optional[str]:
-        """Call ``auth.test`` to determine the bot's own user ID."""
-        if not self.bot_token:
-            return None
+    def _do_auth_test(self, token: str) -> Optional[dict]:
+        """Execute a single ``auth.test`` call with the given *token*.
 
+        Returns the parsed JSON result dict on success, or None on error.
+        """
         import urllib.request
         import urllib.error
 
@@ -1096,26 +1350,80 @@ class NovaSlackBot:
             data=b"",
             headers={
                 "Content-Type": "application/x-www-form-urlencoded",
-                "Authorization": f"Bearer {self.bot_token}",
+                "Authorization": f"Bearer {token}",
             },
         )
-
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
-                result = json.loads(resp.read().decode("utf-8"))
-                if result.get("ok"):
+                return json.loads(resp.read().decode("utf-8"))
+        except Exception as exc:
+            logger.error("Nova: auth.test request failed: %s", exc)
+            return None
+
+    def _auth_test(self) -> Optional[str]:
+        """Call ``auth.test`` to determine the bot's own user ID.
+
+        Resolution order on failure:
+          1. Try current ``self.bot_token``
+          2. If that fails with a token error, try loading cached token
+          3. If cached token also fails, try refreshing immediately
+        """
+        if not self.bot_token:
+            return None
+
+        # --- Attempt 1: current token ---
+        result = self._do_auth_test(self.bot_token)
+        if result and result.get("ok"):
+            self.bot_user_id = result.get("user_id")
+            logger.info(
+                "Nova: Authenticated as %s (user_id=%s)",
+                result.get("user"),
+                self.bot_user_id,
+            )
+            return self.bot_user_id
+
+        error_code = result.get("error", "unknown") if result else "request_failed"
+        logger.warning("Nova: auth.test failed with current token: %s", error_code)
+
+        # --- Attempt 2: try cached token (if different from current) ---
+        cached = self._load_token_cache()
+        if cached and cached.get("access_token") and cached["access_token"] != self.bot_token:
+            logger.info("Nova: Trying cached token for auth.test")
+            with self._token_lock:
+                self.bot_token = cached["access_token"]
+                self.refresh_token = cached.get("refresh_token", self.refresh_token)
+                self._token_issued_at = cached.get("issued_at", 0.0)
+                self._token_expires_in = cached.get("expires_in", _TOKEN_DEFAULT_LIFETIME)
+
+            result = self._do_auth_test(self.bot_token)
+            if result and result.get("ok"):
+                self.bot_user_id = result.get("user_id")
+                logger.info(
+                    "Nova: Authenticated via cached token as %s (user_id=%s)",
+                    result.get("user"),
+                    self.bot_user_id,
+                )
+                return self.bot_user_id
+            logger.warning("Nova: Cached token also failed auth.test")
+
+        # --- Attempt 3: refresh token immediately ---
+        if self._can_refresh_tokens():
+            logger.info("Nova: Attempting immediate token refresh for auth.test")
+            if self._refresh_token():
+                result = self._do_auth_test(self.bot_token)
+                if result and result.get("ok"):
                     self.bot_user_id = result.get("user_id")
                     logger.info(
-                        "Nova: Authenticated as %s (user_id=%s)",
+                        "Nova: Authenticated via refreshed token as %s (user_id=%s)",
                         result.get("user"),
                         self.bot_user_id,
                     )
                     return self.bot_user_id
-                logger.error(
-                    "Nova: auth.test failed: %s", result.get("error")
-                )
-        except Exception as exc:
-            logger.error("Nova: auth.test request failed: %s", exc)
+                logger.error("Nova: auth.test failed even after token refresh")
+            else:
+                logger.error("Nova: Immediate token refresh failed")
+
+        logger.error("Nova: All auth.test attempts exhausted")
         return None
 
     # ------------------------------------------------------------------
