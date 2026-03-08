@@ -634,10 +634,16 @@ When a country IS specified: use LOCAL CURRENCY (INR for India, GBP for UK, EUR 
 16. `query_location_profile` -- location cost, workforce, supply data
 17. `query_ad_platform` -- platform recs by role type with CPC benchmarks
 18. `suggest_smart_defaults` -- auto-detect budget/channel defaults from partial info
+19. `query_employer_brand` -- employer brand intel: Glassdoor ratings, hiring channels, strategies for 30+ major companies
+20. `query_ad_benchmarks` -- CPC/CPM/CTR by platform (Google, Meta, LinkedIn, Indeed, Programmatic) per industry
+21. `query_hiring_insights` -- computed insights: hiring difficulty index (0-1), salary competitiveness, days until peak hiring
 
 ## TOOL STRATEGY
 
 Always call tools before answering data questions. Use `query_platform_deep` for platform comparisons, `query_recruitment_benchmarks` for industry-specific data, `query_white_papers` for evidence.
+Use `query_hiring_insights` for strategic timing and difficulty questions.
+Use `query_employer_brand` when discussing specific company hiring practices.
+Use `query_ad_benchmarks` for platform cost comparisons.
 
 ## RESPONSE LENGTH — MATCH THE QUESTION
 
@@ -649,6 +655,10 @@ Always call tools before answering data questions. Use `query_platform_deep` for
 ## RESPONSE RULES
 
 - Cite sources for every data point. Note convergence or flag discrepancies.
+- Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these to calibrate your certainty:
+  - confidence >= 0.8: state directly as reliable data
+  - confidence 0.5-0.8: qualify as "based on available data"
+  - confidence < 0.5: label as estimate or approximation
 - High confidence (3+ sources): state directly. Medium (1-2): qualify. Low: label as estimate. No data: say so.
 - NEVER invent statistics. NEVER present estimates as facts.
 - Lead with the answer, use markdown, end complex answers with a recommendation.
@@ -886,6 +896,41 @@ Always call tools before answering data questions. Use `query_platform_deep` for
                     "required": ["roles"]
                 }
             },
+            {
+                "name": "query_employer_brand",
+                "description": "Get employer brand intelligence for a specific company: Glassdoor rating, hiring channels, recruitment strategies, talent focus, company size. Covers 30+ major employers (HCA, Kaiser, Google, Amazon, Microsoft, etc.). Use when user asks about a company's hiring approach or employer brand.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "company": {"type": "string", "description": "Company name (e.g., 'Kaiser Permanente', 'Google', 'Amazon')"}
+                    },
+                    "required": ["company"]
+                }
+            },
+            {
+                "name": "query_ad_benchmarks",
+                "description": "Get CPC/CPM/CTR benchmarks by ad platform (Google Ads, Meta/Facebook, LinkedIn, Indeed, Programmatic) for a specific industry. Use when user asks about advertising costs, platform pricing, or campaign benchmarks.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "industry": {"type": "string", "description": "Industry (e.g., 'healthcare', 'tech', 'finance', 'retail')"}
+                    },
+                    "required": ["industry"]
+                }
+            },
+            {
+                "name": "query_hiring_insights",
+                "description": "Get computed hiring insights: hiring difficulty index (0-1), salary competitiveness score, days until next peak hiring window, current job posting volume. Best called AFTER using salary/market/location tools to get richest data. Use when user asks 'how hard is it to hire...', 'when should I start hiring...', or needs strategic hiring timing advice.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {"type": "string", "description": "Job role"},
+                        "location": {"type": "string", "description": "Hiring location"},
+                        "industry": {"type": "string", "description": "Industry"}
+                    },
+                    "required": []
+                }
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -913,6 +958,9 @@ Always call tools before answering data questions. Use `query_platform_deep` for
             "query_workforce_trends": self._query_workforce_trends,
             "query_white_papers": self._query_white_papers,
             "suggest_smart_defaults": self._suggest_smart_defaults,
+            "query_employer_brand": self._query_employer_brand,
+            "query_ad_benchmarks": self._query_ad_benchmarks,
+            "query_hiring_insights": self._query_hiring_insights,
         }
         handler = handlers.get(tool_name)
         if not handler:
@@ -1212,6 +1260,13 @@ Always call tools before answering data questions. Use `query_platform_deep` for
                     result["currency"] = enriched["currency"]
                 if enriched.get("bls_percentiles"):
                     result["bls_salary_percentiles"] = enriched["bls_percentiles"]
+                # v2 metadata: confidence and freshness for Claude reasoning
+                if enriched.get("confidence") is not None:
+                    result["data_confidence"] = enriched["confidence"]
+                if enriched.get("data_freshness"):
+                    result["data_freshness"] = enriched["data_freshness"]
+                if enriched.get("sources_used"):
+                    result["sources_used"] = enriched["sources_used"]
                 return result
             except Exception as e:
                 logger.warning("Orchestrator enrich_salary failed, using KB fallback: %s", e)
@@ -1309,6 +1364,15 @@ Always call tools before answering data questions. Use `query_platform_deep` for
                     result["top_competitors"] = enriched["competitors"]
                 if enriched.get("seasonal"):
                     result["seasonal_patterns"] = enriched["seasonal"]
+                if enriched.get("current_posting_count"):
+                    result["current_posting_count"] = enriched["current_posting_count"]
+                # v2 metadata
+                if enriched.get("confidence") is not None:
+                    result["data_confidence"] = enriched["confidence"]
+                if enriched.get("data_freshness"):
+                    result["data_freshness"] = enriched["data_freshness"]
+                if enriched.get("sources_used"):
+                    result["sources_used"] = enriched["sources_used"]
             except Exception as e:
                 logger.debug("Orchestrator enrich_market_demand failed: %s", e)
 
@@ -1452,6 +1516,13 @@ Always call tools before answering data questions. Use `query_platform_deep` for
                     result["recommended_boards"] = enriched["recommended_boards"]
                 if enriched.get("source"):
                     result["source"] = f"Joveo Location Intelligence ({enriched['source']})"
+                # v2 metadata
+                if enriched.get("confidence") is not None:
+                    result["data_confidence"] = enriched["confidence"]
+                if enriched.get("data_freshness"):
+                    result["data_freshness"] = enriched["data_freshness"]
+                if enriched.get("sources_used"):
+                    result["sources_used"] = enriched["sources_used"]
             except Exception as e:
                 logger.debug("Orchestrator enrich_location failed: %s", e)
 
@@ -1542,6 +1613,121 @@ Always call tools before answering data questions. Use `query_platform_deep` for
                 logger.debug("Orchestrator enrich_platform_audiences failed: %s", e)
 
         return result
+
+    def _query_employer_brand(self, params: dict) -> dict:
+        """Get employer brand intelligence for a specific company.
+
+        Uses DataOrchestrator to access KNOWN_EMPLOYER_PROFILES (30+ companies)
+        with Glassdoor ratings, hiring channels, recruitment strategies.
+        """
+        company = params.get("company", "").strip()
+        if not company:
+            return {"error": "Please provide a company name.", "source": "employer_brand"}
+
+        orch = _get_orchestrator()
+        if orch:
+            try:
+                enriched = orch.enrich_employer_brand(company)
+                result: Dict[str, Any] = {
+                    "source": f"Joveo Employer Brand Intelligence ({enriched.get('source', 'multi-source')})",
+                    "company": company,
+                }
+                for key in ("employer_brand_strength", "glassdoor_rating",
+                            "primary_hiring_channels", "known_recruitment_strategies",
+                            "talent_focus", "company_size", "industry"):
+                    if enriched.get(key):
+                        result[key] = enriched[key]
+                if enriched.get("confidence") is not None:
+                    result["data_confidence"] = enriched["confidence"]
+                if enriched.get("data_freshness"):
+                    result["data_freshness"] = enriched["data_freshness"]
+                return result
+            except Exception as e:
+                logger.debug("Orchestrator enrich_employer_brand failed: %s", e)
+
+        return {
+            "source": "Joveo Employer Brand Intelligence (limited)",
+            "company": company,
+            "note": "Employer brand data not available. Check Glassdoor and LinkedIn company page.",
+        }
+
+    def _query_ad_benchmarks(self, params: dict) -> dict:
+        """Get CPC/CPM/CTR benchmarks by ad platform for an industry.
+
+        Uses DataOrchestrator to expose ad platform benchmark data previously
+        only available in the bulk pipeline.
+        """
+        industry = params.get("industry", "").strip()
+
+        orch = _get_orchestrator()
+        if orch:
+            try:
+                enriched = orch.get_ad_platform_benchmarks(industry)
+                result: Dict[str, Any] = {
+                    "source": f"Joveo Ad Platform Benchmarks ({enriched.get('source', 'curated')})",
+                    "industry": industry or "General",
+                }
+                if enriched.get("platforms"):
+                    result["platform_benchmarks"] = enriched["platforms"]
+                if enriched.get("platform_audiences"):
+                    result["platform_audiences"] = enriched["platform_audiences"]
+                if enriched.get("confidence") is not None:
+                    result["data_confidence"] = enriched["confidence"]
+                if enriched.get("data_freshness"):
+                    result["data_freshness"] = enriched["data_freshness"]
+                return result
+            except Exception as e:
+                logger.debug("Orchestrator get_ad_platform_benchmarks failed: %s", e)
+
+        return {
+            "source": "Joveo Ad Platform Benchmarks (unavailable)",
+            "industry": industry or "General",
+            "note": "Ad benchmark data not available through orchestrator.",
+        }
+
+    def _query_hiring_insights(self, params: dict) -> dict:
+        """Get computed hiring insights: difficulty index, salary competitiveness,
+        days until next peak hiring window.
+
+        Uses DataOrchestrator compute_insights() which synthesizes data from
+        salary, market demand, and location enrichments.
+        """
+        role = params.get("role", "").strip()
+        location = params.get("location", "").strip()
+        industry = params.get("industry", "").strip()
+
+        orch = _get_orchestrator()
+        if orch:
+            try:
+                insights = orch.compute_insights(role, location, industry)
+                result: Dict[str, Any] = {
+                    "source": "Joveo Computed Hiring Insights",
+                }
+                for key in ("hiring_difficulty_index", "market_median_salary",
+                            "salary_competitiveness_at_market",
+                            "days_until_next_peak_hiring", "peak_hiring_months",
+                            "current_posting_count"):
+                    if insights.get(key) is not None:
+                        result[key] = insights[key]
+                if insights.get("confidence") is not None:
+                    result["data_confidence"] = insights["confidence"]
+                # Add interpretation guidance for Claude
+                hdi = insights.get("hiring_difficulty_index")
+                if hdi is not None:
+                    if hdi >= 0.7:
+                        result["difficulty_interpretation"] = "Very difficult to hire -- consider premium channels and higher budgets"
+                    elif hdi >= 0.5:
+                        result["difficulty_interpretation"] = "Moderately difficult -- standard approach with competitive offers"
+                    else:
+                        result["difficulty_interpretation"] = "Relatively easy to hire -- standard job board approach should work"
+                return result
+            except Exception as e:
+                logger.debug("Orchestrator compute_insights failed: %s", e)
+
+        return {
+            "source": "Joveo Computed Hiring Insights (limited)",
+            "note": "Call salary, market demand, and location tools first for best results.",
+        }
 
     def _query_linkedin_guidewire(self, params: dict) -> dict:
         """Query LinkedIn Hiring Value Review data for Guidewire Software."""
