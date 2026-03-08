@@ -1,6 +1,10 @@
 """
 Joveo IQ -- AI-powered recruitment marketing intelligence chatbot.
 
+Note: This is a legacy/alternate chatbot module. The primary chatbot is
+nova.py, which uses data_orchestrator.py for unified data access. This
+module operates independently and does not integrate with the orchestrator.
+
 Provides conversational access to:
 - Joveo's proprietary supply data (publishers, channels, global supply)
 - 25 live API enrichment sources (salary, demand, location, ad platforms)

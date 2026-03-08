@@ -3,11 +3,12 @@ Nova Slack Bot -- Slack interface for Joveo's recruitment intelligence system.
 
 Features:
 - Responds to @Nova mentions and DMs in Slack
-- Queries Joveo's data sources (publishers, channels, benchmarks, APIs)
+- Queries Joveo's data sources via 21 Nova tools (including v2 orchestrator tools)
 - Searches Slack history for previously answered questions
 - Maintains an unanswered question queue for human review
 - Learns from human-provided answers to improve over time
 - Sends weekly digest of unanswered questions
+- Integrates with data_orchestrator.py for real-time data enrichment
 
 Thread-safety: All file writes use an in-process threading lock.
 Dependencies: stdlib only (no slack_sdk -- uses urllib.request).
@@ -1212,6 +1213,9 @@ class NovaSlackBot:
             return None
 
         # Convert standard markdown to Slack mrkdwn
+        # Note: v2 metadata (data_confidence, data_freshness, sources_used)
+        # is available in the Nova response but not currently surfaced in
+        # Slack messages. Future enhancement: append confidence badges.
         text = _convert_to_slack_mrkdwn(text)
 
         # Split into chunks if the message exceeds the Slack limit

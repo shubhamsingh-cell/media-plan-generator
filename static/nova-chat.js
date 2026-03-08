@@ -43,8 +43,8 @@
 
   var SUGGESTED_QUESTIONS = [
     'What publishers work best for nursing roles?',
-    'How does our CPA compare to industry benchmarks?',
-    "What's the talent supply for tech roles in Germany?",
+    'Compare CPC benchmarks across Google, LinkedIn, and Indeed for healthcare',
+    "How difficult is it to hire software engineers right now?",
     'Recommend a $50K budget allocation for 10 engineering hires',
   ];
 
@@ -770,6 +770,10 @@
       })
       .then(function (data) {
         hideTyping();
+        // Note: v2 orchestrator metadata (data_confidence, data_freshness,
+        // sources_used) is available in the response payload but not yet
+        // displayed in the UI. Future enhancement: show freshness badges
+        // and per-source confidence breakdowns.
         appendMessage({
           role: 'assistant',
           content: data.response || 'No response received.',

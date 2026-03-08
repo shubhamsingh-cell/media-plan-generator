@@ -8,7 +8,7 @@ The Media Plan Generator is an AI-powered recruitment advertising platform that 
 - **25+ live external API integrations** (labor market, salary, demographics, ad platforms)
 - **Joveo's proprietary supply repository** (10,238+ publishers, 40+ countries, 200+ niche boards)
 - **Deep research knowledge base** (~1MB structured JSON from 100+ industry sources)
-- **AI-powered chatbot (Nova)** with 18 specialized data tools
+- **AI-powered chatbot (Nova)** with 21 specialized data tools
 - **Budget allocation engine** with industry-specific optimization
 - **PowerPoint/Excel generator** with data-driven visualizations
 
@@ -26,7 +26,7 @@ The Media Plan Generator is an AI-powered recruitment advertising platform that 
           ┌─────────────v───┐    ┌─────────v──────────┐
           │ Media Plan      │    │ Nova Chatbot        │
           │ Generation      │    │ (nova.py)           │
-          │ Pipeline        │    │ 18 data tools       │
+          │ Pipeline        │    │ 21 data tools       │
           └──┬──┬──┬──┬─────┘    └──────┬──────────────┘
              │  │  │  │                 │
     ┌────────┘  │  │  └────────┐        │
@@ -164,7 +164,7 @@ User submits: Company, Roles, Locations, Budget
 - Fields per publisher: name, billing model (CPC/CPA/CPH/slot), category, tier (1/2/Niche), verification notes, last verified date
 - Used by: Nova tools (`query_publishers`), budget engine, PPT generator
 
-### B. Global Supply — `data/joveo_global_supply.json` (105KB)
+### B. Global Supply — `data/global_supply.json` (105KB)
 - **40+ countries** with full board inventories
 - Per-country data: job boards (name, billing model, category, tier), verification notes with 2026 status, monthly spend estimates, key metros, top employers
 - US alone has 50+ Tier 1-2 boards (Indeed, LinkedIn, ZipRecruiter, etc.)
@@ -273,7 +273,7 @@ Canonical taxonomy consumed by all modules:
 
 ## 5b. Data Orchestrator — Unified Data Access Layer
 
-**File**: `data_orchestrator.py` (NEW)
+**File**: `data_orchestrator.py`
 
 Single entry point that cascades through all data sources in cost/speed order:
 
@@ -289,10 +289,24 @@ Query -> research.py (free, instant) -> API call (cached 24h) -> KB fallback
 | `enrich_competitive(company, ind)` | research.py + SEC/Wikipedia API | Nova competitive queries |
 | `enrich_budget(budget, roles, locs)` | Budget engine with cached enrichment data | Nova budget tool |
 | `enrich_platform_audiences(industry)` | research.py platform audience data | Nova ad platform tool |
+| `enrich_employer_brand(company)` | Glassdoor ratings, hiring channels, recruitment strategies | Nova employer brand tool |
+| `get_ad_platform_benchmarks(industry)` | CPC/CPM/CTR by platform per industry | Nova ad benchmarks tool |
+| `compute_insights(role, location)` | Hiring difficulty index, salary competitiveness, peak timing | Nova hiring insights tool |
+| `get_fallback_telemetry()` | Internal fallback usage tracking | Admin health endpoint |
+| `get_cache_stats()` | LRU cache hit/miss rates, entry counts | Admin health endpoint |
 | `normalize(industry, location, role)` | standardizer.py canonical taxonomy | All tools, input processing |
 
+**EnrichmentContext**: Dataclass carrying confidence scores, data freshness timestamps, and source metadata through the cascade pipeline.
+
+**v2 features**:
+- **Confidence scoring**: Each enrichment returns an `EnrichmentContext` with `data_confidence` (0.0-1.0) and `data_freshness` timestamps
+- **Additive cascade**: Results accumulate across tiers (research -> API -> KB) rather than stopping at the first hit, producing richer responses
+- **Parallel fetches**: Independent API calls (e.g., Census + World Bank for location) execute concurrently via ThreadPoolExecutor
+- **LRU cache**: In-memory cache with 24-hour TTL, max 500 entries, auto-eviction of least-recently-used entries
+- **Request deduplication**: Concurrent identical requests share a single in-flight fetch instead of duplicating API calls
+- **Tier-aware salary**: Salary enrichment adjusts ranges by role tier (executive, senior, mid, entry, hourly) using COLI-adjusted data
+
 **Thread-safe**: Lazy imports with double-checked locking, shared cache with locks.
-**Cache**: 24-hour TTL, max 500 entries, auto-eviction.
 **Fault-tolerant**: Every function has try/except, always returns usable data.
 
 **Data flow matrix (after orchestrator integration)**:
@@ -314,11 +328,25 @@ G. Claude API       |    NO     |    YES    |    YES    |    NO    |
 
 ---
 
-## 6. Nova Chatbot — 18 Data Tools
+## 5c. Data Matrix Monitor — System Health Matrix
+
+**File**: `data_matrix_monitor.py` (~500 lines)
+
+Monitors the health of every data source across every product surface via a 28-cell matrix (4 products x 7 data layers). Provides self-healing capabilities and exposes health status via the `/api/health/data-matrix` admin endpoint.
+
+- **4 products monitored**: Excel/PPT generation, Nova Chat, Slack Bot, PPT Generator
+- **7 data layers per product**: JSON files, API enrichment, research.py, data_synthesizer, budget_engine, Claude API, standardizer
+- **Self-healing**: Detects degraded cells and attempts automatic recovery (e.g., re-importing modules, reloading JSON files)
+- **Health percentage**: Aggregate score (0-100%) across all 28 cells
+- **Recent heal actions**: Logs of self-healing attempts for diagnostics
+
+---
+
+## 6. Nova Chatbot — 21 Data Tools
 
 **File**: `nova.py` (~3,500 lines)
 
-Nova gives Claude access to all data sources through 18 specialized tools:
+Nova gives Claude access to all data sources through 21 specialized tools:
 
 ### Joveo Data Tools
 | Tool | Data Source | What It Returns |
@@ -349,6 +377,13 @@ Nova gives Claude access to all data sources through 18 specialized tools:
 | `query_budget_projection` | budget_engine.py | Budget allocation across 6 channels with projections |
 | `query_ad_platform` | platform_intelligence + research | Platform recommendations by role type |
 | `suggest_smart_defaults` | All sources | Auto-detect budget/channel split from roles/locations |
+
+### v2 Orchestrator Tools
+| Tool | Data Source | What It Returns |
+|------|-----------|-----------------|
+| `query_employer_brand` | data_orchestrator.enrich_employer_brand() | Employer brand intel (Glassdoor ratings, hiring channels) for 30+ companies |
+| `query_ad_benchmarks` | data_orchestrator.get_ad_platform_benchmarks() | CPC/CPM/CTR by platform (Google, Meta, LinkedIn, Indeed, Programmatic) per industry |
+| `query_hiring_insights` | data_orchestrator.compute_insights() | Hiring difficulty index (0-1), salary competitiveness, peak timing |
 
 ### Decision Flow
 
@@ -409,18 +444,20 @@ Per-channel: dollar allocation, projected clicks, projected applications, projec
 
 | File | Size | Purpose |
 |------|------|---------|
-| `app.py` | ~8,300 lines | HTTP server: all routes, rate limiting, CORS, admin auth |
-| `nova.py` | ~3,500 lines | AI chatbot: 18 tools, learned answers, caching, Claude API |
-| `nova_slack.py` | ~900 lines | Slack bot: event handling, token rotation, mrkdwn formatting |
-| `api_enrichment.py` | ~1,200 lines | 25 external API integrations with two-tier caching |
-| `research.py` | ~4,000 lines | Embedded knowledge base: 40+ countries, 100+ metros, 265+ SOC codes |
-| `data_synthesizer.py` | ~2,000 lines | Multi-source data fusion with reliability weighting |
-| `budget_engine.py` | ~800 lines | Budget allocation with industry/tier optimization |
-| `ppt_generator.py` | ~3,000 lines | PowerPoint/Excel output with data visualizations |
-| `standardizer.py` | ~700 lines | Canonical taxonomy: industries, locations, SOC/NAICS codes |
-| `data_orchestrator.py` | ~500 lines | Unified data access: cascades research->API->KB for all consumers |
-| `joveo_iq.py` | ~2,000 lines | Joveo IQ module |
-| `monitoring.py` | ~300 lines | Health checks, request metrics |
+| `app.py` | ~8,400 lines | HTTP server: all routes, rate limiting, CORS, admin auth |
+| `nova.py` | ~3,700 lines | AI chatbot: 21 tools, learned answers, caching, Claude API |
+| `nova_slack.py` | ~1,550 lines | Slack bot: event handling, token rotation, mrkdwn formatting |
+| `api_enrichment.py` | ~9,350 lines | 25 external API integrations with two-tier caching |
+| `research.py` | ~3,000 lines | Embedded knowledge base: 40+ countries, 100+ metros, 265+ SOC codes |
+| `data_synthesizer.py` | ~2,540 lines | Multi-source data fusion with reliability weighting |
+| `budget_engine.py` | ~1,400 lines | Budget allocation with industry/tier optimization |
+| `ppt_generator.py` | ~4,200 lines | PowerPoint/Excel output with data visualizations |
+| `standardizer.py` | ~1,250 lines | Canonical taxonomy: industries, locations, SOC/NAICS codes |
+| `data_orchestrator.py` | ~1,860 lines | Unified data access: cascades research->API->KB for all consumers |
+| `joveo_iq.py` | ~2,360 lines | Joveo IQ module |
+| `monitoring.py` | ~550 lines | Health checks, request metrics |
+| `data_matrix_monitor.py` | ~500 lines | 28-cell health matrix, self-healing, data layer monitoring |
+| `auto_qc.py` | ~700 lines | Automated quality control engine for data validation |
 
 ---
 
@@ -429,7 +466,7 @@ Per-channel: dollar allocation, projected clicks, projected applications, projec
 | File | Size | Records | Sources |
 |------|------|---------|---------|
 | `joveo_publishers.json` | 94KB | 1,238 publishers | Joveo supply network |
-| `joveo_global_supply.json` | 105KB | 40+ countries | Joveo global operations |
+| `global_supply.json` | 105KB | 40+ countries | Joveo global operations |
 | `channels_db.json` | 57KB | 200+ boards | Joveo channel database |
 | `recruitment_benchmarks_deep.json` | 62KB | 22 industries | 21 industry sources |
 | `recruitment_industry_knowledge.json` | 99KB | 42 sources | Appcast, SHRM, iCIMS, etc. |
@@ -459,6 +496,9 @@ Per-channel: dollar allocation, projected clicks, projected applications, projec
 | `/api/health/ready` | GET | None | Readiness probe |
 | `/api/metrics` | GET | Admin | Server-wide metrics |
 | `/api/slack/events` | POST | Slack signature | Slack event webhook |
+| `/api/health/data-matrix` | GET | Admin | Data matrix health (28-cell product x layer probe) |
+| `/api/health/auto-qc` | GET | Admin | AutoQC engine status and validation results |
+| `/api/health/orchestrator` | GET | Admin | Orchestrator cache stats + fallback telemetry |
 
 ---
 
@@ -474,6 +514,10 @@ Nova tracks per-request metrics via `_NovaMetrics` singleton:
 
 Access via `GET /api/nova/metrics` (requires `Authorization: Bearer <key>` header or `?key=<key>` query param).
 
+**Orchestrator metrics** (via `GET /api/health/orchestrator`):
+- `get_cache_stats()`: LRU cache hit/miss rates, entry counts, eviction stats
+- `get_fallback_telemetry()`: Per-function fallback usage counts, tier distribution, cascade depth stats
+
 ---
 
 ## 13. Token Budget per Request
@@ -481,7 +525,7 @@ Access via `GET /api/nova/metrics` (requires `Authorization: Bearer <key>` heade
 | Component | Tokens | Notes |
 |-----------|--------|-------|
 | System prompt | ~1,300 | Compressed, cached after first request |
-| Tool definitions | ~2,500 | 18 tools, compressed, cached |
+| Tool definitions | ~2,500 | 21 tools, compressed, cached |
 | History (6 turns) | ~800-1,600 | Depends on conversation length |
 | User message | ~20-100 | |
 | **Total input** | **~4,600-5,500** | First request; ~600-1,700 after prompt caching |
@@ -503,3 +547,5 @@ ADMIN_API_KEY=your_key ./tests/test_nova_chat.sh https://media-plan-generator.on
 ```
 
 Tests cover: response structure, learned answers, cache behavior, ask-before-answering logic, complex queries, empty input handling, and metrics endpoint.
+
+**v2 test coverage**: data matrix health endpoint (28-cell probe), employer brand tool (`query_employer_brand`), ad benchmarks tool (`query_ad_benchmarks`), hiring insights tool (`query_hiring_insights`), salary with location (additive cascade + confidence scoring), location profile (parallel Census+WorldBank fetches), auto-qc engine status, orchestrator telemetry endpoint, and auth enforcement on admin endpoints.

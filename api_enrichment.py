@@ -1,6 +1,11 @@
 """
 api_enrichment.py — Comprehensive API Enrichment System for AI Media Planner
 
+Note: This module's fallback data is used by the batch generation pipeline
+(Excel/PPT media plan creation via app.py). The real-time chatbot pipeline
+(Nova Chat and Slack Bot) uses data_orchestrator.py's tier-aware fallback
+system instead. Both fallback systems are maintained independently.
+
 Fetches real data from free public APIs to enrich media plan generation with
 salary benchmarks, industry employment stats, location demographics, global
 economic indicators, job market data, company information, and competitor logos.

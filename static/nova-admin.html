@@ -251,6 +251,7 @@
     <button class="tab active" data-tab="pending" onclick="switchTab('pending')">Pending Questions</button>
     <button class="tab" data-tab="resolved" onclick="switchTab('resolved')">Recently Resolved</button>
     <button class="tab" data-tab="digest" onclick="switchTab('digest')">Weekly Digest</button>
+    <button class="tab" data-tab="health" onclick="switchTab('health')">System Health</button>
     <button class="tab" data-tab="test" onclick="switchTab('test')">Test Nova</button>
   </div>
 
@@ -275,6 +276,28 @@
       Generating digest...
     </div>
     <div class="digest-preview" id="digest-content" style="display:none;"></div>
+  </div>
+
+  <!-- System Health panel -->
+  <div class="panel" id="panel-health">
+    <div class="loading" id="loading-health">
+      <div class="spinner"></div>
+      Loading system health...
+    </div>
+    <div id="health-content" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;">
+          <h3 style="font-size:15px;color:var(--gray-700);margin-bottom:12px;">Data Matrix Health</h3>
+          <div id="health-matrix-status" style="font-size:13px;color:var(--gray-600);"></div>
+          <pre id="health-matrix-detail" style="font-size:11px;background:var(--gray-50);padding:12px;border-radius:6px;margin-top:10px;overflow-x:auto;max-height:300px;overflow-y:auto;"></pre>
+        </div>
+        <div style="background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;">
+          <h3 style="font-size:15px;color:var(--gray-700);margin-bottom:12px;">AutoQC Engine</h3>
+          <div id="health-qc-status" style="font-size:13px;color:var(--gray-600);"></div>
+          <pre id="health-qc-detail" style="font-size:11px;background:var(--gray-50);padding:12px;border-radius:6px;margin-top:10px;overflow-x:auto;max-height:300px;overflow-y:auto;"></pre>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Test panel -->
@@ -316,6 +339,9 @@
 
     if (tab === 'digest' && !document.getElementById('digest-content').textContent) {
       loadDigest();
+    }
+    if (tab === 'health' && !document.getElementById('health-matrix-status').textContent) {
+      loadHealthData();
     }
   };
 
@@ -521,6 +547,45 @@
         document.getElementById('test-meta').textContent = '';
       });
   };
+
+  // ---- System Health ----
+  function loadHealthData() {
+    document.getElementById('loading-health').style.display = 'block';
+    document.getElementById('health-content').style.display = 'none';
+
+    // Fetch data matrix health
+    fetch('/api/health/data-matrix', {
+      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('admin_api_key') || '') }
+    })
+      .then(function(res) { return res.ok ? res.json() : Promise.reject('HTTP ' + res.status); })
+      .then(function(data) {
+        var statusText = 'Status: ' + (data.status || 'unknown') + ' | Health: ' + (data.health_pct || 0) + '%';
+        document.getElementById('health-matrix-status').textContent = statusText;
+        document.getElementById('health-matrix-detail').textContent = JSON.stringify(data.summary || data, null, 2);
+      })
+      .catch(function(err) {
+        document.getElementById('health-matrix-status').textContent = 'Failed to load: ' + err;
+        document.getElementById('health-matrix-detail').textContent = 'Requires ADMIN_API_KEY. Set key in localStorage: localStorage.setItem("admin_api_key", "your_key")';
+      });
+
+    // Fetch AutoQC health
+    fetch('/api/health/auto-qc', {
+      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('admin_api_key') || '') }
+    })
+      .then(function(res) { return res.ok ? res.json() : Promise.reject('HTTP ' + res.status); })
+      .then(function(data) {
+        var statusText = 'Status: ' + (data.status || 'unknown');
+        document.getElementById('health-qc-status').textContent = statusText;
+        document.getElementById('health-qc-detail').textContent = JSON.stringify(data, null, 2);
+      })
+      .catch(function(err) {
+        document.getElementById('health-qc-status').textContent = 'Failed to load: ' + err;
+        document.getElementById('health-qc-detail').textContent = 'Requires ADMIN_API_KEY. Set key in localStorage: localStorage.setItem("admin_api_key", "your_key")';
+      });
+
+    document.getElementById('loading-health').style.display = 'none';
+    document.getElementById('health-content').style.display = 'block';
+  }
 
   // ---- Utilities ----
   function escapeHtml(text) {

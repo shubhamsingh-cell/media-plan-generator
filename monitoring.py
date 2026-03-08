@@ -361,6 +361,18 @@ def health_check_readiness() -> Dict[str, Any]:
         "thread_count": threading.active_count(),
     }
 
+    # 8. Orchestrator health
+    try:
+        import data_orchestrator
+        orch_stats = {}
+        if hasattr(data_orchestrator, 'get_cache_stats'):
+            orch_stats["cache"] = data_orchestrator.get_cache_stats()
+        if hasattr(data_orchestrator, 'get_fallback_telemetry'):
+            orch_stats["fallback_telemetry"] = data_orchestrator.get_fallback_telemetry()
+        checks["orchestrator"] = {"status": "ok", **orch_stats}
+    except Exception as e:
+        checks["orchestrator"] = {"status": "degraded", "detail": str(e)}
+
     return {
         "status": "healthy" if overall_healthy else "unhealthy",
         "version": VERSION,

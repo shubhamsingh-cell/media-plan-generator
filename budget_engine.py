@@ -7,8 +7,12 @@ and produces per-channel spend recommendations with projected outcomes
 
 This module is intentionally self-contained: it imports only stdlib so that
 the rest of the pipeline can call it without circular-dependency risk.
-The caller (app.py or a future orchestrator) passes in any enrichment
+The caller (app.py or data_orchestrator.py) passes in any enrichment
 data it has already fetched.
+
+Future enhancement: Incorporate orchestrator's EnrichmentContext confidence
+scores to weight channel allocation reliability and flag low-confidence
+projections in the output.
 """
 
 import logging

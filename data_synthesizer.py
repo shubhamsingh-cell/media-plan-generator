@@ -546,6 +546,11 @@ def validate_with_knowledge_base(
 def compute_confidence_scores(synthesis_results: Dict[str, Any]) -> Dict[str, Any]:
     """Score every synthesis section on data trustworthiness.
 
+    Note: This confidence system is used by the batch generation pipeline
+    (Excel/PPT media plan creation). The real-time chatbot pipeline uses
+    data_orchestrator.py's independent EnrichmentContext confidence scoring,
+    which operates on a per-request basis with different thresholds.
+
     Scoring rubric:
         1.0 -- 3+ independent sources agree within 15 %
         0.8 -- 2 sources agree

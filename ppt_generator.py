@@ -6,6 +6,10 @@ Generates a polished, data-driven 7-slide .pptx presentation using python-pptx.
 Incorporates LinkedIn Hiring Value Review visual patterns: section dividers,
 hero stats, blue/teal accents, quality outcomes grids, channel attribution diagrams,
 and side-by-side comparison panels.
+
+Note: This module does not directly import data_orchestrator.py. It receives
+orchestrated/enriched data transitively via app.py, which calls the orchestrator
+and passes the enriched results into the PPT generation functions.
 """
 
 import io

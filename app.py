@@ -7167,6 +7167,16 @@ except ImportError as _dm_err:
     logger.warning("data_matrix_monitor not available: %s", _dm_err)
     _data_matrix = None
 
+# Autonomous QC engine (twice-daily tests + weekly self-upgrade)
+try:
+    from auto_qc import get_auto_qc
+    _auto_qc = get_auto_qc()
+    _auto_qc.start_background()
+    logger.info("AutoQC engine started (tests every 12h, self-upgrade weekly)")
+except ImportError as _aqc_err:
+    logger.warning("auto_qc not available: %s", _aqc_err)
+    _auto_qc = None
+
 # Simple in-memory rate limiter
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -7337,6 +7347,42 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(dm_err_body)))
                 self.end_headers()
                 self.wfile.write(dm_err_body)
+        elif parsed.path == "/api/health/auto-qc":
+            # Autonomous QC engine status (admin-protected)
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            if _auto_qc:
+                qc_result = _auto_qc.get_status()
+                qc_code = 200 if qc_result.get("status") != "degraded" else 503
+                qc_body = json.dumps(qc_result, indent=2).encode("utf-8")
+                self.send_response(qc_code)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(qc_body)))
+                self.end_headers()
+                self.wfile.write(qc_body)
+            else:
+                qc_err_body = json.dumps({"error": "AutoQC engine not available"}).encode("utf-8")
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(qc_err_body)))
+                self.end_headers()
+                self.wfile.write(qc_err_body)
+        elif parsed.path == "/api/health/orchestrator":
+            # Orchestrator cache stats + fallback telemetry (admin-protected)
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            try:
+                import data_orchestrator as _do
+                orch_data = {
+                    "cache_stats": _do.get_cache_stats(),
+                    "fallback_telemetry": _do.get_fallback_telemetry(),
+                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                }
+                self._send_json(orch_data)
+            except Exception as _oe:
+                self._send_json({"error": f"Orchestrator unavailable: {_oe}"})
         elif parsed.path == "/api/metrics":
             # Metrics endpoint (admin-protected)
             if not self._check_admin_auth():
@@ -8420,6 +8466,7 @@ if __name__ == "__main__":
                 "available" if generate_pptx else "unavailable",
                 "available" if enrich_data else "unavailable")
     logger.info("Data Matrix: %s", "monitoring" if _data_matrix else "unavailable")
+    logger.info("AutoQC: %s", "running" if _auto_qc else "unavailable")
     logger.info("=" * 60)
 
     try:
