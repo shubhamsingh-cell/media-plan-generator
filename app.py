@@ -30,6 +30,12 @@ from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.series import DataPoint
 from openpyxl.drawing.image import Image as XlImage
 
+from shared_utils import (
+    parse_budget,
+    INDUSTRY_LABEL_MAP as _SHARED_INDUSTRY_LABEL_MAP,
+    standardize_location as _shared_standardize_location,
+)
+
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -775,78 +781,9 @@ def generate_excel(data):
             data[key] = [val]
 
     # ── Input Standardization ──
-    # Properly format country names, city names, state names, and role titles
-    # regardless of how the user typed them in the frontend
-    _COUNTRY_CANONICAL = {
-        "us": "United States", "usa": "United States", "united states": "United States",
-        "united states of america": "United States", "u.s.": "United States", "u.s.a.": "United States",
-        "uk": "United Kingdom", "united kingdom": "United Kingdom", "great britain": "United Kingdom",
-        "uae": "United Arab Emirates", "united arab emirates": "United Arab Emirates",
-        "india": "India", "china": "China", "japan": "Japan", "germany": "Germany",
-        "france": "France", "canada": "Canada", "australia": "Australia", "brazil": "Brazil",
-        "mexico": "Mexico", "singapore": "Singapore", "ireland": "Ireland", "israel": "Israel",
-        "south korea": "South Korea", "netherlands": "Netherlands", "the netherlands": "Netherlands",
-        "switzerland": "Switzerland", "sweden": "Sweden", "spain": "Spain", "italy": "Italy",
-        "poland": "Poland", "philippines": "Philippines", "new zealand": "New Zealand",
-        "south africa": "South Africa", "saudi arabia": "Saudi Arabia", "hong kong": "Hong Kong",
-        "taiwan": "Taiwan", "indonesia": "Indonesia", "malaysia": "Malaysia", "thailand": "Thailand",
-        "vietnam": "Vietnam", "norway": "Norway", "denmark": "Denmark", "finland": "Finland",
-        "belgium": "Belgium", "austria": "Austria", "portugal": "Portugal", "czech republic": "Czech Republic",
-        "romania": "Romania", "colombia": "Colombia", "argentina": "Argentina", "chile": "Chile",
-        "peru": "Peru", "egypt": "Egypt", "nigeria": "Nigeria", "kenya": "Kenya", "pakistan": "Pakistan",
-        "bangladesh": "Bangladesh", "sri lanka": "Sri Lanka", "costa rica": "Costa Rica",
-    }
-    _US_STATES_CANONICAL = {
-        "ca": "California", "california": "California", "ny": "New York", "new york": "New York",
-        "tx": "Texas", "texas": "Texas", "fl": "Florida", "florida": "Florida",
-        "il": "Illinois", "illinois": "Illinois", "pa": "Pennsylvania", "pennsylvania": "Pennsylvania",
-        "oh": "Ohio", "ohio": "Ohio", "ga": "Georgia", "georgia": "Georgia",
-        "nc": "North Carolina", "north carolina": "North Carolina", "mi": "Michigan", "michigan": "Michigan",
-        "nj": "New Jersey", "new jersey": "New Jersey", "va": "Virginia", "virginia": "Virginia",
-        "wa": "Washington", "washington": "Washington", "az": "Arizona", "arizona": "Arizona",
-        "ma": "Massachusetts", "massachusetts": "Massachusetts", "tn": "Tennessee", "tennessee": "Tennessee",
-        "in": "Indiana", "indiana": "Indiana", "mo": "Missouri", "missouri": "Missouri",
-        "md": "Maryland", "maryland": "Maryland", "wi": "Wisconsin", "wisconsin": "Wisconsin",
-        "co": "Colorado", "colorado": "Colorado", "mn": "Minnesota", "minnesota": "Minnesota",
-        "sc": "South Carolina", "south carolina": "South Carolina", "al": "Alabama", "alabama": "Alabama",
-        "la": "Louisiana", "louisiana": "Louisiana", "ky": "Kentucky", "kentucky": "Kentucky",
-        "or": "Oregon", "oregon": "Oregon", "ok": "Oklahoma", "oklahoma": "Oklahoma",
-        "ct": "Connecticut", "connecticut": "Connecticut", "ut": "Utah", "utah": "Utah",
-        "ia": "Iowa", "iowa": "Iowa", "nv": "Nevada", "nevada": "Nevada",
-        "ar": "Arkansas", "arkansas": "Arkansas", "ms": "Mississippi", "mississippi": "Mississippi",
-        "ks": "Kansas", "kansas": "Kansas", "nm": "New Mexico", "new mexico": "New Mexico",
-        "ne": "Nebraska", "nebraska": "Nebraska", "id": "Idaho", "idaho": "Idaho",
-        "wv": "West Virginia", "west virginia": "West Virginia", "hi": "Hawaii", "hawaii": "Hawaii",
-        "nh": "New Hampshire", "new hampshire": "New Hampshire", "me": "Maine", "maine": "Maine",
-        "mt": "Montana", "montana": "Montana", "ri": "Rhode Island", "rhode island": "Rhode Island",
-        "de": "Delaware", "delaware": "Delaware", "sd": "South Dakota", "south dakota": "South Dakota",
-        "nd": "North Dakota", "north dakota": "North Dakota", "ak": "Alaska", "alaska": "Alaska",
-        "vt": "Vermont", "vermont": "Vermont", "wy": "Wyoming", "wyoming": "Wyoming",
-        "dc": "Washington, D.C.", "washington dc": "Washington, D.C.", "washington d.c.": "Washington, D.C.",
-    }
-
-    def _standardize_location(loc_str):
-        """Standardize a location string: proper casing for city, state, country."""
-        if not isinstance(loc_str, str) or not loc_str.strip():
-            return loc_str
-        parts = [p.strip() for p in loc_str.split(",")]
-        standardized = []
-        for i, part in enumerate(parts):
-            lower = part.lower().strip()
-            # Check if it's a known country
-            if lower in _COUNTRY_CANONICAL:
-                standardized.append(_COUNTRY_CANONICAL[lower])
-            # Check if it's a known US state
-            elif lower in _US_STATES_CANONICAL:
-                standardized.append(_US_STATES_CANONICAL[lower])
-            else:
-                # Title case for cities and unknown parts
-                standardized.append(part.strip().title())
-        return ", ".join(standardized)
-
-    # Standardize locations
+    # Uses shared_utils for location standardization (single source of truth)
     if isinstance(data.get("locations"), list):
-        data["locations"] = [_standardize_location(loc) if isinstance(loc, str) else loc for loc in data["locations"]]
+        data["locations"] = [_shared_standardize_location(loc) if isinstance(loc, str) else loc for loc in data["locations"]]
     # Standardize role titles (title case)
     for role_key in ("target_roles", "roles"):
         if isinstance(data.get(role_key), list):
@@ -872,31 +809,8 @@ def generate_excel(data):
         data.get("industry", "general_entry_level"),
     )
 
-    # Industry label mapping
-    industry_label_map = {
-        "healthcare_medical": "Healthcare & Medical",
-        "blue_collar_trades": "Blue Collar / Skilled Trades",
-        "maritime_marine": "Maritime & Marine",
-        "military_recruitment": "Military Recruitment",
-        "tech_engineering": "Technology & Engineering",
-        "general_entry_level": "General / Entry-Level",
-        "legal_services": "Legal Services",
-        "finance_banking": "Finance & Banking",
-        "mental_health": "Mental Health & Behavioral",
-        "retail_consumer": "Retail & Consumer",
-        "aerospace_defense": "Aerospace & Defense",
-        "pharma_biotech": "Pharma & Biotech",
-        "energy_utilities": "Energy & Utilities",
-        "insurance": "Insurance",
-        "telecommunications": "Telecommunications",
-        "automotive": "Automotive & Manufacturing",
-        "food_beverage": "Food & Beverage",
-        "logistics_supply_chain": "Logistics & Supply Chain",
-        "hospitality_travel": "Hospitality & Travel",
-        "media_entertainment": "Media & Entertainment",
-        "construction_real_estate": "Construction & Real Estate",
-        "education": "Education",
-    }
+    # Industry label mapping (single source of truth in shared_utils.py)
+    industry_label_map = _SHARED_INDUSTRY_LABEL_MAP
 
     wb = Workbook()
 
@@ -2015,27 +1929,7 @@ def generate_excel(data):
     # ── Budget-driven funnel calculation ──
     # Parse budget from the budget_range string (e.g. "$50,000 - $250,000", "< $50,000")
     budget_range_str = str(data.get("budget_range", "") or "")
-    def _parse_budget_midpoint(bstr):
-        """Extract a numeric midpoint from budget range strings like '$50,000 - $250,000'."""
-        if not bstr:
-            return 100000  # default fallback
-        nums = re.findall(r'[\d,]+', bstr.replace(",", ""))
-        # re-parse with commas removed
-        nums = re.findall(r'[\d]+', bstr.replace(",", ""))
-        parsed = [int(n) for n in nums if int(n) >= 1000]  # filter out small numbers
-        if len(parsed) >= 2:
-            return (parsed[0] + parsed[1]) / 2  # midpoint of range
-        elif len(parsed) == 1:
-            return parsed[0]
-        # Handle text-based values
-        bstr_lower = bstr.lower()
-        if "million" in bstr_lower or "1m" in bstr_lower:
-            return 1000000
-        if "500k" in bstr_lower or "500,000" in bstr_lower:
-            return 500000
-        return 100000  # safe default
-
-    budget_midpoint = _parse_budget_midpoint(budget_range_str)
+    budget_midpoint = parse_budget(budget_range_str)
 
     # Industry-specific Cost-Per-Hire (CPH) ranges for realistic funnel math
     industry_cph_ranges = {
@@ -7455,6 +7349,24 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 "Disallow: /admin/\n"
                 "Disallow: /health\n"
                 "Disallow: /ready\n"
+                "Disallow: /dashboard\n"
+                "\n"
+                "# AI crawlers welcome (GEO/AEO optimization)\n"
+                "User-agent: GPTBot\n"
+                "Allow: /\n"
+                "Disallow: /api/\n"
+                "\n"
+                "User-agent: ChatGPT-User\n"
+                "Allow: /\n"
+                "Disallow: /api/\n"
+                "\n"
+                "User-agent: Claude-Web\n"
+                "Allow: /\n"
+                "Disallow: /api/\n"
+                "\n"
+                "User-agent: Google-Extended\n"
+                "Allow: /\n"
+                "Disallow: /api/\n"
                 "\n"
                 "Sitemap: https://media-plan-generator.onrender.com/sitemap.xml\n"
             )
@@ -7464,11 +7376,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(robots_content.encode("utf-8"))
         elif parsed.path == "/sitemap.xml":
+            _today = datetime.date.today().isoformat()
             sitemap_content = (
                 '<?xml version="1.0" encoding="UTF-8"?>\n'
                 '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
                 '  <url>\n'
                 '    <loc>https://media-plan-generator.onrender.com/</loc>\n'
+                f'    <lastmod>{_today}</lastmod>\n'
                 '    <changefreq>weekly</changefreq>\n'
                 '    <priority>1.0</priority>\n'
                 '  </url>\n'
@@ -7945,48 +7859,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         }
                         channel_pcts = _INDUSTRY_ALLOC_BA_FALLBACK.get(_ind_key_ba, _DEFAULT_ALLOC_BA)
 
-                    # Parse budget to float — check both "budget" and "budget_range" keys
-                    # Frontend sends budget_range (e.g. "$250,000 - $500,000", "< $50,000")
+                    # Parse budget to float — uses shared_utils.parse_budget (single source of truth)
                     _bstr_ba = str(data.get("budget", "") or data.get("budget_range", "") or "").strip()
                     if not _bstr_ba:
                         _bstr_ba = str(data.get("budget_range", "") or "").strip()
-                    _bval_ba = 0.0
-                    try:
-                        _clean_ba = _bstr_ba.replace(",", "").replace("$", "").replace("USD", "").replace("usd", "").strip()
-                        # Handle K/M/B suffixes: "50K" → 50000, "1.5M" → 1500000
-                        _km_match = re.match(r'^([\d.]+)\s*([KkMmBb])', _clean_ba)
-                        if _km_match:
-                            _num_part = float(_km_match.group(1))
-                            _suffix = _km_match.group(2).upper()
-                            _bval_ba = _num_part * {"K": 1_000, "M": 1_000_000, "B": 1_000_000_000}[_suffix]
-                        else:
-                            # Extract ALL numbers ≥ 1000 (filter out small noise like "3" from "3 months")
-                            _bnums_ba = re.findall(r'[\d]+', _clean_ba)
-                            _parsed_nums = [int(n) for n in _bnums_ba if int(n) >= 1000]
-                            if len(_parsed_nums) >= 2:
-                                # Range like "$250,000 - $500,000" → use midpoint
-                                _bval_ba = (_parsed_nums[0] + _parsed_nums[1]) / 2.0
-                            elif len(_parsed_nums) == 1:
-                                _bval_ba = float(_parsed_nums[0])
-                            elif _bnums_ba:
-                                # Fallback: take the largest number found
-                                _bval_ba = float(max(_bnums_ba, key=lambda x: int(x)))
-                            # Handle text-based budget values
-                            if _bval_ba == 0:
-                                _lower = _clean_ba.lower()
-                                if "million" in _lower or "1m" in _lower:
-                                    _bval_ba = 1_000_000
-                                elif "500k" in _lower:
-                                    _bval_ba = 500_000
-                                elif "250k" in _lower:
-                                    _bval_ba = 250_000
-                                elif "100k" in _lower:
-                                    _bval_ba = 100_000
-                    except (ValueError, IndexError):
-                        _bval_ba = 0.0
-                    # Final fallback: if budget still 0 but we know there's a budget string, use 100K default
-                    if _bval_ba <= 0 and _bstr_ba:
-                        _bval_ba = 100_000.0
+                    _bval_ba = parse_budget(_bstr_ba)
                     logger.info("Budget allocation: parsed '%s' -> $%s", _bstr_ba, f"{_bval_ba:,.2f}")
 
                     # Build role dicts from string list

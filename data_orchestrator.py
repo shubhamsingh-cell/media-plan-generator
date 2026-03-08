@@ -233,7 +233,9 @@ def _dedup_fetch(domain: str, key: str, fetch_fn):
         # Wait up to 30s for the other thread to finish
         event.wait(timeout=30)
         with _inflight_lock:
-            return _inflight_results.get(full_key)
+            # Copy value before returning so cleanup cannot race
+            result = _inflight_results.get(full_key)
+        return result
 
     # We are the owner -- execute the fetch
     try:
@@ -243,21 +245,24 @@ def _dedup_fetch(domain: str, key: str, fetch_fn):
         return result
     except Exception as e:
         logger.debug("_dedup_fetch %s failed: %s", full_key, e)
+        with _inflight_lock:
+            _inflight_results[full_key] = None  # Store None so waiters get a value
         return None
     finally:
         with _inflight_lock:
             _inflight.pop(full_key, None)
-            event.set()  # Wake all waiters (inside lock to prevent TOCTOU)
-            # Deferred cleanup: remove result after waiters have read it
-            # Use a short-lived thread to avoid blocking
-            _result_key = full_key
+        # Wake all waiters AFTER removing from _inflight so new
+        # requests start their own fetch rather than waiting
+        event.set()
+        # Deferred cleanup: remove result after waiters have had time to read it
+        _result_key = full_key
 
-            def _cleanup(rk=_result_key):
-                time.sleep(2)
-                with _inflight_lock:
-                    _inflight_results.pop(rk, None)
-            t = threading.Thread(target=_cleanup, daemon=True)
-            t.start()
+        def _cleanup(rk=_result_key):
+            time.sleep(5)  # 5s window (was 2s -- too tight for slow consumers)
+            with _inflight_lock:
+                _inflight_results.pop(rk, None)
+        t = threading.Thread(target=_cleanup, daemon=True)
+        t.start()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

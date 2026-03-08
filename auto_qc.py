@@ -175,63 +175,65 @@ class AutoQC:
         """Execute all tests (static + dynamic), attempt auto-healing on
         failures, and return results."""
         self._is_running = True
-        start = time.time()
-        results: List[TestResult] = []
+        try:
+            start = time.time()
+            results: List[TestResult] = []
 
-        # Run static tests
-        results.extend(self._run_static_tests())
+            # Run static tests
+            results.extend(self._run_static_tests())
 
-        # Run dynamic tests
-        results.extend(self._run_dynamic_tests())
+            # Run dynamic tests
+            results.extend(self._run_dynamic_tests())
 
-        # Tally
-        passed = sum(1 for r in results if r.passed)
-        failed = sum(1 for r in results if not r.passed)
-        total = len(results)
-        elapsed = round(time.time() - start, 2)
+            # Tally
+            passed = sum(1 for r in results if r.passed)
+            failed = sum(1 for r in results if not r.passed)
+            total = len(results)
+            elapsed = round(time.time() - start, 2)
 
-        # Attempt auto-healing for any failures
-        healed = 0
-        if failed > 0:
-            healed = self._auto_heal(results)
+            # Attempt auto-healing for any failures
+            healed = 0
+            if failed > 0:
+                healed = self._auto_heal(results)
 
-        # Build run result
-        self._run_count += 1
-        status = "all_passing" if failed == 0 else (
-            "healed" if healed >= failed else "degraded"
-        )
-        run_result = {
-            "run_number": self._run_count,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "status": status,
-            "passed": passed,
-            "failed": failed,
-            "healed": healed,
-            "total": total,
-            "duration_seconds": elapsed,
-            "tests": [r.to_dict() for r in results],
-            "failures": [r.to_dict() for r in results if not r.passed],
-        }
+            # Build run result
+            self._run_count += 1
+            status = "all_passing" if failed == 0 else (
+                "healed" if healed >= failed else "degraded"
+            )
+            run_result = {
+                "run_number": self._run_count,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "status": status,
+                "passed": passed,
+                "failed": failed,
+                "healed": healed,
+                "total": total,
+                "duration_seconds": elapsed,
+                "tests": [r.to_dict() for r in results],
+                "failures": [r.to_dict() for r in results if not r.passed],
+            }
 
-        with self._lock:
-            self._run_history.append(run_result)
-            if len(self._run_history) > _MAX_HISTORY:
-                self._run_history = self._run_history[-_MAX_HISTORY:]
-            self._last_run_time = time.time()
+            with self._lock:
+                self._run_history.append(run_result)
+                if len(self._run_history) > _MAX_HISTORY:
+                    self._run_history = self._run_history[-_MAX_HISTORY:]
+                self._last_run_time = time.time()
 
-        self._persist_history()
-        self._is_running = False
+            self._persist_history()
 
-        logger.info(
-            "AutoQC: run #%d -- %s (%d/%d passed, %d healed, %.2fs)",
-            self._run_count, status, passed, total, healed, elapsed,
-        )
+            logger.info(
+                "AutoQC: run #%d -- %s (%d/%d passed, %d healed, %.2fs)",
+                self._run_count, status, passed, total, healed, elapsed,
+            )
 
-        # Alert on persistent failures
-        if failed > healed:
-            self._send_alert(run_result)
+            # Alert on persistent failures
+            if failed > healed:
+                self._send_alert(run_result)
 
-        return run_result
+            return run_result
+        finally:
+            self._is_running = False
 
     # ── Background loops ──────────────────────────────────────────────────
 

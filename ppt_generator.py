@@ -18,6 +18,11 @@ import re
 import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+from shared_utils import (
+    parse_budget_display,
+    INDUSTRY_LABEL_MAP as _SHARED_INDUSTRY_LABEL_MAP,
+)
+
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
@@ -692,21 +697,12 @@ def _goal_labels(data: Dict) -> List[str]:
 
 
 def _parse_budget_number(budget_str) -> Optional[float]:
-    """Try to extract a numeric budget value from a string like '$75,000 / month'."""
-    if isinstance(budget_str, (int, float)):
-        return float(budget_str)
-    budget_str = str(budget_str)
-    clean = budget_str.replace(",", "").replace("$", "").strip()
-    match = re.search(r"([\d.]+)\s*[kK]", clean)
-    if match:
-        return float(match.group(1)) * 1000
-    match = re.search(r"([\d.]+)\s*[mM]", clean)
-    if match:
-        return float(match.group(1)) * 1000000
-    match = re.search(r"([\d.]+)", clean)
-    if match:
-        return float(match.group(1))
-    return None
+    """Try to extract a numeric budget value from a string.
+
+    Delegates to shared_utils.parse_budget_display for consistent parsing
+    across all modules.
+    """
+    return parse_budget_display(budget_str)
 
 
 def _format_budget_display(budget_str: str) -> str:
@@ -4056,33 +4052,9 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
     elif isinstance(cc, list):
         data["channel_categories"] = {(item.get("name", "") if isinstance(item, dict) else str(item)): True for item in cc}
 
-    # Industry label mapping - use proper names instead of raw key transformation
-    _INDUSTRY_LABEL_MAP = {
-        "healthcare_medical": "Healthcare & Medical",
-        "blue_collar_trades": "Blue Collar / Skilled Trades",
-        "maritime_marine": "Maritime & Marine",
-        "military_recruitment": "Military Recruitment",
-        "tech_engineering": "Technology & Engineering",
-        "general_entry_level": "General / Entry-Level",
-        "legal_services": "Legal Services",
-        "finance_banking": "Finance & Banking",
-        "mental_health": "Mental Health & Behavioral",
-        "retail_consumer": "Retail & Consumer",
-        "aerospace_defense": "Aerospace & Defense",
-        "pharma_biotech": "Pharma & Biotech",
-        "energy_utilities": "Energy & Utilities",
-        "insurance": "Insurance",
-        "telecommunications": "Telecommunications",
-        "automotive": "Automotive & Manufacturing",
-        "food_beverage": "Food & Beverage",
-        "logistics_supply_chain": "Logistics & Supply Chain",
-        "hospitality_travel": "Hospitality & Travel",
-        "media_entertainment": "Media & Entertainment",
-        "construction_real_estate": "Construction & Real Estate",
-        "education": "Education",
-    }
+    # Industry label mapping (single source of truth in shared_utils.py)
     if not data.get("industry_label"):
-        data["industry_label"] = _INDUSTRY_LABEL_MAP.get(
+        data["industry_label"] = _SHARED_INDUSTRY_LABEL_MAP.get(
             data["industry"],
             data["industry"].replace("_", " ").title()
         )
