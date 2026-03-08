@@ -1046,40 +1046,42 @@ class AutoQC:
     # HELPERS
     # ══════════════════════════════════════════════════════════════════════
 
-    def _get_nova(self):
-        """Get cached Nova instance (lazy-init once, reuse across tests)."""
+    def _get_or_init_nova(self):
+        """Get cached Nova instance (lazy-init once, reuse across tests).
+        Returns None if init previously failed; does NOT block on init here
+        -- the actual init happens inside the timeout-guarded sub-thread in
+        _internal_chat()."""
         if self._nova_init_failed:
             return None
         if self._nova_instance is not None:
             return self._nova_instance
-        try:
-            if "nova" not in sys.modules:
-                importlib.import_module("nova")
-            nova_mod = sys.modules["nova"]
-            self._nova_instance = nova_mod.Nova()
-            return self._nova_instance
-        except Exception as e:
-            logger.warning("AutoQC: Nova init failed: %s", e)
-            self._nova_init_failed = True
-            return None
+        # Return sentinel to indicate init needed (done inside timeout guard)
+        return "NEEDS_INIT"
 
     def _internal_chat(self, message: str, timeout: int = 60) -> dict:
         """Call Nova.chat() with a timeout guard (default 60s).
 
-        Uses a sub-thread so a hanging Claude API call cannot block the
-        entire test run indefinitely.
+        Both Nova init AND the .chat() call run inside a sub-thread so
+        neither a slow constructor nor a hanging Claude API call can block
+        the test runner indefinitely.
         """
-        nova = self._get_nova()
-        if nova is None:
+        if self._nova_init_failed:
             return {"response": "", "confidence": 0, "sources": [],
-                    "tools_used": [], "error": "Nova unavailable"}
+                    "tools_used": [], "error": "Nova init previously failed"}
 
         result_holder: List[dict] = []
         error_holder: List[str] = []
 
         def _call():
             try:
-                result_holder.append(nova.chat(message))
+                # Init Nova inside the timeout guard (constructor can be slow)
+                if self._nova_instance is None:
+                    if "nova" not in sys.modules:
+                        importlib.import_module("nova")
+                    nova_mod = sys.modules["nova"]
+                    self._nova_instance = nova_mod.Nova()
+                    logger.info("AutoQC: Nova instance initialized successfully")
+                result_holder.append(self._nova_instance.chat(message))
             except Exception as e:
                 error_holder.append(str(e))
 
@@ -1088,10 +1090,17 @@ class AutoQC:
         worker.join(timeout=timeout)
 
         if worker.is_alive():
-            logger.warning("AutoQC: _internal_chat timed out after %ds for: %s", timeout, message[:50])
+            # Mark init as failed if we never got past constructor
+            if self._nova_instance is None:
+                self._nova_init_failed = True
+                logger.warning("AutoQC: Nova init timed out after %ds", timeout)
+            else:
+                logger.warning("AutoQC: _internal_chat timed out after %ds for: %s", timeout, message[:50])
             return {"response": "", "confidence": 0, "sources": [],
                     "tools_used": [], "error": f"Timeout after {timeout}s"}
         if error_holder:
+            if self._nova_instance is None:
+                self._nova_init_failed = True
             return {"response": "", "confidence": 0, "sources": [],
                     "tools_used": [], "error": error_holder[0]}
         return result_holder[0] if result_holder else {
