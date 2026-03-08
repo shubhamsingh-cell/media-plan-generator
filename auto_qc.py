@@ -91,8 +91,12 @@ class AutoQC:
         self._heal_log: List[Dict[str, Any]] = []
         self._last_run_time: float = 0
         self._last_weekly_time: float = 0
+        self._start_time: float = 0          # set when start_background() is called
         self._run_count: int = 0
         self._weekly_count: int = 0
+        self._nova_instance = None            # cached Nova instance (avoid per-test reinit)
+        self._nova_init_failed: bool = False  # skip chat tests if Nova init crashes
+        self._is_running: bool = False        # True while run_tests() is executing
         self._load_dynamic_tests()
         self._load_history()
 
@@ -100,6 +104,7 @@ class AutoQC:
 
     def start_background(self) -> None:
         """Start both background daemon threads."""
+        self._start_time = time.time()
         # Twice-daily test runner
         if self._test_thread is None or not self._test_thread.is_alive():
             self._test_thread = threading.Thread(
@@ -124,8 +129,14 @@ class AutoQC:
         """Return QC status for the API endpoint."""
         with self._lock:
             last_run = self._run_history[-1] if self._run_history else None
+            if self._is_running:
+                current_status = "running"
+            elif last_run:
+                current_status = last_run["status"]
+            else:
+                current_status = "pending"
             return {
-                "status": last_run["status"] if last_run else "pending",
+                "status": current_status,
                 "total_runs": self._run_count,
                 "weekly_upgrades": self._weekly_count,
                 "static_tests": len(self._get_static_test_names()),
@@ -136,12 +147,14 @@ class AutoQC:
                 ) if self._last_run_time else None,
                 "next_run_in_seconds": max(0, round(
                     _TEST_INTERVAL - (time.time() - self._last_run_time), 1
-                )) if self._last_run_time else round(
-                    _INITIAL_DELAY - (time.time() - (self._last_run_time or time.time())), 1
-                ),
+                )) if self._last_run_time else max(0, round(
+                    _INITIAL_DELAY - (time.time() - self._start_time), 1
+                )) if self._start_time else None,
                 "next_weekly_in_seconds": max(0, round(
                     _WEEKLY_INTERVAL - (time.time() - self._last_weekly_time), 1
-                )) if self._last_weekly_time else None,
+                )) if self._last_weekly_time else max(0, round(
+                    _WEEKLY_INITIAL_DELAY - (time.time() - self._start_time), 1
+                )) if self._start_time else None,
                 "recent_heals": list(self._heal_log[-10:]),
                 "run_history": [
                     {
@@ -160,6 +173,7 @@ class AutoQC:
     def run_tests(self) -> Dict[str, Any]:
         """Execute all tests (static + dynamic), attempt auto-healing on
         failures, and return results."""
+        self._is_running = True
         start = time.time()
         results: List[TestResult] = []
 
@@ -205,6 +219,7 @@ class AutoQC:
             self._last_run_time = time.time()
 
         self._persist_history()
+        self._is_running = False
 
         logger.info(
             "AutoQC: run #%d -- %s (%d/%d passed, %d healed, %.2fs)",
@@ -1031,17 +1046,58 @@ class AutoQC:
     # HELPERS
     # ══════════════════════════════════════════════════════════════════════
 
-    def _internal_chat(self, message: str) -> dict:
-        """Call Nova.chat() directly (in-process, no HTTP overhead)."""
+    def _get_nova(self):
+        """Get cached Nova instance (lazy-init once, reuse across tests)."""
+        if self._nova_init_failed:
+            return None
+        if self._nova_instance is not None:
+            return self._nova_instance
         try:
             if "nova" not in sys.modules:
                 importlib.import_module("nova")
             nova_mod = sys.modules["nova"]
-            nova_instance = nova_mod.Nova()
-            return nova_instance.chat(message)
+            self._nova_instance = nova_mod.Nova()
+            return self._nova_instance
         except Exception as e:
+            logger.warning("AutoQC: Nova init failed: %s", e)
+            self._nova_init_failed = True
+            return None
+
+    def _internal_chat(self, message: str, timeout: int = 60) -> dict:
+        """Call Nova.chat() with a timeout guard (default 60s).
+
+        Uses a sub-thread so a hanging Claude API call cannot block the
+        entire test run indefinitely.
+        """
+        nova = self._get_nova()
+        if nova is None:
             return {"response": "", "confidence": 0, "sources": [],
-                    "tools_used": [], "error": str(e)}
+                    "tools_used": [], "error": "Nova unavailable"}
+
+        result_holder: List[dict] = []
+        error_holder: List[str] = []
+
+        def _call():
+            try:
+                result_holder.append(nova.chat(message))
+            except Exception as e:
+                error_holder.append(str(e))
+
+        worker = threading.Thread(target=_call, daemon=True)
+        worker.start()
+        worker.join(timeout=timeout)
+
+        if worker.is_alive():
+            logger.warning("AutoQC: _internal_chat timed out after %ds for: %s", timeout, message[:50])
+            return {"response": "", "confidence": 0, "sources": [],
+                    "tools_used": [], "error": f"Timeout after {timeout}s"}
+        if error_holder:
+            return {"response": "", "confidence": 0, "sources": [],
+                    "tools_used": [], "error": error_holder[0]}
+        return result_holder[0] if result_holder else {
+            "response": "", "confidence": 0, "sources": [],
+            "tools_used": [], "error": "No result"
+        }
 
     def _load_dynamic_tests(self) -> None:
         """Load previously generated dynamic tests from disk."""
