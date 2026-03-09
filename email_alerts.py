@@ -11,7 +11,8 @@ functions become no-ops that return immediately.
 
 Rate limiting:
     - Max 10 emails/hour (configurable via RESEND_HOURLY_LIMIT)
-    - Deduplication: identical error_type+message suppressed within 30 min
+    - Deduplication with exponential backoff: identical error_type+message
+      suppressed with escalating windows: 30 min -> 1 hour -> 2 hours -> 4 hours
 
 Integration points (callers to wire up separately):
     - llm_router.py: call send_circuit_breaker_alert() when a provider's
@@ -60,8 +61,11 @@ _TO_EMAIL: str = os.environ.get("ALERT_EMAIL_TO", "").strip()
 # Rate limiting
 _HOURLY_LIMIT: int = int(os.environ.get("RESEND_HOURLY_LIMIT", "10"))
 
-# Deduplication window in seconds (30 minutes)
-_DEDUP_WINDOW_SECONDS: float = 1800.0
+# Deduplication: exponential backoff windows (seconds).
+# Each successive duplicate of the same alert type extends the suppression
+# window: 30 min -> 1 hour -> 2 hours -> 4 hours (capped).
+_DEDUP_BACKOFF_LEVELS: tuple = (1800.0, 3600.0, 7200.0, 14400.0)
+_DEDUP_MAX_LEVEL: int = len(_DEDUP_BACKOFF_LEVELS) - 1
 
 # HTTP timeout for the Resend API call (seconds)
 _SEND_TIMEOUT: int = 15
@@ -91,8 +95,9 @@ _lock = threading.Lock()
 # Timestamps of emails sent within the current rolling hour window
 _send_timestamps: List[float] = []
 
-# Deduplication cache: {dedup_key: last_sent_timestamp}
-_dedup_cache: Dict[str, float] = {}
+# Deduplication cache: {dedup_key: (last_sent_timestamp, escalation_level)}
+# escalation_level indexes into _DEDUP_BACKOFF_LEVELS for exponential backoff.
+_dedup_cache: Dict[str, tuple] = {}
 
 
 def _is_enabled() -> bool:
@@ -112,8 +117,8 @@ def _can_send(dedup_key: str = "") -> bool:
 
     Args:
         dedup_key: Optional key for deduplication.  When non-empty, an
-            email with the same key within _DEDUP_WINDOW_SECONDS is
-            suppressed.
+            email with the same key is suppressed within an exponentially
+            growing backoff window (30m -> 1h -> 2h -> 4h).
 
     Returns:
         True if the email should be sent, False if rate-limited or
@@ -134,19 +139,23 @@ def _can_send(dedup_key: str = "") -> bool:
             )
             return False
 
-        # --- Deduplication ---
+        # --- Deduplication with exponential backoff ---
         if dedup_key:
-            last_sent = _dedup_cache.get(dedup_key, 0.0)
-            if (now - last_sent) < _DEDUP_WINDOW_SECONDS:
-                logger.debug(
-                    "email_alerts: dedup suppressed (key=%s, age=%.0fs)",
-                    dedup_key[:60], now - last_sent,
-                )
-                return False
+            entry = _dedup_cache.get(dedup_key)
+            if entry is not None:
+                last_sent, level = entry
+                window = _DEDUP_BACKOFF_LEVELS[min(level, _DEDUP_MAX_LEVEL)]
+                if (now - last_sent) < window:
+                    logger.debug(
+                        "email_alerts: dedup suppressed (key=%s, age=%.0fs, "
+                        "window=%.0fs, level=%d)",
+                        dedup_key[:60], now - last_sent, window, level,
+                    )
+                    return False
 
-        # --- Prune stale dedup entries (older than 2x the window) ---
-        stale_cutoff = now - (_DEDUP_WINDOW_SECONDS * 2)
-        stale_keys = [k for k, ts in _dedup_cache.items() if ts < stale_cutoff]
+        # --- Prune stale dedup entries (older than 2x the max backoff window) ---
+        stale_cutoff = now - (_DEDUP_BACKOFF_LEVELS[-1] * 2)
+        stale_keys = [k for k, entry in _dedup_cache.items() if entry[0] < stale_cutoff]
         for k in stale_keys:
             del _dedup_cache[k]
 
@@ -157,13 +166,21 @@ def _record_send(dedup_key: str = "") -> None:
     """Record that an email was successfully sent.
 
     Updates the rate-limit timestamp list and dedup cache.
+    Escalates the backoff level for the dedup key (30m -> 1h -> 2h -> 4h).
     Must be called after a successful API response.
     """
     now = time.time()
     with _lock:
         _send_timestamps.append(now)
         if dedup_key:
-            _dedup_cache[dedup_key] = now
+            # Escalate backoff: if key already exists, bump the level
+            existing = _dedup_cache.get(dedup_key)
+            if existing is not None:
+                _, prev_level = existing
+                new_level = min(prev_level + 1, _DEDUP_MAX_LEVEL)
+            else:
+                new_level = 0
+            _dedup_cache[dedup_key] = (now, new_level)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

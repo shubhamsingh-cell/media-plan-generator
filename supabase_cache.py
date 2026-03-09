@@ -643,7 +643,13 @@ def cache_get_many(keys: List[str]) -> Dict[str, Any]:
     _stat_inc("batch_gets")
 
     if not result or not isinstance(result, list):
-        return {}
+        # Fallback to individual gets on batch failure
+        fallback: Dict[str, Any] = {}
+        for key in keys:
+            val = cache_get(key)
+            if val is not None:
+                fallback[key] = val
+        return fallback
 
     hits: Dict[str, Any] = {}
     for entry in result:
@@ -652,6 +658,11 @@ def cache_get_many(keys: List[str]) -> Dict[str, Any]:
         if key and expires_at and not _is_expired(expires_at):
             hits[key] = entry.get("data")
             _stat_inc("hits")
+            # Update hit count (best effort, fire-and-forget)
+            try:
+                _fire_and_forget_hit_increment(key)
+            except Exception:
+                pass
         else:
             _stat_inc("misses")
 

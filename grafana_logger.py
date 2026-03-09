@@ -306,12 +306,23 @@ class GrafanaLokiHandler(logging.Handler):
             timestamp_ns = str(int(record.created * 1_000_000_000))
 
             with self._buffer_lock:
-                self._buffer.append((level_label, timestamp_ns, log_line))
-                # Enforce hard cap: drop oldest records
+                self._buffer.append((level_label, timestamp_ns, log_line, 0))
+                # Enforce hard cap: prioritise keeping ERROR/CRITICAL entries
                 overflow = len(self._buffer) - self._max_buffer_size
                 if overflow > 0:
-                    for _ in range(overflow):
-                        self._buffer.popleft()
+                    # Partition into high-priority (error/critical) and normal
+                    _high = [r for r in self._buffer if r[0] in ("error", "critical")]
+                    _low = [r for r in self._buffer if r[0] not in ("error", "critical")]
+                    # Drop from low-priority (newest first from low) to free space
+                    drop_count = min(overflow, len(_low))
+                    if drop_count > 0:
+                        _low = _low[:-drop_count]
+                    remaining_drop = overflow - drop_count
+                    # If still need to drop, take from high-priority (oldest first)
+                    if remaining_drop > 0 and _high:
+                        _high = _high[remaining_drop:]
+                    self._buffer.clear()
+                    self._buffer.extend(_high + _low)
                     _stats.add_dropped(overflow)
 
                 buffer_len = len(self._buffer)
@@ -361,8 +372,12 @@ class GrafanaLokiHandler(logging.Handler):
             self._buffer.clear()
 
         # Group records by level label
+        # Each record is (level_label, timestamp_ns, log_line, retry_count)
+        # Legacy 3-tuples (no retry_count) are handled for safety.
+        _MAX_FLUSH_RETRIES = 3
         streams_map: Dict[str, List[List[str]]] = {}
-        for level_label, timestamp_ns, log_line in records:
+        for rec in records:
+            level_label, timestamp_ns, log_line = rec[0], rec[1], rec[2]
             if level_label not in streams_map:
                 streams_map[level_label] = []
             streams_map[level_label].append([timestamp_ns, log_line])
@@ -412,9 +427,20 @@ class GrafanaLokiHandler(logging.Handler):
                 pass
             # Put the records back at the front of the buffer so they can
             # be retried on the next flush (subject to max_buffer_size).
+            # Increment retry count; drop records that exceeded max retries.
+            retryable = []
+            dropped_retries = 0
+            for rec in records:
+                retry_count = rec[3] if len(rec) > 3 else 0
+                if retry_count < _MAX_FLUSH_RETRIES:
+                    retryable.append((rec[0], rec[1], rec[2], retry_count + 1))
+                else:
+                    dropped_retries += 1
+            if dropped_retries:
+                _stats.add_dropped(dropped_retries)
             with self._buffer_lock:
-                # Prepend failed records; newest stay at the end
-                for item in reversed(records):
+                # Prepend retryable records; newest stay at the end
+                for item in reversed(retryable):
                     self._buffer.appendleft(item)
                 # Enforce cap: drop oldest if needed after re-insertion
                 overflow = len(self._buffer) - self._max_buffer_size

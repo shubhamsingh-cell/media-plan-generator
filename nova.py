@@ -2769,6 +2769,21 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
         _nova_metrics.record_rule_based()
         result = self._chat_rule_based(user_message, enrichment_context, conversation_history)
         _nova_metrics.record_latency((time.time() - _t0) * 1000)
+
+        # Hardcoded safety net: if rule-based also returned empty/None, ensure
+        # the caller always gets a usable response dict.
+        if not result or not (result.get("response") or "").strip():
+            logger.error("All LLM providers AND rule-based fallback failed for chat query: %s",
+                         user_message[:100])
+            result = {
+                "response": ("I'm temporarily unable to process your question due to connectivity issues "
+                             "with our AI providers. Please try again in a few minutes. "
+                             "If this persists, the system may be experiencing high load."),
+                "sources": [],
+                "confidence": 0.0,
+                "tools_used": [],
+            }
+
         return result
 
     # ------------------------------------------------------------------
@@ -3033,6 +3048,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                         tool_result = self.execute_tool(tool_name, tool_input)
 
                         # Track source from result
+                        has_data = False  # Default: assume no data until proven otherwise
                         try:
                             result_parsed = json.loads(tool_result)
                             if "source" in result_parsed:
@@ -3045,9 +3061,10 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                                 "source": result_parsed.get("source", ""),
                             })
                         except (json.JSONDecodeError, TypeError):
+                            has_data = bool(tool_result)
                             tool_call_details.append({
                                 "tool": tool_name,
-                                "has_data": bool(tool_result),
+                                "has_data": has_data,
                                 "source": "",
                             })
 
@@ -4418,7 +4435,7 @@ def _llm_verify_response(response_text: str, tool_results_raw: list, query: str)
         return response_text, 1.0, "skipped"
     
     try:
-        from llm_router import call_llm, TASK_STRUCTURED
+        from llm_router import call_llm, TASK_VERIFICATION
     except ImportError:
         return response_text, 0.5, "error"
     
@@ -4447,7 +4464,7 @@ Return ONLY valid JSON:
             messages=[{"role": "user", "content": prompt}],
             system_prompt="You are a data accuracy verifier for recruitment marketing. Return ONLY valid JSON. Be strict about number accuracy.",
             max_tokens=512,
-            task_type=TASK_STRUCTURED,
+            task_type=TASK_VERIFICATION,
             query_text="verify response accuracy",
             preferred_providers=["gemini"],
         )

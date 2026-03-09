@@ -86,6 +86,10 @@ SLIDE_HEIGHT = Inches(7.5)
 
 # ---------------------------------------------------------------------------
 # Industry Benchmark Data
+# NOTE: Canonical benchmark source is trend_engine.py. These values are fallbacks only.
+# See trend_engine.get_benchmark() for authoritative CPC/CPA/CPM data with
+# seasonal, regional, and collar-type adjustments. The _get_benchmarks()
+# function below attempts to use trend_engine first, falling back to these.
 # ---------------------------------------------------------------------------
 
 BENCHMARKS: Dict[str, Dict[str, str]] = {

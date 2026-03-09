@@ -49,6 +49,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -317,7 +318,7 @@ def _dedup_fetch(domain: str, key: str, fetch_fn):
         _result_key = full_key
 
         def _cleanup(rk=_result_key):
-            time.sleep(5)  # 5s window (was 2s -- too tight for slow consumers)
+            time.sleep(60)  # 60s window (was 5s -- too tight for slow consumers under load)
             with _inflight_lock:
                 _inflight_results.pop(rk, None)
         t = threading.Thread(target=_cleanup, daemon=True)
@@ -328,15 +329,38 @@ def _dedup_fetch(domain: str, key: str, fetch_fn):
 # FALLBACK TELEMETRY (tracks which queries hit generic fallback)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_fallback_counts: Dict[str, int] = {}
+# Memory-capped fallback counter.  OrderedDict preserves insertion order so
+# the oldest 200 entries can be evicted efficiently when the cap is reached.
+_FALLBACK_MAX_ENTRIES = 1000
+_FALLBACK_EVICT_COUNT = 200
+_fallback_counts: OrderedDict = OrderedDict()  # {str: int}
 _fallback_lock = threading.Lock()
 
 
 def _record_fallback(function_name: str, query: str) -> None:
-    """Track which queries hit generic fallback for data expansion prioritization."""
+    """Track which queries hit generic fallback for data expansion prioritization.
+
+    Memory-capped: when the dict exceeds _FALLBACK_MAX_ENTRIES (1000), the
+    oldest _FALLBACK_EVICT_COUNT (200) entries are evicted (LRU-style by
+    insertion order).  Updating an existing key moves it to the end so
+    frequently-hit keys are retained.
+    """
     with _fallback_lock:
         fb_key = f"{function_name}:{_normalize_cache_key(query)}"
-        _fallback_counts[fb_key] = _fallback_counts.get(fb_key, 0) + 1
+        # If key already exists, update count and move to end (most recent)
+        if fb_key in _fallback_counts:
+            _fallback_counts[fb_key] = _fallback_counts[fb_key] + 1
+            _fallback_counts.move_to_end(fb_key)
+        else:
+            _fallback_counts[fb_key] = 1
+
+        # Evict oldest entries if over the cap
+        if len(_fallback_counts) > _FALLBACK_MAX_ENTRIES:
+            for _ in range(_FALLBACK_EVICT_COUNT):
+                if _fallback_counts:
+                    _fallback_counts.popitem(last=False)  # remove oldest
+                else:
+                    break
 
 
 def get_fallback_telemetry() -> Dict[str, Any]:
@@ -352,6 +376,7 @@ def get_fallback_telemetry() -> Dict[str, Any]:
         return {
             "total_fallbacks": sum(v for _, v in sorted_items),
             "unique_queries": len(sorted_items),
+            "max_entries": _FALLBACK_MAX_ENTRIES,
             "top_fallbacks": dict(sorted_items[:20]),
         }
 
@@ -552,6 +577,10 @@ _TIER_SALARY_RANGES = {
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # AD PLATFORM BENCHMARK DATA (for Nova passthrough -- previously bulk-only)
+# NOTE: Canonical benchmark source is trend_engine.py. These values are fallbacks only.
+# See trend_engine.get_benchmark() for authoritative CPC/CPA/CPM data with
+# seasonal, regional, and collar-type adjustments. This dict is used when
+# trend_engine is unavailable or fails to load.
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _AD_PLATFORM_BENCHMARKS = {
@@ -681,7 +710,7 @@ _INDUSTRY_PEAK_MONTHS = {
     "general_entry_level":      [1, 5, 6, 9],
     "pharma_biotech":           [1, 2, 3, 9, 10],
     "logistics_supply_chain":   [8, 9, 10, 11],
-    "hospitality_tourism":      [2, 3, 4, 9],
+    "hospitality_travel":       [2, 3, 4, 9],
     "mental_health":            [1, 2, 9, 10],
     "legal_services":           [1, 8, 9],
     "maritime_marine":          [3, 4, 5, 9],

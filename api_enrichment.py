@@ -112,6 +112,11 @@ except ImportError:
 API_TIMEOUT = 8  # seconds per HTTP call (increased from 5 for reliability)
 CACHE_TTL = 86400  # 24 hours in seconds
 MAX_WORKERS = 15
+
+# Semaphore to limit concurrent enrich_data() calls.  Each call spawns a
+# ThreadPoolExecutor(max_workers=15), so 10 concurrent enrichments = 150
+# total threads -- a safe ceiling even under heavy load.
+_enrichment_semaphore = threading.Semaphore(10)
 CACHE_DIR = Path(__file__).resolve().parent / "data" / "api_cache"
 
 # Ensure cache directory exists at import time
@@ -552,6 +557,7 @@ FALLBACK_CURRENCY_RATES: Dict[str, float] = {
 
 _memory_cache: Dict[str, Any] = {}
 _cache_lock = threading.Lock()
+_circuit_breaker_lock = threading.Lock()  # Separate lock for circuit breaker state
 MAX_MEMORY_CACHE_SIZE = 500  # Prevent unbounded memory growth
 
 
@@ -645,6 +651,27 @@ _MAX_DISK_CACHE_FILES = 1000  # Prevent disk exhaustion
 _last_disk_cleanup = 0.0
 
 
+# Startup cache cleanup -- evict stale files on boot
+def _startup_cache_cleanup():
+    try:
+        cache_dir = CACHE_DIR
+        if not cache_dir.exists():
+            return
+        files = sorted(cache_dir.glob("*.json"), key=lambda f: f.stat().st_mtime)
+        if len(files) > _MAX_DISK_CACHE_FILES:
+            removed = len(files) - _MAX_DISK_CACHE_FILES
+            for f in files[:removed]:
+                try:
+                    f.unlink()
+                except OSError:
+                    pass
+            _log_info(f"Startup cache cleanup: removed {removed} stale files")
+    except Exception as e:
+        _api_logger.debug("Startup cache cleanup skipped: %s", e)
+
+_startup_cache_cleanup()
+
+
 def _set_cached(key: str, data: Any) -> None:
     """Store data in both in-memory and file caches."""
     global _last_disk_cleanup
@@ -708,9 +735,9 @@ _CB_RECOVERY_TIMEOUT = 300   # seconds (5 minutes) before retrying a tripped API
 def _circuit_breaker_check(api_name: str) -> bool:
     """
     Return True if the circuit is OPEN (API should be skipped).
-    Thread-safe using _cache_lock.
+    Thread-safe using _circuit_breaker_lock.
     """
-    with _cache_lock:
+    with _circuit_breaker_lock:
         state = _circuit_breaker_state.get(api_name)
         if state is None:
             return False
@@ -729,7 +756,7 @@ def _circuit_breaker_check(api_name: str) -> bool:
 
 def _circuit_breaker_record_success(api_name: str) -> None:
     """Reset failure count on success. Thread-safe."""
-    with _cache_lock:
+    with _circuit_breaker_lock:
         _circuit_breaker_state[api_name] = {
             "failure_count": 0,
             "last_failure_time": 0.0,
@@ -739,7 +766,7 @@ def _circuit_breaker_record_success(api_name: str) -> None:
 
 def _circuit_breaker_record_failure(api_name: str) -> None:
     """Increment failure count, open circuit if threshold reached. Thread-safe."""
-    with _cache_lock:
+    with _circuit_breaker_lock:
         state = _circuit_breaker_state.get(api_name, {
             "failure_count": 0,
             "last_failure_time": 0.0,
@@ -8091,6 +8118,10 @@ def fetch_careeronestop_data(
 # ---------------------------------------------------------------------------
 
 # ── Curated fallback benchmark data ──────────────────────────────────────────
+# NOTE: Canonical benchmark source for CPC/CPA/CPM is trend_engine.py.
+# See trend_engine.get_benchmark() for authoritative ad platform benchmarks.
+# JOOBLE_MARKET_DATA below contains job market metadata (postings, salaries,
+# time-to-fill) which is complementary to trend_engine, not a duplication.
 
 JOOBLE_MARKET_DATA = {
     "united_states": {
@@ -9907,7 +9938,7 @@ def fetch_geopolitical_context(
                 "source": "none", "confidence": 0.0}
 
     try:
-        from llm_router import call_llm, TASK_STRUCTURED
+        from llm_router import call_llm, TASK_RESEARCH
     except ImportError:
         _log_warn("llm_router not available for geopolitical context")
         return _geopolitical_fallback(locations)
@@ -9959,7 +9990,7 @@ Respond ONLY in valid JSON with this exact structure:
             messages=messages,
             system_prompt=system_prompt,
             max_tokens=2048,
-            task_type=TASK_STRUCTURED,
+            task_type=TASK_RESEARCH,
             query_text=f"geopolitical risk for recruitment in {locations_str}",
         )
         if result and (result.get("text") or result.get("content")):
@@ -10207,46 +10238,56 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     apis_circuit_broken: List[str] = []
     api_details: Dict[str, Dict[str, Any]] = {}  # per-API metadata
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        future_map = {}
-        for result_key, api_label, func in tasks:
-            apis_called.append(api_label)
-            future = executor.submit(_safe_call, func, api_label)
-            future_map[future] = (result_key, api_label)
+    # Gate concurrent enrichments to avoid thread explosion under load.
+    # Each enrich_data() creates a ThreadPoolExecutor(max_workers=15);
+    # the semaphore caps total concurrent enrichments at 10 (= 150 threads).
+    if not _enrichment_semaphore.acquire(timeout=120):  # 2-minute wait max
+        logger.warning("enrich_data: too many concurrent enrichments, returning partial data")
+        return enriched  # Return what we have so far
 
-        for future in as_completed(future_map):
-            result_key, api_label = future_map[future]
-            try:
-                result, status, metadata = future.result()
-                # Store per-API details
-                api_details[api_label] = {
-                    "elapsed_time": metadata.get("elapsed_time", 0.0),
-                    "source": metadata.get("source", "unknown"),
-                    "success": metadata.get("success", False),
-                    "status": status,
-                }
+    try:
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            future_map = {}
+            for result_key, api_label, func in tasks:
+                apis_called.append(api_label)
+                future = executor.submit(_safe_call, func, api_label)
+                future_map[future] = (result_key, api_label)
 
-                if status == "ok":
-                    enriched[result_key] = result
-                    apis_succeeded.append(api_label)
-                elif status == "empty":
-                    # API ran fine but had no applicable data
-                    apis_skipped.append(api_label)
-                elif status == "circuit_open":
-                    apis_circuit_broken.append(api_label)
+            for future in as_completed(future_map):
+                result_key, api_label = future_map[future]
+                try:
+                    result, status, metadata = future.result()
+                    # Store per-API details
+                    api_details[api_label] = {
+                        "elapsed_time": metadata.get("elapsed_time", 0.0),
+                        "source": metadata.get("source", "unknown"),
+                        "success": metadata.get("success", False),
+                        "status": status,
+                    }
+
+                    if status == "ok":
+                        enriched[result_key] = result
+                        apis_succeeded.append(api_label)
+                    elif status == "empty":
+                        # API ran fine but had no applicable data
+                        apis_skipped.append(api_label)
+                    elif status == "circuit_open":
+                        apis_circuit_broken.append(api_label)
+                        apis_failed.append(api_label)
+                    else:
+                        apis_failed.append(api_label)
+                except Exception as exc:
+                    _log_warn(f"Future for {api_label} raised: {exc}")
                     apis_failed.append(api_label)
-                else:
-                    apis_failed.append(api_label)
-            except Exception as exc:
-                _log_warn(f"Future for {api_label} raised: {exc}")
-                apis_failed.append(api_label)
-                api_details[api_label] = {
-                    "elapsed_time": 0.0,
-                    "source": "error",
-                    "success": False,
-                    "status": "error",
-                    "error_message": str(exc),
-                }
+                    api_details[api_label] = {
+                        "elapsed_time": 0.0,
+                        "source": "error",
+                        "success": False,
+                        "status": "error",
+                        "error_message": str(exc),
+                    }
+    finally:
+        _enrichment_semaphore.release()
 
     # Geopolitical context (LLM-based)
     geo_context = {}

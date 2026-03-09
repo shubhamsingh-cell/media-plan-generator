@@ -71,6 +71,9 @@ ROLE_TIER_MULTIPLIERS: Dict[str, float] = {
     "Education / Academic": 1.0,
 }
 
+# NOTE: Canonical benchmark source is trend_engine.py. These values are fallbacks only.
+# See trend_engine.get_benchmark() for authoritative CPC/CPA/CPM data with
+# seasonal, regional, and collar-type adjustments.
 # Base benchmarks (USD) -- overridden by live data when available.
 # Keys map to *ad-platform categories* used in compute_channel_dollar_amounts.
 BASE_BENCHMARKS: Dict[str, Any] = {
@@ -107,6 +110,9 @@ BASE_BENCHMARKS: Dict[str, Any] = {
     "hire_rate": 0.02,  # applications -> hires (default baseline)
 }
 
+# NOTE: Canonical benchmark source is trend_engine.py. These tier-specific
+# hire rates supplement the base hire_rate above. See trend_engine.py for
+# authoritative conversion funnel benchmarks.
 # C4 FIX: Role-tier-specific hire rates instead of universal 2%
 HIRE_RATE_BY_TIER: Dict[str, float] = {
     "Hourly / Entry-Level": 0.06,          # high-volume, lower bar

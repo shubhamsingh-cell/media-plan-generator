@@ -97,9 +97,10 @@ def parse_budget(budget_input, *, default: float = 100_000.0) -> float:
         suffix = km_match.group(2).upper()
         return num_part * _SUFFIX_MULTIPLIERS[suffix]
 
-    # 2. Extract all numbers >= 1000 (filter noise like "3 months")
+    # 2. Extract all numbers >= 100 (filter noise like "3 months" but accept
+    #    small employer budgets under $1000 -- lowered from 1000 to 100)
     all_nums = re.findall(r'[\d]+', clean)
-    parsed_nums = [int(n) for n in all_nums if int(n) >= 1000]
+    parsed_nums = [int(n) for n in all_nums if int(n) >= 100]
 
     if len(parsed_nums) >= 2:
         # Range like "$250,000 - $500,000" -> midpoint

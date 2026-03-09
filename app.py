@@ -786,7 +786,7 @@ def _verify_plan_data(data):
     Returns verification status dict. Non-blocking -- failures return 'skipped'.
     """
     try:
-        from llm_router import call_llm, TASK_STRUCTURED
+        from llm_router import call_llm, TASK_VERIFICATION
     except ImportError:
         return {"status": "skipped", "reason": "llm_router_unavailable"}
 
@@ -846,7 +846,7 @@ OR
             messages=[{"role": "user", "content": prompt}],
             system_prompt="You are a recruitment advertising data verifier. Return ONLY valid JSON.",
             max_tokens=512,
-            task_type=TASK_STRUCTURED,
+            task_type=TASK_VERIFICATION,
             query_text="verify media plan data",
             preferred_providers=["gemini"],
         )
@@ -2299,7 +2299,7 @@ def generate_excel(data):
     _bstr = str(data.get("budget", "") or "")
     try:
         _bnums = re.findall(r'[\d]+', _bstr.replace(",", "").replace("$", "").strip())
-        _bval = int(_bnums[0]) if _bnums and int(_bnums[0]) >= 1000 else None
+        _bval = int(_bnums[0]) if _bnums and int(_bnums[0]) >= 100 else None
     except (ValueError, IndexError):
         _bval = None
     if _bval is not None:
@@ -7819,6 +7819,28 @@ _generation_jobs: dict = {}
 _generation_jobs_lock = threading.Lock()
 _GENERATION_JOB_EXPIRY_SECONDS = 30 * 60  # 30 minutes
 
+def _cleanup_generation_jobs():
+    """Background thread to clean up expired async generation jobs."""
+    while True:
+        try:
+            time.sleep(300)  # Every 5 minutes
+            now = time.time()
+            with _generation_jobs_lock:
+                expired = [
+                    jid for jid, jdata in _generation_jobs.items()
+                    if now - jdata.get("created", 0) > _GENERATION_JOB_EXPIRY_SECONDS
+                    or (jdata.get("status") in ("completed", "failed") and now - jdata.get("created", 0) > 600)
+                ]
+                for jid in expired:
+                    _generation_jobs.pop(jid, None)
+            if expired:
+                logger.info("Cleaned up %d expired generation jobs", len(expired))
+        except Exception as e:
+            logger.warning("Generation job cleanup error: %s", e)
+
+_job_cleanup_thread = threading.Thread(target=_cleanup_generation_jobs, daemon=True, name="job-cleanup")
+_job_cleanup_thread.start()
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIERED API KEY RATE LIMITING
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -8645,6 +8667,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             if not self._check_rate_limit():
                 self.send_response(429)
                 self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Rate limit exceeded. Please try again in a minute."}).encode())
                 return
@@ -8655,12 +8680,18 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             if content_len <= 0:
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Empty request body"}).encode())
                 return
             if content_len > 10 * 1024 * 1024:  # 10MB limit
                 self.send_response(413)
                 self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Request too large"}).encode())
                 return
@@ -8670,6 +8701,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
@@ -8678,6 +8712,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             if not isinstance(data, dict):
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Request body must be a JSON object"}).encode())
                 return
@@ -8699,10 +8736,28 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             if not client_name_input:
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Client name is required."}).encode())
                 return
             data["client_name"] = client_name_input
+
+            # Validate critical input fields (non-blocking: store warnings, don't 400)
+            _roles_input = data.get("target_roles") or data.get("roles", [])
+            _locs_input = data.get("locations", [])
+            _budget_input = str(data.get("budget", "") or data.get("budget_range", "") or "").strip()
+            _validation_warnings = []
+            if not _roles_input or (isinstance(_roles_input, list) and len(_roles_input) == 0):
+                _validation_warnings.append("No target roles specified -- plan will use generic benchmarks")
+            if not _locs_input or (isinstance(_locs_input, list) and len(_locs_input) == 0):
+                _validation_warnings.append("No locations specified -- plan will use global averages")
+            if not _budget_input:
+                _validation_warnings.append("No budget specified -- plan will use estimated ranges")
+            if _validation_warnings:
+                data["_input_warnings"] = _validation_warnings
+                logger.info("Input validation warnings: %s", _validation_warnings)
 
             # ── Feature 2b: Async generation mode ──
             if self.headers.get("X-Async", "").lower() == "true":
@@ -8753,6 +8808,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         else:
                             gen_data["_synthesized"] = {}
 
+                        # Copy geopolitical context from enriched to synthesized
+                        # (PPT/Excel read from _synthesized; enrichment stores it in _enriched)
+                        if isinstance(enriched, dict) and isinstance(gen_data.get("_synthesized"), dict):
+                            _geo_from_enriched = enriched.get("geopolitical_context")
+                            if _geo_from_enriched and isinstance(_geo_from_enriched, dict):
+                                gen_data["_synthesized"]["geopolitical_context"] = _geo_from_enriched
+
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 50
@@ -8774,6 +8836,68 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 60
+
+                        # Budget Allocation (Phase 4 -- same as sync path)
+                        if calculate_budget_allocation is not None:
+                            try:
+                                _ind_key_ba = gen_data.get("industry", "general_entry_level")
+                                _DEFAULT_ALLOC_BA = {"programmatic_dsp": 35, "global_boards": 20, "niche_boards": 15, "social_media": 12, "regional_boards": 8, "employer_branding": 5, "apac_regional": 3, "emea_regional": 2}
+                                if INDUSTRY_ALLOC_PROFILES is not None:
+                                    channel_pcts = INDUSTRY_ALLOC_PROFILES.get(_ind_key_ba, _DEFAULT_ALLOC_BA)
+                                else:
+                                    channel_pcts = _DEFAULT_ALLOC_BA
+
+                                _bstr_ba = str(gen_data.get("budget", "") or gen_data.get("budget_range", "") or "").strip()
+                                if not _bstr_ba:
+                                    _bstr_ba = str(gen_data.get("budget_range", "") or "").strip()
+                                _bval_ba = parse_budget(_bstr_ba)
+
+                                _roles_raw = gen_data.get("target_roles") or gen_data.get("roles", [])
+                                _roles_for_ba = []
+                                for r in (_roles_raw if isinstance(_roles_raw, list) else []):
+                                    if isinstance(r, str):
+                                        _roles_for_ba.append({"title": r, "count": 1, "tier": gen_data.get("_role_tiers", {}).get(r, {}).get("tier", "Professional")})
+                                    elif isinstance(r, dict):
+                                        _roles_for_ba.append({"title": r.get("title", ""), "count": int(r.get("count", 1)), "tier": r.get("_tier", "Professional")})
+
+                                _locs_raw = gen_data.get("locations", [])
+                                _locs_for_ba = []
+                                for loc in (_locs_raw if isinstance(_locs_raw, list) else []):
+                                    if isinstance(loc, str):
+                                        parts = [p.strip() for p in loc.split(",")]
+                                        _locs_for_ba.append({"city": parts[0] if parts else loc, "state": parts[1] if len(parts) > 1 else "", "country": parts[2] if len(parts) > 2 else parts[-1] if len(parts) > 1 else "US"})
+                                    elif isinstance(loc, dict):
+                                        _locs_for_ba.append({"city": loc.get("city", ""), "state": loc.get("state", ""), "country": loc.get("country", "")})
+
+                                synthesized_for_ba = gen_data.get("_synthesized", {})
+                                enriched_for_ba = gen_data.get("_enriched", {})
+                                merged_for_ba = {}
+                                if isinstance(enriched_for_ba, dict):
+                                    merged_for_ba.update(enriched_for_ba)
+                                if isinstance(synthesized_for_ba, dict):
+                                    merged_for_ba.update(synthesized_for_ba)
+                                budget_result = calculate_budget_allocation(
+                                    total_budget=_bval_ba,
+                                    roles=_roles_for_ba,
+                                    locations=_locs_for_ba,
+                                    industry=gen_data.get("industry", "General"),
+                                    channel_percentages=channel_pcts,
+                                    synthesized_data=merged_for_ba,
+                                    knowledge_base=kb,
+                                    collar_type=gen_data.get("_collar_type", ""),
+                                    campaign_start_month=int(gen_data.get("campaign_start_month", 0) or 0),
+                                )
+                                gen_data["_budget_allocation"] = budget_result
+                                logger.info("Async budget allocation complete: %s", list(budget_result.keys()) if isinstance(budget_result, dict) else 'N/A')
+                            except Exception as ba_err:
+                                logger.warning("Async budget allocation failed (non-fatal): %s", ba_err)
+                                gen_data["_budget_allocation"] = {}
+                        else:
+                            gen_data["_budget_allocation"] = {}
+
+                        with _generation_jobs_lock:
+                            if jid in _generation_jobs:
+                                _generation_jobs[jid]["progress_pct"] = 70
 
                         # Gemini/LLM verification of key plan data points
                         try:
@@ -8828,6 +8952,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                     "status": "failed",
                                     "error": str(async_err),
                                 })
+                        # Send email alert for async generation failure (matches sync path)
+                        try:
+                            from email_alerts import send_generation_failure_alert
+                            _client = gen_data.get("client_name", "Unknown") if gen_data else "Unknown"
+                            send_generation_failure_alert(_client, str(async_err), jid)
+                        except Exception:
+                            pass  # email alerts are best-effort
 
                 t = threading.Thread(
                     target=_async_generate,
@@ -9023,6 +9154,14 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     data["_synthesized"] = {}
             else:
                 data["_synthesized"] = {}
+
+            # ── Copy geopolitical context from enriched to synthesized ──
+            # PPT/Excel read from _synthesized, but geopolitical_context is produced
+            # by api_enrichment.enrich_data() and stored in _enriched. Bridge the gap.
+            if isinstance(enriched, dict) and isinstance(data.get("_synthesized"), dict):
+                _geo_from_enriched = enriched.get("geopolitical_context")
+                if _geo_from_enriched and isinstance(_geo_from_enriched, dict):
+                    data["_synthesized"]["geopolitical_context"] = _geo_from_enriched
 
             # ── NAICS-based Industry Classification ──
             # Classify industry using the NAICS engine, supporting both legacy keys

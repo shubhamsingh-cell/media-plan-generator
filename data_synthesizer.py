@@ -160,7 +160,9 @@ _INDUSTRY_TO_KB_KEY: Dict[str, str] = {
 
 # ---------------------------------------------------------------------------
 # Hardcoded fallback salary ranges by common role keywords.
-# Single source of truth -- referenced by fuse_salary_intelligence().
+# Single source of truth for salary fallbacks -- referenced by fuse_salary_intelligence().
+# NOTE: For CPC/CPA/CPM benchmark data, canonical source is trend_engine.py.
+# See trend_engine.get_benchmark() for authoritative ad platform benchmarks.
 # ---------------------------------------------------------------------------
 _ROLE_SALARY_FALLBACKS: Dict[str, Dict[str, int]] = {
     "software":        {"median": 130000, "min": 90000, "p25": 110000, "p75": 155000, "max": 200000},
@@ -1556,6 +1558,8 @@ def fuse_ad_platform_analysis(
     )
 
     # --- Fallback: Industry benchmark data for major ad platforms ---
+    # NOTE: Canonical benchmark source is trend_engine.py. These values are fallbacks only.
+    # See trend_engine.get_benchmark() for authoritative CPC/CPA/CPM data.
     # Check if all platforms returned empty/zero data
     _all_empty = all(
         isinstance(result.get(pk), dict) and result[pk].get("avg_cpc", 0) == 0
@@ -2394,14 +2398,14 @@ Format your response as JSON with these exact keys:
 Respond with ONLY the JSON object, no markdown formatting or code blocks."""
 
     try:
-        from llm_router import call_llm, TASK_STRUCTURED
+        from llm_router import call_llm, TASK_NARRATIVE
         import json as _json
 
         result = call_llm(
             messages=[{"role": "user", "content": prompt}],
             system_prompt="You are a senior recruitment marketing strategist. Return ONLY valid JSON.",
             max_tokens=1024,
-            task_type=TASK_STRUCTURED,
+            task_type=TASK_NARRATIVE,
         )
 
         text = (result or {}).get("text", "")

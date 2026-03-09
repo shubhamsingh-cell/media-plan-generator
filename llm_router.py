@@ -1,5 +1,5 @@
 """
-llm_router.py -- Smart LLM Provider Router for Nova Chat (v3.2)
+llm_router.py -- Smart LLM Provider Router for Nova Chat (v3.3)
 
 Routes LLM API calls to the optimal provider based on task type,
 with automatic fallback and circuit breaker per provider.
@@ -26,13 +26,21 @@ Routing strategy for paid models:
     - CONVERSATIONAL (Q&A): GPT-4o before Claude (strong general reasoning)
     - COMPLEX (multi-step): Claude Sonnet before GPT-4o (better tool_use chains)
     - CODE (formulas): GPT-4o before Claude (strong at calculations)
+    - VERIFICATION (fact-check): GPT-4o before Claude (precision + grounding)
+    - RESEARCH (geopolitical): GPT-4o before Claude (broad knowledge)
+    - NARRATIVE (long-form): GPT-4o before Claude (fluent generation)
+    - BATCH (high-throughput): GPT-4o before Claude (cost-efficient at scale)
     - Claude Opus is ALWAYS last -- only used when all others fail
 
-Task classification:
-    - STRUCTURED:  benchmark lookups, CPC/CPA queries, JSON output
+Task classification (8 types):
+    - STRUCTURED:     benchmark lookups, CPC/CPA queries, JSON output
     - CONVERSATIONAL: explain strategy, general Q&A, advisory
-    - COMPLEX: what-if scenarios, role decomposition, multi-step analysis
-    - CODE: formula generation, calculations, data transforms
+    - COMPLEX:        what-if scenarios, role decomposition, multi-step analysis
+    - CODE:           formula generation, calculations, data transforms
+    - VERIFICATION:   fact-checking, grounding verification, accuracy validation
+    - RESEARCH:       market research, geopolitical analysis, macro-economic outlook
+    - NARRATIVE:      long-form text, executive summaries, report writing
+    - BATCH:          high-throughput bulk operations, comprehensive reports
 
 Each provider has independent circuit breaker (5 failures -> 60s cooldown)
 and per-minute rate tracking.  12 total providers, 9 free + 3 paid.
@@ -64,6 +72,10 @@ TASK_STRUCTURED = "structured"
 TASK_CONVERSATIONAL = "conversational"
 TASK_COMPLEX = "complex"
 TASK_CODE = "code"
+TASK_VERIFICATION = "verification"    # Fact-checking, grounding verification
+TASK_RESEARCH = "research"            # Market research, geopolitical analysis
+TASK_NARRATIVE = "narrative"          # Long-form text, executive summaries
+TASK_BATCH = "batch"                  # High-throughput, latency-tolerant
 
 # Provider IDs
 GEMINI = "gemini"
@@ -244,10 +256,14 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 #   Claude Sonnet: complex multi-step tool_use chains
 #   Claude Opus: last resort, highest quality
 TASK_ROUTING: Dict[str, List[str]] = {
-    TASK_STRUCTURED:     [GEMINI, MISTRAL, GROQ, CEREBRAS, OPENROUTER, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_STRUCTURED:     [GEMINI, MISTRAL, NVIDIA_NIM, GROQ, CEREBRAS, OPENROUTER, XAI, SAMBANOVA, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
     TASK_CONVERSATIONAL: [GROQ, CEREBRAS, GEMINI, MISTRAL, OPENROUTER, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_COMPLEX:        [GROQ, CEREBRAS, GEMINI, OPENROUTER, MISTRAL, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, CLAUDE, GPT4O, CLAUDE_OPUS],
-    TASK_CODE:           [GEMINI, MISTRAL, GROQ, CEREBRAS, OPENROUTER, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_COMPLEX:        [SAMBANOVA, OPENROUTER, GROQ, CEREBRAS, GEMINI, MISTRAL, XAI, NVIDIA_NIM, CLOUDFLARE, CLAUDE, GPT4O, CLAUDE_OPUS],
+    TASK_CODE:           [GEMINI, MISTRAL, NVIDIA_NIM, GROQ, CEREBRAS, OPENROUTER, XAI, SAMBANOVA, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_VERIFICATION:   [GEMINI, MISTRAL, GROQ, CEREBRAS, NVIDIA_NIM, OPENROUTER, XAI, SAMBANOVA, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_RESEARCH:       [XAI, OPENROUTER, SAMBANOVA, GEMINI, GROQ, CEREBRAS, MISTRAL, NVIDIA_NIM, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_NARRATIVE:      [GROQ, OPENROUTER, GEMINI, CEREBRAS, MISTRAL, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_BATCH:          [CLOUDFLARE, CEREBRAS, GROQ, GEMINI, MISTRAL, NVIDIA_NIM, OPENROUTER, XAI, SAMBANOVA, GPT4O, CLAUDE, CLAUDE_OPUS],
 }
 
 # Keywords for task classification
@@ -264,6 +280,26 @@ _COMPLEX_KEYWORDS = re.compile(
 _CODE_KEYWORDS = re.compile(
     r"\b(formula|calculate|compute|function|code|equation|"
     r"algorithm|logic|derive|transform)\b",
+    re.IGNORECASE,
+)
+_VERIFICATION_KEYWORDS = re.compile(
+    r"\b(verify|check|validate|confirm|accurate|correct|true|false|"
+    r"fact.check|grounding|cross.check)\b",
+    re.IGNORECASE,
+)
+_RESEARCH_KEYWORDS = re.compile(
+    r"\b(research|investigate|geopolitical|market.analysis|risk.assessment|"
+    r"macro|economic.outlook|political|immigration|policy)\b",
+    re.IGNORECASE,
+)
+_NARRATIVE_KEYWORDS = re.compile(
+    r"\b(write|draft|compose|narrative|summary|executive.summary|"
+    r"report|paragraph|describe|explain.in.detail|overview)\b",
+    re.IGNORECASE,
+)
+_BATCH_KEYWORDS = re.compile(
+    r"\b(batch|bulk|multiple|all.industries|all.locations|"
+    r"comprehensive|full.report)\b",
     re.IGNORECASE,
 )
 
@@ -322,6 +358,11 @@ class _ProviderState:
             self.minute_calls.append(now)
             self.day_calls.append(now)
             self.total_calls += 1
+            # Inline cleanup: keep only last 24h, but cap at 10000 entries
+            # to prevent unbounded growth under sustained high load.
+            if len(self.day_calls) > 10000:
+                cutoff = now - 86400
+                self.day_calls = [t for t in self.day_calls if t > cutoff]
 
     def record_success(self, latency_ms: float) -> None:
         """Record a successful API call."""
@@ -382,15 +423,22 @@ _provider_states: Dict[str, _ProviderState] = {
 def classify_task(query: str) -> str:
     """Classify a user query into a task type for provider routing.
 
-    Returns one of: TASK_STRUCTURED, TASK_CONVERSATIONAL, TASK_COMPLEX, TASK_CODE.
+    Returns one of: TASK_STRUCTURED, TASK_CONVERSATIONAL, TASK_COMPLEX,
+    TASK_CODE, TASK_VERIFICATION, TASK_RESEARCH, TASK_NARRATIVE, TASK_BATCH.
     """
     try:
         q = query.lower().strip()
-        # Score each task type by keyword matches
+        # Score each task type by keyword matches.
+        # New specialised types are checked alongside the originals;
+        # specificity is handled via the boost multipliers.
         scores = {
-            TASK_STRUCTURED: len(_STRUCTURED_KEYWORDS.findall(q)),
-            TASK_COMPLEX: len(_COMPLEX_KEYWORDS.findall(q)) * 1.5,  # boost complex
-            TASK_CODE: len(_CODE_KEYWORDS.findall(q)),
+            TASK_VERIFICATION: len(_VERIFICATION_KEYWORDS.findall(q)) * 2.0,  # boost: most specific
+            TASK_RESEARCH:     len(_RESEARCH_KEYWORDS.findall(q)) * 2.0,
+            TASK_NARRATIVE:    len(_NARRATIVE_KEYWORDS.findall(q)) * 1.8,
+            TASK_BATCH:        len(_BATCH_KEYWORDS.findall(q)) * 1.8,
+            TASK_STRUCTURED:   len(_STRUCTURED_KEYWORDS.findall(q)),
+            TASK_COMPLEX:      len(_COMPLEX_KEYWORDS.findall(q)) * 1.5,  # boost complex
+            TASK_CODE:         len(_CODE_KEYWORDS.findall(q)),
             TASK_CONVERSATIONAL: 0,
         }
         best = max(scores, key=scores.get)
@@ -911,7 +959,8 @@ def get_router_status() -> Dict[str, Any]:
     return {
         "providers": providers,
         "routing": TASK_ROUTING,
-        "task_types": [TASK_STRUCTURED, TASK_CONVERSATIONAL, TASK_COMPLEX, TASK_CODE],
+        "task_types": [TASK_STRUCTURED, TASK_CONVERSATIONAL, TASK_COMPLEX, TASK_CODE,
+                       TASK_VERIFICATION, TASK_RESEARCH, TASK_NARRATIVE, TASK_BATCH],
     }
 
 

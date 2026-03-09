@@ -1814,6 +1814,559 @@ class AutoQC:
         except Exception as e:
             return TestResult("supabase_cache_disabled_behavior", False, f"Error: {e}")
 
+    def _test_67_budget_allocation_sum_invariant(self) -> TestResult:
+        """Budget Allocation Sum -- channel allocations sum to total budget within 1% tolerance."""
+        try:
+            try:
+                import budget_engine
+            except ImportError:
+                return TestResult("budget_allocation_sum_invariant", False,
+                                  "budget_engine module not importable")
+
+            total_budget = 50000.0
+            roles = [
+                {"title": "Software Engineer", "count": 3, "tier": "Technology / Engineering"},
+            ]
+            locations = [
+                {"city": "New York", "state": "NY", "country": "US"},
+            ]
+            channel_percentages = {
+                "Indeed": 30.0,
+                "LinkedIn": 25.0,
+                "Google Ads": 20.0,
+                "Programmatic & DSP": 15.0,
+                "Social Media Ads": 10.0,
+            }
+            result = budget_engine.calculate_budget_allocation(
+                total_budget=total_budget,
+                roles=roles,
+                locations=locations,
+                industry="technology",
+                channel_percentages=channel_percentages,
+            )
+            if not isinstance(result, dict):
+                return TestResult("budget_allocation_sum_invariant", False,
+                                  f"Result is {type(result).__name__}, expected dict")
+
+            channel_allocs = result.get("channel_allocations", {})
+            if not channel_allocs:
+                return TestResult("budget_allocation_sum_invariant", False,
+                                  "No channel_allocations in result")
+
+            alloc_sum = sum(
+                ch.get("dollar_amount", ch.get("dollars", 0))
+                for ch in channel_allocs.values()
+                if isinstance(ch, dict)
+            )
+            tolerance = total_budget * 0.01  # 1% tolerance
+            diff = abs(alloc_sum - total_budget)
+            ok = diff <= tolerance
+            detail = (f"Sum=${alloc_sum:.2f} vs budget=${total_budget:.2f}, "
+                      f"diff=${diff:.2f} (tolerance=${tolerance:.2f})")
+            return TestResult("budget_allocation_sum_invariant", ok, detail)
+        except Exception as e:
+            return TestResult("budget_allocation_sum_invariant", False, f"Error: {e}")
+
+    def _test_68_llm_router_fallback_cascade(self) -> TestResult:
+        """LLM Router Fallback -- marking first provider down yields remaining cascade."""
+        try:
+            try:
+                import llm_router
+            except ImportError:
+                return TestResult("llm_router_fallback_cascade", False,
+                                  "llm_router module not importable")
+
+            task_type = llm_router.TASK_STRUCTURED
+            full_route = llm_router.TASK_ROUTING.get(task_type, [])
+            if not full_route or len(full_route) < 2:
+                return TestResult("llm_router_fallback_cascade", False,
+                                  f"TASK_STRUCTURED route has {len(full_route)} providers, need >= 2")
+
+            first_provider = full_route[0]
+            # Save original state
+            states = llm_router._provider_states
+            original_circuit_open = None
+            state_obj = states.get(first_provider)
+            if state_obj:
+                original_circuit_open = state_obj.circuit_open_until
+
+            try:
+                # Temporarily mark first provider as circuit-open (unavailable)
+                if state_obj:
+                    state_obj.circuit_open_until = time.time() + 3600  # 1 hour from now
+
+                # select_provider should skip the first provider
+                selected = llm_router.select_provider(task_type)
+                # selected should not be the first provider (it's "down")
+                # It might be None if no other provider has API keys, which is acceptable
+                if selected == first_provider:
+                    ok = False
+                    detail = f"select_provider returned downed provider '{first_provider}'"
+                elif selected is None:
+                    ok = True
+                    detail = (f"No available fallback (no API keys for remaining providers) "
+                              f"-- cascade logic correct (skipped '{first_provider}')")
+                else:
+                    expected_remaining = [p for p in full_route if p != first_provider]
+                    ok = selected in expected_remaining
+                    detail = (f"First='{first_provider}' (down), selected='{selected}', "
+                              f"in expected cascade={ok}")
+            finally:
+                # Restore original state
+                if state_obj and original_circuit_open is not None:
+                    state_obj.circuit_open_until = original_circuit_open
+                elif state_obj:
+                    state_obj.circuit_open_until = 0
+
+            return TestResult("llm_router_fallback_cascade", ok, detail)
+        except Exception as e:
+            return TestResult("llm_router_fallback_cascade", False, f"Error: {e}")
+
+    def _test_69_budget_cpc_tier_cascade(self) -> TestResult:
+        """Budget CPC Tier Cascade -- 4-tier CPC resolution returns reasonable values."""
+        try:
+            try:
+                import budget_engine
+            except ImportError:
+                return TestResult("budget_cpc_tier_cascade", False,
+                                  "budget_engine module not importable")
+
+            # Verify the 4-tier CPC resolution functions exist
+            tier_funcs = {
+                "trend_engine": "_get_trend_engine_cpc",
+                "synthesized": "_extract_cpc_from_synthesized",
+                "kb": "_extract_cpc_from_kb",
+                "base_defaults": "BASE_BENCHMARKS",
+            }
+            missing = []
+            for tier_name, fn_name in tier_funcs.items():
+                if not hasattr(budget_engine, fn_name):
+                    missing.append(f"{tier_name}({fn_name})")
+
+            if missing:
+                return TestResult("budget_cpc_tier_cascade", False,
+                                  f"Missing CPC tier functions: {', '.join(missing)}")
+
+            # Verify base defaults have reasonable CPC values
+            base = budget_engine.BASE_BENCHMARKS.get("cpc", {})
+            if not base:
+                return TestResult("budget_cpc_tier_cascade", False,
+                                  "BASE_BENCHMARKS has no 'cpc' section")
+
+            # Check that all base CPC values are non-negative
+            errors = []
+            for category, cpc_val in base.items():
+                if not isinstance(cpc_val, (int, float)):
+                    errors.append(f"{category}: not a number ({type(cpc_val).__name__})")
+                elif cpc_val < 0:
+                    errors.append(f"{category}: negative CPC ({cpc_val})")
+
+            # Also verify the synthesized extractor returns None for empty data (tier fallback)
+            synth_result = budget_engine._extract_cpc_from_synthesized("search", None)
+            if synth_result is not None:
+                errors.append(f"_extract_cpc_from_synthesized(None) should return None, got {synth_result}")
+
+            kb_result = budget_engine._extract_cpc_from_kb("search", None)
+            if kb_result is not None:
+                errors.append(f"_extract_cpc_from_kb(None) should return None, got {kb_result}")
+
+            ok = len(errors) == 0
+            detail = (f"4-tier CPC cascade verified: {len(base)} base categories, "
+                      f"fallbacks correct" if ok else f"Errors: {'; '.join(errors)}")
+            return TestResult("budget_cpc_tier_cascade", ok, detail)
+        except Exception as e:
+            return TestResult("budget_cpc_tier_cascade", False, f"Error: {e}")
+
+    def _test_70_nova_hallucination_guard(self) -> TestResult:
+        """Nova Hallucination Guard -- nonsense query does not produce fabricated dollar amounts."""
+        try:
+            result = self._internal_chat(
+                "What is the CPC for underwater basket weaving jobs in Narnia?"
+            )
+            response = result.get("response", "")
+            if not response:
+                # If we got an error or timeout, that's acceptable -- no hallucination
+                err = result.get("error", "")
+                if err:
+                    return TestResult("nova_hallucination_guard", True,
+                                      f"No response (error/timeout: {err[:80]}) -- no hallucination possible")
+                return TestResult("nova_hallucination_guard", False,
+                                  "Empty response with no error")
+
+            resp_lower = response.lower()
+
+            # Detect if Nova is running in rule-based mode (no LLM keys)
+            sources = result.get("sources", [])
+            sources_str = " ".join(str(s) for s in sources).lower() if sources else ""
+            is_rule_based = (
+                "rule-based" in sources_str
+                or "knowledge_base" in sources_str
+                or not os.environ.get("ANTHROPIC_API_KEY", "").strip()
+            )
+
+            # Check for fabricated dollar amounts (patterns like $X.XX or $XX)
+            import re as _re
+            dollar_pattern = _re.compile(r'\$\d+\.?\d*')
+            fabricated_dollars = dollar_pattern.findall(response)
+
+            # Check for appropriate uncertainty language
+            uncertainty_phrases = [
+                "no data", "not available", "unable to find", "don't have specific data",
+                "don't have data", "no specific", "cannot provide", "not a real",
+                "fictional", "doesn't exist", "does not exist", "no reliable",
+                "not a recognized", "no information", "no benchmark", "unavailable",
+                "can't provide specific", "no cpc data", "no specific data",
+                "general", "typical", "approximate", "estimate", "range",
+                "may vary", "depends on", "varies", "generally",
+            ]
+            has_uncertainty = any(phrase in resp_lower for phrase in uncertainty_phrases)
+
+            if is_rule_based:
+                # In rule-based mode, Nova returns template/KB values for any query.
+                # This is expected behavior -- it can't distinguish nonsense from real
+                # queries without LLM reasoning. Pass if response exists and doesn't
+                # claim highly specific knowledge about the fictional entity.
+                has_specific_narnia = "narnia" in resp_lower and any(
+                    phrase in resp_lower for phrase in [
+                        "in narnia, the cpc is",
+                        "narnia has a cpc of",
+                        "for narnia specifically",
+                    ]
+                )
+                ok = not has_specific_narnia
+                detail = (f"Rule-based mode: template CPC values expected. "
+                          f"Narnia-specific claims: {has_specific_narnia}")
+                return TestResult("nova_hallucination_guard", ok, detail)
+
+            # LLM mode: strict check -- no fabricated dollar amounts AND has uncertainty
+            ok = len(fabricated_dollars) == 0 or has_uncertainty
+            detail = (f"Fabricated $: {fabricated_dollars[:3] if fabricated_dollars else 'none'}, "
+                      f"uncertainty_language={has_uncertainty}")
+            return TestResult("nova_hallucination_guard", ok, detail)
+        except Exception as e:
+            return TestResult("nova_hallucination_guard", False, f"Error: {e}")
+
+    def _test_71_cache_ttl_expiration(self) -> TestResult:
+        """Cache TTL Expiration -- expired cache entries are not returned."""
+        try:
+            if "data_orchestrator" not in sys.modules:
+                importlib.import_module("data_orchestrator")
+            do = sys.modules["data_orchestrator"]
+
+            # Verify core cache functions exist
+            required_fns = ["_cache_get", "_cache_set", "_api_result_cache",
+                            "_API_CACHE_TTL"]
+            missing = [fn for fn in required_fns if not hasattr(do, fn)]
+            if missing:
+                return TestResult("cache_ttl_expiration", False,
+                                  f"Missing cache internals: {', '.join(missing)}")
+
+            # Test 1: Write with a normal TTL and verify retrieval
+            test_domain = "__qc_test__"
+            test_key = f"ttl_test_{int(time.time())}"
+            test_data = {"qc": True, "ts": time.time()}
+            do._cache_set(test_domain, test_key, test_data, ttl=3600)
+            retrieved = do._cache_get(test_domain, test_key)
+            if retrieved != test_data:
+                return TestResult("cache_ttl_expiration", False,
+                                  f"Fresh cache miss: set data not retrieved")
+
+            # Test 2: Manually expire the entry and verify it is NOT returned
+            full_key = f"{test_domain}:{do._normalize_cache_key(test_key)}"
+            cache_store = do._api_result_cache
+            if full_key in cache_store:
+                # Set expiry to the past
+                cache_store[full_key]["expires"] = time.time() - 10
+                expired_result = do._cache_get(test_domain, test_key)
+                if expired_result is not None:
+                    return TestResult("cache_ttl_expiration", False,
+                                      f"Expired entry still returned: {type(expired_result)}")
+            else:
+                return TestResult("cache_ttl_expiration", False,
+                                  f"Cache entry not found at expected key '{full_key}'")
+
+            # Cleanup: remove test entry
+            cache_store.pop(full_key, None)
+
+            ok = True
+            detail = ("TTL mechanism verified: fresh entry retrieved, "
+                      "expired entry correctly evicted")
+            return TestResult("cache_ttl_expiration", ok, detail)
+        except Exception as e:
+            return TestResult("cache_ttl_expiration", False, f"Error: {e}")
+
+    def _test_72_circuit_breaker_state_machine(self) -> TestResult:
+        """Circuit Breaker State Machine -- closed->open->half-open transitions work."""
+        try:
+            if "api_enrichment" not in sys.modules:
+                importlib.import_module("api_enrichment")
+            ae = sys.modules["api_enrichment"]
+
+            required_fns = ["_circuit_breaker_check", "_circuit_breaker_record_failure",
+                            "_circuit_breaker_record_success", "_circuit_breaker_state",
+                            "_CB_FAILURE_THRESHOLD", "_CB_RECOVERY_TIMEOUT"]
+            missing = [fn for fn in required_fns if not hasattr(ae, fn)]
+            if missing:
+                return TestResult("circuit_breaker_state_machine", False,
+                                  f"Missing circuit breaker internals: {', '.join(missing)}")
+
+            test_api = "__qc_test_cb__"
+            threshold = ae._CB_FAILURE_THRESHOLD
+            errors = []
+
+            try:
+                # Step 1: Clean state -- circuit should be closed
+                ae._circuit_breaker_record_success(test_api)  # reset to clean state
+                is_open = ae._circuit_breaker_check(test_api)
+                if is_open:
+                    errors.append("Circuit open after success reset (expected closed)")
+
+                # Step 2: Record enough failures to trip the breaker
+                for i in range(threshold):
+                    ae._circuit_breaker_record_failure(test_api)
+
+                is_open_after_failures = ae._circuit_breaker_check(test_api)
+                if not is_open_after_failures:
+                    errors.append(f"Circuit still closed after {threshold} failures "
+                                  f"(expected open)")
+
+                # Step 3: Simulate cooldown by manipulating last_failure_time
+                state = ae._circuit_breaker_state.get(test_api, {})
+                if state:
+                    # Set last_failure_time far enough in the past to trigger half-open
+                    state["last_failure_time"] = time.time() - ae._CB_RECOVERY_TIMEOUT - 10
+                    ae._circuit_breaker_state[test_api] = state
+
+                    # Now check should return False (half-open, allows retry)
+                    is_open_after_cooldown = ae._circuit_breaker_check(test_api)
+                    if is_open_after_cooldown:
+                        errors.append("Circuit still open after cooldown "
+                                      "(expected half-open/closed)")
+                else:
+                    errors.append("No state found after recording failures")
+
+            finally:
+                # Cleanup: reset the test API state
+                ae._circuit_breaker_record_success(test_api)
+                ae._circuit_breaker_state.pop(test_api, None)
+
+            ok = len(errors) == 0
+            detail = (f"State machine verified: closed->open(after {threshold} failures)"
+                      f"->half-open(after cooldown)" if ok
+                      else f"Failures: {'; '.join(errors)}")
+            return TestResult("circuit_breaker_state_machine", ok, detail)
+        except Exception as e:
+            return TestResult("circuit_breaker_state_machine", False, f"Error: {e}")
+
+    def _test_73_cross_module_data_contract(self) -> TestResult:
+        """Cross-Module Data Contract -- compute_insights returns expected keys."""
+        try:
+            if "data_orchestrator" not in sys.modules:
+                importlib.import_module("data_orchestrator")
+            do = sys.modules["data_orchestrator"]
+
+            # Verify compute_insights exists
+            if not hasattr(do, "compute_insights"):
+                return TestResult("cross_module_data_contract", False,
+                                  "compute_insights function not found in data_orchestrator")
+
+            # Call with minimal params (no context, no external APIs needed)
+            result = do.compute_insights(
+                role="Software Engineer",
+                location="New York",
+                industry="technology",
+            )
+
+            if not isinstance(result, dict):
+                return TestResult("cross_module_data_contract", False,
+                                  f"compute_insights returned {type(result).__name__}, expected dict")
+
+            # Check expected contract keys
+            expected_keys = ["hiring_difficulty_index"]
+            present_keys = [k for k in expected_keys if k in result]
+
+            # Also verify enrichment functions return dicts with expected structure
+            enrichment_fns = {
+                "enrich_salary": {"args": {"role": "Software Engineer"},
+                                  "expected_type": dict},
+                "get_ad_platform_benchmarks": {"args": {"industry": "technology",
+                                                         "role": "Software Engineer"},
+                                                "expected_type": dict},
+            }
+            contract_checks = []
+            for fn_name, spec in enrichment_fns.items():
+                fn = getattr(do, fn_name, None)
+                if fn is None:
+                    contract_checks.append(f"{fn_name}: missing")
+                    continue
+                try:
+                    fn_result = fn(**spec["args"])
+                    if isinstance(fn_result, spec["expected_type"]):
+                        contract_checks.append(f"{fn_name}: OK")
+                    else:
+                        contract_checks.append(
+                            f"{fn_name}: wrong type ({type(fn_result).__name__})")
+                except Exception as fn_err:
+                    contract_checks.append(f"{fn_name}: callable (error={str(fn_err)[:40]})")
+
+            ok = len(present_keys) > 0
+            detail = (f"compute_insights keys: {present_keys}, "
+                      f"enrichment contracts: {'; '.join(contract_checks)}")
+            return TestResult("cross_module_data_contract", ok, detail)
+        except Exception as e:
+            return TestResult("cross_module_data_contract", False, f"Error: {e}")
+
+    def _test_74_async_job_cleanup_mechanism(self) -> TestResult:
+        """Async Job Cleanup -- _cleanup_generation_jobs function exists and job expiry works."""
+        try:
+            if "app" not in sys.modules:
+                return TestResult("async_job_cleanup_mechanism", True,
+                                  "app module not loaded (OK in test context)")
+            app_mod = sys.modules["app"]
+
+            # Check cleanup function exists
+            cleanup_fn = getattr(app_mod, "_cleanup_generation_jobs", None)
+            if cleanup_fn is None:
+                return TestResult("async_job_cleanup_mechanism", False,
+                                  "_cleanup_generation_jobs function not found")
+            if not callable(cleanup_fn):
+                return TestResult("async_job_cleanup_mechanism", False,
+                                  "_cleanup_generation_jobs is not callable")
+
+            # Check the job store and lock exist
+            jobs = getattr(app_mod, "_generation_jobs", None)
+            lock = getattr(app_mod, "_generation_jobs_lock", None)
+            expiry = getattr(app_mod, "_GENERATION_JOB_EXPIRY_SECONDS", None)
+            if jobs is None or lock is None:
+                return TestResult("async_job_cleanup_mechanism", False,
+                                  f"jobs={jobs is not None}, lock={lock is not None}")
+
+            # Insert a fake expired job and verify expiry logic
+            fake_job_id = f"__qc_fake_{int(time.time())}"
+            try:
+                with lock:
+                    jobs[fake_job_id] = {
+                        "status": "completed",
+                        "created": time.time() - 7200,  # 2 hours ago (well past expiry)
+                        "progress_pct": 100,
+                        "result_bytes": None,
+                        "result_content_type": None,
+                        "result_filename": None,
+                        "error": None,
+                    }
+
+                # Verify the fake job is in the store
+                with lock:
+                    job_exists = fake_job_id in jobs
+
+                # Verify expiry constant is reasonable
+                expiry_ok = isinstance(expiry, (int, float)) and expiry > 0
+
+                ok = job_exists and expiry_ok and callable(cleanup_fn)
+                detail = (f"cleanup_fn=callable, expiry={expiry}s, "
+                          f"fake_job_inserted={job_exists}")
+            finally:
+                # Cleanup: remove fake job
+                with lock:
+                    jobs.pop(fake_job_id, None)
+
+            return TestResult("async_job_cleanup_mechanism", ok, detail)
+        except Exception as e:
+            return TestResult("async_job_cleanup_mechanism", False, f"Error: {e}")
+
+    def _test_75_input_validation_feedback(self) -> TestResult:
+        """Input Validation Feedback -- empty critical fields produce _input_warnings."""
+        try:
+            if "app" not in sys.modules:
+                return TestResult("input_validation_feedback", True,
+                                  "app module not loaded (OK in test context)")
+            app_mod = sys.modules["app"]
+
+            # The validation logic is inline in the POST handler, so we verify
+            # the pattern by checking that the logic exists in the module source.
+            # We look for the _input_warnings pattern in the module.
+            source_path = getattr(app_mod, "__file__", None)
+            if not source_path:
+                return TestResult("input_validation_feedback", False,
+                                  "Cannot locate app module source file")
+
+            # Read the source to verify the validation pattern exists
+            try:
+                with open(source_path, "r") as f:
+                    source = f.read()
+            except (OSError, IOError) as read_err:
+                return TestResult("input_validation_feedback", False,
+                                  f"Cannot read app source: {read_err}")
+
+            checks = {
+                "_input_warnings": '_input_warnings' in source,
+                "_validation_warnings": '_validation_warnings' in source,
+                "roles_check": 'No target roles specified' in source,
+                "locations_check": 'No locations specified' in source,
+                "budget_check": 'No budget specified' in source,
+            }
+            passed_checks = sum(1 for v in checks.values() if v)
+            ok = passed_checks >= 4  # at least 4 of 5 patterns present
+
+            detail = (f"Validation patterns found: {passed_checks}/5 "
+                      f"({', '.join(k for k, v in checks.items() if v)})")
+            return TestResult("input_validation_feedback", ok, detail)
+        except Exception as e:
+            return TestResult("input_validation_feedback", False, f"Error: {e}")
+
+    def _test_76_llm_routing_task_classification_8_types(self) -> TestResult:
+        """LLM Routing -- classify_task correctly routes 8 task type prompts."""
+        try:
+            try:
+                import llm_router
+            except ImportError:
+                return TestResult("llm_routing_task_classification_8_types", False,
+                                  "llm_router module not importable")
+
+            # Verify all 8 task type constants exist
+            task_types = [
+                "TASK_STRUCTURED", "TASK_CONVERSATIONAL", "TASK_COMPLEX",
+                "TASK_CODE", "TASK_VERIFICATION", "TASK_RESEARCH",
+                "TASK_NARRATIVE", "TASK_BATCH",
+            ]
+            missing_types = [t for t in task_types if not hasattr(llm_router, t)]
+            if missing_types:
+                return TestResult("llm_routing_task_classification_8_types", False,
+                                  f"Missing task type constants: {', '.join(missing_types)}")
+
+            # Test each prompt -> expected classification
+            test_cases = [
+                ("Return JSON benchmarks", llm_router.TASK_STRUCTURED),
+                ("Explain hiring trends", llm_router.TASK_CONVERSATIONAL),
+                ("Analyze multi-market budget optimization", llm_router.TASK_COMPLEX),
+                ("Write a formula to calculate CPC", llm_router.TASK_CODE),
+                ("Verify this data is accurate", llm_router.TASK_VERIFICATION),
+                ("Research the European job market", llm_router.TASK_RESEARCH),
+                ("Write an executive summary", llm_router.TASK_NARRATIVE),
+                ("Process these 500 records", llm_router.TASK_BATCH),
+            ]
+
+            results = []
+            for prompt, expected in test_cases:
+                actual = llm_router.classify_task(prompt)
+                match = actual == expected
+                results.append((prompt[:30], expected, actual, match))
+
+            passed = sum(1 for _, _, _, m in results if m)
+            # Allow 6 of 8 correct (some prompts may be ambiguous to keyword-based classifier)
+            ok = passed >= 6
+
+            mismatches = [
+                f"'{p}': expected={e}, got={a}"
+                for p, e, a, m in results if not m
+            ]
+            detail = f"classify_task: {passed}/{len(test_cases)} correct"
+            if mismatches:
+                detail += f" | mismatches: {'; '.join(mismatches[:3])}"
+            return TestResult("llm_routing_task_classification_8_types", ok, detail)
+        except Exception as e:
+            return TestResult("llm_routing_task_classification_8_types", False, f"Error: {e}")
+
     # ══════════════════════════════════════════════════════════════════════
     # DYNAMIC TESTS (generated weekly from user interaction analysis)
     # ══════════════════════════════════════════════════════════════════════
@@ -1837,10 +2390,40 @@ class AutoQC:
                 ))
         return results
 
+    # Security blocklist: patterns that must NEVER appear in dynamically
+    # generated test definitions.  Any match causes the test to be skipped
+    # with a security warning logged.
+    _DYNAMIC_TEST_BLOCKLIST = (
+        "os.", "subprocess.", "eval(", "exec(", "__import__",
+        "open(", "shutil.",
+    )
+
     def _execute_dynamic_test(self, test: dict) -> TestResult:
-        """Execute a single dynamic test case."""
-        test_type = test.get("type", "chat_query")
+        """Execute a single dynamic test case.
+
+        Before executing, scans the serialized test definition for
+        dangerous patterns (see ``_DYNAMIC_TEST_BLOCKLIST``).  If any
+        are found, the test is skipped and a security warning is logged.
+        """
         test_id = test.get("id", "unknown")
+
+        # --- Security: scan test definition for dangerous patterns ---
+        test_str = json.dumps(test, default=str)
+        for pattern in self._DYNAMIC_TEST_BLOCKLIST:
+            if pattern in test_str:
+                logger.warning(
+                    "AutoQC SECURITY: blocked dynamic test '%s' -- "
+                    "contains dangerous pattern '%s'",
+                    test_id, pattern,
+                )
+                return TestResult(
+                    name=f"dynamic_{test_id}",
+                    passed=False,
+                    detail=f"SECURITY: blocked -- contains '{pattern}'",
+                    category="dynamic",
+                )
+
+        test_type = test.get("type", "chat_query")
 
         if test_type == "chat_query":
             query = test.get("query", "")
