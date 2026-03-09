@@ -924,7 +924,17 @@ def generate_excel(data):
         display_currency_code = loc_currency
 
     industry = data.get("industry", "general_entry_level")
-    roles = data.get("target_roles") or data.get("roles", [])
+    roles_raw = data.get("target_roles") or data.get("roles", [])
+    # Normalize: roles can be list-of-strings or list-of-dicts with "title" key
+    roles = []
+    for r in roles_raw:
+        if isinstance(r, dict):
+            roles.append(r.get("title") or r.get("role") or str(r))
+        else:
+            roles.append(str(r))
+    # Write normalized string list back so all downstream data.get("roles") gets strings
+    data["roles"] = roles
+    data["target_roles"] = roles
 
     # ── Role-Tier Classification ──
     role_tiers = {}
@@ -7975,6 +7985,15 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             # Store notes for downstream use
             if raw_notes:
                 data["notes"] = raw_notes
+
+            # ── Normalize roles early: dict-of-dicts -> list-of-strings ──
+            # API/form can send roles as [{"title":"...","location":"..."}] or ["string"]
+            for _rkey in ("roles", "target_roles"):
+                _rlist = data.get(_rkey, [])
+                if isinstance(_rlist, list) and _rlist and isinstance(_rlist[0], dict):
+                    data[_rkey] = [
+                        (r.get("title") or r.get("role") or str(r)) for r in _rlist
+                    ]
 
             # Compute campaign_weeks from campaign_duration for timeline phasing
             duration_str = str(data.get("campaign_duration", "") or "")
