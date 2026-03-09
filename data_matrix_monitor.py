@@ -42,6 +42,7 @@ _REQUIRED_KB_FILES = [
     "platform_intelligence_deep.json",
     "recruitment_benchmarks_deep.json",
     "channels_db.json",
+    "joveo_2026_benchmarks.json",
 ]
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -97,6 +98,39 @@ EXPECTED_MATRIX: Dict[str, Dict[str, str]] = {
         "claude_api":           "NO",
         "trend_engine":         "PARTIAL",
         "collar_intelligence":  "PARTIAL",
+    },
+    "eval_framework": {
+        "excel_ppt":            "NO",
+        "api_enrichment":       "NO",
+        "data_orchestrator":    "NO",
+        "budget_engine":        "NO",
+        "trend_engine":         "NO",
+        "collar_intelligence":  "NO",
+        "nova":                 "PARTIAL",
+        "monitoring":           "YES",
+        "auto_qc":              "YES",
+    },
+    "data_contracts": {
+        "excel_ppt":            "NO",
+        "api_enrichment":       "NO",
+        "data_orchestrator":    "NO",
+        "budget_engine":        "NO",
+        "trend_engine":         "NO",
+        "collar_intelligence":  "NO",
+        "nova":                 "NO",
+        "monitoring":           "PARTIAL",
+        "auto_qc":              "YES",
+    },
+    "regression_detector": {
+        "excel_ppt":            "NO",
+        "api_enrichment":       "NO",
+        "data_orchestrator":    "NO",
+        "budget_engine":        "NO",
+        "trend_engine":         "NO",
+        "collar_intelligence":  "NO",
+        "nova":                 "NO",
+        "monitoring":           "PARTIAL",
+        "auto_qc":              "YES",
     },
 }
 

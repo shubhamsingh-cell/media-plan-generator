@@ -8,6 +8,9 @@ Provides:
 - API dependency reachability probes
 - Metrics export endpoint for dashboards
 - Graceful shutdown coordination
+- Structured JSON logging with request tracing (v3.1)
+- SLO monitoring and error budget tracking (v3.1)
+- Audit trail for data transformation decisions (v3.1)
 
 This module has no external dependencies (stdlib only).
 """
@@ -15,12 +18,14 @@ This module has no external dependencies (stdlib only).
 from __future__ import annotations
 
 import gc
+import json
 import logging
 import os
 import platform
 import sys
 import threading
 import time
+import uuid
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,12 +37,151 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-VERSION = "3.0.0"
+VERSION = "3.1.0"
 _START_TIME = time.time()
 DATA_DIR = Path(__file__).resolve().parent / "data"
+PERSISTENT_DIR = Path(__file__).resolve().parent / "data" / "persistent"
 CACHE_DIR = DATA_DIR / "api_cache"
 DOCS_DIR = DATA_DIR / "generated_docs"
 METRICS_WINDOW = 3600  # 1 hour rolling window for rate calculations
+
+
+# ---------------------------------------------------------------------------
+# Request Context (Thread-Local)
+# ---------------------------------------------------------------------------
+
+_request_context = threading.local()
+
+
+def set_request_id(request_id: str) -> None:
+    """Set the current request ID for this thread."""
+    _request_context.request_id = request_id
+    _request_context.request_start = time.time()
+
+
+def get_request_id() -> str:
+    """Get the current request ID for this thread, or empty string."""
+    return getattr(_request_context, "request_id", "")
+
+
+def get_request_elapsed_ms() -> float:
+    """Get elapsed time since request start in milliseconds."""
+    start = getattr(_request_context, "request_start", None)
+    if start is None:
+        return 0.0
+    return (time.time() - start) * 1000
+
+
+def clear_request_context() -> None:
+    """Clear request context at end of request."""
+    _request_context.request_id = ""
+    _request_context.request_start = None
+
+
+def generate_request_id() -> str:
+    """Generate a new unique request ID (12-char hex)."""
+    return uuid.uuid4().hex[:12]
+
+
+class RequestContext:
+    """Context manager for request-scoped tracing.
+
+    Usage::
+
+        with RequestContext() as rid:
+            # rid is the generated request ID
+            logger.info("Processing request %s", rid)
+    """
+
+    def __init__(self, request_id: str = "") -> None:
+        self._rid = request_id or generate_request_id()
+
+    def __enter__(self) -> str:
+        set_request_id(self._rid)
+        return self._rid
+
+    def __exit__(self, *exc_info) -> None:
+        clear_request_context()
+
+
+# ---------------------------------------------------------------------------
+# Structured JSON Log Formatter
+# ---------------------------------------------------------------------------
+
+class StructuredJsonFormatter(logging.Formatter):
+    """Emit log records as single-line JSON objects.
+
+    Each log entry includes: timestamp, level, logger name, message,
+    request_id (from thread-local context), duration_ms, and any extra fields.
+
+    Example output::
+
+        {"ts":"2025-03-09T14:23:01Z","level":"INFO","logger":"nova","msg":"Tool executed","request_id":"a1b2c3d4e5f6","extra":{}}
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        entry: Dict[str, Any] = {
+            "ts": datetime.fromtimestamp(record.created, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+            "level": record.levelname,
+            "logger": record.name,
+            "msg": record.getMessage(),
+        }
+
+        # Inject request context from thread-local
+        rid = get_request_id()
+        if rid:
+            entry["request_id"] = rid
+            entry["elapsed_ms"] = round(get_request_elapsed_ms(), 1)
+
+        # Include exception info if present
+        if record.exc_info and record.exc_info[0] is not None:
+            entry["exception"] = self.formatException(record.exc_info)
+
+        # Include any extra fields set via logger.info("msg", extra={...})
+        standard_attrs = {
+            "name", "msg", "args", "created", "relativeCreated", "exc_info",
+            "exc_text", "stack_info", "lineno", "funcName", "pathname",
+            "filename", "module", "levelno", "levelname", "msecs",
+            "thread", "threadName", "process", "processName", "message",
+            "taskName",
+        }
+        extras = {
+            k: v for k, v in record.__dict__.items()
+            if k not in standard_attrs and not k.startswith("_")
+        }
+        if extras:
+            entry["extra"] = extras
+
+        try:
+            return json.dumps(entry, default=str, ensure_ascii=False)
+        except (TypeError, ValueError):
+            return json.dumps({"ts": entry.get("ts", ""), "level": "ERROR", "msg": f"Log serialization failed: {record.getMessage()}"})
+
+
+# ---------------------------------------------------------------------------
+# SLO Definitions
+# ---------------------------------------------------------------------------
+
+SLO_TARGETS: Dict[str, Dict[str, Any]] = {
+    "generate_p99_ms": {
+        "target": 30000,  # 30 seconds
+        "description": "99th percentile generation latency",
+        "endpoint": "/api/generate",
+    },
+    "chat_p99_ms": {
+        "target": 8000,  # 8 seconds
+        "description": "99th percentile chat latency",
+        "endpoint": "/api/chat",
+    },
+    "error_rate_pct": {
+        "target": 1.0,  # 1% error budget
+        "description": "Error rate across all endpoints",
+    },
+    "availability_pct": {
+        "target": 99.5,
+        "description": "Service availability (uptime)",
+    },
+}
 
 
 # ---------------------------------------------------------------------------
@@ -221,6 +365,72 @@ class MetricsCollector:
             }
 
 
+    def check_slo_compliance(self) -> Dict[str, Dict[str, Any]]:
+        """Check current metrics against SLO targets.
+
+        Returns a dict of SLO name -> {target, actual, compliant, budget_remaining_pct}.
+        """
+        results: Dict[str, Dict[str, Any]] = {}
+        now = time.time()
+        uptime = now - _START_TIME
+
+        with self._req_lock:
+            # Generate P99 latency
+            gen_lats = sorted(self._latencies.get("/api/generate", []))
+            gen_p99 = _percentile(gen_lats, 99) if gen_lats else 0.0
+            results["generate_p99_ms"] = {
+                "target": SLO_TARGETS["generate_p99_ms"]["target"],
+                "actual": round(gen_p99, 1),
+                "compliant": gen_p99 <= SLO_TARGETS["generate_p99_ms"]["target"],
+                "sample_size": len(gen_lats),
+            }
+
+            # Chat P99 latency
+            chat_lats = sorted(self._latencies.get("/api/chat", []))
+            chat_p99 = _percentile(chat_lats, 99) if chat_lats else 0.0
+            results["chat_p99_ms"] = {
+                "target": SLO_TARGETS["chat_p99_ms"]["target"],
+                "actual": round(chat_p99, 1),
+                "compliant": chat_p99 <= SLO_TARGETS["chat_p99_ms"]["target"],
+                "sample_size": len(chat_lats),
+            }
+
+            # Error rate
+            total = max(1, self.total_requests)
+            error_rate = (self.total_errors / total) * 100
+            target_err = SLO_TARGETS["error_rate_pct"]["target"]
+            results["error_rate_pct"] = {
+                "target": target_err,
+                "actual": round(error_rate, 3),
+                "compliant": error_rate <= target_err,
+                "budget_remaining_pct": round(max(0, target_err - error_rate), 3),
+            }
+
+            # Availability (based on uptime -- simple heuristic)
+            # If we're running, we're available. Track non-5xx as available.
+            total_5xx = sum(
+                count for code, count in self._status_codes.items()
+                if 500 <= code < 600
+            )
+            avail = ((total - total_5xx) / total) * 100 if total > 0 else 100.0
+            target_avail = SLO_TARGETS["availability_pct"]["target"]
+            results["availability_pct"] = {
+                "target": target_avail,
+                "actual": round(avail, 3),
+                "compliant": avail >= target_avail,
+                "budget_remaining_pct": round(max(0, avail - target_avail), 3),
+            }
+
+        # Overall compliance
+        all_compliant = all(r.get("compliant", True) for r in results.values())
+        return {
+            "slos": results,
+            "all_compliant": all_compliant,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "uptime_seconds": round(uptime, 1),
+        }
+
+
 def get_metrics() -> MetricsCollector:
     """Get the singleton MetricsCollector instance."""
     return MetricsCollector()
@@ -387,11 +597,13 @@ def health_check_readiness() -> Dict[str, Any]:
 # Structured Logging
 # ---------------------------------------------------------------------------
 
-def configure_logging(level: str = "INFO") -> None:
+def configure_logging(level: str = "INFO", json_format: bool = True) -> None:
     """Configure structured logging for production.
 
-    Sets up a consistent format across all modules with timestamps,
-    log levels, module names, and request context.
+    Args:
+        level: Log level string (DEBUG, INFO, WARNING, ERROR).
+        json_format: If True, use JSON formatter for machine-readable logs.
+                     If False, use human-readable format (useful for local dev).
     """
     log_level = getattr(logging, level.upper(), logging.INFO)
 
@@ -406,10 +618,13 @@ def configure_logging(level: str = "INFO") -> None:
     handler = logging.StreamHandler(sys.stderr)
     handler.setLevel(log_level)
 
-    formatter = logging.Formatter(
-        fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    if json_format:
+        formatter = StructuredJsonFormatter()
+    else:
+        formatter = logging.Formatter(
+            fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
     handler.setFormatter(formatter)
     root.addHandler(handler)
 
@@ -418,8 +633,9 @@ def configure_logging(level: str = "INFO") -> None:
     logging.getLogger("PIL").setLevel(logging.WARNING)
 
     logger.info(
-        "Logging configured: level=%s, python=%s, pid=%d",
-        level, platform.python_version(), os.getpid()
+        "Logging configured: level=%s, format=%s, python=%s, pid=%d",
+        level, "json" if json_format else "text",
+        platform.python_version(), os.getpid()
     )
 
 
@@ -561,3 +777,164 @@ def get_system_info() -> Dict[str, Any]:
         "cpu_count": os.cpu_count(),
         "cwd": os.getcwd(),
     }
+
+
+# ---------------------------------------------------------------------------
+# Audit Trail Logger
+# ---------------------------------------------------------------------------
+
+class AuditLogger:
+    """Records data transformation decisions for traceability.
+
+    Every significant decision in the media plan generation pipeline
+    (input validation, standardization, enrichment source selection,
+    budget allocation, etc.) is logged with inputs, outputs, and rationale.
+
+    Audit entries are persisted to a rolling JSON file and queryable by
+    request_id through the admin API.
+
+    Usage::
+
+        audit = AuditLogger.instance()
+        audit.log_decision(
+            request_id="a1b2c3d4e5f6",
+            stage="standardization",
+            decision="industry_normalized",
+            inputs={"raw": "Information Technology"},
+            outputs={"canonical": "tech_engineering"},
+            rationale="Matched alias 'Information Technology' -> 'tech_engineering'"
+        )
+    """
+
+    _instance: Optional["AuditLogger"] = None
+    _lock = threading.Lock()
+    _MAX_ENTRIES = 500
+    _AUDIT_FILE = "audit_log.json"
+
+    def __new__(cls) -> "AuditLogger":
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    inst = super().__new__(cls)
+                    inst._initialized = False
+                    cls._instance = inst
+        return cls._instance
+
+    def __init__(self) -> None:
+        if self._initialized:
+            return
+        self._initialized = True
+        self._entries: deque = deque(maxlen=self._MAX_ENTRIES)
+        self._write_lock = threading.Lock()
+        self._audit_path = PERSISTENT_DIR / self._AUDIT_FILE
+        self._load_existing()
+
+    @classmethod
+    def instance(cls) -> "AuditLogger":
+        return cls()
+
+    def _load_existing(self) -> None:
+        """Load existing audit entries from disk on startup."""
+        try:
+            if self._audit_path.exists():
+                with open(self._audit_path, "r") as f:
+                    data = json.load(f)
+                if isinstance(data, list):
+                    for entry in data[-self._MAX_ENTRIES:]:
+                        self._entries.append(entry)
+        except (json.JSONDecodeError, OSError, TypeError):
+            pass  # Start fresh if file is corrupted
+
+    def log_decision(
+        self,
+        request_id: str = "",
+        stage: str = "",
+        decision: str = "",
+        inputs: Optional[Dict[str, Any]] = None,
+        outputs: Optional[Dict[str, Any]] = None,
+        rationale: str = "",
+    ) -> None:
+        """Record a decision in the audit trail.
+
+        Args:
+            request_id: The X-Request-ID for this request (from thread-local if empty).
+            stage: Pipeline stage (input_validation, standardization, enrichment,
+                   synthesis, budget_allocation, generation).
+            decision: Short decision identifier (e.g., "industry_normalized",
+                      "api_fallback_used", "collar_classified").
+            inputs: Input data that led to the decision.
+            outputs: Output/result of the decision.
+            rationale: Human-readable explanation of why this decision was made.
+        """
+        rid = request_id or get_request_id()
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "request_id": rid,
+            "stage": stage,
+            "decision": decision,
+            "inputs": _safe_serialize(inputs) if inputs else {},
+            "outputs": _safe_serialize(outputs) if outputs else {},
+            "rationale": rationale,
+        }
+        self._entries.append(entry)
+
+        # Async persist (non-blocking)
+        t = threading.Thread(target=self._persist, daemon=True)
+        t.start()
+
+    def get_by_request_id(self, request_id: str) -> List[Dict[str, Any]]:
+        """Retrieve all audit entries for a specific request."""
+        return [e for e in self._entries if e.get("request_id") == request_id]
+
+    def get_recent(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Return most recent audit entries."""
+        entries = list(self._entries)
+        return entries[-limit:]
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Return audit trail statistics."""
+        entries = list(self._entries)
+        stages: Dict[str, int] = defaultdict(int)
+        for e in entries:
+            stages[e.get("stage", "unknown")] += 1
+        return {
+            "total_entries": len(entries),
+            "max_entries": self._MAX_ENTRIES,
+            "stages": dict(stages),
+            "oldest": entries[0]["timestamp"] if entries else None,
+            "newest": entries[-1]["timestamp"] if entries else None,
+        }
+
+    def _persist(self) -> None:
+        """Write audit log to disk (called in background thread)."""
+        with self._write_lock:
+            try:
+                os.makedirs(self._audit_path.parent, exist_ok=True)
+                entries = list(self._entries)
+                with open(self._audit_path, "w") as f:
+                    json.dump(entries, f, default=str, ensure_ascii=False)
+            except (OSError, TypeError) as e:
+                # Never crash on audit write failure
+                pass
+
+
+def _safe_serialize(obj: Any, max_depth: int = 3) -> Any:
+    """Safely serialize an object for JSON, truncating large values."""
+    if max_depth <= 0:
+        return str(obj)[:200] if obj is not None else None
+    if obj is None or isinstance(obj, (bool, int, float)):
+        return obj
+    if isinstance(obj, str):
+        return obj[:500] if len(obj) > 500 else obj
+    if isinstance(obj, (list, tuple)):
+        if len(obj) > 20:
+            return [_safe_serialize(v, max_depth - 1) for v in obj[:20]] + [f"... ({len(obj)} total)"]
+        return [_safe_serialize(v, max_depth - 1) for v in obj]
+    if isinstance(obj, dict):
+        if len(obj) > 30:
+            items = list(obj.items())[:30]
+            result = {k: _safe_serialize(v, max_depth - 1) for k, v in items}
+            result["__truncated__"] = f"{len(obj)} total keys"
+            return result
+        return {k: _safe_serialize(v, max_depth - 1) for k, v in obj.items()}
+    return str(obj)[:200]

@@ -454,10 +454,11 @@ class EnrichmentContext:
         # budget now has access to salary + market data from this session
     """
 
-    def __init__(self):
+    def __init__(self, request_id: str = ""):
         self._data: Dict[str, Any] = {}
         self._lock = threading.Lock()
         self._created = time.time()
+        self.request_id = request_id
 
     def store(self, key: str, value: Any) -> None:
         """Store enrichment result under a key."""
@@ -511,6 +512,23 @@ class EnrichmentContext:
     @property
     def age_seconds(self) -> float:
         return time.time() - self._created
+
+
+def _propagate_request_id(context: Optional[EnrichmentContext]) -> None:
+    """Set the api_enrichment request_id from context (for tracing v3.1).
+
+    Called at the entry of each enrich_* function. Since api_enrichment
+    stores request_id in thread-local, this traces calls made on the
+    main thread.  Worker threads spawned by the executor will not inherit
+    the request_id automatically -- acceptable for v3.1.
+    """
+    if context and context.request_id:
+        api = _lazy_api()
+        if api and hasattr(api, "set_request_id"):
+            try:
+                api.set_request_id(context.request_id)
+            except Exception:
+                pass
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -917,6 +935,7 @@ def enrich_salary(role: str, location: str = "",
         {role, location, salary_range, median_salary, coli, role_tier,
          bls_percentiles, source, confidence, data_freshness, sources_used}
     """
+    _propagate_request_id(context)
     result: Dict[str, Any] = {"role": role, "location": location or "National"}
     sources_used: List[str] = []
     confidence = 0.0
@@ -1118,6 +1137,7 @@ def enrich_location(location: str,
          top_boards, is_international, recommended_boards, source,
          confidence, data_freshness, sources_used}
     """
+    _propagate_request_id(context)
     result: Dict[str, Any] = {"location": location}
     sources_used: List[str] = []
     confidence = 0.0
@@ -1287,6 +1307,7 @@ def enrich_market_demand(role: str = "", location: str = "",
          competitors, seasonal, current_posting_count, source,
          confidence, data_freshness, sources_used}
     """
+    _propagate_request_id(context)
     result: Dict[str, Any] = {
         "role": role or "General",
         "location": location or "National",
@@ -1464,6 +1485,7 @@ def enrich_competitive(company: str, industry: str = "",
         {company, company_info, competitors, company_metadata,
          employer_brand, source, confidence, data_freshness, sources_used}
     """
+    _propagate_request_id(context)
     result: Dict[str, Any] = {"company": company}
     sources_used: List[str] = []
     confidence = 0.0
@@ -1800,6 +1822,7 @@ def enrich_ad_benchmarks(
          seasonal_advice, trend_summary, source, confidence,
          structured_confidence, data_freshness, sources_used}
     """
+    _propagate_request_id(context)
     result: Dict[str, Any] = {"industry": industry or "General"}
     sources_used: List[str] = []
     confidence = 0.0
@@ -1993,6 +2016,7 @@ def enrich_collar_intelligence(
          industry_collar_breakdown, comparison_vs_opposite,
          source, structured_confidence, data_freshness, sources_used}
     """
+    _propagate_request_id(context)
     result: Dict[str, Any] = {"role": role, "industry": industry or "General"}
     sources_used: List[str] = []
     confidence = 0.0
@@ -2119,6 +2143,7 @@ def enrich_hiring_trends(
          hiring_difficulty_index, labor_market_tightness, regional_difficulty,
          source, confidence, structured_confidence, data_freshness, sources_used}
     """
+    _propagate_request_id(context)
     result: Dict[str, Any] = {
         "industry": industry or "General",
         "location": location or "National",
@@ -2470,6 +2495,7 @@ def enrich_budget(budget: float, roles: List[Dict], locations: List[Dict],
     U8: When context is provided, pulls salary, market demand, and competitive
     data from the current session for more accurate allocations.
     """
+    _propagate_request_id(context)
     be = _lazy_budget()
     if not be:
         return {"error": "Budget engine not available", "confidence": 0.0}

@@ -119,6 +119,7 @@ def load_knowledge_base() -> dict:
         "supply_ecosystem":       "supply_ecosystem_intelligence.json",
         "workforce_trends":       "workforce_trends_intelligence.json",
         "white_papers":           "industry_white_papers.json",
+        "joveo_2026_benchmarks":  "joveo_2026_benchmarks.json",
     }
 
     kb = {}
@@ -7318,6 +7319,405 @@ if not ADMIN_API_KEY:
     logger.warning("ADMIN_API_KEY not set - admin endpoints unprotected (dev mode)")
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# OPENAPI 3.0 SPECIFICATION
+# ═══════════════════════════════════════════════════════════════════════════════
+_OPENAPI_SPEC = {
+    "openapi": "3.0.3",
+    "info": {
+        "title": "AI Media Planner API",
+        "description": "Recruitment advertising media plan generator with AI-powered research, "
+                       "budget optimization, and strategy deck creation.",
+        "version": "3.0.0",
+        "contact": {"name": "Joveo Engineering", "url": "https://media-plan-generator.onrender.com"},
+        "license": {"name": "Proprietary"},
+    },
+    "servers": [
+        {"url": "https://media-plan-generator.onrender.com", "description": "Production"},
+        {"url": "http://localhost:5001", "description": "Local development"},
+    ],
+    "paths": {
+        "/api/generate": {
+            "post": {
+                "summary": "Generate media plan",
+                "description": "Generate a recruitment advertising media plan bundle (Excel + PPT in ZIP). "
+                               "Supports synchronous (default) and asynchronous (X-Async: true) modes.",
+                "operationId": "generateMediaPlan",
+                "tags": ["Generation"],
+                "parameters": [
+                    {
+                        "name": "X-Async",
+                        "in": "header",
+                        "required": False,
+                        "schema": {"type": "string", "enum": ["true"]},
+                        "description": "Set to 'true' to run generation asynchronously. "
+                                       "Returns a job_id for polling via /api/jobs/{job_id}.",
+                    }
+                ],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["client_name"],
+                                "properties": {
+                                    "client_name": {"type": "string", "description": "Company or client name", "example": "Acme Corp"},
+                                    "industry": {"type": "string", "description": "Industry vertical (e.g. healthcare, technology)", "example": "healthcare"},
+                                    "budget": {"type": "string", "description": "Campaign budget (e.g. '$50,000', '100000')", "example": "$50,000"},
+                                    "roles": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "description": "Target roles to hire",
+                                        "example": ["Registered Nurse", "Medical Assistant"],
+                                    },
+                                    "target_roles": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "description": "Alias for roles",
+                                    },
+                                    "locations": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "description": "Target hiring locations",
+                                        "example": ["Dallas, TX", "Houston, TX"],
+                                    },
+                                    "competitors": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "description": "Competitor company names for benchmarking",
+                                    },
+                                    "campaign_duration": {"type": "string", "description": "Campaign timeline", "example": "3-6 months"},
+                                    "hire_volume": {"type": "string", "description": "Number of hires expected"},
+                                    "notes": {"type": "string", "description": "Additional context or requirements"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Synchronous: Binary ZIP containing Excel + PPT. Async: JSON with job_id.",
+                        "content": {
+                            "application/zip": {
+                                "schema": {"type": "string", "format": "binary"},
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "job_id": {"type": "string"},
+                                        "status": {"type": "string", "enum": ["processing"]},
+                                        "poll_url": {"type": "string"},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "400": {"description": "Invalid input (missing client_name, bad JSON, etc.)"},
+                    "413": {"description": "Request body too large (>10MB)"},
+                    "429": {"description": "Rate limit exceeded"},
+                },
+            }
+        },
+        "/api/chat": {
+            "post": {
+                "summary": "Nova AI chat",
+                "description": "Send a message to the Nova recruitment intelligence chatbot.",
+                "operationId": "novaChat",
+                "tags": ["Chat"],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["message"],
+                                "properties": {
+                                    "message": {"type": "string", "description": "User message", "example": "What are the best job boards for healthcare?"},
+                                    "conversation_history": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "role": {"type": "string", "enum": ["user", "assistant"]},
+                                                "content": {"type": "string"},
+                                            },
+                                        },
+                                        "description": "Previous conversation turns for context",
+                                    },
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Chat response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "response": {"type": "string"},
+                                        "sources": {"type": "array", "items": {"type": "string"}},
+                                        "confidence": {"type": "number", "format": "float"},
+                                        "tools_used": {"type": "array", "items": {"type": "string"}},
+                                    },
+                                },
+                            }
+                        },
+                    },
+                    "429": {"description": "Rate limit exceeded"},
+                },
+            }
+        },
+        "/api/health": {
+            "get": {
+                "summary": "Liveness probe",
+                "description": "Lightweight health check for load balancers and uptime monitors.",
+                "operationId": "healthLiveness",
+                "tags": ["Health"],
+                "responses": {
+                    "200": {
+                        "description": "Service is alive",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {"type": "string", "example": "ok"},
+                                        "version": {"type": "string", "example": "3.0.0"},
+                                        "timestamp": {"type": "string", "format": "date-time"},
+                                    },
+                                },
+                            }
+                        },
+                    }
+                },
+            }
+        },
+        "/api/health/ready": {
+            "get": {
+                "summary": "Readiness probe",
+                "description": "Deep readiness check (KB loaded, disk, memory, modules).",
+                "operationId": "healthReadiness",
+                "tags": ["Health"],
+                "responses": {
+                    "200": {"description": "Service is ready"},
+                    "503": {"description": "Service is not ready (degraded)"},
+                },
+            }
+        },
+        "/api/health/data-matrix": {
+            "get": {
+                "summary": "Data matrix status",
+                "description": "Background data matrix health monitor status.",
+                "operationId": "healthDataMatrix",
+                "tags": ["Health"],
+                "security": [{"BearerAuth": []}],
+                "responses": {
+                    "200": {"description": "Data matrix status"},
+                    "401": {"description": "Unauthorized"},
+                    "503": {"description": "Data matrix degraded or unavailable"},
+                },
+            }
+        },
+        "/api/health/auto-qc": {
+            "get": {
+                "summary": "Auto QC status",
+                "description": "Autonomous QC engine test results and self-upgrade status.",
+                "operationId": "healthAutoQC",
+                "tags": ["Health"],
+                "security": [{"BearerAuth": []}],
+                "responses": {
+                    "200": {"description": "QC engine status"},
+                    "401": {"description": "Unauthorized"},
+                    "503": {"description": "QC engine degraded or unavailable"},
+                },
+            }
+        },
+        "/api/health/slos": {
+            "get": {
+                "summary": "SLO compliance",
+                "description": "Service Level Objective compliance check across all monitored metrics.",
+                "operationId": "healthSLOs",
+                "tags": ["Health"],
+                "security": [{"BearerAuth": []}],
+                "responses": {
+                    "200": {"description": "SLO compliance results"},
+                    "401": {"description": "Unauthorized"},
+                    "503": {"description": "Monitoring module unavailable"},
+                },
+            }
+        },
+        "/api/health/eval": {
+            "get": {
+                "summary": "Eval scores",
+                "description": "Run the full evaluation framework and return aggregate test scores.",
+                "operationId": "healthEval",
+                "tags": ["Health"],
+                "security": [{"BearerAuth": []}],
+                "responses": {
+                    "200": {"description": "Evaluation results with per-category scores"},
+                    "401": {"description": "Unauthorized"},
+                    "503": {"description": "Eval framework unavailable"},
+                },
+            }
+        },
+        "/api/jobs/{job_id}": {
+            "get": {
+                "summary": "Poll async job",
+                "description": "Check status of an asynchronous generation job. "
+                               "When completed, returns the binary file content.",
+                "operationId": "pollJob",
+                "tags": ["Generation"],
+                "parameters": [
+                    {
+                        "name": "job_id",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                        "description": "Job ID returned by async /api/generate",
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Job status or completed binary content",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "job_id": {"type": "string"},
+                                        "status": {"type": "string", "enum": ["processing", "completed", "failed"]},
+                                        "progress_pct": {"type": "integer"},
+                                        "created": {"type": "string", "format": "date-time"},
+                                        "elapsed_seconds": {"type": "number"},
+                                    },
+                                },
+                            },
+                            "application/zip": {
+                                "schema": {"type": "string", "format": "binary"},
+                            },
+                        },
+                    },
+                    "404": {"description": "Job not found or expired"},
+                },
+            }
+        },
+        "/api/admin/keys": {
+            "post": {
+                "summary": "Manage API keys",
+                "description": "Create, list, or revoke tiered API keys.",
+                "operationId": "adminKeys",
+                "tags": ["Admin"],
+                "security": [{"BearerAuth": []}],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["action"],
+                                "properties": {
+                                    "action": {"type": "string", "enum": ["create", "list", "revoke"]},
+                                    "tier": {"type": "string", "enum": ["free", "pro", "enterprise"]},
+                                    "label": {"type": "string", "description": "Human-readable key label"},
+                                    "key": {"type": "string", "description": "Key to revoke (for revoke action)"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {"description": "Key management result"},
+                    "401": {"description": "Unauthorized"},
+                },
+            }
+        },
+        "/api/admin/usage": {
+            "get": {
+                "summary": "Per-key usage dashboard",
+                "description": "View rate limit usage statistics for all API keys.",
+                "operationId": "adminUsage",
+                "tags": ["Admin"],
+                "security": [{"BearerAuth": []}],
+                "responses": {
+                    "200": {"description": "Usage statistics per key"},
+                    "401": {"description": "Unauthorized"},
+                },
+            }
+        },
+    },
+    "components": {
+        "securitySchemes": {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "description": "Admin API key passed as Bearer token. "
+                               "Set ADMIN_API_KEY env var on the server.",
+            }
+        }
+    },
+    "tags": [
+        {"name": "Generation", "description": "Media plan generation (sync and async)"},
+        {"name": "Chat", "description": "Nova AI recruitment intelligence chatbot"},
+        {"name": "Health", "description": "Health checks, readiness probes, monitoring"},
+        {"name": "Admin", "description": "Administrative endpoints (require Bearer token)"},
+    ],
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SWAGGER UI HTML (self-contained, loads from CDN)
+# ═══════════════════════════════════════════════════════════════════════════════
+_SWAGGER_UI_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Media Planner - API Docs</title>
+<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+<style>
+body { margin: 0; padding: 0; }
+#swagger-ui .topbar { display: none; }
+</style>
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>
+SwaggerUIBundle({
+  url: "/api/docs/openapi.json",
+  dom_id: "#swagger-ui",
+  deepLinking: true,
+  presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+  layout: "BaseLayout",
+});
+</script>
+</body>
+</html>"""
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ASYNC GENERATION JOB STORE
+# ═══════════════════════════════════════════════════════════════════════════════
+_generation_jobs: dict = {}
+_generation_jobs_lock = threading.Lock()
+_GENERATION_JOB_EXPIRY_SECONDS = 30 * 60  # 30 minutes
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TIERED API KEY RATE LIMITING
+# ═══════════════════════════════════════════════════════════════════════════════
+API_KEY_TIERS = {
+    "free":       {"rpm": 5,   "rpd": 50},
+    "pro":        {"rpm": 30,  "rpd": 1000},
+    "enterprise": {"rpm": 100, "rpd": 10000},
+}
+
+# In-memory store: key -> {tier, label, created, revoked, usage_minute: [...], usage_day: [...]}
+_api_keys_store: dict = {}
+_api_keys_lock = threading.Lock()
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # MONITORING & OBSERVABILITY
 # ═══════════════════════════════════════════════════════════════════════════════
 try:
@@ -7385,7 +7785,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         logger.info(format, *args)
 
     def end_headers(self):
-        """Add security headers to all responses."""
+        """Add security + API platform headers to all responses."""
+        # ── API Platform headers ──
+        self.send_header("X-API-Version", "v1")
+        # Request ID: generated per-request in do_GET/do_POST, or fallback
+        _rid = getattr(self, "_request_id", None)
+        if _rid:
+            self.send_header("X-Request-ID", _rid)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
@@ -7400,8 +7806,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         self.send_header(
             "Content-Security-Policy",
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
-            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline' https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline' https://unpkg.com; "
             "img-src 'self' https: data:; "
             "font-src 'self' https: data:; "
             "connect-src 'self' https:; "
@@ -7436,12 +7842,53 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         return hmac.compare_digest(key, ADMIN_API_KEY)
 
     def _check_rate_limit(self):
-        """Simple per-IP rate limiting for generate endpoint.
+        """Tiered rate limiting: API key tier limits take precedence over per-IP limits.
+
+        If the request carries a valid ``Authorization: Bearer <key>`` whose key
+        exists in ``_api_keys_store`` and is not revoked, the per-minute and
+        per-day limits from the key's tier are used instead of the default
+        per-IP limits.  Otherwise falls back to original IP-based limiting.
 
         Thread-safe. Cleans up stale entries to prevent unbounded memory growth.
         """
-        client_ip = self.client_address[0]
         now = time.time()
+
+        # ── Check for API-key-based tier limits ──
+        auth_header = self.headers.get("Authorization", "")
+        api_key = None
+        if auth_header.startswith("Bearer "):
+            api_key = auth_header[7:]
+
+        if api_key:
+            with _api_keys_lock:
+                key_entry = _api_keys_store.get(api_key)
+                if key_entry and not key_entry.get("revoked"):
+                    tier_name = key_entry.get("tier", "free")
+                    tier_limits = API_KEY_TIERS.get(tier_name, API_KEY_TIERS["free"])
+
+                    # Per-minute check
+                    key_entry["usage_minute"] = [
+                        t for t in key_entry.get("usage_minute", [])
+                        if now - t < 60
+                    ]
+                    if len(key_entry["usage_minute"]) >= tier_limits["rpm"]:
+                        return False
+
+                    # Per-day check
+                    key_entry["usage_day"] = [
+                        t for t in key_entry.get("usage_day", [])
+                        if now - t < 86400
+                    ]
+                    if len(key_entry["usage_day"]) >= tier_limits["rpd"]:
+                        return False
+
+                    key_entry["usage_minute"].append(now)
+                    key_entry["usage_day"].append(now)
+                    return True
+                # If key is invalid/revoked, fall through to IP-based limiting
+
+        # ── Fallback: per-IP rate limiting (original behavior) ──
+        client_ip = self.client_address[0]
         with _rate_limit_lock:
             # Purge expired timestamps for this IP
             _rate_limit_store[client_ip] = [
@@ -7480,6 +7927,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         return True
 
     def do_GET(self):
+        # ── Request ID generation (Feature 6) ──
+        try:
+            from monitoring import generate_request_id as _gen_rid
+            self._request_id = _gen_rid()
+        except Exception:
+            self._request_id = uuid.uuid4().hex[:12]
         _req_start = time.time()
         if _metrics:
             _metrics.enter_request()
@@ -7494,12 +7947,16 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
     def _handle_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path == "/" or parsed.path == "":
+        path = parsed.path
+        # ── API Versioning: strip /v1 prefix (Feature 4) ──
+        if path.startswith("/v1/"):
+            path = path[3:]
+        if path == "/" or path == "":
             self._serve_file(os.path.join(TEMPLATES_DIR, "index.html"), "text/html")
-        elif parsed.path in ("/api/health", "/health"):
+        elif path in ("/api/health", "/health"):
             # Lightweight liveness probe (fast, for Render.com health checks)
             self._send_json(health_check_liveness())
-        elif parsed.path in ("/api/health/ready", "/ready"):
+        elif path in ("/api/health/ready", "/ready"):
             # Deep readiness probe (checks KB, disk, memory, modules)
             result = health_check_readiness()
             status_code = 200 if result.get("status") == "healthy" else 503
@@ -7509,7 +7966,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
-        elif parsed.path == "/api/health/data-matrix":
+        elif path == "/api/health/data-matrix":
             # Data matrix health monitor (admin-protected)
             if not self._check_admin_auth():
                 self.send_error(401, "Unauthorized")
@@ -7530,7 +7987,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(dm_err_body)))
                 self.end_headers()
                 self.wfile.write(dm_err_body)
-        elif parsed.path == "/api/health/auto-qc":
+        elif path == "/api/health/auto-qc":
             # Autonomous QC engine status (admin-protected)
             if not self._check_admin_auth():
                 self.send_error(401, "Unauthorized")
@@ -7551,7 +8008,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(qc_err_body)))
                 self.end_headers()
                 self.wfile.write(qc_err_body)
-        elif parsed.path == "/api/health/orchestrator":
+        elif path == "/api/health/orchestrator":
             # Orchestrator cache stats + fallback telemetry (admin-protected)
             if not self._check_admin_auth():
                 self.send_error(401, "Unauthorized")
@@ -7566,14 +8023,14 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self._send_json(orch_data)
             except Exception as _oe:
                 self._send_json({"error": f"Orchestrator unavailable: {_oe}"})
-        elif parsed.path == "/api/metrics":
+        elif path == "/api/metrics":
             # Metrics endpoint (admin-protected)
             if not self._check_admin_auth():
                 self.send_error(401, "Unauthorized")
                 return
             metrics_data = _metrics.get_metrics() if _metrics else {"error": "Monitoring not available"}
             self._send_json(metrics_data)
-        elif parsed.path == "/api/nova/metrics":
+        elif path == "/api/nova/metrics":
             # Nova chatbot metrics (admin-protected)
             if not self._check_admin_auth():
                 self.send_error(401, "Unauthorized")
@@ -7584,7 +8041,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 logger.error("Nova metrics error: %s", e, exc_info=True)
                 self._send_json({"error": "Failed to retrieve Nova metrics"})
-        elif parsed.path == "/api/slack/status":
+        elif path == "/api/slack/status":
             # ── Slack Bot Diagnostic Endpoint (admin-protected) ──
             if not self._check_admin_auth():
                 self.send_error(401, "Unauthorized")
@@ -7630,7 +8087,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             ]
             diag["required_bot_events"] = ["app_mention", "message.im"]
             self._send_json(diag)
-        elif parsed.path == "/robots.txt":
+        elif path == "/robots.txt":
             robots_content = (
                 "User-agent: *\n"
                 "Allow: /\n"
@@ -7664,7 +8121,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "public, max-age=86400")
             self.end_headers()
             self.wfile.write(robots_content.encode("utf-8"))
-        elif parsed.path == "/sitemap.xml":
+        elif path == "/sitemap.xml":
             _today = datetime.date.today().isoformat()
             sitemap_content = (
                 '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -7682,7 +8139,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "public, max-age=86400")
             self.end_headers()
             self.wfile.write(sitemap_content.encode("utf-8"))
-        elif parsed.path == "/api/channels":
+        elif path == "/api/channels":
             db = load_channels_db()
             # Inject the full industry options list for frontend consumption
             db["industry_options"] = [
@@ -7710,7 +8167,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 {"value": "education", "label": "Education"},
             ]
             self._send_json(db)
-        elif parsed.path == "/api/requests":
+        elif path == "/api/requests":
             if not self._check_admin_auth():
                 self.send_error(401, "Unauthorized")
                 return
@@ -7730,7 +8187,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 "requests": enriched_log[-100:]  # Last 100 entries
             }
             self.wfile.write(json.dumps(response, indent=2, default=str).encode())
-        elif parsed.path == "/dashboard":
+        elif path == "/dashboard":
             if not self._check_admin_auth():
                 self.send_error(401, "Unauthorized - set ADMIN_API_KEY env var and pass ?key=...")
                 return
@@ -7744,7 +8201,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(html.encode())
             else:
                 self.send_error(404, "Dashboard page not found")
-        elif parsed.path == "/api/documents":
+        elif path == "/api/documents":
             if not self._check_admin_auth():
                 self.send_error(401, "Unauthorized")
                 return
@@ -7769,11 +8226,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(response.encode())
-        elif parsed.path.startswith("/api/documents/"):
+        elif path.startswith("/api/documents/"):
             if not self._check_admin_auth():
                 self.send_error(401, "Unauthorized — admin key required")
                 return
-            fname = parsed.path.split("/")[-1]
+            fname = path.split("/")[-1]
             # Security: sanitize filename to prevent path traversal
             fname = re.sub(r'[^\w\.\-]', '', fname)
             if not fname or '..' in fname:
@@ -7807,7 +8264,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Document not found"}).encode())
-        elif parsed.path in ("/admin/nova", "/admin/nova/"):
+        elif path in ("/admin/nova", "/admin/nova/"):
             # ── Nova Admin Dashboard ──
             if not self._check_admin_auth():
                 self.send_response(401)
@@ -7825,10 +8282,10 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(html.encode())
             else:
                 self.send_error(404, "Nova admin page not found")
-        elif parsed.path.startswith("/static/"):
+        elif path.startswith("/static/"):
             # Serve static files (JS, CSS, images) from the static/ directory
             # URL-decode the path first to catch encoded traversal (%2e%2e)
-            decoded_path = urllib.parse.unquote(parsed.path)
+            decoded_path = urllib.parse.unquote(path)
             safe_path = decoded_path.lstrip("/")
             # Security: reject directory traversal attempts
             if ".." in safe_path or safe_path.startswith("/") or "\x00" in safe_path:
@@ -7867,10 +8324,159 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     self.send_error(404)
             else:
                 self.send_error(404)
+        # ── Feature 1: Swagger UI + OpenAPI spec ──
+        elif path == "/docs":
+            body = _SWAGGER_UI_HTML.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "public, max-age=3600")
+            self.end_headers()
+            self.wfile.write(body)
+        elif path == "/api/docs/openapi.json":
+            body = json.dumps(_OPENAPI_SPEC, indent=2).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "public, max-age=3600")
+            self.end_headers()
+            self.wfile.write(body)
+        # ── Feature 2c: Async job polling ──
+        elif path.startswith("/api/jobs/"):
+            job_id = path.split("/")[-1]
+            if not job_id or not re.match(r'^[a-f0-9]{1,12}$', job_id):
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid job_id"}).encode())
+                return
+            now = time.time()
+            with _generation_jobs_lock:
+                job = _generation_jobs.get(job_id)
+                if not job:
+                    self.send_response(404)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Job not found or expired"}).encode())
+                    return
+                # Auto-expire check
+                if now - job["created"] > _GENERATION_JOB_EXPIRY_SECONDS:
+                    _generation_jobs.pop(job_id, None)
+                    self.send_response(404)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Job expired"}).encode())
+                    return
+                job_status = job["status"]
+                elapsed = round(now - job["created"], 1)
+            if job_status == "completed":
+                # Return the binary content
+                result_bytes = job.get("result_bytes", b"")
+                content_type = job.get("result_content_type", "application/zip")
+                filename = job.get("result_filename", "result.zip")
+                self.send_response(200)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+                self.send_header("Content-Length", str(len(result_bytes)))
+                self.end_headers()
+                self.wfile.write(result_bytes)
+                # Clean up completed job after download
+                with _generation_jobs_lock:
+                    _generation_jobs.pop(job_id, None)
+            elif job_status == "failed":
+                err_msg = job.get("error", "Generation failed")
+                self._send_json({
+                    "job_id": job_id,
+                    "status": "failed",
+                    "error": err_msg,
+                    "created": datetime.datetime.fromtimestamp(job["created"]).isoformat(),
+                    "elapsed_seconds": elapsed,
+                })
+            else:
+                self._send_json({
+                    "job_id": job_id,
+                    "status": "processing",
+                    "progress_pct": job.get("progress_pct", 0),
+                    "created": datetime.datetime.fromtimestamp(job["created"]).isoformat(),
+                    "elapsed_seconds": elapsed,
+                })
+        # ── Feature 5a: SLO compliance ──
+        elif path == "/api/health/slos":
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            try:
+                from monitoring import MetricsCollector as _MC
+                _mc_inst = get_metrics() if _metrics else None
+                if _mc_inst and hasattr(_mc_inst, 'check_slo_compliance'):
+                    slo_result = _mc_inst.check_slo_compliance()
+                    self._send_json(slo_result)
+                else:
+                    self._send_json({"error": "SLO compliance check not available"})
+            except Exception as _slo_err:
+                logger.error("SLO check error: %s", _slo_err, exc_info=True)
+                slo_err_body = json.dumps({"error": f"SLO check failed: {_slo_err}"}).encode("utf-8")
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(slo_err_body)))
+                self.end_headers()
+                self.wfile.write(slo_err_body)
+        # ── Feature 5b: Eval scores ──
+        elif path == "/api/health/eval":
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            try:
+                from eval_framework import EvalFramework
+                _ef = EvalFramework()
+                eval_result = _ef.run_full_eval()
+                self._send_json(eval_result)
+            except ImportError:
+                self._send_json({"error": "Eval framework not available"})
+            except Exception as _eval_err:
+                logger.error("Eval framework error: %s", _eval_err, exc_info=True)
+                eval_err_body = json.dumps({"error": f"Eval failed: {_eval_err}"}).encode("utf-8")
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(eval_err_body)))
+                self.end_headers()
+                self.wfile.write(eval_err_body)
+        # ── Feature 3c: Per-key usage dashboard ──
+        elif path == "/api/admin/usage":
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            now = time.time()
+            usage_data = {}
+            with _api_keys_lock:
+                for key, entry in _api_keys_store.items():
+                    # Mask key for display (show first 8 chars)
+                    masked = key[:8] + "..." if len(key) > 8 else key
+                    tier_name = entry.get("tier", "free")
+                    tier_limits = API_KEY_TIERS.get(tier_name, API_KEY_TIERS["free"])
+                    minute_usage = len([t for t in entry.get("usage_minute", []) if now - t < 60])
+                    day_usage = len([t for t in entry.get("usage_day", []) if now - t < 86400])
+                    usage_data[masked] = {
+                        "tier": tier_name,
+                        "label": entry.get("label", ""),
+                        "revoked": entry.get("revoked", False),
+                        "created": entry.get("created", ""),
+                        "requests_this_minute": minute_usage,
+                        "requests_today": day_usage,
+                        "limit_rpm": tier_limits["rpm"],
+                        "limit_rpd": tier_limits["rpd"],
+                    }
+            self._send_json({"keys": usage_data, "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()})
         else:
             self.send_error(404)
 
     def do_POST(self):
+        # ── Request ID generation (Feature 6) ──
+        try:
+            from monitoring import generate_request_id as _gen_rid
+            self._request_id = _gen_rid()
+        except Exception:
+            self._request_id = uuid.uuid4().hex[:12]
         _req_start = time.time()
         if _metrics:
             _metrics.enter_request()
@@ -7885,7 +8491,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
     def _handle_POST(self):
         parsed = urlparse(self.path)
-        if parsed.path == "/api/generate":
+        path = parsed.path
+        # ── API Versioning: strip /v1 prefix (Feature 4) ──
+        if path.startswith("/v1/"):
+            path = path[3:]
+        if path == "/api/generate":
             if not self._check_rate_limit():
                 self.send_response(429)
                 self.send_header("Content-Type", "application/json")
@@ -7947,6 +8557,139 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Client name is required."}).encode())
                 return
             data["client_name"] = client_name_input
+
+            # ── Feature 2b: Async generation mode ──
+            if self.headers.get("X-Async", "").lower() == "true":
+                job_id = uuid.uuid4().hex[:12]
+                with _generation_jobs_lock:
+                    _generation_jobs[job_id] = {
+                        "status": "processing",
+                        "progress_pct": 0,
+                        "created": time.time(),
+                        "result_bytes": None,
+                        "result_content_type": None,
+                        "result_filename": None,
+                        "error": None,
+                    }
+                request_id = getattr(self, "_request_id", None)
+
+                def _async_generate(jid, gen_data, rid):
+                    """Run the full sync generation pipeline in a background thread."""
+                    try:
+                        with _generation_jobs_lock:
+                            if jid in _generation_jobs:
+                                _generation_jobs[jid]["progress_pct"] = 10
+
+                        # Enrichment
+                        enriched = {}
+                        if enrich_data is not None:
+                            try:
+                                enriched = enrich_data(gen_data, request_id=rid) if rid else enrich_data(gen_data)
+                                gen_data["_enriched"] = enriched
+                            except Exception:
+                                gen_data["_enriched"] = {}
+                        else:
+                            gen_data["_enriched"] = {}
+
+                        with _generation_jobs_lock:
+                            if jid in _generation_jobs:
+                                _generation_jobs[jid]["progress_pct"] = 30
+
+                        # KB + Synthesis
+                        kb = load_knowledge_base()
+                        gen_data["_knowledge_base"] = kb
+                        if data_synthesize is not None:
+                            try:
+                                synthesized = data_synthesize(enriched, kb, gen_data)
+                                gen_data["_synthesized"] = synthesized
+                            except Exception:
+                                gen_data["_synthesized"] = {}
+                        else:
+                            gen_data["_synthesized"] = {}
+
+                        with _generation_jobs_lock:
+                            if jid in _generation_jobs:
+                                _generation_jobs[jid]["progress_pct"] = 50
+
+                        # Industry classification
+                        industry_raw = gen_data.get("industry", "")
+                        company_name = gen_data.get("client_name", "")
+                        roles_list = gen_data.get("target_roles") or gen_data.get("roles", [])
+                        if isinstance(roles_list, str):
+                            roles_list = [r.strip() for r in roles_list.split(",") if r.strip()]
+                        industry_profile = classify_industry(industry_raw, company_name, roles_list)
+                        gen_data["industry"] = industry_profile.get("legacy_key", "general_entry_level")
+                        if not gen_data.get("industry_label"):
+                            gen_data["industry_label"] = industry_profile["sector"]
+                        gen_data["talent_profile"] = industry_profile["talent_profile"]
+                        gen_data["bls_sector"] = industry_profile["bls_sector"]
+                        gen_data["naics_code"] = industry_profile.get("naics", "00")
+
+                        with _generation_jobs_lock:
+                            if jid in _generation_jobs:
+                                _generation_jobs[jid]["progress_pct"] = 60
+
+                        # Excel generation
+                        excel_bytes = generate_excel(gen_data)
+
+                        with _generation_jobs_lock:
+                            if jid in _generation_jobs:
+                                _generation_jobs[jid]["progress_pct"] = 80
+
+                        # PPT generation
+                        client_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', gen_data.get("client_name") or "Client")
+                        pptx_bytes = None
+                        if generate_pptx is not None:
+                            try:
+                                pptx_bytes = generate_pptx(gen_data)
+                            except Exception:
+                                pptx_bytes = None
+
+                        if pptx_bytes:
+                            zip_buffer = io.BytesIO()
+                            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+                                zf.writestr(f"{client_name}_Media_Plan.xlsx", excel_bytes)
+                                zf.writestr(f"{client_name}_Strategy_Deck.pptx", pptx_bytes)
+                            result_bytes = zip_buffer.getvalue()
+                            result_ct = "application/zip"
+                            result_fn = f"{client_name}_Media_Plan_Bundle.zip"
+                        else:
+                            result_bytes = excel_bytes
+                            result_ct = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            result_fn = f"{client_name}_Media_Plan.xlsx"
+
+                        with _generation_jobs_lock:
+                            if jid in _generation_jobs:
+                                _generation_jobs[jid].update({
+                                    "status": "completed",
+                                    "progress_pct": 100,
+                                    "result_bytes": result_bytes,
+                                    "result_content_type": result_ct,
+                                    "result_filename": result_fn,
+                                })
+                        logger.info("Async job %s completed (%d bytes)", jid, len(result_bytes))
+                    except Exception as async_err:
+                        logger.error("Async job %s failed: %s", jid, async_err, exc_info=True)
+                        with _generation_jobs_lock:
+                            if jid in _generation_jobs:
+                                _generation_jobs[jid].update({
+                                    "status": "failed",
+                                    "error": str(async_err),
+                                })
+
+                t = threading.Thread(
+                    target=_async_generate,
+                    args=(job_id, data, request_id),
+                    daemon=True,
+                    name=f"async-gen-{job_id}",
+                )
+                t.start()
+                self._send_json({
+                    "job_id": job_id,
+                    "status": "processing",
+                    "poll_url": f"/api/jobs/{job_id}",
+                })
+                return
 
             # ── P0 Fix: Capture timeline, hire_volume, and notes from input ──
             # campaign_duration: normalize from frontend dropdown or API input
@@ -8089,7 +8832,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             enriched = {}
             if enrich_data is not None:
                 try:
-                    enriched = enrich_data(data)
+                    # Feature 6c: propagate request_id to enrich_data
+                    _rid = getattr(self, "_request_id", None)
+                    enriched = enrich_data(data, request_id=_rid) if _rid else enrich_data(data)
                     data["_enriched"] = enriched
                     logger.info("API enrichment complete: %s", enriched.get('enrichment_summary', {}))
                 except Exception as e:
@@ -8310,7 +9055,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 log_request(data, "success", file_size=len(excel_bytes), generation_time=generation_time, doc_filename=doc_filename)
                 if _metrics:
                     _metrics.record_generation(generation_time)
-        elif parsed.path == "/api/chat":
+        elif path == "/api/chat":
             # ── Nova Chat Endpoint ──
             if not self._check_rate_limit() or not self._check_global_chat_rate_limit():
                 self.send_response(429)
@@ -8378,7 +9123,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(resp_body)))
             self.end_headers()
             self.wfile.write(resp_body)
-        elif parsed.path == "/api/slack/events":
+        elif path == "/api/slack/events":
             # ── Nova Slack Event Webhook ──
             # FIX: Handle Slack retries — return 200 immediately to prevent duplicates
             retry_num = self.headers.get("X-Slack-Retry-Num")
@@ -8481,7 +9226,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 # Thread pool shut down or full -- process synchronously as fallback
                 logger.warning("Slack thread pool unavailable, processing synchronously")
                 _process_slack_event_async(data)
-        elif parsed.path == "/api/admin/nova":
+        elif path == "/api/admin/nova":
             # ── Nova Admin API (unanswered questions management) ──
             if not self._check_admin_auth():
                 self.send_response(401)
@@ -8520,7 +9265,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(resp_body)))
             self.end_headers()
             self.wfile.write(resp_body)
-        elif parsed.path == "/api/nova/chat":
+        elif path == "/api/nova/chat":
             # ── Nova Standalone Chat (admin testing) ──
             if not self._check_admin_auth():
                 self.send_response(401)
@@ -8559,6 +9304,73 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(resp_body)))
             self.end_headers()
             self.wfile.write(resp_body)
+        # ── Feature 3c: Admin API key management ──
+        elif path == "/api/admin/keys":
+            if not self._check_admin_auth():
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Unauthorized"}).encode())
+                return
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                content_len = 0
+            body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+            try:
+                data = json.loads(body)
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                return
+            action = data.get("action", "list")
+            if action == "create":
+                tier = data.get("tier", "free")
+                if tier not in API_KEY_TIERS:
+                    self._send_json({"error": f"Invalid tier. Must be one of: {list(API_KEY_TIERS.keys())}"})
+                    return
+                label = data.get("label", "")
+                new_key = uuid.uuid4().hex
+                with _api_keys_lock:
+                    _api_keys_store[new_key] = {
+                        "tier": tier,
+                        "label": label,
+                        "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                        "revoked": False,
+                        "usage_minute": [],
+                        "usage_day": [],
+                    }
+                self._send_json({
+                    "action": "created",
+                    "key": new_key,
+                    "tier": tier,
+                    "label": label,
+                    "limits": API_KEY_TIERS[tier],
+                })
+            elif action == "revoke":
+                key_to_revoke = data.get("key", "")
+                with _api_keys_lock:
+                    if key_to_revoke in _api_keys_store:
+                        _api_keys_store[key_to_revoke]["revoked"] = True
+                        self._send_json({"action": "revoked", "key": key_to_revoke[:8] + "..."})
+                    else:
+                        self._send_json({"error": "Key not found"})
+            elif action == "list":
+                keys_list = []
+                with _api_keys_lock:
+                    for k, v in _api_keys_store.items():
+                        keys_list.append({
+                            "key_prefix": k[:8] + "...",
+                            "tier": v.get("tier", "free"),
+                            "label": v.get("label", ""),
+                            "created": v.get("created", ""),
+                            "revoked": v.get("revoked", False),
+                        })
+                self._send_json({"keys": keys_list, "total": len(keys_list)})
+            else:
+                self._send_json({"error": f"Unknown action '{action}'. Use: create, list, revoke"})
         else:
             self.send_error(404)
 
@@ -8569,7 +9381,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         if cors_origin:
             self.send_header("Access-Control-Allow-Origin", cors_origin)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Async")
         self.send_header("Access-Control-Max-Age", "86400")
         self.end_headers()
 
@@ -8642,6 +9454,9 @@ if __name__ == "__main__":
                 "available" if enrich_data else "unavailable")
     logger.info("Data Matrix: %s", "monitoring" if _data_matrix else "unavailable")
     logger.info("AutoQC: %s", "running" if _auto_qc else "unavailable")
+    logger.info("API Docs: http://localhost:%d/docs", port)
+    logger.info("OpenAPI: http://localhost:%d/api/docs/openapi.json", port)
+    logger.info("API Version: v1 | Async generation: enabled")
     logger.info("=" * 60)
 
     try:

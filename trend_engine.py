@@ -1033,3 +1033,328 @@ def get_industry_benchmark_summary(industry: str) -> Dict[str, Any]:
         "data_confidence": 0.78,
         "sources": trend["sources"],
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 7. DYNAMIC CPC PRICING MODEL
+#    Combines static benchmark data with real-time market signals to produce
+#    an adjusted CPC that reflects current market conditions.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def calculate_dynamic_cpc(
+    platform: str,
+    industry: str,
+    collar_type: str = "white_collar",
+    location: str = "",
+    month: int = 0,
+    market_conditions: Optional[Dict[str, float]] = None,
+) -> Dict[str, Any]:
+    """Real-time CPC adjustment based on market conditions.
+
+    Combines base CPC from trend data with:
+    - Seasonal factor (from SEASONAL_MULTIPLIERS)
+    - Regional factor (from REGIONAL_CPC_FACTORS)
+    - Collar factor (blue collar typically cheaper)
+    - Market tightness (from JOLTS openings rate)
+    - Wage growth pressure (from BLS wage data)
+    - Trend momentum (from YoY CPC change)
+
+    Args:
+        platform: Platform key (e.g., "google_search", "indeed")
+        industry: Industry key
+        collar_type: "blue_collar" or "white_collar"
+        location: Location string for regional adjustment
+        month: Month number (1-12), 0 = current month
+        market_conditions: Optional dict with:
+            - jolts_openings_rate: float (e.g., 5.8 = 5.8%)
+            - unemployment_rate: float (e.g., 3.7 = 3.7%)
+            - wage_growth_yoy: float (e.g., 4.2 = 4.2%)
+            - seasonal_factor: float (override, e.g., 1.15)
+
+    Returns:
+        Dict with:
+            base_cpc, adjusted_cpc, factors_applied (seasonal, regional,
+            collar, market_tightness, wage_pressure, trend_momentum),
+            total_multiplier, confidence, confidence_interval, explanation
+    """
+    try:
+        # -----------------------------------------------------------------
+        # 1. Base CPC from curated benchmark
+        # -----------------------------------------------------------------
+        benchmark = get_benchmark(
+            platform=platform,
+            industry=industry,
+            metric="cpc",
+            collar_type=collar_type,
+            location=location,
+            month=month if month > 0 else None,
+        )
+        base_cpc: float = benchmark.get("value", 1.50)
+        base_confidence: float = benchmark.get("data_confidence", 0.50)
+
+        # We will compute our *own* factors so that we can expose each one
+        # individually.  The benchmark already folds some in, but we want
+        # the raw base for transparency.  Fetch the un-adjusted base.
+        raw_benchmark = get_benchmark(
+            platform=platform,
+            industry=industry,
+            metric="cpc",
+            collar_type="mixed",   # neutral collar
+            location="",           # no regional
+            month=None,            # no seasonal
+        )
+        raw_base: float = raw_benchmark.get("value", base_cpc)
+
+        mc = market_conditions or {}
+
+        # -----------------------------------------------------------------
+        # 2. Seasonal factor
+        # -----------------------------------------------------------------
+        effective_month = month if month > 0 else datetime.now().month
+        if "seasonal_factor" in mc:
+            seasonal_factor: float = float(mc["seasonal_factor"])
+        else:
+            seasonal_info = get_seasonal_adjustment(
+                collar_type=collar_type, month=effective_month
+            )
+            seasonal_factor = seasonal_info.get("multiplier", 1.0)
+
+        # -----------------------------------------------------------------
+        # 3. Regional factor
+        # -----------------------------------------------------------------
+        regional_factor: float = 1.0
+        if location:
+            loc_clean = location.strip()
+            for metro_key, mult in REGIONAL_CPC_MULTIPLIERS_US.items():
+                if (
+                    loc_clean.lower() in metro_key.lower()
+                    or metro_key.lower() in loc_clean.lower()
+                ):
+                    regional_factor = mult
+                    break
+            else:
+                for country, mult in REGIONAL_CPC_MULTIPLIERS_INTL.items():
+                    if (
+                        country.lower() in loc_clean.lower()
+                        or loc_clean.lower() in country.lower()
+                    ):
+                        regional_factor = mult
+                        break
+
+        # -----------------------------------------------------------------
+        # 4. Collar factor  (reuse the differentials already in the module)
+        # -----------------------------------------------------------------
+        collar = collar_type.lower().replace("-", "_").replace(" ", "_")
+        collar_diffs = COLLAR_CPC_DIFFERENTIALS.get(
+            collar, COLLAR_CPC_DIFFERENTIALS.get("mixed", {})
+        )
+        plat = _normalize_platform(platform)
+        collar_factor: float = collar_diffs.get(plat, 1.0)
+
+        # -----------------------------------------------------------------
+        # 5. Market tightness (JOLTS + unemployment)
+        # -----------------------------------------------------------------
+        tightness: float = 1.0
+        if "jolts_openings_rate" in mc:
+            jolts = float(mc["jolts_openings_rate"])
+            tightness = 0.85 + (jolts / 10.0) * 0.3
+            tightness = max(0.85, min(tightness, 1.30))
+        if "unemployment_rate" in mc:
+            unemp = float(mc["unemployment_rate"])
+            tightness *= max(0.9, 1.0 - (unemp - 4.0) * 0.05)
+            # Re-clamp after unemployment adjustment
+            tightness = max(0.85, min(tightness, 1.30))
+
+        # -----------------------------------------------------------------
+        # 6. Wage pressure
+        # -----------------------------------------------------------------
+        wage_pressure: float = 1.0
+        if "wage_growth_yoy" in mc:
+            wg = float(mc["wage_growth_yoy"])
+            wage_pressure = 1.0 + (wg / 100.0) * 0.15
+            wage_pressure = max(0.95, min(wage_pressure, 1.15))
+
+        # -----------------------------------------------------------------
+        # 7. Trend momentum (YoY CPC change)
+        # -----------------------------------------------------------------
+        trend_momentum: float = 1.0
+        try:
+            trend_data = get_trend(
+                platform=platform, industry=industry, metric="cpc"
+            )
+            yoy_pct = trend_data.get("avg_yoy_change_pct", 0.0)
+            trend_momentum = 1.0 + (yoy_pct / 100.0) * 0.3
+            trend_momentum = max(0.85, min(trend_momentum, 1.25))
+        except Exception:
+            logger.debug("Trend momentum lookup failed; using 1.0")
+
+        # -----------------------------------------------------------------
+        # 8. Compose final adjusted CPC
+        # -----------------------------------------------------------------
+        total_multiplier = (
+            seasonal_factor
+            * regional_factor
+            * collar_factor
+            * tightness
+            * wage_pressure
+            * trend_momentum
+        )
+        adjusted_cpc = round(raw_base * total_multiplier, 2)
+
+        # -----------------------------------------------------------------
+        # 9. Confidence (slightly reduced because of extra assumptions)
+        # -----------------------------------------------------------------
+        confidence = round(base_confidence * 0.9, 2)
+        confidence = max(0.10, min(confidence, 0.95))
+
+        # Confidence interval: widen proportionally to the number of
+        # non-trivial adjustments applied
+        non_trivial_count = sum(
+            1
+            for f in (seasonal_factor, regional_factor, collar_factor,
+                       tightness, wage_pressure, trend_momentum)
+            if abs(f - 1.0) > 0.005
+        )
+        ci_spread = 0.15 + non_trivial_count * 0.03
+        ci_low = round(adjusted_cpc * (1 - ci_spread), 2)
+        ci_high = round(adjusted_cpc * (1 + ci_spread), 2)
+        ci_low = max(0.01, ci_low)
+
+        # -----------------------------------------------------------------
+        # 10. Human-readable explanation
+        # -----------------------------------------------------------------
+        pct_change = round((total_multiplier - 1.0) * 100)
+        direction = "+" if pct_change >= 0 else ""
+        reasons: List[str] = []
+        if abs(tightness - 1.0) > 0.005:
+            reasons.append("tight labor market" if tightness > 1.0 else "loose labor market")
+        if abs(wage_pressure - 1.0) > 0.005:
+            reasons.append("wage growth pressure" if wage_pressure > 1.0 else "muted wage growth")
+        if abs(seasonal_factor - 1.0) > 0.005:
+            reasons.append("seasonal demand" if seasonal_factor > 1.0 else "seasonal lull")
+        if abs(regional_factor - 1.0) > 0.005:
+            reasons.append("regional cost differential")
+        if abs(collar_factor - 1.0) > 0.005:
+            reasons.append(f"{collar.replace('_', ' ')} job type")
+        if abs(trend_momentum - 1.0) > 0.005:
+            reasons.append("CPC trend momentum" if trend_momentum > 1.0 else "declining CPC trend")
+
+        if reasons:
+            reason_str = ", ".join(reasons[:3])
+            if len(reasons) > 3:
+                reason_str += f", and {len(reasons) - 3} more factor(s)"
+            explanation = (
+                f"CPC adjusted {direction}{pct_change}% from base "
+                f"due to {reason_str}"
+            )
+        else:
+            explanation = "CPC unchanged from base -- no significant adjustments applied"
+
+        return {
+            "base_cpc": raw_base,
+            "adjusted_cpc": adjusted_cpc,
+            "factors_applied": {
+                "seasonal": round(seasonal_factor, 4),
+                "regional": round(regional_factor, 4),
+                "collar": round(collar_factor, 4),
+                "market_tightness": round(tightness, 4),
+                "wage_pressure": round(wage_pressure, 4),
+                "trend_momentum": round(trend_momentum, 4),
+            },
+            "total_multiplier": round(total_multiplier, 4),
+            "confidence": confidence,
+            "confidence_interval": [ci_low, ci_high],
+            "explanation": explanation,
+            "platform": plat,
+            "industry": _normalize_industry(industry),
+            "collar_type": collar,
+            "location": location,
+            "month": effective_month,
+        }
+
+    except Exception as exc:
+        logger.error("calculate_dynamic_cpc failed: %s", exc, exc_info=True)
+        # Graceful degradation: return a safe fallback
+        return {
+            "base_cpc": 1.50,
+            "adjusted_cpc": 1.50,
+            "factors_applied": {
+                "seasonal": 1.0,
+                "regional": 1.0,
+                "collar": 1.0,
+                "market_tightness": 1.0,
+                "wage_pressure": 1.0,
+                "trend_momentum": 1.0,
+            },
+            "total_multiplier": 1.0,
+            "confidence": 0.15,
+            "confidence_interval": [0.75, 2.50],
+            "explanation": f"Fallback CPC used due to error: {exc}",
+            "platform": platform,
+            "industry": industry,
+            "collar_type": collar_type,
+            "location": location,
+            "month": month if month > 0 else datetime.now().month,
+        }
+
+
+def get_dynamic_cpc_summary(
+    industry: str,
+    collar_type: str = "white_collar",
+    location: str = "",
+    market_conditions: Optional[Dict[str, float]] = None,
+) -> Dict[str, Dict[str, Any]]:
+    """Get dynamic CPC for all platforms at once.
+
+    Calls calculate_dynamic_cpc for each platform in PLATFORMS and
+    returns a dict keyed by platform name.  Useful for quick cross-platform
+    cost comparison under identical market assumptions.
+
+    Args:
+        industry: Industry key
+        collar_type: "blue_collar" or "white_collar"
+        location: Location string for regional adjustment
+        market_conditions: Optional dict with JOLTS/unemployment/wage data
+
+    Returns:
+        Dict[str, Dict] -- platform key -> calculate_dynamic_cpc result
+    """
+    results: Dict[str, Dict[str, Any]] = {}
+    for plat in PLATFORMS:
+        try:
+            results[plat] = calculate_dynamic_cpc(
+                platform=plat,
+                industry=industry,
+                collar_type=collar_type,
+                location=location,
+                month=0,  # use current month
+                market_conditions=market_conditions,
+            )
+        except Exception as exc:
+            logger.error(
+                "get_dynamic_cpc_summary failed for %s: %s", plat, exc,
+                exc_info=True,
+            )
+            results[plat] = {
+                "base_cpc": 1.50,
+                "adjusted_cpc": 1.50,
+                "factors_applied": {
+                    "seasonal": 1.0,
+                    "regional": 1.0,
+                    "collar": 1.0,
+                    "market_tightness": 1.0,
+                    "wage_pressure": 1.0,
+                    "trend_momentum": 1.0,
+                },
+                "total_multiplier": 1.0,
+                "confidence": 0.10,
+                "confidence_interval": [0.75, 2.50],
+                "explanation": f"Fallback due to error: {exc}",
+                "platform": plat,
+                "industry": industry,
+                "collar_type": collar_type,
+                "location": location,
+                "month": datetime.now().month,
+            }
+    return results

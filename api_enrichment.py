@@ -555,6 +555,21 @@ MAX_MEMORY_CACHE_SIZE = 500  # Prevent unbounded memory growth
 import logging as _logging
 _api_logger = _logging.getLogger("api_enrichment")
 
+# ── Request context for tracing (v3.1) ──
+# Thread-local storage propagates the request_id from the HTTP handler
+# through the enrichment pipeline so every API call is traceable.
+_request_context = threading.local()
+
+
+def set_request_id(request_id: str) -> None:
+    """Set the current request ID for API call tracing."""
+    _request_context.request_id = request_id
+
+
+def get_request_id() -> str:
+    """Get the current request ID (empty string if not set)."""
+    return getattr(_request_context, "request_id", "")
+
 
 def _log_warn(msg: str) -> None:
     """Write a warning to the logger (never crashes)."""
@@ -9855,7 +9870,7 @@ def fetch_h1b_wage_benchmarks(roles: List[str]) -> Dict[str, Any]:
 # Main enrichment orchestrator
 # ---------------------------------------------------------------------------
 
-def enrich_data(data: Dict[str, Any]) -> Dict[str, Any]:
+def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     """
     Main entry point. Takes a media plan request dict and returns an enriched
     dict with salary data, industry stats, demographics, global indicators,
@@ -9869,10 +9884,18 @@ def enrich_data(data: Dict[str, Any]) -> Dict[str, Any]:
         - locations (list[str])
         - competitors (list[str])
 
+    Args:
+        data: Media plan request dict.
+        request_id: Optional request ID for tracing through all API calls.
+
     Returns a dict matching the enrichment schema (see module docstring).
     All sub-keys are populated on a best-effort basis; failures yield empty
     or None values but never raise exceptions.
     """
+    # Propagate request_id to thread-local for _safe_call tracing
+    if request_id:
+        set_request_id(request_id)
+
     start_time = time.time()
     apis_called: List[str] = []
     apis_succeeded: List[str] = []
@@ -10143,21 +10166,26 @@ def _safe_call(func, label: str):
             - success:       bool indicating whether data was obtained
             - error_message: str or None
     """
+    rid = get_request_id()
     metadata: Dict[str, Any] = {
         "elapsed_time": 0.0,
         "source": "live",
         "success": False,
         "error_message": None,
+        "request_id": rid,
     }
 
     # --- Circuit breaker gate ---
     if _circuit_breaker_check(label):
-        _log_warn(f"Circuit breaker OPEN — skipping API '{label}'")
+        _log_warn(f"[{rid}] Circuit breaker OPEN — skipping API '{label}'" if rid
+                  else f"Circuit breaker OPEN — skipping API '{label}'")
         metadata["source"] = "circuit_open"
         metadata["elapsed_time"] = 0.0
         return None, "circuit_open", metadata
 
     call_start = time.time()
+    if rid:
+        _log_info(f"[{rid}] API '{label}' — call started")
     try:
         result = func()
         elapsed = round(time.time() - call_start, 4)
@@ -10213,6 +10241,8 @@ def _safe_call(func, label: str):
 
         _circuit_breaker_record_success(label)
         metadata["success"] = True
+        if rid:
+            _log_info(f"[{rid}] API '{label}' — {metadata['source']} response in {elapsed}s")
         return result, "ok", metadata
 
     except Exception as exc:
@@ -10222,7 +10252,10 @@ def _safe_call(func, label: str):
         metadata["error_message"] = str(exc)
         metadata["source"] = "fallback"
         _circuit_breaker_record_failure(label)
-        _log_warn(f"API '{label}' raised an exception after {elapsed}s: {exc}")
+        _log_warn(
+            f"[{rid}] API '{label}' raised an exception after {elapsed}s: {exc}"
+            if rid else f"API '{label}' raised an exception after {elapsed}s: {exc}"
+        )
         return None, "error", metadata
 
 

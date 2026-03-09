@@ -1,0 +1,182 @@
+{
+  "_meta": {
+    "source": "Joveo Recruiting Benchmarks Report 2026",
+    "source_url": "https://www.joveo.com/recruiting-benchmarks-report-2026/",
+    "data_period": "November 2022 - November 2025 (rolling 12 months)",
+    "methodology": "Aggregated metrics across millions of jobs published on hundreds of job sites. Covers 16 major occupations across all 50 US states. Excludes duration-based postings, slot-based advertising, and organic traffic.",
+    "data_partners": ["Joveo Interactive Insights", "TalentNeuron", "Talroo", "JobGet"],
+    "ingested": "2026-03-09",
+    "version": "1.0"
+  },
+
+  "market_conditions_2025": {
+    "summary": "Two distinct labor markets emerged: Market A (The Flood) for white-collar/remote roles with exploding application volume, and Market B (The Drought) for frontline/licensed roles with structurally constrained supply.",
+    "job_openings_nov_2024": 8000000,
+    "job_openings_nov_2025": 7100000,
+    "job_openings_decline_pct": 11.25,
+    "unemployed_nov_2025": 7500000,
+    "seekers_to_openings_ratio": 1.06,
+    "monthly_job_growth_2024_avg": 186000,
+    "monthly_job_growth_dec_2025": 50000,
+    "net_growth_sectors": ["healthcare", "hospitality"],
+    "voluntary_quit_rate_2025": 0.02,
+    "the_big_stay": true,
+    "tech_experience_5plus_years_pct_before": 37,
+    "tech_experience_5plus_years_pct_after": 42,
+    "tech_experience_2_4_years_pct_before": 46,
+    "tech_experience_2_4_years_pct_after": 40
+  },
+
+  "applicant_growth_nov2022_to_nov2025": {
+    "_note": "Application volume per job growth multiplier, Nov 2022 to Nov 2025",
+    "occupations": {
+      "software_developer": {"growth_multiplier": 9.0, "market_type": "flood", "collar": "white_collar"},
+      "warehouse_production_worker": {"growth_multiplier": 5.0, "market_type": "flood", "collar": "blue_collar"},
+      "delivery_driver": {"growth_multiplier": 4.0, "market_type": "mixed", "collar": "blue_collar"},
+      "retail_sales": {"growth_multiplier": 3.5, "market_type": "mixed", "collar": "blue_collar"},
+      "customer_service": {"growth_multiplier": 3.0, "market_type": "mixed", "collar": "blue_collar"},
+      "bookkeeping_accounting": {"growth_multiplier": 2.5, "market_type": "flood", "collar": "white_collar"},
+      "registered_nurse": {"growth_multiplier": 2.0, "market_type": "drought", "collar": "blue_collar"},
+      "licensed_practical_nurse": {"growth_multiplier": 1.8, "market_type": "drought", "collar": "blue_collar"},
+      "home_health_aide": {"growth_multiplier": 1.5, "market_type": "drought", "collar": "blue_collar"},
+      "truck_driver_cdl": {"growth_multiplier": 1.7, "market_type": "drought", "collar": "blue_collar"}
+    }
+  },
+
+  "median_cpa_by_occupation_2025": {
+    "_note": "Median Cost Per Application (USD), long-form/ATS applications (5+ step forms), All US",
+    "occupations": {
+      "software_developer": {"median_cpa": 11.0, "collar": "white_collar", "market_type": "flood"},
+      "warehouse_logistics": {"median_cpa": 13.0, "collar": "blue_collar", "market_type": "flood"},
+      "delivery_driver": {"median_cpa": 15.0, "collar": "blue_collar", "market_type": "mixed"},
+      "retail_sales": {"median_cpa": 16.0, "collar": "blue_collar", "market_type": "mixed"},
+      "customer_service": {"median_cpa": 17.0, "collar": "blue_collar", "market_type": "mixed"},
+      "bookkeeping_accounting": {"median_cpa": 18.0, "collar": "white_collar", "market_type": "flood"},
+      "marketing": {"median_cpa": 20.0, "collar": "white_collar", "market_type": "flood"},
+      "hospitality": {"median_cpa": 22.0, "collar": "blue_collar", "market_type": "mixed"},
+      "security": {"median_cpa": 23.0, "collar": "blue_collar", "market_type": "mixed"},
+      "nursing_assistant_home_health": {"median_cpa": 26.0, "collar": "blue_collar", "market_type": "drought"},
+      "medical_technician": {"median_cpa": 28.0, "collar": "blue_collar", "market_type": "drought"},
+      "licensed_practical_nurse": {"median_cpa": 32.0, "collar": "blue_collar", "market_type": "drought"},
+      "truck_driver_cdl": {"median_cpa": 34.0, "collar": "blue_collar", "market_type": "drought"},
+      "physical_therapist": {"median_cpa": 36.0, "collar": "white_collar", "market_type": "drought"},
+      "registered_nurse": {"median_cpa": 40.0, "collar": "blue_collar", "market_type": "drought"}
+    },
+    "key_insight": "Healthcare roles cost nearly 2x more per application than tech/white-collar roles"
+  },
+
+  "cpa_by_application_type": {
+    "_note": "CPA variation by application complexity for the same roles",
+    "easy_apply_one_click": {"cpa_low": 3.0, "cpa_typical": 5.0, "apply_rate_pct": 25.0},
+    "one_page_form": {"cpa_typical": 10.0, "apply_rate_pct": 15.0},
+    "two_page_form": {"cpa_typical": 15.0, "apply_rate_pct": 8.0},
+    "three_page_form": {"cpa_typical": 22.0, "apply_rate_pct": 5.0},
+    "five_plus_page_form": {"cpa_high": 40.0, "apply_rate_pct": 3.0},
+    "easy_to_long_form_ratio": 12.0,
+    "key_insight": "Fewer application pages = more applies. Apply rate drops sharply after 2-page applications."
+  },
+
+  "demand_intensity_per_100_employed": {
+    "_note": "Job Postings per 100 Employed Workers in 2025. Higher = more demand pressure relative to available workforce.",
+    "occupations": {
+      "registered_nurse": {"postings_per_100": 52.5, "total_postings_2025": 1400000, "supply_constrained": true},
+      "licensed_practical_nurse": {"postings_per_100": 35.0, "supply_constrained": true},
+      "home_health_aide": {"postings_per_100": 28.0, "supply_constrained": true},
+      "truck_driver_cdl": {"postings_per_100": 25.0, "supply_constrained": true},
+      "nursing_assistant": {"postings_per_100": 20.0, "supply_constrained": true},
+      "physical_therapist": {"postings_per_100": 18.0, "supply_constrained": true},
+      "retail_sales": {"postings_per_100": 15.0, "supply_constrained": false},
+      "customer_service": {"postings_per_100": 12.0, "supply_constrained": false},
+      "hospitality": {"postings_per_100": 11.0, "supply_constrained": false},
+      "security": {"postings_per_100": 9.0, "supply_constrained": false},
+      "warehouse_logistics": {"postings_per_100": 10.0, "supply_constrained": false},
+      "delivery_driver": {"postings_per_100": 8.0, "supply_constrained": false},
+      "software_developer": {"postings_per_100": 6.0, "supply_constrained": false},
+      "bookkeeping_accounting": {"postings_per_100": 5.0, "supply_constrained": false},
+      "marketing": {"postings_per_100": 4.0, "supply_constrained": false}
+    },
+    "key_insight": "Licensed and frontline roles maintained higher demand intensities despite overall labor market cooling."
+  },
+
+  "two_market_strategies": {
+    "market_a_flood": {
+      "description": "White-collar, remote-capable roles with exploding application volume",
+      "affected_roles": ["software_developer", "bookkeeping_accounting", "marketing", "customer_service", "data_analyst"],
+      "core_problem": "screening",
+      "what_works": [
+        "AI-powered screening, interview scheduling, and interviewing",
+        "Structured application forms with positive friction",
+        "Success metrics tied to screening, shortlists, or hires",
+        "Process designs that evaluate beyond the first wave"
+      ],
+      "what_fails": [
+        "Using experience requirements as a volume filter",
+        "Treating declining CPA as evidence hiring is easier",
+        "Optimizing for speed without quality measurement"
+      ],
+      "recommended_metric": "cost_per_quality_hire",
+      "cpa_warning": "A $15 CPA means nothing if your team can only evaluate 50 of 200 applications"
+    },
+    "market_b_drought": {
+      "description": "Frontline, licensed, and location-dependent roles with structurally constrained supply",
+      "affected_roles": ["registered_nurse", "licensed_practical_nurse", "truck_driver_cdl", "home_health_aide", "electrician", "physical_therapist"],
+      "core_problem": "availability",
+      "what_works": [
+        "Push job advertising and passive candidate targeting",
+        "Employer brand investment targeted at specific roles/markets",
+        "Mobile-optimized candidate experiences stripped of friction",
+        "Retention focus: every employee who stays is one fewer role to fill"
+      ],
+      "what_fails": [
+        "Expecting volume metrics to improve because macro indicates it should",
+        "Waiting for the market to correct (constraints are structural not cyclical)",
+        "Applying the same CPA targets used for flooded roles"
+      ],
+      "recommended_metric": "cost_per_hire",
+      "scheduling_insight": "Modest increases in scheduling flexibility can reduce time to hire by more than 50%"
+    }
+  },
+
+  "experience_cliff_2025": {
+    "summary": "Entry-level access narrowed as employers used experience thresholds as volume filters, not because work demanded it.",
+    "trends": {
+      "tech_5plus_years_required": {"before": 0.37, "after": 0.42, "change": 0.05},
+      "tech_2_4_years_required": {"before": 0.46, "after": 0.40, "change": -0.06},
+      "entry_level_hiring": "Persisted but grew more selective"
+    },
+    "consequences": [
+      "Inflated external hiring costs (mid-level externals cost more than training new grads)",
+      "Overtenured workforce (fewer fresh perspectives, innovation slows)",
+      "Talent debt accumulation"
+    ],
+    "recommended_approach": "capability_over_credentials",
+    "capability_signals": [
+      "Skills-based hiring evaluations tied to near-term job performance",
+      "Screening criteria based on first 90-day requirements",
+      "Structured interviews testing learning velocity and problem solving",
+      "Work samples revealing approach to unfamiliar problems"
+    ],
+    "the_big_stay": {
+      "description": "Workers staying in current jobs longer due to economic uncertainty and fewer enticing offers",
+      "voluntary_quit_rate": 0.02,
+      "impact": "Reduced backfill opportunities, especially for junior/entry roles",
+      "employer_cited_reason": "Low turnover, not budgets, as primary reason hiring slowed"
+    }
+  },
+
+  "strategic_questions_for_ta_leaders": [
+    "Which roles consistently flood you with applicants vs remain supply-constrained?",
+    "Are you running one process or two?",
+    "How are you measuring hiring funnel efficiency?",
+    "Are you measuring CPA as a success metric across all roles?",
+    "Where have experience requirements increased as a response to volume?",
+    "Do your recruiting metrics reflect fundamentally different hiring environments?"
+  ],
+
+  "integration_notes": {
+    "collar_intelligence": "Use market_type (flood/drought) to adjust channel strategy: flood roles need screening-optimized channels, drought roles need sourcing/push channels",
+    "budget_engine": "Apply CPA adjustments: healthcare/licensed roles should budget 2x the CPA of tech/white-collar; use demand_intensity to weight supply-constrained roles higher",
+    "trend_engine": "Feed applicant_growth_multiplier into dynamic CPC calculations as a demand pressure factor",
+    "nova_chat": "Reference two-market framework when advising on hiring strategy; cite Joveo 2026 data for CPA/apply rate benchmarks"
+  }
+}

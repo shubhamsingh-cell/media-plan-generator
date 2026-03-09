@@ -1087,6 +1087,270 @@ class AutoQC:
         except Exception as e:
             return TestResult("data_matrix_v3_layers", False, str(e))
 
+    def _test_34_kb_data_contracts(self) -> TestResult:
+        """KB data contracts -- all KB files pass schema validation."""
+        try:
+            if "data_contracts" not in sys.modules:
+                importlib.import_module("data_contracts")
+            dc = sys.modules["data_contracts"]
+            result = dc.validate_all_kb()
+            passed = result.get("passed", 0)
+            total = result.get("total", 0)
+            ok = result.get("failed", 1) == 0
+            detail = f"{passed}/{total} KB files pass schema validation"
+            return TestResult("kb_data_contracts", ok, detail)
+        except ImportError:
+            return TestResult("kb_data_contracts", False, "Module not available")
+        except Exception as e:
+            return TestResult("kb_data_contracts", False, f"Error: {e}")
+
+    def _test_35_enrichment_output_contract(self) -> TestResult:
+        """Enrichment output contract -- sample output passes validation."""
+        try:
+            if "data_contracts" not in sys.modules:
+                importlib.import_module("data_contracts")
+            dc = sys.modules["data_contracts"]
+            sample = {
+                "salary_data": {},
+                "location_data": {},
+                "market_demand": {},
+                "competitive_data": {},
+                "ad_benchmarks": {},
+                "collar_intelligence": {},
+                "hiring_trends": {},
+                "industry_employment": {},
+                "location_demographics": {},
+                "global_indicators": {},
+                "job_market": {},
+                "company_info": {},
+                "company_metadata": {},
+                "sec_data": {},
+                "competitor_logos": {},
+                "currency_rates": {},
+                "enrichment_summary": {
+                    "apis_called": [],
+                    "apis_succeeded": [],
+                    "apis_failed": [],
+                    "total_data_points": 0,
+                    "total_time_seconds": 0.0,
+                    "confidence_score": 0.5,
+                },
+            }
+            result = dc.validate_enrichment_output(sample)
+            valid = result.get("valid", False)
+            detail = f"Enrichment output contract validation: {valid}"
+            return TestResult("enrichment_output_contract", valid, detail)
+        except ImportError:
+            return TestResult("enrichment_output_contract", False, "Module not available")
+        except Exception as e:
+            return TestResult("enrichment_output_contract", False, f"Error: {e}")
+
+    def _test_36_regression_check(self) -> TestResult:
+        """Regression check -- scenario 0 (healthcare) runs successfully."""
+        try:
+            if "regression_detector" not in sys.modules:
+                importlib.import_module("regression_detector")
+            rd = sys.modules["regression_detector"]
+            scenario = rd.REFERENCE_SCENARIOS[0]
+            result = rd.run_scenario(scenario)
+            has_keys = (
+                result is not None
+                and "total_budget" in result
+                and ("channels" in result or "channel_allocations" in result)
+            )
+            if has_keys:
+                budget = result.get("total_budget", 0)
+                ch = result.get("channels") or result.get("channel_allocations", {})
+                n_channels = len(ch) if isinstance(ch, (list, dict)) else 0
+                detail = f"Regression scenario 0 (healthcare): ${budget:,.0f} budget, {n_channels} channels"
+            else:
+                detail = f"Regression scenario 0 (healthcare): missing expected keys"
+            return TestResult("regression_check", has_keys, detail)
+        except ImportError:
+            return TestResult("regression_check", False, "Module not available")
+        except Exception as e:
+            return TestResult("regression_check", False, f"Error: {e}")
+
+    def _test_37_eval_budget_sanity(self) -> TestResult:
+        """Eval budget sanity -- budget allocation tests score >= 95%."""
+        try:
+            if "eval_framework" not in sys.modules:
+                importlib.import_module("eval_framework")
+            ef = sys.modules["eval_framework"]
+            suite = ef.EvalSuite()
+            result = suite.run_eval("budget")
+            score_pct = result.get("score_pct", 0)
+            passed = result.get("passed", 0)
+            total = result.get("total_cases", 0)
+            ok = score_pct >= 95
+            detail = f"Budget sanity eval: {score_pct}% ({passed}/{total})"
+            return TestResult("eval_budget_sanity", ok, detail)
+        except ImportError:
+            return TestResult("eval_budget_sanity", False, "Module not available")
+        except Exception as e:
+            return TestResult("eval_budget_sanity", False, f"Error: {e}")
+
+    def _test_38_eval_collar_consistency(self) -> TestResult:
+        """Eval collar consistency -- collar classification tests score >= 90%."""
+        try:
+            if "eval_framework" not in sys.modules:
+                importlib.import_module("eval_framework")
+            ef = sys.modules["eval_framework"]
+            suite = ef.EvalSuite()
+            result = suite.run_eval("collar")
+            score_pct = result.get("score_pct", 0)
+            passed = result.get("passed", 0)
+            total = result.get("total_cases", 0)
+            ok = score_pct >= 90
+            detail = f"Collar consistency eval: {score_pct}% ({passed}/{total})"
+            return TestResult("eval_collar_consistency", ok, detail)
+        except ImportError:
+            return TestResult("eval_collar_consistency", False, "Module not available")
+        except Exception as e:
+            return TestResult("eval_collar_consistency", False, f"Error: {e}")
+
+    def _test_39_structured_logging(self) -> TestResult:
+        """Structured logging -- JSON formatter produces valid JSON output."""
+        try:
+            if "monitoring" not in sys.modules:
+                importlib.import_module("monitoring")
+            mon = sys.modules["monitoring"]
+            formatter = mon.StructuredJsonFormatter()
+            record = logging.LogRecord(
+                name="test_logger",
+                level=logging.INFO,
+                pathname="auto_qc.py",
+                lineno=0,
+                msg="QC test message",
+                args=(),
+                exc_info=None,
+            )
+            output = formatter.format(record)
+            parsed = json.loads(output)
+            ok = ("ts" in parsed or "timestamp" in parsed) and ("msg" in parsed or "message" in parsed)
+            detail = "Structured JSON logging produces valid JSON output"
+            return TestResult("structured_logging", ok, detail)
+        except ImportError:
+            return TestResult("structured_logging", False, "Module not available")
+        except Exception as e:
+            return TestResult("structured_logging", False, f"Error: {e}")
+
+    def _test_40_openapi_spec_valid(self) -> TestResult:
+        """OpenAPI spec valid -- spec has required keys and sufficient paths."""
+        try:
+            if "app" not in sys.modules:
+                importlib.import_module("app")
+            app_mod = sys.modules["app"]
+            spec = getattr(app_mod, "_OPENAPI_SPEC", None)
+            if spec is None:
+                return TestResult("openapi_spec_valid", False, "_OPENAPI_SPEC not defined in app module")
+            paths = spec.get("paths", {})
+            ver = spec.get("openapi", "unknown")
+            n_paths = len(paths)
+            ok = "openapi" in spec and n_paths >= 5
+            detail = f"OpenAPI spec: {n_paths} paths documented, version {ver}"
+            return TestResult("openapi_spec_valid", ok, detail)
+        except ImportError:
+            return TestResult("openapi_spec_valid", False, "Module not available")
+        except Exception as e:
+            return TestResult("openapi_spec_valid", False, f"Error: {e}")
+
+    def _test_41_role_decomposition(self) -> TestResult:
+        """Role decomposition -- software engineer decomposes into seniority levels."""
+        try:
+            if "collar_intelligence" not in sys.modules:
+                importlib.import_module("collar_intelligence")
+            ci = sys.modules["collar_intelligence"]
+            result = ci.decompose_role("software engineer", 50, "technology")
+            ok = (
+                isinstance(result, list)
+                and len(result) >= 2
+                and all(
+                    "title" in item and "count" in item and "seniority" in item
+                    for item in result
+                )
+            )
+            if ok:
+                total_count = sum(item.get("count", 0) for item in result)
+                ok = ok and total_count == 50
+                detail = f"Role decomposition: 50 engineers -> {len(result)} seniority levels, sum={total_count}"
+            else:
+                detail = f"Role decomposition: invalid structure (got {type(result).__name__}, len={len(result) if isinstance(result, list) else 'N/A'})"
+            return TestResult("role_decomposition", ok, detail)
+        except ImportError:
+            return TestResult("role_decomposition", False, "Module not available")
+        except Exception as e:
+            return TestResult("role_decomposition", False, f"Error: {e}")
+
+    def _test_42_channel_quality_scores(self) -> TestResult:
+        """Channel quality scores -- blue and white collar scores are valid."""
+        try:
+            if "budget_engine" not in sys.modules:
+                importlib.import_module("budget_engine")
+            be = sys.modules["budget_engine"]
+            blue = be.score_channel_quality("job_board", "blue_collar", "general")
+            white = be.score_channel_quality("job_board", "white_collar", "general")
+            b_score = blue.get("quality_score", -1)
+            w_score = white.get("quality_score", -1)
+            ok = (
+                isinstance(blue, dict)
+                and isinstance(white, dict)
+                and "quality_score" in blue
+                and "quality_score" in white
+                and 0 <= b_score <= 1
+                and 0 <= w_score <= 1
+            )
+            detail = f"Channel quality scores: blue={b_score}, white={w_score}"
+            return TestResult("channel_quality_scores", ok, detail)
+        except ImportError:
+            return TestResult("channel_quality_scores", False, "Module not available")
+        except Exception as e:
+            return TestResult("channel_quality_scores", False, f"Error: {e}")
+
+    def _test_43_dynamic_cpc_bounds(self) -> TestResult:
+        """Dynamic CPC bounds -- adjusted CPC falls within reasonable range."""
+        try:
+            if "trend_engine" not in sys.modules:
+                importlib.import_module("trend_engine")
+            te = sys.modules["trend_engine"]
+            result = te.calculate_dynamic_cpc("indeed", "healthcare", "blue_collar", "US", 6, {})
+            adjusted_cpc = result.get("adjusted_cpc", -1)
+            ok = (
+                isinstance(result, dict)
+                and "adjusted_cpc" in result
+                and 0.10 <= adjusted_cpc <= 50.0
+            )
+            detail = f"Dynamic CPC: ${adjusted_cpc:.2f} (bounds 0.10-50.00)"
+            return TestResult("dynamic_cpc_bounds", ok, detail)
+        except ImportError:
+            return TestResult("dynamic_cpc_bounds", False, "Module not available")
+        except Exception as e:
+            return TestResult("dynamic_cpc_bounds", False, f"Error: {e}")
+
+    def _test_44_what_if_simulator(self) -> TestResult:
+        """What-if simulator -- budget increase simulation returns correct total."""
+        try:
+            if "budget_engine" not in sys.modules:
+                importlib.import_module("budget_engine")
+            be = sys.modules["budget_engine"]
+            base_allocation = {
+                "channel_allocations": {
+                    "Indeed": {"name": "Indeed", "percentage": 40, "dollar_amount": 40000},
+                    "LinkedIn": {"name": "LinkedIn", "percentage": 30, "dollar_amount": 30000},
+                    "Facebook": {"name": "Facebook", "percentage": 30, "dollar_amount": 30000},
+                },
+                "metadata": {"total_budget": 100000},
+            }
+            result = be.simulate_budget_change(base_allocation, delta_budget=20000)
+            new_total = result.get("new_budget", 0)
+            ok = abs(new_total - 120000) < 0.01
+            detail = f"What-if simulator: $100K + $20K = ${new_total}"
+            return TestResult("what_if_simulator", ok, detail)
+        except ImportError:
+            return TestResult("what_if_simulator", False, "Module not available")
+        except Exception as e:
+            return TestResult("what_if_simulator", False, f"Error: {e}")
+
     # ══════════════════════════════════════════════════════════════════════
     # DYNAMIC TESTS (generated weekly from user interaction analysis)
     # ══════════════════════════════════════════════════════════════════════

@@ -477,6 +477,47 @@ INDUSTRY_BENCHMARKS_COMPARISON: Dict[str, Dict[str, Any]] = {
 # Helper utilities
 # ===================================================================
 
+
+# ---------------------------------------------------------------------------
+# Number Formatting Helpers
+# ---------------------------------------------------------------------------
+
+def _fmt_currency(val, currency="USD", compact=False):
+    """Format a number as currency. compact=True for $1.2M style."""
+    if val is None:
+        return "N/A"
+    try:
+        val = float(val)
+    except (TypeError, ValueError):
+        return str(val)
+    if compact and abs(val) >= 1_000_000:
+        return f"${val/1_000_000:,.1f}M"
+    if compact and abs(val) >= 1_000:
+        return f"${val/1_000:,.1f}K"
+    if val == int(val):
+        return f"${int(val):,}"
+    return f"${val:,.2f}"
+
+
+def _fmt_pct(val, decimals=1):
+    """Format as percentage."""
+    if val is None:
+        return "N/A"
+    try:
+        val = float(val)
+    except (TypeError, ValueError):
+        return str(val)
+    if val < 1:  # assume it's a decimal like 0.05
+        val = val * 100
+    return f"{val:.{decimals}f}%"
+
+
+def _fmt_range(low, high, fmt_fn=None):
+    """Format a range."""
+    fmt = fmt_fn or _fmt_currency
+    return f"{fmt(low)} - {fmt(high)}"
+
+
 def _set_font(
     run,
     size: int = 10,
@@ -562,6 +603,21 @@ def _add_oval(slide, left, top, width, height, fill_color: RGBColor):
     shape.fill.solid()
     shape.fill.fore_color.rgb = fill_color
     shape.line.fill.background()
+    return shape
+
+
+def _add_rule_line(slide, left_inches, top_inches, width_inches, color_hex="1B3A5C"):
+    """Add a thin horizontal rule line to a slide."""
+    shape = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE,
+        Inches(left_inches),
+        Inches(top_inches),
+        Inches(width_inches),
+        Pt(1.5),  # thin line
+    )
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = RGBColor.from_string(color_hex)
+    shape.line.fill.background()  # no border
     return shape
 
 
@@ -1124,12 +1180,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     total_budget_val = ba_metadata.get("total_budget", 0)
     budget_display_sit = budget
     if total_budget_val and total_budget_val > 0:
-        if total_budget_val >= 1000000:
-            budget_display_sit = f"${total_budget_val / 1000000:.1f}M"
-        elif total_budget_val >= 1000:
-            budget_display_sit = f"${total_budget_val / 1000:.0f}K"
-        else:
-            budget_display_sit = f"${total_budget_val:,.0f}"
+        budget_display_sit = _fmt_currency(total_budget_val, compact=True)
 
     sit_items = [
         ("Industry", industry_label),
@@ -1382,9 +1433,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         if projected_hires and projected_hires > 0:
             secondary_metrics.append((str(int(projected_hires)), "Projected Hires"))
         if avg_cpa_val and avg_cpa_val > 0:
-            secondary_metrics.append((f"${avg_cpa_val:,.0f}", "Avg CPA"))
+            secondary_metrics.append((_fmt_currency(avg_cpa_val), "Avg CPA"))
         elif avg_cph_val and avg_cph_val > 0:
-            secondary_metrics.append((f"${avg_cph_val:,.0f}", "Cost/Hire"))
+            secondary_metrics.append((_fmt_currency(avg_cph_val, compact=True), "Cost/Hire"))
 
     # Add market temperature badge if available
     if market_temp_str and len(secondary_metrics) < 5:
@@ -1555,7 +1606,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         # Category label (include dollar amount if available from budget engine)
         label_text = ch["label"]
         if ch.get("_dollar_amount"):
-            label_text = f"{ch['label']} (${ch['_dollar_amount']:,.0f})"
+            label_text = f"{ch['label']} ({_fmt_currency(ch['_dollar_amount'], compact=True)})"
 
         _add_textbox(
             slide, left_col_left, row_y, label_w, bar_h,
@@ -1654,11 +1705,11 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 fit_score = plat_data.get("fit_score", 0)
                 if plat_cpc and plat_cpc > 0:
                     bench_rows.append(
-                        (f"{plat_label} CPC", f"${plat_cpc:.2f}")
+                        (f"{plat_label} CPC", _fmt_currency(plat_cpc))
                     )
                 if plat_cpa and plat_cpa > 0:
                     bench_rows.append(
-                        (f"{plat_label} CPA", f"${plat_cpa:.2f}")
+                        (f"{plat_label} CPA", _fmt_currency(plat_cpa))
                     )
                 if plat_reach and plat_reach > 0:
                     bench_rows.append(
@@ -1666,7 +1717,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                     )
                 if fit_score and fit_score > 0:
                     bench_rows.append(
-                        (f"{plat_label} Fit Score", f"{fit_score:.0%}")
+                        (f"{plat_label} Fit Score", _fmt_pct(fit_score, decimals=0))
                     )
                 # Deep intelligence data (91-platform KB enrichment)
                 deep = plat_data.get("deep_intelligence", {})
@@ -4159,6 +4210,275 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
 
 
 # ===================================================================
+# SLIDE N (Last) - Data Sources & Methodology
+# ===================================================================
+
+def _build_slide_data_sources(prs: Presentation, data: Dict):
+    """Build a Data Sources slide listing all API sources, freshness, and confidence.
+
+    This slide is appended as the LAST slide in the deck and provides
+    transparency into the data pipeline that powered the media plan.
+    """
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+    today = datetime.date.today().strftime("%B %d, %Y")
+
+    # Off-white background
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+
+    # Top band
+    _add_top_band(slide, "DATA SOURCES & METHODOLOGY", today)
+
+    # Action title
+    _add_textbox(
+        slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.5),
+        text="Transparency into the data pipeline powering this media plan",
+        font_size=15, bold=True, color=NAVY,
+    )
+
+    # Extract enrichment data
+    enriched = data.get("_enriched", {})
+    if not isinstance(enriched, dict):
+        enriched = {}
+    summary = enriched.get("enrichment_summary", {})
+    if not isinstance(summary, dict):
+        summary = {}
+
+    apis_called = summary.get("apis_called", [])
+    apis_succeeded = summary.get("apis_succeeded", [])
+    apis_failed = summary.get("apis_failed", [])
+    apis_skipped = summary.get("apis_skipped", [])
+    api_details = summary.get("api_details", {})
+    if not isinstance(api_details, dict):
+        api_details = {}
+    confidence_score = summary.get("confidence_score", 0)
+    total_time = summary.get("total_time_seconds", 0)
+
+    # ---- HERO STATS BAR ----
+    bar_top = Inches(1.55)
+    bar_h = Inches(0.85)
+    _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), bar_h, NAVY)
+    _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), Inches(0.03), TEAL)
+
+    hero_metrics = [
+        (str(len(apis_called)), "APIs Called"),
+        (str(len(apis_succeeded)), "APIs Succeeded"),
+        (str(len(apis_failed)), "APIs Failed"),
+        (_fmt_pct(confidence_score, decimals=0) if confidence_score else "N/A", "Confidence Score"),
+        (f"{total_time:.1f}s" if total_time else "N/A", "Fetch Time"),
+    ]
+
+    hero_w = Inches(2.44)
+    for i, (val, label) in enumerate(hero_metrics):
+        hx = Inches(0.55) + i * hero_w
+        _add_textbox(
+            slide, hx, bar_top + Inches(0.05), hero_w, Inches(0.48),
+            text=val, font_size=22, bold=True, color=TEAL,
+            alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+        )
+        _add_textbox(
+            slide, hx, bar_top + Inches(0.52), hero_w, Inches(0.25),
+            text=label, font_size=8, bold=False, color=LIGHT_MUTED,
+            alignment=PP_ALIGN.CENTER,
+        )
+        # Thin divider between metrics (skip after last)
+        if i < len(hero_metrics) - 1:
+            div_x = Inches(0.55) + (i + 1) * hero_w
+            _add_filled_rect(slide, div_x, bar_top + Inches(0.15),
+                             Inches(0.015), Inches(0.55),
+                             RGBColor(0x1A, 0x45, 0x70))
+
+    # ---- DATA SOURCES TABLE ----
+    table_top = Inches(2.65)
+    table_left = Inches(0.55)
+    table_w = Inches(12.2)
+    row_h = Inches(0.35)
+
+    # Section header
+    _add_textbox(
+        slide, table_left, table_top - Inches(0.4), Inches(4), Inches(0.35),
+        text="API DATA SOURCES", font_size=11, bold=True, color=NAVY,
+    )
+    _add_filled_rect(slide, table_left, table_top - Inches(0.08),
+                     Inches(1.8), Inches(0.03), TEAL)
+
+    # Table header row
+    _add_filled_rect(slide, table_left, table_top, table_w, row_h, NAVY)
+    col_widths = [Inches(2.8), Inches(2.5), Inches(2.0), Inches(2.2), Inches(2.7)]
+    col_headers = ["Data Source", "Status", "Freshness", "Response Time", "Data Points"]
+    col_offsets = [Inches(0)]
+    for cw in col_widths[:-1]:
+        col_offsets.append(col_offsets[-1] + cw)
+
+    for ci, (header, cw, co) in enumerate(zip(col_headers, col_widths, col_offsets)):
+        _add_textbox(
+            slide, table_left + co + Inches(0.1), table_top, cw - Inches(0.1), row_h,
+            text=header, font_size=9, bold=True, color=WHITE,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+
+    # Build table rows from api_details
+    # If api_details is empty, build from apis_called/succeeded/failed lists
+    table_rows = []
+    if api_details:
+        for api_name, detail in api_details.items():
+            if not isinstance(detail, dict):
+                continue
+            source = detail.get("source", "unknown")
+            success = detail.get("success", False)
+            elapsed = detail.get("elapsed_time", 0)
+            status_label = detail.get("status", "unknown")
+
+            # Determine freshness label
+            if source == "live":
+                freshness = "Live (real-time)"
+            elif source == "cached":
+                freshness = "Cached"
+            elif source == "error":
+                freshness = "--"
+            else:
+                freshness = "Curated"
+
+            # Determine status display
+            if success:
+                status_display = "Succeeded"
+                status_color = GREEN
+            elif status_label == "empty":
+                status_display = "Skipped (no data)"
+                status_color = AMBER
+            elif status_label == "circuit_open":
+                status_display = "Circuit Broken"
+                status_color = RED_ACCENT
+            else:
+                status_display = "Failed"
+                status_color = RED_ACCENT
+
+            # Estimate data points from enriched data keys
+            data_points = "--"
+            result_key_map = {
+                "BLS": "salary_data", "Adzuna": "job_market", "Census-ACS": "location_demographics",
+                "BLS-QCEW": "industry_employment", "WorldBank": "global_indicators",
+                "Clearbit": "clearbit_data", "Google-Ads": "google_ads_data",
+                "Meta-Ads": "meta_ads_data", "Teleport": "teleport_data",
+            }
+            mapped_key = None
+            for rk_prefix, rk_val in result_key_map.items():
+                if rk_prefix.lower() in api_name.lower():
+                    mapped_key = rk_val
+                    break
+            if mapped_key and enriched.get(mapped_key):
+                raw = enriched[mapped_key]
+                if isinstance(raw, dict):
+                    data_points = str(len(raw))
+                elif isinstance(raw, list):
+                    data_points = str(len(raw))
+
+            table_rows.append((
+                api_name,
+                (status_display, status_color),
+                freshness,
+                f"{elapsed:.2f}s" if elapsed else "--",
+                data_points,
+            ))
+    else:
+        # Fallback: build rows from simple lists
+        all_apis = set(apis_called) if apis_called else set()
+        for api_name in sorted(all_apis):
+            if api_name in apis_succeeded:
+                status_display = "Succeeded"
+                status_color = GREEN
+                freshness = "Live (real-time)"
+            elif api_name in apis_skipped:
+                status_display = "Skipped"
+                status_color = AMBER
+                freshness = "--"
+            elif api_name in apis_failed:
+                status_display = "Failed"
+                status_color = RED_ACCENT
+                freshness = "--"
+            else:
+                status_display = "Unknown"
+                status_color = MUTED_TEXT
+                freshness = "--"
+            table_rows.append((
+                api_name,
+                (status_display, status_color),
+                freshness,
+                "--",
+                "--",
+            ))
+
+    # If no API data at all, show a placeholder row
+    if not table_rows:
+        table_rows.append((
+            "No API enrichment data",
+            ("N/A", MUTED_TEXT),
+            "Curated benchmarks used",
+            "--",
+            "--",
+        ))
+
+    # Render table rows (cap at 12 to fit the slide)
+    max_display_rows = 12
+    for ri, row_data in enumerate(table_rows[:max_display_rows]):
+        ry = table_top + row_h * (ri + 1)
+        bg = WHITE if ri % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
+        _add_filled_rect(slide, table_left, ry, table_w, row_h, bg)
+        # Thin ruled line
+        _add_filled_rect(slide, table_left, ry + row_h - Inches(0.008),
+                         table_w, Inches(0.008), WARM_GRAY)
+
+        api_name_str, (status_str, status_clr), freshness_str, elapsed_str, dp_str = row_data
+
+        vals = [api_name_str, status_str, freshness_str, elapsed_str, dp_str]
+        colors = [DARK_TEXT, status_clr, MUTED_TEXT, MUTED_TEXT, DARK_TEXT]
+        bolds = [True, False, False, False, False]
+
+        for ci, (val, clr, bld, cw, co) in enumerate(
+            zip(vals, colors, bolds, col_widths, col_offsets)
+        ):
+            _add_textbox(
+                slide, table_left + co + Inches(0.1), ry, cw - Inches(0.1), row_h,
+                text=str(val), font_size=8, bold=bld, color=clr,
+                anchor=MSO_ANCHOR.MIDDLE,
+            )
+
+    # Overflow indicator
+    if len(table_rows) > max_display_rows:
+        overflow_y = table_top + row_h * (max_display_rows + 1) + Inches(0.05)
+        _add_textbox(
+            slide, table_left, overflow_y, table_w, Inches(0.2),
+            text=f"+ {len(table_rows) - max_display_rows} additional sources (see appendix)",
+            font_size=7, italic=True, color=MUTED_TEXT,
+        )
+
+    # ---- METHODOLOGY FOOTER ----
+    # Thin rule line
+    _add_rule_line(slide, 0.55, 7.0, 12.2, "D6CFC2")
+
+    meth_text = (
+        "Methodology: Data sourced from real-time API integrations, Joveo's proprietary "
+        "job board knowledge base (91+ platforms), trend engine (4-year history), and "
+        "curated industry benchmarks. Confidence score reflects the ratio of successful "
+        "live API calls to total attempted."
+    )
+    _add_textbox(
+        slide, Inches(0.55), Inches(7.05), Inches(10), Inches(0.35),
+        text=meth_text, font_size=6, italic=True, color=LIGHT_MUTED,
+    )
+
+    # Generation timestamp
+    _add_textbox(
+        slide, Inches(10.5), Inches(7.05), Inches(2.2), Inches(0.2),
+        text=f"Generated: {today}", font_size=7, bold=False, color=MUTED_TEXT,
+        alignment=PP_ALIGN.RIGHT,
+    )
+
+    # Footer
+    _add_footer(slide, today)
+
+
+# ===================================================================
 # Public API
 # ===================================================================
 
@@ -4290,6 +4610,9 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
 
         # Slide 5: Implementation Timeline + Competitive Context
         _build_slide_comparison_timeline(prs, data)
+
+        # Final Slide: Data Sources & Methodology
+        _build_slide_data_sources(prs, data)
 
         buffer = io.BytesIO()
         prs.save(buffer)

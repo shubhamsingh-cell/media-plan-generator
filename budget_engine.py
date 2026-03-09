@@ -1668,3 +1668,953 @@ def _empty_result(warnings: Optional[List[str]] = None) -> Dict[str, Any]:
         },
         "metadata": {},
     }
+
+
+# ===========================================================================
+# Section 1: Channel Quality Scoring (Mercor lens)
+# ===========================================================================
+#
+# Quality-of-hire scores per channel per collar type.  These capture three
+# key dimensions:
+#   quality      -- quality-of-hire index (0.0-1.0)
+#   retention_6mo -- probability that a hire is still employed after 6 months
+#   time_to_productive -- median days until the new hire is fully productive
+#
+# Every ad-platform category present in BASE_BENCHMARKS is represented here
+# under a human-readable channel key.  A mapping from BASE_BENCHMARKS keys
+# to quality-score keys is provided via _CATEGORY_TO_QUALITY_KEY.
+# ===========================================================================
+
+CHANNEL_QUALITY_SCORES: Dict[str, Dict[str, Dict[str, float]]] = {
+    # channel -> collar_type -> {quality, retention_6mo, time_to_productive}
+    "job_board": {
+        "blue_collar": {"quality": 0.65, "retention_6mo": 0.58, "time_to_productive": 20},
+        "white_collar": {"quality": 0.70, "retention_6mo": 0.62, "time_to_productive": 35},
+    },
+    "programmatic": {
+        "blue_collar": {"quality": 0.60, "retention_6mo": 0.55, "time_to_productive": 18},
+        "white_collar": {"quality": 0.65, "retention_6mo": 0.58, "time_to_productive": 30},
+    },
+    "social_media": {
+        "blue_collar": {"quality": 0.55, "retention_6mo": 0.50, "time_to_productive": 22},
+        "white_collar": {"quality": 0.60, "retention_6mo": 0.55, "time_to_productive": 32},
+    },
+    "search_engine": {
+        "blue_collar": {"quality": 0.70, "retention_6mo": 0.62, "time_to_productive": 18},
+        "white_collar": {"quality": 0.75, "retention_6mo": 0.65, "time_to_productive": 28},
+    },
+    "career_site": {
+        "blue_collar": {"quality": 0.75, "retention_6mo": 0.68, "time_to_productive": 16},
+        "white_collar": {"quality": 0.80, "retention_6mo": 0.72, "time_to_productive": 25},
+    },
+    "employer_branding": {
+        "blue_collar": {"quality": 0.72, "retention_6mo": 0.65, "time_to_productive": 15},
+        "white_collar": {"quality": 0.78, "retention_6mo": 0.70, "time_to_productive": 22},
+    },
+    "referral": {
+        "blue_collar": {"quality": 0.88, "retention_6mo": 0.82, "time_to_productive": 12},
+        "white_collar": {"quality": 0.90, "retention_6mo": 0.85, "time_to_productive": 18},
+    },
+    "staffing_agency": {
+        "blue_collar": {"quality": 0.62, "retention_6mo": 0.52, "time_to_productive": 14},
+        "white_collar": {"quality": 0.68, "retention_6mo": 0.58, "time_to_productive": 25},
+    },
+    "niche_board": {
+        "blue_collar": {"quality": 0.72, "retention_6mo": 0.64, "time_to_productive": 15},
+        "white_collar": {"quality": 0.78, "retention_6mo": 0.70, "time_to_productive": 28},
+    },
+    "university": {
+        "blue_collar": {"quality": 0.58, "retention_6mo": 0.52, "time_to_productive": 30},
+        "white_collar": {"quality": 0.72, "retention_6mo": 0.65, "time_to_productive": 40},
+    },
+    "display_retargeting": {
+        "blue_collar": {"quality": 0.50, "retention_6mo": 0.48, "time_to_productive": 22},
+        "white_collar": {"quality": 0.55, "retention_6mo": 0.50, "time_to_productive": 35},
+    },
+    "events_jobfairs": {
+        "blue_collar": {"quality": 0.80, "retention_6mo": 0.72, "time_to_productive": 14},
+        "white_collar": {"quality": 0.75, "retention_6mo": 0.68, "time_to_productive": 30},
+    },
+    "internal_mobility": {
+        "blue_collar": {"quality": 0.92, "retention_6mo": 0.88, "time_to_productive": 8},
+        "white_collar": {"quality": 0.95, "retention_6mo": 0.90, "time_to_productive": 12},
+    },
+}
+
+# Map BASE_BENCHMARKS ad-platform category keys to CHANNEL_QUALITY_SCORES keys.
+# Channels without a direct quality entry fall back to "job_board" defaults.
+_CATEGORY_TO_QUALITY_KEY: Dict[str, str] = {
+    "job_board": "job_board",
+    "social": "social_media",
+    "search": "search_engine",
+    "programmatic": "programmatic",
+    "display": "display_retargeting",
+    "niche_board": "niche_board",
+    "employer_branding": "employer_branding",
+    "referral": "referral",
+    "events": "events_jobfairs",
+    "staffing": "staffing_agency",
+    "email": "job_board",          # email campaigns similar quality profile
+    "career_site": "career_site",
+    "regional": "job_board",       # regional boards similar to generic job boards
+}
+
+# Industry-specific quality adjustments.  Each entry maps an industry
+# keyword fragment to a dict of {channel_quality_key: quality_bonus}.
+# Bonuses are *additive* to the base quality score, clamped to [0, 1].
+_INDUSTRY_QUALITY_ADJUSTMENTS: Dict[str, Dict[str, float]] = {
+    "healthcare": {"referral": 0.05, "niche_board": 0.04, "staffing_agency": 0.03},
+    "tech": {"career_site": 0.04, "referral": 0.03, "niche_board": 0.05},
+    "engineering": {"referral": 0.04, "niche_board": 0.05, "university": 0.03},
+    "finance": {"referral": 0.04, "employer_branding": 0.03, "niche_board": 0.03},
+    "retail": {"events_jobfairs": 0.04, "social_media": 0.03},
+    "hospitality": {"social_media": 0.04, "events_jobfairs": 0.05},
+    "manufacturing": {"events_jobfairs": 0.04, "referral": 0.03, "staffing_agency": 0.02},
+    "education": {"university": 0.06, "career_site": 0.03},
+    "logistics": {"referral": 0.03, "staffing_agency": 0.03, "events_jobfairs": 0.02},
+    "pharma": {"niche_board": 0.06, "referral": 0.04},
+    "energy": {"niche_board": 0.04, "referral": 0.03},
+    "government": {"career_site": 0.05, "job_board": 0.03},
+}
+
+
+def score_channel_quality(
+    channel: str,
+    collar_type: str = "white_collar",
+    industry: str = "",
+) -> Dict[str, Any]:
+    """
+    Score a channel's quality-of-hire potential.
+
+    Returns a dict with the quality score, 6-month retention rate, estimated
+    time-to-productive in days, a cost-per-quality-hire factor, and a
+    human-readable explanation string.
+
+    The ``cost_per_quality_hire_factor`` is inversely proportional to the
+    quality score: lower quality means higher true cost per *quality* hire.
+
+    Industry adjustments are applied when the ``industry`` string contains a
+    recognised keyword (e.g. "healthcare", "tech").
+
+    Args:
+        channel: Channel key (one of the keys in CHANNEL_QUALITY_SCORES or
+                 a BASE_BENCHMARKS category key or a user-facing channel name).
+        collar_type: ``"blue_collar"`` or ``"white_collar"`` (default).
+        industry: Optional industry string for industry-specific adjustments.
+
+    Returns:
+        Dict with keys:
+        - ``quality_score``: float 0.0-1.0
+        - ``retention_6mo``: float 0.0-1.0
+        - ``time_to_productive``: int (days)
+        - ``cost_per_quality_hire_factor``: float >= 1.0
+        - ``explanation``: str
+    """
+    try:
+        # Normalise collar type
+        collar = collar_type.lower().strip() if collar_type else "white_collar"
+        if collar not in ("blue_collar", "white_collar"):
+            collar = "white_collar"
+
+        # Resolve channel to a CHANNEL_QUALITY_SCORES key
+        quality_key = _resolve_quality_key(channel)
+
+        # Look up base scores
+        channel_data = CHANNEL_QUALITY_SCORES.get(quality_key, {})
+        collar_data = channel_data.get(collar)
+        if collar_data is None:
+            # Fall back to white_collar, then to a safe default
+            collar_data = channel_data.get(
+                "white_collar",
+                {"quality": 0.60, "retention_6mo": 0.55, "time_to_productive": 30},
+            )
+
+        quality = collar_data["quality"]
+        retention = collar_data["retention_6mo"]
+        ttp = collar_data["time_to_productive"]
+
+        # Apply industry adjustments
+        industry_bonus = 0.0
+        industry_note = ""
+        if industry:
+            industry_lower = industry.lower()
+            for ind_key, adjustments in _INDUSTRY_QUALITY_ADJUSTMENTS.items():
+                if ind_key in industry_lower:
+                    bonus = adjustments.get(quality_key, 0.0)
+                    if bonus > 0:
+                        industry_bonus = bonus
+                        industry_note = (
+                            f" (+{bonus:.0%} industry bonus for "
+                            f"{ind_key} via {quality_key})"
+                        )
+                    break
+
+        adjusted_quality = _clamp(quality + industry_bonus, 0.0, 1.0)
+
+        # Cost-per-quality-hire factor: lower quality -> higher true cost
+        cpqh_factor = round(_safe_divide(1.0, adjusted_quality, 10.0), 2)
+
+        # Build explanation
+        explanation = (
+            f"{quality_key} ({collar}): quality={adjusted_quality:.2f}, "
+            f"6mo retention={retention:.0%}, "
+            f"time-to-productive={ttp}d, "
+            f"cost-per-quality-hire factor={cpqh_factor}x"
+            f"{industry_note}"
+        )
+
+        return {
+            "quality_score": round(adjusted_quality, 3),
+            "retention_6mo": round(retention, 3),
+            "time_to_productive": int(ttp),
+            "cost_per_quality_hire_factor": cpqh_factor,
+            "explanation": explanation,
+        }
+
+    except Exception as exc:
+        logger.error("score_channel_quality failed for channel=%s: %s", channel, exc)
+        return {
+            "quality_score": 0.60,
+            "retention_6mo": 0.55,
+            "time_to_productive": 30,
+            "cost_per_quality_hire_factor": 1.67,
+            "explanation": f"Fallback defaults (error: {exc})",
+        }
+
+
+def _resolve_quality_key(channel: str) -> str:
+    """
+    Resolve a channel identifier to a CHANNEL_QUALITY_SCORES key.
+
+    Accepts CHANNEL_QUALITY_SCORES keys directly, BASE_BENCHMARKS category
+    keys (via ``_CATEGORY_TO_QUALITY_KEY``), or user-facing channel names
+    (via ``CHANNEL_NAME_TO_CATEGORY`` then ``_CATEGORY_TO_QUALITY_KEY``).
+    Falls back to ``"job_board"`` when no match is found.
+    """
+    if not channel:
+        return "job_board"
+    ch = channel.strip()
+
+    # Direct match in CHANNEL_QUALITY_SCORES
+    if ch in CHANNEL_QUALITY_SCORES:
+        return ch
+
+    # Match via BASE_BENCHMARKS category key
+    if ch in _CATEGORY_TO_QUALITY_KEY:
+        return _CATEGORY_TO_QUALITY_KEY[ch]
+
+    # Match via user-facing channel name -> category -> quality key
+    category = _category_for_channel(ch)
+    return _CATEGORY_TO_QUALITY_KEY.get(category, "job_board")
+
+
+# ===========================================================================
+# Section 2: What-If Scenario Engine (Palantir lens)
+# ===========================================================================
+#
+# These functions let the caller explore budget and channel-mix changes
+# without re-running the full enrichment pipeline.  They operate on the
+# result dict returned by ``calculate_budget_allocation()``.
+# ===========================================================================
+
+def simulate_budget_change(
+    base_allocation: Dict[str, Any],
+    delta_budget: float = 0.0,
+    delta_pct: float = 0.0,
+) -> Dict[str, Any]:
+    """
+    Simulate: "What if we increase/decrease budget by X?"
+
+    Takes the result of ``calculate_budget_allocation()`` and projects
+    how a budget change would affect clicks, applications, hires, CPA,
+    and cost-per-hire across all channels.
+
+    An economy-of-scale factor is applied: efficiency improves by 0.5%
+    per 10% budget increase (diminishing returns), or degrades
+    symmetrically for budget decreases.
+
+    Args:
+        base_allocation: Result dict from ``calculate_budget_allocation()``.
+        delta_budget: Absolute budget change in USD (e.g. +20000 or -10000).
+        delta_pct: Percentage budget change (e.g. 0.20 for +20%).
+                   If both are provided, ``delta_budget`` takes precedence.
+
+    Returns:
+        Dict with ``original_budget``, ``new_budget``, ``change_pct``,
+        ``impact`` (metrics comparison), ``channel_changes`` (per-channel
+        dollar deltas), and ``recommendations`` (list of strings).
+    """
+    try:
+        channel_allocs = base_allocation.get("channel_allocations", {})
+        if not channel_allocs:
+            logger.warning("simulate_budget_change: no channel_allocations in base")
+            return _empty_scenario("budget_change", "No channel allocations in base result")
+
+        # --- 1. Determine original budget ---
+        original_budget = sum(
+            ch.get("dollar_amount", ch.get("dollars", 0))
+            for ch in channel_allocs.values()
+        )
+        if original_budget <= 0:
+            original_budget = base_allocation.get("metadata", {}).get("total_budget", 0)
+        if original_budget <= 0:
+            logger.warning("simulate_budget_change: original budget is zero")
+            return _empty_scenario("budget_change", "Original budget is zero")
+
+        # --- 2. Compute new budget ---
+        if delta_budget != 0.0:
+            new_budget = original_budget + delta_budget
+        elif delta_pct != 0.0:
+            new_budget = original_budget * (1.0 + delta_pct)
+        else:
+            # No change requested -- return identity
+            new_budget = original_budget
+
+        new_budget = max(new_budget, 0.0)
+        change_pct = _safe_divide(new_budget - original_budget, original_budget, 0.0) * 100.0
+
+        # --- 3. Economy-of-scale factor ---
+        # +0.5% efficiency per +10% budget (diminishing via sqrt)
+        if change_pct >= 0:
+            scale_factor = 1.0 + 0.005 * math.sqrt(max(change_pct / 10.0, 0))
+        else:
+            # Budget decrease: efficiency drops (mirror of the improvement)
+            scale_factor = 1.0 - 0.005 * math.sqrt(max(abs(change_pct) / 10.0, 0))
+        scale_factor = _clamp(scale_factor, 0.80, 1.25)
+
+        # --- 4. Scale channels proportionally and reproject ---
+        budget_ratio = _safe_divide(new_budget, original_budget, 0.0)
+        channel_changes: Dict[str, Dict[str, Any]] = {}
+
+        total_orig_clicks = 0
+        total_orig_apps = 0
+        total_orig_hires = 0
+        total_new_clicks = 0
+        total_new_apps = 0
+        total_new_hires = 0
+
+        for ch_name, ch_data in channel_allocs.items():
+            orig_dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
+            new_dollars = round(orig_dollars * budget_ratio, 2)
+            cpc = ch_data.get("cpc", 0)
+            apply_rate = ch_data.get("apply_rate", BASE_BENCHMARKS["apply_rate"].get(
+                ch_data.get("category", "job_board"), 0.05
+            ))
+            hire_rate_val = BASE_BENCHMARKS.get("hire_rate", 0.02)
+
+            # Original metrics
+            orig_clicks = ch_data.get("projected_clicks", 0)
+            orig_apps = ch_data.get("projected_applications", 0)
+            orig_hires = ch_data.get("projected_hires", 0)
+
+            total_orig_clicks += orig_clicks
+            total_orig_apps += orig_apps
+            total_orig_hires += orig_hires
+
+            # New metrics with economy-of-scale
+            if cpc > 0:
+                new_clicks = max(0, int((new_dollars / cpc) * scale_factor))
+                new_apps = max(0, int(new_clicks * apply_rate))
+                new_hires = max(0, int(new_apps * hire_rate_val))
+            else:
+                new_clicks = 0
+                new_apps = max(0, int((new_dollars / 50.0) * scale_factor))
+                new_hires = max(0, int(new_apps * hire_rate_val * 2))
+
+            total_new_clicks += new_clicks
+            total_new_apps += new_apps
+            total_new_hires += new_hires
+
+            channel_changes[ch_name] = {
+                "original_dollars": round(orig_dollars, 2),
+                "new_dollars": new_dollars,
+                "change": round(new_dollars - orig_dollars, 2),
+            }
+
+        # --- 5. Compute aggregate impact ---
+        original_cpa = round(
+            _safe_divide(original_budget, max(total_orig_apps, 1), 0.0), 2
+        )
+        new_cpa = round(
+            _safe_divide(new_budget, max(total_new_apps, 1), 0.0), 2
+        )
+        original_cph = round(
+            _safe_divide(original_budget, max(total_orig_hires, 1), 0.0), 2
+        )
+        new_cph = round(
+            _safe_divide(new_budget, max(total_new_hires, 1), 0.0), 2
+        )
+        roi_delta_pct = round(
+            _safe_divide(original_cph - new_cph, max(original_cph, 1), 0.0) * 100.0, 1
+        )
+
+        impact = {
+            "additional_clicks": total_new_clicks - total_orig_clicks,
+            "additional_applications": total_new_apps - total_orig_apps,
+            "additional_hires": total_new_hires - total_orig_hires,
+            "original_hires": total_orig_hires,
+            "new_projected_hires": total_new_hires,
+            "original_cpa": original_cpa,
+            "new_cpa": new_cpa,
+            "original_cph": original_cph,
+            "new_cph": new_cph,
+            "roi_delta_pct": roi_delta_pct,
+        }
+
+        # --- 6. Build recommendations ---
+        recommendations: List[str] = []
+        hire_delta = total_new_hires - total_orig_hires
+        if hire_delta > 0:
+            recommendations.append(
+                f"{change_pct:+.0f}% budget change projects +{hire_delta} additional hires "
+                f"({total_orig_hires} -> {total_new_hires})"
+            )
+        elif hire_delta < 0:
+            recommendations.append(
+                f"{change_pct:+.0f}% budget reduction projects {hire_delta} fewer hires "
+                f"({total_orig_hires} -> {total_new_hires})"
+            )
+        else:
+            recommendations.append(
+                f"Budget change of {change_pct:+.0f}% has minimal impact on projected hires "
+                f"({total_orig_hires})"
+            )
+
+        if new_cpa < original_cpa and change_pct > 0:
+            cpa_improvement = _safe_divide(
+                original_cpa - new_cpa, max(original_cpa, 1), 0.0
+            ) * 100.0
+            recommendations.append(
+                f"CPA improves by {cpa_improvement:.1f}% due to economies of scale"
+            )
+        elif new_cpa > original_cpa and change_pct < 0:
+            cpa_degradation = _safe_divide(
+                new_cpa - original_cpa, max(original_cpa, 1), 0.0
+            ) * 100.0
+            recommendations.append(
+                f"CPA degrades by {cpa_degradation:.1f}% due to loss of scale efficiencies"
+            )
+
+        if change_pct > 50:
+            recommendations.append(
+                "Budget increases above 50% see diminishing returns; consider "
+                "phased investment with performance checkpoints"
+            )
+        if new_budget < 1000:
+            recommendations.append(
+                "New budget is very low; most channels will not have enough spend "
+                "for meaningful reach"
+            )
+
+        logger.info(
+            "simulate_budget_change: $%.0f -> $%.0f (%+.1f%%), hires %d -> %d",
+            original_budget, new_budget, change_pct, total_orig_hires, total_new_hires,
+        )
+
+        return {
+            "scenario": "budget_change",
+            "original_budget": round(original_budget, 2),
+            "new_budget": round(new_budget, 2),
+            "change_pct": round(change_pct, 1),
+            "impact": impact,
+            "channel_changes": channel_changes,
+            "recommendations": recommendations,
+        }
+
+    except Exception as exc:
+        logger.error("simulate_budget_change failed: %s", exc)
+        return _empty_scenario("budget_change", str(exc))
+
+
+def simulate_channel_swap(
+    base_allocation: Dict[str, Any],
+    remove_channel: str = "",
+    add_channel: str = "",
+    rebalance: bool = True,
+) -> Dict[str, Any]:
+    """
+    Simulate: "What if we replace channel X with channel Y?"
+
+    Removes a channel's budget from the allocation and either assigns it
+    to a new channel or redistributes it proportionally across the
+    remaining channels.  Quality scores from ``CHANNEL_QUALITY_SCORES``
+    are compared before and after to quantify the quality-of-hire impact.
+
+    Args:
+        base_allocation: Result dict from ``calculate_budget_allocation()``.
+        remove_channel: Channel key or name to remove.  Empty string means
+                        "don't remove anything" (pure addition).
+        add_channel: Channel key or name to add.  Empty string means
+                     "redistribute only" (pure removal).
+        rebalance: When ``True`` and ``add_channel`` is empty, distribute
+                   the freed budget proportionally across remaining
+                   channels.  Ignored when ``add_channel`` is provided.
+
+    Returns:
+        Dict with ``removed``, ``added``, ``impact`` (quality/CPA/hire
+        deltas), ``budget_redistribution``, and ``recommendations``.
+    """
+    try:
+        channel_allocs = base_allocation.get("channel_allocations", {})
+        if not channel_allocs:
+            logger.warning("simulate_channel_swap: no channel_allocations in base")
+            return _empty_scenario("channel_swap", "No channel allocations in base result")
+
+        if not remove_channel and not add_channel:
+            return _empty_scenario("channel_swap", "No channel specified to add or remove")
+
+        # Determine collar type from metadata
+        metadata = base_allocation.get("metadata", {})
+        collar_type = metadata.get("collar_type_used", "white_collar")
+        industry = metadata.get("industry", "")
+        if collar_type == "both":
+            collar_type = "white_collar"
+
+        total_budget = sum(
+            ch.get("dollar_amount", ch.get("dollars", 0))
+            for ch in channel_allocs.values()
+        )
+
+        # --- 1. Compute original quality (weighted by dollar share) ---
+        orig_weighted_quality = 0.0
+        orig_total_hires = 0
+        orig_total_apps = 0
+        for ch_name, ch_data in channel_allocs.items():
+            dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
+            weight = _safe_divide(dollars, max(total_budget, 1), 0.0)
+            q_info = score_channel_quality(ch_name, collar_type, industry)
+            orig_weighted_quality += q_info["quality_score"] * weight
+            orig_total_hires += ch_data.get("projected_hires", 0)
+            orig_total_apps += ch_data.get("projected_applications", 0)
+
+        original_cpa = round(
+            _safe_divide(total_budget, max(orig_total_apps, 1), 0.0), 2
+        )
+
+        # --- 2. Identify freed budget from removed channel ---
+        freed_budget = 0.0
+        matched_remove_key = ""
+        if remove_channel:
+            # Try exact match first, then fuzzy
+            for ch_name in channel_allocs:
+                if ch_name == remove_channel or ch_name.lower() == remove_channel.lower():
+                    matched_remove_key = ch_name
+                    break
+            if not matched_remove_key:
+                # Try category-based matching
+                remove_cat = _category_for_channel(remove_channel)
+                for ch_name, ch_data in channel_allocs.items():
+                    if ch_data.get("category", "") == remove_cat:
+                        matched_remove_key = ch_name
+                        break
+            if matched_remove_key:
+                freed_budget = channel_allocs[matched_remove_key].get(
+                    "dollar_amount",
+                    channel_allocs[matched_remove_key].get("dollars", 0),
+                )
+
+        if remove_channel and not matched_remove_key:
+            logger.warning(
+                "simulate_channel_swap: channel '%s' not found in allocations",
+                remove_channel,
+            )
+            return _empty_scenario(
+                "channel_swap",
+                f"Channel '{remove_channel}' not found in current allocations",
+            )
+
+        # --- 3. Build new allocation ---
+        new_allocs: Dict[str, Dict[str, Any]] = {}
+        remaining_budget = total_budget - freed_budget
+
+        # Copy existing channels except the removed one
+        for ch_name, ch_data in channel_allocs.items():
+            if ch_name == matched_remove_key:
+                continue
+            new_allocs[ch_name] = dict(ch_data)
+
+        # --- 4. Add new channel or rebalance ---
+        if add_channel:
+            # Assign freed budget to the new channel
+            add_dollars = freed_budget if freed_budget > 0 else 0.0
+            add_category = _category_for_channel(add_channel)
+            add_cpc = BASE_BENCHMARKS["cpc"].get(add_category, 0.85)
+            add_apply_rate = BASE_BENCHMARKS["apply_rate"].get(add_category, 0.05)
+            hire_rate_val = BASE_BENCHMARKS.get("hire_rate", 0.02)
+
+            if add_cpc > 0:
+                add_clicks = max(0, int(add_dollars / add_cpc))
+                add_apps = max(0, int(add_clicks * add_apply_rate))
+                add_hires = max(0, int(add_apps * hire_rate_val))
+            else:
+                add_clicks = 0
+                add_apps = max(0, int(add_dollars / 50.0))
+                add_hires = max(0, int(add_apps * hire_rate_val * 2))
+
+            new_allocs[add_channel] = {
+                "dollar_amount": round(add_dollars, 2),
+                "percentage": round(
+                    _safe_divide(add_dollars, max(total_budget, 1), 0.0) * 100, 1
+                ),
+                "cpc": round(add_cpc, 2),
+                "projected_clicks": add_clicks,
+                "projected_applications": add_apps,
+                "projected_hires": add_hires,
+                "cpa": round(_safe_divide(add_dollars, max(add_apps, 1), add_dollars), 2),
+                "cost_per_hire": round(
+                    _safe_divide(add_dollars, max(add_hires, 1), add_dollars), 2
+                ),
+                "category": add_category,
+            }
+
+        elif rebalance and freed_budget > 0 and new_allocs:
+            # Distribute freed budget proportionally across remaining channels
+            remaining_total = sum(
+                ch.get("dollar_amount", ch.get("dollars", 0))
+                for ch in new_allocs.values()
+            )
+            for ch_name, ch_data in new_allocs.items():
+                ch_dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
+                share = _safe_divide(ch_dollars, max(remaining_total, 1), 0.0)
+                additional = freed_budget * share
+                new_dollars = ch_dollars + additional
+                ch_data["dollar_amount"] = round(new_dollars, 2)
+
+                # Reproject outcomes
+                cpc = ch_data.get("cpc", 0.85)
+                apply_rate = ch_data.get("apply_rate", BASE_BENCHMARKS["apply_rate"].get(
+                    ch_data.get("category", "job_board"), 0.05
+                ))
+                hire_rate_val = BASE_BENCHMARKS.get("hire_rate", 0.02)
+
+                if cpc > 0:
+                    ch_data["projected_clicks"] = max(0, int(new_dollars / cpc))
+                    ch_data["projected_applications"] = max(
+                        0, int(ch_data["projected_clicks"] * apply_rate)
+                    )
+                    ch_data["projected_hires"] = max(
+                        0, int(ch_data["projected_applications"] * hire_rate_val)
+                    )
+                else:
+                    ch_data["projected_clicks"] = 0
+                    ch_data["projected_applications"] = max(
+                        0, int(new_dollars / 50.0)
+                    )
+                    ch_data["projected_hires"] = max(
+                        0, int(ch_data["projected_applications"] * hire_rate_val * 2)
+                    )
+
+        # --- 5. Compute new quality and metrics ---
+        new_weighted_quality = 0.0
+        new_total_hires = 0
+        new_total_apps = 0
+        budget_redistribution: Dict[str, float] = {}
+
+        for ch_name, ch_data in new_allocs.items():
+            dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
+            weight = _safe_divide(dollars, max(total_budget, 1), 0.0)
+            q_info = score_channel_quality(ch_name, collar_type, industry)
+            new_weighted_quality += q_info["quality_score"] * weight
+            new_total_hires += ch_data.get("projected_hires", 0)
+            new_total_apps += ch_data.get("projected_applications", 0)
+            budget_redistribution[ch_name] = round(
+                _safe_divide(dollars, max(total_budget, 1), 0.0) * 100, 1
+            )
+
+        new_cpa = round(
+            _safe_divide(total_budget, max(new_total_apps, 1), 0.0), 2
+        )
+        quality_change = round(new_weighted_quality - orig_weighted_quality, 3)
+        cpa_change_pct = round(
+            _safe_divide(new_cpa - original_cpa, max(original_cpa, 1), 0.0) * 100, 1
+        )
+        hires_change = new_total_hires - orig_total_hires
+
+        # --- 6. Build recommendations ---
+        recommendations: List[str] = []
+        if remove_channel and add_channel:
+            recommendations.append(
+                f"Swapping {remove_channel} for {add_channel} "
+                f"{'improves' if quality_change > 0 else 'reduces'} "
+                f"weighted quality by {abs(quality_change):.3f}"
+            )
+        elif remove_channel:
+            recommendations.append(
+                f"Removing {remove_channel} and redistributing ${freed_budget:,.0f} "
+                f"across remaining channels"
+            )
+        elif add_channel:
+            recommendations.append(
+                f"Adding {add_channel} to the channel mix"
+            )
+
+        if hires_change > 0:
+            recommendations.append(
+                f"Projected hires increase by {hires_change} "
+                f"({orig_total_hires} -> {new_total_hires})"
+            )
+        elif hires_change < 0:
+            recommendations.append(
+                f"Projected hires decrease by {abs(hires_change)} "
+                f"({orig_total_hires} -> {new_total_hires})"
+            )
+
+        if cpa_change_pct < -2:
+            recommendations.append(
+                f"CPA improves by {abs(cpa_change_pct):.1f}% "
+                f"(${original_cpa:,.2f} -> ${new_cpa:,.2f})"
+            )
+        elif cpa_change_pct > 2:
+            recommendations.append(
+                f"CPA worsens by {cpa_change_pct:.1f}% "
+                f"(${original_cpa:,.2f} -> ${new_cpa:,.2f})"
+            )
+
+        if quality_change > 0.05:
+            recommendations.append(
+                "The new channel mix significantly improves quality-of-hire; "
+                "consider this swap for long-term retention gains"
+            )
+        elif quality_change < -0.05:
+            recommendations.append(
+                "The new channel mix may reduce quality-of-hire; weigh the "
+                "cost savings against potential retention risk"
+            )
+
+        logger.info(
+            "simulate_channel_swap: remove=%s, add=%s, quality_delta=%+.3f, "
+            "hires_delta=%+d, cpa_delta=%+.1f%%",
+            remove_channel, add_channel, quality_change, hires_change, cpa_change_pct,
+        )
+
+        return {
+            "scenario": "channel_swap",
+            "removed": remove_channel,
+            "added": add_channel,
+            "freed_budget": round(freed_budget, 2),
+            "impact": {
+                "quality_change": quality_change,
+                "cpa_change_pct": cpa_change_pct,
+                "projected_hires_change": hires_change,
+                "original_hires": orig_total_hires,
+                "new_projected_hires": new_total_hires,
+                "original_cpa": original_cpa,
+                "new_cpa": new_cpa,
+                "original_weighted_quality": round(orig_weighted_quality, 3),
+                "new_weighted_quality": round(new_weighted_quality, 3),
+                "budget_redistribution": budget_redistribution,
+            },
+            "recommendations": recommendations,
+        }
+
+    except Exception as exc:
+        logger.error("simulate_channel_swap failed: %s", exc)
+        return _empty_scenario("channel_swap", str(exc))
+
+
+def simulate_what_if(
+    base_allocation: Dict[str, Any],
+    scenario_description: str = "",
+    delta_budget: float = 0.0,
+    delta_pct: float = 0.0,
+    add_channel: str = "",
+    remove_channel: str = "",
+) -> Dict[str, Any]:
+    """
+    Unified entry point for what-if scenarios.
+
+    Routes to ``simulate_budget_change`` or ``simulate_channel_swap``
+    (or both) based on which parameters are provided.  When both a budget
+    change and a channel change are requested, the budget change is applied
+    first, then the channel swap is simulated on the adjusted result.
+
+    Args:
+        base_allocation: Result dict from ``calculate_budget_allocation()``.
+        scenario_description: Free-text description of the scenario
+                              (logged for traceability, not parsed).
+        delta_budget: Absolute budget change in USD.
+        delta_pct: Percentage budget change (0.20 = +20%).
+        add_channel: Channel to add to the mix.
+        remove_channel: Channel to remove from the mix.
+
+    Returns:
+        Dict with ``scenario_description``, ``budget_impact`` (if budget
+        change requested), ``channel_impact`` (if channel change requested),
+        and a merged ``recommendations`` list.
+    """
+    try:
+        logger.info(
+            "simulate_what_if: desc='%s', delta_budget=%.0f, delta_pct=%.2f, "
+            "add=%s, remove=%s",
+            scenario_description, delta_budget, delta_pct, add_channel, remove_channel,
+        )
+
+        has_budget_change = delta_budget != 0.0 or delta_pct != 0.0
+        has_channel_change = bool(add_channel) or bool(remove_channel)
+
+        if not has_budget_change and not has_channel_change:
+            return {
+                "scenario_description": scenario_description or "No changes specified",
+                "budget_impact": None,
+                "channel_impact": None,
+                "recommendations": ["No budget or channel changes were specified."],
+            }
+
+        budget_result = None
+        channel_result = None
+        all_recommendations: List[str] = []
+
+        # --- Budget change ---
+        if has_budget_change:
+            budget_result = simulate_budget_change(
+                base_allocation,
+                delta_budget=delta_budget,
+                delta_pct=delta_pct,
+            )
+            all_recommendations.extend(budget_result.get("recommendations", []))
+
+        # --- Channel swap ---
+        if has_channel_change:
+            # If we also had a budget change, build an intermediate
+            # base_allocation with scaled channel dollars so the channel
+            # swap operates on the adjusted budget.
+            swap_base = base_allocation
+            if budget_result and budget_result.get("channel_changes"):
+                swap_base = _build_intermediate_allocation(
+                    base_allocation, budget_result
+                )
+
+            channel_result = simulate_channel_swap(
+                swap_base,
+                remove_channel=remove_channel,
+                add_channel=add_channel,
+                rebalance=True,
+            )
+            all_recommendations.extend(channel_result.get("recommendations", []))
+
+        return {
+            "scenario_description": scenario_description or _auto_describe(
+                delta_budget, delta_pct, add_channel, remove_channel
+            ),
+            "budget_impact": budget_result,
+            "channel_impact": channel_result,
+            "recommendations": all_recommendations,
+        }
+
+    except Exception as exc:
+        logger.error("simulate_what_if failed: %s", exc)
+        return {
+            "scenario_description": scenario_description or "Error",
+            "budget_impact": None,
+            "channel_impact": None,
+            "recommendations": [f"Simulation failed: {exc}"],
+        }
+
+
+# ---------------------------------------------------------------------------
+# What-If private helpers
+# ---------------------------------------------------------------------------
+
+def _empty_scenario(scenario_type: str, reason: str = "") -> Dict[str, Any]:
+    """Return a structurally valid but empty scenario result."""
+    base: Dict[str, Any] = {
+        "scenario": scenario_type,
+        "recommendations": [reason] if reason else [],
+    }
+    if scenario_type == "budget_change":
+        base.update({
+            "original_budget": 0.0,
+            "new_budget": 0.0,
+            "change_pct": 0.0,
+            "impact": {
+                "additional_clicks": 0,
+                "additional_applications": 0,
+                "additional_hires": 0,
+                "original_hires": 0,
+                "new_projected_hires": 0,
+                "original_cpa": 0.0,
+                "new_cpa": 0.0,
+                "original_cph": 0.0,
+                "new_cph": 0.0,
+                "roi_delta_pct": 0.0,
+            },
+            "channel_changes": {},
+        })
+    elif scenario_type == "channel_swap":
+        base.update({
+            "removed": "",
+            "added": "",
+            "freed_budget": 0.0,
+            "impact": {
+                "quality_change": 0.0,
+                "cpa_change_pct": 0.0,
+                "projected_hires_change": 0,
+                "original_hires": 0,
+                "new_projected_hires": 0,
+                "original_cpa": 0.0,
+                "new_cpa": 0.0,
+                "original_weighted_quality": 0.0,
+                "new_weighted_quality": 0.0,
+                "budget_redistribution": {},
+            },
+        })
+    return base
+
+
+def _build_intermediate_allocation(
+    base_allocation: Dict[str, Any],
+    budget_result: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Build a synthetic base_allocation with channel dollars adjusted per
+    ``budget_result["channel_changes"]``.
+
+    This lets ``simulate_channel_swap`` operate on the budget-adjusted
+    state when both a budget change and a channel swap are requested
+    together in ``simulate_what_if``.
+    """
+    intermediate = {
+        "channel_allocations": {},
+        "metadata": dict(base_allocation.get("metadata", {})),
+    }
+    channel_changes = budget_result.get("channel_changes", {})
+    orig_allocs = base_allocation.get("channel_allocations", {})
+
+    for ch_name, ch_data in orig_allocs.items():
+        new_ch = dict(ch_data)
+        change_info = channel_changes.get(ch_name, {})
+        if change_info:
+            new_ch["dollar_amount"] = change_info.get(
+                "new_dollars",
+                ch_data.get("dollar_amount", ch_data.get("dollars", 0)),
+            )
+        intermediate["channel_allocations"][ch_name] = new_ch
+
+    # Update metadata budget
+    if budget_result.get("new_budget"):
+        intermediate["metadata"]["total_budget"] = budget_result["new_budget"]
+
+    return intermediate
+
+
+def _auto_describe(
+    delta_budget: float,
+    delta_pct: float,
+    add_channel: str,
+    remove_channel: str,
+) -> str:
+    """Generate a human-readable scenario description from parameters."""
+    parts: List[str] = []
+    if delta_budget != 0:
+        parts.append(f"{'Increase' if delta_budget > 0 else 'Decrease'} "
+                     f"budget by ${abs(delta_budget):,.0f}")
+    elif delta_pct != 0:
+        parts.append(f"{'Increase' if delta_pct > 0 else 'Decrease'} "
+                     f"budget by {abs(delta_pct) * 100:.0f}%")
+    if remove_channel and add_channel:
+        parts.append(f"swap {remove_channel} for {add_channel}")
+    elif remove_channel:
+        parts.append(f"remove {remove_channel}")
+    elif add_channel:
+        parts.append(f"add {add_channel}")
+    return "; ".join(parts) if parts else "No-op scenario"

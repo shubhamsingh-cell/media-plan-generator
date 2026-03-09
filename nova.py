@@ -602,6 +602,7 @@ class Nova:
             "supply_ecosystem": "supply_ecosystem_intelligence.json",
             "workforce_trends": "workforce_trends_intelligence.json",
             "white_papers": "industry_white_papers.json",
+            "joveo_2026_benchmarks": "joveo_2026_benchmarks.json",
         }
         for _cache_key, _rf_name in _research_files.items():
             _rf_path = os.path.join(str(DATA_DIR), _rf_name)
@@ -671,6 +672,9 @@ When a country IS specified: use LOCAL CURRENCY (INR for India, GBP for UK, EUR 
 21. `query_hiring_insights` -- computed insights: hiring difficulty index (0-1), salary competitiveness, days until peak hiring
 22. `query_collar_strategy` -- blue/white collar classification, differentiated channel mix, CPC/CPA ranges, messaging tone, time-to-fill
 23. `query_market_trends` -- 4-year CPC/CPA trends, seasonal multipliers by collar type, YoY changes, cost projections
+24. `query_role_decomposition` -- break role into seniority levels (junior/mid/senior/lead) with hiring splits, CPA multipliers, collar classification
+25. `simulate_what_if` -- scenario analysis: budget changes, channel additions/removals, projected impact on hires, CPA, ROI
+26. `query_skills_gap` -- skills availability analysis: required/scarce/abundant skills, scarcity score, CPA difficulty adjustment
 
 ## TOOL STRATEGY
 
@@ -680,6 +684,9 @@ Use `query_employer_brand` when discussing specific company hiring practices.
 Use `query_ad_benchmarks` for platform cost comparisons.
 Use `query_collar_strategy` when comparing blue collar vs white collar roles, or when the user mentions warehouse, logistics, hourly, or frontline workers.
 Use `query_market_trends` for CPC/CPA trend questions, seasonal patterns, or cost forecasting.
+Use `query_role_decomposition` when users ask about seniority breakdown, role decomposition, or hiring mix distribution.
+Use `simulate_what_if` when users ask "what if" questions about budget changes, adding/removing channels, or scenario analysis.
+Use `query_skills_gap` when users ask about skills availability, hiring difficulty for specific skills, or which skills are scarce for a role.
 
 ## RESPONSE LENGTH — MATCH THE QUESTION
 
@@ -995,6 +1002,47 @@ Use `query_market_trends` for CPC/CPA trend questions, seasonal patterns, or cos
                     "required": []
                 }
             },
+            {
+                "name": "query_role_decomposition",
+                "description": "Break down a role into seniority levels (junior/mid/senior/lead) with recommended hiring splits, CPA multipliers, and collar classification. Use when user asks about role breakdown, seniority distribution, or hiring mix.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {"type": "string", "description": "Job title to decompose"},
+                        "count": {"type": "integer", "description": "Number of positions to fill"},
+                        "industry": {"type": "string", "description": "Industry context"}
+                    },
+                    "required": ["role", "count"]
+                }
+            },
+            {
+                "name": "simulate_what_if",
+                "description": "Simulate budget or channel changes and see projected impact on hires, CPA, and ROI. Use when user asks 'what if we increase budget by X?', 'what if we add/remove a channel?', or any scenario analysis.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "scenario_description": {"type": "string", "description": "Natural language description of the scenario"},
+                        "delta_budget": {"type": "number", "description": "Absolute budget change amount (positive or negative)"},
+                        "delta_pct": {"type": "number", "description": "Percentage budget change (e.g. 0.20 for +20%)"},
+                        "add_channel": {"type": "string", "description": "Channel to add"},
+                        "remove_channel": {"type": "string", "description": "Channel to remove"}
+                    },
+                    "required": []
+                }
+            },
+            {
+                "name": "query_skills_gap",
+                "description": "Analyze skills availability and hiring difficulty for a role in a specific location. Shows required skills, scarce vs abundant skills, and CPA adjustment recommendations.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {"type": "string", "description": "Job title to analyze"},
+                        "location": {"type": "string", "description": "Location for market context"},
+                        "industry": {"type": "string", "description": "Industry context"}
+                    },
+                    "required": ["role"]
+                }
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -1027,6 +1075,9 @@ Use `query_market_trends` for CPC/CPA trend questions, seasonal patterns, or cos
             "query_hiring_insights": self._query_hiring_insights,
             "query_collar_strategy": self._query_collar_strategy,
             "query_market_trends": self._query_market_trends,
+            "query_role_decomposition": self._query_role_decomposition,
+            "simulate_what_if": self._simulate_what_if,
+            "query_skills_gap": self._query_skills_gap,
         }
         handler = handlers.get(tool_name)
         if not handler:
@@ -1930,6 +1981,209 @@ Use `query_market_trends` for CPC/CPA trend questions, seasonal patterns, or cos
 
         return result
 
+    # ------------------------------------------------------------------
+    # v4 tool handlers: role decomposition, what-if, skills gap
+    # ------------------------------------------------------------------
+
+    def _query_role_decomposition(self, params: dict) -> dict:
+        """Break down a role into seniority-level sub-allocations with hiring splits and CPA multipliers."""
+        role = params.get("role", "").strip()
+        count = params.get("count", 1)
+        industry = params.get("industry", "").strip()
+
+        if not role:
+            return {"error": "Role is required.", "source": "Joveo Collar Intelligence"}
+        if not isinstance(count, int) or count <= 0:
+            count = 1
+
+        ci = _get_collar_intel()
+        result: Dict[str, Any] = {"source": "Joveo Collar Intelligence Engine", "role": role, "total_count": count}
+
+        if not ci:
+            result["note"] = "Collar intelligence module not available. Install collar_intelligence.py."
+            result["data_confidence"] = 0.0
+            return result
+
+        try:
+            decomposition = ci.decompose_role(role=role, count=count, industry=industry)
+            if decomposition and isinstance(decomposition, list):
+                result["seniority_breakdown"] = decomposition
+                # Build a readable summary table
+                summary_lines = [f"{'Level':<25} {'Count':>6} {'% of Total':>10} {'CPA Mult':>9} {'Collar'}"]
+                summary_lines.append("-" * 70)
+                for seg in decomposition:
+                    summary_lines.append(
+                        f"{seg.get('title', 'N/A'):<25} "
+                        f"{seg.get('count', 0):>6} "
+                        f"{seg.get('pct_of_total', 0)*100:>9.0f}% "
+                        f"{seg.get('cpa_multiplier', 1.0):>8.2f}x "
+                        f"{seg.get('collar_type', 'unknown')}"
+                    )
+                result["summary_table"] = "\n".join(summary_lines)
+                result["data_confidence"] = 0.8
+                result["data_freshness"] = "curated"
+            else:
+                result["note"] = "No decomposition data returned."
+                result["data_confidence"] = 0.3
+        except Exception as e:
+            logger.error("Role decomposition failed for %s: %s", role, e, exc_info=True)
+            result["error"] = "Role decomposition encountered an internal error."
+            result["data_confidence"] = 0.0
+
+        return result
+
+    def _simulate_what_if(self, params: dict) -> dict:
+        """Simulate budget or channel changes and return projected impact."""
+        scenario_description = params.get("scenario_description", "").strip()
+        delta_budget = params.get("delta_budget", 0.0)
+        delta_pct = params.get("delta_pct", 0.0)
+        add_channel = params.get("add_channel", "").strip()
+        remove_channel = params.get("remove_channel", "").strip()
+
+        result: Dict[str, Any] = {"source": "Joveo Budget Simulation Engine"}
+
+        # We need a base_allocation to simulate against.
+        # First, try to compute a quick baseline allocation using the budget engine.
+        base_allocation: Optional[Dict[str, Any]] = None
+        kb = self._data_cache.get("knowledge_base", {})
+
+        # Determine a sensible baseline budget for simulation
+        baseline_budget = 50000  # default fallback
+        if delta_budget != 0.0 and delta_pct == 0.0:
+            # User is changing by an absolute amount; infer a baseline
+            baseline_budget = max(abs(delta_budget) * 5, 10000)
+        elif delta_pct != 0.0:
+            baseline_budget = 50000  # standard reference point
+
+        try:
+            from budget_engine import calculate_budget_allocation
+            channel_pcts = {
+                "Programmatic & DSP": 30, "Global Job Boards": 25,
+                "Niche & Industry Boards": 15, "Social Media Channels": 15,
+                "Regional & Local Boards": 10, "Employer Branding": 5,
+            }
+            base_allocation = calculate_budget_allocation(
+                total_budget=baseline_budget,
+                roles=[{"title": "General Hire", "count": 1, "tier": "Professional / White-Collar"}],
+                locations=[{"city": "United States", "state": "", "country": "United States"}],
+                industry="general",
+                channel_percentages=channel_pcts,
+                synthesized_data=None,
+                knowledge_base=kb,
+            )
+        except Exception as e:
+            logger.debug("Failed to compute baseline allocation for what-if: %s", e)
+
+        if not base_allocation or not isinstance(base_allocation, dict):
+            result["error"] = "Could not compute a baseline allocation to simulate against. Try running query_budget_projection first."
+            result["data_confidence"] = 0.0
+            return result
+
+        # Run the simulation
+        try:
+            from budget_engine import simulate_what_if as _simulate
+            sim_result = _simulate(
+                base_allocation=base_allocation,
+                scenario_description=scenario_description,
+                delta_budget=delta_budget,
+                delta_pct=delta_pct,
+                add_channel=add_channel,
+                remove_channel=remove_channel,
+            )
+            if sim_result and isinstance(sim_result, dict):
+                result["scenario"] = sim_result.get("scenario_description", scenario_description)
+                result["baseline_budget"] = baseline_budget
+
+                if sim_result.get("budget_impact"):
+                    bi = sim_result["budget_impact"]
+                    result["budget_impact"] = {
+                        "original_budget": bi.get("original_budget", baseline_budget),
+                        "new_budget": bi.get("new_budget", baseline_budget),
+                        "change": bi.get("change", 0),
+                        "projected_hires_before": bi.get("projected_hires_before"),
+                        "projected_hires_after": bi.get("projected_hires_after"),
+                        "cpa_before": bi.get("cpa_before"),
+                        "cpa_after": bi.get("cpa_after"),
+                    }
+
+                if sim_result.get("channel_impact"):
+                    result["channel_impact"] = sim_result["channel_impact"]
+
+                result["recommendations"] = sim_result.get("recommendations", [])
+                result["data_confidence"] = 0.7
+                result["data_freshness"] = "computed"
+            else:
+                result["note"] = "Simulation returned no results."
+                result["data_confidence"] = 0.3
+        except Exception as e:
+            logger.error("What-if simulation failed: %s", e, exc_info=True)
+            result["error"] = "What-if simulation encountered an internal error."
+            result["data_confidence"] = 0.0
+
+        return result
+
+    def _query_skills_gap(self, params: dict) -> dict:
+        """Analyze skills availability and hiring difficulty for a role."""
+        role = params.get("role", "").strip()
+        location = params.get("location", "").strip()
+        industry = params.get("industry", "").strip()
+
+        if not role:
+            return {"error": "Role is required.", "source": "Joveo Collar Intelligence"}
+
+        ci = _get_collar_intel()
+        result: Dict[str, Any] = {"source": "Joveo Skills Gap Analyzer", "role": role}
+
+        if not ci:
+            result["note"] = "Collar intelligence module not available. Install collar_intelligence.py."
+            result["data_confidence"] = 0.0
+            return result
+
+        try:
+            gap_analysis = ci.analyze_skills_gap(role=role, location=location, industry=industry)
+            if gap_analysis and isinstance(gap_analysis, dict):
+                result["role_family"] = gap_analysis.get("role_family", "unknown")
+                result["required_skills"] = gap_analysis.get("required_skills", [])
+
+                scarce = gap_analysis.get("scarce_skills", [])
+                abundant = gap_analysis.get("abundant_skills", [])
+                result["scarce_skills"] = scarce
+                result["abundant_skills"] = abundant
+                result["overall_scarcity_score"] = gap_analysis.get("overall_scarcity_score", 0.0)
+                result["hiring_difficulty_adjustment"] = gap_analysis.get("hiring_difficulty_adjustment", 1.0)
+                result["recommendations"] = gap_analysis.get("recommendations", [])
+
+                if location:
+                    result["location_context"] = location
+
+                # Build a readable summary
+                summary_lines = [f"Skills Gap Analysis: {role}"]
+                if location:
+                    summary_lines.append(f"Location: {location}")
+                summary_lines.append(f"Scarcity Score: {result['overall_scarcity_score']:.2f} / 1.00")
+                summary_lines.append(f"CPA Adjustment: {result['hiring_difficulty_adjustment']:.2f}x")
+                if scarce:
+                    summary_lines.append(f"\nScarce Skills ({len(scarce)}):")
+                    for s in scarce:
+                        summary_lines.append(f"  - {s.get('skill', 'N/A')} (scarcity: {s.get('scarcity', 0):.2f})")
+                if abundant:
+                    summary_lines.append(f"\nAbundant Skills ({len(abundant)}):")
+                    for a in abundant:
+                        summary_lines.append(f"  - {a.get('skill', 'N/A')} (scarcity: {a.get('scarcity', 0):.2f})")
+                result["summary"] = "\n".join(summary_lines)
+
+                result["data_confidence"] = 0.75
+                result["data_freshness"] = "curated"
+            else:
+                result["note"] = "No skills gap data returned."
+                result["data_confidence"] = 0.3
+        except Exception as e:
+            logger.error("Skills gap analysis failed for %s: %s", role, e, exc_info=True)
+            result["error"] = "Skills gap analysis encountered an internal error."
+            result["data_confidence"] = 0.0
+
+        return result
+
     def _query_linkedin_guidewire(self, params: dict) -> dict:
         """Query LinkedIn Hiring Value Review data for Guidewire Software."""
         gw_data = self._data_cache.get("linkedin_guidewire", {})
@@ -2363,15 +2617,33 @@ Use `query_market_trends` for CPC/CPA trend questions, seasonal patterns, or cos
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 return cached
 
-        # Check for Claude API mode
+        # --- LLM routing strategy ---
+        # 1. Simple/conversational queries → try free LLM providers first (cost=0)
+        # 2. Complex queries needing tool use → use Claude API (has tool use)
+        # 3. If all LLMs fail → rule-based fallback
+        _needs_tools = self._query_needs_tools(user_message)
         api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+
+        # Try free LLM providers first for simple queries
+        if not _needs_tools:
+            router_result = self._chat_with_llm_router(
+                user_message, conversation_history, enrichment_context
+            )
+            if router_result:
+                logger.info("NOVA MODE: LLM Router (free provider) responded successfully")
+                _nova_metrics.record_latency((time.time() - _t0) * 1000)
+                if router_result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
+                    _set_response_cache(cache_key, router_result)
+                return router_result
+
+        # Claude API for tool-use queries or when free LLMs failed
         if api_key:
             try:
-                logger.info("NOVA MODE: Using Claude API (Anthropic) for chat")
+                logger.info("NOVA MODE: Using Claude API (Anthropic) for chat%s",
+                            " (tool-use required)" if _needs_tools else " (router fallback)")
                 result = self._chat_with_claude(user_message, conversation_history, enrichment_context, api_key)
                 logger.info("NOVA MODE: Claude API response received successfully")
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
-                # Cache successful responses with sufficient confidence
                 if result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
                     _set_response_cache(cache_key, result)
                 return result
@@ -2387,6 +2659,117 @@ Use `query_market_trends` for CPC/CPA trend questions, seasonal patterns, or cos
         result = self._chat_rule_based(user_message, enrichment_context, conversation_history)
         _nova_metrics.record_latency((time.time() - _t0) * 1000)
         return result
+
+    # ------------------------------------------------------------------
+    # LLM Router integration (v3.1 -- free LLM providers first)
+    # ------------------------------------------------------------------
+
+    # Keywords that signal the query needs data lookups (tool use)
+    _TOOL_TRIGGER_KEYWORDS = frozenset([
+        "benchmark", "cpc", "cpa", "cph", "cost per", "salary", "wage",
+        "compare", "data", "statistics", "stats", "numbers", "metric",
+        "industry", "platform", "channel", "indeed", "linkedin", "facebook",
+        "google ads", "ziprecruiter", "glassdoor", "appcast", "programmatic",
+        "trend", "jolts", "bls", "unemployment", "labor market",
+        "what if", "what-if", "simulate", "scenario", "decompose",
+        "seniority", "junior", "senior", "skills gap", "skills-gap",
+        "budget", "allocation", "roi", "spend", "funnel",
+        "location", "city", "state", "region", "metro",
+        "supply", "demand", "openings", "hires", "applicants",
+        "publisher", "joveo", "source mix", "quality score",
+    ])
+
+    def _query_needs_tools(self, query: str) -> bool:
+        """Determine if a query requires tool use (data lookups) vs conversational."""
+        q = query.lower()
+        # Check for tool-triggering keywords
+        matches = sum(1 for kw in self._TOOL_TRIGGER_KEYWORDS if kw in q)
+        # 2+ keyword matches strongly suggest data needs
+        if matches >= 2:
+            return True
+        # Single match with question words suggests data lookup
+        if matches >= 1 and any(w in q for w in ["how much", "what is", "show me", "give me", "tell me about", "compare"]):
+            return True
+        # Explicit data requests
+        if any(phrase in q for phrase in ["pull data", "look up", "fetch", "get me", "find me", "search for"]):
+            return True
+        return False
+
+    def _chat_with_llm_router(self, user_message: str,
+                               conversation_history: Optional[list],
+                               enrichment_context: Optional[dict]) -> Optional[dict]:
+        """Try free LLM providers via the LLM Router for conversational queries.
+
+        Returns a response dict on success, or None to signal fallback to Claude.
+        """
+        try:
+            from llm_router import call_llm, classify_task, get_router_status
+        except ImportError:
+            logger.debug("llm_router module not available, skipping free LLM path")
+            return None
+
+        # Check if any free provider is configured
+        status = get_router_status()
+        available = [p for p, s in status.get("providers", {}).items()
+                     if s.get("configured") and p != "anthropic"]
+        if not available:
+            logger.debug("No free LLM providers configured, skipping router")
+            return None
+
+        # Build messages
+        messages = []
+        if conversation_history:
+            recent = conversation_history[-6:]  # Keep recent context
+            for msg in recent:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if role in ("user", "assistant") and content:
+                    messages.append({"role": role, "content": content})
+        messages.append({"role": "user", "content": user_message})
+
+        # Build system prompt (condensed version for free LLMs -- no tool instructions)
+        system_prompt = (
+            "You are Nova, a recruitment marketing AI assistant built by Joveo. "
+            "You provide data-driven insights about recruitment advertising, "
+            "media planning, hiring benchmarks, and talent acquisition strategy. "
+            "Be concise, specific, and cite data when possible. "
+            "If you don't know something specific, say so honestly rather than guessing."
+        )
+        # Add enrichment context if available
+        if enrichment_context:
+            context_summary = _summarize_enrichment(enrichment_context)
+            if context_summary:
+                system_prompt += f"\n\nCurrent session context:\n{context_summary}"
+
+        try:
+            task_type = classify_task(user_message)
+            logger.info("NOVA LLM Router: task_type=%s, available_providers=%s",
+                        task_type, available)
+
+            result = call_llm(
+                messages=messages,
+                system_prompt=system_prompt,
+                max_tokens=2048,
+                task_type=task_type,
+                query_text=user_message,
+            )
+
+            if result and result.get("content"):
+                provider = result.get("provider", "unknown")
+                model = result.get("model", "unknown")
+                logger.info("NOVA LLM Router: Response from %s (%s)", provider, model)
+                return {
+                    "response": result["content"],
+                    "sources": [f"LLM: {provider}/{model}"],
+                    "confidence": 0.65,  # Lower confidence than tool-backed answers
+                    "tools_used": [],
+                    "llm_provider": provider,
+                    "llm_model": model,
+                }
+        except Exception as e:
+            logger.warning("NOVA LLM Router failed: %s", e)
+
+        return None
 
     def _chat_with_claude(self, user_message: str, conversation_history: Optional[list],
                           enrichment_context: Optional[dict], api_key: str) -> dict:

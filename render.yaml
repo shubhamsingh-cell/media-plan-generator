@@ -49,6 +49,13 @@ services:
         sync: false
       - key: GEONAMES_USERNAME
         sync: false
+      # --- Free LLM Providers (v3.1 LLM Router) ---
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CEREBRAS_API_KEY
+        sync: false
     disk:
       name: media-plan-data
       mountPath: /data/persistent
