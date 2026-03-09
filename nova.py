@@ -91,9 +91,8 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 JOVEO_PRIMARY_COLOR = "#0066CC"
 MAX_HISTORY_TURNS = 6
 MAX_MESSAGE_LENGTH = 4000
-CLAUDE_MODEL_PRIMARY = "claude-haiku-4-5-20241022"    # $1/$5 per M tokens
-CLAUDE_MODEL_FALLBACK = "claude-sonnet-4-20250514"    # $3/$15 per M tokens
-CLAUDE_MODEL = CLAUDE_MODEL_PRIMARY
+CLAUDE_MODEL_PRIMARY = "claude-haiku-4-5-20251001"    # Fast + cheap for simple/medium queries
+CLAUDE_MODEL_COMPLEX = "claude-sonnet-4-6"            # Deep reasoning for complex strategy queries
 
 # Response cache settings
 RESPONSE_CACHE_TTL = 7 * 86400  # 7 days
@@ -204,7 +203,7 @@ class _NovaMetrics:
                     "samples": len(lats),
                 },
                 "api_errors": self.api_errors,
-                "model": CLAUDE_MODEL,
+                "model": f"{CLAUDE_MODEL_PRIMARY} (simple/medium) / {CLAUDE_MODEL_COMPLEX} (complex)",
                 "uptime_seconds": round(time.time() - self._start_time, 1),
             }
 
@@ -492,24 +491,27 @@ def _set_response_cache(key: str, data: Dict[str, Any], ttl: int = RESPONSE_CACH
             logger.warning("Disk cache write error: %s", exc)
 
 
-def _classify_query_complexity(user_message: str) -> int:
-    """Classify query complexity to determine adaptive max_tokens.
+def _classify_query_complexity(user_message: str) -> Tuple[int, str]:
+    """Classify query complexity to determine adaptive max_tokens and model.
 
     Returns:
-        1024 for simple queries, 2048 for medium, 4096 for complex.
+        (max_tokens, model_id) tuple.
+        Complex queries use Sonnet for deeper reasoning; simple/medium use Haiku.
     """
     msg_lower = user_message.lower().strip()
 
-    # Complex keywords -> 4096
+    # Complex keywords -> 4096, Sonnet
     complex_patterns = [
         "budget", "plan", "strategy", "compare", "versus", " vs ",
         "allocat", "media plan", "hiring plan", "project",
         "how should i", "recommend", "analyze", "analysis",
+        "blue collar", "white collar", "collar strategy",
+        "build me", "create a", "design a",
     ]
     if any(p in msg_lower for p in complex_patterns):
-        return 4096
+        return (4096, CLAUDE_MODEL_COMPLEX)
 
-    # Simple patterns -> 512 (short factual answers)
+    # Simple patterns -> 512, Haiku
     simple_patterns = [
         r"^(hi|hello|hey|good morning|good afternoon)\b",
         r"^what is\s",
@@ -525,10 +527,10 @@ def _classify_query_complexity(user_message: str) -> int:
         r"^(thanks|thank you|ok|okay|got it)",
     ]
     if any(re.search(p, msg_lower) for p in simple_patterns):
-        return 512
+        return (512, CLAUDE_MODEL_PRIMARY)
 
-    # Default medium
-    return 2048
+    # Default medium -> Haiku
+    return (2048, CLAUDE_MODEL_PRIMARY)
 
 
 # Industry keywords
@@ -2414,40 +2416,49 @@ Use `query_market_trends` for CPC/CPA trend questions, seasonal patterns, or cos
 
         messages.append({"role": "user", "content": user_message})
 
-        # Build system prompt with session context
-        system_prompt = self.get_system_prompt()
-        if enrichment_context:
-            context_summary = _summarize_enrichment(enrichment_context)
-            system_prompt += f"\n\n## ACTIVE SESSION CONTEXT\nThe user is working on a media plan with the following parameters:\n{context_summary}\nUse this context to provide more relevant answers. If the user asks about budget, roles, or locations, use these values as defaults unless they specify otherwise."
-
-        # Add conversation memory summary if multi-turn
-        if conversation_history and len(conversation_history) > 2:
-            memory_summary = _build_conversation_memory(conversation_history)
-            if memory_summary:
-                system_prompt += f"\n\n## CONVERSATION MEMORY\nKey context from this conversation so far:\n{memory_summary}"
-
+        # System prompt is built in the caching section below (static + dynamic split)
         tools_used = []
         sources = set()
         tool_call_details = []  # Track detailed tool interactions for debugging
         max_iterations = 8  # Allow more iterations for complex multi-tool queries
 
-        adaptive_max_tokens = _classify_query_complexity(user_message)
+        adaptive_max_tokens, selected_model = _classify_query_complexity(user_message)
+        logger.info("Nova model selection: %s (max_tokens=%d) for query: %.60s...",
+                     selected_model, adaptive_max_tokens, user_message)
         tool_defs = self.get_tool_definitions()
 
-        # --- Prompt caching: structured system + cache_control on last tool ---
+        # --- Prompt caching: split static system prompt from dynamic context ---
+        # Static prompt is cached (identical across requests); dynamic context is not.
+        static_prompt = self.get_system_prompt()
         system_content = [
             {
                 "type": "text",
-                "text": system_prompt,
+                "text": static_prompt,
                 "cache_control": {"type": "ephemeral"},
             }
         ]
+        # Dynamic context appended WITHOUT cache_control so it doesn't invalidate cache
+        dynamic_parts = []
+        if enrichment_context:
+            context_summary = _summarize_enrichment(enrichment_context)
+            dynamic_parts.append(f"## ACTIVE SESSION CONTEXT\nThe user is working on a media plan with the following parameters:\n{context_summary}\nUse this context to provide more relevant answers.")
+        if conversation_history and len(conversation_history) > 2:
+            memory_summary = _build_conversation_memory(conversation_history)
+            if memory_summary:
+                dynamic_parts.append(f"## CONVERSATION MEMORY\nKey context from this conversation so far:\n{memory_summary}")
+        if dynamic_parts:
+            system_content.append({
+                "type": "text",
+                "text": "\n\n".join(dynamic_parts),
+            })
+
+        # Cache ALL tool definitions (they're identical across requests)
         if tool_defs:
             tool_defs[-1]["cache_control"] = {"type": "ephemeral"}
 
         for iteration in range(max_iterations):
             payload = {
-                "model": CLAUDE_MODEL,
+                "model": selected_model,
                 "max_tokens": adaptive_max_tokens,
                 "system": system_content,
                 "messages": messages,
