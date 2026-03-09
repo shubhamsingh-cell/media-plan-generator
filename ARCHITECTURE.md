@@ -454,7 +454,8 @@ Per-channel: dollar allocation, projected clicks, projected applications, projec
 | `ppt_generator.py` | ~4,200 lines | PowerPoint/Excel output with data visualizations |
 | `standardizer.py` | ~1,250 lines | Canonical taxonomy: industries, locations, SOC/NAICS codes |
 | `data_orchestrator.py` | ~1,860 lines | Unified data access: cascades research->API->KB for all consumers |
-| `joveo_iq.py` | ~2,360 lines | Joveo IQ module |
+| `trend_engine.py` | ~900 lines | CPC/CPA trend engine with historical data, seasonal & regional multipliers |
+| `collar_intelligence.py` | ~600 lines | Blue/white/grey/pink collar classification and strategy engine |
 | `monitoring.py` | ~550 lines | Health checks, request metrics |
 | `data_matrix_monitor.py` | ~500 lines | 28-cell health matrix, self-healing, data layer monitoring |
 | `auto_qc.py` | ~700 lines | Automated quality control engine for data validation |

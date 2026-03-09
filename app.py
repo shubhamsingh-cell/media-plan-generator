@@ -7335,10 +7335,10 @@ except ImportError as _mon_err:
     _shutdown = None
 
     def health_check_liveness():
-        return {"status": "ok", "version": "2.2.0", "timestamp": datetime.datetime.now().isoformat()}
+        return {"status": "ok", "version": "3.0.0", "timestamp": datetime.datetime.now().isoformat()}
 
     def health_check_readiness():
-        return {"status": "healthy", "version": "2.2.0"}
+        return {"status": "healthy", "version": "3.0.0"}
 
 # Data matrix health monitor (background checks every 12h)
 try:

@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-VERSION = "2.2.0"
+VERSION = "3.0.0"
 _START_TIME = time.time()
 DATA_DIR = Path(__file__).resolve().parent / "data"
 CACHE_DIR = DATA_DIR / "api_cache"

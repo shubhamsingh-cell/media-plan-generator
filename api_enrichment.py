@@ -3017,9 +3017,12 @@ def fetch_datausa_occupation_stats(roles: List[str]) -> Dict[str, Any]:
     """
     Fetch occupation wage and employment data from DataUSA API.
     Free, no authentication required.
+    Set DATAUSA_DISABLED=1 to skip live API (saves 8-10s per role when API is down).
     """
     if not roles:
         return {}
+
+    _datausa_disabled = os.environ.get("DATAUSA_DISABLED", "").strip() in ("1", "true", "yes")
 
     cache_k = _cache_key("datausa_occ", ",".join(sorted(r.lower() for r in roles[:10])))
     cached = _get_cached(cache_k)
@@ -3053,36 +3056,37 @@ def fetch_datausa_occupation_stats(roles: List[str]) -> Dict[str, Any]:
         if not occ_name:
             continue
 
-        try:
-            # Try live API first (DataUSA endpoints are unreliable / 404)
-            search_url = f"https://datausa.io/api/searchLegacy?q={urllib.parse.quote(occ_name)}&dimension=PUMS+Occupation"
-            search_data = _http_get_json(search_url, timeout=8)
+        if not _datausa_disabled:
+            try:
+                # Try live API first (DataUSA endpoints are unreliable / 404)
+                search_url = f"https://datausa.io/api/searchLegacy?q={urllib.parse.quote(occ_name)}&dimension=PUMS+Occupation"
+                search_data = _http_get_json(search_url, timeout=8)
 
-            occ_id = None
-            if search_data and isinstance(search_data, dict):
-                results = search_data.get("results", [])
-                if results:
-                    occ_id = results[0].get("id", "")
+                occ_id = None
+                if search_data and isinstance(search_data, dict):
+                    results = search_data.get("results", [])
+                    if results:
+                        occ_id = results[0].get("id", "")
 
-            if occ_id:
-                stats_url = (f"https://datausa.io/api/data?"
-                             f"drilldowns=Detailed+Occupation&measures=Total+Population,Average+Wage"
-                             f"&Detailed+Occupation={urllib.parse.quote(str(occ_id))}"
-                             f"&Year=latest")
-                stats_data = _http_get_json(stats_url, timeout=10)
+                if occ_id:
+                    stats_url = (f"https://datausa.io/api/data?"
+                                 f"drilldowns=Detailed+Occupation&measures=Total+Population,Average+Wage"
+                                 f"&Detailed+Occupation={urllib.parse.quote(str(occ_id))}"
+                                 f"&Year=latest")
+                    stats_data = _http_get_json(stats_url, timeout=10)
 
-                if stats_data and stats_data.get("data"):
-                    entry = stats_data["data"][0]
-                    result["occupations"][role] = {
-                        "occupation": entry.get("Detailed Occupation", occ_name),
-                        "total_employed": entry.get("Total Population"),
-                        "average_wage": entry.get("Average Wage"),
-                        "year": entry.get("Year", ""),
-                        "source": "DataUSA (live)",
-                    }
-                    continue
-        except Exception as exc:
-            _log_warn(f"DataUSA live API failed for {role}: {exc}")
+                    if stats_data and stats_data.get("data"):
+                        entry = stats_data["data"][0]
+                        result["occupations"][role] = {
+                            "occupation": entry.get("Detailed Occupation", occ_name),
+                            "total_employed": entry.get("Total Population"),
+                            "average_wage": entry.get("Average Wage"),
+                            "year": entry.get("Year", ""),
+                            "source": "DataUSA (live)",
+                        }
+                        continue
+            except Exception as exc:
+                _log_warn(f"DataUSA live API failed for {role}: {exc}")
 
         # Fallback: curated BLS/Census benchmark data
         _OCC_BENCHMARKS = {
@@ -3120,9 +3124,12 @@ def fetch_datausa_location_data(locations: List[str]) -> Dict[str, Any]:
     """
     Fetch demographic data for US states from DataUSA API.
     Includes population, median income, poverty rate.
+    Set DATAUSA_DISABLED=1 to skip live API and use benchmarks only.
     """
     if not locations:
         return {}
+
+    _datausa_disabled = os.environ.get("DATAUSA_DISABLED", "").strip() in ("1", "true", "yes")
 
     cache_k = _cache_key("datausa_loc", ",".join(sorted(l.lower() for l in locations[:10])))
     cached = _get_cached(cache_k)
@@ -3181,29 +3188,51 @@ def fetch_datausa_location_data(locations: List[str]) -> Dict[str, Any]:
         "Connecticut": {"population": 3605944, "median_household_income": 83771, "poverty_rate": 9.8},
         "Utah": {"population": 3337975, "median_household_income": 79449, "poverty_rate": 8.2},
         "Nevada": {"population": 3104614, "median_household_income": 65686, "poverty_rate": 11.2},
+        # Remaining states (Census ACS 2024 estimates)
+        "Iowa": {"population": 3190369, "median_household_income": 65573, "poverty_rate": 10.4},
+        "Arkansas": {"population": 3011524, "median_household_income": 52528, "poverty_rate": 15.2},
+        "Mississippi": {"population": 2961279, "median_household_income": 48610, "poverty_rate": 18.7},
+        "Kansas": {"population": 2937880, "median_household_income": 64521, "poverty_rate": 10.3},
+        "New Mexico": {"population": 2117522, "median_household_income": 53992, "poverty_rate": 17.6},
+        "Nebraska": {"population": 1961504, "median_household_income": 66644, "poverty_rate": 10.0},
+        "Idaho": {"population": 1939033, "median_household_income": 65988, "poverty_rate": 10.1},
+        "West Virginia": {"population": 1793716, "median_household_income": 50884, "poverty_rate": 16.8},
+        "Hawaii": {"population": 1455271, "median_household_income": 88005, "poverty_rate": 9.3},
+        "New Hampshire": {"population": 1377529, "median_household_income": 88235, "poverty_rate": 6.4},
+        "Maine": {"population": 1362359, "median_household_income": 64767, "poverty_rate": 10.9},
+        "Montana": {"population": 1084225, "median_household_income": 60560, "poverty_rate": 12.1},
+        "Rhode Island": {"population": 1097379, "median_household_income": 74008, "poverty_rate": 10.3},
+        "Delaware": {"population": 989948, "median_household_income": 72724, "poverty_rate": 11.3},
+        "South Dakota": {"population": 886667, "median_household_income": 63920, "poverty_rate": 11.9},
+        "North Dakota": {"population": 779094, "median_household_income": 68131, "poverty_rate": 10.5},
+        "Alaska": {"population": 733391, "median_household_income": 77640, "poverty_rate": 10.2},
+        "Vermont": {"population": 643077, "median_household_income": 69543, "poverty_rate": 10.3},
+        "Wyoming": {"population": 576851, "median_household_income": 68002, "poverty_rate": 9.6},
+        "District of Columbia": {"population": 689545, "median_household_income": 90842, "poverty_rate": 13.5},
     }
 
     # Try live API first, fall back to benchmarks
     for state_name, orig_loc in state_locs.items():
-        try:
-            url = (f"https://datausa.io/api/data?"
-                   f"drilldowns=State&measures=Population,Median+Household+Income,Poverty+Rate"
-                   f"&State={urllib.parse.quote(state_name)}&Year=latest")
-            data = _http_get_json(url, timeout=10)
+        if not _datausa_disabled:
+            try:
+                url = (f"https://datausa.io/api/data?"
+                       f"drilldowns=State&measures=Population,Median+Household+Income,Poverty+Rate"
+                       f"&State={urllib.parse.quote(state_name)}&Year=latest")
+                data = _http_get_json(url, timeout=10)
 
-            if data and data.get("data"):
-                entry = data["data"][0]
-                result["locations"][orig_loc] = {
-                    "state": entry.get("State", state_name),
-                    "population": entry.get("Population"),
-                    "median_household_income": entry.get("Median Household Income"),
-                    "poverty_rate": entry.get("Poverty Rate"),
-                    "year": entry.get("Year", ""),
-                    "source": "DataUSA (live)",
-                }
-                continue
-        except Exception as exc:
-            _log_warn(f"DataUSA live API failed for {state_name}: {exc}")
+                if data and data.get("data"):
+                    entry = data["data"][0]
+                    result["locations"][orig_loc] = {
+                        "state": entry.get("State", state_name),
+                        "population": entry.get("Population"),
+                        "median_household_income": entry.get("Median Household Income"),
+                        "poverty_rate": entry.get("Poverty Rate"),
+                        "year": entry.get("Year", ""),
+                        "source": "DataUSA (live)",
+                    }
+                    continue
+            except Exception as exc:
+                _log_warn(f"DataUSA live API failed for {state_name}: {exc}")
 
         # Fallback: curated Census/ACS data
         if state_name in _STATE_BENCHMARKS:
