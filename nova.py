@@ -1097,9 +1097,17 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
     # Tool execution
     # ------------------------------------------------------------------
 
-    def execute_tool(self, tool_name: str, tool_input: dict) -> str:
-        """Execute a tool call and return the result as a JSON string."""
-        handlers = {
+    def _get_tool_handler_names(self) -> list:
+        """Return list of valid tool names from the handler map.
+
+        Used by _chat_with_free_llm_tools() to validate tool names without
+        duplicating the handler key list.
+        """
+        return list(self._tool_handler_map().keys())
+
+    def _tool_handler_map(self) -> dict:
+        """Central handler map for all tools. Used by execute_tool and validation."""
+        return {
             "query_global_supply": self._query_global_supply,
             "query_channels": self._query_channels,
             "query_publishers": self._query_publishers,
@@ -1128,6 +1136,10 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
             "query_skills_gap": self._query_skills_gap,
             "query_geopolitical_risk": self._query_geopolitical_risk,
         }
+
+    def execute_tool(self, tool_name: str, tool_input: dict) -> str:
+        """Execute a tool call and return the result as a JSON string."""
+        handlers = self._tool_handler_map()
         handler = handlers.get(tool_name)
         if not handler:
             return json.dumps({"error": f"Unknown tool: {tool_name}"})
@@ -2728,30 +2740,45 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 return cached
 
-        # --- LLM routing strategy ---
-        # 1. Simple/conversational queries → try free LLM providers first (cost=0)
-        # 2. Complex queries needing tool use → use Claude API (has tool use)
-        # 3. If all LLMs fail → rule-based fallback
+        # --- LLM routing strategy (v3.4 -- free providers handle tools) ---
+        # 1. Simple/conversational queries -> free LLM providers (no tools, cost=0)
+        # 2. Tool-use queries -> free LLM providers WITH tools (cost=0)
+        # 3. Claude API -> LAST RESORT paid fallback (only if free fails)
+        # 4. Rule-based fallback
         _needs_tools = self._query_needs_tools(user_message)
         api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 
-        # Try free LLM providers first for simple queries
+        # Path A: Simple queries -> free LLM providers (no tools)
         if not _needs_tools:
             router_result = self._chat_with_llm_router(
                 user_message, conversation_history, enrichment_context
             )
             if router_result:
-                logger.info("NOVA MODE: LLM Router (free provider) responded successfully")
+                logger.info("NOVA MODE: LLM Router (free provider, no tools) responded successfully")
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 if router_result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
                     _set_response_cache(cache_key, router_result)
                 return router_result
 
-        # Claude API for tool-use queries or when free LLMs failed
+        # Path B: Tool-use queries -> free LLM providers WITH tools
+        if _needs_tools:
+            free_tool_result = self._chat_with_free_llm_tools(
+                user_message, conversation_history, enrichment_context
+            )
+            if free_tool_result:
+                logger.info("NOVA MODE: Free LLM with tools responded successfully (provider=%s)",
+                            free_tool_result.get("llm_provider", "unknown"))
+                _nova_metrics.record_latency((time.time() - _t0) * 1000)
+                if free_tool_result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
+                    _set_response_cache(cache_key, free_tool_result)
+                return free_tool_result
+            logger.info("NOVA MODE: Free LLM tools returned None, falling back to Claude")
+
+        # Path C: Claude API -- LAST RESORT paid fallback
         if api_key:
             try:
-                logger.info("NOVA MODE: Using Claude API (Anthropic) for chat%s",
-                            " (tool-use required)" if _needs_tools else " (router fallback)")
+                logger.info("NOVA MODE: Using Claude API (LAST RESORT paid) for chat%s",
+                            " (tool-use)" if _needs_tools else " (router fallback)")
                 result = self._chat_with_claude(user_message, conversation_history, enrichment_context, api_key)
                 logger.info("NOVA MODE: Claude API response received successfully")
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
@@ -2900,6 +2927,276 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
             logger.warning("NOVA LLM Router failed: %s", e)
 
         return None
+
+    # ------------------------------------------------------------------
+    # Free LLM tool-calling path (v3.4 -- free providers handle tools)
+    # ------------------------------------------------------------------
+
+    # Provider IDs that support OpenAI-compatible tool calling (free tier)
+    _FREE_TOOL_PROVIDERS = [
+        "groq", "cerebras", "mistral", "xai", "sambanova",
+        "openrouter", "nvidia_nim", "cloudflare",
+    ]
+
+    def _chat_with_free_llm_tools(self, user_message: str,
+                                   conversation_history: Optional[list],
+                                   enrichment_context: Optional[dict]) -> Optional[dict]:
+        """Try free LLM providers WITH tool calling via OpenAI-compatible format.
+
+        Multi-turn tool iteration loop (max 3 iterations to respect rate limits).
+        On any failure or poor quality, returns None to signal fallback to Claude.
+
+        Flow:
+            1. Send query + tool definitions to best available free provider
+            2. If provider returns tool_calls: execute tools, feed results back
+            3. Repeat until provider returns text (or max iterations hit)
+            4. Verify response grounding against tool data
+            5. Return structured response dict or None
+        """
+        try:
+            from llm_router import call_llm, classify_task, TASK_COMPLEX
+        except ImportError:
+            logger.debug("llm_router module not available, skipping free LLM tools path")
+            return None
+
+        # Build messages
+        messages = []
+        if conversation_history:
+            recent = conversation_history[-6:]
+            for msg in recent:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if role in ("user", "assistant") and isinstance(content, str) and content:
+                    messages.append({"role": role, "content": content})
+        messages.append({"role": "user", "content": user_message})
+
+        # System prompt (includes tool-use instructions for free LLMs)
+        system_prompt = (
+            "You are Nova, a recruitment marketing AI assistant built by Joveo. "
+            "You have access to tools for looking up recruitment data. "
+            "RULES: (1) ALWAYS use the provided tools to answer data questions -- "
+            "NEVER invent CPC, CPA, salary, or benchmark numbers. "
+            "(2) If a tool returns no data, say so honestly. "
+            "(3) Answer concisely: 2-5 sentences for data queries, cite tool sources. "
+            "(4) If the question is missing location, industry, or role, ASK the user. "
+            "(5) Do NOT assume a country or location."
+        )
+        if enrichment_context:
+            context_summary = _summarize_enrichment(enrichment_context)
+            if context_summary:
+                system_prompt += f"\n\nCurrent session context:\n{context_summary}"
+
+        # Get tool definitions (Anthropic format -- llm_router auto-converts to OpenAI)
+        tool_defs = self.get_tool_definitions()
+        # Strip cache_control from tool defs (Anthropic-only, would cause errors)
+        clean_tools = []
+        for td in tool_defs:
+            clean = {k: v for k, v in td.items() if k != "cache_control"}
+            clean_tools.append(clean)
+
+        tools_used = []
+        sources = set()
+        tool_call_details = []
+        tool_results_raw = []
+        max_iterations = 3  # Conservative: 3 iterations to respect free-tier rate limits
+        active_provider = None  # Lock to same provider for multi-turn
+
+        task_type = classify_task(user_message)
+        # Use COMPLEX routing for tool queries (best free providers first)
+        if task_type not in (TASK_COMPLEX,):
+            task_type = TASK_COMPLEX
+
+        for iteration in range(max_iterations):
+            try:
+                if active_provider:
+                    # Continue with same provider for multi-turn tool conversation.
+                    # If forced provider fails, bail immediately rather than retrying --
+                    # the conversation state is tied to this specific provider.
+                    result = call_llm(
+                        messages=messages,
+                        system_prompt=system_prompt,
+                        max_tokens=2048,
+                        tools=clean_tools,
+                        force_provider=active_provider,
+                        query_text=user_message,
+                    )
+                    if not result or result.get("error") or not (
+                        result.get("text") or result.get("tool_calls")
+                    ):
+                        logger.warning("Free LLM tools: forced provider %s failed on iter %d, "
+                                       "bailing to Claude", active_provider, iteration)
+                        return None
+                else:
+                    # First call: let router pick best available free provider
+                    result = call_llm(
+                        messages=messages,
+                        system_prompt=system_prompt,
+                        max_tokens=2048,
+                        task_type=task_type,
+                        tools=clean_tools,
+                        query_text=user_message,
+                        preferred_providers=self._FREE_TOOL_PROVIDERS,
+                    )
+                    active_provider = (result or {}).get("provider")
+                    # Guard: if router fell through to a paid provider, bail out
+                    # so the dedicated _chat_with_claude path handles it instead
+                    _PAID_PROVIDERS = {"gpt4o", "claude", "claude_opus"}
+                    if active_provider in _PAID_PROVIDERS:
+                        logger.info("Free LLM tools: router fell through to paid provider %s, "
+                                    "returning None for Claude fallback path", active_provider)
+                        return None
+            except Exception as e:
+                logger.warning("Free LLM tools call failed (iter %d): %s", iteration, e)
+                return None  # Fall back to Claude
+
+            if not result or result.get("error"):
+                logger.warning("Free LLM tools: provider returned error: %s",
+                               (result or {}).get("error", "unknown"))
+                return None  # Fall back to Claude
+
+            # Check if this is a tool_calls response
+            tool_calls = (result or {}).get("tool_calls")
+            if tool_calls:
+                # Guard: cap tool calls per response to prevent hallucinated bulk calls
+                if len(tool_calls) > 5:
+                    logger.warning("Free LLM tools: %s returned %d tool_calls (>5 limit), "
+                                   "truncating to 5", active_provider, len(tool_calls))
+                    tool_calls = tool_calls[:5]
+                logger.info("Free LLM tools: %s returned %d tool_calls (iter %d)",
+                            active_provider, len(tool_calls), iteration)
+
+                # Build assistant message with tool_calls for conversation history
+                raw_message = result.get("raw_message", {})
+                assistant_msg = {
+                    "role": "assistant",
+                    "content": raw_message.get("content") or None,
+                    "tool_calls": tool_calls,
+                }
+                messages.append(assistant_msg)
+
+                # Execute each tool call
+                for tc in tool_calls:
+                    tc_id = tc.get("id", "")
+                    tc_fn = tc.get("function", {})
+                    tool_name = tc_fn.get("name", "")
+                    arguments_str = tc_fn.get("arguments", "{}")
+
+                    # Parse arguments JSON (free models sometimes return malformed JSON)
+                    try:
+                        tool_input = json.loads(arguments_str) if isinstance(arguments_str, str) else arguments_str
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning("Free LLM tools: malformed JSON in tool args for %s: %s",
+                                       tool_name, arguments_str[:200])
+                        tool_input = {}
+
+                    # Validate tool exists before executing (dynamic lookup from execute_tool)
+                    _valid_tools = set(self._get_tool_handler_names())
+                    if tool_name not in _valid_tools:
+                        logger.warning("Free LLM tools: hallucinated tool name '%s', skipping", tool_name)
+                        tool_result_content = json.dumps({"error": f"Unknown tool: {tool_name}"})
+                    else:
+                        tools_used.append(tool_name)
+                        logger.info("Free LLM tools: executing %s(%s)",
+                                    tool_name, json.dumps(tool_input)[:200])
+                        tool_result_content = self.execute_tool(tool_name, tool_input)
+
+                    # Track source and data quality
+                    has_data = False
+                    try:
+                        result_parsed = json.loads(tool_result_content)
+                        if "source" in result_parsed:
+                            sources.add(result_parsed["source"])
+                        has_data = not result_parsed.get("error")
+                        tool_call_details.append({
+                            "tool": tool_name,
+                            "has_data": has_data,
+                            "source": result_parsed.get("source", ""),
+                        })
+                    except (json.JSONDecodeError, TypeError):
+                        has_data = bool(tool_result_content)
+                        tool_call_details.append({
+                            "tool": tool_name, "has_data": has_data, "source": "",
+                        })
+
+                    tool_results_raw.append(tool_result_content)
+
+                    # Add guardrail for empty tool results
+                    if not has_data:
+                        tool_result_content = (
+                            "[TOOL RETURNED NO DATA. Do NOT invent or estimate numbers. "
+                            "Tell the user you do not have reliable data for this specific query. "
+                            "Offer to help with a related question instead.]\n" + tool_result_content
+                        )
+
+                    # Add tool result to conversation (OpenAI format)
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc_id,
+                        "content": tool_result_content,
+                    })
+
+                # Continue loop for next LLM iteration with tool results
+                continue
+
+            # No tool_calls -- this is the final text response
+            response_text = (result.get("text") or "").strip()
+            if not response_text:
+                logger.warning("Free LLM tools: empty text response from %s", active_provider)
+                return None  # Fall back to Claude
+
+            # Quality gate: reject obviously bad responses
+            if len(response_text) < 20:
+                logger.warning("Free LLM tools: response too short (%d chars), falling back",
+                               len(response_text))
+                return None
+
+            # Source-grounded verification
+            response_text, grounding_score = _verify_response_grounding(
+                response_text, tool_results_raw
+            )
+
+            # Gemini verification
+            verification_status = "skipped"
+            verification_score = 1.0
+            try:
+                response_text, verification_score, verification_status = _llm_verify_response(
+                    response_text, tool_results_raw, user_message
+                )
+            except Exception:
+                verification_status = "error"
+                verification_score = 0.5
+
+            # Build confidence breakdown
+            confidence_breakdown = _build_confidence_breakdown(
+                tools_used, sources, tool_call_details,
+                verification_status=verification_status,
+                grounding_score=grounding_score,
+            )
+            if grounding_score < 0.5:
+                confidence_breakdown["overall"] = min(confidence_breakdown["overall"], 0.6)
+
+            provider = result.get("provider", "unknown")
+            model = result.get("model", "unknown")
+            logger.info("Free LLM tools: SUCCESS via %s/%s -- %d tools, %d iterations",
+                        provider, model, len(tools_used), iteration + 1)
+
+            return {
+                "response": response_text,
+                "sources": list(sources),
+                "confidence": confidence_breakdown["overall"],
+                "confidence_breakdown": confidence_breakdown,
+                "tools_used": tools_used,
+                "tool_iterations": iteration + 1,
+                "grounding_score": round(grounding_score, 2),
+                "verification_status": verification_status,
+                "verification_score": round(verification_score, 2),
+                "llm_provider": provider,
+                "llm_model": model,
+            }
+
+        # Exhausted iterations without final text
+        logger.warning("Free LLM tools: exhausted %d iterations without final response", max_iterations)
+        return None  # Fall back to Claude
 
     def _chat_with_claude(self, user_message: str, conversation_history: Optional[list],
                           enrichment_context: Optional[dict], api_key: str) -> dict:

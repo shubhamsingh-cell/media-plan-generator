@@ -515,6 +515,39 @@ def _build_gemini_request(
     return url, headers, json.dumps(payload).encode("utf-8")
 
 
+def _convert_tools_anthropic_to_openai(tools: List[Dict]) -> List[Dict]:
+    """Convert Anthropic tool definitions to OpenAI function-calling format.
+
+    Anthropic format:
+        {"name": "X", "description": "Y", "input_schema": {...}, "cache_control": ...}
+
+    OpenAI format:
+        {"type": "function", "function": {"name": "X", "description": "Y", "parameters": {...}}}
+
+    Strips Anthropic-specific keys (cache_control) that would cause 400 errors on
+    OpenAI-compatible endpoints.
+    """
+    openai_tools = []
+    for tool in tools:
+        name = tool.get("name", "")
+        if not name:
+            continue
+        fn: Dict[str, Any] = {
+            "name": name,
+            "description": tool.get("description", ""),
+        }
+        # Anthropic uses 'input_schema', OpenAI uses 'parameters'
+        schema = tool.get("input_schema") or tool.get("parameters")
+        if schema:
+            # Strip Anthropic-specific keys from schema copy
+            clean_schema = {k: v for k, v in schema.items() if k != "cache_control"}
+            fn["parameters"] = clean_schema
+        else:
+            fn["parameters"] = {"type": "object", "properties": {}}
+        openai_tools.append({"type": "function", "function": fn})
+    return openai_tools
+
+
 def _build_openai_request(
     provider_id: str,
     messages: List[Dict],
@@ -534,7 +567,23 @@ def _build_openai_request(
     for msg in messages:
         role = msg.get("role", "user")
         content = msg.get("content", "")
-        if isinstance(content, str) and content:
+
+        # Pass through tool result messages as-is (role="tool")
+        if role == "tool":
+            api_messages.append({
+                "role": "tool",
+                "tool_call_id": msg.get("tool_call_id", ""),
+                "content": str(msg.get("content", "")),
+            })
+        # Pass through assistant messages that contain tool_calls
+        elif role == "assistant" and msg.get("tool_calls"):
+            assistant_msg: Dict[str, Any] = {"role": "assistant"}
+            # OpenAI spec: content can be null for assistant+tool_calls
+            assistant_msg["content"] = content if content else None
+            assistant_msg["tool_calls"] = msg["tool_calls"]
+            api_messages.append(assistant_msg)
+        # Regular text messages
+        elif isinstance(content, str) and content:
             api_messages.append({"role": role, "content": content})
 
     payload: Dict[str, Any] = {
@@ -543,6 +592,13 @@ def _build_openai_request(
         "max_tokens": max_tokens,
         "temperature": 0.7,
     }
+
+    # Add tools to payload if provided (convert Anthropic -> OpenAI format)
+    if tools:
+        openai_tools = _convert_tools_anthropic_to_openai(tools)
+        if openai_tools:
+            payload["tools"] = openai_tools
+            payload["tool_choice"] = "auto"
 
     headers = {
         "Content-Type": "application/json",
@@ -626,7 +682,14 @@ def _parse_gemini_response(resp_data: Dict) -> Dict[str, Any]:
 
 
 def _parse_openai_response(resp_data: Dict) -> Dict[str, Any]:
-    """Parse OpenAI-compatible response to normalized format."""
+    """Parse OpenAI-compatible response to normalized format.
+
+    Handles both regular text responses and tool_calls responses.
+    When tool_calls are present, result includes:
+        - tool_calls: list of OpenAI tool_call objects
+        - raw_message: full assistant message for conversation threading
+        - stop_reason: "tool_calls" (indicating tools need to be executed)
+    """
     try:
         choices = resp_data.get("choices", [])
         if not choices:
@@ -634,13 +697,23 @@ def _parse_openai_response(resp_data: Dict) -> Dict[str, Any]:
         message = choices[0].get("message", {})
         text = message.get("content", "") or ""
         usage = resp_data.get("usage", {})
-        return {
+
+        result: Dict[str, Any] = {
             "text": text.strip(),
             "input_tokens": usage.get("prompt_tokens", 0),
             "output_tokens": usage.get("completion_tokens", 0),
             "model": resp_data.get("model", ""),
             "stop_reason": choices[0].get("finish_reason", "stop"),
         }
+
+        # Handle tool calls in response
+        tool_calls = message.get("tool_calls")
+        if tool_calls:
+            result["tool_calls"] = tool_calls
+            # Preserve full message so caller can append it to conversation history
+            result["raw_message"] = message
+
+        return result
     except Exception as e:
         return {"text": "", "error": str(e)}
 
@@ -689,7 +762,7 @@ def call_llm(
         system_prompt: System prompt string
         max_tokens: Max output tokens
         task_type: Override task classification (or auto-detect from query_text)
-        tools: Tool definitions (only supported by Claude provider)
+        tools: Tool definitions (Anthropic format, auto-converted for OpenAI providers)
         force_provider: Force a specific provider (skip routing)
         query_text: User query for task classification (if task_type not given)
         preferred_providers: Optional list of provider IDs to try first before
@@ -716,9 +789,8 @@ def call_llm(
         task_type = classify_task(query_text)
     task_type = task_type or TASK_CONVERSATIONAL
 
-    # If tools are provided, force Claude (only provider with tool_use support)
-    if tools:
-        force_provider = CLAUDE
+    # Tools are now supported by all OpenAI-compatible providers (auto-converted
+    # from Anthropic format in _build_openai_request).  No longer force Claude.
 
     attempts: List[Dict[str, Any]] = []
     excluded: List[str] = []
@@ -790,14 +862,17 @@ def call_llm(
             provider, messages, system_prompt, max_tokens, tools,
             timeout_override=remaining,
         )
+        _has_response = bool(
+            result.get("text") or result.get("raw_content") or result.get("tool_calls")
+        )
         attempts.append({
             "provider": provider,
-            "status": "success" if result.get("text") else "failed",
+            "status": "success" if _has_response else "failed",
             "latency_ms": result.get("latency_ms", 0),
             "error": result.get("error", ""),
         })
 
-        if result.get("text"):
+        if _has_response:
             result["task_type"] = task_type
             result["fallback_used"] = attempt_num > 0
             result["attempts"] = attempts
@@ -888,8 +963,8 @@ def _call_single_provider(
         else:
             parsed = {"text": "", "error": "Unknown parse style"}
 
-        # Record success/failure
-        if parsed.get("text") or parsed.get("raw_content"):
+        # Record success/failure (tool_calls count as success even without text)
+        if parsed.get("text") or parsed.get("raw_content") or parsed.get("tool_calls"):
             if state:
                 state.record_success(latency_ms)
             logger.info(
