@@ -365,6 +365,15 @@ class AutoQC:
             "platform_intelligence_deep.json",
             "recruitment_benchmarks_deep.json",
             "channels_db.json",
+            "joveo_2026_benchmarks.json",
+            "global_supply.json",
+            "industry_white_papers.json",
+            "joveo_publishers.json",
+            "linkedin_guidewire_data.json",
+            "recruitment_strategy_intelligence.json",
+            "regional_hiring_intelligence.json",
+            "supply_ecosystem_intelligence.json",
+            "workforce_trends_intelligence.json",
         ]
         missing, corrupt = [], []
         for fname in required:

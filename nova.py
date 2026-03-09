@@ -629,84 +629,81 @@ class Nova:
 
         return f"""You are Nova, Joveo's recruitment marketing AI assistant. Joveo optimizes job ad spend across {total_pubs:,}+ publishers in {len(pub_countries)} countries via programmatic advertising.
 
-## CRITICAL: ASK BEFORE ANSWERING
+## RULE #1: BE PRECISE AND CONCISE
 
-Before providing data, check if the user's question has enough specifics. If ANY of these are missing, ASK FIRST:
-- **Salary questions** without a location/country -> Ask: "Which country or region? Salary ranges vary significantly by location."
-- **Budget questions** without a budget amount -> Ask: "What's your total budget? I need a number to create an allocation plan."
-- **Channel/board questions** without a country -> Ask: "Which country or region are you hiring in?"
-- **Benchmark questions** without an industry -> Ask: "Which industry? Benchmarks differ dramatically by sector."
+Answer ONLY what was asked. Do NOT add extra context, trends, seniority breakdowns, market commentary, or "bottom line" summaries unless the user explicitly asks for them.
 
-Do NOT default to US/USD data when the user hasn't specified a location. Always ask first.
+- **Simple questions** (CPA for X, salary for Y, best board for Z): 1-3 sentences MAX. One number or range. One source citation. Stop.
+- **Comparison questions** ("Indeed vs LinkedIn"): Short table or 2-3 bullet points. No essays.
+- **Strategic questions** ("build me a media plan"): Full response with sections. This is the ONLY case for long answers.
 
-When a country IS specified: use LOCAL CURRENCY (INR for India, GBP for UK, EUR for Germany, etc.), reference local boards, cite local norms.
+If the user wants more detail, they will ask. Never volunteer information beyond the question scope.
 
-## REASONING
+## RULE #2: ASK BEFORE ANSWERING (WHEN AMBIGUOUS)
 
-- Identify intent, check for missing parameters (location, role, industry, budget), ask before calling tools if unclear.
-- Call multiple tools when questions span domains. Cross-reference and flag discrepancies.
-- Synthesize data into actionable insights; do not dump raw data.
+If the question is missing critical context, do NOT guess. Instead, briefly state what you can help with and ask which they need:
 
-## DATA SOURCES (via tools)
+- **Missing location**: "I can provide [topic] data -- which country/region? (Benchmarks vary significantly by location.)"
+- **Missing industry**: "Which industry? I have benchmarks for 22 sectors. Here are the top ones: healthcare, technology, retail, logistics, finance..."
+- **Missing role type**: "What type of role? I can break this down by: blue collar (hourly/trades), white collar (professional), clinical, executive."
+- **Missing budget**: "What's your total budget? I need a number to build an allocation."
+- **Ambiguous scope**: Present 2-4 topic options: "I can share: (1) CPA benchmarks, (2) platform recommendations, (3) salary data, or (4) market trends. Which would be most useful?"
 
-1. `query_publishers` -- {total_pubs:,}+ publishers, {len(pub_countries)} countries, search by name/category/country
-2. `query_global_supply` -- {len(supply_countries)} countries: boards, DEI boards, monthly spend
-3. `query_channels` -- channel recs by industry (traditional + non-traditional)
-4. `query_knowledge_base` -- 42 sources: CPC/CPA/CPH benchmarks, trends, platform insights
-5. `query_budget_projection` -- spend allocation with projected clicks/apps/hires
-6. `query_salary_data` -- compensation ranges by role and location
-7. `query_market_demand` -- applicant ratios, source-of-hire, hiring strength
-8. `query_platform_deep` -- 91 platforms: CPC, CPA, apply rates, features, pros/cons (best for comparisons)
-9. `query_recruitment_benchmarks` -- 22 industries: CPA/CPC/CPH with YoY trends (use over query_knowledge_base for industry data)
-10. `query_employer_branding` -- ROI data, best practices, channel effectiveness
-11. `query_regional_market` -- US regions + global markets: boards, salaries, regulations
-12. `query_supply_ecosystem` -- programmatic mechanics, bidding, publisher waterfall
-13. `query_workforce_trends` -- Gen-Z, remote work, DEI, salary expectations
-14. `query_white_papers` -- 47 industry reports (use when citing research)
-15. `query_linkedin_guidewire` -- LinkedIn hiring case study, peer benchmarks
-16. `query_location_profile` -- location cost, workforce, supply data
-17. `query_ad_platform` -- platform recs by role type with CPC benchmarks
-18. `suggest_smart_defaults` -- auto-detect budget/channel defaults from partial info
-19. `query_employer_brand` -- employer brand intel: Glassdoor ratings, hiring channels, strategies for 30+ major companies
-20. `query_ad_benchmarks` -- CPC/CPM/CTR by platform (Google, Meta, LinkedIn, Indeed, Programmatic) per industry
-21. `query_hiring_insights` -- computed insights: hiring difficulty index (0-1), salary competitiveness, days until peak hiring
-22. `query_collar_strategy` -- blue/white collar classification, differentiated channel mix, CPC/CPA ranges, messaging tone, time-to-fill
-23. `query_market_trends` -- 4-year CPC/CPA trends, seasonal multipliers by collar type, YoY changes, cost projections
-24. `query_role_decomposition` -- break role into seniority levels (junior/mid/senior/lead) with hiring splits, CPA multipliers, collar classification
-25. `simulate_what_if` -- scenario analysis: budget changes, channel additions/removals, projected impact on hires, CPA, ROI
-26. `query_skills_gap` -- skills availability analysis: required/scarce/abundant skills, scarcity score, CPA difficulty adjustment
+Do NOT default to US/USD when location isn't specified. Ask first.
+When a country IS specified: use LOCAL CURRENCY (INR for India, GBP for UK, EUR for Germany), reference local boards.
+
+## RULE #3: DATA ACCURACY -- ONLY CITE TOOL RESULTS
+
+This is critical for trust:
+- ONLY state numbers that appear in tool results. Never round, interpolate, or blend numbers from different sources.
+- When tool results give a RANGE (e.g., $25-$89), cite the range. Do not pick a midpoint.
+- If two tools return conflicting numbers, state both with sources: "Industry-level CPA: $45 (recruitment_benchmarks). Occupation-level: $11-$40 (joveo_2026_benchmarks). The difference reflects aggregation level."
+- NEVER invent statistics. NEVER present estimates as facts. NEVER add percentages or trends not in tool data.
+
+**Data source precedence** (when conflicts exist):
+1. Live API data (BLS, JOLTS, ads APIs) -- most current
+2. joveo_2026_benchmarks -- Joveo's own verified data
+3. recruitment_benchmarks_deep -- industry aggregates
+4. platform_intelligence_deep -- platform-level data
+5. General KB / curated -- lowest priority
 
 ## TOOL STRATEGY
 
-Always call tools before answering data questions. Use `query_platform_deep` for platform comparisons, `query_recruitment_benchmarks` for industry-specific data, `query_white_papers` for evidence.
-Use `query_hiring_insights` for strategic timing and difficulty questions.
-Use `query_employer_brand` when discussing specific company hiring practices.
-Use `query_ad_benchmarks` for platform cost comparisons.
-Use `query_collar_strategy` when comparing blue collar vs white collar roles, or when the user mentions warehouse, logistics, hourly, or frontline workers.
-Use `query_market_trends` for CPC/CPA trend questions, seasonal patterns, or cost forecasting.
-Use `query_role_decomposition` when users ask about seniority breakdown, role decomposition, or hiring mix distribution.
-Use `simulate_what_if` when users ask "what if" questions about budget changes, adding/removing channels, or scenario analysis.
-Use `query_skills_gap` when users ask about skills availability, hiring difficulty for specific skills, or which skills are scarce for a role.
+Always call tools before answering data questions.
+- `query_recruitment_benchmarks` -- industry CPA/CPC/CPH (22 industries)
+- `query_ad_benchmarks` -- platform CPC/CPM/CTR per industry
+- `query_platform_deep` -- 91 platforms: features, pros/cons (best for comparisons)
+- `query_salary_data` -- compensation by role+location
+- `query_market_demand` -- JOLTS, applicant ratios, hiring strength
+- `query_location_profile` -- location cost, workforce, supply
+- `query_collar_strategy` -- blue/white collar strategy, CPC/CPA ranges
+- `query_market_trends` -- CPC/CPA trends, seasonal multipliers
+- `query_budget_projection` -- spend allocation with projected hires
+- `query_role_decomposition` -- seniority breakdown with CPA multipliers
+- `simulate_what_if` -- scenario analysis for budget/channel changes
+- `query_skills_gap` -- skills availability and hiring difficulty
+- `query_employer_brand` -- company-specific hiring intel
+- `query_publishers` -- {total_pubs:,}+ publishers, {len(pub_countries)} countries
+- `query_global_supply` -- {len(supply_countries)} countries: boards, spend
+- `query_channels` -- channel recs by industry
+- `query_knowledge_base` -- general benchmarks and insights
+- `query_employer_branding` -- ROI data, best practices
+- `query_regional_market` -- regional boards, salaries, regulations
+- `query_supply_ecosystem` -- programmatic mechanics, bidding
+- `query_workforce_trends` -- Gen-Z, remote work, DEI trends
+- `query_white_papers` -- 47 industry reports
+- `query_linkedin_guidewire` -- LinkedIn case study
+- `query_ad_platform` -- platform recs by role type
+- `query_hiring_insights` -- hiring difficulty, salary competitiveness
+- `suggest_smart_defaults` -- auto-detect defaults from partial info
 
-## RESPONSE LENGTH — MATCH THE QUESTION
+## CONFIDENCE CALIBRATION
 
-- **Simple factual questions** ("which is the biggest job board?", "what is CPC?"): Give a 1-3 sentence answer. Name the answer, add ONE key stat if relevant. Do NOT elaborate unless asked.
-- **Moderate questions** ("compare Indeed vs LinkedIn"): 1-2 short paragraphs with key data points.
-- **Complex/strategic questions** ("build me a media plan for healthcare hiring in Texas"): Full detailed response with sections, data, recommendations.
-- NEVER over-explain simple questions. If the user wants more detail, they will ask follow-up questions.
-
-## RESPONSE RULES
-
-- Cite sources for every data point. Note convergence or flag discrepancies.
-- Tool results include structured confidence: `data_confidence` (0.0-1.0), `data_freshness` (live_api/cached_api/curated/fallback), and `sources` list. Use these to calibrate your certainty:
-  - confidence >= 0.8 + live_api/cached_api: state directly as reliable data
-  - confidence 0.5-0.8 or curated: qualify as "based on available data"
-  - confidence < 0.5 or fallback: label as estimate or approximation
-  - When `trend_direction` is included (rising/falling/stable), mention the trend.
-- High confidence (3+ sources): state directly. Medium (1-2): qualify. Low: label as estimate. No data: say so.
-- NEVER invent statistics. NEVER present estimates as facts.
-- Lead with the answer, use markdown, end complex answers with a recommendation.
-- Proactively surface related insights. Flag if budget is too low/high.
+Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these:
+- confidence >= 0.8 + live_api: state as reliable data
+- confidence 0.5-0.8 or curated: qualify as "based on available data"
+- confidence < 0.5 or fallback: label as estimate
+- No data: say "I don't have reliable data for this"
 """
 
     # ------------------------------------------------------------------
@@ -2730,10 +2727,13 @@ Use `query_skills_gap` when users ask about skills availability, hiring difficul
         # Build system prompt (condensed version for free LLMs -- no tool instructions)
         system_prompt = (
             "You are Nova, a recruitment marketing AI assistant built by Joveo. "
-            "You provide data-driven insights about recruitment advertising, "
-            "media planning, hiring benchmarks, and talent acquisition strategy. "
-            "Be concise, specific, and cite data when possible. "
-            "If you don't know something specific, say so honestly rather than guessing."
+            "RULES: (1) Answer ONLY what was asked -- 1-3 sentences for simple questions. "
+            "Do NOT volunteer extra context, trends, or commentary. "
+            "(2) If the question is missing location, industry, or role type, ASK instead of guessing. "
+            "Present 2-3 options for what you can help with and let the user choose. "
+            "Do NOT assume a country or location from prior conversation context. "
+            "(3) NEVER invent statistics. If you don't have data, say so. "
+            "(4) Be concise, specific, and cite sources when possible."
         )
         # Add enrichment context if available
         if enrichment_context:
@@ -2803,6 +2803,7 @@ Use `query_skills_gap` when users ask about skills availability, hiring difficul
         tools_used = []
         sources = set()
         tool_call_details = []  # Track detailed tool interactions for debugging
+        tool_results_raw = []  # Collect raw tool results for grounding verification
         max_iterations = 8  # Allow more iterations for complex multi-tool queries
 
         adaptive_max_tokens, selected_model = _classify_query_complexity(user_message)
@@ -2920,6 +2921,7 @@ Use `query_skills_gap` when users ask about skills availability, hiring difficul
                                 "source": "",
                             })
 
+                        tool_results_raw.append(tool_result)  # For grounding verification
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": tool_id,
@@ -2937,12 +2939,22 @@ Use `query_skills_gap` when users ask about skills availability, hiring difficul
                         response_text += block.get("text", "")
 
                 confidence = _estimate_confidence_v2(tools_used, sources, tool_call_details)
+
+                # Source-grounded verification: check numbers trace to tool data
+                response_text, grounding_score = _verify_response_grounding(
+                    response_text, tool_results_raw
+                )
+                # Penalize confidence if grounding is poor
+                if grounding_score < 0.5:
+                    confidence = min(confidence, 0.6)
+
                 return {
                     "response": response_text,
                     "sources": list(sources),
                     "confidence": confidence,
                     "tools_used": tools_used,
                     "tool_iterations": iteration + 1,
+                    "grounding_score": round(grounding_score, 2),
                 }
 
         # If we exhausted iterations, extract any partial text
@@ -3822,24 +3834,30 @@ def _estimate_confidence_v2(tools_used: list, sources: set, tool_details: list) 
 
 
 def _build_conversation_memory(history: list) -> str:
-    """Extract key entities and context from conversation history.
+    """Extract key entities from the LATEST user message context only.
 
-    Scans previous messages to build a running memory of:
-    - Roles mentioned
-    - Locations discussed
-    - Industries referenced
-    - Budget figures
-    - Key decisions or preferences expressed
+    IMPORTANT: Only extract context from the most recent user message and the
+    preceding assistant response.  Older context (e.g., a country mentioned 5
+    turns ago for a different role) must NOT bleed into the current query.
+    If the latest message introduces a new role/topic without specifying a
+    location, the location should be treated as UNKNOWN -- not inherited from
+    earlier turns.
 
-    This helps Claude maintain context across multi-turn conversations.
+    This prevents hallucination where Nova assumes a country/location from an
+    earlier part of the conversation applies to a completely new question.
     """
+    if not history:
+        return ""
+
+    # Only look at the last 2 messages (latest user + preceding assistant)
+    recent = history[-2:] if len(history) >= 2 else history[-1:]
+
     roles_mentioned = set()
     locations_mentioned = set()
     industries_mentioned = set()
     budgets_mentioned = []
-    key_topics = []
 
-    for msg in history:
+    for msg in recent:
         content = msg.get("content", "")
         if not isinstance(content, str):
             continue
@@ -3852,7 +3870,7 @@ def _build_conversation_memory(history: list) -> str:
                     roles_mentioned.add(category)
                     break
 
-        # Detect locations
+        # Detect locations -- ONLY from recent context
         detected_country = _detect_country(content_lower)
         if detected_country:
             locations_mentioned.add(detected_country)
@@ -3869,14 +3887,16 @@ def _build_conversation_memory(history: list) -> str:
 
         # Detect budgets
         budget = _extract_budget(content_lower)
-        if budget != 50000.0:  # 50000 is the default, skip it
+        if budget != 50000.0:
             budgets_mentioned.append(budget)
 
     parts = []
     if roles_mentioned:
-        parts.append(f"- Roles discussed: {', '.join(sorted(roles_mentioned))}")
+        parts.append(f"- Current topic roles: {', '.join(sorted(roles_mentioned))}")
     if locations_mentioned:
-        parts.append(f"- Locations mentioned: {', '.join(sorted(locations_mentioned))}")
+        parts.append(f"- Current location context: {', '.join(sorted(locations_mentioned))}")
+    else:
+        parts.append("- Location: NOT SPECIFIED in current message (do NOT assume from earlier conversation -- ask the user)")
     if industries_mentioned:
         parts.append(f"- Industries: {', '.join(sorted(industries_mentioned))}")
     if budgets_mentioned:
@@ -3915,6 +3935,108 @@ def _summarize_enrichment(context: dict) -> str:
             names = [r.get("title", str(r)) if isinstance(r, dict) else str(r) for r in target[:5]]
             parts.append(f"Target Roles: {', '.join(names)}")
     return "\n".join(parts) if parts else "No additional context available."
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SOURCE-GROUNDED RESPONSE VERIFICATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_DOLLAR_RE = re.compile(r'\$[\d,]+(?:\.\d+)?(?:\s*[KkMm])?')
+_PCT_RE = re.compile(r'[\d.]+\s*%')
+
+
+def _extract_numbers_from_text(text: str) -> List[float]:
+    """Extract dollar amounts and percentages from response text."""
+    numbers = []
+    for match in _DOLLAR_RE.findall(text):
+        try:
+            cleaned = match.replace('$', '').replace(',', '').strip()
+            if cleaned.upper().endswith('K'):
+                numbers.append(float(cleaned[:-1]) * 1000)
+            elif cleaned.upper().endswith('M'):
+                numbers.append(float(cleaned[:-1]) * 1000000)
+            else:
+                numbers.append(float(cleaned))
+        except ValueError:
+            pass
+    return numbers
+
+
+def _extract_numbers_from_tool_results(tool_results_raw: list) -> set:
+    """Extract all numeric values from tool result JSONs."""
+    numbers = set()
+
+    def _walk(obj, depth=0):
+        if depth > 8:
+            return
+        if isinstance(obj, (int, float)) and obj != 0:
+            numbers.add(float(obj))
+        elif isinstance(obj, str):
+            for n in _extract_numbers_from_text(obj):
+                numbers.add(n)
+        elif isinstance(obj, dict):
+            for v in obj.values():
+                _walk(v, depth + 1)
+        elif isinstance(obj, (list, tuple)):
+            for item in obj:
+                _walk(item, depth + 1)
+
+    for raw in tool_results_raw:
+        try:
+            if isinstance(raw, str):
+                parsed = json.loads(raw)
+                _walk(parsed)
+            elif isinstance(raw, dict):
+                _walk(raw)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return numbers
+
+
+def _verify_response_grounding(response_text: str,
+                                tool_results_raw: list) -> Tuple[str, float]:
+    """Verify that numbers in the response trace back to tool results.
+
+    Returns (possibly_modified_response, grounding_score).
+    grounding_score: 1.0 = all numbers verified, 0.0 = none verified.
+    """
+    if not tool_results_raw:
+        return response_text, 1.0  # No tools used, nothing to verify
+
+    response_numbers = _extract_numbers_from_text(response_text)
+    if not response_numbers:
+        return response_text, 1.0  # No numbers to verify
+
+    tool_numbers = _extract_numbers_from_tool_results(tool_results_raw)
+    if not tool_numbers:
+        return response_text, 0.5  # Tools returned no numbers, can't verify
+
+    verified = 0
+    for num in response_numbers:
+        # Check if number exists in tool results (within 15% tolerance)
+        for tool_num in tool_numbers:
+            if tool_num == 0:
+                continue
+            ratio = num / tool_num if tool_num != 0 else float('inf')
+            if 0.85 <= ratio <= 1.15:
+                verified += 1
+                break
+
+    grounding_score = verified / len(response_numbers) if response_numbers else 1.0
+
+    # If less than 50% of numbers are grounded, add a disclaimer
+    if grounding_score < 0.5 and len(response_numbers) >= 3:
+        response_text += (
+            "\n\n_Note: Some figures in this response may be approximations. "
+            "For verified benchmarks, please ask about specific metrics and I'll "
+            "pull the exact data from our sources._"
+        )
+        logger.warning(
+            "Response grounding check: %.0f%% of %d numbers verified (score=%.2f)",
+            grounding_score * 100, len(response_numbers), grounding_score
+        )
+
+    return response_text, grounding_score
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
