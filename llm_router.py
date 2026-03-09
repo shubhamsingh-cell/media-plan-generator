@@ -12,11 +12,14 @@ Provider priority (free-first, then paid by cost-efficiency):
     4. Mistral Small -- free tier, strong JSON + multilingual
     5. OpenRouter (Llama 4 Maverick) -- free models via single gateway
     6. xAI Grok -- free signup credits ($25), strong reasoning
+    7. SambaNova (Llama 3.1 405B) -- free, largest open model, fastest inference (RDU)
+    8. NVIDIA NIM (Llama 3.1 70B) -- free dev program, NVIDIA-optimized inference
+    9. Cloudflare Workers AI (Llama 3.3 70B) -- free 10K neurons/day, edge-distributed
 
     PAID TIER:
-    7. GPT-4o (OpenAI) -- paid, strong at structured + conversational + reasoning
-    8. Claude Sonnet (Anthropic) -- paid, high quality, strong tool_use
-    9. Claude Opus (Anthropic) -- paid, last resort, highest quality, most expensive
+    10. GPT-4o (OpenAI) -- paid, strong at structured + conversational + reasoning
+    11. Claude Sonnet (Anthropic) -- paid, high quality, strong tool_use
+    12. Claude Opus (Anthropic) -- paid, last resort, highest quality, most expensive
 
 Routing strategy for paid models:
     - STRUCTURED (JSON/benchmarks): GPT-4o before Claude (excellent JSON adherence)
@@ -32,7 +35,7 @@ Task classification:
     - CODE: formula generation, calculations, data transforms
 
 Each provider has independent circuit breaker (5 failures -> 60s cooldown)
-and per-minute rate tracking.
+and per-minute rate tracking.  12 total providers, 9 free + 3 paid.
 
 Stdlib-only, thread-safe.
 """
@@ -69,6 +72,9 @@ CEREBRAS = "cerebras"
 MISTRAL = "mistral"
 OPENROUTER = "openrouter"
 XAI = "xai"
+SAMBANOVA = "sambanova"
+NVIDIA_NIM = "nvidia_nim"
+CLOUDFLARE = "cloudflare"
 GPT4O = "gpt4o"
 CLAUDE = "claude"
 CLAUDE_OPUS = "claude_opus"
@@ -151,6 +157,40 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "timeout": 30,
         "max_tokens": 8192,
     },
+    SAMBANOVA: {
+        "name": "SambaNova (Llama 3.1 405B)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://api.sambanova.ai/v1/chat/completions",
+        "model": "Meta-Llama-3.1-405B-Instruct",
+        "env_key": "SAMBANOVA_API_KEY",
+        "rpm_limit": 10,  # 405B model has 10 RPM on free tier
+        "rpd_limit": 1000,
+        "timeout": 45,  # 405B is larger, allow more time
+        "max_tokens": 4096,
+    },
+    NVIDIA_NIM: {
+        "name": "NVIDIA NIM (Nemotron Nano 30B)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+        "model": "nvidia/nemotron-3-nano-30b-a3b",
+        "env_key": "NVIDIA_NIM_API_KEY",
+        "rpm_limit": 40,
+        "rpd_limit": 5000,
+        "timeout": 30,
+        "max_tokens": 4096,
+    },
+    CLOUDFLARE: {
+        "name": "Cloudflare Workers AI (Llama 3.3 70B)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1/chat/completions",
+        "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+        "env_key": "CLOUDFLARE_AI_TOKEN",
+        "env_key_account": "CLOUDFLARE_ACCOUNT_ID",  # Extra env var for account ID in URL
+        "rpm_limit": 300,  # Cloudflare has high RPM but neuron-based daily limit
+        "rpd_limit": 500,  # Conservative -- 10K neurons/day ~ 100-500 requests
+        "timeout": 30,
+        "max_tokens": 4096,
+    },
     GPT4O: {
         "name": "GPT-4o (OpenAI)",
         "api_style": "openai",  # OpenAI native format
@@ -187,7 +227,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 }
 
 # Task -> provider priority order
-# Strategy: 6 free providers first, then paid by cost-efficiency, Opus absolute last
+# Strategy: 9 free providers first, then paid by cost-efficiency, Opus absolute last
 #
 # Free tier strengths:
 #   Gemini: structured JSON, code, verification
@@ -195,16 +235,19 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 #   Mistral Small: structured JSON, multilingual, code
 #   OpenRouter (Llama 4 Maverick): strong general purpose (free models)
 #   xAI Grok: strong reasoning (free $25 signup credits)
+#   SambaNova (Llama 3.1 405B): largest open model, fastest inference (RDU hardware)
+#   NVIDIA NIM (Llama 3.1 70B): NVIDIA-optimized inference, diverse model catalog
+#   Cloudflare Workers AI (Llama 3.3 70B): edge-distributed, low latency, 10K neurons/day
 #
 # Paid tier strengths:
 #   GPT-4o: structured JSON, general reasoning, calculations
 #   Claude Sonnet: complex multi-step tool_use chains
 #   Claude Opus: last resort, highest quality
 TASK_ROUTING: Dict[str, List[str]] = {
-    TASK_STRUCTURED:     [GEMINI, MISTRAL, GROQ, CEREBRAS, OPENROUTER, XAI, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_CONVERSATIONAL: [GROQ, CEREBRAS, GEMINI, MISTRAL, OPENROUTER, XAI, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_COMPLEX:        [GROQ, CEREBRAS, GEMINI, OPENROUTER, MISTRAL, XAI, CLAUDE, GPT4O, CLAUDE_OPUS],
-    TASK_CODE:           [GEMINI, MISTRAL, GROQ, CEREBRAS, OPENROUTER, XAI, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_STRUCTURED:     [GEMINI, MISTRAL, GROQ, CEREBRAS, OPENROUTER, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_CONVERSATIONAL: [GROQ, CEREBRAS, GEMINI, MISTRAL, OPENROUTER, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_COMPLEX:        [GROQ, CEREBRAS, GEMINI, OPENROUTER, MISTRAL, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, CLAUDE, GPT4O, CLAUDE_OPUS],
+    TASK_CODE:           [GEMINI, MISTRAL, GROQ, CEREBRAS, OPENROUTER, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
 }
 
 # Keywords for task classification
@@ -431,7 +474,7 @@ def _build_openai_request(
     max_tokens: int,
     tools: Optional[List[Dict]] = None,
 ) -> Tuple[str, Dict[str, str], bytes]:
-    """Build an OpenAI-compatible API request (Groq, Cerebras, Mistral, xAI, OpenRouter)."""
+    """Build an OpenAI-compatible API request (Groq, Cerebras, Mistral, xAI, OpenRouter, SambaNova, NVIDIA NIM, Cloudflare)."""
     config = PROVIDER_CONFIG[provider_id]
     api_key = os.environ.get(config["env_key"], "").strip()
 
@@ -461,7 +504,17 @@ def _build_openai_request(
     extra = config.get("extra_headers")
     if extra and isinstance(extra, dict):
         headers.update(extra)
-    return config["endpoint"], headers, json.dumps(payload).encode("utf-8")
+
+    # Resolve dynamic endpoint variables (e.g., Cloudflare {account_id})
+    endpoint = config["endpoint"]
+    if "{account_id}" in endpoint:
+        acct_key = config.get("env_key_account", "CLOUDFLARE_ACCOUNT_ID")
+        account_id = os.environ.get(acct_key, "").strip()
+        if not account_id:
+            raise ValueError(f"Missing {acct_key} for Cloudflare Workers AI")
+        endpoint = endpoint.replace("{account_id}", account_id)
+
+    return endpoint, headers, json.dumps(payload).encode("utf-8")
 
 
 def _build_anthropic_request(
