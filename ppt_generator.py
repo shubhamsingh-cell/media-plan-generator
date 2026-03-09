@@ -34,6 +34,18 @@ try:
 except ImportError:
     research = None
 
+try:
+    import trend_engine as _trend_engine
+    _HAS_TREND_ENGINE = True
+except ImportError:
+    _HAS_TREND_ENGINE = False
+
+try:
+    import collar_intelligence as _collar_intel
+    _HAS_COLLAR_INTEL = True
+except ImportError:
+    _HAS_COLLAR_INTEL = False
+
 
 # ---------------------------------------------------------------------------
 # Constants & Color Palette (LinkedIn-inspired)
@@ -358,7 +370,8 @@ def _get_industry_alloc(industry: str, budget_str: str = "",
 
     # Step 4: Adjust for seniority mix (if roles provided)
     if roles:
-        roles_lower = " ".join(r.lower() for r in roles)
+        _role_strs = [r if isinstance(r, str) else (r.get("title", r.get("role", str(r))) if isinstance(r, dict) else str(r)) for r in roles]
+        roles_lower = " ".join(r.lower() for r in _role_strs)
         senior_keywords = ["executive", "director", "vp", "chief", "president",
                            "c-suite", "senior", "head of", "principal", "fellow"]
         junior_keywords = ["intern", "entry", "junior", "associate", "trainee",
@@ -584,13 +597,71 @@ def _add_multi_run_paragraph(tf, runs_data: List[Tuple], alignment=PP_ALIGN.LEFT
 def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str]:
     """Return benchmark data for the given industry.
 
-    Checks synthesized ad_platform_analysis first for live CPC/CPA data.
-    Falls back to hardcoded BENCHMARKS dict if no live data available.
+    v3 resolution cascade:
+    1. Synthesized ad_platform_analysis (live API data)
+    2. trend_engine.py dynamic benchmarks (with YoY trend arrows)
+    3. Hardcoded BENCHMARKS dict (static fallback)
+
+    Returns dict with keys: cpa, cpc, cph, apply_rate, plus optional
+    cpc_trend, cpa_trend (e.g. "+8.2% YoY") and confidence.
     """
     # Start with hardcoded fallback
     result = dict(BENCHMARKS.get(industry, BENCHMARKS["general_entry_level"]))
+    result["confidence"] = "curated"
 
-    # Override with live synthesized data if available
+    # Layer 2: trend_engine dynamic benchmarks (v3)
+    if _HAS_TREND_ENGINE:
+        try:
+            current_month = datetime.datetime.now().month
+            # Get CPC across platforms
+            cpc_vals = []
+            cpa_vals = []
+            trend_dirs = []
+            trend_yoys = []
+            for plat in ["google", "meta_fb", "indeed", "linkedin", "programmatic"]:
+                cpc_result = _trend_engine.get_benchmark(
+                    platform=plat, industry=industry or "general",
+                    metric="cpc", collar_type="both",
+                    location="", month=current_month,
+                )
+                if cpc_result and isinstance(cpc_result, dict):
+                    v = cpc_result.get("value", 0)
+                    if isinstance(v, (int, float)) and v > 0:
+                        cpc_vals.append(v)
+                        td = cpc_result.get("trend_direction", "stable")
+                        ty = cpc_result.get("trend_pct_yoy", 0)
+                        trend_dirs.append(td)
+                        trend_yoys.append(ty)
+                cpa_result = _trend_engine.get_benchmark(
+                    platform=plat, industry=industry or "general",
+                    metric="cpa", collar_type="both",
+                    location="", month=current_month,
+                )
+                if cpa_result and isinstance(cpa_result, dict):
+                    v = cpa_result.get("value", 0)
+                    if isinstance(v, (int, float)) and v > 0:
+                        cpa_vals.append(v)
+
+            if cpc_vals:
+                min_cpc = min(cpc_vals)
+                max_cpc = max(cpc_vals)
+                result["cpc"] = f"${min_cpc:.2f} - ${max_cpc:.2f}" if len(cpc_vals) > 1 else f"${min_cpc:.2f}"
+                result["confidence"] = "trend_engine"
+                # Trend annotation
+                if trend_yoys:
+                    avg_yoy = sum(trend_yoys) / len(trend_yoys)
+                    arrow = "+" if avg_yoy > 0 else ""
+                    dom_trend = max(set(trend_dirs), key=trend_dirs.count) if trend_dirs else "stable"
+                    result["cpc_trend"] = f"{arrow}{avg_yoy:.1f}% YoY"
+                    result["cpc_trend_direction"] = dom_trend
+            if cpa_vals:
+                min_cpa = min(cpa_vals)
+                max_cpa = max(cpa_vals)
+                result["cpa"] = f"${min_cpa:.0f} - ${max_cpa:.0f}" if len(cpa_vals) > 1 else f"${min_cpa:.0f}"
+        except Exception:
+            pass  # Fall through to synthesized or static
+
+    # Layer 1: Synthesized ad_platform_analysis overrides (live API data)
     if data:
         synthesized = data.get("_synthesized", {})
         if isinstance(synthesized, dict):
@@ -611,10 +682,12 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                     min_cpc = min(live_cpcs)
                     max_cpc = max(live_cpcs)
                     result["cpc"] = f"${min_cpc:.2f} - ${max_cpc:.2f}" if min_cpc != max_cpc else f"${min_cpc:.2f}"
+                    result["confidence"] = "live_api"
                 if live_cpas:
                     min_cpa = min(live_cpas)
                     max_cpa = max(live_cpas)
                     result["cpa"] = f"${min_cpa:.0f} - ${max_cpa:.0f}" if min_cpa != max_cpa else f"${min_cpa:.0f}"
+                    result["confidence"] = "live_api"
 
     return result
 
@@ -755,6 +828,22 @@ def _add_top_band(slide, left_text: str, right_text: str, band_color=NAVY):
     return band_h
 
 
+def _confidence_color(confidence: str) -> Tuple[RGBColor, str]:
+    """Return (color, label) for a confidence level string.
+
+    Green bold for live/high confidence, blue for curated, amber for fallback.
+    """
+    conf_lower = str(confidence).lower()
+    if conf_lower in ("live_api", "high", "synthesized"):
+        return (GREEN, "Live Data")
+    elif conf_lower in ("trend_engine", "cached_api"):
+        return (BLUE, "Trend Engine")
+    elif conf_lower in ("curated", "knowledge_base", "medium"):
+        return (MEDIUM_BLUE, "Curated")
+    else:
+        return (AMBER, "Estimated")
+
+
 def _add_enrichment_badge(slide, enriched):
     """Add a small 'Powered by live data' badge if APIs were used."""
     if not enriched:
@@ -772,6 +861,41 @@ def _add_enrichment_badge(slide, enriched):
     p.font.size = Pt(7)
     p.font.color.rgb = MUTED_TEXT
     p.alignment = PP_ALIGN.RIGHT
+
+
+def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
+    """Add a thin ruled footnote line with data source attribution."""
+    sources_parts = []
+    conf = benchmarks.get("confidence", "curated")
+    if conf == "live_api":
+        sources_parts.append("Live API data")
+    elif conf == "trend_engine":
+        sources_parts.append("Trend Engine (4-year history)")
+    sources_parts.append(f"Appcast {datetime.date.today().year}")
+    sources_parts.append("SHRM Benchmarks")
+
+    enriched = data.get("_enriched", {})
+    if enriched:
+        summary = enriched.get("enrichment_summary", {})
+        apis = summary.get("apis_succeeded", [])
+        if apis:
+            sources_parts.extend(apis[:3])
+
+    # Thin ruled line
+    _add_filled_rect(slide, Inches(0.55), Inches(7.0), Inches(12.2), Inches(0.01), WARM_GRAY)
+    # Source text
+    source_text = "Data Sources: " + " | ".join(sources_parts)
+    _add_textbox(
+        slide, Inches(0.55), Inches(7.02), Inches(10), Inches(0.2),
+        text=source_text, font_size=6, italic=True, color=LIGHT_MUTED,
+    )
+    # Confidence badge
+    conf_color, conf_label = _confidence_color(conf)
+    _add_textbox(
+        slide, Inches(11.0), Inches(7.02), Inches(2), Inches(0.2),
+        text=conf_label, font_size=7, bold=True, color=conf_color,
+        alignment=PP_ALIGN.RIGHT,
+    )
 
 
 def _format_salary(amount):
@@ -1020,8 +1144,38 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         temp_colors = {"hot": "High demand", "warm": "Moderate demand", "cool": "Balanced", "cold": "Low demand"}
         sit_items.append(("Market Temp.", f"{market_temp_str.title()} ({temp_colors.get(market_temp_str, 'N/A')})"))
 
+    # v3: Add collar type classification from collar_intelligence
+    if _HAS_COLLAR_INTEL and roles:
+        try:
+            collar_counts = {}
+            for role_name in (roles[:8] if isinstance(roles, list) else []):
+                r_str = role_name if isinstance(role_name, str) else str(role_name)
+                cr = _collar_intel.classify_collar(role=r_str, industry=industry)
+                ct = cr.get("collar_type", "white_collar")
+                collar_counts[ct] = collar_counts.get(ct, 0) + 1
+            if collar_counts:
+                dominant = max(collar_counts, key=collar_counts.get)
+                total_c = sum(collar_counts.values())
+                dom_pct = collar_counts[dominant] / total_c * 100
+                collar_label = dominant.replace("_", " ").title()
+                if dom_pct > 75:
+                    sit_items.append(("Talent Profile", f"{collar_label} dominant ({dom_pct:.0f}%)"))
+                elif len(collar_counts) > 1:
+                    mix = " / ".join(k.replace("_", " ").title() for k in collar_counts)
+                    sit_items.append(("Talent Profile", f"Mixed ({mix})"))
+        except Exception:
+            pass
+
     # Add apply rate insight with appropriate framing
     benchmarks = _get_benchmarks(industry, data)
+
+    # v3: Add CPC trend direction if available from trend engine
+    cpc_trend_str = benchmarks.get("cpc_trend", "")
+    cpc_trend_dir = benchmarks.get("cpc_trend_direction", "")
+    if cpc_trend_str:
+        trend_label = {"rising": "Rising", "falling": "Declining", "stable": "Stable"}.get(cpc_trend_dir, "")
+        sit_items.append(("CPC Trend", f"{trend_label} {cpc_trend_str}"))
+
     apply_rate_str = benchmarks.get("apply_rate", "")
     if apply_rate_str:
         import re as _re_ar
@@ -1443,9 +1597,15 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     table_w = Inches(5.1)
     row_h = Inches(0.38)
 
+    # Build benchmark rows with trend annotations (v3)
+    cpc_val = benchmarks["cpc"]
+    cpa_val = benchmarks["cpa"]
+    cpc_trend = benchmarks.get("cpc_trend", "")
+    if cpc_trend:
+        cpc_val = f"{cpc_val}  ({cpc_trend})"
     bench_rows = [
-        ("Industry CPA", benchmarks["cpa"]),
-        ("Industry CPC", benchmarks["cpc"]),
+        ("Industry CPA", cpa_val),
+        ("Industry CPC", cpc_val),
         ("Est. Cost-per-Hire", benchmarks["cph"]),
         ("Apply Rate", benchmarks["apply_rate"]),
     ]
@@ -1555,10 +1715,15 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         anchor=MSO_ANCHOR.MIDDLE,
     )
 
+    # v3: Determine value color based on confidence level
+    bench_conf = benchmarks.get("confidence", "curated")
+    conf_value_color, _conf_label = _confidence_color(bench_conf)
+
     for i, (metric, value) in enumerate(bench_rows):
         ry = table_top + row_h * (i + 1)
         bg = WHITE if i % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
         _add_filled_rect(slide, table_left, ry, table_w, row_h, bg)
+        # Thin ruled line between rows (McKinsey/Bain style)
         _add_filled_rect(slide, table_left, ry + row_h - Inches(0.01),
                          table_w, Inches(0.01), WARM_GRAY)
 
@@ -1566,9 +1731,13 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             slide, table_left + Inches(0.15), ry, Inches(2.2), row_h,
             text=metric, font_size=9, bold=True, color=DARK_TEXT, anchor=MSO_ANCHOR.MIDDLE,
         )
+        # Use confidence-colored text for industry benchmark rows (first 4)
+        # Live API rows use green, trend engine uses blue, curated uses navy
+        val_color = conf_value_color if i < 4 else NAVY
         _add_textbox(
             slide, table_left + Inches(2.4), ry, Inches(2.5), row_h,
-            text=value, font_size=10, bold=True, color=NAVY, anchor=MSO_ANCHOR.MIDDLE,
+            text=str(value), font_size=10, bold=True, color=val_color,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
 
     # Source - adjust position based on actual number of rows
@@ -1653,8 +1822,8 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             diamond.fill.fore_color.rgb = TEAL
             diamond.line.fill.background()
 
-    # Enrichment badge
-    _add_enrichment_badge(slide, enriched)
+    # v3: Data sources footnote with confidence indicator
+    _add_data_sources_footnote(slide, data, benchmarks)
 
     # Footer
     _add_footer(slide, today)
@@ -4022,6 +4191,9 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
     if "target_roles" in data and "roles" not in data:
         data["roles"] = data["target_roles"]
     data.setdefault("roles", [])
+    # Normalize roles: dicts -> strings (frontend may send [{"title": "..."}])
+    if data["roles"] and isinstance(data["roles"][0], dict):
+        data["roles"] = [r.get("title", r.get("role", str(r))) if isinstance(r, dict) else str(r) for r in data["roles"]]
     data.setdefault("campaign_goals", [])
     data.setdefault("channel_categories", {})
     # Frontend sends "budget_range" but PPT reads "budget" -- normalize
@@ -4078,38 +4250,30 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         prs.slide_width = SLIDE_WIDTH
         prs.slide_height = SLIDE_HEIGHT
 
+        # ── 5-Slide Structure (v3: condensed for executive impact) ──
+        # Old 11-slide deck compressed to 5 high-density slides.
+        # All _build_slide_* functions preserved for backward compatibility
+        # and can be re-enabled via data["_ppt_extended"] = True.
+
+        extended = data.get("_ppt_extended", False)
+
         # Slide 1: Premium cover / section divider
         _build_slide_cover(prs, data)
 
-        # Slide 2: Executive Summary with hero stat + SCR framework
+        # Slide 2: Executive Summary (hero stats + SCR + market context)
         _build_slide_executive_summary(prs, data)
 
-        # Slide 3: Market & Workforce Analysis (NEW - uses job_market_demand,
-        # salary_intelligence, workforce_insights, macro-economic data)
-        _build_slide_market_analysis(prs, data)
-
-        # Slide 4: Location Analysis (NEW - uses location_profiles with
-        # regional intelligence, top job boards, hiring regulations, cultural norms)
-        _build_slide_location_analysis(prs, data)
-
-        # Slide 5: Section divider - Channel Strategy
-        _build_slide_divider_channel_strategy(prs, data)
-
-        # Slide 6: Channel Strategy with attribution diagram
+        # Slide 3: Channel Strategy with benchmarks + attribution
         _build_slide_channel_strategy(prs, data)
 
-        # Slide 7: Competitive Landscape (NEW - uses competitive_intelligence,
-        # company profile, competitor data, industry hiring trends)
-        _build_slide_competitive_landscape(prs, data)
+        if extended:
+            # Extended mode: include deeper analysis slides
+            _build_slide_market_analysis(prs, data)
+            _build_slide_location_analysis(prs, data)
+            _build_slide_competitive_landscape(prs, data)
+            _build_slide_workforce_trends(prs, data)
 
-        # Slide 8: Quality & ROI Outcomes Grid
-        _build_slide_quality_outcomes(prs, data)
-
-        # Slide 9: Workforce Trends (NEW - uses workforce_insights,
-        # Gen-Z preferences, employer branding, white paper citations)
-        _build_slide_workforce_trends(prs, data)
-
-        # Slide 10: Budget Allocation & Projections (only if budget data available)
+        # Slide 4: Budget Allocation & ROI (or Quality Outcomes if no budget)
         budget_alloc_data = data.get("_budget_allocation", {})
         if isinstance(budget_alloc_data, dict) and budget_alloc_data:
             _ba_has_data = (
@@ -4119,8 +4283,12 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
             )
             if _ba_has_data:
                 _build_slide_budget_allocation(prs, data)
+            else:
+                _build_slide_quality_outcomes(prs, data)
+        else:
+            _build_slide_quality_outcomes(prs, data)
 
-        # Slide 11: Side-by-Side Comparison + Implementation Timeline
+        # Slide 5: Implementation Timeline + Competitive Context
         _build_slide_comparison_timeline(prs, data)
 
         buffer = io.BytesIO()

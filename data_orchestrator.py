@@ -1,36 +1,44 @@
 """
-data_orchestrator.py -- Unified Data Access Layer (v2)
+data_orchestrator.py -- Unified Data Access Layer (v3)
 
 Single entry point for enriched data queries that cascade through all
 available data sources in order of cost and speed:
 
     1. research.py embedded data   (free, instant, 40+ countries, 100+ metros)
-    2. Selective live API calls     (individual APIs, cached 24h)
-    3. Static KB fallback           (JSON files, always available)
+    2. trend_engine.py benchmarks  (free, instant, 4-year CPC/CPA trends)
+    3. collar_intelligence.py      (free, instant, collar classification)
+    4. Selective live API calls     (individual APIs, cached 24h)
+    5. data_synthesizer.py fusion   (cross-validates multi-source data)
+    6. Static KB fallback           (JSON files, always available)
 
-v2 upgrades (DeepMind AI + Meta Data Science perspectives):
-    - Additive cascade (merges best data from all sources, not first-wins)
-    - Confidence scoring (0.0-1.0) on every data point for AI reasoning
-    - Data freshness metadata on all returns
-    - Tier-aware salary fallbacks (executive/professional/skilled/entry)
-    - API return validation before caching (prevents cache poisoning)
-    - Parallel fetches within enrich_* functions (ThreadPoolExecutor)
-    - Input normalization for cache keys (prevents case-sensitivity misses)
-    - LRU cache with access tracking and batch eviction
-    - Request deduplication (in-flight coalescing)
-    - Session-scoped enrichment context (cross-tool data sharing)
-    - Computed insights layer (hiring difficulty, salary competitiveness,
-      days_until_next_peak_hiring)
-    - Employer brand intelligence (30+ major employers)
-    - Real-time job posting volume surfacing
-    - Ad platform benchmark passthrough (Google/Meta/LinkedIn CPC/CPM/CTR)
-    - Fallback telemetry (tracks which queries hit generic fallback)
+v3 upgrades (AI Intelligence Engine):
+    - Structured confidence (replaces scalar float with rich metadata:
+      credible_interval, sources, freshness, collar_relevance, trend_direction)
+    - trend_engine integration (dynamic CPC/CPA/CPM benchmarks with
+      seasonal + regional + collar adjustments, replacing static dicts)
+    - collar_intelligence integration (first-class blue/white/grey/pink
+      collar classification with strategy differentiation)
+    - 3 new enrich functions:
+        enrich_ad_benchmarks()       -- trend-aware ad platform benchmarks
+        enrich_collar_intelligence() -- collar classification + strategy
+        enrich_hiring_trends()       -- JOLTS + FRED + trend data fusion
+    - Collar-aware API routing (prioritizes different sources by collar type)
+    - data_synthesizer wired into chat pipeline (was batch-only in v2)
+
+    v2 features retained:
+    - Additive cascade, confidence scoring, data freshness metadata
+    - Tier-aware salary fallbacks, API return validation
+    - Parallel fetches (ThreadPoolExecutor), input normalization
+    - LRU cache, request deduplication, session-scoped context
+    - Computed insights layer, employer brand intelligence
+    - Real-time job posting volume, ad platform benchmarks
+    - Fallback telemetry
 
 Thread-safe, lazy-loading, cached.  Never crashes -- all errors are caught
 and the caller always receives a usable dict.
 
 Consumers:
-    - nova.py       (chatbot tool handlers)
+    - nova.py       (chatbot tool handlers -- 21+ tools)
     - nova_slack.py (Slack bot)
     - ppt_generator.py
     - app.py        (generation pipeline -- also has its own richer bulk flow)
@@ -55,6 +63,9 @@ _research = None
 _standardizer = None
 _api_enrichment = None
 _budget_engine = None
+_trend_engine = None
+_collar_intel = None
+_data_synthesizer = None
 _load_lock = threading.Lock()
 
 # Sentinel for "tried to import and failed"
@@ -123,6 +134,54 @@ def _lazy_budget():
                     logger.warning("data_orchestrator: budget_engine import failed: %s", e)
                     _budget_engine = _IMPORT_FAILED
     return _budget_engine if _budget_engine is not _IMPORT_FAILED else None
+
+
+def _lazy_trend_engine():
+    """Thread-safe lazy import of trend_engine.py (v3)."""
+    global _trend_engine
+    if _trend_engine is None:
+        with _load_lock:
+            if _trend_engine is None:
+                try:
+                    import trend_engine as _te
+                    _trend_engine = _te
+                    logger.info("data_orchestrator: trend_engine module loaded")
+                except Exception as e:
+                    logger.warning("data_orchestrator: trend_engine import failed: %s", e)
+                    _trend_engine = _IMPORT_FAILED
+    return _trend_engine if _trend_engine is not _IMPORT_FAILED else None
+
+
+def _lazy_collar_intel():
+    """Thread-safe lazy import of collar_intelligence.py (v3)."""
+    global _collar_intel
+    if _collar_intel is None:
+        with _load_lock:
+            if _collar_intel is None:
+                try:
+                    import collar_intelligence as _ci
+                    _collar_intel = _ci
+                    logger.info("data_orchestrator: collar_intelligence module loaded")
+                except Exception as e:
+                    logger.warning("data_orchestrator: collar_intelligence import failed: %s", e)
+                    _collar_intel = _IMPORT_FAILED
+    return _collar_intel if _collar_intel is not _IMPORT_FAILED else None
+
+
+def _lazy_synthesizer():
+    """Thread-safe lazy import of data_synthesizer.py (v3: now used in chat)."""
+    global _data_synthesizer
+    if _data_synthesizer is None:
+        with _load_lock:
+            if _data_synthesizer is None:
+                try:
+                    import data_synthesizer as _ds
+                    _data_synthesizer = _ds
+                    logger.info("data_orchestrator: data_synthesizer module loaded")
+                except Exception as e:
+                    logger.warning("data_orchestrator: data_synthesizer import failed: %s", e)
+                    _data_synthesizer = _IMPORT_FAILED
+    return _data_synthesizer if _data_synthesizer is not _IMPORT_FAILED else None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -436,6 +495,19 @@ class EnrichmentContext:
     def employer_brand(self) -> Optional[Dict]:
         return self.get("employer_brand")
 
+    # v3 properties
+    @property
+    def collar_data(self) -> Optional[Dict]:
+        return self.get("collar_intelligence")
+
+    @property
+    def ad_benchmarks_data(self) -> Optional[Dict]:
+        return self.get("ad_benchmarks")
+
+    @property
+    def hiring_trends_data(self) -> Optional[Dict]:
+        return self.get("hiring_trends")
+
     @property
     def age_seconds(self) -> float:
         return time.time() - self._created
@@ -619,6 +691,67 @@ def _classify_freshness(sources: List[str]) -> str:
     if "fallback" in source_str or "generic" in source_str:
         return "fallback"
     return "mixed"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v3: STRUCTURED CONFIDENCE BUILDER
+# Replaces scalar confidence with rich metadata for AI reasoning.
+# The scalar 'confidence' field is RETAINED for backward compatibility --
+# structured_confidence is an ADDITIONAL field.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _build_structured_confidence(
+    point_estimate: float,
+    confidence: float,
+    sources: List[str],
+    freshness: str = "curated",
+    freshness_age_hours: float = 0.0,
+    collar_relevance: str = "both",
+    trend_direction: str = "stable",
+    trend_pct_yoy: float = 0.0,
+    credible_interval: Optional[List[float]] = None,
+) -> Dict[str, Any]:
+    """Build structured confidence object for any data point.
+
+    Consumers can use this to:
+      - Show confidence bands in PPT/Excel
+      - Weight data in budget allocation
+      - Signal uncertainty to Claude for reasoning
+      - Display freshness indicators in UI
+
+    Args:
+        point_estimate: The primary numeric value
+        confidence: 0.0-1.0 scalar confidence score
+        sources: List of source labels (e.g. ["BLS API", "Research Intelligence"])
+        freshness: live_api | cached_api | curated | fallback
+        freshness_age_hours: Hours since data was fetched/curated
+        collar_relevance: blue_collar | white_collar | grey_collar | both
+        trend_direction: rising | falling | stable
+        trend_pct_yoy: Year-over-year change percentage
+        credible_interval: [low, high] bounds (auto-computed if not provided)
+
+    Returns:
+        Structured confidence dict with all metadata.
+    """
+    if credible_interval is None:
+        # Auto-compute from confidence: wider interval when less confident
+        spread = max(0.05, (1.0 - confidence) * 0.4)
+        ci_low = round(point_estimate * (1.0 - spread), 2)
+        ci_high = round(point_estimate * (1.0 + spread), 2)
+        credible_interval = [ci_low, ci_high]
+
+    return {
+        "point_estimate": round(point_estimate, 2) if isinstance(point_estimate, float) else point_estimate,
+        "confidence": round(confidence, 2),
+        "credible_interval": credible_interval,
+        "sources": sources,
+        "source_count": len(sources),
+        "freshness": freshness,
+        "freshness_age_hours": round(freshness_age_hours, 1),
+        "collar_relevance": collar_relevance,
+        "trend_direction": trend_direction,
+        "trend_pct_yoy": round(trend_pct_yoy, 1),
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -911,6 +1044,34 @@ def enrich_salary(role: str, location: str = "",
     result["data_freshness"] = _classify_freshness(sources_used)
     result["sources_used"] = sources_used
 
+    # v3: Structured confidence for AI reasoning
+    median_val = result.get("median_salary", 0)
+    if not median_val:
+        sr = result.get("salary_range", "")
+        if isinstance(sr, str) and " - " in sr:
+            try:
+                parts = sr.replace("$", "").replace(",", "").split(" - ")
+                median_val = (float(parts[0]) + float(parts[1])) / 2
+            except (ValueError, IndexError):
+                median_val = 55000
+    # Determine collar relevance from role tier
+    collar_rel = "both"
+    rt = (result.get("role_tier") or "").lower()
+    if rt in ("hourly / entry-level", "skilled trades / technical"):
+        collar_rel = "blue_collar"
+    elif rt in ("professional / white-collar", "executive / leadership"):
+        collar_rel = "white_collar"
+    elif rt in ("clinical / licensed",):
+        collar_rel = "grey_collar"
+
+    result["structured_confidence"] = _build_structured_confidence(
+        point_estimate=float(median_val) if median_val else 55000.0,
+        confidence=confidence,
+        sources=sources_used,
+        freshness=result["data_freshness"],
+        collar_relevance=collar_rel,
+    )
+
     if context is not None:
         context.store("salary", result)
 
@@ -1053,6 +1214,14 @@ def enrich_location(location: str,
     result["confidence"] = round(confidence, 2)
     result["data_freshness"] = _classify_freshness(sources_used)
     result["sources_used"] = sources_used
+
+    # v3: Structured confidence
+    result["structured_confidence"] = _build_structured_confidence(
+        point_estimate=float(result.get("coli", 100)),
+        confidence=confidence,
+        sources=sources_used,
+        freshness=result["data_freshness"],
+    )
 
     if context is not None:
         context.store("location", result)
@@ -1215,6 +1384,15 @@ def enrich_market_demand(role: str = "", location: str = "",
     result["confidence"] = round(confidence, 2)
     result["data_freshness"] = _classify_freshness(sources_used)
     result["sources_used"] = sources_used
+
+    # v3: Structured confidence
+    posting_count = result.get("current_posting_count", 0)
+    result["structured_confidence"] = _build_structured_confidence(
+        point_estimate=float(posting_count) if posting_count else 0.0,
+        confidence=confidence,
+        sources=sources_used,
+        freshness=result["data_freshness"],
+    )
 
     if context is not None:
         context.store("market_demand", result)
@@ -1407,6 +1585,14 @@ def enrich_competitive(company: str, industry: str = "",
     result["data_freshness"] = _classify_freshness(sources_used)
     result["sources_used"] = sources_used
 
+    # v3: Structured confidence
+    result["structured_confidence"] = _build_structured_confidence(
+        point_estimate=confidence,
+        confidence=confidence,
+        sources=sources_used,
+        freshness=result["data_freshness"],
+    )
+
     if context is not None:
         context.store("competitive", result)
 
@@ -1584,6 +1770,566 @@ def get_ad_platform_benchmarks(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# v3: TREND-AWARE AD BENCHMARKS (replaces static _AD_PLATFORM_BENCHMARKS)
+# Uses trend_engine.py for dynamic, collar/region/season-adjusted benchmarks
+# with structured confidence. Falls back to static dict when trend_engine
+# is unavailable.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def enrich_ad_benchmarks(
+    industry: str = "",
+    role: str = "",
+    location: str = "",
+    collar_type: str = "",
+    context: Optional[EnrichmentContext] = None,
+) -> Dict[str, Any]:
+    """Trend-aware ad platform benchmarks with structured confidence.
+
+    Supersedes get_ad_platform_benchmarks() by using trend_engine.py for
+    dynamic values adjusted for collar type, region, and season.
+
+    Args:
+        industry: Industry key or natural name
+        role: Optional role for collar-type inference
+        location: Optional location for regional CPC adjustment
+        collar_type: Optional explicit collar type override
+        context: Optional session context
+
+    Returns:
+        {industry, collar_type, platforms: {google_search: {cpc: {...}, ...}, ...},
+         seasonal_advice, trend_summary, source, confidence,
+         structured_confidence, data_freshness, sources_used}
+    """
+    result: Dict[str, Any] = {"industry": industry or "General"}
+    sources_used: List[str] = []
+    confidence = 0.0
+
+    # Resolve collar type if not provided
+    resolved_collar = collar_type
+    if not resolved_collar and role:
+        ci = _lazy_collar_intel()
+        if ci:
+            try:
+                collar_result = ci.classify_collar(role, industry)
+                resolved_collar = collar_result.get("collar_type", "mixed")
+            except Exception:
+                resolved_collar = "mixed"
+    if not resolved_collar:
+        resolved_collar = "mixed"
+    result["collar_type"] = resolved_collar
+
+    # Normalize industry
+    std = _lazy_standardizer()
+    norm_industry = industry
+    if std and industry:
+        try:
+            norm_industry = std.normalize_industry(industry)
+        except Exception:
+            pass
+    result["normalized_industry"] = norm_industry
+
+    te = _lazy_trend_engine()
+    now = datetime.now()
+    current_month = now.month
+
+    if te:
+        # Dynamic benchmarks from trend_engine
+        platforms_data: Dict[str, Any] = {}
+        platform_list = ["google_search", "meta_facebook", "linkedin",
+                         "indeed", "programmatic"]
+
+        for plat in platform_list:
+            plat_benchmarks: Dict[str, Any] = {}
+            for metric in ("cpc", "cpm", "ctr", "cpa"):
+                try:
+                    bench = te.get_benchmark(
+                        platform=plat,
+                        industry=norm_industry,
+                        metric=metric,
+                        collar_type=resolved_collar,
+                        location=location,
+                        month=current_month,
+                    )
+                    plat_benchmarks[metric] = {
+                        "value": bench["value"],
+                        "confidence_interval": bench["confidence_interval"],
+                        "trend_direction": bench["trend_direction"],
+                        "trend_pct_yoy": bench["trend_pct_yoy"],
+                        "seasonal_factor": bench["seasonal_factor"],
+                        "regional_factor": bench["regional_factor"],
+                        "collar_factor": bench["collar_factor"],
+                        "data_confidence": bench["data_confidence"],
+                    }
+                except Exception as e:
+                    logger.debug("enrich_ad_benchmarks: %s/%s failed: %s",
+                                 plat, metric, e)
+
+            if plat_benchmarks:
+                platforms_data[plat] = plat_benchmarks
+
+        if platforms_data:
+            result["platforms"] = platforms_data
+            sources_used.append("Trend Engine (4-year curated data)")
+            confidence = 0.85
+
+            # Add seasonal advice
+            try:
+                seasonal = te.get_seasonal_adjustment(resolved_collar, current_month)
+                result["seasonal_advice"] = {
+                    "current_month": current_month,
+                    "seasonal_factor": seasonal.get("multiplier", seasonal.get("factor", 1.0)) if isinstance(seasonal, dict) else seasonal,
+                    "collar_type": resolved_collar,
+                    "recommendation": _seasonal_recommendation(
+                        seasonal.get("multiplier", seasonal.get("factor", 1.0)) if isinstance(seasonal, dict) else seasonal),
+                }
+            except Exception:
+                pass
+
+            # Add trend summary
+            try:
+                trend = te.get_trend(
+                    platform="google_search",
+                    industry=norm_industry,
+                    metric="cpc",
+                    years_back=3,
+                )
+                result["trend_summary"] = trend
+                sources_used.append("Trend Engine (historical trends)")
+            except Exception:
+                pass
+
+    # Fallback to static benchmarks if trend_engine not available
+    if "platforms" not in result:
+        has_specific = norm_industry in _AD_PLATFORM_BENCHMARKS
+        benchmarks = _AD_PLATFORM_BENCHMARKS.get(
+            norm_industry, _AD_PLATFORM_BENCHMARKS["_default"])
+        result["platforms"] = benchmarks
+        confidence = 0.65 if has_specific else 0.40
+        sources_used.append(
+            "Static Ad Benchmarks" if has_specific
+            else "Default Ad Benchmarks (fallback)")
+        _record_fallback("enrich_ad_benchmarks", f"{industry}|{location}")
+
+    # Merge platform audience data from research.py
+    res = _lazy_research()
+    if res and industry:
+        try:
+            audiences = res.get_media_platform_audiences(industry)
+            if audiences:
+                result["platform_audiences"] = audiences
+                confidence = min(1.0, confidence + 0.05)
+                sources_used.append("Research Intelligence (audiences)")
+        except Exception:
+            pass
+
+    result["source"] = " + ".join(sources_used) if sources_used else "Fallback"
+    result["confidence"] = round(confidence, 2)
+    result["data_freshness"] = _classify_freshness(sources_used)
+    result["sources_used"] = sources_used
+
+    # v3: Structured confidence
+    cpc_val = 0.0
+    plats = result.get("platforms", {})
+    if isinstance(plats, dict):
+        gs = plats.get("google_search", {})
+        if isinstance(gs, dict):
+            cpc_info = gs.get("cpc", gs.get("cpc_range", ""))
+            if isinstance(cpc_info, dict):
+                cpc_val = cpc_info.get("value", 0)
+            elif isinstance(cpc_info, str):
+                cpc_val = confidence  # use confidence as proxy
+
+    result["structured_confidence"] = _build_structured_confidence(
+        point_estimate=cpc_val if cpc_val else confidence,
+        confidence=confidence,
+        sources=sources_used,
+        freshness=result["data_freshness"],
+        collar_relevance=resolved_collar,
+    )
+
+    if context is not None:
+        context.store("ad_benchmarks", result)
+
+    return result
+
+
+def _seasonal_recommendation(factor: float) -> str:
+    """Generate human-readable seasonal recommendation."""
+    if factor >= 1.15:
+        return "Peak hiring season -- expect higher CPCs. Front-load budget or negotiate volume discounts."
+    elif factor >= 1.05:
+        return "Above-average hiring activity. Moderate CPC increase expected."
+    elif factor <= 0.85:
+        return "Low season -- CPCs are discounted. Good time to build candidate pipeline."
+    elif factor <= 0.95:
+        return "Below-average activity. Slight CPC savings available."
+    return "Normal hiring activity. Standard CPC rates apply."
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v3: COLLAR INTELLIGENCE (first-class collar classification + strategy)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def enrich_collar_intelligence(
+    role: str,
+    industry: str = "",
+    soc_code: str = "",
+    context: Optional[EnrichmentContext] = None,
+) -> Dict[str, Any]:
+    """Classify role into collar type and return differentiated strategy.
+
+    Uses collar_intelligence.py's classification cascade:
+        SOC code -> standardizer tier -> keyword matching -> industry fallback
+
+    Args:
+        role: Job title
+        industry: Optional industry context
+        soc_code: Optional SOC code for direct classification
+        context: Optional session context
+
+    Returns:
+        {role, collar_type, confidence, sub_type, method, indicators,
+         channel_strategy, strategy: {channel_mix, preferred_platforms, ...},
+         industry_collar_breakdown, comparison_vs_opposite,
+         source, structured_confidence, data_freshness, sources_used}
+    """
+    result: Dict[str, Any] = {"role": role, "industry": industry or "General"}
+    sources_used: List[str] = []
+    confidence = 0.0
+
+    ci = _lazy_collar_intel()
+    if ci:
+        try:
+            classification = ci.classify_collar(role, industry, soc_code)
+            result.update(classification)
+            confidence = classification.get("confidence", 0.5)
+            sources_used.append(f"Collar Intelligence ({classification.get('method', 'unknown')})")
+
+            # Get the full strategy for this collar type
+            collar = classification.get("collar_type", "white_collar")
+            strategy = getattr(ci, "COLLAR_STRATEGY", {}).get(collar, {})
+            if strategy:
+                result["strategy"] = {
+                    "channel_mix": strategy.get("channel_mix", {}),
+                    "preferred_platforms": strategy.get("preferred_platforms", []),
+                    "messaging_tone": strategy.get("messaging_tone", ""),
+                    "ad_format_priority": strategy.get("ad_format_priority", []),
+                    "application_complexity": strategy.get("application_complexity", ""),
+                    "time_to_fill_days": strategy.get("time_to_fill_benchmark_days", strategy.get("time_to_fill_days", "")),
+                    "cpa_range": strategy.get("avg_cpa_range", strategy.get("cpa_range", "")),
+                    "cpc_range": strategy.get("avg_cpc_range", strategy.get("cpc_range", "")),
+                    "peak_job_seeking_hours": strategy.get("peak_job_seeking_hours", ""),
+                    "mobile_apply_pct": strategy.get("mobile_apply_pct", 0),
+                    "avg_apply_rate": strategy.get("avg_apply_rate", 0),
+                    "key_insight": strategy.get("key_insight", ""),
+                }
+                sources_used.append("Collar Strategy Database")
+
+            # Get industry collar breakdown if available
+            patterns = getattr(ci, "COLLAR_HIRING_PATTERNS", {})
+            norm_ind = industry.lower().replace(" ", "_").replace("-", "_") if industry else ""
+            ind_breakdown = patterns.get(norm_ind, {})
+            if ind_breakdown:
+                result["industry_collar_breakdown"] = ind_breakdown
+                sources_used.append("Industry Collar Patterns")
+
+            # Get comparison with opposite collar type
+            opposite = "white_collar" if collar == "blue_collar" else "blue_collar"
+            try:
+                comparison = ci.get_collar_comparison(collar, opposite)
+                if comparison:
+                    result["comparison_vs_opposite"] = comparison
+            except Exception:
+                pass
+
+        except Exception as e:
+            logger.debug("enrich_collar_intelligence failed: %s", e)
+
+    if not sources_used:
+        # Fallback: basic tier-based classification
+        std = _lazy_standardizer()
+        if std:
+            try:
+                tier = std.get_role_tier(role)
+                tier_lower = (tier or "").lower()
+                if "entry" in tier_lower or "skilled" in tier_lower or "hourly" in tier_lower:
+                    result["collar_type"] = "blue_collar"
+                elif "clinical" in tier_lower:
+                    result["collar_type"] = "grey_collar"
+                else:
+                    result["collar_type"] = "white_collar"
+                result["method"] = "standardizer_tier_fallback"
+                confidence = 0.40
+                sources_used.append("Standardizer Tier (fallback)")
+            except Exception:
+                pass
+
+        if not sources_used:
+            result["collar_type"] = "white_collar"
+            result["method"] = "default"
+            confidence = 0.15
+            sources_used.append("Default fallback")
+            _record_fallback("enrich_collar_intelligence", role)
+
+    result["source"] = " + ".join(sources_used)
+    result["confidence"] = round(confidence, 2)
+    result["data_freshness"] = _classify_freshness(sources_used)
+    result["sources_used"] = sources_used
+
+    result["structured_confidence"] = _build_structured_confidence(
+        point_estimate=confidence,
+        confidence=confidence,
+        sources=sources_used,
+        freshness=result["data_freshness"],
+        collar_relevance=result.get("collar_type", "both"),
+    )
+
+    if context is not None:
+        context.store("collar_intelligence", result)
+
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v3: HIRING TRENDS (JOLTS + FRED + trend engine fusion)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def enrich_hiring_trends(
+    industry: str = "",
+    location: str = "",
+    years_back: int = 3,
+    context: Optional[EnrichmentContext] = None,
+) -> Dict[str, Any]:
+    """Hiring market trend data from multiple sources with structured confidence.
+
+    Fuses:
+      - BLS JOLTS (job openings, hires, quits, layoffs by industry)
+      - FRED Employment series (wages, ECI, sector unemployment)
+      - trend_engine historical CPC/CPA trends
+      - research.py RECRUITMENT_AD_TREND_HISTORY
+
+    Args:
+        industry: Industry key or name
+        location: Optional location for regional data
+        years_back: Years of history to include (default 3)
+        context: Optional session context
+
+    Returns:
+        {industry, jolts_data, fred_data, cpc_trends, ad_trend_history,
+         hiring_difficulty_index, labor_market_tightness, regional_difficulty,
+         source, confidence, structured_confidence, data_freshness, sources_used}
+    """
+    result: Dict[str, Any] = {
+        "industry": industry or "General",
+        "location": location or "National",
+        "years_back": years_back,
+    }
+    sources_used: List[str] = []
+    confidence = 0.0
+
+    std = _lazy_standardizer()
+    norm_industry = industry
+    if std and industry:
+        try:
+            norm_industry = std.normalize_industry(industry)
+        except Exception:
+            pass
+
+    api = _lazy_api()
+    te = _lazy_trend_engine()
+    res = _lazy_research()
+
+    # Submit parallel tasks for API data
+    jolts_future = None
+    fred_future = None
+
+    if api:
+        # BLS JOLTS
+        try:
+            jolts_codes = getattr(api, "JOLTS_INDUSTRY_CODES", {})
+            jolts_code = jolts_codes.get(norm_industry, "")
+            if not jolts_code:
+                # Try fuzzy match
+                for k, v in jolts_codes.items():
+                    if k in norm_industry or norm_industry in k:
+                        jolts_code = v
+                        break
+            if jolts_code:
+                cache_key = f"jolts:{jolts_code}"
+                cached = _cache_get("hiring_trends", cache_key)
+                if cached:
+                    result["jolts_data"] = cached
+                    sources_used.append("BLS JOLTS (cached)")
+                    confidence = max(confidence, 0.80)
+                else:
+                    jolts_future = _executor.submit(
+                        _fetch_jolts_data, api, jolts_code, norm_industry)
+        except Exception as e:
+            logger.debug("enrich_hiring_trends: JOLTS setup failed: %s", e)
+
+        # FRED Employment
+        try:
+            cache_key = f"fred_emp:{norm_industry}"
+            cached = _cache_get("hiring_trends", cache_key)
+            if cached:
+                result["fred_data"] = cached
+                sources_used.append("FRED Employment (cached)")
+                confidence = max(confidence, 0.78)
+            else:
+                fred_future = _executor.submit(
+                    _fetch_fred_tightness, api, norm_industry)
+        except Exception as e:
+            logger.debug("enrich_hiring_trends: FRED setup failed: %s", e)
+
+    # Trend engine data (synchronous -- it's all in-memory)
+    if te:
+        try:
+            cpc_trend = te.get_trend(
+                platform="google_search",
+                industry=norm_industry,
+                metric="cpc",
+                years_back=years_back,
+            )
+            if cpc_trend:
+                result["cpc_trends"] = cpc_trend
+                sources_used.append("Trend Engine (CPC history)")
+                confidence = max(confidence, 0.82)
+
+            # Also get CPA trend
+            cpa_trend = te.get_trend(
+                platform="google_search",
+                industry=norm_industry,
+                metric="cpa",
+                years_back=years_back,
+            )
+            if cpa_trend:
+                result["cpa_trends"] = cpa_trend
+        except Exception as e:
+            logger.debug("enrich_hiring_trends: trend_engine failed: %s", e)
+
+    # research.py historical trend data
+    if res:
+        try:
+            ad_history = getattr(res, "RECRUITMENT_AD_TREND_HISTORY", {})
+            if ad_history:
+                result["ad_trend_history"] = ad_history
+                sources_used.append("Research (ad trend history)")
+                confidence = max(confidence, 0.75)
+        except Exception:
+            pass
+
+        # Regional hiring difficulty
+        if location:
+            try:
+                regional = getattr(res, "REGIONAL_HIRING_DIFFICULTY", {})
+                loc_lower = location.lower().strip()
+                for metro_key, diff_data in regional.items():
+                    if loc_lower in metro_key.lower() or metro_key.lower() in loc_lower:
+                        result["regional_difficulty"] = diff_data
+                        result["regional_difficulty"]["metro"] = metro_key
+                        sources_used.append("Research (regional difficulty)")
+                        break
+            except Exception:
+                pass
+
+    # Collect async results
+    if jolts_future:
+        try:
+            jolts_result = jolts_future.result(timeout=20)
+            if jolts_result:
+                result["jolts_data"] = jolts_result
+                _cache_set("hiring_trends", f"jolts:{norm_industry}",
+                           jolts_result)
+                sources_used.append("BLS JOLTS API (live)")
+                confidence = max(confidence, 0.88)
+        except Exception as e:
+            logger.debug("enrich_hiring_trends: JOLTS fetch failed: %s", e)
+
+    if fred_future:
+        try:
+            fred_result = fred_future.result(timeout=20)
+            if fred_result:
+                result["fred_data"] = fred_result
+                _cache_set("hiring_trends", f"fred_emp:{norm_industry}",
+                           fred_result)
+                sources_used.append("FRED Employment API (live)")
+                confidence = max(confidence, 0.85)
+        except Exception as e:
+            logger.debug("enrich_hiring_trends: FRED fetch failed: %s", e)
+
+    # Compute derived hiring difficulty index
+    jolts = result.get("jolts_data", {})
+    fred = result.get("fred_data", {})
+    if jolts or fred:
+        difficulty = 5.0  # neutral
+        if isinstance(jolts, dict):
+            difficulty = jolts.get("hiring_difficulty_index",
+                                   jolts.get("difficulty_index", 5.0))
+        tightness = 5.0
+        if isinstance(fred, dict):
+            tightness = fred.get("labor_market_tightness",
+                                 fred.get("tightness_index", 5.0))
+        # Blend JOLTS difficulty and FRED tightness
+        if isinstance(difficulty, (int, float)) and isinstance(tightness, (int, float)):
+            blended = round((difficulty * 0.6 + tightness * 0.4), 1)
+            result["hiring_difficulty_index"] = blended
+            result["labor_market_tightness"] = tightness
+            if blended >= 7.5:
+                result["market_assessment"] = "Very tight labor market -- expect elevated CPCs and longer time-to-fill"
+            elif blended >= 5.5:
+                result["market_assessment"] = "Moderately competitive market -- standard recruitment approach"
+            else:
+                result["market_assessment"] = "Favorable hiring conditions -- buyer's market for talent"
+
+    if not sources_used:
+        result["source"] = "No hiring trend data available"
+        confidence = 0.10
+        _record_fallback("enrich_hiring_trends", f"{industry}|{location}")
+        sources_used.append("No data")
+    else:
+        result["source"] = " + ".join(sources_used)
+
+    result["confidence"] = round(confidence, 2)
+    result["data_freshness"] = _classify_freshness(sources_used)
+    result["sources_used"] = sources_used
+
+    hdi = result.get("hiring_difficulty_index", 5.0)
+    result["structured_confidence"] = _build_structured_confidence(
+        point_estimate=float(hdi) if isinstance(hdi, (int, float)) else 5.0,
+        confidence=confidence,
+        sources=sources_used,
+        freshness=result["data_freshness"],
+    )
+
+    if context is not None:
+        context.store("hiring_trends", result)
+
+    return result
+
+
+def _fetch_jolts_data(api, jolts_code: str, industry: str) -> Optional[Dict]:
+    """Helper for parallel BLS JOLTS fetch."""
+    try:
+        if hasattr(api, "get_jolts_hiring_difficulty"):
+            return api.get_jolts_hiring_difficulty(industry)
+        elif hasattr(api, "fetch_bls_jolts"):
+            return api.fetch_bls_jolts(jolts_code, "JO")  # Job Openings
+    except Exception as e:
+        logger.debug("_fetch_jolts_data failed: %s", e)
+    return None
+
+
+def _fetch_fred_tightness(api, industry: str) -> Optional[Dict]:
+    """Helper for parallel FRED labor market tightness fetch."""
+    try:
+        if hasattr(api, "get_labor_market_tightness"):
+            return api.get_labor_market_tightness(industry)
+    except Exception as e:
+        logger.debug("_fetch_fred_tightness failed: %s", e)
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # COMPUTED INSIGHTS (DeepMind perspective)
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1667,8 +2413,42 @@ def compute_insights(
         insights["peak_hiring_months"] = _INDUSTRY_PEAK_MONTHS.get(
             norm_industry, [])
 
-    insights["confidence"] = 0.7 if (salary_data or market_data) else 0.3
-    insights["source"] = "Computed Insights Layer"
+    # -- v3: Collar intelligence insight --
+    collar_data = (context.collar_data if context else None) or {}
+    if collar_data:
+        insights["collar_type"] = collar_data.get("collar_type", "")
+        insights["collar_confidence"] = collar_data.get("confidence", 0)
+        insights["collar_strategy"] = collar_data.get("channel_strategy", "")
+
+    # -- v3: Trend engine insight --
+    ad_bench = (context.ad_benchmarks_data if context else None) or {}
+    if ad_bench:
+        trend_summary = ad_bench.get("trend_summary", {})
+        if trend_summary:
+            insights["cpc_trend_direction"] = trend_summary.get(
+                "trend_direction", "stable")
+            insights["cpc_trend_pct_yoy"] = trend_summary.get(
+                "trend_pct_yoy", 0)
+        seasonal = ad_bench.get("seasonal_advice", {})
+        if seasonal:
+            insights["seasonal_factor"] = seasonal.get("seasonal_factor", 1.0)
+            insights["seasonal_recommendation"] = seasonal.get(
+                "recommendation", "")
+
+    # -- v3: Hiring trends insight --
+    trends_data = (context.hiring_trends_data if context else None) or {}
+    if trends_data:
+        hdi = trends_data.get("hiring_difficulty_index")
+        if hdi is not None:
+            insights["hiring_difficulty_index"] = hdi
+        assessment = trends_data.get("market_assessment")
+        if assessment:
+            insights["market_assessment"] = assessment
+
+    data_count = sum(1 for d in [salary_data, market_data, location_data,
+                                  collar_data, ad_bench, trends_data] if d)
+    insights["confidence"] = min(0.95, 0.3 + data_count * 0.12)
+    insights["source"] = "Computed Insights Layer (v3)"
 
     return insights
 
@@ -1683,6 +2463,9 @@ def enrich_budget(budget: float, roles: List[Dict], locations: List[Dict],
                   context: Optional[EnrichmentContext] = None,
                   ) -> Dict[str, Any]:
     """Calculate budget allocation using session context + cached data.
+
+    v3: Integrates collar intelligence for collar-weighted allocation blending
+    and trend engine for dynamic CPC benchmarks.
 
     U8: When context is provided, pulls salary, market demand, and competitive
     data from the current session for more accurate allocations.
@@ -1718,6 +2501,19 @@ def enrich_budget(budget: float, roles: List[Dict], locations: List[Dict],
         if ctx_brand:
             synthesized["employer_brand"] = ctx_brand
 
+        # v3: Pull collar and trend data from context
+        ctx_collar = context.collar_data
+        if ctx_collar:
+            synthesized["collar_intelligence"] = ctx_collar
+
+        ctx_benchmarks = context.ad_benchmarks_data
+        if ctx_benchmarks:
+            synthesized["ad_benchmarks"] = ctx_benchmarks
+
+        ctx_trends = context.hiring_trends_data
+        if ctx_trends:
+            synthesized["hiring_trends"] = ctx_trends
+
     # Supplement with cached data for roles/locations not in context
     for r in roles:
         title = r.get("title", "")
@@ -1738,14 +2534,29 @@ def enrich_budget(budget: float, roles: List[Dict], locations: List[Dict],
                     synthesized.setdefault(
                         "job_market_demand", {})[title] = cached_demand
 
-    channel_pcts = {
-        "Programmatic & DSP": 30,
-        "Global Job Boards": 25,
-        "Niche & Industry Boards": 15,
-        "Social Media Channels": 15,
-        "Regional & Local Boards": 10,
-        "Employer Branding": 5,
-    }
+    # v3: Collar-weighted channel allocation
+    channel_pcts = _get_collar_weighted_channels(roles, industry)
+
+    # v3: Inject trend engine CPC overrides into synthesized data
+    te = _lazy_trend_engine()
+    if te and not synthesized.get("ad_benchmarks"):
+        try:
+            std = _lazy_standardizer()
+            norm_ind = industry
+            if std and industry:
+                try:
+                    norm_ind = std.normalize_industry(industry)
+                except Exception:
+                    pass
+            benchmarks = te.get_all_platform_benchmarks(
+                industry=norm_ind,
+                collar_type="mixed",
+                location=locations[0].get("city", "") if locations else "",
+            )
+            if benchmarks:
+                synthesized["trend_benchmarks"] = benchmarks
+        except Exception:
+            pass
 
     try:
         result = be.calculate_budget_allocation(
@@ -1762,14 +2573,93 @@ def enrich_budget(budget: float, roles: List[Dict], locations: List[Dict],
         result["confidence"] = round(
             min(0.95, 0.50 + data_sources * 0.10), 2)
         result["data_freshness"] = "computed"
-        result["sources_used"] = (
-            ["Session context", "Cache"] if context
-            else ["Cache"] if synthesized else ["Default parameters"]
+        sources = []
+        if context:
+            sources.append("Session context")
+        if synthesized:
+            sources.append("Cache")
+        if te:
+            sources.append("Trend Engine")
+        if not sources:
+            sources.append("Default parameters")
+        result["sources_used"] = sources
+
+        # v3: Structured confidence
+        total_spend = result.get("total_budget", budget)
+        result["structured_confidence"] = _build_structured_confidence(
+            point_estimate=float(total_spend),
+            confidence=result["confidence"],
+            sources=sources,
+            freshness="computed",
         )
+
         return result
     except Exception as e:
         logger.error("enrich_budget failed: %s", e, exc_info=True)
         return {"error": "Budget calculation failed", "confidence": 0.0}
+
+
+def _get_collar_weighted_channels(
+    roles: List[Dict], industry: str = "",
+) -> Dict[str, int]:
+    """v3: Compute collar-weighted channel allocation percentages.
+
+    When hiring both blue collar and white collar roles, blends channel
+    allocations proportionally.
+    """
+    ci = _lazy_collar_intel()
+    if not ci or not roles:
+        # Default allocation
+        return {
+            "Programmatic & DSP": 30,
+            "Global Job Boards": 25,
+            "Niche & Industry Boards": 15,
+            "Social Media Channels": 15,
+            "Regional & Local Boards": 10,
+            "Employer Branding": 5,
+        }
+
+    try:
+        # Classify all roles and build weighted input
+        role_list_for_blend = []
+        for r in roles:
+            title = r.get("title", "")
+            count = r.get("openings", r.get("count", 1))
+            if not title:
+                continue
+            collar_result = ci.classify_collar(title, industry)
+            role_list_for_blend.append({
+                "role": title,
+                "collar_type": collar_result.get("collar_type", "white_collar"),
+                "count": int(count) if count else 1,
+            })
+
+        if not role_list_for_blend:
+            raise ValueError("No roles classified")
+
+        blended = ci.get_blended_allocation(role_list_for_blend)
+        if blended and "channel_mix" in blended:
+            mix = blended["channel_mix"]
+            # Map collar channel mix keys to budget engine channel names
+            return {
+                "Programmatic & DSP": int(mix.get("programmatic", 25)),
+                "Global Job Boards": int(mix.get("job_boards", 25)),
+                "Niche & Industry Boards": int(mix.get("niche_boards", 10)),
+                "Social Media Channels": int(mix.get("social_media", 15)),
+                "Regional & Local Boards": int(mix.get("regional", 10)),
+                "Employer Branding": int(mix.get("employer_branding", 5)),
+            }
+    except Exception as e:
+        logger.debug("_get_collar_weighted_channels failed: %s", e)
+
+    return {
+        "Programmatic & DSP": 30,
+        "Global Job Boards": 25,
+        "Niche & Industry Boards": 15,
+        "Social Media Channels": 15,
+        "Regional & Local Boards": 10,
+        "Employer Branding": 5,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

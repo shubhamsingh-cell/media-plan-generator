@@ -2,7 +2,7 @@
 data_matrix_monitor.py -- Data Matrix Health Monitor
 
 Tracks whether all 4 products (Excel/PPT, Nova Chat, Slack Bot, PPT Generator)
-use all 7 data layers as expected.  Runs probes every 12 hours in a background
+use all 9 data layers as expected.  Runs probes every 12 hours in a background
 daemon thread, attempts self-healing on failures, and exposes results via
 /api/health/data-matrix.
 
@@ -55,49 +55,59 @@ _REQUIRED_KB_FILES = [
 
 EXPECTED_MATRIX: Dict[str, Dict[str, str]] = {
     "excel_ppt": {
-        "json_files":       "YES",
-        "api_enrichment":   "YES",
-        "research":         "YES",
-        "data_synthesizer": "YES",
-        "budget_engine":    "YES",
-        "standardizer":     "YES",
-        "claude_api":       "NO",
+        "json_files":           "YES",
+        "api_enrichment":       "YES",
+        "research":             "YES",
+        "data_synthesizer":     "YES",
+        "budget_engine":        "YES",
+        "standardizer":         "YES",
+        "claude_api":           "NO",
+        "trend_engine":         "YES",
+        "collar_intelligence":  "YES",
     },
     "nova_chat": {
-        "json_files":       "YES",
-        "api_enrichment":   "VIA_ORCHESTRATOR",
-        "research":         "VIA_ORCHESTRATOR",
-        "data_synthesizer": "NO",
-        "budget_engine":    "VIA_ORCHESTRATOR",
-        "standardizer":     "VIA_ORCHESTRATOR",
-        "claude_api":       "YES",
+        "json_files":           "YES",
+        "api_enrichment":       "VIA_ORCHESTRATOR",
+        "research":             "VIA_ORCHESTRATOR",
+        "data_synthesizer":     "NO",
+        "budget_engine":        "VIA_ORCHESTRATOR",
+        "standardizer":         "VIA_ORCHESTRATOR",
+        "claude_api":           "YES",
+        "trend_engine":         "VIA_ORCHESTRATOR",
+        "collar_intelligence":  "VIA_ORCHESTRATOR",
     },
     "slack_bot": {
-        "json_files":       "YES",
-        "api_enrichment":   "VIA_ORCHESTRATOR",
-        "research":         "VIA_ORCHESTRATOR",
-        "data_synthesizer": "NO",
-        "budget_engine":    "VIA_ORCHESTRATOR",
-        "standardizer":     "VIA_ORCHESTRATOR",
-        "claude_api":       "YES",
+        "json_files":           "YES",
+        "api_enrichment":       "VIA_ORCHESTRATOR",
+        "research":             "VIA_ORCHESTRATOR",
+        "data_synthesizer":     "NO",
+        "budget_engine":        "VIA_ORCHESTRATOR",
+        "standardizer":         "VIA_ORCHESTRATOR",
+        "claude_api":           "YES",
+        "trend_engine":         "VIA_ORCHESTRATOR",
+        "collar_intelligence":  "VIA_ORCHESTRATOR",
     },
     "ppt_generator": {
-        "json_files":       "YES",
-        "api_enrichment":   "PARTIAL",
-        "research":         "YES",
-        "data_synthesizer": "PARTIAL",
-        "budget_engine":    "PARTIAL",
-        "standardizer":     "NO",
-        "claude_api":       "NO",
+        "json_files":           "YES",
+        "api_enrichment":       "PARTIAL",
+        "research":             "YES",
+        "data_synthesizer":     "PARTIAL",
+        "budget_engine":        "PARTIAL",
+        "standardizer":         "NO",
+        "claude_api":           "NO",
+        "trend_engine":         "PARTIAL",
+        "collar_intelligence":  "PARTIAL",
     },
 }
 
 # Map data layers to orchestrator lazy-loader function names and global var names
 _ORCH_LAYER_MAP = {
-    "api_enrichment": ("_lazy_api", "_api_enrichment"),
-    "research":       ("_lazy_research", "_research"),
-    "budget_engine":  ("_lazy_budget", "_budget_engine"),
-    "standardizer":   ("_lazy_standardizer", "_standardizer"),
+    "api_enrichment":      ("_lazy_api", "_api_enrichment"),
+    "research":            ("_lazy_research", "_research"),
+    "budget_engine":       ("_lazy_budget", "_budget_engine"),
+    "standardizer":        ("_lazy_standardizer", "_standardizer"),
+    "trend_engine":        ("_lazy_trend_engine", "_trend_engine"),
+    "collar_intelligence": ("_lazy_collar_intel", "_collar_intel"),
 }
 
 
@@ -106,7 +116,7 @@ _ORCH_LAYER_MAP = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class DataMatrixMonitor:
-    """Probes all 4 products x 7 data layers and tracks health status."""
+    """Probes all 4 products x 9 data layers and tracks health status."""
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -372,7 +382,8 @@ class DataMatrixMonitor:
 
         # Strategy 1: Re-import failed modules (only for direct-import products)
         if (layer in ("api_enrichment", "research", "data_synthesizer",
-                       "budget_engine", "standardizer")
+                       "budget_engine", "standardizer",
+                       "trend_engine", "collar_intelligence")
                 and product in ("excel_ppt", "ppt_generator")):
             try:
                 if layer in sys.modules:

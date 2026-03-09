@@ -22,12 +22,12 @@
   var CONFIG = {
     apiUrl: '/api/chat',
     primaryColor: '#0A66C9',
-    primaryDark: '#08294A',
+    primaryDark: '#191919',
     primaryLight: '#D1E8FF',
-    accentColor: '#0891B2',
-    accentLight: '#22D3EE',
-    textColor: '#1A1818',
-    textLight: '#6B7B8D',
+    accentColor: '#0A66C9',
+    accentLight: '#4A90D9',
+    textColor: '#1A1A1A',
+    textLight: '#6B6B6B',
     bgColor: '#FFFFFF',
     bgLight: '#F9FAFB',
     borderColor: '#E5E7EB',
@@ -74,14 +74,14 @@
       + '  width: 56px; height: 56px; border-radius: 16px;'
       + '  background: linear-gradient(135deg, ' + CONFIG.primaryDark + ' 0%, ' + CONFIG.primaryColor + ' 100%);'
       + '  color: #fff; border: none; cursor: pointer;'
-      + '  box-shadow: 0 4px 20px rgba(8,41,74,0.35), 0 0 0 1px rgba(255,255,255,0.1) inset;'
+      + '  box-shadow: 0 4px 20px rgba(25,25,25,0.35), 0 0 0 1px rgba(255,255,255,0.1) inset;'
       + '  display: flex; align-items: center; justify-content: center;'
       + '  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;'
       + '  font-size: 0;'
       + '}'
       + '#nova-float-btn:hover {'
       + '  transform: translateY(-2px) scale(1.05);'
-      + '  box-shadow: 0 8px 28px rgba(8,41,74,0.45), 0 0 0 1px rgba(255,255,255,0.15) inset;'
+      + '  box-shadow: 0 8px 28px rgba(25,25,25,0.45), 0 0 0 1px rgba(255,255,255,0.15) inset;'
       + '}'
       + '#nova-float-btn:active {'
       + '  transform: scale(0.97);'
@@ -94,7 +94,7 @@
       + '  max-height: calc(100vh - 120px);'
       + '  background: ' + CONFIG.bgColor + ';'
       + '  border-radius: 20px;'
-      + '  box-shadow: 0 12px 48px rgba(8,41,74,0.18), 0 2px 8px rgba(0,0,0,0.06);'
+      + '  box-shadow: 0 12px 48px rgba(25,25,25,0.18), 0 2px 8px rgba(0,0,0,0.06);'
       + '  display: flex; flex-direction: column;'
       + '  overflow: hidden;'
       + '  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);'
@@ -173,7 +173,7 @@
       + '  background: linear-gradient(135deg, ' + CONFIG.primaryDark + ', ' + CONFIG.primaryColor + ');'
       + '  color: #fff;'
       + '  border-bottom-right-radius: 4px;'
-      + '  box-shadow: 0 1px 4px rgba(8,41,74,0.15);'
+      + '  box-shadow: 0 1px 4px rgba(25,25,25,0.15);'
       + '}'
       + '.nova-msg-assistant {'
       + '  align-self: flex-start;'
@@ -266,9 +266,9 @@
       + '}'
       + '.nova-suggestion-btn:hover {'
       + '  border-color: ' + CONFIG.accentColor + ';'
-      + '  background: rgba(8,145,178,0.05);'
+      + '  background: rgba(10,102,201,0.05);'
       + '  transform: translateX(3px);'
-      + '  box-shadow: 0 1px 4px rgba(8,145,178,0.1);'
+      + '  box-shadow: 0 1px 4px rgba(10,102,201,0.1);'
       + '}'
 
       // Input area
@@ -295,11 +295,11 @@
       + '  display: flex; align-items: center; justify-content: center;'
       + '  flex-shrink: 0;'
       + '  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);'
-      + '  box-shadow: 0 2px 6px rgba(8,41,74,0.2);'
+      + '  box-shadow: 0 2px 6px rgba(25,25,25,0.2);'
       + '}'
       + '.nova-send-btn:hover {'
       + '  transform: scale(1.05);'
-      + '  box-shadow: 0 3px 10px rgba(8,41,74,0.3);'
+      + '  box-shadow: 0 3px 10px rgba(25,25,25,0.3);'
       + '}'
       + '.nova-send-btn:active { transform: scale(0.95); }'
       + '.nova-send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }'

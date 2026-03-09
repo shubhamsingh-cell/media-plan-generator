@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Generate data-driven recruitment advertising media plans powered by AI. Analyze 91+ job boards, optimize budgets, and benchmark against industry standards. Free enterprise-grade tool by Joveo.">
-    <meta name="theme-color" content="#08294A">
+    <meta name="theme-color" content="#191919">
     <title>Nova AI Media Plan Generator | Joveo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230A66C9'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 
     <!-- Primary Meta Tags -->
     <meta name="title" content="Nova AI Media Plan Generator | Joveo">
@@ -248,36 +249,36 @@
 
     <style>
         :root {
-            /* LinkedIn-inspired color palette */
-            --navy: #08294A;
+            /* Dark Anthropic + Joveo Blue palette */
+            --navy: #191919;
             --blue-primary: #0A66C9;
             --blue-medium: #004082;
             --blue-light: #D1E8FF;
             --blue-pale: #A8D4FF;
-            --accent: #0891B2;
-            --accent-light: #22D3EE;
-            --accent-pale: #ECFEFF;
-            --off-white: #F2F2F0;
-            --warm-white: #FCFAF5;
-            --warm-gray: #EBE6E0;
+            --accent: #0A66C9;
+            --accent-light: #4A90D9;
+            --accent-pale: #EBF5FF;
+            --off-white: #F5F3EF;
+            --warm-white: #FAF9F7;
+            --warm-gray: #E0E4E8;
             --green-success: #45702E;
 
-            /* Legacy mappings for backward compatibility */
+            /* Legacy mappings */
             --primary: #0A66C9;
-            --primary-dark: #08294A;
+            --primary-dark: #191919;
             --primary-light: #A8D4FF;
-            --accent-warm: #0891B2;
+            --accent-warm: #0A66C9;
             --success: #45702E;
             --warning: #E87461;
-            --bg: #FCFAF5;
-            --bg-dark: #08294A;
-            --card: rgba(255,255,255,0.92);
+            --bg: #FAF9F7;
+            --bg-dark: #191919;
+            --card: rgba(255,255,255,0.95);
             --card-solid: #FFFFFF;
-            --text: #1A1818;
-            --text-secondary: #3D4F5F;
-            --text-light: #3D4F5F;
-            --text-muted: #6B7B8D;
-            --border: rgba(0,0,0,0.06);
+            --text: #1A1A1A;
+            --text-secondary: #4A4A4A;
+            --text-light: #4A4A4A;
+            --text-muted: #6B6B6B;
+            --border: rgba(0,0,0,0.08);
             --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
             --shadow-md: 0 4px 16px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
             --shadow-lg: 0 12px 40px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
@@ -286,11 +287,11 @@
             --radius: 16px;
             --radius-sm: 10px;
             --radius-xs: 6px;
-            --gradient-primary: linear-gradient(135deg, #08294A 0%, #0A66C9 50%, #A8D4FF 100%);
-            --gradient-accent: linear-gradient(135deg, #0891B2 0%, #22D3EE 50%, #ECFEFF 100%);
-            --gradient-mesh: radial-gradient(at 27% 37%, rgba(10,102,201,0.08) 0px, transparent 50%),
-                             radial-gradient(at 97% 21%, rgba(8,145,178,0.06) 0px, transparent 50%),
-                             radial-gradient(at 52% 99%, rgba(8,41,74,0.05) 0px, transparent 50%),
+            --gradient-primary: linear-gradient(135deg, #191919 0%, #2D2D2D 50%, #0A66C9 100%);
+            --gradient-accent: linear-gradient(135deg, #0A66C9 0%, #4A90D9 50%, #EBF5FF 100%);
+            --gradient-mesh: radial-gradient(at 27% 37%, rgba(10,102,201,0.06) 0px, transparent 50%),
+                             radial-gradient(at 97% 21%, rgba(10,102,201,0.04) 0px, transparent 50%),
+                             radial-gradient(at 52% 99%, rgba(25,25,25,0.03) 0px, transparent 50%),
                              radial-gradient(at 10% 29%, rgba(10,102,201,0.04) 0px, transparent 50%);
         }
 
@@ -342,7 +343,7 @@
             left: 0;
             right: 0;
             height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(10,102,201,0.4), rgba(8,145,178,0.4), transparent);
+            background: linear-gradient(90deg, transparent, rgba(10,102,201,0.4), rgba(10,102,201,0.4), transparent);
         }
 
         .header-orb {
@@ -525,7 +526,7 @@
             border-color: var(--accent);
             color: var(--navy);
             background: var(--accent-pale);
-            box-shadow: 0 0 0 4px rgba(8,145,178,0.15), 0 0 20px rgba(8,145,178,0.1);
+            box-shadow: 0 0 0 4px rgba(10,102,201,0.15), 0 0 20px rgba(10,102,201,0.1);
             font-weight: 800;
         }
 
@@ -533,7 +534,7 @@
             background: linear-gradient(135deg, var(--navy) 0%, var(--blue-primary) 100%);
             border-color: transparent;
             color: white;
-            box-shadow: 0 2px 8px rgba(8,41,74,0.3);
+            box-shadow: 0 2px 8px rgba(25,25,25,0.3);
         }
 
         .step-label {
@@ -792,7 +793,7 @@
         }
 
         .toggle-group:hover {
-            border-color: rgba(8,145,178,0.2);
+            border-color: rgba(10,102,201,0.2);
             background: rgba(255,255,255,0.8);
         }
 
@@ -867,12 +868,13 @@
             letter-spacing: 0.3px;
             position: relative;
             overflow: hidden;
+            min-height: 44px;
         }
 
         .btn-primary {
             background: linear-gradient(135deg, var(--navy) 0%, var(--blue-primary) 100%);
             color: white;
-            box-shadow: 0 2px 8px rgba(8,41,74,0.25);
+            box-shadow: 0 2px 8px rgba(25,25,25,0.25);
         }
 
         .btn-primary::after {
@@ -888,7 +890,7 @@
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(8,41,74,0.35);
+            box-shadow: 0 6px 20px rgba(25,25,25,0.35);
             filter: brightness(1.08);
         }
 
@@ -923,14 +925,14 @@
             color: white;
             font-size: 16px;
             padding: 18px 44px;
-            box-shadow: 0 4px 16px rgba(8,145,178,0.35);
+            box-shadow: 0 4px 16px rgba(10,102,201,0.35);
             border-radius: var(--radius-sm);
             text-shadow: 0 1px 2px rgba(0,0,0,0.15);
         }
 
         .btn-success:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 28px rgba(8,145,178,0.45);
+            box-shadow: 0 8px 28px rgba(10,102,201,0.45);
             filter: brightness(1.08);
         }
 
@@ -988,7 +990,7 @@
         .industry-card:hover {
             transform: translateY(-4px) scale(1.02);
             box-shadow: var(--shadow-lg);
-            border-color: rgba(8,145,178,0.3);
+            border-color: rgba(10,102,201,0.3);
         }
 
         .industry-card:hover::before {
@@ -1059,14 +1061,14 @@
         }
 
         .job-cat-card:hover {
-            border-color: rgba(8,145,178,0.3);
+            border-color: rgba(10,102,201,0.3);
             transform: translateY(-2px);
             box-shadow: var(--shadow-md);
         }
 
         .job-cat-card.selected {
             border-color: var(--accent);
-            background: linear-gradient(135deg, rgba(236,254,255,0.2) 0%, rgba(34,211,238,0.1) 100%);
+            background: linear-gradient(135deg, rgba(235,245,255,0.2) 0%, rgba(34,211,238,0.1) 100%);
             box-shadow: 0 0 0 2px var(--accent), var(--shadow-sm);
         }
 
@@ -1118,7 +1120,7 @@
             backdrop-filter: blur(20px) saturate(180%);
             -webkit-backdrop-filter: blur(20px) saturate(180%);
             border-radius: var(--radius);
-            border: 1px solid rgba(8,145,178,0.15);
+            border: 1px solid rgba(10,102,201,0.15);
             border-left: 4px solid var(--accent);
             animation: fadeInUp 0.35s ease;
             box-shadow: var(--shadow-md);
@@ -1334,12 +1336,12 @@
             content: '';
             flex: 1;
             height: 2px;
-            background: linear-gradient(90deg, var(--accent), rgba(8,145,178,0.1));
+            background: linear-gradient(90deg, var(--accent), rgba(10,102,201,0.1));
             border-radius: 1px;
         }
 
         .section-divider::after {
-            background: linear-gradient(90deg, rgba(8,145,178,0.1), var(--accent));
+            background: linear-gradient(90deg, rgba(10,102,201,0.1), var(--accent));
         }
 
         /* ============================================
@@ -1370,8 +1372,8 @@
         }
 
         .checkbox-group label:hover {
-            border-color: rgba(8,145,178,0.3);
-            background: rgba(236,254,255,0.15);
+            border-color: rgba(10,102,201,0.3);
+            background: rgba(235,245,255,0.15);
         }
 
         .checkbox-group input[type="checkbox"] {
@@ -1384,7 +1386,7 @@
         .checkbox-group input[type="checkbox"]:checked + span,
         .checkbox-group label:has(input:checked) {
             border-color: var(--accent);
-            background: rgba(236,254,255,0.2);
+            background: rgba(235,245,255,0.2);
             color: var(--navy);
             border-left: 3px solid var(--accent);
         }
@@ -1452,8 +1454,8 @@
         }
 
         @keyframes accentGlowPulse {
-            0%, 100% { box-shadow: 0 4px 16px rgba(8,145,178,0.35); }
-            50% { box-shadow: 0 4px 30px rgba(8,145,178,0.55), 0 0 40px rgba(8,145,178,0.2); }
+            0%, 100% { box-shadow: 0 4px 16px rgba(10,102,201,0.35); }
+            50% { box-shadow: 0 4px 30px rgba(10,102,201,0.55), 0 0 40px rgba(10,102,201,0.2); }
         }
 
         @keyframes toastSlideIn {
@@ -1500,7 +1502,7 @@
             left: 0;
             width: 100%;
             height: 3px;
-            background: rgba(8,145,178,0.1);
+            background: rgba(10,102,201,0.1);
             z-index: 9999;
         }
 
@@ -1716,7 +1718,7 @@
         .gen-step.gen-active .gen-step-icon {
             background: linear-gradient(135deg, var(--accent), #0A66C9);
             color: white;
-            box-shadow: 0 2px 8px rgba(8,145,178,0.4);
+            box-shadow: 0 2px 8px rgba(10,102,201,0.4);
         }
 
         .gen-step.gen-complete .gen-step-icon {
@@ -1857,6 +1859,7 @@
             .card { padding: 24px; }
             .app-header { padding: 0 20px; height: 70px; }
             .app-header h1 { font-size: 18px; }
+            .btn { min-height: 48px; }
             .btn-success { padding: 14px 32px; font-size: 15px; }
             .toast-item { min-width: 280px; max-width: 90vw; }
             .generation-card { padding: 28px 24px; }
@@ -1927,7 +1930,7 @@
             left: -2px;
             right: -2px;
             bottom: -2px;
-            background: linear-gradient(45deg, transparent, rgba(10,102,201,0.1), transparent, rgba(8,145,178,0.08), transparent);
+            background: linear-gradient(45deg, transparent, rgba(10,102,201,0.1), transparent, rgba(10,102,201,0.08), transparent);
             background-size: 400% 400%;
             animation: gradientShift 8s ease infinite;
             z-index: -1;
@@ -2157,7 +2160,7 @@
         }
 
         .channel-category-card:hover {
-            border-color: rgba(8,145,178,0.25);
+            border-color: rgba(10,102,201,0.25);
             box-shadow: var(--shadow-sm);
             border-left: 3px solid var(--accent);
         }
@@ -2183,7 +2186,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(236,254,255,0.3);
+            background: rgba(235,245,255,0.3);
             border-radius: 12px;
             flex-shrink: 0;
         }
@@ -2285,7 +2288,7 @@
         }
         .review-section:hover {
             border-left-color: var(--accent);
-            box-shadow: 0 4px 20px rgba(8,145,178,0.1);
+            box-shadow: 0 4px 20px rgba(10,102,201,0.1);
         }
         .review-section h3 {
             display: flex;
@@ -2331,7 +2334,7 @@
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            box-shadow: 0 2px 8px rgba(8,41,74,0.2);
+            box-shadow: 0 2px 8px rgba(25,25,25,0.2);
         }
 
         .li-section-divider .section-title {
@@ -2345,7 +2348,7 @@
         .li-section-divider .section-line {
             flex: 1;
             height: 2px;
-            background: linear-gradient(90deg, var(--accent), rgba(8,145,178,0.05));
+            background: linear-gradient(90deg, var(--accent), rgba(10,102,201,0.05));
             border-radius: 1px;
         }
 
@@ -2379,7 +2382,7 @@
             right: 0;
             width: 200px;
             height: 200px;
-            background: radial-gradient(circle, rgba(8,145,178,0.15) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(10,102,201,0.15) 0%, transparent 70%);
             pointer-events: none;
         }
 
@@ -2400,7 +2403,7 @@
             color: var(--accent);
             line-height: 1;
             margin-bottom: 8px;
-            text-shadow: 0 2px 10px rgba(8,145,178,0.3);
+            text-shadow: 0 2px 10px rgba(10,102,201,0.3);
             position: relative;
             z-index: 1;
         }
@@ -2455,7 +2458,7 @@
         }
 
         .hero-file-icon.ppt {
-            background: rgba(8,145,178,0.3);
+            background: rgba(10,102,201,0.3);
         }
 
         .hero-file-info {
@@ -2493,7 +2496,7 @@
         }
 
         .channel-category-card:has(input:checked) .category-icon {
-            background: rgba(8,145,178,0.15);
+            background: rgba(10,102,201,0.15);
         }
 
         .channel-category-card:has(input:checked) h3 {
@@ -2713,7 +2716,7 @@
                 <h2>Client Information</h2>
                 <p class="subtitle">Enter the basic details about your client and campaign</p>
 
-                <div class="form-section" style="margin-bottom: 24px; padding: 20px; background: rgba(8,145,178,0.04); border-radius: 12px; border: 1px solid rgba(8,145,178,0.1);">
+                <div class="form-section" style="margin-bottom: 24px; padding: 20px; background: rgba(10,102,201,0.04); border-radius: 12px; border: 1px solid rgba(10,102,201,0.1);">
                     <div class="section-label" style="margin-bottom: 16px; font-weight: 700; color: var(--navy);">
                         <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: var(--accent); color: white; border-radius: 50%; font-size: 12px; margin-right: 8px;">&#128100;</span>
                         Your Information
@@ -3244,7 +3247,7 @@
                 <h2>Review & Export</h2>
                 <p class="subtitle">Review your media plan configuration before generating the Excel file</p>
 
-                <div class="review-section" style="background: rgba(8,145,178,0.04); border: 1px solid rgba(8,145,178,0.1);">
+                <div class="review-section" style="background: rgba(10,102,201,0.04); border: 1px solid rgba(10,102,201,0.1);">
                     <div class="review-section-header">
                         <h3>Requested By</h3>
                         <a class="review-edit-btn" onclick="goToStep(1)">Edit</a>
@@ -3299,7 +3302,7 @@
                 </div>
             </div>
 
-            <div class="plan-preview" style="background: linear-gradient(135deg, rgba(236,254,255,0.15), rgba(209,232,255,0.15)); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; margin-bottom: 24px;">
+            <div class="plan-preview" style="background: linear-gradient(135deg, rgba(235,245,255,0.15), rgba(209,232,255,0.15)); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; margin-bottom: 24px;">
                 <h4 style="font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 12px;">&#128203; Your Plan Will Include</h4>
                 <div id="planPreviewContent" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
                     <!-- Populated by JS -->
@@ -3332,7 +3335,7 @@
                             </div>
                         </div>
                     </div>
-                    <button class="btn" onclick="redownloadBundle()" style="background:linear-gradient(135deg,var(--accent),#0A66C9);color:white;padding:14px 36px;font-size:15px;box-shadow:0 4px 16px rgba(8,145,178,0.4);text-shadow:0 1px 2px rgba(0,0,0,0.15);">
+                    <button class="btn" onclick="redownloadBundle()" style="background:linear-gradient(135deg,var(--accent),#0A66C9);color:white;padding:14px 36px;font-size:15px;box-shadow:0 4px 16px rgba(10,102,201,0.4);text-shadow:0 1px 2px rgba(0,0,0,0.15);">
                         &#128229; Download Bundle Again
                     </button>
                 </div>
@@ -3396,8 +3399,10 @@
                 <span>Elapsed:</span>
                 <span class="gen-elapsed" id="genElapsed">0:00</span>
                 <span style="margin-left:8px;opacity:0.6">|</span>
-                <span style="margin-left:8px;">Typically 30-90 seconds</span>
+                <span style="margin-left:8px;">Timeout in</span>
+                <span id="genCountdown" style="font-weight:600;color:var(--blue-primary, #0A66C9);">5:00</span>
             </div>
+            <button type="button" id="genCancelBtn" onclick="cancelGeneration()" style="margin-top:18px;padding:10px 32px;border:1.5px solid #bbb;border-radius:8px;background:transparent;color:#4B5563;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;min-height:44px;" onmouseover="this.style.borderColor='#E87461';this.style.color='#E87461'" onmouseout="this.style.borderColor='#bbb';this.style.color='#4B5563'">Cancel Generation</button>
             <p class="gen-did-you-know" id="genDidYouKnow" style="margin-top:16px;font-size:13px;color:#596780;text-align:center;font-style:italic;min-height:40px;"></p>
         </div>
     </div>
@@ -3408,6 +3413,9 @@
         let channelsDB = null;
         let selectedIndustry = null;
         let selectedJobCategories = [];
+
+        // Module-level AbortController for generation cancellation
+        let _genAbortController = null;
         let locations = [];
         let roles = [];
         let competitors = [];
@@ -3521,6 +3529,8 @@
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = `toast-item toast-${type}`;
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'polite');
 
             const icons = {
                 success: '&#10004;',
@@ -3563,6 +3573,7 @@
         // 25. Confetti celebration function
         // ============================================
         function showConfetti() {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
             const container = document.getElementById('confettiContainer');
             container.style.display = 'block';
             container.innerHTML = '';
@@ -3606,6 +3617,15 @@
         let genElapsedInterval = null;
         let genStartTime = null;
         let genDidYouKnowInterval = null;
+        let genCountdownInterval = null;
+        const GEN_TIMEOUT_SECS = 300; // 5 minutes
+
+        function cancelGeneration() {
+            if (_genAbortController) {
+                _genAbortController.abort();
+                _genAbortController = null;
+            }
+        }
 
         const GEN_FACTS = [
             "Your plan queries up to 25 live APIs including BLS, Adzuna, SEC EDGAR, and Google Ads.",
@@ -3642,6 +3662,19 @@
                 const mins = Math.floor(elapsed / 60);
                 const secs = elapsed % 60;
                 if (elapsedEl) elapsedEl.textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
+            }, 1000);
+
+            // Start countdown timer (5:00 -> 0:00)
+            const countdownEl = document.getElementById('genCountdown');
+            if (countdownEl) countdownEl.textContent = '5:00';
+            if (genCountdownInterval) clearInterval(genCountdownInterval);
+            genCountdownInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - genStartTime) / 1000);
+                const remaining = Math.max(0, GEN_TIMEOUT_SECS - elapsed);
+                const rMins = Math.floor(remaining / 60);
+                const rSecs = remaining % 60;
+                if (countdownEl) countdownEl.textContent = rMins + ':' + (rSecs < 10 ? '0' : '') + rSecs;
+                if (remaining <= 0 && genCountdownInterval) { clearInterval(genCountdownInterval); genCountdownInterval = null; }
             }, 1000);
 
             // Rotating "Did you know" facts while user waits
@@ -3692,6 +3725,12 @@
             if (genElapsedInterval) {
                 clearInterval(genElapsedInterval);
                 genElapsedInterval = null;
+            }
+
+            // Clear countdown timer
+            if (genCountdownInterval) {
+                clearInterval(genCountdownInterval);
+                genCountdownInterval = null;
             }
 
             // Clear did-you-know rotation
@@ -4499,6 +4538,7 @@
 
             // AbortController with 5-minute timeout for long-running generation
             const controller = new AbortController();
+            _genAbortController = controller;
             const timeoutId = setTimeout(() => controller.abort(), 300000);
 
             try {
@@ -4509,6 +4549,7 @@
                     signal: controller.signal,
                 });
                 clearTimeout(timeoutId);
+                _genAbortController = null;
 
                 if (response.ok) {
                     const contentType = response.headers.get('Content-Type') || '';
@@ -4573,14 +4614,32 @@
                     }, 3000);
                 } else {
                     const errData = await response.json().catch(() => ({}));
-                    throw new Error(errData.error || 'Generation failed');
+                    const errMsg = errData.error || `Server returned ${response.status}`;
+                    const serverErr = new Error(errMsg);
+                    serverErr.httpStatus = response.status;
+                    throw serverErr;
                 }
             } catch (err) {
                 clearTimeout(timeoutId);
+                _genAbortController = null;
                 hideGenerationOverlay(false);
                 let userMsg;
                 if (err.name === 'AbortError') {
-                    userMsg = 'Generation timed out after 5 minutes. The server may be overloaded -- please try again.';
+                    // Distinguish user-initiated cancel vs timeout
+                    const elapsed = genStartTime ? Math.floor((Date.now() - genStartTime) / 1000) : 0;
+                    if (elapsed >= GEN_TIMEOUT_SECS - 5) {
+                        userMsg = 'Generation timed out after 5 minutes. The server may be overloaded -- please try again.';
+                    } else {
+                        userMsg = 'Generation cancelled.';
+                    }
+                } else if (!navigator.onLine) {
+                    userMsg = 'You appear to be offline. Please check your internet connection and try again.';
+                } else if (err.httpStatus && err.httpStatus >= 500) {
+                    userMsg = `Server error (${err.httpStatus}): ${err.message}. Please try again later.`;
+                } else if (err.httpStatus && err.httpStatus >= 400) {
+                    userMsg = `Request error (${err.httpStatus}): ${err.message}. Please review your inputs.`;
+                } else if (err.message === 'Failed to fetch' || err.message === 'NetworkError when attempting to fetch resource.') {
+                    userMsg = 'Network error -- could not reach the server. Please check your connection and try again.';
                 } else if (err.message && err.message !== 'Generation failed') {
                     userMsg = `Generation failed: ${err.message}`;
                 } else {
@@ -4660,6 +4719,18 @@
             }, 400);
         }
         createHeaderParticles();
+
+        // ============================================
+        // Unsaved changes warning (beforeunload)
+        // ============================================
+        let formDirty = false;
+        document.querySelectorAll('input, textarea, select').forEach(el => {
+            el.addEventListener('input', () => { formDirty = true; });
+            el.addEventListener('change', () => { formDirty = true; });
+        });
+        window.addEventListener('beforeunload', (e) => {
+            if (formDirty) { e.preventDefault(); e.returnValue = ''; }
+        });
     </script>
 
     <!-- Keyboard accessibility for interactive cards -->

@@ -50,6 +50,36 @@ def _get_orchestrator():
                     _orchestrator = False  # sentinel: tried and failed
     return _orchestrator if _orchestrator is not False else None
 
+# v3 lazy-loaded modules
+_trend_engine = None
+_trend_engine_lock = threading.Lock()
+_collar_intel = None
+_collar_intel_lock = threading.Lock()
+
+def _get_trend_engine():
+    global _trend_engine
+    if _trend_engine is None:
+        with _trend_engine_lock:
+            if _trend_engine is None:
+                try:
+                    import trend_engine
+                    _trend_engine = trend_engine
+                except Exception:
+                    _trend_engine = False
+    return _trend_engine if _trend_engine is not False else None
+
+def _get_collar_intel():
+    global _collar_intel
+    if _collar_intel is None:
+        with _collar_intel_lock:
+            if _collar_intel is None:
+                try:
+                    import collar_intelligence
+                    _collar_intel = collar_intelligence
+                except Exception:
+                    _collar_intel = False
+    return _collar_intel if _collar_intel is not False else None
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -637,6 +667,8 @@ When a country IS specified: use LOCAL CURRENCY (INR for India, GBP for UK, EUR 
 19. `query_employer_brand` -- employer brand intel: Glassdoor ratings, hiring channels, strategies for 30+ major companies
 20. `query_ad_benchmarks` -- CPC/CPM/CTR by platform (Google, Meta, LinkedIn, Indeed, Programmatic) per industry
 21. `query_hiring_insights` -- computed insights: hiring difficulty index (0-1), salary competitiveness, days until peak hiring
+22. `query_collar_strategy` -- blue/white collar classification, differentiated channel mix, CPC/CPA ranges, messaging tone, time-to-fill
+23. `query_market_trends` -- 4-year CPC/CPA trends, seasonal multipliers by collar type, YoY changes, cost projections
 
 ## TOOL STRATEGY
 
@@ -644,6 +676,8 @@ Always call tools before answering data questions. Use `query_platform_deep` for
 Use `query_hiring_insights` for strategic timing and difficulty questions.
 Use `query_employer_brand` when discussing specific company hiring practices.
 Use `query_ad_benchmarks` for platform cost comparisons.
+Use `query_collar_strategy` when comparing blue collar vs white collar roles, or when the user mentions warehouse, logistics, hourly, or frontline workers.
+Use `query_market_trends` for CPC/CPA trend questions, seasonal patterns, or cost forecasting.
 
 ## RESPONSE LENGTH — MATCH THE QUESTION
 
@@ -655,10 +689,11 @@ Use `query_ad_benchmarks` for platform cost comparisons.
 ## RESPONSE RULES
 
 - Cite sources for every data point. Note convergence or flag discrepancies.
-- Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these to calibrate your certainty:
-  - confidence >= 0.8: state directly as reliable data
-  - confidence 0.5-0.8: qualify as "based on available data"
-  - confidence < 0.5: label as estimate or approximation
+- Tool results include structured confidence: `data_confidence` (0.0-1.0), `data_freshness` (live_api/cached_api/curated/fallback), and `sources` list. Use these to calibrate your certainty:
+  - confidence >= 0.8 + live_api/cached_api: state directly as reliable data
+  - confidence 0.5-0.8 or curated: qualify as "based on available data"
+  - confidence < 0.5 or fallback: label as estimate or approximation
+  - When `trend_direction` is included (rising/falling/stable), mention the trend.
 - High confidence (3+ sources): state directly. Medium (1-2): qualify. Low: label as estimate. No data: say so.
 - NEVER invent statistics. NEVER present estimates as facts.
 - Lead with the answer, use markdown, end complex answers with a recommendation.
@@ -931,6 +966,33 @@ Use `query_ad_benchmarks` for platform cost comparisons.
                     "required": []
                 }
             },
+            {
+                "name": "query_collar_strategy",
+                "description": "Compare blue collar vs white collar hiring strategies. Returns collar type classification for a role, differentiated channel mix, CPC/CPA ranges, preferred platforms, messaging tone, and time-to-fill benchmarks. Use when user asks about hiring warehouse workers vs office staff, blue collar hiring, or needs collar-specific strategy.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {"type": "string", "description": "Job role to classify (e.g., 'Warehouse Associate', 'Software Engineer')"},
+                        "industry": {"type": "string", "description": "Industry context for classification"},
+                        "compare": {"type": "boolean", "description": "If true, return full blue vs white collar comparison. Default false."}
+                    },
+                    "required": []
+                }
+            },
+            {
+                "name": "query_market_trends",
+                "description": "Get CPC/CPA trend data with seasonal patterns and year-over-year changes. Returns 4-year historical trends, seasonal multipliers by collar type, and projected costs. Use when user asks about CPC trends, seasonal hiring patterns, 'when is the cheapest time to advertise', or cost forecasting.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "platform": {"type": "string", "description": "Ad platform: google, meta_fb, indeed, linkedin, programmatic"},
+                        "industry": {"type": "string", "description": "Industry for benchmarks"},
+                        "metric": {"type": "string", "description": "Metric: cpc, cpa, cpm, ctr. Default: cpc"},
+                        "collar_type": {"type": "string", "description": "blue_collar or white_collar for seasonal adjustments"}
+                    },
+                    "required": []
+                }
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -961,6 +1023,8 @@ Use `query_ad_benchmarks` for platform cost comparisons.
             "query_employer_brand": self._query_employer_brand,
             "query_ad_benchmarks": self._query_ad_benchmarks,
             "query_hiring_insights": self._query_hiring_insights,
+            "query_collar_strategy": self._query_collar_strategy,
+            "query_market_trends": self._query_market_trends,
         }
         handler = handlers.get(tool_name)
         if not handler:
@@ -1728,6 +1792,141 @@ Use `query_ad_benchmarks` for platform cost comparisons.
             "source": "Joveo Computed Hiring Insights (limited)",
             "note": "Call salary, market demand, and location tools first for best results.",
         }
+
+    def _query_collar_strategy(self, params: dict) -> dict:
+        """Compare blue collar vs white collar hiring strategies with structured confidence."""
+        role = params.get("role", "").strip()
+        industry = params.get("industry", "").strip()
+        compare = params.get("compare", False)
+        ci = _get_collar_intel()
+
+        result: Dict[str, Any] = {"source": "Joveo Collar Intelligence Engine"}
+
+        # Classify the role if provided
+        if role and ci:
+            try:
+                classification = ci.classify_collar(role=role, industry=industry or "general")
+                result["role_classification"] = {
+                    "role": role,
+                    "collar_type": classification.get("collar_type", "unknown"),
+                    "confidence": classification.get("confidence", 0),
+                    "sub_type": classification.get("sub_type", ""),
+                    "method": classification.get("method", ""),
+                }
+                # Add channel strategy for this collar type
+                ct = classification.get("collar_type", "")
+                if ct in ci.COLLAR_STRATEGY:
+                    strat = ci.COLLAR_STRATEGY[ct]
+                    result["recommended_strategy"] = {
+                        "preferred_platforms": strat.get("preferred_platforms", []),
+                        "messaging_tone": strat.get("messaging_tone", ""),
+                        "avg_cpa_range": strat.get("avg_cpa_range", ""),
+                        "avg_cpc_range": strat.get("avg_cpc_range", ""),
+                        "time_to_fill_days": strat.get("time_to_fill_benchmark_days", ""),
+                        "mobile_apply_pct": strat.get("mobile_apply_pct", ""),
+                        "application_complexity": strat.get("application_complexity", ""),
+                    }
+                result["data_confidence"] = classification.get("confidence", 0.5)
+                result["data_freshness"] = "curated"
+            except Exception as e:
+                logger.debug("Collar classification failed for %s: %s", role, e)
+
+        # Full comparison mode
+        if compare and ci:
+            comparison = {}
+            for ct_key in ["blue_collar", "white_collar"]:
+                strat = ci.COLLAR_STRATEGY.get(ct_key, {})
+                if strat:
+                    comparison[ct_key] = {
+                        "preferred_platforms": strat.get("preferred_platforms", []),
+                        "channel_mix": strat.get("channel_mix", {}),
+                        "messaging_tone": strat.get("messaging_tone", ""),
+                        "avg_cpa_range": strat.get("avg_cpa_range", ""),
+                        "avg_cpc_range": strat.get("avg_cpc_range", ""),
+                        "time_to_fill_days": strat.get("time_to_fill_benchmark_days", ""),
+                        "ad_format_priority": strat.get("ad_format_priority", []),
+                        "mobile_apply_pct": strat.get("mobile_apply_pct", ""),
+                    }
+            result["collar_comparison"] = comparison
+            result["data_confidence"] = 0.85
+            result["data_freshness"] = "curated"
+
+        if not ci:
+            result["note"] = "Collar intelligence module not available. Install collar_intelligence.py."
+            result["data_confidence"] = 0.0
+        return result
+
+    def _query_market_trends(self, params: dict) -> dict:
+        """Get CPC/CPA trend data with seasonal patterns and structured confidence."""
+        platform = params.get("platform", "google").strip()
+        industry = params.get("industry", "").strip()
+        metric = params.get("metric", "cpc").strip()
+        collar_type = params.get("collar_type", "").strip()
+        te = _get_trend_engine()
+
+        result: Dict[str, Any] = {"source": "Joveo Trend Intelligence Engine"}
+
+        if not te:
+            result["note"] = "Trend engine not available. Install trend_engine.py."
+            result["data_confidence"] = 0.0
+            return result
+
+        # Historical trend data
+        try:
+            trend = te.get_trend(platform=platform, industry=industry or "general_entry_level",
+                                 metric=metric, years_back=4)
+            if trend and isinstance(trend, dict):
+                result["historical_trend"] = {
+                    "platform": trend.get("platform", platform),
+                    "industry": trend.get("industry", industry),
+                    "metric": metric,
+                    "history": trend.get("history", []),
+                    "avg_yoy_change_pct": trend.get("avg_yoy_change_pct", 0),
+                    "trend_direction": trend.get("trend_direction", "stable"),
+                    "projected_next_year": trend.get("projected_next_year", {}),
+                }
+                result["data_confidence"] = trend.get("data_confidence", 0.7)
+                result["data_freshness"] = "curated"
+                result["sources"] = trend.get("sources", [])
+        except Exception as e:
+            logger.debug("Trend lookup failed: %s", e)
+
+        # Current benchmark
+        try:
+            import datetime
+            month = datetime.datetime.now().month
+            benchmark = te.get_benchmark(platform=platform, industry=industry or "general_entry_level",
+                                          metric=metric, collar_type=collar_type or "white_collar",
+                                          month=month)
+            if benchmark and isinstance(benchmark, dict):
+                result["current_benchmark"] = {
+                    "value": benchmark.get("value"),
+                    "confidence_interval": benchmark.get("confidence_interval", []),
+                    "seasonal_factor": benchmark.get("seasonal_factor", 1.0),
+                    "trend_direction": benchmark.get("trend_direction", ""),
+                    "trend_pct_yoy": benchmark.get("trend_pct_yoy", 0),
+                }
+        except Exception as e:
+            logger.debug("Benchmark lookup failed: %s", e)
+
+        # Seasonal patterns
+        if collar_type:
+            try:
+                sa = te.get_seasonal_adjustment(collar_type, 0)  # 0 = current month handled inside
+                if sa and isinstance(sa, dict):
+                    full_year = sa.get("full_year", {})
+                    if full_year:
+                        result["seasonal_multipliers"] = {
+                            "collar_type": collar_type,
+                            "monthly": full_year,
+                            "peak_month": sa.get("peak_month"),
+                            "trough_month": sa.get("trough_month"),
+                            "current_multiplier": sa.get("multiplier", 1.0),
+                        }
+            except Exception as e:
+                logger.debug("Seasonal lookup failed: %s", e)
+
+        return result
 
     def _query_linkedin_guidewire(self, params: dict) -> dict:
         """Query LinkedIn Hiring Value Review data for Guidewire Software."""

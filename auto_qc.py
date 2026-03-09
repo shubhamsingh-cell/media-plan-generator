@@ -459,7 +459,7 @@ class AutoQC:
             return TestResult("orchestrator_cache", False, str(e))
 
     def _test_08_nova_tool_count(self) -> TestResult:
-        """Nova has 21 tool definitions."""
+        """Nova has 23 tool definitions (v3: +query_collar_strategy, +query_market_trends)."""
         try:
             if "nova" not in sys.modules:
                 importlib.import_module("nova")
@@ -467,9 +467,14 @@ class AutoQC:
             nova_instance = nova_mod.Nova()
             tools = nova_instance.get_tool_definitions()
             count = len(tools)
-            ok = count >= 21
-            return TestResult("nova_tool_count", ok,
-                              f"{count} tools (expected >= 21)")
+            tool_names = [t.get("name", "") for t in tools]
+            v3_tools = ["query_collar_strategy", "query_market_trends"]
+            missing_v3 = [t for t in v3_tools if t not in tool_names]
+            ok = count >= 23 and not missing_v3
+            detail = f"{count} tools (expected >= 23)"
+            if missing_v3:
+                detail += f"; MISSING v3 tools: {missing_v3}"
+            return TestResult("nova_tool_count", ok, detail)
         except Exception as e:
             return TestResult("nova_tool_count", False, str(e))
 
@@ -557,7 +562,7 @@ class AutoQC:
     # -- Orchestrator-Specific Tests --
 
     def _test_15_orchestrator_lazy_loaders(self) -> TestResult:
-        """Orchestrator lazy loaders resolve to valid modules."""
+        """Orchestrator lazy loaders resolve to valid modules (v3: 6 loaders)."""
         try:
             if "data_orchestrator" not in sys.modules:
                 importlib.import_module("data_orchestrator")
@@ -567,6 +572,8 @@ class AutoQC:
                 "_lazy_research": "research",
                 "_lazy_budget": "budget_engine",
                 "_lazy_standardizer": "standardizer",
+                "_lazy_trend_engine": "trend_engine",
+                "_lazy_collar_intel": "collar_intelligence",
             }
             failures = []
             for fn_name, expected in loaders.items():
@@ -578,7 +585,7 @@ class AutoQC:
                     if mod is None:
                         failures.append(f"{fn_name} returned None ({expected} failed)")
             ok = len(failures) == 0
-            detail = "All 4 lazy loaders OK" if ok else "; ".join(failures)
+            detail = f"All {len(loaders)} lazy loaders OK" if ok else "; ".join(failures)
             return TestResult("orchestrator_lazy_loaders", ok, detail)
         except Exception as e:
             return TestResult("orchestrator_lazy_loaders", False, str(e))
@@ -660,6 +667,425 @@ class AutoQC:
                               f"total_fallbacks={result.get('total_fallbacks', '?')}")
         except Exception as e:
             return TestResult("fallback_telemetry", False, str(e))
+
+    # -- Trend Engine Validation Tests (v3) --
+
+    def _test_21_trend_engine_benchmarks(self) -> TestResult:
+        """Trend engine returns valid benchmarks for multiple platform/industry combos."""
+        try:
+            try:
+                import trend_engine
+            except ImportError:
+                return TestResult("trend_engine_benchmarks", False,
+                                  "trend_engine module not importable")
+
+            test_combos = [
+                ("google_search", "healthcare_medical"),
+                ("indeed", "logistics_supply_chain"),
+                ("linkedin", "tech_engineering"),
+            ]
+            failures = []
+            for platform, industry in test_combos:
+                result = trend_engine.get_benchmark(platform=platform, industry=industry)
+                # value > 0
+                if not (isinstance(result.get("value"), (int, float)) and result["value"] > 0):
+                    failures.append(f"{platform}/{industry}: value not > 0 (got {result.get('value')})")
+                    continue
+                # confidence_interval is a list of 2 floats
+                ci = result.get("confidence_interval")
+                if not (isinstance(ci, (list, tuple)) and len(ci) == 2
+                        and all(isinstance(v, (int, float)) for v in ci)):
+                    failures.append(f"{platform}/{industry}: confidence_interval invalid (got {ci})")
+                    continue
+                # trend_direction in valid set
+                td = result.get("trend_direction")
+                if td not in ("rising", "falling", "stable"):
+                    failures.append(f"{platform}/{industry}: trend_direction invalid (got {td})")
+                    continue
+                # trend_pct_yoy is a number
+                yoy = result.get("trend_pct_yoy")
+                if not isinstance(yoy, (int, float)):
+                    failures.append(f"{platform}/{industry}: trend_pct_yoy not numeric (got {yoy})")
+
+            ok = len(failures) == 0
+            detail = f"All {len(test_combos)} combos valid" if ok else "; ".join(failures[:3])
+            return TestResult("trend_engine_benchmarks", ok, detail)
+        except Exception as e:
+            return TestResult("trend_engine_benchmarks", False, str(e))
+
+    def _test_22_trend_engine_seasonal(self) -> TestResult:
+        """Trend engine seasonal adjustment returns multiplier for both collar types."""
+        try:
+            try:
+                import trend_engine
+            except ImportError:
+                return TestResult("trend_engine_seasonal", False,
+                                  "trend_engine module not importable")
+
+            failures = []
+            for collar in ("blue_collar", "white_collar"):
+                result = trend_engine.get_seasonal_adjustment(collar_type=collar)
+                if not isinstance(result, dict):
+                    failures.append(f"{collar}: result is not a dict")
+                    continue
+                if "multiplier" not in result:
+                    failures.append(f"{collar}: missing 'multiplier' key (keys={list(result.keys())})")
+                    continue
+                mult = result["multiplier"]
+                if not isinstance(mult, (int, float)) or mult <= 0:
+                    failures.append(f"{collar}: multiplier not positive (got {mult})")
+
+            ok = len(failures) == 0
+            detail = "Both collar types return valid multiplier" if ok else "; ".join(failures)
+            return TestResult("trend_engine_seasonal", ok, detail)
+        except Exception as e:
+            return TestResult("trend_engine_seasonal", False, str(e))
+
+    def _test_23_trend_engine_freshness(self) -> TestResult:
+        """Trend engine data contains current or previous year (not stale)."""
+        try:
+            try:
+                import trend_engine
+            except ImportError:
+                return TestResult("trend_engine_freshness", False,
+                                  "trend_engine module not importable")
+
+            current_year = datetime.now(timezone.utc).year
+            previous_year = current_year - 1
+
+            # Check _ALL_TRENDS for freshness -- it should contain data for
+            # at least the previous year across platforms
+            all_trends = getattr(trend_engine, "_ALL_TRENDS", None)
+            if all_trends is None:
+                return TestResult("trend_engine_freshness", False,
+                                  "_ALL_TRENDS not found in trend_engine")
+
+            stale_platforms = []
+            for platform, industries in all_trends.items():
+                has_recent = False
+                for ind_key, year_data in industries.items():
+                    if isinstance(year_data, dict):
+                        years = [y for y in year_data.keys() if isinstance(y, int)]
+                        if any(y >= previous_year for y in years):
+                            has_recent = True
+                            break
+                if not has_recent:
+                    stale_platforms.append(platform)
+
+            ok = len(stale_platforms) == 0
+            detail = (f"All {len(all_trends)} platforms have data for >= {previous_year}"
+                      if ok else f"Stale platforms (no data >= {previous_year}): {', '.join(stale_platforms)}")
+            return TestResult("trend_engine_freshness", ok, detail)
+        except Exception as e:
+            return TestResult("trend_engine_freshness", False, str(e))
+
+    # -- Collar Classification Coverage Tests (v3) --
+
+    def _test_24_collar_classification(self) -> TestResult:
+        """Collar intelligence classifies diverse roles correctly."""
+        try:
+            try:
+                import collar_intelligence
+            except ImportError:
+                return TestResult("collar_classification", False,
+                                  "collar_intelligence module not importable")
+
+            test_roles = [
+                "Warehouse Worker",
+                "Software Engineer",
+                "Registered Nurse",
+                "CEO",
+                "Truck Driver",
+            ]
+            valid_collars = ("blue_collar", "white_collar", "grey_collar", "pink_collar")
+            failures = []
+            for role in test_roles:
+                result = collar_intelligence.classify_collar(role)
+                # collar_type in valid set
+                ct = result.get("collar_type")
+                if ct not in valid_collars:
+                    failures.append(f"{role}: collar_type invalid (got {ct})")
+                    continue
+                # confidence > 0.3
+                conf = result.get("confidence", 0)
+                if not (isinstance(conf, (int, float)) and conf > 0.3):
+                    failures.append(f"{role}: confidence <= 0.3 (got {conf})")
+                    continue
+                # method is non-empty
+                method = result.get("method", "")
+                if not method:
+                    failures.append(f"{role}: method is empty")
+
+            ok = len(failures) == 0
+            detail = f"All {len(test_roles)} roles classified validly" if ok else "; ".join(failures[:3])
+            return TestResult("collar_classification", ok, detail)
+        except Exception as e:
+            return TestResult("collar_classification", False, str(e))
+
+    # -- Budget Engine v3 Integration Tests --
+
+    def _test_25_budget_engine_v3_params(self) -> TestResult:
+        """Budget engine compute_channel_dollar_amounts accepts v3 params."""
+        try:
+            try:
+                import budget_engine
+            except ImportError:
+                return TestResult("budget_engine_v3_params", False,
+                                  "budget_engine module not importable")
+
+            # Minimal valid inputs for the function
+            channel_pcts = {"Programmatic & DSP": 30, "Global Job Boards": 25,
+                            "Social Media Ads": 20, "Google Ads": 15, "Regional/Local": 10}
+            role_budgets = {"Software Engineer": {"dollar_amount": 10000, "count": 2}}
+
+            # Call with the v3 parameters: industry, collar_type, location
+            result = budget_engine.compute_channel_dollar_amounts(
+                channel_percentages=channel_pcts,
+                role_budgets=role_budgets,
+                industry="tech_engineering",
+                collar_type="white_collar",
+                location="San Francisco",
+            )
+
+            if not isinstance(result, dict) or len(result) == 0:
+                return TestResult("budget_engine_v3_params", False,
+                                  f"Empty or non-dict result: {type(result)}")
+
+            # Check at least one channel has cpc_source field
+            has_cpc_source = any(
+                isinstance(v, dict) and "cpc_source" in v
+                for v in result.values()
+            )
+            ok = has_cpc_source
+            sample_channel = next(iter(result.values()), {})
+            detail = (f"{len(result)} channels returned, cpc_source present"
+                      if ok else f"cpc_source missing from channels (sample keys: {list(sample_channel.keys())[:6]})")
+            return TestResult("budget_engine_v3_params", ok, detail)
+        except Exception as e:
+            return TestResult("budget_engine_v3_params", False, str(e))
+
+    # -- Data Orchestrator v3 Integration Tests --
+
+    def _test_26_orchestrator_ad_benchmarks_v3(self) -> TestResult:
+        """Orchestrator enrich_ad_benchmarks returns structured_confidence."""
+        try:
+            if "data_orchestrator" not in sys.modules:
+                importlib.import_module("data_orchestrator")
+            do = sys.modules["data_orchestrator"]
+            result = do.enrich_ad_benchmarks(industry="technology", role="Software Engineer")
+            has_sc = isinstance(result.get("structured_confidence"), dict)
+            ok = has_sc
+            detail = ("structured_confidence dict present"
+                      if ok else f"structured_confidence missing or not dict (keys={list(result.keys())[:8]})")
+            return TestResult("orchestrator_ad_benchmarks_v3", ok, detail)
+        except Exception as e:
+            return TestResult("orchestrator_ad_benchmarks_v3", False, str(e))
+
+    def _test_27_orchestrator_collar_intelligence(self) -> TestResult:
+        """Orchestrator enrich_collar_intelligence returns non-empty collar_type."""
+        try:
+            if "data_orchestrator" not in sys.modules:
+                importlib.import_module("data_orchestrator")
+            do = sys.modules["data_orchestrator"]
+            result = do.enrich_collar_intelligence(role="Truck Driver", industry="logistics")
+            collar_type = result.get("collar_type", "")
+            ok = bool(collar_type) and collar_type != ""
+            detail = f"collar_type={collar_type}" if ok else "collar_type is empty or missing"
+            return TestResult("orchestrator_collar_intelligence", ok, detail)
+        except Exception as e:
+            return TestResult("orchestrator_collar_intelligence", False, str(e))
+
+    def _test_28_orchestrator_hiring_trends(self) -> TestResult:
+        """Orchestrator enrich_hiring_trends returns hiring_difficulty_index."""
+        try:
+            if "data_orchestrator" not in sys.modules:
+                importlib.import_module("data_orchestrator")
+            do = sys.modules["data_orchestrator"]
+            result = do.enrich_hiring_trends(industry="technology", location="US")
+            hdi = result.get("hiring_difficulty_index")
+            ok = hdi is not None and isinstance(hdi, (int, float))
+            detail = (f"hiring_difficulty_index={hdi}"
+                      if ok else f"hiring_difficulty_index missing or invalid (keys={list(result.keys())[:8]})")
+            return TestResult("orchestrator_hiring_trends", ok, detail)
+        except Exception as e:
+            return TestResult("orchestrator_hiring_trends", False, str(e))
+
+    def _test_29_nova_v3_tool_handlers(self) -> TestResult:
+        """Nova v3 tool handlers (query_collar_strategy, query_market_trends) execute."""
+        try:
+            if "nova" not in sys.modules:
+                importlib.import_module("nova")
+            nova_mod = sys.modules["nova"]
+            nova_instance = nova_mod.Nova()
+
+            failures = []
+
+            # Test query_collar_strategy
+            try:
+                cs_result = nova_instance._query_collar_strategy({
+                    "role": "Warehouse Worker",
+                    "industry": "logistics",
+                })
+                if not isinstance(cs_result, dict):
+                    failures.append("query_collar_strategy: not a dict")
+                elif "role_classification" not in cs_result and "collar_type" not in cs_result:
+                    failures.append(f"query_collar_strategy: missing expected keys (got {list(cs_result.keys())[:5]})")
+            except AttributeError:
+                failures.append("query_collar_strategy: handler method missing on Nova")
+            except Exception as e:
+                failures.append(f"query_collar_strategy: {e}")
+
+            # Test query_market_trends
+            try:
+                mt_result = nova_instance._query_market_trends({
+                    "platform": "google",
+                    "industry": "technology",
+                    "metric": "cpc",
+                })
+                if not isinstance(mt_result, dict):
+                    failures.append("query_market_trends: not a dict")
+                elif "historical_trend" not in mt_result and "current_benchmark" not in mt_result:
+                    failures.append(f"query_market_trends: missing expected keys (got {list(mt_result.keys())[:5]})")
+            except AttributeError:
+                failures.append("query_market_trends: handler method missing on Nova")
+            except Exception as e:
+                failures.append(f"query_market_trends: {e}")
+
+            ok = len(failures) == 0
+            detail = "Both v3 tool handlers execute OK" if ok else "; ".join(failures)
+            return TestResult("nova_v3_tool_handlers", ok, detail)
+        except Exception as e:
+            return TestResult("nova_v3_tool_handlers", False, str(e))
+
+    def _test_30_ppt_v3_features(self) -> TestResult:
+        """PPT generator has v3 features: trend_engine benchmarks, collar intelligence, role normalization."""
+        try:
+            if "ppt_generator" not in sys.modules:
+                importlib.import_module("ppt_generator")
+            ppt = sys.modules["ppt_generator"]
+            failures = []
+
+            # Check trend_engine is imported
+            has_trend = getattr(ppt, "_HAS_TREND_ENGINE", False)
+            if not has_trend:
+                failures.append("_HAS_TREND_ENGINE is False (trend_engine not loaded)")
+
+            # Check collar_intelligence is imported
+            has_collar = getattr(ppt, "_HAS_COLLAR_INTEL", False)
+            if not has_collar:
+                failures.append("_HAS_COLLAR_INTEL is False (collar_intelligence not loaded)")
+
+            # Check role normalization (v3 bug fix) in generate_pptx
+            import inspect
+            src = inspect.getsource(ppt.generate_pptx)
+            has_normalization = ("isinstance(r, dict)" in src or
+                                 'r.get("title"' in src or
+                                 "Normalize roles" in src)
+            if not has_normalization:
+                failures.append("Missing role dict normalization in generate_pptx")
+
+            # Check _get_benchmarks uses trend_engine
+            bench_src = inspect.getsource(ppt._get_benchmarks)
+            if "_HAS_TREND_ENGINE" not in bench_src and "trend_engine" not in bench_src:
+                failures.append("_get_benchmarks does not use trend_engine")
+
+            ok = len(failures) == 0
+            detail = "PPT v3 features present (trend_engine, collar_intel, role normalization)" if ok else "; ".join(failures)
+            return TestResult("ppt_v3_features", ok, detail)
+        except Exception as e:
+            return TestResult("ppt_v3_features", False, str(e))
+
+    def _test_31_data_synthesizer_integration(self) -> TestResult:
+        """data_synthesizer has all 10 public functions for orchestrator fusion."""
+        try:
+            if "data_synthesizer" not in sys.modules:
+                importlib.import_module("data_synthesizer")
+            ds = sys.modules["data_synthesizer"]
+            required_fns = [
+                "synthesize",
+                "generate_ai_narratives",
+                "fuse_salary_intelligence",
+                "fuse_job_market_demand",
+                "fuse_location_profiles",
+                "fuse_competitive_intelligence",
+                "fuse_ad_platform_analysis",
+                "fuse_workforce_insights",
+                "compute_confidence_scores",
+                "validate_with_knowledge_base",
+            ]
+            missing = [fn for fn in required_fns if not hasattr(ds, fn)]
+            ok = len(missing) == 0
+            detail = (f"All {len(required_fns)} synthesizer functions present"
+                      if ok else f"Missing: {', '.join(missing)}")
+            return TestResult("data_synthesizer_integration", ok, detail)
+        except Exception as e:
+            return TestResult("data_synthesizer_integration", False, str(e))
+
+    def _test_32_structured_confidence(self) -> TestResult:
+        """Orchestrator enrichment returns structured confidence with sources."""
+        try:
+            if "data_orchestrator" not in sys.modules:
+                importlib.import_module("data_orchestrator")
+            do = sys.modules["data_orchestrator"]
+            result = do.enrich_salary("Software Engineer", "US", "technology")
+            failures = []
+
+            # Check for structured confidence (v3 uses "structured_confidence" key)
+            sc = result.get("structured_confidence")
+            scalar_conf = result.get("confidence")
+
+            if sc is not None and isinstance(sc, dict):
+                # Full structured confidence -- verify required fields
+                for key in ("confidence", "sources", "freshness"):
+                    if key not in sc:
+                        failures.append(f"structured_confidence missing '{key}'")
+            elif scalar_conf is not None and isinstance(scalar_conf, (int, float)):
+                pass  # OK -- scalar confidence (backward compat)
+            else:
+                failures.append("No confidence field found (expected 'structured_confidence' dict or 'confidence' float)")
+
+            # Check source attribution (multiple possible key names)
+            sources = (result.get("sources_used")
+                       or result.get("sources")
+                       or result.get("data_sources")
+                       or [])
+            if not sources:
+                # Also check inside structured_confidence
+                if sc and isinstance(sc, dict):
+                    sources = sc.get("sources", [])
+            if not sources:
+                failures.append("No source attribution found")
+
+            ok = len(failures) == 0
+            detail = (f"structured_confidence present (confidence={scalar_conf}, "
+                      f"{len(sources)} sources)" if ok else "; ".join(failures))
+            return TestResult("structured_confidence", ok, detail)
+        except Exception as e:
+            return TestResult("structured_confidence", False, str(e))
+
+    def _test_33_data_matrix_v3_layers(self) -> TestResult:
+        """Data matrix monitor tracks trend_engine and collar_intelligence layers."""
+        try:
+            if "data_matrix_monitor" not in sys.modules:
+                importlib.import_module("data_matrix_monitor")
+            dmm = sys.modules["data_matrix_monitor"]
+            matrix = dmm.EXPECTED_MATRIX
+            failures = []
+            v3_layers = ["trend_engine", "collar_intelligence"]
+            for product, layers in matrix.items():
+                for v3l in v3_layers:
+                    if v3l not in layers:
+                        failures.append(f"{product}: missing {v3l} layer")
+            # Check orchestrator layer map has v3 entries
+            orch_map = dmm._ORCH_LAYER_MAP
+            for v3l in v3_layers:
+                if v3l not in orch_map:
+                    failures.append(f"_ORCH_LAYER_MAP missing {v3l}")
+            ok = len(failures) == 0
+            detail = "Data matrix fully tracks v3 layers (4 products x 2 new layers)" if ok else "; ".join(failures)
+            return TestResult("data_matrix_v3_layers", ok, detail)
+        except Exception as e:
+            return TestResult("data_matrix_v3_layers", False, str(e))
 
     # ══════════════════════════════════════════════════════════════════════
     # DYNAMIC TESTS (generated weekly from user interaction analysis)

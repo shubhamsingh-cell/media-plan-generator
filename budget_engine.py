@@ -5,14 +5,16 @@ Takes the user's total budget, role/location details, synthesized market data,
 and produces per-channel spend recommendations with projected outcomes
 (clicks, applications, hires).
 
-This module is intentionally self-contained: it imports only stdlib so that
-the rest of the pipeline can call it without circular-dependency risk.
+v3 upgrades:
+    - Dynamic CPC benchmarks from trend_engine.py (when available)
+    - Collar-weighted allocation via collar_intelligence.py
+    - Trend engine CPC overrides via synthesized_data["trend_benchmarks"]
+    - Structured confidence on channel allocations
+
+This module prefers self-contained operation (stdlib imports) but will
+optionally import trend_engine and collar_intelligence for dynamic benchmarks.
 The caller (app.py or data_orchestrator.py) passes in any enrichment
 data it has already fetched.
-
-Future enhancement: Incorporate orchestrator's EnrichmentContext confidence
-scores to weight channel allocation reliability and flag low-confidence
-projections in the output.
 """
 
 import logging
@@ -20,6 +22,19 @@ import math
 from typing import Dict, List, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+# ── Optional v3 imports (dynamic benchmarks) ──
+try:
+    import trend_engine as _trend_engine
+    _HAS_TREND_ENGINE = True
+except ImportError:
+    _HAS_TREND_ENGINE = False
+
+try:
+    import collar_intelligence as _collar_intel
+    _HAS_COLLAR_INTEL = True
+except ImportError:
+    _HAS_COLLAR_INTEL = False
 
 # ── Canonical taxonomy standardizer ──
 # Used to normalize industry keys before CPH lookups.
@@ -360,6 +375,183 @@ def _extract_cpc_from_kb(
     return None
 
 
+def _get_trend_engine_cpc(
+    category: str,
+    industry: str = "",
+    collar_type: str = "both",
+    location: str = "",
+) -> Optional[Tuple[float, Dict[str, Any]]]:
+    """
+    Fetch CPC from trend_engine.py with full context awareness.
+
+    Returns (cpc_value, metadata_dict) or None if trend engine unavailable.
+    The metadata dict includes trend_direction, trend_pct_yoy, seasonal_factor,
+    confidence_interval, and data_confidence for downstream structured confidence.
+    """
+    if not _HAS_TREND_ENGINE:
+        return None
+
+    # Map budget category -> trend_engine platform key(s)
+    _CATEGORY_TO_PLATFORMS: Dict[str, List[str]] = {
+        "search": ["google"],
+        "display": ["google"],
+        "social": ["meta_fb", "meta_ig"],
+        "programmatic": ["programmatic"],
+        "job_board": ["indeed"],
+        "niche_board": ["linkedin"],
+        "regional": ["indeed"],
+        "employer_branding": ["linkedin"],
+        "email": [],
+        "career_site": [],
+        "referral": [],
+        "events": [],
+        "staffing": [],
+    }
+
+    platform_keys = _CATEGORY_TO_PLATFORMS.get(category, [])
+    if not platform_keys:
+        return None
+
+    import datetime
+    current_month = datetime.datetime.now().month
+
+    cpcs: List[float] = []
+    best_meta: Dict[str, Any] = {}
+
+    for plat_key in platform_keys:
+        try:
+            result = _trend_engine.get_benchmark(
+                platform=plat_key,
+                industry=industry or "general",
+                metric="cpc",
+                collar_type=collar_type,
+                location=location,
+                month=current_month,
+            )
+            if result and isinstance(result, dict):
+                val = result.get("value", 0)
+                if isinstance(val, (int, float)) and val > 0:
+                    cpcs.append(float(val))
+                    if not best_meta:
+                        best_meta = {
+                            "trend_direction": result.get("trend_direction", "stable"),
+                            "trend_pct_yoy": result.get("trend_pct_yoy", 0.0),
+                            "seasonal_factor": result.get("seasonal_factor", 1.0),
+                            "confidence_interval": result.get("confidence_interval", []),
+                            "data_confidence": result.get("data_confidence", 0.7),
+                            "sources": result.get("sources", ["trend_engine"]),
+                        }
+        except Exception as e:
+            logger.debug("trend_engine.get_benchmark failed for %s/%s: %s", plat_key, category, e)
+
+    if cpcs:
+        avg_cpc = round(sum(cpcs) / len(cpcs), 2)
+        return (avg_cpc, best_meta)
+    return None
+
+
+def _get_collar_apply_rate_adjustment(category: str, collar_type: str) -> float:
+    """
+    Return an apply-rate multiplier based on collar type.
+
+    Blue collar roles have higher apply rates on job boards / programmatic
+    but lower on LinkedIn. White collar is the inverse.
+    """
+    # Collar-specific apply rate multipliers by channel category
+    _COLLAR_APPLY_MULT: Dict[str, Dict[str, float]] = {
+        "blue_collar": {
+            "job_board": 1.4,      # blue collar applies heavily on Indeed etc.
+            "programmatic": 1.3,
+            "social": 1.2,         # Facebook effective for blue collar
+            "search": 0.8,
+            "niche_board": 0.7,    # LinkedIn less relevant
+            "display": 1.1,
+            "regional": 1.3,
+            "employer_branding": 0.6,
+            "email": 0.8,
+            "career_site": 1.2,
+        },
+        "white_collar": {
+            "job_board": 0.9,
+            "programmatic": 0.8,
+            "social": 0.9,         # LinkedIn-heavy, FB less
+            "search": 1.2,
+            "niche_board": 1.4,    # LinkedIn premium for white collar
+            "display": 0.7,
+            "regional": 0.7,
+            "employer_branding": 1.3,
+            "email": 1.1,
+            "career_site": 1.1,
+        },
+        "grey_collar": {
+            "job_board": 1.2,
+            "programmatic": 1.1,
+            "social": 1.0,
+            "search": 1.0,
+            "niche_board": 1.1,
+            "display": 0.9,
+            "regional": 1.1,
+            "employer_branding": 0.9,
+            "email": 1.0,
+            "career_site": 1.1,
+        },
+    }
+    collar_mults = _COLLAR_APPLY_MULT.get(collar_type, {})
+    return collar_mults.get(category, 1.0)
+
+
+def _classify_roles_collar(roles_data: Dict[str, Dict], industry: str = "") -> str:
+    """
+    Determine dominant collar type from role budgets.
+
+    Uses collar_intelligence if available, else falls back to tier heuristics.
+    Returns 'blue_collar', 'white_collar', 'grey_collar', or 'both'.
+    """
+    if not _HAS_COLLAR_INTEL:
+        # Fallback: use tier to guess collar type
+        blue_count = 0
+        white_count = 0
+        for rb in roles_data.values():
+            tier = rb.get("tier", "Professional")
+            hc = rb.get("headcount", rb.get("openings", 1))
+            if tier in ("Hourly / Entry-Level", "Skilled Trades / Technical",
+                        "Hourly", "Trades", "Gig", "Gig / Independent Contractor"):
+                blue_count += hc
+            else:
+                white_count += hc
+        total = blue_count + white_count
+        if total == 0:
+            return "both"
+        if blue_count / total > 0.65:
+            return "blue_collar"
+        if white_count / total > 0.65:
+            return "white_collar"
+        return "both"
+
+    # Use collar_intelligence for proper classification
+    collar_counts: Dict[str, int] = {}
+    for role_title, rb in roles_data.items():
+        hc = rb.get("headcount", rb.get("openings", 1))
+        try:
+            result = _collar_intel.classify_collar(
+                role=role_title,
+                industry=industry,
+                soc_code=rb.get("soc_code", ""),
+            )
+            ct = result.get("collar_type", "white_collar")
+        except Exception:
+            ct = "white_collar"
+        collar_counts[ct] = collar_counts.get(ct, 0) + hc
+
+    total = sum(collar_counts.values()) or 1
+    # Determine dominant
+    dominant = max(collar_counts, key=collar_counts.get) if collar_counts else "both"
+    dominant_pct = collar_counts.get(dominant, 0) / total
+    if dominant_pct < 0.60:
+        return "both"
+    return dominant
+
+
 def _parse_dollar_value(val: Any) -> Optional[float]:
     """Parse values like '$2.69', '$0.25-$1.50', or plain numbers."""
     if isinstance(val, (int, float)):
@@ -637,31 +829,44 @@ def compute_channel_dollar_amounts(
     role_budgets: Dict[str, Dict],
     synthesized_data: Optional[Dict] = None,
     knowledge_base: Optional[Dict] = None,
+    industry: str = "",
+    collar_type: str = "",
+    location: str = "",
 ) -> Dict[str, Dict]:
     """
     Convert channel percentages to dollar amounts with projected outcomes.
 
     For each channel:
         1. Dollar amount = total_role_budget * (pct / 100)
-        2. CPC from synthesized ad-platform data, KB benchmarks, or BASE_BENCHMARKS
+        2. CPC from synthesized data, trend_engine, KB benchmarks, or BASE_BENCHMARKS
         3. Projected clicks = dollars / CPC
-        4. Projected applications = clicks * apply_rate
+        4. Projected applications = clicks * apply_rate (collar-adjusted)
         5. Projected hires = applications * hire_rate
         6. Effective CPA = dollars / applications
         7. Effective cost_per_hire = dollars / hires
         8. ROI score (1-10) against industry average
+
+    v3 upgrades:
+        - trend_engine CPC layer between synthesized and KB
+        - Collar-aware apply rate adjustments
+        - Trend metadata (direction, YoY%) on each channel
+        - Structured confidence with sources list
 
     Args:
         channel_percentages: ``{channel_name: percentage}`` (0-100).
         role_budgets: Output of ``compute_role_weighted_spend``.
         synthesized_data: Enrichment payload (optional).
         knowledge_base: Loaded knowledge base JSON (optional).
+        industry: Industry string for trend engine lookups (v3).
+        collar_type: Collar type for apply rate adjustments (v3).
+        location: Primary location for regional CPC adjustments (v3).
 
     Returns:
         Dict keyed by channel name, each value a dict with:
         ``dollars``, ``cpc``, ``projected_clicks``, ``projected_applications``,
         ``projected_hires``, ``cpa``, ``cost_per_hire``, ``roi_score``,
-        ``confidence``, ``category``.
+        ``confidence``, ``category``, and v3 fields: ``cpc_source``,
+        ``trend_direction``, ``trend_pct_yoy``, ``apply_rate_collar_adjusted``.
     """
     total_budget = sum(rb.get("dollar_amount", 0) for rb in role_budgets.values())
     if total_budget <= 0:
@@ -688,26 +893,51 @@ def compute_channel_dollar_amounts(
     logger.info("Blended hire_rate=%.4f from tiers: %s", hire_rate, _tier_counts)
     industry_avg_cph = 6_000.0  # fallback; caller can override via assess_budget_sufficiency
 
+    # v3: Determine collar type from roles if not explicitly provided
+    effective_collar = collar_type
+    if not effective_collar:
+        effective_collar = _classify_roles_collar(role_budgets, industry)
+
     allocations: Dict[str, Dict] = {}
     for ch_name, raw_pct in channel_percentages.items():
         pct = raw_pct * norm_factor
         dollars = round(total_budget * pct / 100.0, 2)
         category = _category_for_channel(ch_name)
 
-        # Resolve CPC: synthesized > KB > base benchmark
+        # ── CPC Resolution Cascade (v3): synthesized > trend_engine > KB > static ──
         cpc = _extract_cpc_from_synthesized(category, synthesized_data)
-        confidence = "high" if cpc is not None else None
+        cpc_source = "synthesized"
+        confidence = "high"
+        trend_meta: Dict[str, Any] = {}
+
+        if cpc is None:
+            # v3: Try trend_engine with full context
+            te_result = _get_trend_engine_cpc(
+                category, industry=industry,
+                collar_type=effective_collar, location=location,
+            )
+            if te_result is not None:
+                cpc, trend_meta = te_result
+                cpc_source = "trend_engine"
+                confidence = "high"
 
         if cpc is None:
             cpc = _extract_cpc_from_kb(category, knowledge_base)
             if cpc is not None:
+                cpc_source = "knowledge_base"
                 confidence = "medium"
 
         if cpc is None:
             cpc = BASE_BENCHMARKS["cpc"].get(category, 0.85)
+            cpc_source = "static_benchmark"
             confidence = "low"
 
-        apply_rate = BASE_BENCHMARKS["apply_rate"].get(category, 0.05)
+        # ── Apply Rate with Collar Adjustment (v3) ──
+        base_apply_rate = BASE_BENCHMARKS["apply_rate"].get(category, 0.05)
+        collar_mult = 1.0
+        if effective_collar and effective_collar != "both":
+            collar_mult = _get_collar_apply_rate_adjustment(category, effective_collar)
+        apply_rate_adj = round(base_apply_rate * collar_mult, 4)
 
         # For channels without a CPC model (referral, events, staffing),
         # we estimate outcomes differently.
@@ -720,14 +950,14 @@ def compute_channel_dollar_amounts(
             cost_per_hire = _safe_divide(dollars, max(projected_hires, 1), dollars)
         else:
             projected_clicks = max(0, int(dollars / cpc))
-            projected_applications = max(0, int(projected_clicks * apply_rate))
+            projected_applications = max(0, int(projected_clicks * apply_rate_adj))
             projected_hires = max(0, int(projected_applications * hire_rate))
             cpa = _safe_divide(dollars, max(projected_applications, 1), dollars)
             cost_per_hire = _safe_divide(dollars, max(projected_hires, 1), dollars)
 
         roi = _score_roi(cost_per_hire, industry_avg_cph)
 
-        allocations[ch_name] = {
+        allocation_entry: Dict[str, Any] = {
             "dollar_amount": dollars,
             "percentage": round(pct, 1),
             "cpc": round(cpc, 2),
@@ -739,9 +969,24 @@ def compute_channel_dollar_amounts(
             "roi_score": roi,
             "confidence": confidence or "low",
             "category": category,
+            # v3 fields
+            "cpc_source": cpc_source,
+            "apply_rate": round(apply_rate_adj, 4),
+            "apply_rate_collar_adjusted": collar_mult != 1.0,
         }
 
-    logger.info("Channel dollar amounts computed for %d channels", len(allocations))
+        # v3: Attach trend metadata when available
+        if trend_meta:
+            allocation_entry["trend_direction"] = trend_meta.get("trend_direction", "stable")
+            allocation_entry["trend_pct_yoy"] = round(trend_meta.get("trend_pct_yoy", 0.0), 1)
+            allocation_entry["seasonal_factor"] = round(trend_meta.get("seasonal_factor", 1.0), 2)
+
+        allocations[ch_name] = allocation_entry
+
+    logger.info(
+        "Channel dollar amounts computed for %d channels (collar=%s, trend_engine=%s)",
+        len(allocations), effective_collar, "yes" if _HAS_TREND_ENGINE else "no",
+    )
     return allocations
 
 
@@ -1159,6 +1404,7 @@ def calculate_budget_allocation(
     channel_percentages: Dict[str, float],
     synthesized_data: Optional[Dict] = None,
     knowledge_base: Optional[Dict] = None,
+    collar_type: str = "",
 ) -> Dict[str, Any]:
     """
     Master budget allocation function.
@@ -1166,6 +1412,9 @@ def calculate_budget_allocation(
     Orchestrates location multipliers, role weighting, channel dollar
     calculations, sufficiency assessment, and optimisation suggestions
     into a single comprehensive result.
+
+    v3: Accepts collar_type for trend-engine-aware CPC resolution and
+    collar-specific apply rate adjustments.
 
     Args:
         total_budget: Total budget in USD (e.g. 50000).
@@ -1175,6 +1424,7 @@ def calculate_budget_allocation(
         channel_percentages: Dict of ``channel_name -> percentage`` (0-100).
         synthesized_data: Output from enrichment pipeline (optional).
         knowledge_base: Loaded knowledge base JSON (optional).
+        collar_type: v3 collar type hint (auto-detected from roles if empty).
 
     Returns:
         Dict with keys:
@@ -1218,9 +1468,19 @@ def calculate_budget_allocation(
         roles, total_budget, location_multipliers
     )
 
-    # Step 3: Channel dollar amounts with projections
+    # Step 3: Channel dollar amounts with projections (v3: trend + collar aware)
+    # Extract primary location for regional CPC adjustments
+    primary_location = ""
+    if locations:
+        loc0 = locations[0]
+        if isinstance(loc0, dict):
+            primary_location = loc0.get("city", loc0.get("location", loc0.get("name", "")))
+        elif isinstance(loc0, str):
+            primary_location = loc0
+
     channel_allocs = compute_channel_dollar_amounts(
-        channel_percentages, role_budgets, synthesized_data, knowledge_base
+        channel_percentages, role_budgets, synthesized_data, knowledge_base,
+        industry=industry, collar_type=collar_type, location=primary_location,
     )
 
     # Step 4: Aggregate projected totals
@@ -1279,6 +1539,11 @@ def calculate_budget_allocation(
             "channels_count": len(channel_allocs),
             "roles_count": len(role_budgets),
             "locations_count": len(location_multipliers),
+            # v3 metadata
+            "trend_engine_available": _HAS_TREND_ENGINE,
+            "collar_intelligence_available": _HAS_COLLAR_INTEL,
+            "collar_type_used": collar_type or _classify_roles_collar(role_budgets, industry),
+            "primary_location": primary_location,
         },
     }
 

@@ -2287,6 +2287,88 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
     return {}
 
 
+def fetch_onet_job_zone(soc_code: str) -> Optional[Dict[str, Any]]:
+    """Fetch O*NET Job Zone (1-5) for a SOC code.
+
+    Job Zone maps directly to collar type:
+        Zone 1: Little or no preparation (blue collar entry)
+        Zone 2: Some preparation (blue collar/pink collar)
+        Zone 3: Medium preparation (grey collar/skilled trades)
+        Zone 4: Considerable preparation (white collar professional)
+        Zone 5: Extensive preparation (white collar executive/specialist)
+
+    Uses O*NET Web Services API (free with registration).
+    """
+    cache_k = _cache_key("onet_jobzone", soc_code)
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        return cached
+
+    try:
+        import base64
+
+        username = os.environ.get("ONET_USERNAME", "")
+        if not username:
+            return None
+
+        # O*NET API endpoint
+        url = f"https://services.onetcenter.org/ws/online/occupations/{soc_code}"
+
+        # Basic auth
+        auth_string = base64.b64encode(f"{username}:".encode()).decode()
+        resp = _http_get_json(url, headers={
+            "Authorization": f"Basic {auth_string}",
+            "Accept": "application/json",
+        }, timeout=8)
+
+        if not resp:
+            return None
+
+        job_zone = resp.get("job_zone")
+        if not job_zone:
+            return None
+
+        zone_number = int(job_zone)
+
+        # Map to collar type
+        ZONE_COLLAR_MAP = {
+            1: "blue_collar",
+            2: "blue_collar",
+            3: "grey_collar",
+            4: "white_collar",
+            5: "white_collar",
+        }
+
+        result = {
+            "soc_code": soc_code,
+            "job_zone": zone_number,
+            "collar_type": ZONE_COLLAR_MAP.get(zone_number, "white_collar"),
+            "zone_description": {
+                1: "Little or no preparation needed",
+                2: "Some preparation needed",
+                3: "Medium preparation needed",
+                4: "Considerable preparation needed",
+                5: "Extensive preparation needed",
+            }.get(zone_number, "Unknown"),
+            "education_typical": {
+                1: "Less than high school",
+                2: "High school diploma",
+                3: "Vocational training or associate degree",
+                4: "Bachelor's degree",
+                5: "Graduate or professional degree",
+            }.get(zone_number, "Unknown"),
+            "source": "O*NET Web Services",
+            "data_confidence": 0.95,
+        }
+
+        _set_cached(cache_k, result)
+        return result
+    except Exception as e:
+        _log_warn(f"O*NET Job Zone fetch failed for {soc_code}: {e}")
+        return None
+
+
+
 # ---------------------------------------------------------------------------
 # IMF DataMapper — International economic indicators
 # ---------------------------------------------------------------------------
@@ -8938,6 +9020,359 @@ def fetch_jooble_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
                 "Market activity",
             ],
         },
+    }
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# API 26: BLS JOLTS -- Job Openings & Labor Turnover Survey
+# Free with BLS API registration. Monthly data on job openings, hires,
+# quits, layoffs, separations by industry.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# JOLTS NAICS industry codes
+JOLTS_INDUSTRY_CODES: Dict[str, str] = {
+    "total_nonfarm": "000000",
+    "healthcare": "620000",
+    "technology": "510000",  # Information
+    "professional_services": "540099",
+    "retail": "440000",
+    "construction": "230000",
+    "manufacturing": "300000",
+    "accommodation_food": "720000",
+    "finance": "520000",
+    "transportation": "480099",
+    "education": "610000",
+    "government": "900000",
+}
+
+# JOLTS data element codes
+JOLTS_ELEMENTS: Dict[str, str] = {
+    "job_openings": "JO",       # Job Openings Level
+    "hires": "HI",              # Hires Level (thousands)
+    "total_separations": "TS",  # Total Separations
+    "quits": "QU",              # Quits Level
+    "layoffs": "LD",            # Layoffs and Discharges
+    "job_openings_rate": "JOR", # Job Openings Rate (%)
+    "hires_rate": "HIR",        # Hires Rate (%)
+    "quits_rate": "QUR",        # Quits Rate (%)
+}
+
+# Fallback data (2024 annual averages from BLS JOLTS summary)
+JOLTS_FALLBACK: Dict[str, Dict[str, Any]] = {
+    "total_nonfarm": {"job_openings": 8100, "hires": 5800, "quits": 3500, "layoffs": 1700, "job_openings_rate": 4.8, "hires_rate": 3.5, "quits_rate": 2.1},
+    "healthcare": {"job_openings": 1500, "hires": 980, "quits": 520, "layoffs": 180, "job_openings_rate": 6.8, "hires_rate": 4.5, "quits_rate": 2.4},
+    "technology": {"job_openings": 280, "hires": 190, "quits": 120, "layoffs": 65, "job_openings_rate": 4.2, "hires_rate": 2.8, "quits_rate": 1.8},
+    "professional_services": {"job_openings": 1200, "hires": 820, "quits": 650, "layoffs": 220, "job_openings_rate": 5.0, "hires_rate": 3.4, "quits_rate": 2.7},
+    "retail": {"job_openings": 850, "hires": 750, "quits": 520, "layoffs": 250, "job_openings_rate": 5.4, "hires_rate": 4.8, "quits_rate": 3.3},
+    "construction": {"job_openings": 420, "hires": 380, "quits": 250, "layoffs": 180, "job_openings_rate": 5.2, "hires_rate": 4.7, "quits_rate": 3.1},
+    "manufacturing": {"job_openings": 580, "hires": 380, "quits": 220, "layoffs": 210, "job_openings_rate": 4.5, "hires_rate": 3.0, "quits_rate": 1.7},
+    "accommodation_food": {"job_openings": 1100, "hires": 980, "quits": 700, "layoffs": 250, "job_openings_rate": 6.5, "hires_rate": 5.8, "quits_rate": 4.2},
+    "finance": {"job_openings": 480, "hires": 310, "quits": 200, "layoffs": 85, "job_openings_rate": 4.5, "hires_rate": 2.9, "quits_rate": 1.9},
+    "transportation": {"job_openings": 350, "hires": 280, "quits": 180, "layoffs": 120, "job_openings_rate": 5.0, "hires_rate": 4.0, "quits_rate": 2.6},
+}
+
+
+def fetch_bls_jolts(industry_code: str = "000000", data_element: str = "JO",
+                    years: int = 2) -> Optional[Dict[str, Any]]:
+    """Fetch JOLTS data from BLS API.
+
+    Series ID format: JTS{industry}{size}{ownership}{region}{data_element}{rate_level}
+    Example: JTS000000000000000JOL = Total nonfarm, Job Openings Level
+    """
+    cache_k = _cache_key("bls_jolts", f"{industry_code}_{data_element}_{years}")
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        return cached
+
+    try:
+        # Build series ID: JTS + industry + 0000000 (size/ownership/region) + element + L/R
+        suffix = "R" if data_element.endswith("R") else "L"
+        base_element = data_element.rstrip("R")
+        series_id = f"JTS{industry_code}0000000{base_element}{suffix}"
+
+        end_year = 2025
+        start_year = max(2020, end_year - years)
+
+        url = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
+        payload: Dict[str, Any] = {
+            "seriesid": [series_id],
+            "startyear": str(start_year),
+            "endyear": str(end_year),
+        }
+
+        api_key = os.environ.get("BLS_API_KEY", "")
+        if api_key:
+            payload["registrationkey"] = api_key
+
+        resp = _http_post_json(url, payload, timeout=10)
+
+        if not resp or resp.get("status") != "REQUEST_SUCCEEDED":
+            # Fall back to v1 (no key required, lower limits)
+            url_v1 = "https://api.bls.gov/publicAPI/v1/timeseries/data/"
+            payload_v1 = {
+                "seriesid": [series_id],
+                "startyear": str(start_year),
+                "endyear": str(end_year),
+            }
+            resp = _http_post_json(url_v1, payload_v1, timeout=10)
+
+        if not resp or resp.get("status") != "REQUEST_SUCCEEDED":
+            return None
+
+        series_data = resp.get("Results", {}).get("series", [])
+        if not series_data or not series_data[0].get("data"):
+            return None
+
+        # Parse into yearly averages
+        yearly: Dict[int, List[float]] = {}
+        for point in series_data[0]["data"]:
+            yr = int(point["year"])
+            val_str = str(point.get("value", "0")).replace(",", "")
+            try:
+                val = float(val_str)
+            except (ValueError, TypeError):
+                continue
+            if yr not in yearly:
+                yearly[yr] = []
+            yearly[yr].append(val)
+
+        # Average each year
+        result_data: Dict[int, float] = {}
+        for yr, vals in sorted(yearly.items()):
+            result_data[yr] = round(sum(vals) / len(vals), 1)
+
+        result = {
+            "series_id": series_id,
+            "data_element": data_element,
+            "industry_code": industry_code,
+            "yearly_averages": result_data,
+            "latest_value": result_data.get(max(result_data.keys())) if result_data else None,
+            "source": "BLS JOLTS",
+            "data_confidence": 0.92,
+        }
+
+        _set_cached(cache_k, result)
+        return result
+    except Exception as e:
+        _log_warn(f"BLS JOLTS fetch failed: {e}")
+        return None
+
+
+def get_jolts_hiring_difficulty(industry: str = "total_nonfarm") -> Dict[str, Any]:
+    """Compute hiring difficulty index from JOLTS data.
+
+    Difficulty = (job_openings_rate / hires_rate) * quits_rate_factor
+    Higher = harder to hire.
+    """
+    # Try live API first
+    ind_code = JOLTS_INDUSTRY_CODES.get(industry, "000000")
+
+    jo_data = fetch_bls_jolts(ind_code, "JOR", 1)
+    hi_data = fetch_bls_jolts(ind_code, "HIR", 1)
+    qu_data = fetch_bls_jolts(ind_code, "QUR", 1)
+
+    if jo_data and hi_data and qu_data:
+        jo_rate = jo_data["latest_value"] or 4.8
+        hi_rate = hi_data["latest_value"] or 3.5
+        qu_rate = qu_data["latest_value"] or 2.1
+        source = "BLS JOLTS API (live)"
+        confidence = 0.90
+    else:
+        # Fallback
+        fb = JOLTS_FALLBACK.get(industry, JOLTS_FALLBACK["total_nonfarm"])
+        jo_rate = fb["job_openings_rate"]
+        hi_rate = fb["hires_rate"]
+        qu_rate = fb["quits_rate"]
+        source = "BLS JOLTS (curated fallback)"
+        confidence = 0.72
+
+    # Hiring difficulty index (0-10 scale)
+    # Base = openings/hires ratio (>1.5 = hard, >2.0 = very hard)
+    ratio = jo_rate / max(hi_rate, 0.1)
+    # Quits factor: high quits = harder to maintain headcount
+    quits_factor = 1 + (qu_rate - 2.0) * 0.3  # baseline quits rate ~2.0%
+
+    difficulty = min(10, max(0, ratio * quits_factor * 3.0))
+
+    return {
+        "hiring_difficulty_index": round(difficulty, 1),
+        "job_openings_rate": jo_rate,
+        "hires_rate": hi_rate,
+        "quits_rate": qu_rate,
+        "openings_to_hires_ratio": round(ratio, 2),
+        "interpretation": (
+            "Critical shortage" if difficulty >= 8 else
+            "Very difficult" if difficulty >= 6.5 else
+            "Moderately difficult" if difficulty >= 4.5 else
+            "Normal" if difficulty >= 3.0 else
+            "Easy to hire"
+        ),
+        "source": source,
+        "data_confidence": confidence,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# API 27: FRED Expansion -- Employment Cost Index & Sector Data
+# Extends existing FRED integration with wage/cost series
+# ═══════════════════════════════════════════════════════════════════════════════
+
+FRED_EMPLOYMENT_SERIES: Dict[str, str] = {
+    "avg_hourly_earnings": "CES0500000003",         # Total private, monthly
+    "employment_cost_index": "ECIWAG",               # ECI: Wages & Salaries, quarterly
+    "unemployment_info_sector": "LNU04032237",       # Information industry unemployment
+    "unemployment_prof_services": "LNU04032239",     # Professional services unemployment
+    "unemployment_healthcare": "LNU04032243",        # Healthcare unemployment (approx)
+    "unemployment_construction": "LNU04032231",      # Construction unemployment
+    "unemployment_manufacturing": "LNU04032229",     # Manufacturing unemployment
+    "job_openings_total": "JTSJOL",                  # Total nonfarm job openings
+    "quits_total": "JTSQUL",                         # Total nonfarm quits
+    "median_weekly_earnings": "LES1252881600Q",      # Median weekly earnings
+}
+
+# Fallback values (2024 annual)
+FRED_EMPLOYMENT_FALLBACK: Dict[str, Any] = {
+    "avg_hourly_earnings": 35.50,
+    "employment_cost_index": 1.1,  # quarterly % change
+    "unemployment_info_sector": 3.8,
+    "unemployment_prof_services": 3.2,
+    "unemployment_construction": 4.5,
+    "unemployment_manufacturing": 3.5,
+    "job_openings_total": 8100,  # thousands
+    "quits_total": 3500,  # thousands
+    "median_weekly_earnings": 1145,
+}
+
+
+def fetch_fred_employment_series(series_id: str,
+                                 observation_start: Optional[str] = None
+                                 ) -> Optional[Dict[str, Any]]:
+    """Fetch a FRED employment data series.
+
+    Uses the existing FRED API key from environment (FRED_API_KEY).
+    """
+    cache_k = _cache_key("fred_emp", f"{series_id}_{observation_start or 'default'}")
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        return cached
+
+    try:
+        api_key = os.environ.get("FRED_API_KEY", "")
+        if not api_key:
+            return None
+
+        if observation_start is None:
+            observation_start = "2023-01-01"
+
+        url = (
+            f"https://api.stlouisfed.org/fred/series/observations"
+            f"?series_id={series_id}"
+            f"&api_key={api_key}"
+            f"&file_type=json"
+            f"&observation_start={observation_start}"
+            f"&sort_order=desc"
+            f"&limit=24"
+        )
+
+        resp = _http_get_json(url, headers={
+            "User-Agent": "MediaPlanGenerator/1.0",
+        }, timeout=8)
+
+        if not resp:
+            return None
+
+        observations = resp.get("observations", [])
+        if not observations:
+            return None
+
+        # Parse observations
+        values: List[Dict[str, Any]] = []
+        for obs in observations:
+            try:
+                val = float(obs["value"])
+                values.append({"date": obs["date"], "value": val})
+            except (ValueError, KeyError):
+                continue
+
+        if not values:
+            return None
+
+        latest = values[0]["value"]
+
+        # Compute YoY change if enough data
+        yoy_change: Optional[float] = None
+        if len(values) >= 12:
+            current = values[0]["value"]
+            year_ago = values[11]["value"]  # ~12 months back
+            if year_ago > 0:
+                yoy_change = round(((current - year_ago) / year_ago) * 100, 1)
+
+        result = {
+            "series_id": series_id,
+            "latest_value": latest,
+            "latest_date": values[0]["date"],
+            "yoy_change_pct": yoy_change,
+            "observations": values[:6],  # Last 6 observations
+            "source": "Federal Reserve FRED",
+            "data_confidence": 0.90,
+        }
+
+        _set_cached(cache_k, result)
+        return result
+    except Exception as e:
+        _log_warn(f"FRED employment series {series_id} fetch failed: {e}")
+        return None
+
+
+def get_labor_market_tightness(industry: str = "total") -> Dict[str, Any]:
+    """Compute labor market tightness from FRED data.
+
+    Uses avg hourly earnings growth + job openings as signals.
+    Tight market = higher CPCs needed for recruitment.
+    """
+    earnings = fetch_fred_employment_series(
+        FRED_EMPLOYMENT_SERIES["avg_hourly_earnings"]
+    )
+    openings = fetch_fred_employment_series(
+        FRED_EMPLOYMENT_SERIES["job_openings_total"]
+    )
+
+    if earnings and openings:
+        wage_growth = earnings.get("yoy_change_pct", 4.0) or 4.0
+        jo_level = openings.get("latest_value", 8100) or 8100
+        source = "Federal Reserve FRED (live)"
+        confidence = 0.88
+    else:
+        wage_growth = 4.0
+        jo_level = 8100
+        source = "FRED (curated fallback)"
+        confidence = 0.65
+
+    # Tightness index: 0-10
+    # High wage growth + high openings = tight market
+    wage_factor = min(2.0, wage_growth / 3.0)  # normalized around 3% baseline
+    openings_factor = min(2.0, jo_level / 7000)  # normalized around 7M baseline
+    tightness = min(10, (wage_factor + openings_factor) * 2.5)
+
+    return {
+        "tightness_index": round(tightness, 1),
+        "wage_growth_yoy_pct": wage_growth,
+        "job_openings_thousands": jo_level,
+        "interpretation": (
+            "Very tight" if tightness >= 7 else
+            "Tight" if tightness >= 5 else
+            "Moderate" if tightness >= 3 else
+            "Loose"
+        ),
+        "cpc_impact": (
+            "CPCs elevated 15-25% above baseline" if tightness >= 7 else
+            "CPCs elevated 5-15% above baseline" if tightness >= 5 else
+            "CPCs near baseline" if tightness >= 3 else
+            "CPCs potentially below baseline -- good time for cost-efficient campaigns"
+        ),
+        "source": source,
+        "data_confidence": confidence,
     }
 
 

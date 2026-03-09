@@ -536,6 +536,21 @@ except ImportError as e:
     logger.warning("budget_engine import failed: %s", e)
     calculate_budget_allocation = None
 
+# v3: Trend engine and collar intelligence for new Excel worksheets
+try:
+    import trend_engine as _trend_engine_mod
+    _HAS_TREND_ENGINE = True
+    logger.info("trend_engine loaded for app.py Excel worksheets")
+except ImportError:
+    _HAS_TREND_ENGINE = False
+
+try:
+    import collar_intelligence as _collar_intel_mod
+    _HAS_COLLAR_INTEL = True
+    logger.info("collar_intelligence loaded for app.py Excel worksheets")
+except ImportError:
+    _HAS_COLLAR_INTEL = False
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROLE-TIER CLASSIFICATION ENGINE
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -6990,6 +7005,270 @@ def generate_excel(data):
             ws_conf.merge_cells(f"B{conf_row}:E{conf_row}")
             ws_conf.cell(row=conf_row, column=2, value="All APIs responded successfully. No circuit breakers triggered.").font = Font(name="Calibri", size=10, color="2E7D32")
 
+    # ── v3: Collar Strategy Worksheet ──
+    # When roles span both blue/white collar types, generate a dedicated comparison sheet
+    if _HAS_COLLAR_INTEL:
+        try:
+            _roles_list = data.get("roles", data.get("target_roles", []))
+            _industry_key = data.get("industry", "general_entry_level")
+            if _roles_list and isinstance(_roles_list, list) and len(_roles_list) >= 2:
+                _collar_results = []
+                for r in _roles_list[:15]:
+                    r_str = r if isinstance(r, str) else (r.get("title", r.get("role", str(r))) if isinstance(r, dict) else str(r))
+                    try:
+                        cr = _collar_intel_mod.classify_collar(role=r_str, industry=_industry_key)
+                        _collar_results.append((r_str, cr))
+                    except Exception:
+                        _collar_results.append((r_str, {"collar_type": "white_collar", "confidence": 0.3}))
+
+                # Check if we have a collar mix (not all the same type)
+                _collar_types_found = set(cr.get("collar_type", "") for _, cr in _collar_results)
+                if len(_collar_types_found) >= 2 or "blue_collar" in _collar_types_found:
+                    ws_collar = wb.create_sheet("Collar Strategy")
+                    ws_collar.sheet_properties.tabColor = "0891B2"  # Teal
+                    ws_collar.column_dimensions["A"].width = 3
+                    ws_collar.column_dimensions["B"].width = 28
+                    ws_collar.column_dimensions["C"].width = 18
+                    ws_collar.column_dimensions["D"].width = 14
+                    ws_collar.column_dimensions["E"].width = 25
+                    ws_collar.column_dimensions["F"].width = 30
+
+                    ws_collar.merge_cells("B2:F2")
+                    ws_collar["B2"].value = "Blue Collar vs White Collar Strategy Analysis"
+                    ws_collar["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+                    ws_collar["B2"].border = accent_bottom_border
+
+                    ws_collar.merge_cells("B3:F3")
+                    ws_collar["B3"].value = "Differentiated recruitment approach based on collar type classification"
+                    ws_collar["B3"].font = Font(name="Calibri", italic=True, size=10, color="596780")
+
+                    # Role classification table
+                    _crow = 5
+                    _collar_headers = ["Role", "Collar Type", "Confidence", "Method", "Channel Strategy"]
+                    for ci, h in enumerate(_collar_headers):
+                        cell = ws_collar.cell(row=_crow, column=2 + ci, value=h)
+                        cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+                        cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+                        cell.border = thin_border
+                        cell.alignment = center_alignment
+                    _crow += 1
+
+                    for ci, (r_str, cr) in enumerate(_collar_results):
+                        _row_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") if ci % 2 == 0 else PatternFill(start_color="F2F6FA", end_color="F2F6FA", fill_type="solid")
+                        ct = cr.get("collar_type", "unknown")
+                        conf = cr.get("confidence", 0)
+                        method = cr.get("method", "")
+                        strategy = cr.get("channel_strategy", "")
+                        if isinstance(strategy, dict):
+                            strategy = ", ".join(f"{k}: {v}" for k, v in list(strategy.items())[:3])
+                        elif isinstance(strategy, list):
+                            strategy = ", ".join(str(s) for s in strategy[:3])
+
+                        vals = [r_str, ct.replace("_", " ").title(), f"{conf:.0%}", str(method), str(strategy)[:60]]
+                        for vi, val in enumerate(vals):
+                            cell = ws_collar.cell(row=_crow, column=2 + vi, value=val)
+                            cell.font = Font(name="Calibri", size=10)
+                            cell.fill = _row_fill
+                            cell.border = thin_border
+                            cell.alignment = wrap_alignment
+                        # Color the collar type cell
+                        ct_cell = ws_collar.cell(row=_crow, column=3)
+                        if "blue" in ct:
+                            ct_cell.font = Font(name="Calibri", bold=True, size=10, color="0A66C9")
+                        elif "white" in ct:
+                            ct_cell.font = Font(name="Calibri", bold=True, size=10, color=NAVY)
+                        elif "grey" in ct:
+                            ct_cell.font = Font(name="Calibri", bold=True, size=10, color="596780")
+                        # Color confidence
+                        conf_cell = ws_collar.cell(row=_crow, column=4)
+                        if conf >= 0.8:
+                            conf_cell.font = Font(name="Calibri", bold=True, size=10, color="2E7D32")
+                        elif conf >= 0.5:
+                            conf_cell.font = Font(name="Calibri", size=10, color="F57C00")
+                        else:
+                            conf_cell.font = Font(name="Calibri", italic=True, size=10, color="C62828")
+                        _crow += 1
+
+                    # Strategy comparison section
+                    _crow += 2
+                    ws_collar.merge_cells(f"B{_crow}:F{_crow}")
+                    ws_collar.cell(row=_crow, column=2, value="Strategy Comparison by Collar Type").font = Font(name="Calibri", bold=True, size=14, color=NAVY)
+                    ws_collar.cell(row=_crow, column=2).border = accent_bottom_border
+                    _crow += 2
+
+                    for ct_key in ["blue_collar", "white_collar"]:
+                        if ct_key in _collar_intel_mod.COLLAR_STRATEGY:
+                            strat = _collar_intel_mod.COLLAR_STRATEGY[ct_key]
+                            ws_collar.merge_cells(f"B{_crow}:C{_crow}")
+                            ws_collar.cell(row=_crow, column=2, value=ct_key.replace("_", " ").title()).font = Font(name="Calibri", bold=True, size=12, color="0A66C9" if "blue" in ct_key else NAVY)
+                            _crow += 1
+                            for sk in ["preferred_platforms", "messaging_tone", "avg_cpa_range", "avg_cpc_range", "time_to_fill_benchmark_days", "mobile_apply_pct"]:
+                                sv = strat.get(sk, "")
+                                if sv:
+                                    label = sk.replace("_", " ").title()
+                                    if isinstance(sv, list):
+                                        sv = ", ".join(str(s) for s in sv[:5])
+                                    ws_collar.cell(row=_crow, column=2, value=f"  {label}").font = Font(name="Calibri", size=10, color="596780")
+                                    ws_collar.cell(row=_crow, column=4, value=str(sv)).font = Font(name="Calibri", bold=True, size=10)
+                                    ws_collar.merge_cells(f"D{_crow}:F{_crow}")
+                                    _crow += 1
+                            _crow += 1
+
+                    logger.info("Collar Strategy worksheet created with %d roles", len(_collar_results))
+        except Exception as e:
+            logger.warning("Collar Strategy worksheet creation failed: %s", e)
+
+    # ── v3: CPC/CPA Trends Worksheet ──
+    if _HAS_TREND_ENGINE:
+        try:
+            _industry_key = data.get("industry", "general_entry_level")
+            ws_trends_v3 = wb.create_sheet("CPC CPA Trends")
+            ws_trends_v3.sheet_properties.tabColor = "0A66C9"
+            ws_trends_v3.column_dimensions["A"].width = 3
+            ws_trends_v3.column_dimensions["B"].width = 22
+            ws_trends_v3.column_dimensions["C"].width = 14
+            ws_trends_v3.column_dimensions["D"].width = 14
+            ws_trends_v3.column_dimensions["E"].width = 14
+            ws_trends_v3.column_dimensions["F"].width = 14
+            ws_trends_v3.column_dimensions["G"].width = 14
+            ws_trends_v3.column_dimensions["H"].width = 14
+
+            ws_trends_v3.merge_cells("B2:H2")
+            ws_trends_v3["B2"].value = f"CPC/CPA Trend Analysis - {data.get('industry_label', _industry_key.replace('_', ' ').title())}"
+            ws_trends_v3["B2"].font = Font(name="Calibri", bold=True, size=16, color=NAVY)
+            ws_trends_v3["B2"].border = accent_bottom_border
+
+            ws_trends_v3.merge_cells("B3:H3")
+            ws_trends_v3["B3"].value = "4-year historical trend with seasonal and collar-type adjustments"
+            ws_trends_v3["B3"].font = Font(name="Calibri", italic=True, size=10, color="596780")
+
+            _trow = 5
+            _platforms = ["google", "meta_fb", "indeed", "linkedin", "programmatic"]
+            _plat_labels = {"google": "Google Ads", "meta_fb": "Meta (Facebook)", "indeed": "Indeed", "linkedin": "LinkedIn", "programmatic": "Programmatic DSP"}
+
+            for plat in _platforms:
+                plat_label = _plat_labels.get(plat, plat.replace("_", " ").title())
+                ws_trends_v3.merge_cells(f"B{_trow}:H{_trow}")
+                ws_trends_v3.cell(row=_trow, column=2, value=plat_label).font = Font(name="Calibri", bold=True, size=12, color=NAVY)
+                ws_trends_v3.cell(row=_trow, column=2).border = accent_bottom_border
+                _trow += 1
+
+                # Header row
+                _trend_headers = ["Metric", "2022", "2023", "2024", "2025", "Trend", "YoY %"]
+                for ci, h in enumerate(_trend_headers):
+                    cell = ws_trends_v3.cell(row=_trow, column=2 + ci, value=h)
+                    cell.font = Font(name="Calibri", bold=True, size=9, color="FFFFFF")
+                    cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+                    cell.border = thin_border
+                    cell.alignment = center_alignment
+                _trow += 1
+
+                for metric in ["cpc", "cpa"]:
+                    try:
+                        trend = _trend_engine_mod.get_trend(
+                            platform=plat, industry=_industry_key,
+                            metric=metric, years_back=4,
+                        )
+                        if not trend or not isinstance(trend, dict):
+                            continue
+
+                        history = trend.get("history", [])
+                        # Build year->value lookup from history list
+                        _year_vals = {h["year"]: h.get("value", 0) for h in history if isinstance(h, dict) and "year" in h}
+                        direction = trend.get("trend_direction", "stable")
+                        yoy = trend.get("avg_yoy_change_pct", 0)
+
+                        ws_trends_v3.cell(row=_trow, column=2, value=metric.upper()).font = Font(name="Calibri", bold=True, size=10)
+                        ws_trends_v3.cell(row=_trow, column=2).border = thin_border
+
+                        for yi, year in enumerate([2022, 2023, 2024, 2025]):
+                            val = _year_vals.get(year, 0)
+                            if isinstance(val, (int, float)) and val > 0:
+                                cell = ws_trends_v3.cell(row=_trow, column=3 + yi, value=f"${val:.2f}")
+                            else:
+                                cell = ws_trends_v3.cell(row=_trow, column=3 + yi, value="-")
+                            cell.font = Font(name="Calibri", size=10)
+                            cell.border = thin_border
+                            cell.alignment = center_alignment
+
+                        # Trend direction
+                        trend_cell = ws_trends_v3.cell(row=_trow, column=7, value=direction.title())
+                        trend_cell.border = thin_border
+                        trend_cell.alignment = center_alignment
+                        if direction == "rising":
+                            trend_cell.font = Font(name="Calibri", bold=True, size=10, color="C62828")
+                        elif direction == "falling":
+                            trend_cell.font = Font(name="Calibri", bold=True, size=10, color="2E7D32")
+                        else:
+                            trend_cell.font = Font(name="Calibri", size=10, color="596780")
+
+                        # YoY %
+                        yoy_cell = ws_trends_v3.cell(row=_trow, column=8,
+                                                      value=f"{'+' if yoy > 0 else ''}{yoy:.1f}%")
+                        yoy_cell.border = thin_border
+                        yoy_cell.alignment = center_alignment
+                        if yoy > 5:
+                            yoy_cell.font = Font(name="Calibri", bold=True, size=10, color="C62828")
+                        elif yoy < -5:
+                            yoy_cell.font = Font(name="Calibri", bold=True, size=10, color="2E7D32")
+                        else:
+                            yoy_cell.font = Font(name="Calibri", size=10)
+
+                        _trow += 1
+                    except Exception:
+                        pass
+                _trow += 1
+
+            # Seasonal factors section
+            _trow += 1
+            ws_trends_v3.merge_cells(f"B{_trow}:H{_trow}")
+            ws_trends_v3.cell(row=_trow, column=2, value="Monthly Seasonal CPC Multipliers").font = Font(name="Calibri", bold=True, size=14, color=NAVY)
+            ws_trends_v3.cell(row=_trow, column=2).border = accent_bottom_border
+            _trow += 2
+
+            _month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+            # Two half-year blocks: Jan-Jun then Jul-Dec
+            for _half, _m_start in [(0, 0), (1, 6)]:
+                if _half == 1:
+                    _trow += 1  # Spacing between halves
+                # Header
+                ws_trends_v3.cell(row=_trow, column=2, value="Collar Type").font = Font(name="Calibri", bold=True, size=9, color="FFFFFF")
+                ws_trends_v3.cell(row=_trow, column=2).fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+                ws_trends_v3.cell(row=_trow, column=2).border = thin_border
+                for mi, mn in enumerate(_month_names[_m_start:_m_start + 6]):
+                    cell = ws_trends_v3.cell(row=_trow, column=3 + mi, value=mn)
+                    cell.font = Font(name="Calibri", bold=True, size=9, color="FFFFFF")
+                    cell.fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+                    cell.border = thin_border
+                    cell.alignment = center_alignment
+                _trow += 1
+
+                for collar in ["blue_collar", "white_collar"]:
+                    ws_trends_v3.cell(row=_trow, column=2, value=collar.replace("_", " ").title()).font = Font(name="Calibri", bold=True, size=10)
+                    ws_trends_v3.cell(row=_trow, column=2).border = thin_border
+                    for mi in range(6):
+                        try:
+                            sa = _trend_engine_mod.get_seasonal_adjustment(collar, _m_start + mi + 1)
+                            mult = sa.get("multiplier", 1.0) if isinstance(sa, dict) else sa
+                            cell = ws_trends_v3.cell(row=_trow, column=3 + mi, value=f"{mult:.2f}x")
+                            cell.border = thin_border
+                            cell.alignment = center_alignment
+                            if mult > 1.1:
+                                cell.font = Font(name="Calibri", bold=True, size=10, color="C62828")
+                                cell.fill = PatternFill(start_color="FFF3E0", end_color="FFF3E0", fill_type="solid")
+                            elif mult < 0.9:
+                                cell.font = Font(name="Calibri", bold=True, size=10, color="2E7D32")
+                                cell.fill = PatternFill(start_color="E8F5E9", end_color="E8F5E9", fill_type="solid")
+                            else:
+                                cell.font = Font(name="Calibri", size=10)
+                        except Exception:
+                            pass
+                    _trow += 1
+
+            logger.info("CPC/CPA Trends worksheet created")
+        except Exception as e:
+            logger.warning("CPC/CPA Trends worksheet creation failed: %s", e)
+
     # ── Universal data source attribution footer ──
     # Add a "Data Sources" footer to each main content sheet so every printed/shared
     # page carries provenance info.  This is a critical trust signal for Fortune 500
@@ -7113,9 +7392,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline'; "
             "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: blob:; "
-            "font-src 'self'; "
-            "connect-src 'self'; "
+            "img-src 'self' https: data:; "
+            "font-src 'self' https: data:; "
+            "connect-src 'self' https:; "
             "object-src 'none'; "
             "base-uri 'self'; "
             "form-action 'self';"
