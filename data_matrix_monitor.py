@@ -285,6 +285,17 @@ class DataMatrixMonitor:
                 "description": spec.get("description", ""),
             }
 
+        # Probe extended v3.1 health indicators
+        extended_health = self._probe_extended_health()
+        for indicator, probe_result in extended_health.items():
+            status = probe_result.get("status", "error")
+            if status == "ok":
+                counts["ok"] += 1
+            elif status == "partial":
+                counts["partial"] += 1
+            else:
+                counts["error"] += 1
+
         elapsed = round(time.time() - start, 3)
         total_cells = sum(counts.values())
         healthy = counts["ok"] + counts["ok_expected_no"] + counts["partial"] + counts["healed"]
@@ -299,6 +310,7 @@ class DataMatrixMonitor:
             "summary": counts,
             "matrix": matrix_results,
             "tier2_modules": tier2_results,
+            "extended_health": extended_health,
             "recent_heal_actions": list(self._heal_log[-10:]),
         }
 
@@ -464,6 +476,138 @@ class DataMatrixMonitor:
             return {"status": "ok", "detail": f"{module_name} importable and healthy"}
         except Exception as e:
             return {"status": "error", "detail": f"{module_name} import failed: {e}"}
+
+    def _probe_extended_health(self) -> Dict[str, Dict[str, Any]]:
+        """Probe v3.1 extended health indicators beyond the product x layer matrix."""
+        results: Dict[str, Dict[str, Any]] = {}
+
+        # 1. LLM Router provider health
+        try:
+            if "llm_router" in sys.modules:
+                lr = sys.modules["llm_router"]
+                status = lr.get_router_status()
+                providers = status.get("providers", {})
+                available = sum(1 for p in providers.values()
+                                if isinstance(p, dict) and p.get("available", False))
+                results["llm_providers"] = {
+                    "status": "ok" if available > 0 else "error",
+                    "detail": f"{available}/{len(providers)} providers available",
+                    "providers": {k: v.get("available", False) for k, v in providers.items()
+                                  if isinstance(v, dict)},
+                }
+            else:
+                results["llm_providers"] = {
+                    "status": "partial",
+                    "detail": "llm_router not loaded yet",
+                }
+        except Exception as e:
+            results["llm_providers"] = {"status": "error", "detail": str(e)}
+
+        # 2. Async job queue depth
+        try:
+            if "app" in sys.modules:
+                app_mod = sys.modules["app"]
+                jobs = getattr(app_mod, "_generation_jobs", {})
+                total = len(jobs)
+                by_status = {}
+                for jdata in jobs.values():
+                    s = jdata.get("status", "unknown") if isinstance(jdata, dict) else "unknown"
+                    by_status[s] = by_status.get(s, 0) + 1
+                results["async_job_queue"] = {
+                    "status": "ok" if total < 100 else "error",
+                    "detail": f"{total} jobs ({by_status})",
+                    "total": total,
+                    "by_status": by_status,
+                }
+            else:
+                results["async_job_queue"] = {
+                    "status": "ok", "detail": "app not loaded (0 jobs)", "total": 0,
+                }
+        except Exception as e:
+            results["async_job_queue"] = {"status": "error", "detail": str(e)}
+
+        # 3. API key usage tracking
+        try:
+            keys_configured = 0
+            key_names = [
+                ("ANTHROPIC_API_KEY", "claude"),
+                ("GEMINI_API_KEY", "gemini"),
+                ("GROQ_API_KEY", "groq"),
+                ("CEREBRAS_API_KEY", "cerebras"),
+            ]
+            provider_status = {}
+            for env_key, name in key_names:
+                has_key = bool(os.environ.get(env_key, "").strip())
+                provider_status[name] = has_key
+                if has_key:
+                    keys_configured += 1
+            results["api_keys"] = {
+                "status": "ok" if keys_configured >= 2 else ("partial" if keys_configured >= 1 else "error"),
+                "detail": f"{keys_configured}/4 API keys configured",
+                "providers": provider_status,
+            }
+        except Exception as e:
+            results["api_keys"] = {"status": "error", "detail": str(e)}
+
+        # 4. KB file freshness
+        try:
+            stale_files = []
+            now = time.time()
+            stale_threshold = 90 * 86400  # 90 days
+            for fname in _REQUIRED_KB_FILES:
+                fpath = DATA_DIR / fname
+                if fpath.exists():
+                    age = now - fpath.stat().st_mtime
+                    if age > stale_threshold:
+                        stale_files.append(f"{fname} ({int(age/86400)}d old)")
+            results["kb_freshness"] = {
+                "status": "ok" if not stale_files else "partial",
+                "detail": f"{len(_REQUIRED_KB_FILES)} files, {len(stale_files)} stale (>90d)",
+                "stale_files": stale_files[:5],
+            }
+        except Exception as e:
+            results["kb_freshness"] = {"status": "error", "detail": str(e)}
+
+        # 5. Eval score trend
+        try:
+            if "eval_framework" in sys.modules:
+                ef = sys.modules["eval_framework"]
+                suite = ef.EvalSuite()
+                scores = suite.run_full_eval()
+                overall = scores.get("overall_score", 0)
+                results["eval_score"] = {
+                    "status": "ok" if overall >= 85 else ("partial" if overall >= 70 else "error"),
+                    "detail": f"Overall eval score: {overall}%",
+                    "score": overall,
+                    "categories": {k: v.get("score_pct", 0) for k, v in scores.get("categories", {}).items()},
+                }
+            else:
+                results["eval_score"] = {
+                    "status": "partial",
+                    "detail": "eval_framework not loaded",
+                }
+        except Exception as e:
+            results["eval_score"] = {"status": "error", "detail": str(e)}
+
+        # 6. Regression baseline age
+        try:
+            baseline_path = Path(__file__).resolve().parent / "data" / "persistent" / "regression_baseline.json"
+            if baseline_path.exists():
+                age_days = (time.time() - baseline_path.stat().st_mtime) / 86400
+                results["regression_baseline"] = {
+                    "status": "ok" if age_days < 30 else ("partial" if age_days < 60 else "error"),
+                    "detail": f"Baseline age: {age_days:.1f} days",
+                    "age_days": round(age_days, 1),
+                }
+            else:
+                results["regression_baseline"] = {
+                    "status": "partial",
+                    "detail": "No baseline saved yet (first run will create it)",
+                }
+        except Exception as e:
+            results["regression_baseline"] = {"status": "error", "detail": str(e)}
+
+        return results
 
     # ── Self-healing ──────────────────────────────────────────────────────
 
