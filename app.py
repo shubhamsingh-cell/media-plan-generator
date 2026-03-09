@@ -7442,7 +7442,7 @@ _OPENAPI_SPEC = {
         "title": "AI Media Planner API",
         "description": "Recruitment advertising media plan generator with AI-powered research, "
                        "budget optimization, and strategy deck creation.",
-        "version": "3.0.0",
+        "version": "3.4.0",
         "contact": {"name": "Joveo Engineering", "url": "https://media-plan-generator.onrender.com"},
         "license": {"name": "Proprietary"},
     },
@@ -7601,7 +7601,7 @@ _OPENAPI_SPEC = {
                                     "type": "object",
                                     "properties": {
                                         "status": {"type": "string", "example": "ok"},
-                                        "version": {"type": "string", "example": "3.0.0"},
+                                        "version": {"type": "string", "example": "3.4.0"},
                                         "timestamp": {"type": "string", "format": "date-time"},
                                     },
                                 },
@@ -7872,10 +7872,10 @@ except ImportError as _mon_err:
     _shutdown = None
 
     def health_check_liveness():
-        return {"status": "ok", "version": "3.0.0", "timestamp": datetime.datetime.now().isoformat()}
+        return {"status": "ok", "version": "3.4.0", "timestamp": datetime.datetime.now().isoformat()}
 
     def health_check_readiness():
-        return {"status": "healthy", "version": "3.0.0"}
+        return {"status": "healthy", "version": "3.4.0"}
 
 # Data matrix health monitor (background checks every 12h)
 try:
