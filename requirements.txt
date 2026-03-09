@@ -2,9 +2,8 @@
 openpyxl>=3.1.0,<3.2.0
 python-pptx>=1.0.0,<2.0.0
 
-# Optional: Google Trends search interest data
-# Enables fetch_search_trends() in api_enrichment.py
-pytrends>=4.9.0
-
 # All other dependencies (json, urllib, http.server, threading,
 # concurrent.futures, ssl, hashlib, etc.) are Python stdlib.
+
+# Optional: pip install pytrends  (enables live Google Trends data)
+# Not required -- benchmark fallback data is used when unavailable.
