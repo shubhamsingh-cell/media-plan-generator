@@ -98,6 +98,13 @@ try:
 except ImportError:
     _HAS_STANDARDIZER = False
 
+# Supabase persistent cache (L3, after memory L1 and disk L2)
+try:
+    from supabase_cache import cache_get as _supa_get, cache_set as _supa_set
+    _HAS_SUPABASE = True
+except ImportError:
+    _HAS_SUPABASE = False
+
 # ---------------------------------------------------------------------------
 # Constants & configuration
 # ---------------------------------------------------------------------------
@@ -619,6 +626,18 @@ def _get_cached(key: str) -> Optional[Any]:
         except Exception:
             pass
 
+    # L3: Supabase persistent cache
+    if _HAS_SUPABASE:
+        try:
+            supa_data = _supa_get(key)
+            if supa_data is not None:
+                # Promote to L1 memory cache only (avoid recursive L3 write)
+                with _cache_lock:
+                    _memory_cache[key] = {"ts": time.time(), "data": supa_data}
+                return supa_data
+        except Exception:
+            pass
+
     return None
 
 
@@ -648,6 +667,13 @@ def _set_cached(key: str, data: Any) -> None:
             json.dump(entry, fh, ensure_ascii=False)
     except Exception as exc:
         _log_warn(f"Failed to write cache file {cache_file}: {exc}")
+
+    # L3: Replicate to Supabase persistent cache
+    if _HAS_SUPABASE:
+        try:
+            _supa_set(key, data, ttl_seconds=CACHE_TTL, category="api")
+        except Exception:
+            pass
 
     # Periodic disk cache cleanup: remove oldest files when count exceeds limit.
     # Run at most once per hour to avoid I/O overhead.
@@ -9867,6 +9893,111 @@ def fetch_h1b_wage_benchmarks(roles: List[str]) -> Dict[str, Any]:
     return result if len(result) > 1 else {}
 
 
+
+def fetch_geopolitical_context(
+    locations: list,
+    industry: str = "",
+    roles: list = None,
+    campaign_start_month: int = 0,
+) -> dict:
+    """Use LLM to assess geopolitical/macro events impacting recruitment in given locations."""
+    if not locations:
+        return {"overall_risk_score": 1.0, "risk_level": "low", "locations": {},
+                "summary": "No locations provided.", "recommendations": [],
+                "source": "none", "confidence": 0.0}
+
+    try:
+        from llm_router import call_llm, TASK_STRUCTURED
+    except ImportError:
+        _log_warn("llm_router not available for geopolitical context")
+        return _geopolitical_fallback(locations)
+
+    month_names = ["", "January", "February", "March", "April", "May", "June",
+                   "July", "August", "September", "October", "November", "December"]
+    month_str = month_names[campaign_start_month] if 1 <= campaign_start_month <= 12 else "the current period"
+    roles_str = ", ".join((roles or [])[:5]) or "various roles"
+    locations_str = ", ".join(locations[:10])
+
+    prompt = f"""Analyze geopolitical, political, economic, and macro events that could impact
+recruitment advertising in these locations: {locations_str}
+
+Industry: {industry or 'general'}
+Target roles: {roles_str}
+Campaign timing: {month_str}
+
+For EACH location, provide:
+1. Risk score (1-10, where 1=stable, 10=severe disruption)
+2. Key events/factors (wars, political instability, economic crisis, natural disasters, labor law changes, immigration policy shifts, strikes)
+3. Impact on recruitment (talent availability, cost pressure, competition for hires)
+4. Budget adjustment recommendation (multiplier: 1.0=no change, >1.0=increase due to difficulty)
+
+Respond ONLY in valid JSON with this exact structure:
+{{
+    "overall_risk_score": <float 1-10>,
+    "locations": {{
+        "<location>": {{
+            "risk_score": <float 1-10>,
+            "events": [
+                {{"event": "<description>", "impact": "<impact on recruitment>", "severity": "low|moderate|high|critical"}}
+            ],
+            "budget_adjustment_factor": <float>
+        }}
+    }},
+    "summary": "<2-3 sentence summary>",
+    "recommendations": ["<actionable recommendation>"]
+}}"""
+
+    messages = [{"role": "user", "content": prompt}]
+    system_prompt = (
+        "You are a geopolitical risk analyst specializing in how world events impact "
+        "recruitment marketing and talent acquisition. Be specific, factual, and data-driven. "
+        "Only cite events you are confident about. Return ONLY valid JSON, no markdown."
+    )
+
+    try:
+        result = call_llm(
+            messages=messages,
+            system_prompt=system_prompt,
+            max_tokens=2048,
+            task_type=TASK_STRUCTURED,
+            query_text=f"geopolitical risk for recruitment in {locations_str}",
+        )
+        if result and (result.get("text") or result.get("content")):
+            content = result.get("text") or result.get("content", "")
+            json_match = re.search(r'\{[\s\S]*\}', content)
+            if json_match:
+                parsed = json.loads(json_match.group())
+                parsed["source"] = f"llm_geopolitical_analysis ({result.get('provider', 'unknown')})"
+                parsed["confidence"] = 0.7
+                score = parsed.get("overall_risk_score", 1.0)
+                if score <= 3:
+                    parsed["risk_level"] = "low"
+                elif score <= 5:
+                    parsed["risk_level"] = "moderate"
+                elif score <= 7:
+                    parsed["risk_level"] = "high"
+                else:
+                    parsed["risk_level"] = "critical"
+                return parsed
+    except Exception as e:
+        _log_warn("LLM geopolitical analysis failed: %s" % e)
+
+    return _geopolitical_fallback(locations)
+
+
+def _geopolitical_fallback(locations: list) -> dict:
+    """Static fallback when LLM is unavailable."""
+    return {
+        "overall_risk_score": 3.0,
+        "risk_level": "low",
+        "locations": {loc: {"risk_score": 3.0, "events": [], "budget_adjustment_factor": 1.0} for loc in locations},
+        "summary": "Geopolitical risk analysis unavailable. Using default low-risk assumption.",
+        "recommendations": ["Monitor local news for the campaign locations."],
+        "source": "fallback",
+        "confidence": 0.2,
+    }
+
+
 # Main enrichment orchestrator
 # ---------------------------------------------------------------------------
 
@@ -10117,6 +10248,18 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
                     "error_message": str(exc),
                 }
 
+    # Geopolitical context (LLM-based)
+    geo_context = {}
+    try:
+        geo_context = fetch_geopolitical_context(
+            locations=locations,
+            industry=industry,
+            roles=roles,
+            campaign_start_month=int(data.get("campaign_start_month", 0) or 0),
+        )
+    except Exception as e:
+        _log_warn("Geopolitical context enrichment failed: %s" % e)
+
     # --- Build enhanced summary ---
     elapsed = round(time.time() - start_time, 2)
 
@@ -10127,6 +10270,8 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
         if d.get("success", False) and d.get("source") in ("live", "cached")
     )
     confidence_score = round(successful_calls / total_calls, 3)
+
+    enriched["geopolitical_context"] = geo_context
 
     enriched["enrichment_summary"] = {
         "apis_called": apis_called,

@@ -1,0 +1,684 @@
+"""
+email_alerts.py -- Email notification system via Resend API.
+
+Sends alert emails for critical errors, circuit breaker trips,
+generation failures, and daily digest summaries. All emails are
+formatted as clean HTML with contextual styling (red for errors,
+neutral for digest summaries).
+
+Gracefully disabled when RESEND_API_KEY is not set -- all public
+functions become no-ops that return immediately.
+
+Rate limiting:
+    - Max 10 emails/hour (configurable via RESEND_HOURLY_LIMIT)
+    - Deduplication: identical error_type+message suppressed within 30 min
+
+Integration points (callers to wire up separately):
+    - llm_router.py: call send_circuit_breaker_alert() when a provider's
+      circuit breaker opens (_ProviderState.record_failure)
+    - app.py: call send_generation_failure_alert() when a media plan
+      generation request fails with an unrecoverable error
+    - monitoring.py: call send_daily_digest() from a scheduled health
+      check or external cron hitting /api/health
+
+Stdlib-only, thread-safe.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import threading
+import time
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_RESEND_ENDPOINT = "https://api.resend.com/emails"
+
+# Core credentials -- module is entirely disabled when API key is absent
+_API_KEY: str = os.environ.get("RESEND_API_KEY", "").strip()
+
+# "From" address: Resend requires a verified domain.  The onboarding@resend.dev
+# address is provided by Resend for initial testing before domain verification.
+_FROM_EMAIL: str = os.environ.get(
+    "RESEND_FROM_EMAIL",
+    "onboarding@resend.dev",
+).strip()
+
+# "To" address: required alongside RESEND_API_KEY for the module to activate.
+_TO_EMAIL: str = os.environ.get("ALERT_EMAIL_TO", "").strip()
+
+# Rate limiting
+_HOURLY_LIMIT: int = int(os.environ.get("RESEND_HOURLY_LIMIT", "10"))
+
+# Deduplication window in seconds (30 minutes)
+_DEDUP_WINDOW_SECONDS: float = 1800.0
+
+# HTTP timeout for the Resend API call (seconds)
+_SEND_TIMEOUT: int = 15
+
+# Server version -- imported lazily to avoid circular dependency
+_SERVER_VERSION: str = ""
+
+
+def _get_server_version() -> str:
+    """Lazily fetch the server version from monitoring.py."""
+    global _SERVER_VERSION
+    if not _SERVER_VERSION:
+        try:
+            from monitoring import VERSION
+            _SERVER_VERSION = VERSION
+        except Exception:
+            _SERVER_VERSION = "unknown"
+    return _SERVER_VERSION
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# THREAD-SAFE RATE TRACKING & DEDUPLICATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_lock = threading.Lock()
+
+# Timestamps of emails sent within the current rolling hour window
+_send_timestamps: List[float] = []
+
+# Deduplication cache: {dedup_key: last_sent_timestamp}
+_dedup_cache: Dict[str, float] = {}
+
+
+def _is_enabled() -> bool:
+    """Check whether the email alert system is active.
+
+    Returns True only when both RESEND_API_KEY and ALERT_EMAIL_TO are
+    configured.  This is called at the top of every public function so
+    the module is a complete no-op in environments without credentials.
+    """
+    return bool(_API_KEY) and bool(_TO_EMAIL)
+
+
+def _can_send(dedup_key: str = "") -> bool:
+    """Check rate limit and deduplication under the global lock.
+
+    Must be called while NOT holding _lock (this function acquires it).
+
+    Args:
+        dedup_key: Optional key for deduplication.  When non-empty, an
+            email with the same key within _DEDUP_WINDOW_SECONDS is
+            suppressed.
+
+    Returns:
+        True if the email should be sent, False if rate-limited or
+        deduplicated.
+    """
+    now = time.time()
+
+    with _lock:
+        # --- Hourly rate limit ---
+        # Prune timestamps older than 1 hour
+        cutoff = now - 3600.0
+        _send_timestamps[:] = [ts for ts in _send_timestamps if ts > cutoff]
+
+        if len(_send_timestamps) >= _HOURLY_LIMIT:
+            logger.info(
+                "email_alerts: hourly rate limit reached (%d/%d), skipping",
+                len(_send_timestamps), _HOURLY_LIMIT,
+            )
+            return False
+
+        # --- Deduplication ---
+        if dedup_key:
+            last_sent = _dedup_cache.get(dedup_key, 0.0)
+            if (now - last_sent) < _DEDUP_WINDOW_SECONDS:
+                logger.debug(
+                    "email_alerts: dedup suppressed (key=%s, age=%.0fs)",
+                    dedup_key[:60], now - last_sent,
+                )
+                return False
+
+        # --- Prune stale dedup entries (older than 2x the window) ---
+        stale_cutoff = now - (_DEDUP_WINDOW_SECONDS * 2)
+        stale_keys = [k for k, ts in _dedup_cache.items() if ts < stale_cutoff]
+        for k in stale_keys:
+            del _dedup_cache[k]
+
+        return True
+
+
+def _record_send(dedup_key: str = "") -> None:
+    """Record that an email was successfully sent.
+
+    Updates the rate-limit timestamp list and dedup cache.
+    Must be called after a successful API response.
+    """
+    now = time.time()
+    with _lock:
+        _send_timestamps.append(now)
+        if dedup_key:
+            _dedup_cache[dedup_key] = now
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CORE EMAIL SENDER
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _send_email(to: str, subject: str, html: str) -> bool:
+    """Send a single email via the Resend API.
+
+    Args:
+        to: Recipient email address.
+        subject: Email subject line.
+        html: HTML body content.
+
+    Returns:
+        True if the API accepted the email, False on any error.
+        Never raises exceptions -- errors are logged as warnings.
+    """
+    payload = {
+        "from": _FROM_EMAIL,
+        "to": [to],
+        "subject": subject,
+        "html": html,
+    }
+
+    body = json.dumps(payload).encode("utf-8")
+
+    req = urllib.request.Request(
+        _RESEND_ENDPOINT,
+        data=body,
+        method="POST",
+    )
+    req.add_header("Authorization", f"Bearer {_API_KEY}")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Accept", "application/json")
+    req.add_header(
+        "User-Agent",
+        "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=_SEND_TIMEOUT) as resp:
+            resp_data = json.loads(resp.read().decode("utf-8"))
+            email_id = resp_data.get("id", "")
+            logger.info(
+                "email_alerts: sent email (id=%s, subject=%s)",
+                email_id, subject[:80],
+            )
+            return True
+
+    except urllib.error.HTTPError as http_err:
+        error_body = ""
+        try:
+            error_body = http_err.read().decode("utf-8")[:500]
+        except Exception:
+            pass
+        logger.warning(
+            "email_alerts: Resend API HTTP %d: %s",
+            http_err.code, error_body[:200],
+        )
+        return False
+
+    except Exception as exc:
+        logger.warning("email_alerts: failed to send email: %s", exc)
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HTML TEMPLATES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _build_footer() -> str:
+    """Build the standard HTML footer with timestamp and server info."""
+    now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    version = _get_server_version()
+    environment = os.environ.get("RENDER_SERVICE_NAME", "local")
+
+    return (
+        '<div style="margin-top:32px; padding-top:16px; border-top:1px solid #e0e0e0;'
+        ' font-size:12px; color:#888888; font-family:monospace;">'
+        f"Timestamp: {now_utc}<br>"
+        f"Server: Media Plan Generator v{version}<br>"
+        f"Environment: {environment}<br>"
+        f"Host: {os.environ.get('RENDER_INSTANCE_ID', os.environ.get('HOSTNAME', 'unknown'))}"
+        "</div>"
+    )
+
+
+def _wrap_html(body_content: str) -> str:
+    """Wrap body content in a full HTML email structure."""
+    return (
+        '<!DOCTYPE html>'
+        '<html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+        "</head>"
+        '<body style="margin:0; padding:0; background-color:#f5f5f5;'
+        ' font-family:-apple-system, BlinkMacSystemFont, Segoe UI, Roboto,'
+        ' Helvetica Neue, Arial, sans-serif;">'
+        '<div style="max-width:600px; margin:20px auto; background:#ffffff;'
+        ' border-radius:8px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.1);">'
+        f"{body_content}"
+        "</div>"
+        "</body></html>"
+    )
+
+
+def _build_error_html(
+    title: str,
+    error_type: str,
+    error_message: str,
+    context: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Build an error-themed (red) HTML email body."""
+    # Header banner
+    header = (
+        '<div style="background:#d32f2f; padding:20px 24px;">'
+        f'<h1 style="margin:0; color:#ffffff; font-size:20px; font-weight:600;">'
+        f"{_html_escape(title)}</h1>"
+        "</div>"
+    )
+
+    # Body
+    body_parts = [
+        '<div style="padding:24px;">',
+        f'<p style="margin:0 0 8px; font-size:14px; color:#666666;">Error Type</p>',
+        f'<p style="margin:0 0 20px; font-size:16px; color:#333333; font-weight:600;">'
+        f"{_html_escape(error_type)}</p>",
+        f'<p style="margin:0 0 8px; font-size:14px; color:#666666;">Message</p>',
+        f'<div style="background:#fff3f3; border-left:4px solid #d32f2f;'
+        f' padding:12px 16px; margin:0 0 20px; border-radius:0 4px 4px 0;">'
+        f'<pre style="margin:0; white-space:pre-wrap; word-break:break-word;'
+        f' font-size:13px; color:#b71c1c; font-family:monospace;">'
+        f"{_html_escape(error_message)}</pre></div>",
+    ]
+
+    # Context key-value pairs
+    if context:
+        body_parts.append(
+            '<p style="margin:0 0 8px; font-size:14px; color:#666666;">Context</p>'
+        )
+        body_parts.append(
+            '<table style="width:100%; border-collapse:collapse; margin:0 0 20px;">'
+        )
+        for key, value in context.items():
+            body_parts.append(
+                f'<tr style="border-bottom:1px solid #f0f0f0;">'
+                f'<td style="padding:8px 12px; font-size:13px; color:#666666;'
+                f' font-weight:600; white-space:nowrap; vertical-align:top;">'
+                f"{_html_escape(str(key))}</td>"
+                f'<td style="padding:8px 12px; font-size:13px; color:#333333;'
+                f' word-break:break-word;">'
+                f"{_html_escape(str(value))}</td>"
+                f"</tr>"
+            )
+        body_parts.append("</table>")
+
+    body_parts.append(_build_footer())
+    body_parts.append("</div>")
+
+    return _wrap_html(header + "".join(body_parts))
+
+
+def _build_digest_html(stats: Dict[str, Any]) -> str:
+    """Build a digest-themed (neutral/blue) HTML email body."""
+    now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # Header banner
+    header = (
+        '<div style="background:#1565c0; padding:20px 24px;">'
+        f'<h1 style="margin:0; color:#ffffff; font-size:20px; font-weight:600;">'
+        f"Daily Digest &mdash; {now_utc}</h1>"
+        "</div>"
+    )
+
+    # Summary table
+    rows = []
+    # Define the display order and labels for known stat keys
+    display_keys = [
+        ("plans_generated", "Plans Generated"),
+        ("plans_failed", "Plans Failed"),
+        ("total_requests", "Total Requests"),
+        ("total_errors", "Total Errors"),
+        ("error_rate", "Error Rate"),
+        ("llm_calls", "LLM Calls"),
+        ("llm_failures", "LLM Failures"),
+        ("avg_latency_ms", "Avg Latency (ms)"),
+        ("active_providers", "Active LLM Providers"),
+        ("uptime_hours", "Uptime (hours)"),
+    ]
+
+    for key, label in display_keys:
+        if key in stats:
+            value = stats[key]
+            # Format percentages
+            if key == "error_rate" and isinstance(value, (int, float)):
+                value = f"{value:.1f}%"
+            rows.append(
+                f'<tr style="border-bottom:1px solid #f0f0f0;">'
+                f'<td style="padding:10px 16px; font-size:14px; color:#555555;'
+                f' font-weight:600;">{_html_escape(label)}</td>'
+                f'<td style="padding:10px 16px; font-size:14px; color:#333333;'
+                f' text-align:right; font-weight:500;">'
+                f"{_html_escape(str(value))}</td>"
+                f"</tr>"
+            )
+
+    # Include any additional stats not in the predefined list
+    known_keys = {k for k, _ in display_keys}
+    for key, value in stats.items():
+        if key not in known_keys:
+            rows.append(
+                f'<tr style="border-bottom:1px solid #f0f0f0;">'
+                f'<td style="padding:10px 16px; font-size:14px; color:#555555;'
+                f' font-weight:600;">{_html_escape(str(key))}</td>'
+                f'<td style="padding:10px 16px; font-size:14px; color:#333333;'
+                f' text-align:right; font-weight:500;">'
+                f"{_html_escape(str(value))}</td>"
+                f"</tr>"
+            )
+
+    body = (
+        '<div style="padding:24px;">'
+        '<table style="width:100%; border-collapse:collapse; margin:0 0 20px;'
+        ' border:1px solid #e0e0e0; border-radius:4px;">'
+        '<thead><tr style="background:#f5f7fa;">'
+        '<th style="padding:12px 16px; text-align:left; font-size:13px;'
+        ' color:#666666; text-transform:uppercase; letter-spacing:0.5px;">Metric</th>'
+        '<th style="padding:12px 16px; text-align:right; font-size:13px;'
+        ' color:#666666; text-transform:uppercase; letter-spacing:0.5px;">Value</th>'
+        "</tr></thead>"
+        "<tbody>"
+        + "".join(rows)
+        + "</tbody></table>"
+        + _build_footer()
+        + "</div>"
+    )
+
+    return _wrap_html(header + body)
+
+
+def _html_escape(text: str) -> str:
+    """Minimal HTML escaping for untrusted strings.
+
+    Escapes &, <, >, ", and ' to prevent XSS in email HTML content.
+    Uses manual replacement to avoid importing html module (though it
+    is stdlib, keeping the import list minimal for consistency).
+    """
+    return (
+        text
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&#x27;")
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PUBLIC ALERT FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def send_error_alert(
+    error_type: str,
+    error_message: str,
+    context: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Send a critical error alert email.
+
+    Args:
+        error_type: Category of the error (e.g. "UnhandledException",
+            "APITimeout", "DataCorruption").
+        error_message: Human-readable error description or traceback.
+        context: Optional dict of additional context (request_id,
+            endpoint, user info, etc.).
+
+    This is for urgent, actionable errors that need immediate attention.
+    Deduplicated on error_type + error_message to prevent alert storms.
+    """
+    if not _is_enabled():
+        logger.debug("email_alerts: disabled (no RESEND_API_KEY), skipping error alert")
+        return
+
+    dedup_key = f"error:{error_type}:{error_message}"
+
+    if not _can_send(dedup_key):
+        return
+
+    subject = f"[ALERT] {error_type}"
+    html = _build_error_html(
+        title="Critical Error Alert",
+        error_type=error_type,
+        error_message=error_message,
+        context=context,
+    )
+
+    if _send_email(_TO_EMAIL, subject, html):
+        _record_send(dedup_key)
+
+
+def send_circuit_breaker_alert(
+    provider_id: str,
+    failure_count: int,
+) -> None:
+    """Send an alert when an LLM provider's circuit breaker opens.
+
+    Args:
+        provider_id: The LLM provider identifier (e.g. "gemini", "groq").
+        failure_count: Number of consecutive failures that triggered the
+            circuit breaker.
+
+    Deduplicated per provider_id so the same provider tripping multiple
+    times within 30 minutes sends only one email.
+    """
+    if not _is_enabled():
+        logger.debug("email_alerts: disabled, skipping circuit breaker alert")
+        return
+
+    dedup_key = f"circuit_breaker:{provider_id}"
+
+    if not _can_send(dedup_key):
+        return
+
+    context = {
+        "Provider ID": provider_id,
+        "Consecutive Failures": failure_count,
+        "Status": "Circuit OPEN -- provider temporarily disabled",
+    }
+
+    subject = f"[CIRCUIT BREAKER] {provider_id} tripped ({failure_count} failures)"
+    html = _build_error_html(
+        title="LLM Circuit Breaker Tripped",
+        error_type="CircuitBreakerOpen",
+        error_message=(
+            f"Provider '{provider_id}' has been temporarily disabled after "
+            f"{failure_count} consecutive failures. The circuit breaker will "
+            f"attempt recovery after the cooldown period."
+        ),
+        context=context,
+    )
+
+    if _send_email(_TO_EMAIL, subject, html):
+        _record_send(dedup_key)
+
+
+def send_generation_failure_alert(
+    client_name: str,
+    error: str,
+    request_id: str = "",
+) -> None:
+    """Send an alert when media plan generation fails.
+
+    Args:
+        client_name: Name of the client whose plan failed to generate.
+        error: Error description or traceback.
+        request_id: Optional request ID for tracing.
+
+    Deduplicated on the error message so the same underlying issue
+    does not flood the inbox.
+    """
+    if not _is_enabled():
+        logger.debug("email_alerts: disabled, skipping generation failure alert")
+        return
+
+    dedup_key = f"gen_failure:{error}"
+
+    if not _can_send(dedup_key):
+        return
+
+    context: Dict[str, Any] = {
+        "Client": client_name,
+    }
+    if request_id:
+        context["Request ID"] = request_id
+
+    subject = f"[GENERATION FAILED] {client_name}"
+    html = _build_error_html(
+        title="Media Plan Generation Failed",
+        error_type="GenerationFailure",
+        error_message=error,
+        context=context,
+    )
+
+    if _send_email(_TO_EMAIL, subject, html):
+        _record_send(dedup_key)
+
+
+def send_daily_digest(stats: Dict[str, Any]) -> None:
+    """Send a daily summary digest email.
+
+    Args:
+        stats: Dictionary of daily statistics. Expected keys include
+            (all optional):
+            - plans_generated (int): successful plan count
+            - plans_failed (int): failed plan count
+            - total_requests (int): total HTTP requests served
+            - total_errors (int): total error responses
+            - error_rate (float): error percentage
+            - llm_calls (int): total LLM API calls
+            - llm_failures (int): failed LLM calls
+            - avg_latency_ms (float): average response latency
+            - active_providers (int): count of healthy LLM providers
+            - uptime_hours (float): server uptime
+
+    The digest is NOT deduplicated (it is expected to be called once
+    per day), but it still respects the hourly rate limit.
+    """
+    if not _is_enabled():
+        logger.debug("email_alerts: disabled, skipping daily digest")
+        return
+
+    # No dedup_key for digest -- allow one per invocation (rate limit still applies)
+    if not _can_send():
+        return
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    subject = f"[DIGEST] Media Plan Generator -- {today}"
+    html = _build_digest_html(stats)
+
+    if _send_email(_TO_EMAIL, subject, html):
+        _record_send()
+
+
+def send_custom_alert(subject: str, html_body: str) -> None:
+    """Send a generic alert email with custom subject and HTML body.
+
+    Args:
+        subject: Email subject line (will be prefixed with [ALERT]).
+        html_body: Raw HTML content for the email body. The standard
+            footer will NOT be appended -- the caller is responsible
+            for the full body content.
+
+    This is a low-level escape hatch for one-off notifications that
+    do not fit the other alert categories. Rate limiting and the
+    enabled check still apply, but there is no deduplication.
+    """
+    if not _is_enabled():
+        logger.debug("email_alerts: disabled, skipping custom alert")
+        return
+
+    if not _can_send():
+        return
+
+    prefixed_subject = f"[ALERT] {subject}"
+
+    if _send_email(_TO_EMAIL, prefixed_subject, html_body):
+        _record_send()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STATUS & DIAGNOSTICS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def get_alert_status() -> Dict[str, Any]:
+    """Return the current status of the email alert system.
+
+    Useful for health check endpoints and debugging.
+
+    Returns:
+        Dict with enabled status, rate limit info, and dedup cache size.
+    """
+    now = time.time()
+    with _lock:
+        # Prune old timestamps for accurate count
+        cutoff = now - 3600.0
+        active_timestamps = [ts for ts in _send_timestamps if ts > cutoff]
+        dedup_count = len(_dedup_cache)
+
+    return {
+        "enabled": _is_enabled(),
+        "api_key_set": bool(_API_KEY),
+        "to_email_set": bool(_TO_EMAIL),
+        "from_email": _FROM_EMAIL,
+        "hourly_limit": _HOURLY_LIMIT,
+        "emails_sent_this_hour": len(active_timestamps),
+        "remaining_this_hour": max(0, _HOURLY_LIMIT - len(active_timestamps)),
+        "dedup_cache_size": dedup_count,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODULE SELF-TEST
+# ═══════════════════════════════════════════════════════════════════════════════
+
+if __name__ == "__main__":
+    import sys
+
+    logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")
+
+    print("=" * 60)
+    print("  Email Alerts Status")
+    print("=" * 60)
+
+    status = get_alert_status()
+    for key, value in status.items():
+        print(f"  {key:<28s} {value}")
+
+    if not status["enabled"]:
+        print()
+        print("  Module is DISABLED.")
+        print("  Set RESEND_API_KEY and ALERT_EMAIL_TO to enable.")
+        sys.exit(0)
+
+    # If enabled and --test flag passed, send a test email
+    if "--test" in sys.argv:
+        print()
+        print("  Sending test error alert...")
+        send_error_alert(
+            error_type="TestAlert",
+            error_message="This is a test alert from email_alerts.py self-test.",
+            context={
+                "trigger": "manual --test flag",
+                "purpose": "verify Resend API integration",
+            },
+        )
+        print("  Done. Check your inbox.")
+    else:
+        print()
+        print("  Pass --test to send a test alert email.")

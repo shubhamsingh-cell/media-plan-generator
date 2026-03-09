@@ -779,6 +779,95 @@ INDUSTRY_NICHE_CHANNELS = {
 }
 
 
+def _verify_plan_data(data):
+    """Use Gemini/secondary LLM to verify key facts in plan data before output.
+
+    Checks channel recommendations, benchmark numbers, and location appropriateness.
+    Returns verification status dict. Non-blocking -- failures return 'skipped'.
+    """
+    try:
+        from llm_router import call_llm, TASK_STRUCTURED
+    except ImportError:
+        return {"status": "skipped", "reason": "llm_router_unavailable"}
+
+    synthesized = data.get("_synthesized", {})
+    if not isinstance(synthesized, dict):
+        return {"status": "skipped", "reason": "no_synthesized_data"}
+
+    # Build a concise snapshot of key plan data points for verification
+    client = data.get("client_name", "Client")
+    industry = data.get("industry_label", data.get("industry", ""))
+    locations = data.get("locations", [])
+    roles = data.get("roles", [])
+    budget = data.get("budget", "N/A")
+    budget_alloc = data.get("_budget_allocation", {})
+
+    # Extract key numbers to verify
+    check_items = []
+    if isinstance(budget_alloc, dict):
+        meta = budget_alloc.get("metadata", {})
+        if meta:
+            check_items.append(f"Total budget: ${meta.get('total_budget', 'N/A')}")
+        ch_allocs = budget_alloc.get("channel_allocations", {})
+        for ch_name, ch_data in list(ch_allocs.items())[:5]:
+            if isinstance(ch_data, dict):
+                check_items.append(
+                    f"{ch_name}: ${ch_data.get('dollar_amount', 0):.0f}, "
+                    f"CPC=${ch_data.get('cpc', 0):.2f}, "
+                    f"est clicks={ch_data.get('projected_clicks', 0)}"
+                )
+
+    if not check_items:
+        return {"status": "skipped", "reason": "no_data_to_verify"}
+
+    prompt = f"""Verify this recruitment media plan data for reasonableness.
+
+Client: {client}
+Industry: {industry}
+Locations: {', '.join(str(l) for l in locations[:5])}
+Roles: {', '.join(str(r) for r in roles[:5])}
+Budget: {budget}
+
+Key allocations:
+{chr(10).join(check_items)}
+
+Check:
+1. Are CPC values reasonable for the industry/channels? (typical ranges: Indeed $0.10-2.00, LinkedIn $1.50-8.00, Google $0.50-5.00)
+2. Are click/application projections mathematically consistent with budget and CPC?
+3. Are channel recommendations appropriate for this industry?
+
+Return ONLY valid JSON:
+{{"verified": true, "issues": [], "severity": "none"}}
+OR
+{{"verified": false, "issues": ["issue1", "issue2"], "severity": "minor|major"}}"""
+
+    try:
+        result = call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt="You are a recruitment advertising data verifier. Return ONLY valid JSON.",
+            max_tokens=512,
+            task_type=TASK_STRUCTURED,
+            query_text="verify media plan data",
+            preferred_providers=["gemini"],
+        )
+        if result and (result.get("text") or result.get("content")):
+            content = result.get("text") or result.get("content", "")
+            import re as _re
+            json_match = _re.search(r'\{[\s\S]*?\}', content)
+            if json_match:
+                parsed = json.loads(json_match.group())
+                return {
+                    "status": "verified" if parsed.get("verified") else "issues_found",
+                    "issues": parsed.get("issues", []),
+                    "severity": parsed.get("severity", "none"),
+                    "provider": result.get("provider", "unknown"),
+                }
+    except Exception:
+        pass
+
+    return {"status": "skipped", "reason": "verification_failed"}
+
+
 def generate_excel(data):
     # Normalize budget: frontend sends "budget_range" but code reads "budget"
     if data.get("budget_range") and not data.get("budget"):
@@ -1051,6 +1140,32 @@ def generate_excel(data):
     ws_overview.cell(row=row, column=2, value=f"  Countries Covered: 200+").font = body_font
     row += 1
     ws_overview.cell(row=row, column=2, value=f"  Regions: Americas, Europe, APAC, LATAM, MEA, Africa").font = body_font
+
+    # Geopolitical Risk Assessment (if risk_level is not "low")
+    _synth_data = data.get("_synthesized", {}) if isinstance(data, dict) else {}
+    _geo_ctx = _synth_data.get("geopolitical_context", {}) if isinstance(_synth_data, dict) else {}
+    if isinstance(_geo_ctx, dict) and _geo_ctx.get("risk_level", "low") != "low":
+        row += 2
+        _risk_color = "C0392B" if _geo_ctx.get("risk_level") in ("high", "critical") else "D47A1A"
+        ws_overview.cell(row=row, column=2, value="Geopolitical Risk Assessment").font = Font(name="Calibri", bold=True, size=12, color=_risk_color)
+        row += 1
+        _risk_level = _geo_ctx.get("risk_level", "moderate").upper()
+        _risk_score = _geo_ctx.get("overall_risk_score", 0)
+        ws_overview.cell(row=row, column=2, value=f"  Overall Risk Level:").font = Font(name="Calibri", bold=True, size=11, color="1B2A4A")
+        ws_overview.cell(row=row, column=3, value=f"{_risk_level} ({_risk_score:.1f}/10)").font = Font(name="Calibri", bold=True, size=11, color=_risk_color)
+        row += 1
+        _geo_summary = _geo_ctx.get("summary", "")
+        if _geo_summary:
+            ws_overview.cell(row=row, column=2, value=f"  Summary:").font = Font(name="Calibri", bold=True, size=11, color="1B2A4A")
+            ws_overview.cell(row=row, column=3, value=str(_geo_summary)[:200]).font = body_font
+            ws_overview.cell(row=row, column=3).alignment = wrap_alignment
+            row += 1
+        _geo_recs = _geo_ctx.get("recommendations", [])
+        if _geo_recs:
+            ws_overview.cell(row=row, column=2, value=f"  Key Recommendations:").font = Font(name="Calibri", bold=True, size=11, color="1B2A4A")
+            ws_overview.cell(row=row, column=3, value="; ".join(str(r)[:80] for r in _geo_recs[:3])).font = body_font
+            ws_overview.cell(row=row, column=3).alignment = wrap_alignment
+            row += 1
 
     row += 2
     ws_overview.cell(row=row, column=2, value="Plan Sections").font = Font(name="Calibri", bold=True, size=12, color="2E75B6")
@@ -7760,6 +7875,37 @@ except ImportError as _aqc_err:
     logger.warning("auto_qc not available: %s", _aqc_err)
     _auto_qc = None
 
+# Email alert notifications (Resend API)
+try:
+    import email_alerts as _email_alerts
+    if _email_alerts._is_enabled():
+        logger.info("Email alerts enabled (Resend API)")
+    else:
+        logger.debug("Email alerts not configured (RESEND_API_KEY not set)")
+except ImportError:
+    _email_alerts = None
+    logger.debug("email_alerts module not available")
+
+# Grafana Cloud Loki logging (ships WARNING+ logs)
+try:
+    from grafana_logger import setup_grafana_logging
+    if setup_grafana_logging(logging.getLogger()):
+        logger.info("Grafana Loki logging enabled")
+    else:
+        logger.debug("Grafana Loki logging not configured (env vars missing)")
+except ImportError:
+    logger.debug("grafana_logger module not available")
+
+# Supabase persistent cache (L3 cache layer)
+try:
+    from supabase_cache import start_cleanup_thread as _supa_start_cleanup
+    _supa_start_cleanup(interval_hours=6)
+    logger.info("Supabase cache cleanup thread started (every 6h)")
+except ImportError:
+    logger.debug("supabase_cache module not available")
+except Exception as _supa_err:
+    logger.debug("Supabase cache not configured: %s", _supa_err)
+
 # Simple in-memory rate limiter
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -8629,6 +8775,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 60
 
+                        # Gemini/LLM verification of key plan data points
+                        try:
+                            gen_data["_verification"] = _verify_plan_data(gen_data)
+                        except Exception:
+                            gen_data["_verification"] = {"status": "skipped", "reason": "verification_error"}
+
                         # Excel generation
                         excel_bytes = generate_excel(gen_data)
 
@@ -8698,6 +8850,19 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 data["campaign_duration"] = raw_duration
             else:
                 data["campaign_duration"] = "Not specified"
+
+            # campaign_start_month: int 1-12, 0 or absent = current month
+            raw_csm = data.get("campaign_start_month", 0)
+            try:
+                campaign_start_month = int(raw_csm) if raw_csm else 0
+            except (ValueError, TypeError):
+                campaign_start_month = 0
+            if campaign_start_month < 0 or campaign_start_month > 12:
+                campaign_start_month = 0
+            if campaign_start_month == 0:
+                import datetime as _dt_csm
+                campaign_start_month = _dt_csm.datetime.now().month
+            data["campaign_start_month"] = campaign_start_month
 
             # hire_volume: capture from form field or parse from notes
             raw_hire_vol = str(data.get("hire_volume") or "").strip()
@@ -8946,6 +9111,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         channel_percentages=channel_pcts,
                         synthesized_data=merged_for_ba,
                         knowledge_base=kb,
+                        collar_type=data.get("_collar_type", ""),
+                        campaign_start_month=int(data.get("campaign_start_month", 0) or 0),
                     )
                     data["_budget_allocation"] = budget_result
                     logger.info("Budget allocation complete: %s", list(budget_result.keys()) if isinstance(budget_result, dict) else 'N/A')
@@ -8954,6 +9121,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     data["_budget_allocation"] = {}
             else:
                 data["_budget_allocation"] = {}
+
+            # ── Gemini/LLM verification of plan data (same as async path) ──
+            try:
+                data["_verification"] = _verify_plan_data(data)
+            except Exception:
+                data["_verification"] = {"status": "skipped", "reason": "verification_error"}
 
             start_time = time.time()
             try:
@@ -8964,6 +9137,15 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 logger.error("Excel generation error: %s", tb)
                 generation_time = time.time() - start_time
                 log_request(data, "error", generation_time=generation_time, error_msg=str(e))
+                try:
+                    from email_alerts import send_generation_failure_alert
+                    send_generation_failure_alert(
+                        client_name=data.get("client_name", "Unknown"),
+                        error=str(e),
+                        request_id=data.get("_request_id", ""),
+                    )
+                except Exception:
+                    pass
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()

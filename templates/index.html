@@ -2776,6 +2776,24 @@
                             <option value="Ongoing">Ongoing</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label for="campaignStartMonth">Campaign Start Month <span style="font-weight:400;color:var(--text-muted);font-size:10px">(seasonal trends applied to this month)</span></label>
+                        <select id="campaignStartMonth">
+                            <option value="">Current month (default)</option>
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="li-section-divider">
@@ -2812,11 +2830,11 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Target Locations * <span style="font-weight:400;color:var(--text-muted);font-size:10px;letter-spacing:0">(US cities/states or international: London UK, Berlin Germany, Tokyo Japan, etc.)</span></label>
+                    <label>Target Locations * <span style="font-weight:400;color:var(--accent);font-size:11px;letter-spacing:0">(type city/country, press Enter to add each one)</span></label>
                     <div class="tags-container" id="locationsContainer">
-                        <input type="text" class="tags-input" id="locationInput" placeholder="Type a location and press Enter (e.g., Portland OR, London UK, Singapore)...">
+                        <input type="text" class="tags-input" id="locationInput" placeholder="e.g. San Francisco CA, London UK, Singapore... (press Enter or comma to add)">
                     </div>
-                    <div class="form-hint" style="opacity:0.7">Press Enter to add &bull; Click &times; to remove</div>
+                    <div class="form-hint" style="opacity:0.7">Press Enter or comma to add &bull; Click outside to auto-add &bull; Click &times; to remove</div>
                     <div class="form-hint">Supports 40+ countries worldwide. For international locations, include the country name.</div>
                 </div>
 
@@ -3851,11 +3869,17 @@
         }
         loadChannelsDB();
 
-        // Tags input for locations
+        // Tags input for locations (Enter, comma, or blur to add)
         document.getElementById('locationInput').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && this.value.trim()) {
+            if ((e.key === 'Enter' || e.key === ',') && this.value.replace(',','').trim()) {
                 e.preventDefault();
-                addTag('locationsContainer', 'locationInput', locations, this.value.trim());
+                addTag('locationsContainer', 'locationInput', locations, this.value.replace(',','').trim());
+            }
+        });
+        document.getElementById('locationInput').addEventListener('blur', function() {
+            const val = this.value.replace(',','').trim();
+            if (val) {
+                addTag('locationsContainer', 'locationInput', locations, val);
             }
         });
 
@@ -4511,6 +4535,7 @@
                 target_demographic: document.getElementById('targetDemographic').value,
                 budget_range: document.getElementById('budgetRange').value,
                 campaign_duration: document.getElementById('campaignDuration').value,
+                campaign_start_month: parseInt(document.getElementById('campaignStartMonth').value) || 0,
                 campaign_goals: getCheckboxGroupValues('campaignGoals'),
                 hire_volume: document.getElementById('hireVolume').value,
                 work_environment: getCheckboxGroupValues('workEnvironment'),

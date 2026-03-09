@@ -1,14 +1,29 @@
 """
-llm_router.py -- Smart LLM Provider Router for Nova Chat (v3.1)
+llm_router.py -- Smart LLM Provider Router for Nova Chat (v3.2)
 
 Routes LLM API calls to the optimal provider based on task type,
 with automatic fallback and circuit breaker per provider.
 
-Provider priority (free-first strategy):
-    1. Gemini 2.0 Flash  -- structured data, JSON output, code, general
-    2. Groq Llama 3.3 70B -- conversational, complex reasoning
-    3. Cerebras Llama 3.3 70B -- hot spare (same model, independent infra)
-    4. Claude (Anthropic) -- last resort, highest quality, paid
+Provider priority (free-first, then paid by cost-efficiency):
+    FREE TIER:
+    1. Gemini 2.0 Flash  -- free, structured data, JSON output, code
+    2. Groq Llama 3.3 70B -- free, conversational, complex reasoning
+    3. Cerebras Llama 3.3 70B -- free, hot spare (same model, independent infra)
+    4. Mistral Small -- free tier, strong JSON + multilingual
+    5. OpenRouter (Llama 4 Maverick) -- free models via single gateway
+    6. xAI Grok -- free signup credits ($25), strong reasoning
+
+    PAID TIER:
+    7. GPT-4o (OpenAI) -- paid, strong at structured + conversational + reasoning
+    8. Claude Sonnet (Anthropic) -- paid, high quality, strong tool_use
+    9. Claude Opus (Anthropic) -- paid, last resort, highest quality, most expensive
+
+Routing strategy for paid models:
+    - STRUCTURED (JSON/benchmarks): GPT-4o before Claude (excellent JSON adherence)
+    - CONVERSATIONAL (Q&A): GPT-4o before Claude (strong general reasoning)
+    - COMPLEX (multi-step): Claude Sonnet before GPT-4o (better tool_use chains)
+    - CODE (formulas): GPT-4o before Claude (strong at calculations)
+    - Claude Opus is ALWAYS last -- only used when all others fail
 
 Task classification:
     - STRUCTURED:  benchmark lookups, CPC/CPA queries, JSON output
@@ -51,7 +66,18 @@ TASK_CODE = "code"
 GEMINI = "gemini"
 GROQ = "groq"
 CEREBRAS = "cerebras"
+MISTRAL = "mistral"
+OPENROUTER = "openrouter"
+XAI = "xai"
+GPT4O = "gpt4o"
 CLAUDE = "claude"
+CLAUDE_OPUS = "claude_opus"
+
+# Global timeout budget: max total wall-clock seconds for the entire call_llm()
+# fallback loop.  Individual per-provider timeouts are dynamically capped to the
+# remaining budget so the caller never waits longer than this.
+GLOBAL_TIMEOUT_BUDGET = 60.0           # seconds
+_MIN_REMAINING_BUDGET = 5.0            # don't start a new attempt with < 5s left
 
 # Provider configs: endpoint, model, auth header, rate limits
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
@@ -88,8 +114,56 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "timeout": 30,
         "max_tokens": 8192,
     },
+    MISTRAL: {
+        "name": "Mistral Small",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://api.mistral.ai/v1/chat/completions",
+        "model": "mistral-small-latest",
+        "env_key": "MISTRAL_API_KEY",
+        "rpm_limit": 30,
+        "rpd_limit": 14400,
+        "timeout": 30,
+        "max_tokens": 8192,
+    },
+    OPENROUTER: {
+        "name": "OpenRouter (Llama 4 Maverick)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+        "model": "meta-llama/llama-4-maverick:free",
+        "env_key": "OPENROUTER_API_KEY",
+        "rpm_limit": 20,
+        "rpd_limit": 1000,  # Conservative -- free tier has daily limits
+        "timeout": 30,
+        "max_tokens": 4096,
+        "extra_headers": {  # OpenRouter requires/recommends these
+            "HTTP-Referer": "https://media-plan-generator.onrender.com",
+            "X-Title": "Joveo Media Plan Generator",
+        },
+    },
+    XAI: {
+        "name": "xAI Grok",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://api.x.ai/v1/chat/completions",
+        "model": "grok-2-latest",
+        "env_key": "XAI_API_KEY",
+        "rpm_limit": 30,
+        "rpd_limit": 14400,
+        "timeout": 30,
+        "max_tokens": 8192,
+    },
+    GPT4O: {
+        "name": "GPT-4o (OpenAI)",
+        "api_style": "openai",  # OpenAI native format
+        "endpoint": "https://api.openai.com/v1/chat/completions",
+        "model": "gpt-4o",
+        "env_key": "OPENAI_API_KEY",
+        "rpm_limit": 60,
+        "rpd_limit": 10000,
+        "timeout": 45,
+        "max_tokens": 4096,
+    },
     CLAUDE: {
-        "name": "Claude (Anthropic)",
+        "name": "Claude Sonnet (Anthropic)",
         "api_style": "anthropic",  # Anthropic-specific format
         "endpoint": "https://api.anthropic.com/v1/messages",
         "model": "claude-sonnet-4-20250514",
@@ -99,14 +173,38 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "timeout": 45,
         "max_tokens": 4096,
     },
+    CLAUDE_OPUS: {
+        "name": "Claude Opus (Anthropic)",
+        "api_style": "anthropic",  # Anthropic-specific format
+        "endpoint": "https://api.anthropic.com/v1/messages",
+        "model": "claude-opus-4-20250514",
+        "env_key": "ANTHROPIC_API_KEY",  # Same API key, different model
+        "rpm_limit": 25,  # Conservative -- most expensive model
+        "rpd_limit": 2000,
+        "timeout": 90,  # Opus is slower but more thorough
+        "max_tokens": 4096,
+    },
 }
 
-# Task -> provider priority order (free-first)
+# Task -> provider priority order
+# Strategy: 6 free providers first, then paid by cost-efficiency, Opus absolute last
+#
+# Free tier strengths:
+#   Gemini: structured JSON, code, verification
+#   Groq/Cerebras (Llama 3.3 70B): conversational, complex reasoning
+#   Mistral Small: structured JSON, multilingual, code
+#   OpenRouter (Llama 4 Maverick): strong general purpose (free models)
+#   xAI Grok: strong reasoning (free $25 signup credits)
+#
+# Paid tier strengths:
+#   GPT-4o: structured JSON, general reasoning, calculations
+#   Claude Sonnet: complex multi-step tool_use chains
+#   Claude Opus: last resort, highest quality
 TASK_ROUTING: Dict[str, List[str]] = {
-    TASK_STRUCTURED: [GEMINI, GROQ, CEREBRAS, CLAUDE],
-    TASK_CONVERSATIONAL: [GROQ, CEREBRAS, GEMINI, CLAUDE],
-    TASK_COMPLEX: [GROQ, CEREBRAS, GEMINI, CLAUDE],
-    TASK_CODE: [GEMINI, GROQ, CEREBRAS, CLAUDE],
+    TASK_STRUCTURED:     [GEMINI, MISTRAL, GROQ, CEREBRAS, OPENROUTER, XAI, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_CONVERSATIONAL: [GROQ, CEREBRAS, GEMINI, MISTRAL, OPENROUTER, XAI, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_COMPLEX:        [GROQ, CEREBRAS, GEMINI, OPENROUTER, MISTRAL, XAI, CLAUDE, GPT4O, CLAUDE_OPUS],
+    TASK_CODE:           [GEMINI, MISTRAL, GROQ, CEREBRAS, OPENROUTER, XAI, GPT4O, CLAUDE, CLAUDE_OPUS],
 }
 
 # Keywords for task classification
@@ -157,6 +255,10 @@ class _ProviderState:
             # Circuit breaker
             if now < self.circuit_open_until:
                 return False
+            # Half-open recovery: reset counter so a single failure doesn't
+            # immediately re-open the circuit after cooldown expires.
+            if self.consecutive_failures >= self.circuit_threshold:
+                self.consecutive_failures = self.circuit_threshold - 1
             # Rate limiting
             config = PROVIDER_CONFIG.get(self.provider_id, {})
             rpm_limit = config.get("rpm_limit", 30)
@@ -195,6 +297,12 @@ class _ProviderState:
                     "LLM Router: Circuit breaker OPEN for %s (cooldown %.0fs)",
                     self.provider_id, self.circuit_cooldown,
                 )
+                # Alert via email when circuit breaker opens
+                try:
+                    from email_alerts import send_circuit_breaker_alert
+                    send_circuit_breaker_alert(self.provider_id, self.consecutive_failures)
+                except Exception:
+                    pass  # email alerts are best-effort
 
     def get_stats(self) -> Dict[str, Any]:
         """Get provider stats."""
@@ -323,7 +431,7 @@ def _build_openai_request(
     max_tokens: int,
     tools: Optional[List[Dict]] = None,
 ) -> Tuple[str, Dict[str, str], bytes]:
-    """Build an OpenAI-compatible API request (Groq, Cerebras)."""
+    """Build an OpenAI-compatible API request (Groq, Cerebras, Mistral, xAI, OpenRouter)."""
     config = PROVIDER_CONFIG[provider_id]
     api_key = os.environ.get(config["env_key"], "").strip()
 
@@ -349,6 +457,10 @@ def _build_openai_request(
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
     }
+    # Merge any provider-specific extra headers (e.g., OpenRouter's HTTP-Referer)
+    extra = config.get("extra_headers")
+    if extra and isinstance(extra, dict):
+        headers.update(extra)
     return config["endpoint"], headers, json.dumps(payload).encode("utf-8")
 
 
@@ -357,9 +469,10 @@ def _build_anthropic_request(
     system_prompt: str,
     max_tokens: int,
     tools: Optional[List[Dict]] = None,
+    provider_id: str = CLAUDE,
 ) -> Tuple[str, Dict[str, str], bytes]:
-    """Build an Anthropic API request."""
-    config = PROVIDER_CONFIG[CLAUDE]
+    """Build an Anthropic API request (works for both Sonnet and Opus)."""
+    config = PROVIDER_CONFIG[provider_id]
     api_key = os.environ.get(config["env_key"], "").strip()
 
     # Filter messages to only user/assistant with string content
@@ -466,6 +579,7 @@ def call_llm(
     tools: Optional[List[Dict]] = None,
     force_provider: str = "",
     query_text: str = "",
+    preferred_providers: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Route an LLM call to the best available provider.
 
@@ -477,11 +591,15 @@ def call_llm(
         tools: Tool definitions (only supported by Claude provider)
         force_provider: Force a specific provider (skip routing)
         query_text: User query for task classification (if task_type not given)
+        preferred_providers: Optional list of provider IDs to try first before
+            falling back to the standard routing order. Useful for requesting
+            a specific provider (e.g., ["gemini"] for verification) while still
+            allowing fallback if that provider is unavailable.
 
     Returns:
         {
             "text": "response text",
-            "provider": "gemini|groq|cerebras|claude",
+            "provider": "gemini|groq|cerebras|claude|claude_opus",
             "provider_name": "Gemini 2.0 Flash",
             "model": "gemini-2.0-flash",
             "task_type": "conversational",
@@ -517,15 +635,59 @@ def call_llm(
         ]
         return result
 
+    # Build custom routing order if preferred_providers given
+    if preferred_providers:
+        base_route = TASK_ROUTING.get(task_type, TASK_ROUTING[TASK_CONVERSATIONAL])
+        # Preferred providers first, then the rest in standard order
+        custom_route = list(preferred_providers)
+        for pid in base_route:
+            if pid not in custom_route:
+                custom_route.append(pid)
+    else:
+        custom_route = None
+
     # Smart routing with fallback
     max_attempts = len(PROVIDER_CONFIG)
+    _wall_start = time.time()
     for attempt_num in range(max_attempts):
-        provider = select_provider(task_type, exclude=excluded)
+        # --- Global timeout budget check ---
+        elapsed = time.time() - _wall_start
+        if elapsed > GLOBAL_TIMEOUT_BUDGET:
+            logger.warning(
+                "LLM Router: global timeout budget (%.1fs) exceeded after %d attempts",
+                GLOBAL_TIMEOUT_BUDGET, attempt_num,
+            )
+            break
+        remaining = GLOBAL_TIMEOUT_BUDGET - elapsed
+        if remaining < _MIN_REMAINING_BUDGET:
+            logger.warning(
+                "LLM Router: only %.1fs remaining in budget, stopping early",
+                remaining,
+            )
+            break
+
+        if custom_route:
+            # Use custom routing order
+            provider = None
+            for pid in custom_route:
+                if pid in excluded:
+                    continue
+                config = PROVIDER_CONFIG.get(pid, {})
+                env_key = config.get("env_key", "")
+                if not os.environ.get(env_key, "").strip():
+                    continue
+                state = _provider_states.get(pid)
+                if state and state.is_available():
+                    provider = pid
+                    break
+        else:
+            provider = select_provider(task_type, exclude=excluded)
         if provider is None:
             break
 
         result = _call_single_provider(
-            provider, messages, system_prompt, max_tokens, tools
+            provider, messages, system_prompt, max_tokens, tools,
+            timeout_override=remaining,
         )
         attempts.append({
             "provider": provider,
@@ -569,8 +731,14 @@ def _call_single_provider(
     system_prompt: str,
     max_tokens: int,
     tools: Optional[List[Dict]] = None,
+    timeout_override: Optional[float] = None,
 ) -> Dict[str, Any]:
-    """Make a single API call to a specific provider."""
+    """Make a single API call to a specific provider.
+
+    Args:
+        timeout_override: If provided, the per-provider config timeout is
+            capped to this value so the global budget is respected.
+    """
     config = PROVIDER_CONFIG.get(provider_id)
     if not config:
         return {"text": "", "provider": provider_id, "error": "Unknown provider"}
@@ -578,6 +746,8 @@ def _call_single_provider(
     state = _provider_states.get(provider_id)
     api_style = config.get("api_style", "")
     timeout = config.get("timeout", 30)
+    if timeout_override is not None:
+        timeout = min(timeout, timeout_override)
 
     try:
         # Build request based on API style
@@ -591,7 +761,7 @@ def _call_single_provider(
             )
         elif api_style == "anthropic":
             url, headers, body = _build_anthropic_request(
-                messages, system_prompt, max_tokens, tools
+                messages, system_prompt, max_tokens, tools, provider_id=provider_id
             )
         else:
             return {"text": "", "provider": provider_id, "error": f"Unknown API style: {api_style}"}

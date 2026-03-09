@@ -18,6 +18,7 @@ data it has already fetched.
 """
 
 import logging
+import datetime
 import math
 from typing import Dict, List, Any, Optional, Tuple
 
@@ -380,6 +381,7 @@ def _get_trend_engine_cpc(
     industry: str = "",
     collar_type: str = "both",
     location: str = "",
+    month: int = 0,
 ) -> Optional[Tuple[float, Dict[str, Any]]]:
     """
     Fetch CPC from trend_engine.py with full context awareness.
@@ -413,7 +415,7 @@ def _get_trend_engine_cpc(
         return None
 
     import datetime
-    current_month = datetime.datetime.now().month
+    current_month = month if (month and 1 <= month <= 12) else datetime.datetime.now().month
 
     cpcs: List[float] = []
     best_meta: Dict[str, Any] = {}
@@ -832,6 +834,7 @@ def compute_channel_dollar_amounts(
     industry: str = "",
     collar_type: str = "",
     location: str = "",
+    month: int = 0,
 ) -> Dict[str, Dict]:
     """
     Convert channel percentages to dollar amounts with projected outcomes.
@@ -915,6 +918,7 @@ def compute_channel_dollar_amounts(
             te_result = _get_trend_engine_cpc(
                 category, industry=industry,
                 collar_type=effective_collar, location=location,
+                month=month,
             )
             if te_result is not None:
                 cpc, trend_meta = te_result
@@ -1197,6 +1201,7 @@ def optimize_allocation(
     channel_allocations: Dict,
     total_budget: float,
     optimization_goal: str = "hires",
+    collar_type: str = "",
 ) -> Dict[str, Any]:
     """
     Suggest reallocation to optimise for the specified goal.
@@ -1208,6 +1213,9 @@ def optimize_allocation(
         channel_allocations: Output of ``compute_channel_dollar_amounts``.
         total_budget: Total budget in USD.
         optimization_goal: One of ``"hires"``, ``"applications"``, ``"clicks"``.
+        collar_type: Collar type hint for tier-aware hire/apply rates
+            (e.g. ``"blue_collar"``, ``"white_collar"``).  Empty string
+            falls back to the flat ``BASE_BENCHMARKS["hire_rate"]``.
 
     Returns:
         Dict with ``optimized_allocations``, ``improvement``, ``changes``.
@@ -1305,6 +1313,13 @@ def optimize_allocation(
     original_metric_total = 0
     optimized_metric_total = 0
 
+    # H7: Collar-to-tier mapping for hire rate lookup (defined once outside loop)
+    _COLLAR_TO_TIER: Dict[str, str] = {
+        "blue_collar": "Hourly / Entry-Level",
+        "white_collar": "Professional / White-Collar",
+        "grey_collar": "Skilled Trades / Technical",
+    }
+
     for ch_name, ch_data in channel_allocations.items():
         orig_dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
         orig_pct = ch_data.get("percentage", 0)
@@ -1329,8 +1344,23 @@ def optimize_allocation(
         new_pct = _safe_divide(new_dollars, total_budget, 0.0) * 100
         cpc = ch_data.get("cpc", 0.85)
         category = ch_data.get("category", "job_board")
-        apply_rate = BASE_BENCHMARKS["apply_rate"].get(category, 0.05)
-        hire_rate = BASE_BENCHMARKS["hire_rate"]
+
+        # H7 FIX: Use collar-adjusted apply rate when available,
+        # otherwise fall back to base rate with collar adjustment.
+        if ch_data.get("apply_rate") and ch_data.get("apply_rate_collar_adjusted"):
+            apply_rate = ch_data["apply_rate"]
+        else:
+            apply_rate = BASE_BENCHMARKS["apply_rate"].get(category, 0.05)
+            if collar_type and collar_type != "both":
+                apply_rate *= _get_collar_apply_rate_adjustment(category, collar_type)
+
+        # H7 FIX: Use collar-type-aware hire rate from HIRE_RATE_BY_TIER
+        # instead of flat BASE_BENCHMARKS["hire_rate"].
+        if collar_type and collar_type in _COLLAR_TO_TIER:
+            tier_key = _COLLAR_TO_TIER[collar_type]
+            hire_rate = HIRE_RATE_BY_TIER.get(tier_key, HIRE_RATE_BY_TIER["default"])
+        else:
+            hire_rate = BASE_BENCHMARKS["hire_rate"]
 
         if cpc > 0:
             new_clicks = max(0, int(new_dollars / cpc))
@@ -1405,6 +1435,7 @@ def calculate_budget_allocation(
     synthesized_data: Optional[Dict] = None,
     knowledge_base: Optional[Dict] = None,
     collar_type: str = "",
+    campaign_start_month: int = 0,
 ) -> Dict[str, Any]:
     """
     Master budget allocation function.
@@ -1463,6 +1494,26 @@ def calculate_budget_allocation(
         locations, synthesized_data
     )
 
+    # Step 1b: Apply geopolitical risk adjustments (if available)
+    geo_context = synthesized_data.get("geopolitical_context", {}) if synthesized_data else {}
+    geo_locations = geo_context.get("locations", {})
+    if geo_locations:
+        for loc_key, loc_mult in list(location_multipliers.items()):
+            # Match location key (case-insensitive partial match)
+            loc_lower = loc_key.lower()
+            for geo_loc, geo_data in geo_locations.items():
+                if geo_loc.lower() in loc_lower or loc_lower in geo_loc.lower():
+                    adj_factor = geo_data.get("budget_adjustment_factor", 1.0)
+                    # Cap geopolitical adjustment at 1.5x to avoid runaway costs
+                    adj_factor = min(max(adj_factor, 0.8), 1.5)
+                    if adj_factor != 1.0:
+                        location_multipliers[loc_key] = loc_mult * adj_factor
+                        logger.info(
+                            "Geopolitical adjustment for %s: %.2fx (risk factor %.2f)",
+                            loc_key, location_multipliers[loc_key], adj_factor,
+                        )
+                    break
+
     # Step 2: Role-weighted spend
     role_budgets = compute_role_weighted_spend(
         roles, total_budget, location_multipliers
@@ -1481,6 +1532,7 @@ def calculate_budget_allocation(
     channel_allocs = compute_channel_dollar_amounts(
         channel_percentages, role_budgets, synthesized_data, knowledge_base,
         industry=industry, collar_type=collar_type, location=primary_location,
+        month=campaign_start_month,
     )
 
     # Step 4: Aggregate projected totals
@@ -1510,7 +1562,7 @@ def calculate_budget_allocation(
     )
 
     # Step 6: Optimisation suggestions
-    optimized = optimize_allocation(channel_allocs, total_budget, "hires")
+    optimized = optimize_allocation(channel_allocs, total_budget, "hires", collar_type=collar_type)
 
     # Consolidate warnings and recommendations
     all_warnings = list(sufficiency.get("warnings", []))
@@ -1544,6 +1596,7 @@ def calculate_budget_allocation(
             "collar_intelligence_available": _HAS_COLLAR_INTEL,
             "collar_type_used": collar_type or _classify_roles_collar(role_budgets, industry),
             "primary_location": primary_location,
+            "campaign_start_month": campaign_start_month if campaign_start_month else datetime.datetime.now().month,
         },
     }
 

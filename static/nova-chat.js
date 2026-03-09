@@ -225,11 +225,26 @@
       + '}'
       + '.nova-confidence {'
       + '  font-size: 10px; padding: 2px 6px; border-radius: 10px;'
-      + '  font-weight: 500; white-space: nowrap;'
+      + '  font-weight: 600; white-space: nowrap; cursor: pointer;'
+      + '  position: relative;'
       + '}'
       + '.nova-confidence-high { background: #D1FAE5; color: #065F46; }'
       + '.nova-confidence-medium { background: #FEF3C7; color: #92400E; }'
       + '.nova-confidence-low { background: #FEE2E2; color: #991B1B; }'
+      + '.nova-confidence-tooltip {'
+      + '  display: none; position: absolute; bottom: 100%; left: 50%;'
+      + '  transform: translateX(-50%); margin-bottom: 6px;'
+      + '  background: #1B2A4A; color: #fff; padding: 10px 14px;'
+      + '  border-radius: 8px; font-size: 11px; line-height: 1.5;'
+      + '  min-width: 260px; max-width: 340px; z-index: 999;'
+      + '  box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-weight: 400;'
+      + '  white-space: normal; text-align: left;'
+      + '}'
+      + '.nova-confidence:hover .nova-confidence-tooltip { display: block; }'
+      + '.nova-tooltip-title { font-weight: 600; margin-bottom: 4px; font-size: 12px; }'
+      + '.nova-tooltip-row { display: flex; justify-content: space-between; padding: 1px 0; }'
+      + '.nova-tooltip-divider { border-top: 1px solid rgba(255,255,255,0.2); margin: 4px 0; }'
+      + '.nova-tooltip-note { font-size: 9px; opacity: 0.7; margin-top: 4px; }'
 
       // Typing indicator
       + '.nova-typing {'
@@ -661,7 +676,34 @@
           var pct = Math.round(confidence * 100);
           var confClass = pct >= 75 ? 'high' : (pct >= 50 ? 'medium' : 'low');
           confBadge.className = 'nova-confidence nova-confidence-' + confClass;
-          confBadge.textContent = pct + '% confidence';
+
+          // Use structured breakdown if available
+          var bd = msg.confidence_breakdown;
+          if (bd && bd.grade) {
+            var gradeText = 'Grade ' + bd.grade;
+            var srcCount = bd.sources_count || 0;
+            var freshness = bd.data_freshness || 'curated';
+            var verif = bd.verification || 'unverified';
+            var verifLabel = verif === 'verified' ? 'Verified' :
+                             verif === 'issues_found' ? 'Issues flagged' : 'Unverified';
+            confBadge.textContent = gradeText + ' \u2022 ' + srcCount + ' ' + freshness + ' source' + (srcCount !== 1 ? 's' : '');
+
+            // Build tooltip
+            var tooltip = document.createElement('div');
+            tooltip.className = 'nova-confidence-tooltip';
+            tooltip.innerHTML = '<div class="nova-tooltip-title">Confidence Breakdown</div>'
+              + '<div class="nova-tooltip-row"><span>Overall Score</span><span>' + pct + '%</span></div>'
+              + '<div class="nova-tooltip-row"><span>Grade</span><span>' + bd.grade + '</span></div>'
+              + '<div class="nova-tooltip-row"><span>Data Sources</span><span>' + srcCount + ' (' + freshness + ')</span></div>'
+              + '<div class="nova-tooltip-row"><span>Grounding</span><span>' + Math.round((bd.grounding_score || 0) * 100) + '%</span></div>'
+              + '<div class="nova-tooltip-row"><span>Verification</span><span>' + verifLabel + '</span></div>'
+              + '<div class="nova-tooltip-divider"></div>'
+              + '<div class="nova-tooltip-note">Confidence is a quality signal, not a filter. '
+              + 'Lower scores widen estimate ranges but do not suppress data.</div>';
+            confBadge.appendChild(tooltip);
+          } else {
+            confBadge.textContent = pct + '% confidence';
+          }
           metaDiv.appendChild(confBadge);
         }
 
@@ -779,6 +821,7 @@
           content: data.response || 'No response received.',
           sources: data.sources || [],
           confidence: data.confidence || 0,
+          confidence_breakdown: data.confidence_breakdown || null,
         });
       })
       .catch(function (err) {

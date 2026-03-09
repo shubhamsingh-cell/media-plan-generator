@@ -482,6 +482,35 @@ INDUSTRY_BENCHMARKS_COMPARISON: Dict[str, Dict[str, Any]] = {
 # Number Formatting Helpers
 # ---------------------------------------------------------------------------
 
+_CURRENCY_SYMBOLS = {
+    "USD": "$",
+    "EUR": "\u20ac",
+    "GBP": "\u00a3",
+    "INR": "\u20b9",
+    "JPY": "\u00a5",
+    "CNY": "\u00a5",
+    "AUD": "A$",
+    "CAD": "C$",
+    "SGD": "S$",
+    "HKD": "HK$",
+    "NZD": "NZ$",
+    "CHF": "CHF ",
+    "SEK": "kr ",
+    "NOK": "kr ",
+    "DKK": "kr ",
+    "BRL": "R$",
+    "ZAR": "R ",
+    "MXN": "MX$",
+    "KRW": "\u20a9",
+    "THB": "\u0e3f",
+    "MYR": "RM ",
+    "PHP": "\u20b1",
+    "IDR": "Rp ",
+    "AED": "AED ",
+    "SAR": "SAR ",
+}
+
+
 def _fmt_currency(val, currency="USD", compact=False):
     """Format a number as currency. compact=True for $1.2M style."""
     if val is None:
@@ -490,13 +519,14 @@ def _fmt_currency(val, currency="USD", compact=False):
         val = float(val)
     except (TypeError, ValueError):
         return str(val)
+    sym = _CURRENCY_SYMBOLS.get(currency, "$")
     if compact and abs(val) >= 1_000_000:
-        return f"${val/1_000_000:,.1f}M"
+        return f"{sym}{val/1_000_000:,.1f}M"
     if compact and abs(val) >= 1_000:
-        return f"${val/1_000:,.1f}K"
+        return f"{sym}{val/1_000:,.1f}K"
     if val == int(val):
-        return f"${int(val):,}"
-    return f"${val:,.2f}"
+        return f"{sym}{int(val):,}"
+    return f"{sym}{val:,.2f}"
 
 
 def _fmt_pct(val, decimals=1):
@@ -668,7 +698,13 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
     # Layer 2: trend_engine dynamic benchmarks (v3)
     if _HAS_TREND_ENGINE:
         try:
-            current_month = datetime.datetime.now().month
+            campaign_month = 0
+            if data:
+                try:
+                    campaign_month = int(data.get("campaign_start_month", 0) or 0)
+                except (ValueError, TypeError):
+                    campaign_month = 0
+            current_month = campaign_month if (campaign_month and 1 <= campaign_month <= 12) else datetime.datetime.now().month
             # Get CPC across platforms
             cpc_vals = []
             cpa_vals = []
@@ -3867,6 +3903,142 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
 # SLIDE - Workforce Trends (NEW)
 # ===================================================================
 
+def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
+    """Build the Geopolitical Risk Assessment slide.
+
+    Uses _synthesized.geopolitical_context from api_enrichment.
+    Shows risk score badge, per-location event cards, recommendations.
+    Only shown when risk_level is not 'low'.
+    """
+    try:
+        slide_layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(slide_layout)
+
+        client = data.get("client_name", "Client")
+        today = datetime.date.today().strftime("%B %d, %Y")
+        synthesized = data.get("_synthesized", {})
+        if not isinstance(synthesized, dict):
+            synthesized = {}
+        geo = synthesized.get("geopolitical_context", {})
+        if not isinstance(geo, dict):
+            geo = {}
+
+        risk_level = geo.get("risk_level", "low")
+        overall_score = geo.get("overall_risk_score", 1.0)
+        summary_text = geo.get("summary", "No significant geopolitical risks identified.")
+        recommendations = geo.get("recommendations", [])
+        loc_data = geo.get("locations", {})
+
+        # Background
+        _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+
+        # Top band - use red for high/critical, amber for moderate
+        band_color = NAVY
+        if risk_level in ("high", "critical"):
+            band_color = RED_ACCENT
+        elif risk_level == "moderate":
+            band_color = AMBER
+        _add_top_band(slide, "GEOPOLITICAL RISK ASSESSMENT", today, band_color=band_color)
+
+        # Action text
+        _add_textbox(
+            slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.5),
+            text=f"Market risk factors impacting {client}'s recruitment campaigns",
+            font_size=15, bold=True, color=NAVY,
+        )
+
+        # Risk score badge (top right area)
+        badge_color = GREEN if overall_score <= 3 else (AMBER if overall_score <= 6 else RED_ACCENT)
+        badge_bg = LIGHT_GREEN if overall_score <= 3 else (LIGHT_AMBER if overall_score <= 6 else RGBColor(0xFD, 0xE2, 0xE2))
+        _add_rounded_rect(slide, Inches(10.5), Inches(0.85), Inches(2.2), Inches(0.6), badge_bg)
+        _add_textbox(
+            slide, Inches(10.5), Inches(0.88), Inches(2.2), Inches(0.55),
+            text=f"Risk: {risk_level.upper()} ({overall_score:.1f}/10)",
+            font_size=12, bold=True, color=badge_color, alignment=PP_ALIGN.CENTER,
+        )
+
+        # Summary section
+        _add_rounded_rect(slide, Inches(0.55), Inches(1.6), Inches(12.2), Inches(0.9), WHITE)
+        _add_textbox(
+            slide, Inches(0.75), Inches(1.65), Inches(11.8), Inches(0.8),
+            text=summary_text[:300], font_size=11, color=DARK_TEXT,
+        )
+
+        # Per-location cards
+        card_top = Inches(2.7)
+        max_locations = min(len(loc_data), 4)
+        if max_locations > 0:
+            card_w = Inches((12.0 / max_locations) - 0.15)
+            card_gap = Inches(0.15)
+
+            for i, (loc_name, loc_info) in enumerate(list(loc_data.items())[:4]):
+                if not isinstance(loc_info, dict):
+                    continue
+                card_left = Inches(0.55) + i * (card_w + card_gap)
+                loc_score = loc_info.get("risk_score", 1.0)
+                loc_events = loc_info.get("events", [])
+                loc_adj = loc_info.get("budget_adjustment_factor", 1.0)
+
+                # Card background
+                card_bg = LIGHT_GREEN if loc_score <= 3 else (LIGHT_AMBER if loc_score <= 6 else RGBColor(0xFD, 0xE2, 0xE2))
+                _add_rounded_rect(slide, card_left, card_top, card_w, Inches(2.8), WHITE)
+                # Top accent bar
+                accent = GREEN if loc_score <= 3 else (AMBER if loc_score <= 6 else RED_ACCENT)
+                _add_filled_rect(slide, card_left, card_top, card_w, Inches(0.05), accent)
+
+                # Location name + score
+                _add_textbox(
+                    slide, card_left + Inches(0.1), card_top + Inches(0.1),
+                    card_w - Inches(0.2), Inches(0.3),
+                    text=str(loc_name)[:30], font_size=11, bold=True, color=NAVY,
+                )
+                _add_textbox(
+                    slide, card_left + Inches(0.1), card_top + Inches(0.38),
+                    card_w - Inches(0.2), Inches(0.25),
+                    text=f"Risk: {loc_score:.1f}/10  |  Budget adj: {loc_adj:.2f}x",
+                    font_size=9, color=accent, bold=True,
+                )
+
+                # Events list
+                event_y = card_top + Inches(0.7)
+                for ev in loc_events[:3]:
+                    if not isinstance(ev, dict):
+                        continue
+                    ev_text = ev.get("event", "")[:80]
+                    severity = ev.get("severity", "low")
+                    sev_icon = {"low": " ", "moderate": " ", "high": " ", "critical": " "}.get(severity, " ")
+                    _add_textbox(
+                        slide, card_left + Inches(0.1), event_y,
+                        card_w - Inches(0.2), Inches(0.45),
+                        text=f"{sev_icon}{ev_text}", font_size=8, color=DARK_TEXT,
+                    )
+                    event_y += Inches(0.42)
+
+        # Recommendations section
+        rec_top = Inches(5.7)
+        if recommendations:
+            _add_textbox(
+                slide, Inches(0.55), rec_top, Inches(12.2), Inches(0.3),
+                text="RECOMMENDATIONS", font_size=10, bold=True, color=BLUE,
+            )
+            rec_text = " | ".join(str(r)[:100] for r in recommendations[:4])
+            _add_textbox(
+                slide, Inches(0.55), rec_top + Inches(0.3), Inches(12.2), Inches(0.6),
+                text=rec_text, font_size=9, color=DARK_TEXT,
+            )
+
+        # Source attribution
+        source = geo.get("source", "LLM Analysis")
+        _add_textbox(
+            slide, Inches(0.55), Inches(6.8), Inches(12.2), Inches(0.3),
+            text=f"Source: {source} | Confidence: {geo.get('confidence', 0):.0%}",
+            font_size=7, italic=True, color=MUTED_TEXT,
+        )
+
+    except Exception as exc:
+        logger.warning("Failed to build geopolitical risk slide: %s", exc)
+
+
 def _build_slide_workforce_trends(prs: Presentation, data: Dict):
     """Build the Workforce Trends slide.
 
@@ -4592,6 +4764,11 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
             _build_slide_location_analysis(prs, data)
             _build_slide_competitive_landscape(prs, data)
             _build_slide_workforce_trends(prs, data)
+
+        # Geopolitical Risk slide (shown when risk_level is not "low")
+        _geo = (data.get("_synthesized") or {}).get("geopolitical_context", {})
+        if isinstance(_geo, dict) and _geo.get("risk_level", "low") != "low":
+            _build_slide_geopolitical_risk(prs, data)
 
         # Slide 4: Budget Allocation & ROI (or Quality Outcomes if no budget)
         budget_alloc_data = data.get("_budget_allocation", {})

@@ -2349,7 +2349,7 @@ def generate_ai_narratives(
     synthesis: Dict[str, Any],
     input_data: Dict[str, Any],
 ) -> Dict[str, str]:
-    """Generate AI-powered narrative sections using Claude.
+    """Generate AI-powered narrative sections via llm_router (free-first cascade).
 
     Takes the structured synthesis data and generates human-readable
     narratives for:
@@ -2358,8 +2358,9 @@ def generate_ai_narratives(
     3. Competitive Insights - market positioning analysis
     4. Risk Assessment - potential challenges and mitigation strategies
 
-    This function is optional -- it gracefully returns an empty dict if
-    the ANTHROPIC_API_KEY is not set or if the API call fails.
+    Routes through llm_router.call_llm() so free providers (Gemini, Groq,
+    Cerebras) are tried before paid providers (GPT-4o, Claude).  Falls back
+    gracefully to an empty dict if all providers fail or no API keys are set.
 
     Args:
         synthesis: The structured synthesis dict from ``synthesize()``.
@@ -2369,12 +2370,7 @@ def generate_ai_narratives(
         Dict with narrative keys: executive_summary, strategic_recommendations,
         competitive_insights, risk_assessment. Empty dict on failure.
     """
-    import os
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if not api_key:
-        return {}
-
-    # Build a compact data summary for Claude (avoid sending entire synthesis)
+    # Build a compact data summary (avoid sending entire synthesis)
     data_summary = _build_narrative_context(synthesis, input_data)
     if not data_summary:
         return {}
@@ -2398,32 +2394,21 @@ Format your response as JSON with these exact keys:
 Respond with ONLY the JSON object, no markdown formatting or code blocks."""
 
     try:
-        import urllib.request
+        from llm_router import call_llm, TASK_STRUCTURED
         import json as _json
 
-        payload = {
-            "model": "claude-sonnet-4-20250514",
-            "max_tokens": 1024,
-            "messages": [{"role": "user", "content": prompt}],
-        }
-
-        req = urllib.request.Request(
-            "https://api.anthropic.com/v1/messages",
-            data=_json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-            },
+        result = call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt="You are a senior recruitment marketing strategist. Return ONLY valid JSON.",
+            max_tokens=1024,
+            task_type=TASK_STRUCTURED,
         )
 
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            resp_data = _json.loads(resp.read().decode("utf-8"))
-
-        text = ""
-        for block in resp_data.get("content", []):
-            if block.get("type") == "text":
-                text += block.get("text", "")
+        text = (result or {}).get("text", "")
+        provider = (result or {}).get("provider", "unknown")
+        if text:
+            logger.info("AI narratives generated via %s/%s",
+                        provider, (result or {}).get("model", "unknown"))
 
         if not text:
             return {}
