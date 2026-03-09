@@ -43,6 +43,14 @@ _REQUIRED_KB_FILES = [
     "recruitment_benchmarks_deep.json",
     "channels_db.json",
     "joveo_2026_benchmarks.json",
+    "global_supply.json",
+    "industry_white_papers.json",
+    "joveo_publishers.json",
+    "linkedin_guidewire_data.json",
+    "recruitment_strategy_intelligence.json",
+    "regional_hiring_intelligence.json",
+    "supply_ecosystem_intelligence.json",
+    "workforce_trends_intelligence.json",
 ]
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -99,38 +107,39 @@ EXPECTED_MATRIX: Dict[str, Dict[str, str]] = {
         "trend_engine":         "PARTIAL",
         "collar_intelligence":  "PARTIAL",
     },
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TIER 2/3 MODULE HEALTH CHECKS
+# ═══════════════════════════════════════════════════════════════════════════════
+# These modules don't consume data layers like products do -- they ARE
+# infrastructure. Track them separately via importability + key attribute checks.
+
+_TIER2_MODULE_CHECKS: Dict[str, Dict[str, str]] = {
     "eval_framework": {
-        "excel_ppt":            "NO",
-        "api_enrichment":       "NO",
-        "data_orchestrator":    "NO",
-        "budget_engine":        "NO",
-        "trend_engine":         "NO",
-        "collar_intelligence":  "NO",
-        "nova":                 "PARTIAL",
-        "monitoring":           "YES",
-        "auto_qc":              "YES",
+        "module": "eval_framework",
+        "check_attr": "EvalSuite",
+        "description": "AI eval framework -- budget/collar/geographic/chat scoring",
     },
     "data_contracts": {
-        "excel_ppt":            "NO",
-        "api_enrichment":       "NO",
-        "data_orchestrator":    "NO",
-        "budget_engine":        "NO",
-        "trend_engine":         "NO",
-        "collar_intelligence":  "NO",
-        "nova":                 "NO",
-        "monitoring":           "PARTIAL",
-        "auto_qc":              "YES",
+        "module": "data_contracts",
+        "check_attr": "validate_kb_file",
+        "description": "KB schema validation and enrichment output contracts",
     },
     "regression_detector": {
-        "excel_ppt":            "NO",
-        "api_enrichment":       "NO",
-        "data_orchestrator":    "NO",
-        "budget_engine":        "NO",
-        "trend_engine":         "NO",
-        "collar_intelligence":  "NO",
-        "nova":                 "NO",
-        "monitoring":           "PARTIAL",
-        "auto_qc":              "YES",
+        "module": "regression_detector",
+        "check_attr": "run_regression_check",
+        "description": "Reference scenario drift detection",
+    },
+    "llm_router": {
+        "module": "llm_router",
+        "check_attr": "call_llm",
+        "description": "Multi-provider LLM routing (Gemini/Groq/Cerebras/Claude)",
+    },
+    "monitoring": {
+        "module": "monitoring",
+        "check_attr": "MetricsCollector",
+        "description": "Structured logging, SLO monitoring, request tracing",
     },
 }
 
@@ -247,6 +256,35 @@ class DataMatrixMonitor:
                 }
             matrix_results[product] = product_results
 
+        # Probe Tier 2/3 infrastructure modules
+        tier2_results: Dict[str, Any] = {}
+        for mod_key, spec in _TIER2_MODULE_CHECKS.items():
+            probe = self._probe_tier2_module(spec["module"], spec.get("check_attr"))
+            status = probe.get("status", "error")
+            if status == "ok":
+                counts["ok"] += 1
+            else:
+                # Attempt reimport heal
+                try:
+                    if spec["module"] in sys.modules:
+                        importlib.reload(sys.modules[spec["module"]])
+                    else:
+                        importlib.import_module(spec["module"])
+                    reprobe = self._probe_tier2_module(spec["module"], spec.get("check_attr"))
+                    if reprobe.get("status") == "ok":
+                        counts["healed"] += 1
+                        probe = reprobe
+                        self._record_heal("tier2", mod_key, "reimport", True)
+                    else:
+                        counts["error"] += 1
+                except Exception:
+                    counts["error"] += 1
+            tier2_results[mod_key] = {
+                "status": probe.get("status", "error"),
+                "detail": probe.get("detail", ""),
+                "description": spec.get("description", ""),
+            }
+
         elapsed = round(time.time() - start, 3)
         total_cells = sum(counts.values())
         healthy = counts["ok"] + counts["ok_expected_no"] + counts["partial"] + counts["healed"]
@@ -260,6 +298,7 @@ class DataMatrixMonitor:
             "check_duration_seconds": elapsed,
             "summary": counts,
             "matrix": matrix_results,
+            "tier2_modules": tier2_results,
             "recent_heal_actions": list(self._heal_log[-10:]),
         }
 
@@ -406,6 +445,25 @@ class DataMatrixMonitor:
                     "detail": f"{underlying_module} available via orchestrator"}
         except Exception as e:
             return {"status": "error", "detail": str(e)}
+
+    def _probe_tier2_module(self, module_name: str,
+                             check_attr: Optional[str] = None) -> Dict[str, Any]:
+        """Probe a Tier 2/3 infrastructure module by importability."""
+        try:
+            if module_name in sys.modules:
+                mod = sys.modules[module_name]
+                if check_attr and not hasattr(mod, check_attr):
+                    return {"status": "error",
+                            "detail": f"{module_name} loaded but {check_attr} missing"}
+                return {"status": "ok", "detail": f"{module_name} loaded and healthy"}
+            # Try importing
+            mod = importlib.import_module(module_name)
+            if check_attr and not hasattr(mod, check_attr):
+                return {"status": "error",
+                        "detail": f"{module_name} importable but {check_attr} missing"}
+            return {"status": "ok", "detail": f"{module_name} importable and healthy"}
+        except Exception as e:
+            return {"status": "error", "detail": f"{module_name} import failed: {e}"}
 
     # ── Self-healing ──────────────────────────────────────────────────────
 

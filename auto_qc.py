@@ -1410,8 +1410,8 @@ class AutoQC:
             try:
                 # Internal module check instead of HTTP
                 if "health" in endpoint:
-                    from monitoring import health_check_basic
-                    data = health_check_basic()
+                    from monitoring import health_check_liveness
+                    data = health_check_liveness()
                     ok = expected_field in data
                     return TestResult(
                         name=f"dynamic_{test_id}",

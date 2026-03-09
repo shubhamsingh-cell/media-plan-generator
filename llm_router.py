@@ -136,7 +136,7 @@ class _ProviderState:
 
     def __init__(self, provider_id: str):
         self.provider_id = provider_id
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         # Circuit breaker
         self.consecutive_failures = 0
         self.circuit_open_until = 0.0  # timestamp

@@ -8427,8 +8427,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_error(401, "Unauthorized")
                 return
             try:
-                from eval_framework import EvalFramework
-                _ef = EvalFramework()
+                from eval_framework import EvalSuite
+                _ef = EvalSuite()
                 eval_result = _ef.run_full_eval()
                 self._send_json(eval_result)
             except ImportError:
