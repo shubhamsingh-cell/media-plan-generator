@@ -37,6 +37,18 @@ services:
         sync: false
       - key: ADZUNA_APP_KEY
         sync: false
+      - key: CAREERONESTOP_API_KEY
+        sync: false
+      - key: CAREERONESTOP_USER_ID
+        sync: false
+      - key: JOOBLE_API_KEY
+        sync: false
+      - key: ONET_USERNAME
+        sync: false
+      - key: ONET_PASSWORD
+        sync: false
+      - key: GEONAMES_USERNAME
+        sync: false
     disk:
       name: media-plan-data
       mountPath: /data/persistent

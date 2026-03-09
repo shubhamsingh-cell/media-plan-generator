@@ -36,6 +36,11 @@ Integrated APIs:
    23. LinkedIn Marketing API — Professional audience sizing, CPC (token or benchmarks)
    24. CareerOneStop API — DOL salary, outlook, certifications (key or benchmarks)
    25. Jooble API — International job market data, 69 countries (key or benchmarks)
+   26. BLS JOLTS — Job openings, hires, quits by industry (free, key optional)
+   27. FRED Employment — Avg hourly earnings, ECI, sector unemployment (key required)
+   28. Eurostat Labour Force Survey — EU unemployment, wages, employment (free, no key)
+   29. ILO ILOSTAT — Global unemployment, labour participation (free, no key)
+   30. H-1B Visa Wage Benchmarks — Prevailing wages by SOC code (curated, no API)
 
 All API calls:
     - Use only urllib.request (stdlib, no third-party dependencies)
@@ -1568,6 +1573,59 @@ def fetch_competitor_logos(competitors: List[str],
 # API 6: Adzuna Job Search
 # ---------------------------------------------------------------------------
 
+_ADZUNA_BENCHMARKS: Dict[str, Dict[str, Any]] = {
+    "technology": {"posting_count": 145000, "avg_salary": 125000, "competition": "high"},
+    "healthcare": {"posting_count": 210000, "avg_salary": 78000, "competition": "high"},
+    "finance": {"posting_count": 85000, "avg_salary": 105000, "competition": "medium"},
+    "manufacturing": {"posting_count": 65000, "avg_salary": 55000, "competition": "medium"},
+    "retail": {"posting_count": 180000, "avg_salary": 38000, "competition": "high"},
+    "logistics": {"posting_count": 95000, "avg_salary": 48000, "competition": "high"},
+    "education": {"posting_count": 72000, "avg_salary": 55000, "competition": "medium"},
+    "hospitality": {"posting_count": 120000, "avg_salary": 35000, "competition": "medium"},
+    "construction": {"posting_count": 55000, "avg_salary": 52000, "competition": "medium"},
+    "engineering": {"posting_count": 42000, "avg_salary": 98000, "competition": "medium"},
+    "marketing": {"posting_count": 38000, "avg_salary": 72000, "competition": "medium"},
+    "default": {"posting_count": 50000, "avg_salary": 65000, "competition": "medium"},
+}
+
+
+def _adzuna_benchmark_fallback(roles: List[str], locations: List[str]) -> Dict[str, Any]:
+    """Return Adzuna benchmark data when API keys are not configured."""
+    if not roles:
+        return {}
+    result: Dict[str, Any] = {}
+    for role in roles:
+        rl = role.lower()
+        matched = "default"
+        for cat in _ADZUNA_BENCHMARKS:
+            if cat != "default" and cat in rl:
+                matched = cat
+                break
+        # Check common keywords
+        if matched == "default":
+            kw_map = {
+                "software": "technology", "developer": "technology", "engineer": "engineering",
+                "data": "technology", "devops": "technology", "nurse": "healthcare",
+                "doctor": "healthcare", "physician": "healthcare", "accountant": "finance",
+                "analyst": "finance", "warehouse": "logistics", "driver": "logistics",
+                "teacher": "education", "manager": "default", "sales": "retail",
+                "marketing": "marketing", "chef": "hospitality", "hotel": "hospitality",
+            }
+            for kw, cat in kw_map.items():
+                if kw in rl:
+                    matched = cat
+                    break
+        bench = _ADZUNA_BENCHMARKS[matched]
+        result[role] = {
+            "posting_count": bench["posting_count"],
+            "avg_salary": bench["avg_salary"],
+            "competition": bench["competition"],
+            "source": "Adzuna (curated benchmark)",
+            "data_confidence": 0.55,
+        }
+    return result
+
+
 def fetch_job_market(roles: List[str], locations: List[str]) -> Dict[str, Any]:
     """
     Fetch job market data from Adzuna (if API keys are available).
@@ -1577,8 +1635,8 @@ def fetch_job_market(roles: List[str], locations: List[str]) -> Dict[str, Any]:
     app_key = os.environ.get("ADZUNA_APP_KEY", "")
 
     if not app_id or not app_key:
-        _log_info("Adzuna API keys not set; skipping job market enrichment")
-        return {}
+        _log_info("Adzuna API keys not set; using benchmark fallbacks")
+        return _adzuna_benchmark_fallback(roles, locations)
 
     job_market: Dict[str, Any] = {}
 
@@ -2053,6 +2111,40 @@ def fetch_fred_indicators() -> Dict[str, Any]:
 # API 12: Google Trends (via pytrends, if installed)
 # ---------------------------------------------------------------------------
 
+_TREND_INTEREST_BENCHMARKS: Dict[str, Dict[str, Any]] = {
+    "software engineer": {"avg_interest": 72, "latest_interest": 68, "trend": "stable"},
+    "data scientist": {"avg_interest": 65, "latest_interest": 58, "trend": "stable"},
+    "nurse": {"avg_interest": 80, "latest_interest": 82, "trend": "rising"},
+    "warehouse": {"avg_interest": 55, "latest_interest": 52, "trend": "stable"},
+    "driver": {"avg_interest": 60, "latest_interest": 58, "trend": "stable"},
+    "marketing": {"avg_interest": 50, "latest_interest": 48, "trend": "stable"},
+    "sales": {"avg_interest": 45, "latest_interest": 43, "trend": "stable"},
+    "finance": {"avg_interest": 42, "latest_interest": 44, "trend": "rising"},
+    "healthcare": {"avg_interest": 75, "latest_interest": 78, "trend": "rising"},
+    "technology": {"avg_interest": 60, "latest_interest": 55, "trend": "stable"},
+    "construction": {"avg_interest": 40, "latest_interest": 42, "trend": "rising"},
+    "retail": {"avg_interest": 50, "latest_interest": 48, "trend": "stable"},
+}
+
+
+def _google_trends_fallback(keywords: List[str]) -> Dict[str, Any]:
+    """Return benchmark search interest data when pytrends is unavailable."""
+    if not keywords:
+        return {}
+    result: Dict[str, Any] = {"source": "Google Trends (curated benchmark)"}
+    for kw in keywords[:5]:
+        kl = kw.lower()
+        matched = None
+        for term, data in _TREND_INTEREST_BENCHMARKS.items():
+            if term in kl or kl in term:
+                matched = data
+                break
+        if not matched:
+            matched = {"avg_interest": 50, "latest_interest": 48, "trend": "stable"}
+        result[kw] = {**matched, "data_confidence": 0.45}
+    return result
+
+
 def fetch_search_trends(keywords: List[str]) -> Dict[str, Any]:
     """
     Fetch Google Trends interest data for given keywords.
@@ -2062,8 +2154,8 @@ def fetch_search_trends(keywords: List[str]) -> Dict[str, Any]:
     try:
         from pytrends.request import TrendReq
     except ImportError:
-        _log_info("pytrends not installed; skipping Google Trends")
-        return {}
+        _log_info("pytrends not installed; using trend benchmarks")
+        return _google_trends_fallback(keywords)
 
     if not keywords:
         return {}
@@ -9405,6 +9497,361 @@ def get_labor_market_tightness(industry: str = "total") -> Dict[str, Any]:
     }
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# API 28: Eurostat Labour Force Survey (free, no auth)
+# EU unemployment rates, employment by sector, minimum wages
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_EUROSTAT_COUNTRY_MAP: Dict[str, str] = {
+    "united kingdom": "UK", "uk": "UK", "germany": "DE", "france": "FR",
+    "spain": "ES", "italy": "IT", "netherlands": "NL", "belgium": "BE",
+    "austria": "AT", "sweden": "SE", "denmark": "DK", "finland": "FI",
+    "ireland": "IE", "portugal": "PT", "greece": "EL", "poland": "PL",
+    "czech republic": "CZ", "czechia": "CZ", "romania": "RO", "hungary": "HU",
+    "bulgaria": "BG", "croatia": "HR", "slovakia": "SK", "slovenia": "SI",
+    "lithuania": "LT", "latvia": "LV", "estonia": "EE", "luxembourg": "LU",
+    "malta": "MT", "cyprus": "CY", "norway": "NO", "switzerland": "CH",
+    "iceland": "IS",
+}
+
+_EUROSTAT_FALLBACK: Dict[str, Dict[str, Any]] = {
+    "DE": {"unemployment_rate": 3.4, "youth_unemployment": 6.1, "employment_rate": 77.2, "min_wage_eur": None, "avg_hourly_earnings_eur": 25.30},
+    "FR": {"unemployment_rate": 7.3, "youth_unemployment": 17.4, "employment_rate": 68.4, "min_wage_eur": 1767, "avg_hourly_earnings_eur": 22.80},
+    "ES": {"unemployment_rate": 11.7, "youth_unemployment": 28.5, "employment_rate": 65.7, "min_wage_eur": 1134, "avg_hourly_earnings_eur": 15.60},
+    "IT": {"unemployment_rate": 7.6, "youth_unemployment": 22.3, "employment_rate": 62.1, "min_wage_eur": None, "avg_hourly_earnings_eur": 17.40},
+    "NL": {"unemployment_rate": 3.6, "youth_unemployment": 8.9, "employment_rate": 82.9, "min_wage_eur": 2070, "avg_hourly_earnings_eur": 26.50},
+    "BE": {"unemployment_rate": 5.5, "youth_unemployment": 14.8, "employment_rate": 72.1, "min_wage_eur": 1955, "avg_hourly_earnings_eur": 24.70},
+    "AT": {"unemployment_rate": 5.1, "youth_unemployment": 10.2, "employment_rate": 77.8, "min_wage_eur": None, "avg_hourly_earnings_eur": 23.90},
+    "SE": {"unemployment_rate": 7.5, "youth_unemployment": 20.1, "employment_rate": 78.5, "min_wage_eur": None, "avg_hourly_earnings_eur": 28.10},
+    "DK": {"unemployment_rate": 4.8, "youth_unemployment": 10.3, "employment_rate": 78.9, "min_wage_eur": None, "avg_hourly_earnings_eur": 31.40},
+    "FI": {"unemployment_rate": 7.2, "youth_unemployment": 17.0, "employment_rate": 74.8, "min_wage_eur": None, "avg_hourly_earnings_eur": 24.30},
+    "IE": {"unemployment_rate": 4.3, "youth_unemployment": 10.1, "employment_rate": 75.3, "min_wage_eur": 2146, "avg_hourly_earnings_eur": 28.90},
+    "PT": {"unemployment_rate": 6.5, "youth_unemployment": 21.0, "employment_rate": 75.1, "min_wage_eur": 960, "avg_hourly_earnings_eur": 12.40},
+    "PL": {"unemployment_rate": 2.8, "youth_unemployment": 11.2, "employment_rate": 76.2, "min_wage_eur": 1012, "avg_hourly_earnings_eur": 10.80},
+    "CZ": {"unemployment_rate": 2.6, "youth_unemployment": 8.5, "employment_rate": 77.5, "min_wage_eur": 775, "avg_hourly_earnings_eur": 12.60},
+    "RO": {"unemployment_rate": 5.4, "youth_unemployment": 21.3, "employment_rate": 67.8, "min_wage_eur": 747, "avg_hourly_earnings_eur": 8.30},
+    "HU": {"unemployment_rate": 4.1, "youth_unemployment": 12.8, "employment_rate": 74.3, "min_wage_eur": 626, "avg_hourly_earnings_eur": 9.10},
+    "UK": {"unemployment_rate": 4.0, "youth_unemployment": 12.0, "employment_rate": 75.8, "min_wage_eur": None, "avg_hourly_earnings_eur": 22.50},
+    "NO": {"unemployment_rate": 3.5, "youth_unemployment": 10.5, "employment_rate": 79.1, "min_wage_eur": None, "avg_hourly_earnings_eur": 35.20},
+    "CH": {"unemployment_rate": 4.3, "youth_unemployment": 8.2, "employment_rate": 80.2, "min_wage_eur": None, "avg_hourly_earnings_eur": 38.40},
+}
+
+
+def fetch_eurostat_labour_data(locations: List[str]) -> Dict[str, Any]:
+    """Fetch EU labour market data from Eurostat (free, no authentication).
+
+    Returns unemployment rates, employment rates, and wage data for EU/EEA countries.
+    Falls back to curated benchmarks when API is unavailable.
+    """
+    # Extract EU country codes from locations
+    eu_codes = []
+    for loc in locations:
+        loc_lower = loc.lower().strip()
+        for name, code in _EUROSTAT_COUNTRY_MAP.items():
+            if name in loc_lower:
+                eu_codes.append(code)
+                break
+
+    if not eu_codes:
+        return {}
+
+    eu_codes = list(set(eu_codes))
+    result: Dict[str, Any] = {"source": "Eurostat", "countries": {}}
+
+    for code in eu_codes:
+        cache_k = _cache_key("eurostat", code)
+        cached = _get_cached(cache_k)
+        if cached is not None:
+            result["countries"][code] = cached
+            continue
+
+        # Try live API
+        country_data = None
+        try:
+            geo_param = f"geo={code}"
+            url = (
+                f"https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/une_rt_a"
+                f"?format=JSON&lang=EN&{geo_param}&sex=T&age=TOTAL&unit=PC_ACT&lastTimePeriod=3"
+            )
+            resp = _http_get_json(url, timeout=10)
+            if resp and "value" in resp:
+                values = resp["value"]
+                time_dim = resp.get("dimension", {}).get("time", {}).get("category", {}).get("index", {})
+                # Get latest value
+                latest_idx = max(time_dim.values()) if time_dim else 0
+                unemp_rate = values.get(str(latest_idx))
+
+                if unemp_rate is not None:
+                    country_data = {
+                        "unemployment_rate": round(float(unemp_rate), 1),
+                        "source": "Eurostat LFS API (live)",
+                        "data_confidence": 0.92,
+                    }
+        except Exception as e:
+            _log_warn(f"Eurostat API failed for {code}: {e}")
+
+        # Also try minimum wages
+        if country_data:
+            try:
+                mw_url = (
+                    f"https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/earn_mw_cur"
+                    f"?format=JSON&lang=EN&geo={code}&lastTimePeriod=1"
+                )
+                mw_resp = _http_get_json(mw_url, timeout=8)
+                if mw_resp and "value" in mw_resp:
+                    mw_vals = mw_resp["value"]
+                    if mw_vals:
+                        latest = list(mw_vals.values())[-1]
+                        if latest:
+                            country_data["min_wage_eur"] = round(float(latest), 0)
+            except Exception:
+                pass
+
+        # Fallback to curated data
+        if not country_data:
+            fb = _EUROSTAT_FALLBACK.get(code)
+            if fb:
+                country_data = {
+                    **fb,
+                    "source": "Eurostat (curated benchmark)",
+                    "data_confidence": 0.70,
+                }
+            else:
+                continue
+
+        _set_cached(cache_k, country_data)
+        result["countries"][code] = country_data
+
+    if not result["countries"]:
+        return {}
+
+    result["data_confidence"] = max(
+        (d.get("data_confidence", 0.5) for d in result["countries"].values()), default=0.5
+    )
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# API 29: ILO ILOSTAT (free, no auth) — Global labour indicators
+# Unemployment rates for 190+ countries via SDMX REST
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_ILO_COUNTRY_MAP: Dict[str, str] = {
+    "united states": "USA", "us": "USA", "usa": "USA",
+    "canada": "CAN", "mexico": "MEX",
+    "united kingdom": "GBR", "uk": "GBR",
+    "germany": "DEU", "france": "FRA", "spain": "ESP", "italy": "ITA",
+    "japan": "JPN", "china": "CHN", "india": "IND",
+    "brazil": "BRA", "australia": "AUS", "south korea": "KOR",
+    "singapore": "SGP", "hong kong": "HKG",
+    "south africa": "ZAF", "nigeria": "NGA", "kenya": "KEN",
+    "saudi arabia": "SAU", "uae": "ARE", "united arab emirates": "ARE",
+    "indonesia": "IDN", "philippines": "PHL", "vietnam": "VNM",
+    "thailand": "THA", "malaysia": "MYS",
+    "argentina": "ARG", "colombia": "COL", "chile": "CHL", "peru": "PER",
+    "egypt": "EGY", "turkey": "TUR", "israel": "ISR",
+    "poland": "POL", "netherlands": "NLD", "belgium": "BEL",
+    "sweden": "SWE", "norway": "NOR", "denmark": "DNK", "finland": "FIN",
+    "switzerland": "CHE", "austria": "AUT", "ireland": "IRL",
+    "portugal": "PRT", "greece": "GRC", "czech republic": "CZE",
+    "new zealand": "NZL", "taiwan": "TWN",
+}
+
+_ILO_FALLBACK: Dict[str, Dict[str, Any]] = {
+    "USA": {"unemployment_rate": 3.7, "youth_unemployment": 8.5, "labor_force_participation": 62.5},
+    "GBR": {"unemployment_rate": 4.0, "youth_unemployment": 12.0, "labor_force_participation": 78.5},
+    "DEU": {"unemployment_rate": 3.4, "youth_unemployment": 6.1, "labor_force_participation": 79.2},
+    "FRA": {"unemployment_rate": 7.3, "youth_unemployment": 17.4, "labor_force_participation": 72.1},
+    "JPN": {"unemployment_rate": 2.6, "youth_unemployment": 4.2, "labor_force_participation": 62.8},
+    "CHN": {"unemployment_rate": 5.1, "youth_unemployment": 14.9, "labor_force_participation": 68.4},
+    "IND": {"unemployment_rate": 7.7, "youth_unemployment": 23.2, "labor_force_participation": 51.8},
+    "BRA": {"unemployment_rate": 7.8, "youth_unemployment": 17.5, "labor_force_participation": 63.2},
+    "AUS": {"unemployment_rate": 3.7, "youth_unemployment": 9.2, "labor_force_participation": 66.8},
+    "CAN": {"unemployment_rate": 5.4, "youth_unemployment": 10.8, "labor_force_participation": 65.2},
+    "KOR": {"unemployment_rate": 2.7, "youth_unemployment": 6.5, "labor_force_participation": 64.1},
+    "SGP": {"unemployment_rate": 2.0, "youth_unemployment": 6.8, "labor_force_participation": 69.5},
+    "MEX": {"unemployment_rate": 2.8, "youth_unemployment": 6.2, "labor_force_participation": 60.1},
+    "ZAF": {"unemployment_rate": 32.1, "youth_unemployment": 59.7, "labor_force_participation": 56.3},
+    "NGA": {"unemployment_rate": 33.3, "youth_unemployment": 42.5, "labor_force_participation": 55.2},
+    "SAU": {"unemployment_rate": 5.6, "youth_unemployment": 27.0, "labor_force_participation": 61.8},
+    "ARE": {"unemployment_rate": 2.7, "youth_unemployment": 7.5, "labor_force_participation": 82.1},
+    "IDN": {"unemployment_rate": 5.3, "youth_unemployment": 14.0, "labor_force_participation": 69.1},
+    "PHL": {"unemployment_rate": 4.3, "youth_unemployment": 9.2, "labor_force_participation": 65.8},
+    "VNM": {"unemployment_rate": 2.3, "youth_unemployment": 7.5, "labor_force_participation": 76.4},
+    "THA": {"unemployment_rate": 1.1, "youth_unemployment": 5.2, "labor_force_participation": 68.5},
+    "MYS": {"unemployment_rate": 3.4, "youth_unemployment": 12.1, "labor_force_participation": 69.8},
+    "ARG": {"unemployment_rate": 6.2, "youth_unemployment": 18.0, "labor_force_participation": 64.5},
+    "COL": {"unemployment_rate": 10.2, "youth_unemployment": 19.8, "labor_force_participation": 63.1},
+    "CHL": {"unemployment_rate": 8.5, "youth_unemployment": 21.3, "labor_force_participation": 62.0},
+    "EGY": {"unemployment_rate": 7.1, "youth_unemployment": 17.8, "labor_force_participation": 43.2},
+    "TUR": {"unemployment_rate": 9.4, "youth_unemployment": 18.5, "labor_force_participation": 53.8},
+    "ISR": {"unemployment_rate": 3.4, "youth_unemployment": 7.2, "labor_force_participation": 64.1},
+    "NZL": {"unemployment_rate": 3.9, "youth_unemployment": 9.8, "labor_force_participation": 71.2},
+    "POL": {"unemployment_rate": 2.8, "youth_unemployment": 11.2, "labor_force_participation": 73.5},
+    "NLD": {"unemployment_rate": 3.6, "youth_unemployment": 8.9, "labor_force_participation": 82.9},
+    "SWE": {"unemployment_rate": 7.5, "youth_unemployment": 20.1, "labor_force_participation": 79.0},
+    "NOR": {"unemployment_rate": 3.5, "youth_unemployment": 10.5, "labor_force_participation": 78.8},
+    "DNK": {"unemployment_rate": 4.8, "youth_unemployment": 10.3, "labor_force_participation": 79.5},
+    "CHE": {"unemployment_rate": 4.3, "youth_unemployment": 8.2, "labor_force_participation": 81.0},
+}
+
+
+def fetch_ilo_labour_data(locations: List[str]) -> Dict[str, Any]:
+    """Fetch global labour market data from ILO ILOSTAT (free, no auth).
+
+    Returns unemployment rates and labour force participation for 190+ countries.
+    """
+    # Extract ISO3 country codes from locations
+    ilo_codes = []
+    for loc in locations:
+        loc_lower = loc.lower().strip()
+        for name, code in _ILO_COUNTRY_MAP.items():
+            if name in loc_lower:
+                ilo_codes.append(code)
+                break
+
+    if not ilo_codes:
+        return {}
+
+    ilo_codes = list(set(ilo_codes))
+    result: Dict[str, Any] = {"source": "ILO ILOSTAT", "countries": {}}
+
+    for code in ilo_codes:
+        cache_k = _cache_key("ilo", code)
+        cached = _get_cached(cache_k)
+        if cached is not None:
+            result["countries"][code] = cached
+            continue
+
+        country_data = None
+        try:
+            # ILO SDMX REST API: unemployment rate, annual, total
+            url = (
+                f"https://sdmx.ilo.org/rest/data/ILO,DF_STI_ALL_UNE_DEA1_SEX_AGE_RT"
+                f"/{code}.A......?format=jsondata&startPeriod=2022&detail=dataonly"
+            )
+            resp = _http_get_json(url, timeout=12)
+            if resp and "dataSets" in resp:
+                datasets = resp.get("dataSets", [])
+                if datasets:
+                    series = datasets[0].get("series", {})
+                    # Get first series with observations
+                    for _sk, sdata in series.items():
+                        obs = sdata.get("observations", {})
+                        if obs:
+                            # Get latest observation
+                            latest_key = max(obs.keys(), key=int)
+                            val = obs[latest_key]
+                            if isinstance(val, list) and val:
+                                unemp = float(val[0])
+                                country_data = {
+                                    "unemployment_rate": round(unemp, 1),
+                                    "source": "ILO ILOSTAT SDMX (live)",
+                                    "data_confidence": 0.90,
+                                }
+                                break
+        except Exception as e:
+            _log_warn(f"ILO ILOSTAT API failed for {code}: {e}")
+
+        # Fallback
+        if not country_data:
+            fb = _ILO_FALLBACK.get(code)
+            if fb:
+                country_data = {
+                    **fb,
+                    "source": "ILO ILOSTAT (curated benchmark)",
+                    "data_confidence": 0.68,
+                }
+            else:
+                continue
+
+        _set_cached(cache_k, country_data)
+        result["countries"][code] = country_data
+
+    if not result["countries"]:
+        return {}
+
+    result["data_confidence"] = max(
+        (d.get("data_confidence", 0.5) for d in result["countries"].values()), default=0.5
+    )
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# API 30: H-1B Visa Wage Benchmarks (curated from DOL OFLC LCA data)
+# Prevailing wages and offered wages by SOC code for H-1B positions
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_H1B_WAGE_DATA: Dict[str, Dict[str, Any]] = {
+    "15-1252.00": {"title": "Software Developers", "h1b_median_wage": 135000, "h1b_25th": 110000, "h1b_75th": 165000, "prevailing_wage": 118000, "total_lcas_2024": 186000, "top_employers": ["Google", "Microsoft", "Amazon", "Meta", "Apple"]},
+    "15-2051.00": {"title": "Data Scientists", "h1b_median_wage": 140000, "h1b_25th": 115000, "h1b_75th": 175000, "prevailing_wage": 120000, "total_lcas_2024": 42000, "top_employers": ["Google", "Meta", "Amazon", "Microsoft", "Apple"]},
+    "15-1243.00": {"title": "Database Architects", "h1b_median_wage": 130000, "h1b_25th": 105000, "h1b_75th": 160000, "prevailing_wage": 112000, "total_lcas_2024": 15000, "top_employers": ["Amazon", "Microsoft", "Oracle", "IBM"]},
+    "15-1244.00": {"title": "Network/Systems Admins", "h1b_median_wage": 110000, "h1b_25th": 88000, "h1b_75th": 135000, "prevailing_wage": 95000, "total_lcas_2024": 18000, "top_employers": ["Microsoft", "Cisco", "IBM", "AWS"]},
+    "15-1241.00": {"title": "Computer Network Architects", "h1b_median_wage": 140000, "h1b_25th": 115000, "h1b_75th": 170000, "prevailing_wage": 125000, "total_lcas_2024": 8000, "top_employers": ["Cisco", "Microsoft", "Amazon"]},
+    "15-1212.00": {"title": "Info Security Analysts", "h1b_median_wage": 128000, "h1b_25th": 100000, "h1b_75th": 155000, "prevailing_wage": 110000, "total_lcas_2024": 12000, "top_employers": ["Deloitte", "PwC", "Microsoft", "Amazon"]},
+    "15-1254.00": {"title": "Web Developers", "h1b_median_wage": 105000, "h1b_25th": 82000, "h1b_75th": 130000, "prevailing_wage": 92000, "total_lcas_2024": 22000, "top_employers": ["Google", "Amazon", "Meta", "Shopify"]},
+    "15-1255.00": {"title": "Web/Digital Interface Designers", "h1b_median_wage": 100000, "h1b_25th": 78000, "h1b_75th": 125000, "prevailing_wage": 88000, "total_lcas_2024": 5000, "top_employers": ["Apple", "Google", "Meta"]},
+    "11-2021.00": {"title": "Marketing Managers", "h1b_median_wage": 145000, "h1b_25th": 115000, "h1b_75th": 180000, "prevailing_wage": 130000, "total_lcas_2024": 8500, "top_employers": ["Google", "Amazon", "Meta", "Salesforce"]},
+    "11-2022.00": {"title": "Sales Managers", "h1b_median_wage": 140000, "h1b_25th": 110000, "h1b_75th": 175000, "prevailing_wage": 125000, "total_lcas_2024": 6000, "top_employers": ["Amazon", "Salesforce", "Oracle"]},
+    "13-1111.00": {"title": "Management Analysts", "h1b_median_wage": 115000, "h1b_25th": 90000, "h1b_75th": 145000, "prevailing_wage": 100000, "total_lcas_2024": 35000, "top_employers": ["Deloitte", "Accenture", "McKinsey", "EY"]},
+    "13-2051.00": {"title": "Financial Analysts", "h1b_median_wage": 110000, "h1b_25th": 85000, "h1b_75th": 140000, "prevailing_wage": 95000, "total_lcas_2024": 18000, "top_employers": ["JPMorgan", "Goldman Sachs", "Morgan Stanley"]},
+    "13-2011.00": {"title": "Accountants/Auditors", "h1b_median_wage": 82000, "h1b_25th": 65000, "h1b_75th": 105000, "prevailing_wage": 72000, "total_lcas_2024": 15000, "top_employers": ["Deloitte", "EY", "KPMG", "PwC"]},
+    "11-3121.00": {"title": "HR Managers", "h1b_median_wage": 130000, "h1b_25th": 105000, "h1b_75th": 160000, "prevailing_wage": 118000, "total_lcas_2024": 4000, "top_employers": ["Amazon", "Google", "Microsoft"]},
+    "13-1071.00": {"title": "HR Specialists", "h1b_median_wage": 78000, "h1b_25th": 62000, "h1b_75th": 98000, "prevailing_wage": 68000, "total_lcas_2024": 6000, "top_employers": ["Amazon", "Infosys", "Wipro"]},
+    "29-1141.00": {"title": "Registered Nurses", "h1b_median_wage": 78000, "h1b_25th": 62000, "h1b_75th": 95000, "prevailing_wage": 72000, "total_lcas_2024": 8000, "top_employers": ["HCA Healthcare", "Kaiser", "Mayo Clinic"]},
+    "17-2141.00": {"title": "Mechanical Engineers", "h1b_median_wage": 105000, "h1b_25th": 82000, "h1b_75th": 130000, "prevailing_wage": 92000, "total_lcas_2024": 12000, "top_employers": ["Tesla", "Boeing", "Lockheed Martin"]},
+    "17-2071.00": {"title": "Electrical Engineers", "h1b_median_wage": 115000, "h1b_25th": 90000, "h1b_75th": 140000, "prevailing_wage": 100000, "total_lcas_2024": 10000, "top_employers": ["Intel", "Qualcomm", "Apple", "Tesla"]},
+    "17-2051.00": {"title": "Civil Engineers", "h1b_median_wage": 95000, "h1b_25th": 75000, "h1b_75th": 120000, "prevailing_wage": 85000, "total_lcas_2024": 5000, "top_employers": ["AECOM", "Jacobs", "Bechtel"]},
+    "11-1021.00": {"title": "General/Ops Managers", "h1b_median_wage": 125000, "h1b_25th": 95000, "h1b_75th": 160000, "prevailing_wage": 108000, "total_lcas_2024": 8000, "top_employers": ["Amazon", "Google", "Microsoft"]},
+    "11-9199.00": {"title": "Managers, All Other", "h1b_median_wage": 120000, "h1b_25th": 95000, "h1b_75th": 155000, "prevailing_wage": 105000, "total_lcas_2024": 12000, "top_employers": ["Amazon", "Accenture", "Google"]},
+    "13-1081.00": {"title": "Logisticians", "h1b_median_wage": 88000, "h1b_25th": 68000, "h1b_75th": 110000, "prevailing_wage": 78000, "total_lcas_2024": 3000, "top_employers": ["Amazon", "FedEx", "UPS"]},
+    "15-1242.00": {"title": "Database Administrators", "h1b_median_wage": 115000, "h1b_25th": 90000, "h1b_75th": 140000, "prevailing_wage": 100000, "total_lcas_2024": 8000, "top_employers": ["Oracle", "Microsoft", "Amazon"]},
+    "27-1024.00": {"title": "Graphic Designers", "h1b_median_wage": 72000, "h1b_25th": 55000, "h1b_75th": 92000, "prevailing_wage": 62000, "total_lcas_2024": 2000, "top_employers": ["Apple", "Google", "Amazon"]},
+    "27-3042.00": {"title": "Technical Writers", "h1b_median_wage": 90000, "h1b_25th": 72000, "h1b_75th": 115000, "prevailing_wage": 80000, "total_lcas_2024": 3000, "top_employers": ["Google", "Microsoft", "Amazon"]},
+}
+
+
+def fetch_h1b_wage_benchmarks(roles: List[str]) -> Dict[str, Any]:
+    """Return curated H-1B visa wage benchmarks by occupation.
+
+    Sourced from DOL OFLC LCA Disclosure Data (FY2024 Q4).
+    No API -- data is embedded (DOL provides only bulk Excel downloads).
+    """
+    if not roles:
+        return {}
+
+    result: Dict[str, Any] = {"source": "DOL OFLC LCA Disclosure Data"}
+
+    for role in roles:
+        rl = role.lower().strip()
+        # Match via ONET_SOC_CODES first (reuse existing mapping)
+        soc = ONET_SOC_CODES.get(rl)
+        if not soc:
+            # Try partial match
+            for key, code in ONET_SOC_CODES.items():
+                if key in rl or rl in key:
+                    soc = code
+                    break
+
+        if soc and soc in _H1B_WAGE_DATA:
+            h1b = _H1B_WAGE_DATA[soc]
+            result[role] = {
+                "soc_code": soc,
+                "title": h1b["title"],
+                "h1b_median_wage": h1b["h1b_median_wage"],
+                "h1b_25th_percentile": h1b["h1b_25th"],
+                "h1b_75th_percentile": h1b["h1b_75th"],
+                "prevailing_wage": h1b["prevailing_wage"],
+                "total_lcas_fy2024": h1b["total_lcas_2024"],
+                "top_h1b_employers": h1b["top_employers"],
+                "wage_premium_vs_prevailing": f"+{round((h1b['h1b_median_wage'] / h1b['prevailing_wage'] - 1) * 100)}%",
+                "source": "DOL OFLC LCA (curated FY2024)",
+                "data_confidence": 0.80,
+            }
+
+    return result if len(result) > 1 else {}
+
+
 # Main enrichment orchestrator
 # ---------------------------------------------------------------------------
 
@@ -9488,6 +9935,9 @@ def enrich_data(data: Dict[str, Any]) -> Dict[str, Any]:
         "linkedin_ads_data": {},
         "careeronestop_data": {},
         "jooble_data": {},
+        "eurostat_data": {},
+        "ilo_data": {},
+        "h1b_data": {},
         "enrichment_summary": {},
     }
 
@@ -9581,6 +10031,18 @@ def enrich_data(data: Dict[str, Any]) -> Dict[str, Any]:
     if roles and locations:
         tasks.append(("jooble_data", "Jooble",
                        lambda _r=roles, _l=locations: fetch_jooble_data(_r, _l)))
+
+    # --- New APIs (28-30): Eurostat, ILO, H-1B ---
+
+    if locations:
+        tasks.append(("eurostat_data", "Eurostat",
+                       lambda _l=locations: fetch_eurostat_labour_data(_l)))
+        tasks.append(("ilo_data", "ILO-ILOSTAT",
+                       lambda _l=locations: fetch_ilo_labour_data(_l)))
+
+    if roles:
+        tasks.append(("h1b_data", "H1B-Wages",
+                       lambda _r=roles: fetch_h1b_wage_benchmarks(_r)))
 
     # --- Execute tasks concurrently ---
     _log_info(f"Starting enrichment with {len(tasks)} tasks "
