@@ -388,7 +388,7 @@ COLLAR_STRATEGY: Dict[str, Dict[str, Any]] = {
             "social_media": 0.20,
             "regional_local": 0.15,
         },
-        "preferred_platforms": ["Indeed", "Facebook", "Craigslist", "JobGet", "Instawork", "Snagajob"],
+        "preferred_platforms": ["Indeed", "Facebook", "ZipRecruiter", "Google Search Ads", "Snagajob", "Craigslist", "Talroo", "Jobcase"],
         "messaging_tone": "Direct, benefits-focused, mobile-first. Lead with pay rate, schedule, and location.",
         "ad_format_priority": ["mobile_display", "social_feed", "sms", "push_notification"],
         "application_complexity": "Minimal: name, phone, 1-click apply. No resume required.",
