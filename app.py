@@ -8632,6 +8632,20 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(html.encode())
             else:
                 self.send_error(404, "Dashboard page not found")
+        elif path == "/observability":
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized - set ADMIN_API_KEY env var and pass ?key=...")
+                return
+            obs_path = os.path.join(TEMPLATES_DIR, "observability.html")
+            if os.path.exists(obs_path):
+                with open(obs_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Observability page not found")
         elif path == "/api/documents":
             if not self._check_admin_auth():
                 self.send_error(401, "Unauthorized")
