@@ -8389,51 +8389,154 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(qc_err_body)
         elif path == "/api/health/integrations":
-            # External integrations status (admin-protected)
+            # Comprehensive integrations status -- all APIs, tools, LLMs (admin-protected)
             if not self._check_admin_auth():
                 self.send_error(401, "Unauthorized")
                 return
-            integrations = {}
-            # Sentry
+            result = {"infrastructure": {}, "free_data_apis": {}, "free_llm_providers": {}, "paid_llm_providers": {}, "ad_platform_apis": {}, "communication": {}}
+
+            # ---- Infrastructure & Monitoring ----
+            infra = result["infrastructure"]
             try:
                 _sentry_dsn = os.environ.get("SENTRY_DSN", "").strip()
                 if _sentry_dsn:
                     import sentry_sdk as _sk
-                    integrations["sentry"] = {
-                        "status": "ok", "detail": "Error tracking active",
-                        "dsn_configured": True, "sdk_version": _sk.VERSION,
-                    }
+                    infra["sentry"] = {"name": "Sentry", "status": "ok", "detail": "Error tracking active", "sdk_version": _sk.VERSION, "value": "Catches unhandled exceptions, 20% traces, 10% profiling"}
                 else:
-                    integrations["sentry"] = {"status": "disabled", "detail": "SENTRY_DSN not set", "dsn_configured": False}
+                    infra["sentry"] = {"name": "Sentry", "status": "disabled", "detail": "SENTRY_DSN not set", "value": "Error tracking and performance monitoring"}
             except Exception as _e:
-                integrations["sentry"] = {"status": "error", "detail": str(_e)}
-            # Upstash Redis
+                infra["sentry"] = {"name": "Sentry", "status": "error", "detail": str(_e)}
             try:
                 from upstash_cache import get_stats as _upstash_stats
-                integrations["upstash_redis"] = _upstash_stats()
+                _us = _upstash_stats()
+                _us["name"] = "Upstash Redis"
+                _us["value"] = "L4 persistent cache (Redis REST API, survives redeploys)"
+                infra["upstash_redis"] = _us
             except ImportError:
-                integrations["upstash_redis"] = {"status": "disabled", "detail": "upstash_cache module not available"}
+                infra["upstash_redis"] = {"name": "Upstash Redis", "status": "disabled", "detail": "Not configured", "value": "L4 persistent cache layer"}
             except Exception as _e:
-                integrations["upstash_redis"] = {"status": "error", "detail": str(_e)}
-            # PostHog
-            try:
-                _ph_key = os.environ.get("POSTHOG_API_KEY", "").strip()
-                if _ph_key:
-                    integrations["posthog"] = {
-                        "status": "ok", "detail": "Analytics active (backend + frontend)",
-                        "key_configured": True,
-                    }
-                else:
-                    integrations["posthog"] = {"status": "disabled", "detail": "POSTHOG_API_KEY not set"}
-            except Exception as _e:
-                integrations["posthog"] = {"status": "error", "detail": str(_e)}
-            # Supabase
+                infra["upstash_redis"] = {"name": "Upstash Redis", "status": "error", "detail": str(_e)}
+            _ph_key = os.environ.get("POSTHOG_API_KEY", "").strip()
+            infra["posthog"] = {"name": "PostHog", "status": "ok" if _ph_key else "disabled",
+                "detail": "Analytics active (backend + frontend)" if _ph_key else "POSTHOG_API_KEY not set",
+                "value": "Product analytics: plan_generated, plan_failed, chat_message, file_uploaded events"}
             try:
                 from supabase_cache import cache_get as _test_supa
-                integrations["supabase"] = {"status": "ok", "detail": "Persistent cache (L3)"}
+                infra["supabase"] = {"name": "Supabase PostgreSQL", "status": "ok", "detail": "Persistent cache (L3)", "value": "L3 distributed cache with TTL, hit counting, category tagging"}
             except ImportError:
-                integrations["supabase"] = {"status": "disabled", "detail": "supabase_cache not available"}
-            _int_body = json.dumps(integrations, indent=2).encode("utf-8")
+                infra["supabase"] = {"name": "Supabase PostgreSQL", "status": "disabled", "detail": "Not available", "value": "L3 persistent cache layer"}
+
+            # ---- Free Data APIs (no key required or free tier) ----
+            free_apis = result["free_data_apis"]
+            _free_api_registry = [
+                ("bls_oes", "BLS OES Salary Data", "api.bls.gov", "Median/percentile wages by SOC occupation code", "BLS_API_KEY"),
+                ("bls_qcew", "BLS QCEW Employment", "data.bls.gov", "Industry employment stats, establishment counts, avg wages", None),
+                ("bls_jolts", "BLS JOLTS", "api.bls.gov", "Job openings, hires, quits by industry", "BLS_API_KEY"),
+                ("census_acs", "US Census ACS", "api.census.gov", "State population, median household income", None),
+                ("world_bank", "World Bank Open Data", "api.worldbank.org", "Global GDP, population, unemployment by country", None),
+                ("fred", "FRED Economic Data", "api.stlouisfed.org", "US economic indicators (CPI, unemployment, GDP)", "FRED_API_KEY"),
+                ("onet", "O*NET Web Services", "services.onetcenter.org", "Occupation skills, knowledge, job outlook, job zones", "ONET_USERNAME"),
+                ("imf", "IMF DataMapper", "imf.org", "International GDP, inflation, unemployment forecasts", None),
+                ("rest_countries", "REST Countries", "restcountries.com", "Country population, currency, languages, region data", None),
+                ("geonames", "GeoNames", "geonames.org", "Geographic coordinates, timezone, nearby cities", "GEONAMES_USERNAME"),
+                ("teleport", "Teleport API", "api.teleport.org", "Quality of life scores, cost of living by city", None),
+                ("datausa", "DataUSA", "datausa.io", "US occupation wages, state-level demographics", None),
+                ("wikipedia", "Wikipedia REST", "en.wikipedia.org", "Company descriptions, industry background", None),
+                ("clearbit", "Clearbit Logo API", "logo.clearbit.com", "Company logos, competitor logos, metadata", None),
+                ("sec_edgar", "SEC EDGAR", "sec.gov", "Public company tickers, CIK, filing data", None),
+                ("exchange_rates", "Exchange Rate API", "open.er-api.com", "Live currency exchange rates (USD base)", None),
+                ("eurostat", "Eurostat Labour", "ec.europa.eu", "EU unemployment, wages, employment by country", None),
+                ("ilo", "ILO ILOSTAT", "sdmx.ilo.org", "Global labour participation, unemployment rates", None),
+                ("google_trends", "Google Trends", "trends.google.com", "Search interest/trend data for job keywords", None),
+            ]
+            for _api_id, _api_name, _api_host, _api_value, _api_key_env in _free_api_registry:
+                _has_key = True
+                if _api_key_env:
+                    _has_key = bool(os.environ.get(_api_key_env, "").strip())
+                free_apis[_api_id] = {
+                    "name": _api_name, "host": _api_host, "value": _api_value,
+                    "status": "ok" if _has_key else "available",
+                    "detail": "Active" if _has_key else f"No key ({_api_key_env}) -- uses free tier or benchmarks",
+                    "key_required": bool(_api_key_env), "key_configured": _has_key,
+                }
+
+            # ---- Free LLM Providers ----
+            free_llms = result["free_llm_providers"]
+            _free_llm_registry = [
+                ("gemini", "Gemini 2.0 Flash", "Google", "GEMINI_API_KEY", "Structured JSON, code gen, fastest free"),
+                ("groq", "Groq Llama 3.3 70B", "Groq", "GROQ_API_KEY", "Complex reasoning, conversational"),
+                ("cerebras", "Cerebras Llama 3.3 70B", "Cerebras", "CEREBRAS_API_KEY", "Hot spare for Groq (same model, independent infra)"),
+                ("mistral", "Mistral Small", "Mistral AI", "MISTRAL_API_KEY", "JSON, multilingual, code generation"),
+                ("openrouter", "Llama 4 Maverick (free)", "OpenRouter", "OPENROUTER_API_KEY", "General purpose, strong reasoning"),
+                ("xai", "Grok 2", "xAI", "XAI_API_KEY", "Strong reasoning ($25 free credits)"),
+                ("sambanova", "Llama 3.1 405B", "SambaNova", "SAMBANOVA_API_KEY", "Largest open model, fastest inference (RDU)"),
+                ("nvidia_nim", "Nemotron Nano 30B", "NVIDIA NIM", "NVIDIA_NIM_API_KEY", "NVIDIA-optimized inference"),
+                ("cloudflare", "Llama 3.3 70B", "Cloudflare Workers AI", "CLOUDFLARE_AI_TOKEN", "Edge-distributed, low latency"),
+            ]
+            for _llm_id, _llm_model, _llm_provider, _llm_env, _llm_value in _free_llm_registry:
+                _has = bool(os.environ.get(_llm_env, "").strip())
+                free_llms[_llm_id] = {
+                    "name": _llm_model, "provider": _llm_provider, "value": _llm_value,
+                    "status": "ok" if _has else "no_key",
+                    "detail": f"Key configured ({_llm_env})" if _has else f"Missing {_llm_env}",
+                    "key_configured": _has,
+                }
+
+            # ---- Paid LLM Providers ----
+            paid_llms = result["paid_llm_providers"]
+            _paid_llm_registry = [
+                ("claude_haiku", "Claude Haiku 4.5", "Anthropic", "ANTHROPIC_API_KEY", "Fast, cheap paid fallback"),
+                ("gpt4o", "GPT-4o", "OpenAI", "OPENAI_API_KEY", "Structured JSON, general reasoning"),
+                ("claude_sonnet", "Claude Sonnet 4", "Anthropic", "ANTHROPIC_API_KEY", "Complex multi-step tool chains"),
+                ("claude_opus", "Claude Opus 4.6", "Anthropic", "ANTHROPIC_API_KEY", "Highest quality, last resort"),
+            ]
+            for _llm_id, _llm_model, _llm_provider, _llm_env, _llm_value in _paid_llm_registry:
+                _has = bool(os.environ.get(_llm_env, "").strip())
+                paid_llms[_llm_id] = {
+                    "name": _llm_model, "provider": _llm_provider, "value": _llm_value,
+                    "status": "ok" if _has else "no_key",
+                    "detail": f"Key configured ({_llm_env})" if _has else f"Missing {_llm_env}",
+                    "key_configured": _has,
+                }
+
+            # ---- Ad Platform APIs ----
+            ad_apis = result["ad_platform_apis"]
+            _ad_registry = [
+                ("google_ads", "Google Ads", "Keyword volumes, CPC/CPM benchmarks", "GOOGLE_ADS_CLIENT_ID"),
+                ("meta_ads", "Meta (Facebook/Instagram)", "Audience sizing, CPC/CPM estimates", "META_ACCESS_TOKEN"),
+                ("bing_ads", "Microsoft/Bing Ads", "Search volumes, CPC estimates", "BING_CLIENT_ID"),
+                ("tiktok_ads", "TikTok Marketing", "Audience estimation, CPC/CPM", "TIKTOK_ACCESS_TOKEN"),
+                ("linkedin_ads", "LinkedIn Marketing", "Professional audience sizing, CPC", "LINKEDIN_ACCESS_TOKEN"),
+            ]
+            for _ad_id, _ad_name, _ad_value, _ad_env in _ad_registry:
+                _has = bool(os.environ.get(_ad_env, "").strip())
+                ad_apis[_ad_id] = {
+                    "name": _ad_name, "value": _ad_value,
+                    "status": "ok" if _has else "no_key",
+                    "detail": f"Key configured ({_ad_env})" if _has else f"Missing {_ad_env} -- uses benchmarks",
+                    "key_configured": _has,
+                }
+
+            # ---- Communication ----
+            comms = result["communication"]
+            _resend_key = os.environ.get("RESEND_API_KEY", "").strip()
+            comms["resend"] = {"name": "Resend Email", "status": "ok" if _resend_key else "disabled",
+                "detail": "Alert emails active" if _resend_key else "RESEND_API_KEY not set",
+                "value": "Error alerts, circuit breaker notifications, daily digests"}
+            _slack_token = os.environ.get("SLACK_BOT_TOKEN", "").strip()
+            comms["slack"] = {"name": "Slack Bot", "status": "ok" if _slack_token else "disabled",
+                "detail": "Bot connected" if _slack_token else "SLACK_BOT_TOKEN not set",
+                "value": "Slack bot for media plan requests and alerts"}
+
+            # ---- Summary counts ----
+            result["summary"] = {
+                "total_integrations": sum(len(v) for v in result.values() if isinstance(v, dict) and v != result.get("summary")),
+                "active": sum(1 for cat in result.values() if isinstance(cat, dict) for v in cat.values() if isinstance(v, dict) and v.get("status") == "ok"),
+                "available": sum(1 for cat in result.values() if isinstance(cat, dict) for v in cat.values() if isinstance(v, dict) and v.get("status") == "available"),
+                "disabled": sum(1 for cat in result.values() if isinstance(cat, dict) for v in cat.values() if isinstance(v, dict) and v.get("status") in ("disabled", "no_key")),
+            }
+
+            _int_body = json.dumps(result, indent=2).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(_int_body)))

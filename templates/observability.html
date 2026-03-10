@@ -82,6 +82,24 @@
         .int-meta { font-size: 11px; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 12px; }
         .int-meta span { display: flex; align-items: center; gap: 4px; }
 
+        /* Category section within integrations */
+        .cat-section { margin-bottom: 20px; }
+        .cat-title { font-size: 13px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .cat-count { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: var(--purple); color: white; }
+        .int-grid-compact { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+        .int-chip { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+        .int-chip::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+        .int-chip.active::before { background: var(--green); }
+        .int-chip.available::before { background: var(--teal); }
+        .int-chip.disabled::before, .int-chip.no_key::before { background: var(--text-muted); }
+        .int-chip.error::before { background: var(--red); }
+        .int-chip-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+        .int-chip-name { font-size: 13px; font-weight: 700; color: var(--navy); }
+        .int-chip-host { font-size: 10px; color: var(--text-muted); font-family: monospace; }
+        .int-chip-value { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
+        .badge-teal { background: var(--teal); }
+        .badge-no-key { background: var(--amber); color: #333; }
+
         /* Cache layers */
         .cache-layers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
         .cache-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); text-align: center; }
@@ -133,10 +151,10 @@
             </div>
         </div>
 
-        <!-- Section 2: External Integrations -->
+        <!-- Section 2: All Integrations & APIs -->
         <div class="section">
-            <div class="section-title">External Integrations</div>
-            <div class="int-grid" id="integrationsGrid">
+            <div class="section-title">All Integrations & APIs <span class="badge" id="intSummary">--</span></div>
+            <div id="integrationsAll">
                 <div class="loading"><span class="spinner-sm"></span>Checking integrations...</div>
             </div>
         </div>
@@ -322,29 +340,77 @@ function renderSystemStats() {
 }
 
 function renderIntegrations() {
-    const el = document.getElementById('integrationsGrid');
+    const el = document.getElementById('integrationsAll');
+    const sumEl = document.getElementById('intSummary');
     if (!integrations) { el.innerHTML = '<div class="loading">Integrations data unavailable</div>'; return; }
-    const meta = {
-        sentry: { name:'Sentry', desc:'Captures unhandled exceptions, performance traces (20% sample), stack traces. Alerts on new error patterns.', value:'Prevents silent failures from reaching users. Auto-captures every crash with full context.' },
-        upstash_redis: { name:'Upstash Redis', desc:'Persistent L4 cache for API enrichment results. 24h TTL, auto-eviction, rate-limited (1000 ops/min).', value:'Eliminates cold-start API calls after deploy. Repeat queries return in <5ms vs 2-8s uncached.' },
-        posthog: { name:'PostHog', desc:'Tracks plan_generated, plan_failed, chat_message, file_uploaded events. Frontend autocapture + backend batch.', value:'Full product usage funnel: who generates plans, what fails, which features get adopted.' },
-        supabase: { name:'Supabase', desc:'L3 persistent cache. Stores enrichment results across server restarts with structured query support.', value:'Cross-deploy data persistence. Cache survives Render cold starts and re-deployments.' },
-    };
+
+    // New API returns categorized data with summary
+    const cats = [
+        ['infrastructure', 'Infrastructure & Monitoring', true],
+        ['free_data_apis', 'Free Data APIs', false],
+        ['free_llm_providers', 'Free LLM Providers', false],
+        ['paid_llm_providers', 'Paid LLM Providers', false],
+        ['ad_platform_apis', 'Ad Platform APIs', false],
+        ['communication', 'Communication', false],
+    ];
+
+    // Summary badge
+    const s = integrations.summary;
+    if (s) sumEl.textContent = `${s.active} active / ${s.total_integrations} total`;
+
+    function chipBadge(status) {
+        if (status === 'ok') return '<span class="badge-sm badge-green">Active</span>';
+        if (status === 'available') return '<span class="badge-sm badge-teal">Free</span>';
+        if (status === 'no_key') return '<span class="badge-sm badge-no-key">No Key</span>';
+        if (status === 'disabled') return '<span class="badge-sm badge-gray">Off</span>';
+        return '<span class="badge-sm badge-red">Error</span>';
+    }
+
     let html = '';
-    for (const [k, d] of Object.entries(integrations)) {
-        const m = meta[k] || { name:k, desc:'', value:'' };
-        const cls = d.status==='ok'?'active':d.status==='disabled'?'disabled':'error';
-        html += `<div class="int-card ${cls}">
-            <div class="int-header"><span class="int-name">${esc(m.name)}</span>${statusBadge(d.status)}</div>
-            <div class="int-detail">${esc(d.detail || '')}</div>
-            <div class="int-detail" style="color:var(--navy);font-weight:500;">${esc(m.value)}</div>
-            <div class="int-meta">
-                ${d.sdk_version ? '<span>SDK v'+esc(d.sdk_version)+'</span>' : ''}
-                ${d.keys != null ? '<span>'+fmt(d.keys)+' cached keys</span>' : ''}
-                ${d.key_configured ? '<span>Key configured</span>' : ''}
-                ${d.dsn_configured ? '<span>DSN configured</span>' : ''}
-            </div>
-        </div>`;
+    for (const [catKey, catLabel, expanded] of cats) {
+        const items = integrations[catKey];
+        if (!items || typeof items !== 'object') continue;
+        const entries = Object.entries(items);
+        if (entries.length === 0) continue;
+        const activeCount = entries.filter(([,v]) => v.status === 'ok' || v.status === 'available').length;
+
+        html += `<div class="cat-section">`;
+        html += `<div class="cat-title">${esc(catLabel)} <span class="cat-count">${activeCount}/${entries.length}</span></div>`;
+
+        if (expanded) {
+            // Full card view for infrastructure (same as old style)
+            html += `<div class="int-grid">`;
+            for (const [k, d] of entries) {
+                const cls = d.status==='ok'?'active':d.status==='disabled'?'disabled':'error';
+                html += `<div class="int-card ${cls}">
+                    <div class="int-header"><span class="int-name">${esc(d.name||k)}</span>${chipBadge(d.status)}</div>
+                    <div class="int-detail">${esc(d.detail || '')}</div>
+                    <div class="int-detail" style="color:var(--navy);font-weight:500;">${esc(d.value || '')}</div>
+                    <div class="int-meta">
+                        ${d.sdk_version ? '<span>SDK v'+esc(d.sdk_version)+'</span>' : ''}
+                        ${d.keys != null ? '<span>'+fmt(d.keys)+' cached keys</span>' : ''}
+                    </div>
+                </div>`;
+            }
+            html += `</div>`;
+        } else {
+            // Compact chip view for APIs and LLMs
+            html += `<div class="int-grid-compact">`;
+            for (const [k, d] of entries) {
+                const cls = d.status || 'disabled';
+                html += `<div class="int-chip ${cls}">
+                    <div class="int-chip-head">
+                        <span class="int-chip-name">${esc(d.name||k)}</span>
+                        ${chipBadge(d.status)}
+                    </div>
+                    ${d.host ? '<div class="int-chip-host">'+esc(d.host)+'</div>' : ''}
+                    ${d.provider ? '<div class="int-chip-host">'+esc(d.provider)+'</div>' : ''}
+                    <div class="int-chip-value">${esc(d.value || d.detail || '')}</div>
+                </div>`;
+            }
+            html += `</div>`;
+        }
+        html += `</div>`;
     }
     el.innerHTML = html || '<div class="loading">No integrations configured</div>';
 }
@@ -353,8 +419,9 @@ function renderCacheLayers() {
     const el = document.getElementById('cacheLayers');
     const orch = orchestrator || {};
     const cs = orch.cache_stats || {};
-    const upstash = integrations ? integrations.upstash_redis : null;
-    const supa = integrations ? integrations.supabase : null;
+    const infra = integrations ? (integrations.infrastructure || {}) : {};
+    const upstash = infra.upstash_redis || null;
+    const supa = infra.supabase || null;
 
     el.innerHTML = `
         <div class="cache-card">
