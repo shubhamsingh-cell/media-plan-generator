@@ -2754,11 +2754,37 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 user_message, conversation_history, enrichment_context
             )
             if router_result:
-                logger.info("NOVA MODE: LLM Router (free provider, no tools) responded successfully")
-                _nova_metrics.record_latency((time.time() - _t0) * 1000)
-                if router_result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
-                    _set_response_cache(cache_key, router_result)
-                return router_result
+                # Quality gate: if the LLM admits it lacks data, escalate to
+                # tool-calling path instead of returning a hollow response.
+                resp_text = (router_result.get("response") or "").lower()
+                # Normalize curly/smart apostrophes to straight ones so
+                # signals match regardless of which quote style the LLM uses.
+                resp_text = resp_text.replace("\u2019", "'").replace("\u2018", "'")
+                _no_data_signals = [
+                    # Explicit data gaps
+                    "i don't have data", "i don't have specific data",
+                    "i don't have enough data",
+                    "i don't have access", "i can't provide specific",
+                    "don't have reliable data", "i do not have data",
+                    "i'm not able to provide specific", "no data available",
+                    # Tightened: was "i cannot provide" -- too broad, could
+                    # match policy refusals. Now requires data-related suffix.
+                    "i cannot provide specific", "i cannot provide data",
+                    "i cannot provide exact", "i cannot provide real-time",
+                    # LLM hedging about missing real-time / current data
+                    "real-time data", "current data",
+                    "unable to access", "exact figures",
+                    "don't have real-time", "don't have current",
+                ]
+                if any(sig in resp_text for sig in _no_data_signals):
+                    logger.info("NOVA MODE: Path A response admits no data, escalating to tool path")
+                    _needs_tools = True  # Force tool path below
+                else:
+                    logger.info("NOVA MODE: LLM Router (free provider, no tools) responded successfully")
+                    _nova_metrics.record_latency((time.time() - _t0) * 1000)
+                    if router_result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
+                        _set_response_cache(cache_key, router_result)
+                    return router_result
 
         # Path B: Tool-use queries -> free LLM providers WITH tools
         if _needs_tools:
@@ -2817,34 +2843,105 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
     # LLM Router integration (v3.1 -- free LLM providers first)
     # ------------------------------------------------------------------
 
-    # Keywords that signal the query needs data lookups (tool use)
+    # Keywords that signal the query needs data lookups (tool use).
+    # NOTE: These are substring-matched against the lowered query.  Use short
+    # stems where safe (e.g., "hire" matches "hire", "hired", "hires", "hiring").
     _TOOL_TRIGGER_KEYWORDS = frozenset([
-        "benchmark", "cpc", "cpa", "cph", "cost per", "salary", "wage",
-        "compare", "data", "statistics", "stats", "numbers", "metric",
-        "industry", "platform", "channel", "indeed", "linkedin", "facebook",
-        "google ads", "ziprecruiter", "glassdoor", "appcast", "programmatic",
+        # Cost / pricing
+        # NOTE: "rate" removed (matches "elaborate", "generate", "celebrate")
+        # NOTE: "cost per" removed (redundant -- "cost" already catches it)
+        "benchmark", "cpc", "cpa", "cph", "cpm", "ctr",
+        "cost", "pricing",
+        # Compensation
+        "salary", "wage", "compensation", "pay range", "earning",
+        # Data / metrics
+        # NOTE: "data" removed from here -- matched via space-bounded check below
+        "compare", "statistics", "stats", "numbers", "metric",
+        "conversion", "volume", "estimate", "forecast", "projection",
+        # Industry / platform / channel
+        "industry", "platform", "channel", "source",
+        "indeed", "linkedin", "facebook", "google ads",
+        "ziprecruiter", "glassdoor", "appcast", "programmatic",
+        "job board", "jobboard", "social media",
+        # Labor market
+        # NOTE: "hiring" removed (redundant -- "hire" already matches it)
+        # NOTE: "hire" and "hiring" are NOT overlapping ("hire" != "hiri")
         "trend", "jolts", "bls", "unemployment", "labor market",
+        "hire", "hiring", "recruit", "candidate", "applicant",
+        "opening", "vacancy", "talent",
+        # Strategy / planning
+        # NOTE: "plan" removed (matches "explanation", "complain", "explain")
         "what if", "what-if", "simulate", "scenario", "decompose",
+        "strategy", "optimize", "campaign", "recommend",
+        "suggest", "alternative",
+        # Seniority / role analysis
         "seniority", "junior", "senior", "skills gap", "skills-gap",
+        # Budget / financial
         "budget", "allocation", "roi", "spend", "funnel",
-        "location", "city", "state", "region", "metro",
-        "supply", "demand", "openings", "hires", "applicants",
+        # Location
+        # NOTE: "state" removed (matches "estate", "statement", "reinstate")
+        "location", "city", "region", "metro",
+        # Supply / demand
+        "supply", "demand",
+        # Joveo-specific
         "publisher", "joveo", "source mix", "quality score",
     ])
 
     def _query_needs_tools(self, query: str) -> bool:
-        """Determine if a query requires tool use (data lookups) vs conversational."""
+        """Determine if a query requires tool use (data lookups) vs conversational.
+
+        Three-tier detection:
+        1. Two or more keyword matches -> definite tool use
+        2. One keyword + any question/request phrasing -> likely tool use
+        3. Explicit data-request verbs -> tool use regardless of keywords
+
+        Space-bounded check for short words that cause false positives when
+        they appear inside longer unrelated words (e.g., "data" in "mandatory").
+        """
         q = query.lower()
-        # Check for tool-triggering keywords
+
+        # --- keyword counting (frozenset + space-bounded extras) ---
         matches = sum(1 for kw in self._TOOL_TRIGGER_KEYWORDS if kw in q)
+
+        # Space-bounded keywords: only count when surrounded by word boundaries.
+        # "data" inside "mandatory"/"update" is a false positive, but
+        # " data ", " data,", "data " at start of query, etc. are valid.
+        _space_bounded_keywords = ["data"]
+        for sbk in _space_bounded_keywords:
+            # Match only when not embedded inside a longer word
+            if re.search(r'(?<![a-z])' + re.escape(sbk) + r'(?![a-z])', q):
+                matches += 1
+
         # 2+ keyword matches strongly suggest data needs
         if matches >= 2:
             return True
-        # Single match with question words suggests data lookup
-        if matches >= 1 and any(w in q for w in ["how much", "what is", "show me", "give me", "tell me about", "compare"]):
+
+        # Single match with question/request phrasing
+        # NOTE: "more" removed (matches inside "furthermore", "moreover")
+        _question_phrases = [
+            # Direct questions
+            "how much", "how many", "how long", "how do", "how can",
+            "what is", "what are", "what about", "what else",
+            "which", "where", "when",
+            # Request patterns
+            "show me", "give me", "tell me", "help me",
+            "can you", "could you", "should i", "would you",
+            # Comparison / recommendation
+            "compare", "recommend", "suggest", "advise",
+            # Exploratory
+            "any other", "are there", "is there", "other than",
+            "apart from", "besides", "missing",
+            # Estimation
+            "expect", "predict", "likely", "estimate",
+        ]
+        if matches >= 1 and any(w in q for w in _question_phrases):
             return True
-        # Explicit data requests
-        if any(phrase in q for phrase in ["pull data", "look up", "fetch", "get me", "find me", "search for"]):
+
+        # Explicit data requests (no keyword needed)
+        if any(phrase in q for phrase in [
+            "pull data", "look up", "fetch", "get me", "find me",
+            "search for", "break down", "breakdown", "decompose",
+        ]):
             return True
         return False
 
