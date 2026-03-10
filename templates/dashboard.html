@@ -993,12 +993,33 @@ let sortAsc = false;
 let countdownValue = 60;
 let countdownTimer = null;
 
+// ===== AUTH: Extract admin key from URL and reuse for API calls =====
+const _urlParams = new URLSearchParams(window.location.search);
+const _adminKey = _urlParams.get('key') || '';
+
+function authFetch(url, opts = {}) {
+    // Attach admin key as Bearer header for all dashboard API calls
+    if (_adminKey) {
+        opts.headers = Object.assign({}, opts.headers || {}, {
+            'Authorization': 'Bearer ' + _adminKey
+        });
+    }
+    return fetch(url, opts);
+}
+
+function authUrl(url) {
+    // Append ?key= to URLs (for download links opened in browser)
+    if (!_adminKey) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return url + sep + 'key=' + encodeURIComponent(_adminKey);
+}
+
 // ===== DATA FETCHING (with timeout) =====
 async function fetchRequests() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 20000);
     try {
-        const res = await fetch('/api/requests', { signal: controller.signal });
+        const res = await authFetch('/api/requests', { signal: controller.signal });
         clearTimeout(timeoutId);
         if (!res.ok) throw new Error('Failed to fetch requests');
         const data = await res.json();
@@ -1018,7 +1039,7 @@ async function fetchDocuments() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 20000);
     try {
-        const res = await fetch('/api/documents', { signal: controller.signal });
+        const res = await authFetch('/api/documents', { signal: controller.signal });
         clearTimeout(timeoutId);
         if (!res.ok) throw new Error('Failed to fetch documents');
         const data = await res.json();
@@ -1328,7 +1349,7 @@ function escapeHtml(str) {
 function sanitizeDownloadUrl(url) {
     // Only allow relative URLs under /api/documents/ to prevent javascript: or data: XSS
     if (typeof url !== 'string') return '#';
-    if (url.startsWith('/api/documents/')) return url;
+    if (url.startsWith('/api/documents/')) return authUrl(url);
     return '#';
 }
 
