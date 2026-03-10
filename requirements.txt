@@ -2,6 +2,10 @@
 openpyxl>=3.1.0,<3.2.0
 python-pptx>=1.0.0,<2.0.0
 
+# File upload processing (brief/transcript/historical data extraction)
+PyPDF2>=3.0.0,<4.0.0
+python-docx>=1.0.0,<2.0.0
+
 # All other dependencies (json, urllib, http.server, threading,
 # concurrent.futures, ssl, hashlib, etc.) are Python stdlib.
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Premium LinkedIn-inspired PowerPoint generator for AI Media Planner.
+Joveo-branded PowerPoint generator for AI Media Planner.
 
 Generates a polished, data-driven 7-slide .pptx presentation using python-pptx.
-Incorporates LinkedIn Hiring Value Review visual patterns: section dividers,
-hero stats, blue/teal accents, quality outcomes grids, channel attribution diagrams,
-and side-by-side comparison panels.
+Uses Joveo brand identity: Port Gore navy (#202058), Blue Violet purple (#5A54BD),
+Downy teal (#6BB3CD), Tapestry pink (#B5669C), Raw Sienna bronze (#CE9047).
+Fonts: Poppins (titles) / Inter (body). Incorporates hero stats, section dividers,
+quality outcomes grids, channel attribution diagrams, and comparison panels.
 
 Note: This module does not directly import data_orchestrator.py. It receives
 orchestrated/enriched data transitively via app.py, which calls the orchestrator
@@ -14,6 +15,7 @@ and passes the enriched results into the PPT generation functions.
 
 import io
 import math
+import os
 import re
 import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -48,37 +50,44 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
-# Constants & Color Palette (LinkedIn-inspired)
+# Constants & Color Palette (Joveo brand identity)
+# Primary: Port Gore navy #202058  |  Secondary: Blue Violet #5A54BD
+# Accents: Teal #6BB3CD  |  Pink #B5669C  |  Bronze #CE9047
 # ---------------------------------------------------------------------------
 
-NAVY = RGBColor(0x08, 0x29, 0x4A)          # Primary dark background
-BLUE = RGBColor(0x0A, 0x66, 0xC9)          # Primary accent (LinkedIn Blue)
-MEDIUM_BLUE = RGBColor(0x00, 0x40, 0x82)   # Secondary blue
-LIGHT_BLUE = RGBColor(0xD1, 0xE8, 0xFF)    # Light background
-PALE_BLUE = RGBColor(0xA8, 0xD4, 0xFF)     # Lighter accent fills
-SKY_BLUE = RGBColor(0x70, 0xB5, 0xFA)      # Chart elements
+NAVY = RGBColor(0x20, 0x20, 0x58)          # Port Gore -- primary dark / headings
+BLUE = RGBColor(0x5A, 0x54, 0xBD)          # Blue Violet -- primary accent
+MEDIUM_BLUE = RGBColor(0x48, 0x43, 0x9E)   # Deeper purple accent
+LIGHT_BLUE = RGBColor(0xDD, 0xDB, 0xFF)    # Light purple background
+PALE_BLUE = RGBColor(0xB8, 0xB4, 0xF7)     # Medium purple accent fill
+SKY_BLUE = RGBColor(0xB3, 0xE0, 0xF0)      # Light blue (chart elements)
 
-TEAL = RGBColor(0x08, 0x91, 0xB2)          # Teal accent
-LIGHT_TEAL = RGBColor(0x22, 0xD3, 0xEE)    # Light teal
-PALE_TEAL = RGBColor(0xEC, 0xFE, 0xFF)     # Pale teal background
+TEAL = RGBColor(0x6B, 0xB3, 0xCD)          # Downy teal -- primary chart accent
+LIGHT_TEAL = RGBColor(0xB3, 0xE0, 0xF0)    # Light blue-teal
+PALE_TEAL = RGBColor(0xDA, 0xF5, 0xFF)     # Pale teal background
 
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-OFF_WHITE = RGBColor(0xF2, 0xF2, 0xF0)     # Content background
-WARM_WHITE = RGBColor(0xFC, 0xFA, 0xF5)    # Card backgrounds
+OFF_WHITE = RGBColor(0xFF, 0xFD, 0xF9)     # Floral White (Joveo page bg)
+WARM_WHITE = RGBColor(0xFF, 0xFD, 0xF9)    # Card backgrounds
 WARM_GRAY = RGBColor(0xEB, 0xE6, 0xE0)     # Borders, dividers
 MEDIUM_GRAY = RGBColor(0xD6, 0xCF, 0xC2)   # Subtle separators
 
-DARK_TEXT = RGBColor(0x1B, 0x2A, 0x4A)      # Body text
+DARK_TEXT = RGBColor(0x20, 0x20, 0x58)      # Port Gore for body text
 MUTED_TEXT = RGBColor(0x59, 0x67, 0x80)     # Secondary text
 LIGHT_MUTED = RGBColor(0x8C, 0x96, 0xA8)   # Tertiary text
 
 GREEN = RGBColor(0x33, 0x87, 0x21)          # Positive / beating benchmark
 LIGHT_GREEN = RGBColor(0xE6, 0xF2, 0xE0)   # Green background
-AMBER = RGBColor(0xD4, 0x7A, 0x1A)         # Trailing benchmark
-LIGHT_AMBER = RGBColor(0xFD, 0xF0, 0xDD)   # Amber background
-RED_ACCENT = RGBColor(0xC0, 0x39, 0x2B)     # Underperformance
+AMBER = RGBColor(0xCE, 0x90, 0x47)         # Joveo Bronze -- trailing benchmark
+LIGHT_AMBER = RGBColor(0xFD, 0xDB, 0xB2)   # Light bronze background
+RED_ACCENT = RGBColor(0xB5, 0x66, 0x9C)     # Joveo Pink -- underperformance accent
 
-FONT_FAMILY = "Calibri"
+# Joveo extended palette (used in specific places)
+JOVEO_BRONZE = RGBColor(0xCE, 0x90, 0x47)  # Bronze accent / CTAs
+JOVEO_PINK = RGBColor(0xB5, 0x66, 0x9C)    # Pink / magenta accent
+
+FONT_FAMILY = "Poppins"                     # Joveo brand title font
+FONT_BODY = "Inter"                         # Joveo brand body font
 
 # Slide dimensions (16:9 widescreen)
 SLIDE_WIDTH = Inches(13.333)
@@ -640,7 +649,7 @@ def _add_oval(slide, left, top, width, height, fill_color: RGBColor):
     return shape
 
 
-def _add_rule_line(slide, left_inches, top_inches, width_inches, color_hex="1B3A5C"):
+def _add_rule_line(slide, left_inches, top_inches, width_inches, color_hex="202058"):
     """Add a thin horizontal rule line to a slide."""
     shape = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
@@ -1087,7 +1096,15 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     # Decorative teal accent shapes - left side
     _add_filled_rect(slide, Inches(0.6), Inches(1.8), Inches(1.2), Inches(0.05), TEAL)
 
-    # "AI MEDIA PLANNER" small label top-left
+    # Joveo logo top-left (PNG, ~0.5" tall)
+    _logo_path = os.path.join(os.path.dirname(__file__), "assets", "joveo-logo.png")
+    if os.path.exists(_logo_path):
+        try:
+            slide.shapes.add_picture(_logo_path, Inches(0.6), Inches(0.4), height=Inches(0.5))
+        except Exception:
+            pass  # Graceful fallback -- text label below still shows
+
+    # "AI MEDIA PLANNER" small label top-left (below logo)
     _add_textbox(
         slide, Inches(0.6), Inches(1.1), Inches(5), Inches(0.4),
         text="AI MEDIA PLANNER", font_size=14, bold=True, color=TEAL,
@@ -1152,17 +1169,17 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         circle_size,
         MEDIUM_BLUE,
     )
-    # Make it semi-transparent via alpha adjustment on fill
-    circle.fill.fore_color.rgb = RGBColor(0x0D, 0x35, 0x5E)
+    # Make it semi-transparent via alpha adjustment on fill (Joveo purple tone)
+    circle.fill.fore_color.rgb = RGBColor(0x30, 0x2C, 0x78)
 
-    # Smaller overlapping accent circle
+    # Smaller overlapping accent circle (Joveo teal tone)
     _add_oval(
         slide,
         SLIDE_WIDTH - Inches(1.5),
         Inches(3.5),
         Inches(2.5),
         Inches(2.5),
-        RGBColor(0x10, 0x40, 0x6A),
+        RGBColor(0x3A, 0x6E, 0x80),
     )
 
     # Bottom teal bar

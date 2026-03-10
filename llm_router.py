@@ -43,7 +43,7 @@ Task classification (8 types):
     - BATCH:          high-throughput bulk operations, comprehensive reports
 
 Each provider has independent circuit breaker (5 failures -> 60s cooldown)
-and per-minute rate tracking.  12 total providers, 9 free + 3 paid.
+and per-minute rate tracking.  13 total providers, 9 free + 4 paid.
 
 Stdlib-only, thread-safe.
 """
@@ -88,6 +88,7 @@ SAMBANOVA = "sambanova"
 NVIDIA_NIM = "nvidia_nim"
 CLOUDFLARE = "cloudflare"
 GPT4O = "gpt4o"
+CLAUDE_HAIKU = "claude_haiku"
 CLAUDE = "claude"
 CLAUDE_OPUS = "claude_opus"
 
@@ -214,8 +215,19 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "timeout": 45,
         "max_tokens": 4096,
     },
+    CLAUDE_HAIKU: {
+        "name": "Claude Haiku 4.5 (Anthropic)",
+        "api_style": "anthropic",  # Anthropic-specific format
+        "endpoint": "https://api.anthropic.com/v1/messages",
+        "model": "claude-haiku-4-5-20251001",
+        "env_key": "ANTHROPIC_API_KEY",
+        "rpm_limit": 100,  # Haiku is fast + cheap, generous limits
+        "rpd_limit": 20000,
+        "timeout": 25,  # Haiku is very fast
+        "max_tokens": 4096,
+    },
     CLAUDE: {
-        "name": "Claude Sonnet (Anthropic)",
+        "name": "Claude Sonnet 4 (Anthropic)",
         "api_style": "anthropic",  # Anthropic-specific format
         "endpoint": "https://api.anthropic.com/v1/messages",
         "model": "claude-sonnet-4-20250514",
@@ -226,7 +238,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
     },
     CLAUDE_OPUS: {
-        "name": "Claude Opus (Anthropic)",
+        "name": "Claude Opus 4.6 (Anthropic)",
         "api_style": "anthropic",  # Anthropic-specific format
         "endpoint": "https://api.anthropic.com/v1/messages",
         "model": "claude-opus-4-20250514",
@@ -251,19 +263,20 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 #   NVIDIA NIM (Llama 3.1 70B): NVIDIA-optimized inference, diverse model catalog
 #   Cloudflare Workers AI (Llama 3.3 70B): edge-distributed, low latency, 10K neurons/day
 #
-# Paid tier strengths:
+# Paid tier strengths (cost order: Haiku << GPT-4o < Sonnet < Opus):
+#   Claude Haiku: fast + cheap paid fallback, good for simple tasks
 #   GPT-4o: structured JSON, general reasoning, calculations
 #   Claude Sonnet: complex multi-step tool_use chains
-#   Claude Opus: last resort, highest quality
+#   Claude Opus 4.6: last resort, highest quality
 TASK_ROUTING: Dict[str, List[str]] = {
-    TASK_STRUCTURED:     [GEMINI, MISTRAL, NVIDIA_NIM, GROQ, CEREBRAS, OPENROUTER, XAI, SAMBANOVA, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_CONVERSATIONAL: [GROQ, CEREBRAS, GEMINI, MISTRAL, OPENROUTER, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_COMPLEX:        [SAMBANOVA, OPENROUTER, GROQ, CEREBRAS, GEMINI, MISTRAL, XAI, NVIDIA_NIM, CLOUDFLARE, CLAUDE, GPT4O, CLAUDE_OPUS],
-    TASK_CODE:           [GEMINI, MISTRAL, NVIDIA_NIM, GROQ, CEREBRAS, OPENROUTER, XAI, SAMBANOVA, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_VERIFICATION:   [GEMINI, MISTRAL, GROQ, CEREBRAS, NVIDIA_NIM, OPENROUTER, XAI, SAMBANOVA, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_RESEARCH:       [XAI, OPENROUTER, SAMBANOVA, GEMINI, GROQ, CEREBRAS, MISTRAL, NVIDIA_NIM, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_NARRATIVE:      [GROQ, OPENROUTER, GEMINI, CEREBRAS, MISTRAL, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_BATCH:          [CLOUDFLARE, CEREBRAS, GROQ, GEMINI, MISTRAL, NVIDIA_NIM, OPENROUTER, XAI, SAMBANOVA, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_STRUCTURED:     [GEMINI, MISTRAL, NVIDIA_NIM, GROQ, CEREBRAS, OPENROUTER, XAI, SAMBANOVA, CLOUDFLARE, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_CONVERSATIONAL: [GROQ, CEREBRAS, GEMINI, MISTRAL, OPENROUTER, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_COMPLEX:        [SAMBANOVA, OPENROUTER, GROQ, CEREBRAS, GEMINI, MISTRAL, XAI, NVIDIA_NIM, CLOUDFLARE, CLAUDE_HAIKU, CLAUDE, GPT4O, CLAUDE_OPUS],
+    TASK_CODE:           [GEMINI, MISTRAL, NVIDIA_NIM, GROQ, CEREBRAS, OPENROUTER, XAI, SAMBANOVA, CLOUDFLARE, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_VERIFICATION:   [GEMINI, MISTRAL, GROQ, CEREBRAS, NVIDIA_NIM, OPENROUTER, XAI, SAMBANOVA, CLOUDFLARE, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_RESEARCH:       [XAI, OPENROUTER, SAMBANOVA, GEMINI, GROQ, CEREBRAS, MISTRAL, NVIDIA_NIM, CLOUDFLARE, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_NARRATIVE:      [GROQ, OPENROUTER, GEMINI, CEREBRAS, MISTRAL, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_BATCH:          [CLOUDFLARE, CEREBRAS, GROQ, GEMINI, MISTRAL, NVIDIA_NIM, OPENROUTER, XAI, SAMBANOVA, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
 }
 
 # Keywords for task classification

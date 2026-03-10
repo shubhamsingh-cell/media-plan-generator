@@ -1171,6 +1171,13 @@ async function fetchPerfData() {
         try {
             const r = await authFetch(url, { signal: c.signal });
             clearTimeout(t);
+            // Parse JSON even for non-2xx (503 = degraded QC/Matrix still has valid data)
+            const ct = (r.headers.get('content-type') || '');
+            if (ct.includes('application/json')) {
+                const body = await r.json();
+                // Only return null for true errors (no useful payload)
+                if (body && !body.error) return body;
+            }
             if (!r.ok) return null;
             return await r.json();
         } catch { clearTimeout(t); return null; }

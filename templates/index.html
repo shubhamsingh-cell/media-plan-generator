@@ -2622,6 +2622,45 @@
         }
 
         /* ============================================
+           FILE UPLOAD ZONES
+           ============================================ */
+        .file-upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-sm);
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            background: var(--gray-50, #f8fafc);
+        }
+        .file-upload-zone:hover, .file-upload-zone.drag-over {
+            border-color: var(--blue-primary);
+            background: rgba(10,102,201,0.04);
+        }
+        .file-upload-zone.file-upload-sm { padding: 14px; }
+        .file-upload-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.7; }
+        .file-upload-text { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+        .file-upload-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+        .file-list { margin-top: 8px; }
+        .file-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px; background: var(--gray-50, #f8fafc);
+            border: 1px solid var(--border); border-radius: var(--radius-xs, 6px);
+            margin-bottom: 4px; font-size: 12px;
+        }
+        .file-item-name { font-weight: 600; color: var(--text); }
+        .file-item-size { color: var(--text-muted); margin-left: 8px; }
+        .file-item-remove { color: var(--accent-warm, #e74c3c); cursor: pointer; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+        .file-item-remove:hover { background: rgba(231,76,60,0.1); }
+        .exact-input-wrap { margin-top: 8px; animation: fadeInUp 0.3s ease-out; }
+        .section-optional-badge {
+            display: inline-block; font-size: 9px; font-weight: 600;
+            background: var(--gray-100, #f1f5f9); color: var(--text-muted);
+            padding: 2px 8px; border-radius: 10px; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-left: 8px; vertical-align: middle;
+        }
+
+        /* ============================================
            GENERATION TIME ESTIMATE
            ============================================ */
         .gen-time-estimate {
@@ -2751,6 +2790,32 @@
                     <textarea id="useCase" placeholder="Describe the client's recruitment goals, target roles, and any specific hiring challenges..."></textarea>
                 </div>
 
+                <div class="form-group">
+                    <label>Upload Brief / Supporting Documents <span class="section-optional-badge">Optional</span></label>
+                    <div class="file-upload-zone" id="briefUploadZone">
+                        <input type="file" id="briefFileInput" multiple accept=".pdf,.docx,.doc,.txt" style="display:none" />
+                        <div class="file-upload-icon">&#128206;</div>
+                        <div class="file-upload-text">Drop files here or click to upload</div>
+                        <div class="file-upload-hint">PDF, DOCX, TXT -- max 10MB each. RFPs, briefs, or any context docs.</div>
+                    </div>
+                    <div id="briefFileList" class="file-list"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="callTranscript">Sales Call Transcript / Notes <span class="section-optional-badge">Optional</span></label>
+                    <textarea id="callTranscript" rows="3" placeholder="Paste Avoma / Gong transcript or key discussion notes from sales calls..."></textarea>
+                    <div class="form-hint">Paste call transcript or upload below. Key hiring signals, budget cues, and pain points will be extracted to enrich the media plan.</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Upload Call Transcript File <span class="section-optional-badge">Optional</span></label>
+                    <div class="file-upload-zone file-upload-sm" id="transcriptUploadZone">
+                        <input type="file" id="transcriptFileInput" accept=".pdf,.docx,.doc,.txt,.vtt,.srt" style="display:none" />
+                        <div class="file-upload-text">Upload transcript file (PDF, DOCX, TXT, VTT, SRT)</div>
+                    </div>
+                    <div id="transcriptFileList" class="file-list"></div>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="budgetRange">Budget Range</label>
@@ -2762,7 +2827,12 @@
                             <option value="$500,000 - $1,000,000">$500,000 - $1,000,000</option>
                             <option value="$1,000,000 - $3,000,000">$1,000,000 - $3,000,000</option>
                             <option value="$3,000,000+">$3,000,000+</option>
+                            <option value="__exact__">Enter exact amount</option>
                         </select>
+                        <div id="exactBudgetWrap" class="exact-input-wrap" style="display:none;">
+                            <input type="text" id="exactBudget" placeholder="e.g. $12,500,000 or 12.5M or 500K" />
+                            <div class="form-hint">Accepts: $12,500,000 / 12.5M / 500K / 2B etc.</div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="campaignDuration">Campaign Duration</label>
@@ -2824,7 +2894,12 @@
                             <option value="50-100 hires">50-100 hires</option>
                             <option value="100-500 hires">100-500 hires</option>
                             <option value="500+ hires">500+ hires</option>
+                            <option value="__exact__">Enter exact number</option>
                         </select>
+                        <div id="exactHiresWrap" class="exact-input-wrap" style="display:none;">
+                            <input type="text" id="exactHires" placeholder="e.g. 4200" />
+                            <div class="form-hint">Enter the exact number of hires needed</div>
+                        </div>
                     </div>
                     <div></div>
                 </div>
@@ -2860,6 +2935,24 @@
                     </div>
                     <div class="form-hint" style="opacity:0.7">Press Enter to add &bull; Click &times; to remove</div>
                     <div class="form-hint">Adding competitors helps generate deeper competitive intelligence -- we'll research what they're doing and include insights in your media plan.</div>
+                </div>
+
+                <div class="li-section-divider">
+                    <div class="section-number">4</div>
+                    <span class="section-title">Historical Performance Data</span>
+                    <div class="section-line"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Upload Past Campaign Data <span class="section-optional-badge">Optional</span></label>
+                    <div class="file-upload-zone" id="historicalUploadZone">
+                        <input type="file" id="historicalFileInput" multiple accept=".csv,.xlsx,.xls" style="display:none" />
+                        <div class="file-upload-icon">&#128202;</div>
+                        <div class="file-upload-text">Upload historical campaign performance data</div>
+                        <div class="file-upload-hint">CSV or Excel with columns: Platform/Channel, Spend, Applications, Hires, CPA, CPC. We'll analyze what worked and recommend improvements.</div>
+                    </div>
+                    <div id="historicalFileList" class="file-list"></div>
+                    <div class="form-hint">When historical data is provided, the media plan will include a "What You Did vs. What We Recommend" analysis with specific optimization opportunities per platform.</div>
                 </div>
             </div>
             <div class="btn-row">
@@ -3441,6 +3534,113 @@
         let lastGeneratedFilename = null;
 
         // ============================================
+        // File upload state & handlers
+        // ============================================
+        let briefFiles = [];
+        let transcriptFiles = [];
+        let historicalFiles = [];
+
+        function initFileUploads() {
+            _wireUploadZone('briefUploadZone', 'briefFileInput', handleBriefFiles);
+            _wireUploadZone('transcriptUploadZone', 'transcriptFileInput', handleTranscriptFiles);
+            _wireUploadZone('historicalUploadZone', 'historicalFileInput', handleHistoricalFiles);
+
+            // Exact input toggles
+            const budgetSel = document.getElementById('budgetRange');
+            const hireSel = document.getElementById('hireVolume');
+            if (budgetSel) budgetSel.addEventListener('change', toggleExactBudget);
+            if (hireSel) hireSel.addEventListener('change', toggleExactHires);
+        }
+
+        function _wireUploadZone(zoneId, inputId, handler) {
+            const zone = document.getElementById(zoneId);
+            const input = document.getElementById(inputId);
+            if (!zone || !input) return;
+
+            zone.addEventListener('click', () => input.click());
+            input.addEventListener('change', () => handler(input.files));
+
+            zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+            zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('drag-over');
+                handler(e.dataTransfer.files);
+                input.value = '';
+            });
+        }
+
+        function _readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function handleBriefFiles(fileList) {
+            for (const f of fileList) {
+                if (f.size > 10 * 1024 * 1024) { showToast(f.name + ' exceeds 10MB limit', 'warning'); continue; }
+                const data = await _readFileAsBase64(f);
+                briefFiles.push({ name: f.name, size: f.size, type: f.type, data: data });
+            }
+            _renderFileList('briefFileList', briefFiles, 'brief');
+        }
+
+        async function handleTranscriptFiles(fileList) {
+            for (const f of fileList) {
+                if (f.size > 10 * 1024 * 1024) { showToast(f.name + ' exceeds 10MB limit', 'warning'); continue; }
+                const data = await _readFileAsBase64(f);
+                transcriptFiles.push({ name: f.name, size: f.size, type: f.type, data: data });
+            }
+            _renderFileList('transcriptFileList', transcriptFiles, 'transcript');
+        }
+
+        async function handleHistoricalFiles(fileList) {
+            for (const f of fileList) {
+                if (f.size > 10 * 1024 * 1024) { showToast(f.name + ' exceeds 10MB limit', 'warning'); continue; }
+                const data = await _readFileAsBase64(f);
+                historicalFiles.push({ name: f.name, size: f.size, type: f.type, data: data });
+            }
+            _renderFileList('historicalFileList', historicalFiles, 'historical');
+        }
+
+        function _renderFileList(containerId, files, type) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            el.innerHTML = files.map((f, i) =>
+                '<div class="file-item">' +
+                    '<span><span class="file-item-name">' + f.name + '</span>' +
+                    '<span class="file-item-size">(' + (f.size / 1024).toFixed(0) + ' KB)</span></span>' +
+                    '<span class="file-item-remove" onclick="removeFile(\'' + type + '\',' + i + ')">&#10005;</span>' +
+                '</div>'
+            ).join('');
+        }
+
+        function removeFile(type, index) {
+            if (type === 'brief') { briefFiles.splice(index, 1); _renderFileList('briefFileList', briefFiles, 'brief'); }
+            else if (type === 'transcript') { transcriptFiles.splice(index, 1); _renderFileList('transcriptFileList', transcriptFiles, 'transcript'); }
+            else if (type === 'historical') { historicalFiles.splice(index, 1); _renderFileList('historicalFileList', historicalFiles, 'historical'); }
+        }
+
+        function toggleExactBudget() {
+            const sel = document.getElementById('budgetRange');
+            const wrap = document.getElementById('exactBudgetWrap');
+            if (!sel || !wrap) return;
+            wrap.style.display = sel.value === '__exact__' ? 'block' : 'none';
+            if (sel.value !== '__exact__') { const inp = document.getElementById('exactBudget'); if (inp) inp.value = ''; }
+        }
+
+        function toggleExactHires() {
+            const sel = document.getElementById('hireVolume');
+            const wrap = document.getElementById('exactHiresWrap');
+            if (!sel || !wrap) return;
+            wrap.style.display = sel.value === '__exact__' ? 'block' : 'none';
+            if (sel.value !== '__exact__') { const inp = document.getElementById('exactHires'); if (inp) inp.value = ''; }
+        }
+
+        // ============================================
         // Budget feasibility check - industry average CPH benchmarks
         // ============================================
         const INDUSTRY_CPH_BENCHMARKS = {
@@ -3813,6 +4013,9 @@
 
         // Wire validation to blur events for required fields
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize file upload zones and exact input toggles
+            initFileUploads();
+
             const requiredFields = ['requesterName', 'requesterEmail', 'clientName'];
             requiredFields.forEach(fieldId => {
                 const field = document.getElementById(fieldId);
@@ -4533,11 +4736,19 @@
                 locations: locations,
                 target_roles: roles,
                 target_demographic: document.getElementById('targetDemographic').value,
-                budget_range: document.getElementById('budgetRange').value,
+                budget_range: document.getElementById('budgetRange').value === '__exact__'
+                    ? (document.getElementById('exactBudget').value.trim() || '')
+                    : document.getElementById('budgetRange').value,
                 campaign_duration: document.getElementById('campaignDuration').value,
                 campaign_start_month: parseInt(document.getElementById('campaignStartMonth').value) || 0,
                 campaign_goals: getCheckboxGroupValues('campaignGoals'),
-                hire_volume: document.getElementById('hireVolume').value,
+                hire_volume: document.getElementById('hireVolume').value === '__exact__'
+                    ? (document.getElementById('exactHires').value.trim() + ' hires')
+                    : document.getElementById('hireVolume').value,
+                call_transcript: (document.getElementById('callTranscript') || {}).value || '',
+                uploaded_briefs: briefFiles.map(f => ({ name: f.name, type: f.type, data: f.data })),
+                uploaded_transcripts: transcriptFiles.map(f => ({ name: f.name, type: f.type, data: f.data })),
+                uploaded_historical: historicalFiles.map(f => ({ name: f.name, type: f.type, data: f.data })),
                 work_environment: getCheckboxGroupValues('workEnvironment'),
                 competitors: competitors,
                 experience_level: getCheckboxGroupValues('experienceLevel'),

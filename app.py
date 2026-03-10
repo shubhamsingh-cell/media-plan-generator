@@ -6205,6 +6205,95 @@ def generate_excel(data):
                 ws_ba.cell(row=ba_row, column=2, value=f"  {ridx + 1}. {rec_text}").font = Font(name="Calibri", size=10, color="333333")
                 ba_row += 1
 
+    # ── Sheet: Historical Performance Analysis (when client data provided) ──
+    _hist_perf = data.get("historical_performance")
+    if isinstance(_hist_perf, dict) and _hist_perf.get("platforms"):
+        try:
+            ws_hist = wb.create_sheet("Historical Analysis")
+            ws_hist.sheet_properties.tabColor = "E65100"
+            ws_hist.column_dimensions["A"].width = 3
+            ws_hist.column_dimensions["B"].width = 28
+            ws_hist.column_dimensions["C"].width = 16
+            ws_hist.column_dimensions["D"].width = 16
+            ws_hist.column_dimensions["E"].width = 16
+            ws_hist.column_dimensions["F"].width = 16
+            ws_hist.column_dimensions["G"].width = 16
+            ws_hist.column_dimensions["H"].width = 22
+            h_row = 2
+
+            # Title
+            ws_hist.merge_cells(f"B{h_row}:H{h_row}")
+            ws_hist.cell(row=h_row, column=2, value="Historical Performance vs. Recommended Strategy").font = Font(name="Calibri", bold=True, size=14, color="E65100")
+            h_row += 1
+            ws_hist.merge_cells(f"B{h_row}:H{h_row}")
+            ws_hist.cell(row=h_row, column=2, value=f"Based on uploaded data from: {', '.join(_hist_perf.get('source_files', ['client data']))}").font = Font(name="Calibri", italic=True, size=10, color="596780")
+            h_row += 2
+
+            # Summary stats
+            style_section_header(ws_hist, h_row, 2, 8, "Historical Performance Summary")
+            h_row += 2
+            hist_summary = [
+                ("Total Historical Spend", f"${_hist_perf.get('total_spend', 0):,.0f}"),
+                ("Total Hires", f"{_hist_perf.get('total_hires', 0):,}"),
+                ("Total Applications", f"{_hist_perf.get('total_applications', 0):,}"),
+                ("Overall CPA", f"${_hist_perf.get('total_cpa', 0):,.2f}"),
+                ("Overall CPH", f"${_hist_perf.get('total_cph', 0):,.2f}"),
+                ("Platforms Used", str(_hist_perf.get('platform_count', 0))),
+            ]
+            for label, value in hist_summary:
+                ws_hist.cell(row=h_row, column=2, value=label).font = Font(name="Calibri", size=10, color="596780")
+                ws_hist.cell(row=h_row, column=3, value=value).font = Font(name="Calibri", bold=True, size=10, color="1B2A4A")
+                h_row += 1
+            h_row += 1
+
+            # Platform breakdown table
+            style_section_header(ws_hist, h_row, 2, 8, "Platform-by-Platform Breakdown")
+            h_row += 2
+            headers_hist = ["Platform", "Spend", "Applications", "Hires", "CPA", "CPH", "Recommendation"]
+            for col_idx, hdr in enumerate(headers_hist, 2):
+                cell = ws_hist.cell(row=h_row, column=col_idx, value=hdr)
+                cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+                cell.fill = PatternFill("solid", fgColor="1B2A4A")
+                cell.alignment = Alignment(horizontal="center")
+            h_row += 1
+
+            for platform, pdata in sorted(_hist_perf["platforms"].items(), key=lambda x: x[1].get("spend", 0), reverse=True):
+                ws_hist.cell(row=h_row, column=2, value=platform).font = Font(name="Calibri", bold=True, size=10)
+                ws_hist.cell(row=h_row, column=3, value=f"${pdata.get('spend', 0):,.0f}").font = Font(name="Calibri", size=10)
+                ws_hist.cell(row=h_row, column=4, value=f"{pdata.get('applications', 0):,}").font = Font(name="Calibri", size=10)
+                ws_hist.cell(row=h_row, column=5, value=f"{pdata.get('hires', 0):,}").font = Font(name="Calibri", size=10)
+                cpa = pdata.get("cpa", 0)
+                cph = pdata.get("cph", 0)
+                ws_hist.cell(row=h_row, column=6, value=f"${cpa:,.2f}" if cpa else "N/A").font = Font(name="Calibri", size=10)
+                ws_hist.cell(row=h_row, column=7, value=f"${cph:,.2f}" if cph else "N/A").font = Font(name="Calibri", size=10)
+
+                # Generate recommendation based on metrics
+                rec = "Maintain"
+                spend_pct = (pdata.get("spend", 0) / _hist_perf["total_spend"] * 100) if _hist_perf["total_spend"] > 0 else 0
+                if cpa > _hist_perf.get("total_cpa", 0) * 1.5 and spend_pct > 15:
+                    rec = "Reduce allocation -- CPA significantly above average"
+                elif cpa > _hist_perf.get("total_cpa", 0) * 1.2:
+                    rec = "Optimize -- CPA above average"
+                elif cpa < _hist_perf.get("total_cpa", 0) * 0.8 and cpa > 0:
+                    rec = "Increase allocation -- strong CPA performer"
+                elif spend_pct < 5 and pdata.get("hires", 0) > 0:
+                    rec = "Consider scaling -- low spend but generating hires"
+
+                cell_rec = ws_hist.cell(row=h_row, column=8, value=rec)
+                if "Reduce" in rec:
+                    cell_rec.font = Font(name="Calibri", size=9, color="D32F2F")
+                elif "Increase" in rec or "scaling" in rec:
+                    cell_rec.font = Font(name="Calibri", size=9, color="2E7D32")
+                elif "Optimize" in rec:
+                    cell_rec.font = Font(name="Calibri", size=9, color="E65100")
+                else:
+                    cell_rec.font = Font(name="Calibri", size=9, color="596780")
+                h_row += 1
+
+            logger.info("Added Historical Analysis sheet to Excel output")
+        except Exception as _hist_err:
+            logger.warning("Failed to add historical analysis sheet: %s", _hist_err)
+
     # ── Sheet: Campaign Projections (structured estimates) ──
     if isinstance(_budget_alloc, dict) and _budget_alloc:
         try:
@@ -8775,7 +8864,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Empty request body"}).encode())
                 return
-            if content_len > 10 * 1024 * 1024:  # 10MB limit
+            if content_len > 50 * 1024 * 1024:  # 50MB limit (supports file uploads)
                 self.send_response(413)
                 self.send_header("Content-Type", "application/json")
                 cors_origin = self._get_cors_origin()
@@ -8822,16 +8911,32 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
             # Validate required fields
             client_name_input = (data.get("client_name") or "").strip()
+            requester_name_input = (data.get("requester_name") or "").strip()
+            requester_email_input = (data.get("requester_email") or "").strip()
+            roles_input = data.get("target_roles") or data.get("roles", [])
+
+            _missing = []
             if not client_name_input:
+                _missing.append("Client name")
+            if not requester_name_input:
+                _missing.append("Requester name")
+            if not requester_email_input:
+                _missing.append("Requester email")
+            if not roles_input or (isinstance(roles_input, list) and len(roles_input) == 0):
+                _missing.append("At least one target role")
+
+            if _missing:
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
                 cors_origin = self._get_cors_origin()
                 if cors_origin:
                     self.send_header("Access-Control-Allow-Origin", cors_origin)
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Client name is required."}).encode())
+                self.wfile.write(json.dumps({"error": f"Required fields missing: {', '.join(_missing)}."}).encode())
                 return
             data["client_name"] = client_name_input
+            data["requester_name"] = requester_name_input
+            data["requester_email"] = requester_email_input
 
             # Validate critical input fields (non-blocking: store warnings, don't 400)
             _roles_input = data.get("target_roles") or data.get("roles", [])
@@ -9062,6 +9167,55 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     "poll_url": f"/api/jobs/{job_id}",
                 })
                 return
+
+            # ── Process uploaded files (briefs, transcripts, historical data) ──
+            try:
+                from file_processor import extract_all_texts, parse_historical_data, summarize_transcript_context
+
+                # 1. Brief file uploads -> append extracted text to use_case
+                uploaded_briefs = data.pop("uploaded_briefs", []) or []
+                if uploaded_briefs:
+                    brief_text = extract_all_texts(uploaded_briefs)
+                    if brief_text:
+                        existing_use_case = data.get("use_case", "")
+                        data["use_case"] = (existing_use_case + "\n\n--- UPLOADED BRIEF DOCUMENTS ---\n" + brief_text).strip()
+                        logger.info("Appended %d chars from %d uploaded brief file(s)", len(brief_text), len(uploaded_briefs))
+
+                # 2. Call transcript -> extract context and append to use_case
+                call_transcript = data.pop("call_transcript", "") or ""
+                uploaded_transcripts = data.pop("uploaded_transcripts", []) or []
+                transcript_text = call_transcript
+                if uploaded_transcripts:
+                    file_transcript = extract_all_texts(uploaded_transcripts)
+                    transcript_text = (transcript_text + "\n\n" + file_transcript).strip() if transcript_text else file_transcript
+                if transcript_text and len(transcript_text.strip()) > 30:
+                    context_summary = summarize_transcript_context(transcript_text)
+                    if context_summary:
+                        existing_use_case = data.get("use_case", "")
+                        data["use_case"] = (existing_use_case + "\n\n--- SALES CALL CONTEXT ---\n" + context_summary).strip()
+                        logger.info("Added %d chars of call transcript context", len(context_summary))
+
+                # 3. Historical performance data -> parse and store for downstream use
+                uploaded_historical = data.pop("uploaded_historical", []) or []
+                if uploaded_historical:
+                    historical_data = parse_historical_data(uploaded_historical)
+                    if historical_data:
+                        data["historical_performance"] = historical_data
+                        logger.info("Parsed historical data: %d platforms, $%.0f total spend",
+                                    historical_data.get("platform_count", 0), historical_data.get("total_spend", 0))
+            except ImportError:
+                logger.warning("file_processor module not available -- skipping file uploads")
+                # Remove file fields to avoid bloating downstream processing
+                data.pop("uploaded_briefs", None)
+                data.pop("uploaded_transcripts", None)
+                data.pop("uploaded_historical", None)
+                data.pop("call_transcript", None)
+            except Exception as _fp_err:
+                logger.warning("File processing error (non-fatal): %s", _fp_err)
+                data.pop("uploaded_briefs", None)
+                data.pop("uploaded_transcripts", None)
+                data.pop("uploaded_historical", None)
+                data.pop("call_transcript", None)
 
             # ── P0 Fix: Capture timeline, hire_volume, and notes from input ──
             # campaign_duration: normalize from frontend dropdown or API input
