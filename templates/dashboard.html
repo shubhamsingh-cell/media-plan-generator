@@ -805,6 +805,72 @@
             font-family: 'SF Mono', 'Cascadia Mono', 'Menlo', 'Consolas', monospace;
             font-size: 12px;
         }
+
+        /* ===== PRODUCT PERFORMANCE SECTION ===== */
+        .perf-section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
+        .perf-title { font-size:18px; font-weight:700; color:var(--navy); margin:0; }
+        .perf-subtitle { font-size:12px; color:var(--text-muted); }
+
+        .slo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; padding:20px 24px; }
+        .slo-card { border:1px solid var(--gray-200); border-radius:var(--radius-sm); padding:16px; border-left:4px solid var(--gray-300); transition:all .2s ease; }
+        .slo-card:hover { box-shadow:var(--shadow-sm); }
+        .slo-card.slo-ok { border-left-color:var(--green); background:linear-gradient(135deg,#D1FAE5 0%,var(--white) 100%); }
+        .slo-card.slo-breach { border-left-color:var(--red); background:linear-gradient(135deg,#FEE2E2 0%,var(--white) 100%); }
+        .slo-card-name { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--text-secondary); margin-bottom:8px; }
+        .slo-actual { font-size:22px; font-weight:700; color:var(--navy); }
+        .slo-target { font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+        .chat-routing-section { margin-bottom:20px; }
+        .chat-routing-label { font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+        .routing-bar-container { display:flex; height:32px; border-radius:var(--radius-xs); overflow:hidden; background:var(--gray-100); }
+        .routing-bar-seg { display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:#fff; transition:width .5s ease; min-width:0; overflow:hidden; cursor:default; }
+        .routing-legend { display:flex; flex-wrap:wrap; gap:16px; margin-top:10px; }
+        .routing-legend-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-secondary); }
+        .routing-legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+        .routing-legend-val { font-weight:600; color:var(--text); }
+
+        .chat-metrics-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+        .chat-metric-card { background:var(--gray-50); border-radius:var(--radius-sm); padding:14px 16px; border:1px solid var(--gray-200); }
+        .chat-metric-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+        .chat-metric-value { font-size:20px; font-weight:700; color:var(--navy); }
+        .chat-metric-sub { font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+        .qc-summary { display:flex; flex-wrap:wrap; gap:24px; margin-bottom:16px; }
+        .qc-summary-item { display:flex; flex-direction:column; }
+        .qc-summary-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; }
+        .qc-summary-value { font-size:18px; font-weight:700; color:var(--navy); }
+
+        .matrix-table { font-size:12px; }
+        .matrix-table thead th { font-size:10px; padding:8px 6px; text-align:center; white-space:nowrap; }
+        .matrix-table tbody td { text-align:center; padding:8px 6px; }
+        .matrix-table tbody td:first-child { text-align:left; font-weight:600; white-space:nowrap; }
+        .mx { display:inline-block; width:28px; height:28px; border-radius:6px; line-height:28px; text-align:center; font-size:12px; font-weight:600; cursor:default; }
+        .mx-ok { background:#D1FAE5; color:#059669; }
+        .mx-healed { background:#D1FAE5; color:#065F46; border:1px dashed #10B981; }
+        .mx-partial { background:#FEF3C7; color:#B45309; }
+        .mx-error { background:#FEE2E2; color:#EF4444; }
+        .mx-na { background:var(--gray-100); color:var(--gray-400); }
+
+        .tier2-label { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); margin-bottom:10px; font-weight:600; }
+        .tier2-grid { display:flex; flex-wrap:wrap; gap:8px; }
+        .tier2-pill { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:500; border:1px solid var(--gray-200); background:var(--white); }
+        .t2dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+
+        .infra-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; padding:20px 24px; }
+        .infra-card { border:1px solid var(--gray-200); border-radius:var(--radius-sm); padding:14px 16px; }
+        .infra-card-header { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+        .infra-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+        .infra-card-name { font-size:13px; font-weight:600; color:var(--navy); }
+        .infra-card-detail { font-size:12px; color:var(--text-secondary); }
+        .infra-card-sub { font-size:11px; color:var(--text-muted); margin-top:4px; font-family:'SF Mono','Cascadia Mono','Menlo',monospace; }
+
+        @media (max-width: 768px) {
+            .slo-grid { grid-template-columns:1fr; }
+            .chat-metrics-grid { grid-template-columns:1fr 1fr; }
+            .infra-grid { grid-template-columns:1fr; }
+            .mx { width:22px; height:22px; line-height:22px; font-size:10px; }
+            .routing-legend { gap:8px; }
+        }
     </style>
 </head>
 <body>
@@ -835,6 +901,10 @@
         </a>
         <a href="#documents" onclick="scrollToSection('documents')">
             <span class="nav-icon">&#x1f4c2;</span> Document Repository
+        </a>
+        <div class="sidebar-nav-label">Monitoring</div>
+        <a href="#performance" onclick="scrollToSection('performance')">
+            <span class="nav-icon">&#x2699;</span> Product Performance
         </a>
     </nav>
     <div class="sidebar-footer">
@@ -981,6 +1051,73 @@
                 </div>
             </div>
         </section>
+
+        <!-- ===== PRODUCT PERFORMANCE SECTION ===== -->
+        <section class="section-anchor" id="performance">
+            <div class="perf-section-header">
+                <h2 class="perf-title">&#x2699; Product Performance</h2>
+                <span class="perf-subtitle" id="perfLastUpdated">Last updated: --</span>
+            </div>
+
+            <!-- Panel 1: System Health Overview -->
+            <div class="stats-grid" id="perfStatsGrid">
+                <div class="stat-card animate-in"><div class="stat-icon">&#x1f4a1;</div><div class="stat-label">System Status</div><div class="stat-value" id="perfStatus">--</div><div class="stat-sub" id="perfStatusSub">Loading...</div></div>
+                <div class="stat-card animate-in"><div class="stat-icon">&#x23f1;</div><div class="stat-label">Uptime</div><div class="stat-value" id="perfUptime">--</div><div class="stat-sub" id="perfUptimeSub">Loading...</div></div>
+                <div class="stat-card animate-in"><div class="stat-icon">&#x1f3af;</div><div class="stat-label">SLO Compliance</div><div class="stat-value" id="perfSloScore">--</div><div class="stat-sub" id="perfSloScoreSub">Loading...</div></div>
+                <div class="stat-card animate-in"><div class="stat-icon">&#x1f9e9;</div><div class="stat-label">Health Score</div><div class="stat-value" id="perfHealthScore">--</div><div class="stat-sub" id="perfHealthScoreSub">Loading...</div></div>
+                <div class="stat-card animate-in"><div class="stat-icon">&#x1f4e8;</div><div class="stat-label">Total Requests</div><div class="stat-value" id="perfTotalReqs">--</div><div class="stat-sub" id="perfTotalReqsSub">Loading...</div></div>
+                <div class="stat-card animate-in"><div class="stat-icon">&#x26a0;</div><div class="stat-label">Error Rate</div><div class="stat-value" id="perfErrorRate">--</div><div class="stat-sub" id="perfErrorRateSub">Loading...</div></div>
+            </div>
+
+            <!-- Panel 2: SLO Compliance -->
+            <div class="panel" style="margin-top:20px;">
+                <div class="panel-header"><h3>&#x1f3af; SLO Compliance</h3><span id="sloTimestamp" style="font-size:11px;color:var(--text-muted);"></span></div>
+                <div class="slo-grid" id="sloGrid"><div class="loading-overlay" style="grid-column:1/-1;"><div class="spinner"></div><div class="loading-text">Loading SLO data...</div></div></div>
+            </div>
+
+            <!-- Panel 3: Chatbot Performance -->
+            <div class="panel" style="margin-top:20px;">
+                <div class="panel-header"><h3>&#x1f916; Chatbot Performance</h3><span id="chatModel" style="font-size:11px;color:var(--text-muted);"></span></div>
+                <div style="padding:20px 24px;">
+                    <div class="chat-routing-section">
+                        <div class="chat-routing-label">Chat Routing Breakdown</div>
+                        <div class="routing-bar-container" id="routingBar"></div>
+                        <div class="routing-legend" id="routingLegend"></div>
+                    </div>
+                    <div class="chat-metrics-grid" id="chatMetricsGrid"><div class="loading-overlay"><div class="spinner"></div><div class="loading-text">Loading chat metrics...</div></div></div>
+                </div>
+            </div>
+
+            <!-- Panel 4: QC Test Results -->
+            <div class="panel" style="margin-top:20px;">
+                <div class="panel-header"><h3>&#x1f9ea; QC Test Results</h3><div class="panel-header-actions"><span id="qcStatusBadge" class="badge badge-pending">Loading...</span><span id="qcNextRun" style="font-size:11px;color:var(--text-muted);margin-left:8px;"></span></div></div>
+                <div style="padding:20px 24px;">
+                    <div class="qc-summary" id="qcSummary"></div>
+                    <div class="table-wrap"><table><thead><tr><th>Run #</th><th>Timestamp</th><th>Status</th><th>Passed</th><th>Failed</th><th>Total</th><th>Duration</th></tr></thead><tbody id="qcHistoryBody"><tr><td colspan="7"><div class="table-empty">Loading QC data...</div></td></tr></tbody></table></div>
+                </div>
+            </div>
+
+            <!-- Panel 5: Data Matrix Health -->
+            <div class="panel" style="margin-top:20px;">
+                <div class="panel-header"><h3>&#x1f9e9; Data Matrix Health</h3><div class="panel-header-actions"><span id="matrixHealthPct" style="font-size:13px;font-weight:600;"></span><span id="matrixCheckInfo" style="font-size:11px;color:var(--text-muted);margin-left:8px;"></span></div></div>
+                <div class="table-wrap" style="padding:12px 24px 20px;">
+                    <table class="matrix-table"><thead id="matrixHead"><tr><th>Product \ Layer</th></tr></thead><tbody id="matrixBody"><tr><td colspan="10"><div class="table-empty">Loading data matrix...</div></td></tr></tbody></table>
+                </div>
+                <div style="padding:0 24px 20px;"><div class="tier2-label">Infrastructure Modules</div><div class="tier2-grid" id="tier2Grid"></div></div>
+            </div>
+
+            <!-- Panel 6: Self-Healing Activity -->
+            <div class="panel" style="margin-top:20px;">
+                <div class="panel-header"><h3>&#x1fa79; Self-Healing Activity</h3><span id="healCount" style="font-size:12px;color:var(--text-secondary);"></span></div>
+                <div class="table-wrap"><table><thead><tr><th>Timestamp</th><th>Component</th><th>Action</th><th>Result</th></tr></thead><tbody id="healLogBody"><tr><td colspan="4"><div class="table-empty">Loading heal log...</div></td></tr></tbody></table></div>
+            </div>
+
+            <!-- Panel 7: Infrastructure Health -->
+            <div class="panel" style="margin-top:20px;">
+                <div class="panel-header"><h3>&#x1f5a7; Infrastructure Health</h3></div>
+                <div class="infra-grid" id="infraGrid"><div class="loading-overlay" style="grid-column:1/-1;"><div class="spinner"></div><div class="loading-text">Loading infrastructure data...</div></div></div>
+            </div>
+        </section>
     </div>
 </div>
 
@@ -1012,6 +1149,243 @@ function authUrl(url) {
     if (!_adminKey) return url;
     const sep = url.includes('?') ? '&' : '?';
     return url + sep + 'key=' + encodeURIComponent(_adminKey);
+}
+
+// ===== PRODUCT PERFORMANCE STATE =====
+let perfHealth = null, perfMetrics = null, perfSlos = null, perfNova = null;
+let perfQc = null, perfMatrix = null, perfOrchestrator = null;
+
+async function fetchPerfData() {
+    const endpoints = [
+        ['/api/health', 'perfHealth'],
+        ['/api/metrics', 'perfMetrics'],
+        ['/api/health/slos', 'perfSlos'],
+        ['/api/nova/metrics', 'perfNova'],
+        ['/api/health/auto-qc', 'perfQc'],
+        ['/api/health/data-matrix', 'perfMatrix'],
+        ['/api/health/orchestrator', 'perfOrchestrator'],
+    ];
+    const results = await Promise.allSettled(endpoints.map(async ([url]) => {
+        const c = new AbortController();
+        const t = setTimeout(() => c.abort(), 15000);
+        try {
+            const r = await authFetch(url, { signal: c.signal });
+            clearTimeout(t);
+            if (!r.ok) return null;
+            return await r.json();
+        } catch { clearTimeout(t); return null; }
+    }));
+    [perfHealth, perfMetrics, perfSlos, perfNova, perfQc, perfMatrix, perfOrchestrator] =
+        results.map(r => r.status === 'fulfilled' ? r.value : null);
+    renderPerfOverview();
+    renderSloPanel();
+    renderChatPerf();
+    renderQcPanel();
+    renderMatrixPanel();
+    renderHealLog();
+    renderInfraPanel();
+    const ts = document.getElementById('perfLastUpdated');
+    if (ts) ts.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+}
+
+function fmtTimeAgo(sec) {
+    if (!sec && sec !== 0) return '--';
+    if (sec < 60) return Math.round(sec) + 's ago';
+    if (sec < 3600) return Math.round(sec / 60) + 'm ago';
+    if (sec < 86400) return Math.round(sec / 3600) + 'h ago';
+    return Math.round(sec / 86400) + 'd ago';
+}
+function fmtCountdown(sec) {
+    if (!sec && sec !== 0) return '--';
+    if (sec < 60) return Math.round(sec) + 's';
+    if (sec < 3600) return Math.floor(sec / 60) + 'h ' + Math.round(sec % 60) + 'm';
+    return Math.floor(sec / 3600) + 'h ' + Math.round((sec % 3600) / 60) + 'm';
+}
+
+function renderPerfOverview() {
+    const el = (id, val, sub) => {
+        const v = document.getElementById(id); if (v) v.textContent = val;
+        const s = document.getElementById(id + 'Sub'); if (s) s.textContent = sub || '';
+    };
+    el('perfStatus', perfHealth ? perfHealth.status.toUpperCase() : '--', perfHealth ? 'v' + perfHealth.version : '');
+    el('perfUptime', perfMetrics ? perfMetrics.uptime_human : '--', perfMetrics ? 'Since startup' : '');
+    if (perfSlos && perfSlos.slos) {
+        const slos = Object.values(perfSlos.slos);
+        const ok = slos.filter(s => s.compliant).length;
+        el('perfSloScore', ok + '/' + slos.length, ok === slos.length ? 'All compliant' : (slos.length - ok) + ' breached');
+    } else { el('perfSloScore', '--', 'Unavailable'); }
+    el('perfHealthScore', perfMatrix ? (perfMatrix.health_pct || 0).toFixed(1) + '%' : '--',
+       perfMatrix ? perfMatrix.summary ? perfMatrix.summary.ok + ' ok, ' + (perfMatrix.summary.error || 0) + ' errors' : '' : 'Unavailable');
+    el('perfTotalReqs', perfMetrics ? perfMetrics.total_requests.toLocaleString() : '--',
+       perfMetrics ? perfMetrics.requests_per_minute.toFixed(1) + ' req/min' : '');
+    el('perfErrorRate', perfMetrics ? perfMetrics.error_rate_pct.toFixed(2) + '%' : '--',
+       perfMetrics ? perfMetrics.total_errors + ' total errors' : '');
+}
+
+function renderSloPanel() {
+    const grid = document.getElementById('sloGrid');
+    if (!perfSlos || !perfSlos.slos) { grid.innerHTML = '<div class="table-empty" style="grid-column:1/-1;">SLO data unavailable</div>'; return; }
+    const nameMap = { generate_p99_ms:'Generate P99', chat_p99_ms:'Chat P99', error_rate_pct:'Error Rate', availability_pct:'Availability' };
+    const fmtVal = (k, v) => {
+        if (k.includes('_ms')) return (v/1000).toFixed(1) + 's';
+        if (k.includes('_pct')) return v.toFixed(2) + '%';
+        return String(v);
+    };
+    grid.innerHTML = Object.entries(perfSlos.slos).map(([k, s]) => {
+        const cls = s.compliant ? 'slo-ok' : 'slo-breach';
+        const badge = s.compliant ? '<span class="badge badge-success">Compliant</span>' : '<span class="badge badge-error">Breached</span>';
+        return '<div class="slo-card ' + cls + '">' +
+            '<div class="slo-card-name">' + escapeHtml(nameMap[k] || k) + '</div>' +
+            '<div class="slo-actual">' + fmtVal(k, s.actual) + '</div>' +
+            '<div class="slo-target">Target: ' + fmtVal(k, s.target) + '</div>' +
+            '<div style="margin-top:8px;">' + badge + '</div>' +
+            (s.budget_remaining_pct !== undefined ? '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Budget remaining: ' + s.budget_remaining_pct.toFixed(2) + '%</div>' : '') +
+            '</div>';
+    }).join('');
+    const tsEl = document.getElementById('sloTimestamp');
+    if (tsEl && perfSlos.checked_at) tsEl.textContent = 'Checked: ' + new Date(perfSlos.checked_at).toLocaleTimeString();
+}
+
+function renderChatPerf() {
+    const barEl = document.getElementById('routingBar');
+    const legEl = document.getElementById('routingLegend');
+    const gridEl = document.getElementById('chatMetricsGrid');
+    const modelEl = document.getElementById('chatModel');
+    if (!perfNova) { gridEl.innerHTML = '<div class="table-empty">Chat metrics unavailable</div>'; return; }
+    if (modelEl) modelEl.textContent = perfNova.model || '';
+    const cr = perfNova.chat_routing || {};
+    const segs = [
+        { key:'conversational', label:'Conversational', color:'#0A66C9' },
+        { key:'tool', label:'Tool (Free LLM)', color:'#10B981' },
+        { key:'claude', label:'Claude (Paid)', color:'#F59E0B' },
+        { key:'suppressed', label:'Suppressed', color:'#9CA3AF' },
+    ];
+    const total = segs.reduce((s, sg) => s + (cr[sg.key] || 0), 0) || 1;
+    barEl.innerHTML = segs.map(sg => {
+        const cnt = cr[sg.key] || 0;
+        const pct = (cnt / total * 100).toFixed(1);
+        return cnt > 0 ? '<div class="routing-bar-seg" style="width:' + pct + '%;background:' + sg.color + ';" title="' + sg.label + ': ' + cnt + ' (' + pct + '%)">' + (parseFloat(pct) > 8 ? pct + '%' : '') + '</div>' : '';
+    }).join('');
+    legEl.innerHTML = segs.map(sg => {
+        const cnt = cr[sg.key] || 0;
+        return '<div class="routing-legend-item"><span class="routing-legend-dot" style="background:' + sg.color + ';"></span>' + sg.label + ' <span class="routing-legend-val">' + cnt + '</span></div>';
+    }).join('');
+    const lat = perfNova.latency_ms || {};
+    const tok = perfNova.tokens || {};
+    gridEl.innerHTML = [
+        { l:'Avg Latency', v:(lat.avg||0).toFixed(0)+'ms', s:'P95: '+(lat.p95||0).toFixed(0)+'ms' },
+        { l:'Tokens Used', v:((tok.total_input||0)+(tok.total_output||0)).toLocaleString(), s:'In: '+(tok.total_input||0).toLocaleString()+' Out: '+(tok.total_output||0).toLocaleString() },
+        { l:'Est. Cost', v:'$'+(perfNova.estimated_cost_usd||0).toFixed(4), s:'Cache hit: '+(perfNova.cache_hit_rate_pct||0).toFixed(1)+'%' },
+        { l:'API Errors', v:String(perfNova.api_errors||0), s:perfNova.total_requests+' total requests' },
+    ].map(c => '<div class="chat-metric-card"><div class="chat-metric-label">' + c.l + '</div><div class="chat-metric-value">' + c.v + '</div><div class="chat-metric-sub">' + c.s + '</div></div>').join('');
+}
+
+function renderQcPanel() {
+    const sumEl = document.getElementById('qcSummary');
+    const tbody = document.getElementById('qcHistoryBody');
+    const badgeEl = document.getElementById('qcStatusBadge');
+    const nextEl = document.getElementById('qcNextRun');
+    if (!perfQc) { tbody.innerHTML = '<tr><td colspan="7"><div class="table-empty">QC data unavailable</div></td></tr>'; return; }
+    const statusMap = { all_passing:'badge-success', healed:'badge-pending', degraded:'badge-error', running:'badge-pending', pending:'badge-pending' };
+    badgeEl.className = 'badge ' + (statusMap[perfQc.status] || 'badge-pending');
+    badgeEl.textContent = (perfQc.status || 'unknown').replace(/_/g, ' ');
+    if (perfQc.next_run_in_seconds) nextEl.textContent = 'Next run in ' + fmtCountdown(perfQc.next_run_in_seconds);
+    const lr = perfQc.last_run || {};
+    sumEl.innerHTML = [
+        { l:'Total Runs', v:perfQc.total_runs||0 },
+        { l:'Static Tests', v:perfQc.static_tests||0 },
+        { l:'Dynamic Tests', v:perfQc.dynamic_tests||0 },
+        { l:'Last Run', v:lr.timestamp ? fmtTimeAgo(perfQc.last_run_age_seconds) : 'Never' },
+        { l:'Passed', v:lr.passed||0 },
+        { l:'Failed', v:lr.failed||0 },
+    ].map(i => '<div class="qc-summary-item"><div class="qc-summary-label">' + i.l + '</div><div class="qc-summary-value">' + i.v + '</div></div>').join('');
+    const hist = perfQc.run_history || [];
+    if (hist.length === 0) { tbody.innerHTML = '<tr><td colspan="7"><div class="table-empty">No QC runs yet</div></td></tr>'; return; }
+    tbody.innerHTML = hist.map(r => {
+        const bc = r.status === 'all_passing' ? 'badge-success' : r.status === 'healed' ? 'badge-pending' : 'badge-error';
+        return '<tr><td class="mono">' + r.run_number + '</td><td class="mono" style="white-space:nowrap;">' + formatDate(r.timestamp) + '</td>' +
+            '<td><span class="badge ' + bc + '">' + (r.status||'').replace(/_/g,' ') + '</span></td>' +
+            '<td>' + r.passed + '</td><td>' + r.failed + '</td><td>' + r.total + '</td>' +
+            '<td class="mono">' + (r.duration_seconds||0).toFixed(1) + 's</td></tr>';
+    }).join('');
+}
+
+function renderMatrixPanel() {
+    const thead = document.getElementById('matrixHead');
+    const tbody = document.getElementById('matrixBody');
+    const pctEl = document.getElementById('matrixHealthPct');
+    const infoEl = document.getElementById('matrixCheckInfo');
+    const tier2El = document.getElementById('tier2Grid');
+    if (!perfMatrix || !perfMatrix.matrix) {
+        tbody.innerHTML = '<tr><td colspan="10"><div class="table-empty">Data matrix ' + (perfMatrix && perfMatrix.status === 'pending' ? 'pending first check...' : 'unavailable') + '</div></td></tr>';
+        return;
+    }
+    if (pctEl) { pctEl.textContent = (perfMatrix.health_pct||0).toFixed(1) + '% healthy'; pctEl.style.color = (perfMatrix.health_pct||0)>=90?'var(--green)':(perfMatrix.health_pct||0)>=70?'var(--amber)':'var(--red)'; }
+    if (infoEl) infoEl.textContent = 'Check #' + (perfMatrix.check_number||'?') + ' | ' + fmtTimeAgo(perfMatrix.age_seconds);
+    const layers = ['json_files','api_enrichment','research','data_synthesizer','budget_engine','standardizer','claude_api','trend_engine','collar_intelligence'];
+    const layerLbl = { json_files:'JSON', api_enrichment:'API Enrich', research:'Research', data_synthesizer:'Synthesizer', budget_engine:'Budget', standardizer:'Standardize', claude_api:'Claude API', trend_engine:'Trends', collar_intelligence:'Collar Intel' };
+    thead.innerHTML = '<tr><th>Product</th>' + layers.map(l => '<th>' + (layerLbl[l]||l) + '</th>').join('') + '</tr>';
+    const products = ['excel_ppt','nova_chat','slack_bot','ppt_generator'];
+    const prodLbl = { excel_ppt:'Excel/PPT', nova_chat:'Nova Chat', slack_bot:'Slack Bot', ppt_generator:'PPT Gen' };
+    const ico = { ok:{c:'mx-ok',i:'&#x2714;'}, healed:{c:'mx-healed',i:'&#x1f529;'}, partial:{c:'mx-partial',i:'&#x25cb;'}, error:{c:'mx-error',i:'&#x2718;'}, ok_expected_no:{c:'mx-na',i:'&#x2014;'} };
+    tbody.innerHTML = products.map(p => {
+        const cells = layers.map(l => {
+            const cell = (perfMatrix.matrix[p]||{})[l]||{};
+            const h = cell.health||'error'; const ci = ico[h]||ico.error;
+            return '<td><div class="mx ' + ci.c + '" title="' + escapeHtml((cell.detail||h)) + '">' + ci.i + '</div></td>';
+        }).join('');
+        return '<tr><td>' + (prodLbl[p]||p) + '</td>' + cells + '</tr>';
+    }).join('');
+    const t2 = perfMatrix.tier2_modules || {};
+    tier2El.innerHTML = Object.entries(t2).map(([k, m]) => {
+        const dc = m.status==='ok'?'var(--green)':m.status==='partial'?'var(--amber)':'var(--red)';
+        return '<div class="tier2-pill" title="' + escapeHtml(m.detail||'') + '"><span class="t2dot" style="background:' + dc + ';"></span>' + escapeHtml(m.description||k) + '</div>';
+    }).join('') || '<span style="color:var(--text-muted);font-size:12px;">No tier 2 data</span>';
+}
+
+function renderHealLog() {
+    const tbody = document.getElementById('healLogBody');
+    const countEl = document.getElementById('healCount');
+    let all = [];
+    if (perfQc && perfQc.recent_heals) all = all.concat(perfQc.recent_heals.map(h => ({...h, src:'QC'})));
+    if (perfMatrix && perfMatrix.recent_heal_actions) all = all.concat(perfMatrix.recent_heal_actions.map(h => ({...h, src:'Matrix'})));
+    all.sort((a, b) => (b.timestamp||'').localeCompare(a.timestamp||''));
+    all = all.slice(0, 10);
+    if (countEl) countEl.textContent = all.length + ' recent action' + (all.length !== 1 ? 's' : '');
+    if (all.length === 0) { tbody.innerHTML = '<tr><td colspan="4"><div class="table-empty">No self-healing actions recorded</div></td></tr>'; return; }
+    tbody.innerHTML = all.map(h => {
+        const bc = h.success ? 'badge-success' : 'badge-error';
+        const comp = [h.src, h.product, h.layer, h.test].filter(Boolean).join(' / ');
+        return '<tr><td class="mono" style="white-space:nowrap;">' + formatDate(h.timestamp) + '</td>' +
+            '<td>' + escapeHtml(comp) + '</td><td>' + escapeHtml(h.action||h.heal_action||'--') + '</td>' +
+            '<td><span class="badge ' + bc + '">' + (h.success?'Success':'Failed') + '</span></td></tr>';
+    }).join('');
+}
+
+function renderInfraPanel() {
+    const grid = document.getElementById('infraGrid');
+    const cards = [];
+    if (perfMatrix && perfMatrix.extended_health) {
+        const lbl = { llm_providers:'LLM Providers', async_job_queue:'Async Jobs', api_keys:'API Keys', kb_freshness:'KB Freshness', eval_score:'Eval Score', regression_baseline:'Regression Baseline', v35_routing:'v3.5 Routing' };
+        for (const [k, d] of Object.entries(perfMatrix.extended_health)) {
+            let sub = '';
+            if (k === 'llm_providers' && d.providers) sub = Object.entries(d.providers).map(([n,v]) => n+': '+(v?'OK':'DOWN')).join(' | ');
+            else if (k === 'api_keys' && d.providers) sub = Object.entries(d.providers).map(([n,v]) => n+': '+(v?'SET':'MISS')).join(' | ');
+            else if (k === 'kb_freshness' && d.stale_files && d.stale_files.length) sub = 'Stale: ' + d.stale_files.slice(0,3).join(', ');
+            cards.push({ name:lbl[k]||k, status:d.status, detail:d.detail||'', sub });
+        }
+    }
+    if (perfOrchestrator) {
+        const cs = perfOrchestrator.cache_stats;
+        if (cs) cards.push({ name:'Orchestrator Cache', status:cs.cache_hit_ratio > 0.5 ? 'ok':'partial', detail:(cs.active_entries||0)+' active, ratio: '+(cs.cache_hit_ratio||0).toFixed(2), sub:'' });
+        const ft = perfOrchestrator.fallback_telemetry;
+        if (ft) cards.push({ name:'Fallback Telemetry', status:ft.total_fallbacks > 20 ? 'partial':'ok', detail:(ft.total_fallbacks||0)+' fallbacks, '+(ft.unique_queries||0)+' unique', sub:'' });
+    }
+    if (cards.length === 0) { grid.innerHTML = '<div class="table-empty" style="grid-column:1/-1;">Infrastructure data unavailable</div>'; return; }
+    grid.innerHTML = cards.map(c => {
+        const dc = c.status==='ok'?'var(--green)':c.status==='partial'?'var(--amber)':'var(--red)';
+        return '<div class="infra-card"><div class="infra-card-header"><span class="infra-dot" style="background:'+dc+';"></span><span class="infra-card-name">'+escapeHtml(c.name)+'</span></div><div class="infra-card-detail">'+escapeHtml(c.detail)+'</div>'+(c.sub?'<div class="infra-card-sub">'+escapeHtml(c.sub)+'</div>':'')+'</div>';
+    }).join('');
 }
 
 // ===== DATA FETCHING (with timeout) =====
@@ -1056,6 +1430,7 @@ async function fetchDocuments() {
 function refreshData() {
     fetchRequests();
     fetchDocuments();
+    fetchPerfData();
     resetCountdown();
 }
 
