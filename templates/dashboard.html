@@ -1413,6 +1413,9 @@ function renderInfraPanel() {
 function renderIntegrationsPanel() {
     const grid = document.getElementById('integrationsGrid');
     if (!perfIntegrations) { grid.innerHTML = '<div class="table-empty" style="grid-column:1/-1;">Integrations data unavailable</div>'; return; }
+    // Backend now returns categorized response -- flatten infrastructure + add summary
+    const infra = perfIntegrations.infrastructure || {};
+    const summary = perfIntegrations.summary || {};
     const meta = {
         sentry: { icon:'&#x1f6e1;', label:'Sentry', desc:'Error tracking & crash reporting. Captures unhandled exceptions in do_GET/do_POST, performance traces (20% sample), stack traces.' },
         upstash_redis: { icon:'&#x26a1;', label:'Upstash Redis', desc:'Persistent L4 cache layer. Stores API enrichment results with 24h TTL. Reduces cold-start API calls and speeds up repeat queries.' },
@@ -1420,12 +1423,23 @@ function renderIntegrationsPanel() {
         supabase: { icon:'&#x1f4be;', label:'Supabase', desc:'Persistent L3 cache. Long-term storage of enrichment API responses across server restarts.' },
     };
     const cards = [];
-    for (const [k, d] of Object.entries(perfIntegrations)) {
-        const m = meta[k] || { icon:'&#x2699;', label:k, desc:'' };
+    // Show infrastructure tools (Sentry, Upstash, PostHog, Supabase)
+    for (const [k, d] of Object.entries(infra)) {
+        if (!d || typeof d !== 'object' || !d.status) continue;
+        const m = meta[k] || { icon:'&#x2699;', label: d.name || k, desc: d.value || '' };
         cards.push({
             icon: m.icon, name: m.label, status: d.status || 'unknown',
             detail: d.detail || '', desc: m.desc,
             sub: d.keys ? d.keys + ' cached keys' : (d.sdk_version ? 'SDK v' + d.sdk_version : ''),
+        });
+    }
+    // Add summary card showing total integrations
+    if (summary.total_integrations) {
+        cards.push({
+            icon: '&#x1f310;', name: 'All Integrations', status: 'ok',
+            detail: summary.active + ' active / ' + summary.total_integrations + ' total APIs & tools',
+            desc: 'Free Data APIs, LLMs, Ad Platforms, Communication. See full details on Observability page.',
+            sub: (summary.disabled || 0) + ' need API keys',
         });
     }
     if (cards.length === 0) { grid.innerHTML = '<div class="table-empty" style="grid-column:1/-1;">No integrations configured</div>'; return; }
