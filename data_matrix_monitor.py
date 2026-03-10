@@ -17,6 +17,8 @@ Dependencies: stdlib only (no new packages).
 
 from __future__ import annotations
 
+import gc
+import hashlib
 import importlib
 import json
 import logging
@@ -35,6 +37,13 @@ _INITIAL_DELAY = 60           # wait 60s after startup before first check
 _MAX_HEAL_LOG = 20            # keep last N heal actions
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
+
+# Env vars to track for config drift detection (hash only, never store values)
+_TRACKED_ENV_VARS = [
+    "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY",
+    "CEREBRAS_API_KEY", "SENTRY_DSN", "POSTHOG_API_KEY",
+    "UPSTASH_REDIS_REST_URL", "SUPABASE_URL",
+]
 
 # Required KB JSON files that all products depend on
 _REQUIRED_KB_FILES = [
@@ -169,6 +178,9 @@ class DataMatrixMonitor:
         self._heal_log: List[Dict[str, Any]] = []
         self._thread: Optional[threading.Thread] = None
         self._json_probe_cache: Optional[Dict[str, Any]] = None
+        # Config drift: snapshot env var hashes at startup
+        self._env_snapshot: Dict[str, str] = self._snapshot_env_hashes()
+        self._last_drift_check: float = time.time()
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -200,7 +212,12 @@ class DataMatrixMonitor:
             result["next_check_in_seconds"] = max(
                 0, round(_CHECK_INTERVAL - (time.time() - self._last_check_time), 1)
             )
-            return result
+        # Add self-healing subsystem status (outside lock for safety)
+        try:
+            result["config_drift"] = self._check_config_drift()
+        except Exception:
+            result["config_drift"] = {"status": "unknown"}
+        return result
 
     def run_check(self) -> Dict[str, Any]:
         """Run a full 4x7 matrix probe, attempt self-healing, return results."""
@@ -337,6 +354,16 @@ class DataMatrixMonitor:
                 self.run_check()
             except Exception as e:
                 logger.error("DataMatrixMonitor: check failed: %s", e, exc_info=True)
+            # Memory pressure check every cycle
+            try:
+                self._check_memory_pressure()
+            except Exception as e:
+                logger.debug("DataMatrixMonitor: memory pressure check failed: %s", e)
+            # Config drift check every cycle
+            try:
+                self._check_config_drift()
+            except Exception as e:
+                logger.debug("DataMatrixMonitor: config drift check failed: %s", e)
             time.sleep(_CHECK_INTERVAL)
 
     # ── Probes ────────────────────────────────────────────────────────────
@@ -753,6 +780,154 @@ class DataMatrixMonitor:
         level = logging.INFO if success else logging.WARNING
         logger.log(level, "DataMatrixMonitor: heal %s/%s -- %s (success=%s)",
                    product, layer, action, success)
+
+    # ── Memory pressure auto-recovery ─────────────────────────────────────
+
+    def _check_memory_pressure(self) -> Dict[str, Any]:
+        """Check RSS memory and take recovery actions if thresholds exceeded.
+
+        Thresholds:
+            > 1 GB: gc.collect, evict ALL expired cache entries, compact audit log
+            > 1.5 GB: additionally clear entire L1 memory cache
+        Returns dict with actions taken (empty if no pressure detected).
+        """
+        actions: List[str] = []
+        rss_mb = -1.0
+        try:
+            # Get RSS via /proc (Linux) or resource module (Unix)
+            try:
+                with open("/proc/self/status", "r") as f:
+                    for line in f:
+                        if line.startswith("VmRSS:"):
+                            rss_mb = int(line.split()[1]) / 1024.0
+                            break
+            except (FileNotFoundError, PermissionError, ValueError):
+                import resource as _res
+                rss = _res.getrusage(_res.RUSAGE_SELF).ru_maxrss
+                if sys.platform == "darwin":
+                    rss_mb = rss / (1024 * 1024)  # bytes -> MB on macOS
+                else:
+                    rss_mb = rss / 1024.0  # KB -> MB on Linux
+
+            if rss_mb < 0 or rss_mb < 1024:
+                return {"rss_mb": round(rss_mb, 1), "actions": actions}
+
+            # ── Tier 1: RSS > 1 GB ──
+            collected = gc.collect()
+            actions.append(f"gc.collect freed {collected} objects")
+
+            # Evict ALL expired orchestrator cache entries
+            try:
+                if "data_orchestrator" in sys.modules:
+                    do = sys.modules["data_orchestrator"]
+                    now = time.time()
+                    with do._api_cache_lock:
+                        expired = [k for k, v in do._api_result_cache.items()
+                                   if now >= v.get("expires", 0)]
+                        for k in expired:
+                            do._api_result_cache.pop(k, None)
+                    if expired:
+                        actions.append(f"evicted {len(expired)} expired cache entries")
+            except Exception as e:
+                logger.debug("Memory heal: cache eviction failed: %s", e)
+
+            # Compact heal log
+            with self._lock:
+                if len(self._heal_log) > 10:
+                    self._heal_log = self._heal_log[-10:]
+                    actions.append("compacted audit/heal log to 10 entries")
+
+            # ── Tier 2: RSS > 1.5 GB ──
+            if rss_mb > 1536:
+                try:
+                    if "api_enrichment" in sys.modules:
+                        ae = sys.modules["api_enrichment"]
+                        with ae._cache_lock:
+                            cleared = len(ae._memory_cache)
+                            ae._memory_cache.clear()
+                        actions.append(f"cleared L1 memory cache ({cleared} entries)")
+                except Exception as e:
+                    logger.debug("Memory heal: L1 cache clear failed: %s", e)
+
+            for action in actions:
+                self._record_heal("system", "memory", action, True)
+            logger.warning(
+                "DataMatrixMonitor: memory pressure recovery (RSS=%.0fMB): %s",
+                rss_mb, "; ".join(actions))
+
+        except Exception as e:
+            logger.debug("Memory pressure check failed: %s", e)
+            actions.append(f"check_error: {e}")
+
+        return {"rss_mb": round(rss_mb, 1), "actions": actions}
+
+    # ── Config drift detection ────────────────────────────────────────────
+
+    @staticmethod
+    def _snapshot_env_hashes() -> Dict[str, str]:
+        """Hash (not store) the current values of tracked env vars."""
+        snap: Dict[str, str] = {}
+        for var in _TRACKED_ENV_VARS:
+            val = os.environ.get(var, "")
+            snap[var] = hashlib.sha256(val.encode()).hexdigest()[:16]
+        return snap
+
+    def _check_config_drift(self) -> Dict[str, Any]:
+        """Compare current env var hashes against startup snapshot.
+
+        If any changed, log the drift and optionally reload affected modules.
+        Returns dict with drift details.
+        """
+        current = self._snapshot_env_hashes()
+        drifted: List[str] = []
+        for var in _TRACKED_ENV_VARS:
+            if current.get(var) != self._env_snapshot.get(var):
+                drifted.append(var)
+
+        self._last_drift_check = time.time()
+
+        if not drifted:
+            return {"status": "ok", "drifted_vars": []}
+
+        logger.warning(
+            "DataMatrixMonitor: config drift detected for: %s",
+            ", ".join(drifted))
+
+        # Attempt module reload for affected components
+        _VAR_TO_MODULE = {
+            "ANTHROPIC_API_KEY": "llm_router",
+            "GEMINI_API_KEY": "llm_router",
+            "GROQ_API_KEY": "llm_router",
+            "CEREBRAS_API_KEY": "llm_router",
+            "SENTRY_DSN": None,  # sentry SDK inits once; skip reload
+            "POSTHOG_API_KEY": None,  # analytics; skip reload
+            "UPSTASH_REDIS_REST_URL": "upstash_cache",
+            "SUPABASE_URL": "supabase_cache",
+        }
+        reloaded: List[str] = []
+        for var in drifted:
+            mod_name = _VAR_TO_MODULE.get(var)
+            if mod_name and mod_name in sys.modules:
+                try:
+                    importlib.reload(sys.modules[mod_name])
+                    reloaded.append(mod_name)
+                    self._record_heal("system", "config_drift",
+                                      f"reloaded {mod_name} (env {var} changed)",
+                                      True)
+                except Exception as e:
+                    logger.warning("Config drift: failed to reload %s: %s",
+                                   mod_name, e)
+                    self._record_heal("system", "config_drift",
+                                      f"reload {mod_name} failed: {e}", False)
+
+        # Update snapshot to avoid re-alerting
+        self._env_snapshot = current
+
+        return {
+            "status": "drifted",
+            "drifted_vars": drifted,
+            "modules_reloaded": reloaded,
+        }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

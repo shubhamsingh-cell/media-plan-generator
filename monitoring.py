@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import platform
+import shutil
 import sys
 import threading
 import time
@@ -524,6 +525,15 @@ def health_check_readiness() -> Dict[str, Any]:
         checks["disk_write"] = {"status": "error", "detail": str(e)}
         overall_healthy = False
 
+    # 2b. Disk space health (auto-recovery on low space)
+    try:
+        disk_health = check_disk_health()
+        checks["disk_health"] = disk_health
+        if disk_health.get("status") == "critical":
+            overall_healthy = False
+    except Exception as e:
+        checks["disk_health"] = {"status": "unknown", "detail": str(e)}
+
     # 3. Disk usage (generated docs)
     try:
         docs_dir = DOCS_DIR
@@ -751,6 +761,74 @@ def _format_duration(seconds: float) -> str:
         return f"{h}h {m}m"
     d, h = divmod(h, 24)
     return f"{d}d {h}h {m}m"
+
+
+def check_disk_health() -> Dict[str, Any]:
+    """Check disk free space and take auto-recovery actions if low.
+
+    Thresholds:
+        < 500 MB free: auto-rotate/truncate largest log files in data/
+        < 100 MB free: clear all disk cache files in data/api_cache/
+
+    Returns dict with status, free space, and any actions taken.
+    """
+    actions: List[str] = []
+    try:
+        usage = shutil.disk_usage(str(DATA_DIR))
+        free_mb = usage.free / (1024 * 1024)
+        total_mb = usage.total / (1024 * 1024)
+        used_pct = round((usage.used / usage.total) * 100, 1) if usage.total else 0
+
+        status = "ok"
+        if free_mb < 500:
+            status = "warning"
+            # Auto-rotate: truncate largest .log / .json files in data/
+            try:
+                log_files = sorted(
+                    (f for f in DATA_DIR.glob("*.log") if f.is_file()),
+                    key=lambda f: f.stat().st_size,
+                    reverse=True,
+                )
+                for lf in log_files[:3]:  # truncate top 3 largest
+                    size_before = lf.stat().st_size
+                    if size_before > 1024 * 1024:  # only if > 1MB
+                        lf.write_text("")  # truncate
+                        actions.append(
+                            f"truncated {lf.name} ({size_before // 1024}KB)"
+                        )
+            except Exception as e:
+                logger.debug("Disk heal: log rotation failed: %s", e)
+
+        if free_mb < 100:
+            status = "critical"
+            # Clear all disk cache files
+            try:
+                if CACHE_DIR.exists():
+                    removed = 0
+                    for cf in CACHE_DIR.glob("*.json"):
+                        try:
+                            cf.unlink()
+                            removed += 1
+                        except OSError:
+                            pass
+                    if removed:
+                        actions.append(f"cleared {removed} cache files from api_cache/")
+            except Exception as e:
+                logger.debug("Disk heal: cache clear failed: %s", e)
+
+        if actions:
+            logger.warning("Disk health recovery (free=%.0fMB): %s",
+                          free_mb, "; ".join(actions))
+
+        return {
+            "status": status,
+            "free_mb": round(free_mb, 1),
+            "total_mb": round(total_mb, 1),
+            "used_percent": used_pct,
+            "actions_taken": actions,
+        }
+    except Exception as e:
+        return {"status": "unknown", "detail": str(e), "actions_taken": []}
 
 
 def _get_memory_usage() -> Dict[str, Any]:

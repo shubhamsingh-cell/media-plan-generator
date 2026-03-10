@@ -806,6 +806,66 @@ def _circuit_breaker_record_failure(api_name: str) -> None:
         _circuit_breaker_state[api_name] = state
 
 
+# ---------------------------------------------------------------------------
+# API Key Auth Failure Tracking (self-healing: key rotation detection)
+# ---------------------------------------------------------------------------
+
+_auth_failure_counts: Dict[str, int] = {}  # api_name -> consecutive 401/403 count
+_auth_failure_lock = threading.Lock()
+_AUTH_ALERT_THRESHOLD = 3  # consecutive auth failures before alerting
+
+
+def _record_auth_failure(api_name: str) -> None:
+    """Track a 401/403 auth failure. Alert after threshold consecutive failures."""
+    with _auth_failure_lock:
+        _auth_failure_counts[api_name] = _auth_failure_counts.get(api_name, 0) + 1
+        count = _auth_failure_counts[api_name]
+    _log_warn(f"Auth failure ({count}x) for '{api_name}' — possible key rotation")
+    if count == _AUTH_ALERT_THRESHOLD:
+        try:
+            from email_alerts import send_error_alert
+            send_error_alert(
+                error_type="APIAuthFailure",
+                error_message=(
+                    f"API '{api_name}' returned {count} consecutive 401/403 errors. "
+                    f"API key may have been rotated or revoked."
+                ),
+                context={"api_name": api_name, "consecutive_failures": count},
+            )
+        except Exception:
+            _log_warn(f"Could not send auth failure alert for '{api_name}'")
+
+
+def _clear_auth_failure(api_name: str) -> None:
+    """Reset auth failure count on successful auth."""
+    with _auth_failure_lock:
+        _auth_failure_counts.pop(api_name, None)
+
+
+def check_api_key_health() -> Dict[str, Any]:
+    """Return current auth-failure status for all tracked APIs.
+
+    Useful for health-check endpoints and diagnostics dashboards.
+    """
+    with _auth_failure_lock:
+        snapshot = dict(_auth_failure_counts)
+    result: Dict[str, Any] = {}
+    for api_name, count in snapshot.items():
+        result[api_name] = {
+            "consecutive_auth_failures": count,
+            "status": "critical" if count >= _AUTH_ALERT_THRESHOLD else (
+                "warning" if count > 0 else "ok"
+            ),
+        }
+    # Also include circuit-breaker state for context
+    with _circuit_breaker_lock:
+        for api_name, state in _circuit_breaker_state.items():
+            if api_name not in result:
+                result[api_name] = {"consecutive_auth_failures": 0, "status": "ok"}
+            result[api_name]["circuit_breaker_open"] = state.get("is_open", False)
+    return result
+
+
 def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None,
                    timeout: int = API_TIMEOUT) -> Optional[Any]:
     """
@@ -980,6 +1040,13 @@ def _http_get_json_with_retry(
                     if _ctx_idx > 0:
                         _log_warn(f"SSL verification BYPASSED for {url}")
                     raw = resp.read().decode("utf-8")
+                    # Clear auth failure count on success
+                    try:
+                        _h = urllib.parse.urlparse(url).hostname or ""
+                        if _h:
+                            _clear_auth_failure(_h)
+                    except Exception:
+                        pass
                     return json.loads(raw)
             except ssl.SSLError:
                 if _ctx_idx == 0:
@@ -987,6 +1054,14 @@ def _http_get_json_with_retry(
                 continue  # retry with unverified context
             except urllib.error.HTTPError as exc:
                 status_code = exc.code
+                # ── Auth failure detection (key rotation) ──
+                if status_code in (401, 403):
+                    # Extract API name from URL host for tracking
+                    try:
+                        _host = urllib.parse.urlparse(url).hostname or url
+                    except Exception:
+                        _host = url[:60]
+                    _record_auth_failure(_host)
                 if status_code in (429, 503) and attempt < max_retries:
                     # Determine wait time: prefer Retry-After header
                     retry_after = exc.headers.get("Retry-After") if exc.headers else None
