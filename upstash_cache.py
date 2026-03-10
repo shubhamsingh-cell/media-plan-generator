@@ -32,8 +32,9 @@ logger = logging.getLogger(__name__)
 # Configuration
 # ---------------------------------------------------------------------------
 
-UPSTASH_URL = os.environ.get("UPSTASH_REDIS_URL", "").strip().rstrip("/")
-UPSTASH_TOKEN = os.environ.get("UPSTASH_REDIS_TOKEN", "").strip()
+# Accept both Upstash naming conventions: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_URL
+UPSTASH_URL = (os.environ.get("UPSTASH_REDIS_REST_URL") or os.environ.get("UPSTASH_REDIS_URL") or "").strip().rstrip("/")
+UPSTASH_TOKEN = (os.environ.get("UPSTASH_REDIS_REST_TOKEN") or os.environ.get("UPSTASH_REDIS_TOKEN") or "").strip()
 
 # Connection validation
 _ENABLED = bool(UPSTASH_URL and UPSTASH_TOKEN)
