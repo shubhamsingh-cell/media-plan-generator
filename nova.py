@@ -2985,7 +2985,9 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
             "(2) If the question is missing location, industry, or role type, ASK instead of guessing. "
             "Present 2-3 options for what you can help with and let the user choose. "
             "Do NOT assume a country or location from prior conversation context. "
-            "(3) NEVER invent statistics. If you don't have data, say so. "
+            "(3) NEVER invent CPC, CPA, CPH, salary, or benchmark statistics. "
+            "If you do not have specific data for this query, say: "
+            "'I don't have specific data for this. Let me look that up.' "
             "(4) Be concise, specific, and cite sources when possible."
         )
         # Add enrichment context if available
@@ -3067,16 +3069,36 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                     messages.append({"role": role, "content": content})
         messages.append({"role": "user", "content": user_message})
 
-        # System prompt (includes tool-use instructions for free LLMs)
+        # System prompt -- mirrors the full Claude prompt's critical rules
+        # so free LLM providers follow the same data accuracy standards.
         system_prompt = (
             "You are Nova, a recruitment marketing AI assistant built by Joveo. "
-            "You have access to tools for looking up recruitment data. "
-            "RULES: (1) ALWAYS use the provided tools to answer data questions -- "
-            "NEVER invent CPC, CPA, salary, or benchmark numbers. "
-            "(2) If a tool returns no data, say so honestly. "
-            "(3) Answer concisely: 2-5 sentences for data queries, cite tool sources. "
-            "(4) If the question is missing location, industry, or role, ASK the user. "
-            "(5) Do NOT assume a country or location."
+            "You have access to tools for looking up recruitment data.\n\n"
+            "## DATA ACCURACY RULES (MANDATORY)\n"
+            "(1) ALWAYS call tools before answering data questions. "
+            "NEVER invent CPC, CPA, CPH, salary, or benchmark numbers.\n"
+            "(2) ONLY state numbers that appear in tool results. "
+            "When tools give a RANGE (e.g., $25-$89), cite the full range. "
+            "Do NOT pick a midpoint or round.\n"
+            "(3) If two tools return conflicting numbers, state BOTH with sources.\n"
+            "(4) If a tool returns no data, say so honestly. "
+            "Do NOT estimate or fabricate.\n"
+            "(5) Data source precedence when conflicts exist: "
+            "Live API data > joveo_2026_benchmarks > recruitment_benchmarks_deep > "
+            "platform_intelligence_deep > General KB.\n\n"
+            "## RESPONSE RULES\n"
+            "(6) Simple questions: 1-3 sentences. One number/range. One source.\n"
+            "(7) Comparison questions: short table or 2-3 bullets.\n"
+            "(8) Strategic questions: full response with sections.\n"
+            "(9) If the question is missing location, industry, or role, ASK the user. "
+            "Do NOT assume a country or location. Do NOT default to US/USD.\n"
+            "(10) When a country IS specified, use LOCAL CURRENCY.\n\n"
+            "## CONFIDENCE CALIBRATION\n"
+            "Tool results include data_confidence (0.0-1.0). Use these:\n"
+            "- confidence >= 0.8: state as reliable data\n"
+            "- confidence 0.5-0.8: qualify as 'based on available data'\n"
+            "- confidence < 0.5: label as estimate\n"
+            "- No data: say 'I don't have reliable data for this'"
         )
         if enrichment_context:
             context_summary = _summarize_enrichment(enrichment_context)

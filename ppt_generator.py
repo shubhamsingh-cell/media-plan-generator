@@ -785,6 +785,44 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                     result["cpa"] = f"${min_cpa:.0f} - ${max_cpa:.0f}" if min_cpa != max_cpa else f"${min_cpa:.0f}"
                     result["confidence"] = "live_api"
 
+    # Layer 0: Budget engine CPH and apply_rate overrides
+    # These were NEVER overridden before (always hardcoded) -- fix v3.4.1
+    if data:
+        budget_alloc = data.get("_budget_allocation", {})
+        if isinstance(budget_alloc, dict) and budget_alloc:
+            total_proj = budget_alloc.get("total_projected", {})
+            if isinstance(total_proj, dict):
+                # CPH from budget engine
+                live_cph = total_proj.get("cost_per_hire") or total_proj.get("cph")
+                if isinstance(live_cph, (int, float)) and live_cph > 0:
+                    # Format as range: computed +/- 20% to show realistic spread
+                    low_cph = live_cph * 0.8
+                    high_cph = live_cph * 1.2
+                    result["cph"] = f"${low_cph:,.0f} - ${high_cph:,.0f}"
+                # Apply rate from budget engine
+                live_apply_rate = total_proj.get("apply_rate") or total_proj.get("conversion_rate")
+                if isinstance(live_apply_rate, (int, float)) and live_apply_rate > 0:
+                    # Apply rate might be 0-1 or 0-100; normalize
+                    if live_apply_rate < 1:
+                        live_apply_rate *= 100
+                    low_ar = live_apply_rate * 0.85
+                    high_ar = live_apply_rate * 1.15
+                    result["apply_rate"] = f"{low_ar:.1f}% - {high_ar:.1f}%"
+
+        # Also check synthesized salary_intelligence for CPH context
+        # but ONLY if the budget engine didn't already set it (budget engine
+        # computes CPH from actual budget/projections -- higher quality).
+        synthesized = data.get("_synthesized", {})
+        _budget_set_cph = isinstance(budget_alloc, dict) and budget_alloc  # budget engine ran
+        if not _budget_set_cph and isinstance(synthesized, dict):
+            salary_intel = synthesized.get("salary_intelligence", {})
+            if isinstance(salary_intel, dict):
+                synth_cph = salary_intel.get("estimated_cost_per_hire") or salary_intel.get("cph")
+                if isinstance(synth_cph, (int, float)) and synth_cph > 0:
+                    low_cph = synth_cph * 0.8
+                    high_cph = synth_cph * 1.2
+                    result["cph"] = f"${low_cph:,.0f} - ${high_cph:,.0f}"
+
     return result
 
 
@@ -817,11 +855,35 @@ def _get_complications(industry: str) -> List[str]:
     return base
 
 
-def _get_industry_comparison(industry: str) -> Dict[str, Any]:
-    """Return industry benchmark comparison data."""
-    return INDUSTRY_BENCHMARKS_COMPARISON.get(
+def _get_industry_comparison(industry: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+    """Return industry benchmark comparison data.
+
+    v3.4.1: overlay dynamic data from budget engine / synthesized data
+    on top of the hardcoded base, so live API values take precedence.
+    """
+    result = dict(INDUSTRY_BENCHMARKS_COMPARISON.get(
         industry, INDUSTRY_BENCHMARKS_COMPARISON["general_entry_level"]
-    )
+    ))
+
+    if data:
+        budget_alloc = data.get("_budget_allocation", {})
+        if isinstance(budget_alloc, dict) and budget_alloc:
+            total_proj = budget_alloc.get("total_projected", {})
+            if isinstance(total_proj, dict):
+                live_cpa = total_proj.get("cpa") or total_proj.get("cost_per_application")
+                if isinstance(live_cpa, (int, float)) and live_cpa > 0:
+                    result["avg_cpa"] = f"${live_cpa * 0.8:.0f} - ${live_cpa * 1.2:.0f}"
+                live_cph = total_proj.get("cost_per_hire") or total_proj.get("cph")
+                if isinstance(live_cph, (int, float)) and live_cph > 0:
+                    result["avg_cph"] = f"${live_cph * 0.8:,.0f} - ${live_cph * 1.2:,.0f}"
+            ch_allocs = budget_alloc.get("channel_allocations", {})
+            if isinstance(ch_allocs, dict) and ch_allocs:
+                n_ch = len([c for c in ch_allocs.values() if isinstance(c, dict) and c.get("percentage", 0) > 0])
+                if n_ch > 0:
+                    # Keep as int -- used in arithmetic comparisons downstream
+                    result["avg_channels"] = n_ch
+
+    return result
 
 
 def _selected_channels(data: Dict) -> Dict[str, Dict[str, Any]]:
@@ -2589,7 +2651,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     left_panel_x = Inches(0.55)
     right_panel_x = left_panel_x + panel_w + panel_gap
 
-    ind_benchmarks = _get_industry_comparison(industry)
+    ind_benchmarks = _get_industry_comparison(industry, data)
     n_channels = len(channels)
     n_locations = len(locations)
 

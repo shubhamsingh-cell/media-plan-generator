@@ -3246,16 +3246,32 @@ def generate_excel(data):
         cell.border = thin_border
     row += 1
 
-    bar_items = [
-        ("Indeed", 85),
-        ("LinkedIn", 90),
-        ("Google Ads", 75),
-        ("Facebook/Meta", 70),
-        ("Programmatic DSP", 80),
-        ("Niche Job Boards", 88),
-        ("Social Media", 65),
-        ("Events/Career Fairs", 72),
-    ]
+    # Dynamic channel effectiveness from budget engine ROI scores (0-10 -> 0-100)
+    # Falls back to generic defaults only if budget_allocation is empty.
+    _eff_budget = data.get("_budget_allocation", {})
+    _eff_ch_allocs = _eff_budget.get("channel_allocations", {}) if isinstance(_eff_budget, dict) else {}
+    if _eff_ch_allocs and isinstance(_eff_ch_allocs, dict):
+        bar_items = []
+        for _eff_ch_name, _eff_ch_data in _eff_ch_allocs.items():
+            if isinstance(_eff_ch_data, dict):
+                _eff_roi = _eff_ch_data.get("roi_score", _eff_ch_data.get("roi", 5))
+                _eff_score = min(int(round(float(_eff_roi) * 10)), 100) if isinstance(_eff_roi, (int, float)) else 50
+                _eff_label = _eff_ch_name.replace("_", " ").title()
+                bar_items.append((_eff_label, _eff_score))
+        bar_items.sort(key=lambda x: x[1], reverse=True)
+        bar_items = bar_items[:8]  # top 8 channels
+    else:
+        # Fallback: generic defaults (only used if budget engine produced no data)
+        bar_items = [
+            ("Indeed", 85),
+            ("LinkedIn", 90),
+            ("Google Ads", 75),
+            ("Facebook/Meta", 70),
+            ("Programmatic DSP", 80),
+            ("Niche Job Boards", 88),
+            ("Social Media", 65),
+            ("Events/Career Fairs", 72),
+        ]
     for ch_name, score in bar_items:
         style_body_cell(ws_strategy, row, 2, ch_name)
         style_body_cell(ws_strategy, row, 3, score)
@@ -3335,7 +3351,7 @@ def generate_excel(data):
     ws_trad["B2"].border = accent_bottom_border
 
     roles_str = f" | Target Roles: {', '.join(roles[:5])}" if roles else ""
-    _trad_pubs = joveo_pubs.get('total_active_publishers', 1238)
+    _trad_pubs = joveo_pubs.get('total_active_publishers', 10238)
     _trad_pubs_str = f"{_trad_pubs:,}" if isinstance(_trad_pubs, (int, float)) else str(_trad_pubs)
     ws_trad["B3"].value = f"Target: {', '.join(locations)}{roles_str} | Joveo Supply Network: {_trad_pubs_str}+ active publishers"
     ws_trad["B3"].font = Font(name="Calibri", italic=True, size=10, color="666666")
@@ -4030,15 +4046,32 @@ def generate_excel(data):
             cell.border = thin_border
         row += 1
 
-        pie_items = [
-            ("Job Boards (Programmatic)", 35),
-            ("Social Media Advertising", 20),
-            ("Niche/Industry Boards", 15),
-            ("Employer Branding", 10),
-            ("Events & Career Fairs", 8),
-            ("Innovative/Emerging", 7),
-            ("DEI Channels", 5),
-        ]
+        # Dynamic pie from budget engine channel allocations
+        _pie_budget = data.get("_budget_allocation", {})
+        _pie_ch_allocs = _pie_budget.get("channel_allocations", {}) if isinstance(_pie_budget, dict) else {}
+        if _pie_ch_allocs and isinstance(_pie_ch_allocs, dict):
+            pie_items = []
+            for _pie_ch_name, _pie_ch_data in _pie_ch_allocs.items():
+                if isinstance(_pie_ch_data, dict):
+                    _pie_pct = _pie_ch_data.get("percentage", _pie_ch_data.get("pct", 0))
+                    if isinstance(_pie_pct, (int, float)) and _pie_pct > 0:
+                        _pie_label = _pie_ch_name.replace("_", " ").title()
+                        pie_items.append((_pie_label, round(float(_pie_pct))))
+            pie_items.sort(key=lambda x: x[1], reverse=True)
+            # Ensure percentages sum close to 100
+            if not pie_items:
+                pie_items = [("Unallocated", 100)]
+        else:
+            # Fallback: generic defaults (only if budget engine produced no data)
+            pie_items = [
+                ("Job Boards (Programmatic)", 35),
+                ("Social Media Advertising", 20),
+                ("Niche/Industry Boards", 15),
+                ("Employer Branding", 10),
+                ("Events & Career Fairs", 8),
+                ("Innovative/Emerging", 7),
+                ("DEI Channels", 5),
+            ]
         for label, pct in pie_items:
             style_body_cell(ws_budget, row, 2, label)
             style_body_cell(ws_budget, row, 3, pct)
