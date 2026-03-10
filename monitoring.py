@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-VERSION = "3.4.0"
+VERSION = "3.5.0"
 _START_TIME = time.time()
 DATA_DIR = Path(__file__).resolve().parent / "data"
 PERSISTENT_DIR = Path(__file__).resolve().parent / "data" / "persistent"
