@@ -8077,20 +8077,26 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         return ""  # No CORS header = browser blocks
 
     def _check_admin_auth(self):
-        """Check for admin API key via Authorization header only.
+        """Check for admin API key via Authorization header OR ?key= query param.
         Uses hmac.compare_digest for timing-safe comparison to prevent
         timing side-channel attacks on the API key.
         SECURITY: Fails closed -- rejects if ADMIN_API_KEY is not configured."""
         if not ADMIN_API_KEY:
             return False  # No key configured = reject (fail closed)
+        import hmac
+        # Method 1: Authorization: Bearer <key> header (API clients)
         auth = self.headers.get("Authorization", "")
-        key = None
         if auth.startswith("Bearer "):
             key = auth[7:]
-        if not key:
-            return False
-        import hmac
-        return hmac.compare_digest(key, ADMIN_API_KEY)
+            if key and hmac.compare_digest(key, ADMIN_API_KEY):
+                return True
+        # Method 2: ?key=<key> query parameter (browser / dashboard access)
+        parsed = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed.query)
+        key_param = params.get("key", [None])[0]
+        if key_param and hmac.compare_digest(key_param, ADMIN_API_KEY):
+            return True
+        return False
 
     def _check_rate_limit(self):
         """Tiered rate limiting: API key tier limits take precedence over per-IP limits.
