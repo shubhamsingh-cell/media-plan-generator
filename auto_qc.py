@@ -2367,6 +2367,87 @@ class AutoQC:
         except Exception as e:
             return TestResult("llm_routing_task_classification_8_types", False, f"Error: {e}")
 
+    # ── v3.5 Architecture Tests ─────────────────────────────────────────
+
+    def _test_77_conversational_routing_inversion(self) -> TestResult:
+        """v3.5 -- _query_is_conversational() inverts routing default (tools by default)."""
+        try:
+            from nova import Nova
+            nova = Nova()
+            # Greetings should be conversational
+            conv_queries = ["hi", "hello there", "thanks", "bye"]
+            # Data queries should NOT be conversational (route to tools)
+            tool_queries = [
+                "What's a typical CPC for nursing?",
+                "Compare hiring costs in NYC vs London",
+                "What salary should I offer for an engineer?",
+                "Show me benchmark data for healthcare",
+                "What strategy should I use for recruiting?",  # contains "strategy" keyword
+            ]
+            errors = []
+            for q in conv_queries:
+                if not nova._query_is_conversational(q):
+                    errors.append(f"'{q}' should be conversational but wasn't")
+            for q in tool_queries:
+                if nova._query_is_conversational(q):
+                    errors.append(f"'{q}' should NOT be conversational but was")
+            ok = len(errors) == 0
+            detail = f"{len(conv_queries) + len(tool_queries)} queries tested"
+            if errors:
+                detail += f" | failures: {'; '.join(errors[:3])}"
+            return TestResult("conversational_routing_inversion", ok, detail)
+        except Exception as e:
+            return TestResult("conversational_routing_inversion", False, f"Error: {e}")
+
+    def _test_78_response_uses_tool_data_check(self) -> TestResult:
+        """v3.5 -- _response_uses_tool_data() detects when LLM ignores tool output."""
+        try:
+            from nova import _response_uses_tool_data
+            # Response that references tool data
+            tool_results = ['{"location": "New York", "salary_range": "$80,000 - $120,000", "source": "BLS"}']
+            good_response = "In New York, salary ranges for this role are $80,000 - $120,000 according to BLS data."
+            bad_response = "Generally, salaries vary widely depending on experience and location factors."
+
+            uses_good = _response_uses_tool_data(good_response, tool_results)
+            uses_bad = _response_uses_tool_data(bad_response, tool_results)
+            # No tools = should return True
+            no_tools = _response_uses_tool_data("any response", [])
+
+            ok = uses_good and not uses_bad and no_tools
+            detail = f"good={uses_good}, bad={uses_bad}, no_tools={no_tools}"
+            return TestResult("response_uses_tool_data_check", ok, detail)
+        except Exception as e:
+            return TestResult("response_uses_tool_data_check", False, f"Error: {e}")
+
+    def _test_79_suppression_gate_threshold(self) -> TestResult:
+        """v3.5 -- Grounding + verification scores below 0.4 trigger suppression."""
+        try:
+            from nova import _verify_response_grounding, _response_uses_tool_data
+            # Test non-numeric response that ignores tool data
+            tool_results = ['{"cpc": 2.50, "source": "Google Ads", "location": "Chicago"}']
+            ignoring_response = "You should consider various advertising channels for best results."
+
+            _, score = _verify_response_grounding(ignoring_response, tool_results)
+            # Score should be low (0.3) because response ignores tool data
+            ok = score < 0.4
+            detail = f"grounding_score={score:.2f} for response ignoring tool data (should be < 0.4)"
+            return TestResult("suppression_gate_threshold", ok, detail)
+        except Exception as e:
+            return TestResult("suppression_gate_threshold", False, f"Error: {e}")
+
+    def _test_80_v35_version_marker(self) -> TestResult:
+        """v3.5 -- Nova has _query_is_conversational method (v3.5 routing)."""
+        try:
+            from nova import Nova
+            nova = Nova()
+            has_new = hasattr(nova, '_query_is_conversational')
+            has_patterns = hasattr(nova, '_CONVERSATIONAL_PATTERNS')
+            ok = has_new and has_patterns
+            detail = f"_query_is_conversational={has_new}, _CONVERSATIONAL_PATTERNS={has_patterns}"
+            return TestResult("v35_version_marker", ok, detail)
+        except Exception as e:
+            return TestResult("v35_version_marker", False, f"Error: {e}")
+
     # ══════════════════════════════════════════════════════════════════════
     # DYNAMIC TESTS (generated weekly from user interaction analysis)
     # ══════════════════════════════════════════════════════════════════════

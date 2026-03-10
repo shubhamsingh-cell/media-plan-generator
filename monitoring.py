@@ -219,6 +219,11 @@ class MetricsCollector:
         self.total_generations: int = 0
         self.total_chat_requests: int = 0
         self.total_slack_events: int = 0
+        # v3.5 routing metrics
+        self.chat_conversational_count: int = 0  # Path A (no tools)
+        self.chat_tool_count: int = 0             # Path B (free tools)
+        self.chat_claude_count: int = 0           # Path C (paid fallback)
+        self.chat_suppressed_count: int = 0       # Suppression gate triggered
         # Rolling window for rate calculations
         self._recent_requests: deque = deque()
         self._recent_errors: deque = deque()
@@ -263,9 +268,18 @@ class MetricsCollector:
             self.total_generations += 1
             self._generation_times.append(duration_seconds)
 
-    def record_chat(self) -> None:
+    def record_chat(self, path: str = "") -> None:
         with self._req_lock:
             self.total_chat_requests += 1
+            # v3.5 routing path tracking
+            if path == "conversational":
+                self.chat_conversational_count += 1
+            elif path == "tool":
+                self.chat_tool_count += 1
+            elif path == "claude":
+                self.chat_claude_count += 1
+            elif path == "suppressed":
+                self.chat_suppressed_count += 1
 
     def record_slack_event(self) -> None:
         with self._req_lock:
@@ -361,6 +375,19 @@ class MetricsCollector:
                     "avg_latency_ms": round(
                         sum(self._api_latencies) / max(1, len(self._api_latencies)), 1
                     ) if self._api_latencies else 0,
+                },
+                # v3.5 routing breakdown
+                "chat_routing": {
+                    "conversational_count": self.chat_conversational_count,
+                    "tool_count": self.chat_tool_count,
+                    "claude_count": self.chat_claude_count,
+                    "suppressed_count": self.chat_suppressed_count,
+                    "tool_pct": round(
+                        self.chat_tool_count / max(1, self.total_chat_requests) * 100, 1
+                    ),
+                    "claude_pct": round(
+                        self.chat_claude_count / max(1, self.total_chat_requests) * 100, 1
+                    ),
                 },
             }
 

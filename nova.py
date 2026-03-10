@@ -156,6 +156,24 @@ class _NovaMetrics:
         with self._lock:
             self.api_errors += 1
 
+    def record_chat(self, path: str = "") -> None:
+        """Record chat routing path for v3.5 metrics.
+
+        Args:
+            path: One of 'conversational', 'tool', 'claude', 'suppressed'.
+        """
+        with self._lock:
+            if not hasattr(self, '_chat_paths'):
+                self._chat_paths: Dict[str, int] = {}
+            self._chat_paths[path] = self._chat_paths.get(path, 0) + 1
+            # Also forward to MetricsCollector singleton if available
+            try:
+                from monitoring import MetricsCollector
+                mc = MetricsCollector()
+                mc.record_chat(path)
+            except Exception:
+                pass
+
     def snapshot(self) -> Dict[str, Any]:
         """Return a metrics snapshot for the /api/nova/metrics endpoint."""
         with self._lock:
@@ -203,6 +221,7 @@ class _NovaMetrics:
                     "samples": len(lats),
                 },
                 "api_errors": self.api_errors,
+                "chat_routing": dict(getattr(self, '_chat_paths', {})),
                 "model": f"{CLAUDE_MODEL_PRIMARY} (simple/medium) / {CLAUDE_MODEL_COMPLEX} (complex)",
                 "uptime_seconds": round(time.time() - self._start_time, 1),
             }
@@ -2740,16 +2759,18 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 return cached
 
-        # --- LLM routing strategy (v3.4 -- free providers handle tools) ---
-        # 1. Simple/conversational queries -> free LLM providers (no tools, cost=0)
-        # 2. Tool-use queries -> free LLM providers WITH tools (cost=0)
+        # --- LLM routing strategy (v3.5 -- INVERTED: tools by default) ---
+        # PRINCIPLE: Unknown queries default to tool path (safe).
+        # Only obvious greetings/meta skip tools.
+        # 1. Conversational queries -> free LLM providers (no tools, cost=0)
+        # 2. Everything else  -> free LLM providers WITH tools (cost=0)
         # 3. Claude API -> LAST RESORT paid fallback (only if free fails)
         # 4. Rule-based fallback
-        _needs_tools = self._query_needs_tools(user_message)
+        _is_conversational = self._query_is_conversational(user_message)
         api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 
-        # Path A: Simple queries -> free LLM providers (no tools)
-        if not _needs_tools:
+        # Path A: Conversational queries only -> free LLM providers (no tools)
+        if _is_conversational:
             router_result = self._chat_with_llm_router(
                 user_message, conversation_history, enrichment_context
             )
@@ -2778,16 +2799,19 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 ]
                 if any(sig in resp_text for sig in _no_data_signals):
                     logger.info("NOVA MODE: Path A response admits no data, escalating to tool path")
-                    _needs_tools = True  # Force tool path below
+                    _is_conversational = False  # Force tool path below
                 else:
                     logger.info("NOVA MODE: LLM Router (free provider, no tools) responded successfully")
                     _nova_metrics.record_latency((time.time() - _t0) * 1000)
+                    _nova_metrics.record_chat("conversational")
                     if router_result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
                         _set_response_cache(cache_key, router_result)
                     return router_result
 
         # Path B: Tool-use queries -> free LLM providers WITH tools
-        if _needs_tools:
+        # NOTE (v3.5): This is now the DEFAULT path. All non-conversational
+        # queries come here, ensuring data lookups happen before responding.
+        if not _is_conversational:
             free_tool_result = self._chat_with_free_llm_tools(
                 user_message, conversation_history, enrichment_context
             )
@@ -2795,6 +2819,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 logger.info("NOVA MODE: Free LLM with tools responded successfully (provider=%s)",
                             free_tool_result.get("llm_provider", "unknown"))
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
+                _nova_metrics.record_chat("tool")
                 if free_tool_result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
                     _set_response_cache(cache_key, free_tool_result)
                 return free_tool_result
@@ -2804,10 +2829,11 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
         if api_key:
             try:
                 logger.info("NOVA MODE: Using Claude API (LAST RESORT paid) for chat%s",
-                            " (tool-use)" if _needs_tools else " (router fallback)")
+                            " (tool-use)" if not _is_conversational else " (router fallback)")
                 result = self._chat_with_claude(user_message, conversation_history, enrichment_context, api_key)
                 logger.info("NOVA MODE: Claude API response received successfully")
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
+                _nova_metrics.record_chat("claude")
                 if result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
                     _set_response_cache(cache_key, result)
                 return result
@@ -2887,62 +2913,71 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
         "publisher", "joveo", "source mix", "quality score",
     ])
 
-    def _query_needs_tools(self, query: str) -> bool:
-        """Determine if a query requires tool use (data lookups) vs conversational.
+    # Patterns that are DEFINITELY conversational (no tools needed).
+    # Used by _query_is_conversational() to identify greetings, meta-questions, etc.
+    _CONVERSATIONAL_PATTERNS = [
+        # Greetings
+        r'^(hi|hello|hey|good morning|good afternoon|good evening)\b',
+        r'^(thanks|thank you|thx|ty)\b',
+        # Meta / about Nova
+        r'\b(who are you|what can you do|what are you|your name)\b',
+        # Casual chat
+        r'^(how are you|how\'s it going|what\'s up)\b',
+        # Simple yes/no/ok acknowledgements
+        r'^(yes|no|ok|okay|sure|got it|understood|sounds good|great|awesome|perfect)\s*[.!?]?$',
+        # Pleasantries / generic help (no domain specifics)
+        r'^(please|could you please)\s+(help|assist)\s*$',
+        # Farewells
+        r'^(bye|goodbye|see you|later|take care)\b',
+    ]
 
-        Three-tier detection:
-        1. Two or more keyword matches -> definite tool use
-        2. One keyword + any question/request phrasing -> likely tool use
-        3. Explicit data-request verbs -> tool use regardless of keywords
+    def _query_is_conversational(self, query: str) -> bool:
+        """Determine if a query is purely conversational (no tools needed).
 
-        Space-bounded check for short words that cause false positives when
-        they appear inside longer unrelated words (e.g., "data" in "mandatory").
+        INVERTED LOGIC (v3.5): Instead of asking "does this need tools?"
+        (default=no, which causes hallucinations), we ask "is this purely
+        conversational?" (default=no -> use tools = safe default).
+
+        A query is conversational ONLY if:
+        1. It matches ZERO data keywords, AND
+        2. It matches a known conversational pattern OR is very short (<6 words)
+
+        Everything else defaults to the tool path (SAFE).
         """
-        q = query.lower()
+        q = query.lower().strip()
 
-        # --- keyword counting (frozenset + space-bounded extras) ---
-        matches = sum(1 for kw in self._TOOL_TRIGGER_KEYWORDS if kw in q)
-
-        # Space-bounded keywords: only count when surrounded by word boundaries.
-        # "data" inside "mandatory"/"update" is a false positive, but
-        # " data ", " data,", "data " at start of query, etc. are valid.
-        _space_bounded_keywords = ["data"]
-        for sbk in _space_bounded_keywords:
-            # Match only when not embedded inside a longer word
+        # If ANY data keyword matches, it is NOT conversational
+        keyword_hits = sum(1 for kw in self._TOOL_TRIGGER_KEYWORDS if kw in q)
+        # Space-bounded keywords
+        for sbk in ["data"]:
             if re.search(r'(?<![a-z])' + re.escape(sbk) + r'(?![a-z])', q):
-                matches += 1
+                keyword_hits += 1
 
-        # 2+ keyword matches strongly suggest data needs
-        if matches >= 2:
-            return True
+        if keyword_hits > 0:
+            return False  # Has data keywords -> use tools
 
-        # Single match with question/request phrasing
-        # NOTE: "more" removed (matches inside "furthermore", "moreover")
-        _question_phrases = [
-            # Direct questions
-            "how much", "how many", "how long", "how do", "how can",
-            "what is", "what are", "what about", "what else",
-            "which", "where", "when",
-            # Request patterns
-            "show me", "give me", "tell me", "help me",
-            "can you", "could you", "should i", "would you",
-            # Comparison / recommendation
-            "compare", "recommend", "suggest", "advise",
-            # Exploratory
-            "any other", "are there", "is there", "other than",
-            "apart from", "besides", "missing",
-            # Estimation
-            "expect", "predict", "likely", "estimate",
-        ]
-        if matches >= 1 and any(w in q for w in _question_phrases):
-            return True
-
-        # Explicit data requests (no keyword needed)
-        if any(phrase in q for phrase in [
+        # Explicit data-request verbs -> NOT conversational
+        if any(p in q for p in [
             "pull data", "look up", "fetch", "get me", "find me",
             "search for", "break down", "breakdown", "decompose",
         ]):
+            return False
+
+        # Check known conversational patterns
+        for pattern in self._CONVERSATIONAL_PATTERNS:
+            if re.search(pattern, q):
+                return True
+
+        # Short queries (<4 words) with NO keywords AND no question words -> likely conversational
+        # e.g., "ok thanks" (3 words), "got it" (2 words)
+        # But NOT "how is the market" (has question word) or "tell me about retention"
+        words = q.split()
+        _question_starters = {"how", "what", "which", "where", "when", "why", "who",
+                              "tell", "show", "give", "compare", "explain", "describe"}
+        if len(words) < 4 and keyword_hits == 0 and not (words and words[0] in _question_starters):
             return True
+
+        # DEFAULT: NOT conversational -> use tools (SAFE default)
         return False
 
     def _chat_with_llm_router(self, user_message: str,
@@ -3285,6 +3320,17 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 verification_status = "error"
                 verification_score = 0.5
 
+            # Suppression gate (v3.5): reject responses that ignore tool data
+            combined_score = min(grounding_score, verification_score)
+            if combined_score < 0.4 and tool_results_raw:
+                logger.warning(
+                    "Free LLM tools: SUPPRESSED response (combined=%.2f, "
+                    "grounding=%.2f, verification=%.2f) -- falling back to Claude",
+                    combined_score, grounding_score, verification_score,
+                )
+                _nova_metrics.record_chat("suppressed")
+                return None  # Fall back to Claude
+
             # Build confidence breakdown
             confidence_breakdown = _build_confidence_breakdown(
                 tools_used, sources, tool_call_details,
@@ -3524,6 +3570,31 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 except Exception:
                     verification_status = "error"
                     verification_score = 0.5
+
+                # Suppression gate (v3.5): if response ignores tool data, re-prompt once
+                combined_score = min(grounding_score, verification_score)
+                if combined_score < 0.4 and tool_results_raw and iteration < max_iterations - 1:
+                    logger.warning(
+                        "Claude: response ignored tool data (combined=%.2f), re-prompting",
+                        combined_score,
+                    )
+                    _nova_metrics.record_chat("suppressed")
+                    # Re-prompt Claude to actually use the tool data
+                    messages.append({"role": "assistant", "content": response_text})
+                    messages.append({"role": "user", "content": (
+                        "Your previous answer did not use the data from the tools. "
+                        "Please answer again using ONLY the specific numbers and facts "
+                        "from the tool results above. Do NOT use general knowledge."
+                    )})
+                    continue  # Re-enter iteration loop for one more try
+                elif combined_score < 0.4 and tool_results_raw:
+                    # Last iteration and still bad -- log warning, serve response with low confidence
+                    logger.warning(
+                        "Claude: re-prompt also failed (combined=%.2f), serving with low confidence",
+                        combined_score,
+                    )
+                    # Force low grounding so confidence breakdown reflects the issue
+                    grounding_score = min(grounding_score, 0.3)
 
                 # Build structured confidence breakdown
                 confidence_breakdown = _build_confidence_breakdown(
@@ -4802,7 +4873,12 @@ def _verify_response_grounding(response_text: str,
 
     response_numbers = _extract_numbers_from_text(response_text)
     if not response_numbers:
-        return response_text, 1.0  # No numbers to verify
+        # Non-numeric response: check if it at least references tool data.
+        # Without this, narrative answers that ignore tools get a perfect 1.0.
+        if tool_results_raw and not _response_uses_tool_data(response_text, tool_results_raw):
+            logger.warning("Grounding: non-numeric response ignores tool data entirely")
+            return response_text, 0.3  # Low score -> may trigger suppression gate
+        return response_text, 1.0  # References tool data or no tools used
 
     tool_numbers = _extract_numbers_from_tool_results(tool_results_raw)
     if not tool_numbers:
@@ -4834,6 +4910,60 @@ def _verify_response_grounding(response_text: str,
         )
 
     return response_text, grounding_score
+
+
+def _response_uses_tool_data(response_text: str, tool_results_raw: list) -> bool:
+    """Check if the response actually incorporates data from tool results.
+
+    Returns True if the response contains at least ONE specific data point
+    (number, range, source name, or entity reference) that traces back to
+    tool output.  This catches the case where the LLM ignores tool data
+    and answers from general knowledge instead.
+    """
+    if not tool_results_raw:
+        return True  # No tools used, nothing to check
+
+    resp_lower = response_text.lower()
+    tool_text = " ".join(str(t) for t in tool_results_raw).lower()
+
+    # 1. Check for shared numbers (dollar amounts, percentages)
+    tool_numbers = _extract_numbers_from_tool_results(tool_results_raw)
+    resp_numbers = _extract_numbers_from_text(response_text)
+    if tool_numbers and resp_numbers:
+        for rn in resp_numbers:
+            for tn in tool_numbers:
+                if tn == 0:
+                    continue
+                ratio = rn / tn if tn != 0 else float("inf")
+                if 0.85 <= ratio <= 1.15:
+                    return True
+
+    # 2. Check for shared source / platform names
+    _source_indicators = [
+        "indeed", "linkedin", "glassdoor", "ziprecruiter", "google ads",
+        "meta", "facebook", "bing", "tiktok", "bls", "bureau of labor",
+        "joveo", "programmatic", "niche board", "monster", "careerbuilder",
+        "zippia", "payscale", "salary.com", "onet", "lightcast",
+    ]
+    for src in _source_indicators:
+        if src in tool_text and src in resp_lower:
+            return True
+
+    # 3. Check for shared location / role references from tool params
+    for tr in tool_results_raw:
+        try:
+            parsed = json.loads(tr) if isinstance(tr, str) else tr
+            if not isinstance(parsed, dict):
+                continue
+            for key in ("location", "role", "city", "country", "job_title",
+                        "metro_name", "industry", "company"):
+                val = str(parsed.get(key, "")).lower().strip()
+                if val and len(val) > 2 and val in resp_lower:
+                    return True
+        except (json.JSONDecodeError, AttributeError, TypeError):
+            continue
+
+    return False  # Response does not reference ANY tool data
 
 
 def _llm_verify_response(response_text: str, tool_results_raw: list, query: str) -> tuple:
@@ -4895,11 +5025,12 @@ Return ONLY valid JSON:
                 severity = parsed.get("severity", "none")
                 
                 if not verified and severity == "major" and issues:
-                    # Add a subtle note about data verification
-                    response_text += "\n\n_Note: Some figures may be approximations. Please verify critical numbers with your account team._"
-                    return response_text, 0.5, "issues_found"
+                    # v3.5: lowered from 0.5 -> 0.3 so the suppression gate catches it
+                    response_text += "\n\n_Note: Some figures may be approximations. For verified benchmarks, please ask about specific metrics._"
+                    return response_text, 0.3, "issues_found"
                 elif not verified:
-                    return response_text, 0.7, "issues_found"
+                    # v3.5: lowered from 0.7 -> 0.6
+                    return response_text, 0.6, "issues_found"
                 else:
                     return response_text, 1.0, "verified"
     except Exception as e:

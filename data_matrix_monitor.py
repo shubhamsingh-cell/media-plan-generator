@@ -607,6 +607,31 @@ class DataMatrixMonitor:
         except Exception as e:
             results["regression_baseline"] = {"status": "error", "detail": str(e)}
 
+        # 7. v3.5 Conversational routing health
+        try:
+            if "nova" in sys.modules:
+                nova_mod = sys.modules["nova"]
+                nova_cls = getattr(nova_mod, "Nova", None)
+                if nova_cls:
+                    has_conv = hasattr(nova_cls, "_query_is_conversational")
+                    has_patterns = hasattr(nova_cls, "_CONVERSATIONAL_PATTERNS")
+                    has_tool_check = hasattr(nova_mod, "_response_uses_tool_data")
+                    all_present = has_conv and has_patterns and has_tool_check
+                    results["v35_routing"] = {
+                        "status": "ok" if all_present else "error",
+                        "detail": (
+                            "v3.5 inverted routing active" if all_present
+                            else f"missing: conv={has_conv}, patterns={has_patterns}, tool_check={has_tool_check}"
+                        ),
+                        "version": "3.5" if all_present else "3.4",
+                    }
+                else:
+                    results["v35_routing"] = {"status": "partial", "detail": "Nova class not found"}
+            else:
+                results["v35_routing"] = {"status": "partial", "detail": "nova module not loaded"}
+        except Exception as e:
+            results["v35_routing"] = {"status": "error", "detail": str(e)}
+
         return results
 
     # ── Self-healing ──────────────────────────────────────────────────────

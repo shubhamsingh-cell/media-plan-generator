@@ -7482,9 +7482,3411 @@
           "category": "static"
         }
       ]
+    },
+    {
+      "run_number": 20,
+      "timestamp": "2026-03-09T21:10:02.212217+00:00",
+      "status": "degraded",
+      "passed": 73,
+      "failed": 3,
+      "healed": 1,
+      "total": 76,
+      "duration_seconds": 8.44,
+      "tests": [
+        {
+          "name": "health_endpoint",
+          "passed": true,
+          "detail": "status=ok",
+          "duration_ms": 7.667064666748047,
+          "category": "static"
+        },
+        {
+          "name": "kb_json_files",
+          "passed": true,
+          "detail": "13/13 valid",
+          "duration_ms": 6.709098815917969,
+          "category": "static"
+        },
+        {
+          "name": "nova_import",
+          "passed": true,
+          "detail": "Nova=True, chat=True",
+          "duration_ms": 8.717060089111328,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_import",
+          "passed": true,
+          "detail": "All 10 core functions present",
+          "duration_ms": 3.378152847290039,
+          "category": "static"
+        },
+        {
+          "name": "claude_api_key",
+          "passed": false,
+          "detail": "Missing or too short",
+          "duration_ms": 0.049114227294921875,
+          "category": "static"
+        },
+        {
+          "name": "data_matrix_health",
+          "passed": true,
+          "detail": "Pending (first check not yet run)",
+          "duration_ms": 0.5042552947998047,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_cache",
+          "passed": true,
+          "detail": "entries=0, max=500",
+          "duration_ms": 0.03981590270996094,
+          "category": "static"
+        },
+        {
+          "name": "nova_tool_count",
+          "passed": true,
+          "detail": "27 tools (expected >= 23)",
+          "duration_ms": 4.047870635986328,
+          "category": "static"
+        },
+        {
+          "name": "env_vars",
+          "passed": false,
+          "detail": "Missing required: ANTHROPIC_API_KEY",
+          "duration_ms": 0.05507469177246094,
+          "category": "static"
+        },
+        {
+          "name": "modules_compile",
+          "passed": true,
+          "detail": "25 files compile clean",
+          "duration_ms": 170.4859733581543,
+          "category": "static"
+        },
+        {
+          "name": "chat_learned_answer",
+          "passed": true,
+          "detail": "confidence=1.0, mentions_joveo=True",
+          "duration_ms": 3.7832260131835938,
+          "category": "static"
+        },
+        {
+          "name": "chat_response_structure",
+          "passed": true,
+          "detail": "fields=all present",
+          "duration_ms": 19.44136619567871,
+          "category": "static"
+        },
+        {
+          "name": "chat_empty_message",
+          "passed": true,
+          "detail": "has_response=True, no_error=True",
+          "duration_ms": 0.10204315185546875,
+          "category": "static"
+        },
+        {
+          "name": "ask_before_answering",
+          "passed": true,
+          "detail": "asks_location=True",
+          "duration_ms": 1.38092041015625,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_lazy_loaders",
+          "passed": true,
+          "detail": "All 6 lazy loaders OK",
+          "duration_ms": 11.562108993530273,
+          "category": "static"
+        },
+        {
+          "name": "enrichment_context",
+          "passed": true,
+          "detail": "store/get=True",
+          "duration_ms": 0.052928924560546875,
+          "category": "static"
+        },
+        {
+          "name": "ad_platform_benchmarks",
+          "passed": true,
+          "detail": "platforms=5, has_google=True",
+          "duration_ms": 0.06699562072753906,
+          "category": "static"
+        },
+        {
+          "name": "compute_insights",
+          "passed": true,
+          "detail": "difficulty=0.5, has_salary_comp=False",
+          "duration_ms": 0.09012222290039062,
+          "category": "static"
+        },
+        {
+          "name": "employer_brand",
+          "passed": true,
+          "detail": "keys=['company', 'industry', 'company_size', 'primary_hiring_channels', 'employer_brand_strength']",
+          "duration_ms": 0.06389617919921875,
+          "category": "static"
+        },
+        {
+          "name": "fallback_telemetry",
+          "passed": true,
+          "detail": "total_fallbacks=0",
+          "duration_ms": 0.07772445678710938,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_benchmarks",
+          "passed": true,
+          "detail": "All 3 combos valid",
+          "duration_ms": 0.1342296600341797,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_seasonal",
+          "passed": true,
+          "detail": "Both collar types return valid multiplier",
+          "duration_ms": 0.12087821960449219,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_freshness",
+          "passed": true,
+          "detail": "All 6 platforms have data for >= 2025",
+          "duration_ms": 0.07104873657226562,
+          "category": "static"
+        },
+        {
+          "name": "collar_classification",
+          "passed": true,
+          "detail": "All 5 roles classified validly",
+          "duration_ms": 0.10418891906738281,
+          "category": "static"
+        },
+        {
+          "name": "budget_engine_v3_params",
+          "passed": true,
+          "detail": "5 channels returned, cpc_source present",
+          "duration_ms": 0.1780986785888672,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_ad_benchmarks_v3",
+          "passed": true,
+          "detail": "structured_confidence dict present",
+          "duration_ms": 0.1900196075439453,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_collar_intelligence",
+          "passed": true,
+          "detail": "collar_type=blue_collar",
+          "duration_ms": 0.10395050048828125,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_hiring_trends",
+          "passed": true,
+          "detail": "hiring_difficulty_index=5.0",
+          "duration_ms": 8001.819849014282,
+          "category": "static"
+        },
+        {
+          "name": "nova_v3_tool_handlers",
+          "passed": true,
+          "detail": "Both v3 tool handlers execute OK",
+          "duration_ms": 4.856109619140625,
+          "category": "static"
+        },
+        {
+          "name": "ppt_v3_features",
+          "passed": true,
+          "detail": "PPT v3 features present (trend_engine, collar_intel, role normalization)",
+          "duration_ms": 77.07071304321289,
+          "category": "static"
+        },
+        {
+          "name": "data_synthesizer_integration",
+          "passed": true,
+          "detail": "All 10 synthesizer functions present",
+          "duration_ms": 4.812955856323242,
+          "category": "static"
+        },
+        {
+          "name": "structured_confidence",
+          "passed": true,
+          "detail": "structured_confidence present (confidence=0.9, 3 sources)",
+          "duration_ms": 0.5850791931152344,
+          "category": "static"
+        },
+        {
+          "name": "data_matrix_v3_layers",
+          "passed": true,
+          "detail": "Data matrix fully tracks v3 layers (4 products x 2 new layers)",
+          "duration_ms": 0.030994415283203125,
+          "category": "static"
+        },
+        {
+          "name": "kb_data_contracts",
+          "passed": true,
+          "detail": "13/13 KB files pass schema validation",
+          "duration_ms": 3.5037994384765625,
+          "category": "static"
+        },
+        {
+          "name": "enrichment_output_contract",
+          "passed": true,
+          "detail": "Enrichment output contract validation: True",
+          "duration_ms": 0.03886222839355469,
+          "category": "static"
+        },
+        {
+          "name": "regression_check",
+          "passed": true,
+          "detail": "Regression scenario 0 (healthcare): $100,000 budget, 8 channels",
+          "duration_ms": 0.5249977111816406,
+          "category": "static"
+        },
+        {
+          "name": "eval_budget_sanity",
+          "passed": true,
+          "detail": "Budget sanity eval: 100.0% (30/30)",
+          "duration_ms": 8.952140808105469,
+          "category": "static"
+        },
+        {
+          "name": "eval_collar_consistency",
+          "passed": true,
+          "detail": "Collar consistency eval: 90.2% (46/51)",
+          "duration_ms": 0.7221698760986328,
+          "category": "static"
+        },
+        {
+          "name": "structured_logging",
+          "passed": true,
+          "detail": "Structured JSON logging produces valid JSON output",
+          "duration_ms": 0.07390975952148438,
+          "category": "static"
+        },
+        {
+          "name": "openapi_spec_valid",
+          "passed": true,
+          "detail": "OpenAPI spec: 11 paths documented, version 3.0.3",
+          "duration_ms": 97.79095649719238,
+          "category": "static"
+        },
+        {
+          "name": "role_decomposition",
+          "passed": true,
+          "detail": "Role decomposition: 50 engineers -> 4 seniority levels, sum=50",
+          "duration_ms": 0.06508827209472656,
+          "category": "static"
+        },
+        {
+          "name": "channel_quality_scores",
+          "passed": true,
+          "detail": "Channel quality scores: blue=0.65, white=0.7",
+          "duration_ms": 0.03504753112792969,
+          "category": "static"
+        },
+        {
+          "name": "dynamic_cpc_bounds",
+          "passed": true,
+          "detail": "Dynamic CPC: $1.45 (bounds 0.10-50.00)",
+          "duration_ms": 0.06723403930664062,
+          "category": "static"
+        },
+        {
+          "name": "what_if_simulator",
+          "passed": true,
+          "detail": "What-if simulator: $100K + $20K = $120000",
+          "duration_ms": 0.07200241088867188,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_health",
+          "passed": true,
+          "detail": "LLM router: 12 providers",
+          "duration_ms": 0.0629425048828125,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_classify",
+          "passed": true,
+          "detail": "classify_task: 3/3 correct",
+          "duration_ms": 0.054836273193359375,
+          "category": "static"
+        },
+        {
+          "name": "llm_provider_availability",
+          "passed": false,
+          "detail": "LLM providers with keys: NONE (0/4)",
+          "duration_ms": 0.0247955322265625,
+          "category": "static"
+        },
+        {
+          "name": "async_job_cleanup",
+          "passed": true,
+          "detail": "Async jobs: 0 active, lock=present",
+          "duration_ms": 0.023126602172851562,
+          "category": "static"
+        },
+        {
+          "name": "api_key_tiers",
+          "passed": true,
+          "detail": "API tiers: 3/3 valid (free=5rpm, pro=30rpm, enterprise=100rpm)",
+          "duration_ms": 0.0247955322265625,
+          "category": "static"
+        },
+        {
+          "name": "joveo_benchmarks_loaded",
+          "passed": true,
+          "detail": "Joveo 2026: 15 occupations with CPA, market_conditions=present, two_market=present",
+          "duration_ms": 0.11324882507324219,
+          "category": "static"
+        },
+        {
+          "name": "audit_trail",
+          "passed": true,
+          "detail": "Audit trail: 15 entries, stages=['auto_qc']",
+          "duration_ms": 0.33283233642578125,
+          "category": "static"
+        },
+        {
+          "name": "slo_compliance",
+          "passed": true,
+          "detail": "SLO compliance: 0/4 compliant, targets=['slos', 'all_compliant', 'checked_at', 'uptime_seconds']",
+          "duration_ms": 0.05817413330078125,
+          "category": "static"
+        },
+        {
+          "name": "tier2_modules_importable",
+          "passed": true,
+          "detail": "Tier2 modules: 5/5 healthy",
+          "duration_ms": 0.029087066650390625,
+          "category": "static"
+        },
+        {
+          "name": "publisher_cross_validation",
+          "passed": true,
+          "detail": "Found 5/5 critical publishers",
+          "duration_ms": 0.6439685821533203,
+          "category": "static"
+        },
+        {
+          "name": "campaign_month_threading",
+          "passed": true,
+          "detail": "_get_trend_engine_cpc.month=True, calculate_budget_allocation.campaign_start_month=True",
+          "duration_ms": 0.1952648162841797,
+          "category": "static"
+        },
+        {
+          "name": "geopolitical_function_exists",
+          "passed": true,
+          "detail": "fetch_geopolitical_context is callable",
+          "duration_ms": 0.03719329833984375,
+          "category": "static"
+        },
+        {
+          "name": "geopolitical_fallback",
+          "passed": true,
+          "detail": "Keys present: 4/4, locations: 2",
+          "duration_ms": 0.03981590270996094,
+          "category": "static"
+        },
+        {
+          "name": "security_filter",
+          "passed": true,
+          "detail": "Blocked 5/5 adversarial prompts",
+          "duration_ms": 0.054836273193359375,
+          "category": "static"
+        },
+        {
+          "name": "confidence_breakdown",
+          "passed": true,
+          "detail": "Grade=A, Overall=0.95, Keys: 7/7",
+          "duration_ms": 0.04124641418457031,
+          "category": "static"
+        },
+        {
+          "name": "claude_opus_provider",
+          "passed": true,
+          "detail": "Config=True, Routing=True, Model=claude-opus-4-20250514",
+          "duration_ms": 0.026941299438476562,
+          "category": "static"
+        },
+        {
+          "name": "email_alerts_module",
+          "passed": true,
+          "detail": "Functions: 5/5 present, _is_enabled()=False: True",
+          "duration_ms": 0.026941299438476562,
+          "category": "static"
+        },
+        {
+          "name": "email_alerts_noop_when_disabled",
+          "passed": true,
+          "detail": "All no-op calls succeeded",
+          "duration_ms": 0.028133392333984375,
+          "category": "static"
+        },
+        {
+          "name": "grafana_logger_module",
+          "passed": true,
+          "detail": "Handler subclass=True, setup callable=True, stats returns dict=True, setup returns False=True",
+          "duration_ms": 0.029087066650390625,
+          "category": "static"
+        },
+        {
+          "name": "grafana_logger_stats_structure",
+          "passed": true,
+          "detail": "Keys: 3/3 present, all zero=True",
+          "duration_ms": 0.023126602172851562,
+          "category": "static"
+        },
+        {
+          "name": "supabase_cache_module",
+          "passed": true,
+          "detail": "Functions: 10/10 present",
+          "duration_ms": 0.027894973754882812,
+          "category": "static"
+        },
+        {
+          "name": "supabase_cache_disabled_behavior",
+          "passed": true,
+          "detail": "All disabled no-op checks passed",
+          "duration_ms": 0.026941299438476562,
+          "category": "static"
+        },
+        {
+          "name": "budget_allocation_sum_invariant",
+          "passed": true,
+          "detail": "Sum=$50000.00 vs budget=$50000.00, diff=$0.00 (tolerance=$500.00)",
+          "duration_ms": 0.2880096435546875,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_fallback_cascade",
+          "passed": true,
+          "detail": "No available fallback (no API keys for remaining providers) -- cascade logic correct (skipped 'gemini')",
+          "duration_ms": 0.03409385681152344,
+          "category": "static"
+        },
+        {
+          "name": "budget_cpc_tier_cascade",
+          "passed": true,
+          "detail": "4-tier CPC cascade verified: 13 base categories, fallbacks correct",
+          "duration_ms": 0.028848648071289062,
+          "category": "static"
+        },
+        {
+          "name": "nova_hallucination_guard",
+          "passed": true,
+          "detail": "Rule-based mode: template CPC values expected. Narnia-specific claims: False",
+          "duration_ms": 0.6058216094970703,
+          "category": "static"
+        },
+        {
+          "name": "cache_ttl_expiration",
+          "passed": true,
+          "detail": "TTL mechanism verified: fresh entry retrieved, expired entry correctly evicted",
+          "duration_ms": 0.031948089599609375,
+          "category": "static"
+        },
+        {
+          "name": "circuit_breaker_state_machine",
+          "passed": true,
+          "detail": "State machine verified: closed->open(after 3 failures)->half-open(after cooldown)",
+          "duration_ms": 0.07510185241699219,
+          "category": "static"
+        },
+        {
+          "name": "cross_module_data_contract",
+          "passed": true,
+          "detail": "compute_insights keys: ['hiring_difficulty_index'], enrichment contracts: enrich_salary: OK; get_ad_platform_benchmarks: callable (error=get_ad_platform_benchmarks() got an unex)",
+          "duration_ms": 0.04696846008300781,
+          "category": "static"
+        },
+        {
+          "name": "async_job_cleanup_mechanism",
+          "passed": true,
+          "detail": "cleanup_fn=callable, expiry=1800s, fake_job_inserted=True",
+          "duration_ms": 0.02288818359375,
+          "category": "static"
+        },
+        {
+          "name": "input_validation_feedback",
+          "passed": true,
+          "detail": "Validation patterns found: 5/5 (_input_warnings, _validation_warnings, roles_check, locations_check, budget_check)",
+          "duration_ms": 1.1179447174072266,
+          "category": "static"
+        },
+        {
+          "name": "llm_routing_task_classification_8_types",
+          "passed": true,
+          "detail": "classify_task: 6/8 correct | mismatches: 'Analyze multi-market budget op': expected=complex, got=conversational; 'Process these 500 records': expected=batch, got=conversational",
+          "duration_ms": 0.07987022399902344,
+          "category": "static"
+        }
+      ],
+      "failures": [
+        {
+          "name": "claude_api_key",
+          "passed": false,
+          "detail": "Missing or too short",
+          "duration_ms": 0.049114227294921875,
+          "category": "static"
+        },
+        {
+          "name": "env_vars",
+          "passed": false,
+          "detail": "Missing required: ANTHROPIC_API_KEY",
+          "duration_ms": 0.05507469177246094,
+          "category": "static"
+        },
+        {
+          "name": "llm_provider_availability",
+          "passed": false,
+          "detail": "LLM providers with keys: NONE (0/4)",
+          "duration_ms": 0.0247955322265625,
+          "category": "static"
+        }
+      ]
+    },
+    {
+      "run_number": 21,
+      "timestamp": "2026-03-09T21:10:21.435438+00:00",
+      "status": "degraded",
+      "passed": 73,
+      "failed": 3,
+      "healed": 1,
+      "total": 76,
+      "duration_seconds": 7.41,
+      "tests": [
+        {
+          "name": "health_endpoint",
+          "passed": true,
+          "detail": "status=ok",
+          "duration_ms": 3.631114959716797,
+          "category": "static"
+        },
+        {
+          "name": "kb_json_files",
+          "passed": true,
+          "detail": "13/13 valid",
+          "duration_ms": 3.1926631927490234,
+          "category": "static"
+        },
+        {
+          "name": "nova_import",
+          "passed": true,
+          "detail": "Nova=True, chat=True",
+          "duration_ms": 5.700826644897461,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_import",
+          "passed": true,
+          "detail": "All 10 core functions present",
+          "duration_ms": 1.4739036560058594,
+          "category": "static"
+        },
+        {
+          "name": "claude_api_key",
+          "passed": false,
+          "detail": "Missing or too short",
+          "duration_ms": 0.051975250244140625,
+          "category": "static"
+        },
+        {
+          "name": "data_matrix_health",
+          "passed": true,
+          "detail": "Pending (first check not yet run)",
+          "duration_ms": 0.20885467529296875,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_cache",
+          "passed": true,
+          "detail": "entries=0, max=500",
+          "duration_ms": 0.03981590270996094,
+          "category": "static"
+        },
+        {
+          "name": "nova_tool_count",
+          "passed": true,
+          "detail": "27 tools (expected >= 23)",
+          "duration_ms": 3.5178661346435547,
+          "category": "static"
+        },
+        {
+          "name": "env_vars",
+          "passed": false,
+          "detail": "Missing required: ANTHROPIC_API_KEY",
+          "duration_ms": 0.05936622619628906,
+          "category": "static"
+        },
+        {
+          "name": "modules_compile",
+          "passed": true,
+          "detail": "25 files compile clean",
+          "duration_ms": 160.1719856262207,
+          "category": "static"
+        },
+        {
+          "name": "chat_learned_answer",
+          "passed": true,
+          "detail": "confidence=1.0, mentions_joveo=True",
+          "duration_ms": 3.522157669067383,
+          "category": "static"
+        },
+        {
+          "name": "chat_response_structure",
+          "passed": true,
+          "detail": "fields=all present",
+          "duration_ms": 13.33308219909668,
+          "category": "static"
+        },
+        {
+          "name": "chat_empty_message",
+          "passed": true,
+          "detail": "has_response=True, no_error=True",
+          "duration_ms": 0.10228157043457031,
+          "category": "static"
+        },
+        {
+          "name": "ask_before_answering",
+          "passed": true,
+          "detail": "asks_location=True",
+          "duration_ms": 1.425027847290039,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_lazy_loaders",
+          "passed": true,
+          "detail": "All 6 lazy loaders OK",
+          "duration_ms": 7.995128631591797,
+          "category": "static"
+        },
+        {
+          "name": "enrichment_context",
+          "passed": true,
+          "detail": "store/get=True",
+          "duration_ms": 0.10704994201660156,
+          "category": "static"
+        },
+        {
+          "name": "ad_platform_benchmarks",
+          "passed": true,
+          "detail": "platforms=5, has_google=True",
+          "duration_ms": 0.04696846008300781,
+          "category": "static"
+        },
+        {
+          "name": "compute_insights",
+          "passed": true,
+          "detail": "difficulty=0.5, has_salary_comp=False",
+          "duration_ms": 0.052928924560546875,
+          "category": "static"
+        },
+        {
+          "name": "employer_brand",
+          "passed": true,
+          "detail": "keys=['company', 'industry', 'company_size', 'primary_hiring_channels', 'employer_brand_strength']",
+          "duration_ms": 0.05412101745605469,
+          "category": "static"
+        },
+        {
+          "name": "fallback_telemetry",
+          "passed": true,
+          "detail": "total_fallbacks=0",
+          "duration_ms": 0.03981590270996094,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_benchmarks",
+          "passed": true,
+          "detail": "All 3 combos valid",
+          "duration_ms": 0.06031990051269531,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_seasonal",
+          "passed": true,
+          "detail": "Both collar types return valid multiplier",
+          "duration_ms": 0.04506111145019531,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_freshness",
+          "passed": true,
+          "detail": "All 6 platforms have data for >= 2025",
+          "duration_ms": 0.03504753112792969,
+          "category": "static"
+        },
+        {
+          "name": "collar_classification",
+          "passed": true,
+          "detail": "All 5 roles classified validly",
+          "duration_ms": 0.04506111145019531,
+          "category": "static"
+        },
+        {
+          "name": "budget_engine_v3_params",
+          "passed": true,
+          "detail": "5 channels returned, cpc_source present",
+          "duration_ms": 0.11491775512695312,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_ad_benchmarks_v3",
+          "passed": true,
+          "detail": "structured_confidence dict present",
+          "duration_ms": 0.14591217041015625,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_collar_intelligence",
+          "passed": true,
+          "detail": "collar_type=blue_collar",
+          "duration_ms": 0.04315376281738281,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_hiring_trends",
+          "passed": true,
+          "detail": "hiring_difficulty_index=5.0",
+          "duration_ms": 7003.895044326782,
+          "category": "static"
+        },
+        {
+          "name": "nova_v3_tool_handlers",
+          "passed": true,
+          "detail": "Both v3 tool handlers execute OK",
+          "duration_ms": 4.380226135253906,
+          "category": "static"
+        },
+        {
+          "name": "ppt_v3_features",
+          "passed": true,
+          "detail": "PPT v3 features present (trend_engine, collar_intel, role normalization)",
+          "duration_ms": 80.32584190368652,
+          "category": "static"
+        },
+        {
+          "name": "data_synthesizer_integration",
+          "passed": true,
+          "detail": "All 10 synthesizer functions present",
+          "duration_ms": 3.3102035522460938,
+          "category": "static"
+        },
+        {
+          "name": "structured_confidence",
+          "passed": true,
+          "detail": "structured_confidence present (confidence=0.9, 3 sources)",
+          "duration_ms": 0.5860328674316406,
+          "category": "static"
+        },
+        {
+          "name": "data_matrix_v3_layers",
+          "passed": true,
+          "detail": "Data matrix fully tracks v3 layers (4 products x 2 new layers)",
+          "duration_ms": 0.028133392333984375,
+          "category": "static"
+        },
+        {
+          "name": "kb_data_contracts",
+          "passed": true,
+          "detail": "13/13 KB files pass schema validation",
+          "duration_ms": 3.871917724609375,
+          "category": "static"
+        },
+        {
+          "name": "enrichment_output_contract",
+          "passed": true,
+          "detail": "Enrichment output contract validation: True",
+          "duration_ms": 0.0591278076171875,
+          "category": "static"
+        },
+        {
+          "name": "regression_check",
+          "passed": true,
+          "detail": "Regression scenario 0 (healthcare): $100,000 budget, 8 channels",
+          "duration_ms": 0.5970001220703125,
+          "category": "static"
+        },
+        {
+          "name": "eval_budget_sanity",
+          "passed": true,
+          "detail": "Budget sanity eval: 100.0% (30/30)",
+          "duration_ms": 8.210897445678711,
+          "category": "static"
+        },
+        {
+          "name": "eval_collar_consistency",
+          "passed": true,
+          "detail": "Collar consistency eval: 90.2% (46/51)",
+          "duration_ms": 0.7519721984863281,
+          "category": "static"
+        },
+        {
+          "name": "structured_logging",
+          "passed": true,
+          "detail": "Structured JSON logging produces valid JSON output",
+          "duration_ms": 0.10585784912109375,
+          "category": "static"
+        },
+        {
+          "name": "openapi_spec_valid",
+          "passed": true,
+          "detail": "OpenAPI spec: 11 paths documented, version 3.0.3",
+          "duration_ms": 96.52280807495117,
+          "category": "static"
+        },
+        {
+          "name": "role_decomposition",
+          "passed": true,
+          "detail": "Role decomposition: 50 engineers -> 4 seniority levels, sum=50",
+          "duration_ms": 0.06079673767089844,
+          "category": "static"
+        },
+        {
+          "name": "channel_quality_scores",
+          "passed": true,
+          "detail": "Channel quality scores: blue=0.65, white=0.7",
+          "duration_ms": 0.041961669921875,
+          "category": "static"
+        },
+        {
+          "name": "dynamic_cpc_bounds",
+          "passed": true,
+          "detail": "Dynamic CPC: $1.45 (bounds 0.10-50.00)",
+          "duration_ms": 0.08916854858398438,
+          "category": "static"
+        },
+        {
+          "name": "what_if_simulator",
+          "passed": true,
+          "detail": "What-if simulator: $100K + $20K = $120000",
+          "duration_ms": 0.3020763397216797,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_health",
+          "passed": true,
+          "detail": "LLM router: 12 providers",
+          "duration_ms": 0.09489059448242188,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_classify",
+          "passed": true,
+          "detail": "classify_task: 3/3 correct",
+          "duration_ms": 0.05698204040527344,
+          "category": "static"
+        },
+        {
+          "name": "llm_provider_availability",
+          "passed": false,
+          "detail": "LLM providers with keys: NONE (0/4)",
+          "duration_ms": 0.025033950805664062,
+          "category": "static"
+        },
+        {
+          "name": "async_job_cleanup",
+          "passed": true,
+          "detail": "Async jobs: 0 active, lock=present",
+          "duration_ms": 0.02288818359375,
+          "category": "static"
+        },
+        {
+          "name": "api_key_tiers",
+          "passed": true,
+          "detail": "API tiers: 3/3 valid (free=5rpm, pro=30rpm, enterprise=100rpm)",
+          "duration_ms": 0.02384185791015625,
+          "category": "static"
+        },
+        {
+          "name": "joveo_benchmarks_loaded",
+          "passed": true,
+          "detail": "Joveo 2026: 15 occupations with CPA, market_conditions=present, two_market=present",
+          "duration_ms": 0.1270771026611328,
+          "category": "static"
+        },
+        {
+          "name": "audit_trail",
+          "passed": true,
+          "detail": "Audit trail: 16 entries, stages=['auto_qc']",
+          "duration_ms": 0.2551078796386719,
+          "category": "static"
+        },
+        {
+          "name": "slo_compliance",
+          "passed": true,
+          "detail": "SLO compliance: 0/4 compliant, targets=['slos', 'all_compliant', 'checked_at', 'uptime_seconds']",
+          "duration_ms": 0.050067901611328125,
+          "category": "static"
+        },
+        {
+          "name": "tier2_modules_importable",
+          "passed": true,
+          "detail": "Tier2 modules: 5/5 healthy",
+          "duration_ms": 0.03910064697265625,
+          "category": "static"
+        },
+        {
+          "name": "publisher_cross_validation",
+          "passed": true,
+          "detail": "Found 5/5 critical publishers",
+          "duration_ms": 0.43702125549316406,
+          "category": "static"
+        },
+        {
+          "name": "campaign_month_threading",
+          "passed": true,
+          "detail": "_get_trend_engine_cpc.month=True, calculate_budget_allocation.campaign_start_month=True",
+          "duration_ms": 0.07295608520507812,
+          "category": "static"
+        },
+        {
+          "name": "geopolitical_function_exists",
+          "passed": true,
+          "detail": "fetch_geopolitical_context is callable",
+          "duration_ms": 0.03218650817871094,
+          "category": "static"
+        },
+        {
+          "name": "geopolitical_fallback",
+          "passed": true,
+          "detail": "Keys present: 4/4, locations: 2",
+          "duration_ms": 0.027179718017578125,
+          "category": "static"
+        },
+        {
+          "name": "security_filter",
+          "passed": true,
+          "detail": "Blocked 5/5 adversarial prompts",
+          "duration_ms": 0.052928924560546875,
+          "category": "static"
+        },
+        {
+          "name": "confidence_breakdown",
+          "passed": true,
+          "detail": "Grade=A, Overall=0.95, Keys: 7/7",
+          "duration_ms": 0.0629425048828125,
+          "category": "static"
+        },
+        {
+          "name": "claude_opus_provider",
+          "passed": true,
+          "detail": "Config=True, Routing=True, Model=claude-opus-4-20250514",
+          "duration_ms": 0.031948089599609375,
+          "category": "static"
+        },
+        {
+          "name": "email_alerts_module",
+          "passed": true,
+          "detail": "Functions: 5/5 present, _is_enabled()=False: True",
+          "duration_ms": 0.030040740966796875,
+          "category": "static"
+        },
+        {
+          "name": "email_alerts_noop_when_disabled",
+          "passed": true,
+          "detail": "All no-op calls succeeded",
+          "duration_ms": 0.028133392333984375,
+          "category": "static"
+        },
+        {
+          "name": "grafana_logger_module",
+          "passed": true,
+          "detail": "Handler subclass=True, setup callable=True, stats returns dict=True, setup returns False=True",
+          "duration_ms": 0.030040740966796875,
+          "category": "static"
+        },
+        {
+          "name": "grafana_logger_stats_structure",
+          "passed": true,
+          "detail": "Keys: 3/3 present, all zero=True",
+          "duration_ms": 0.025987625122070312,
+          "category": "static"
+        },
+        {
+          "name": "supabase_cache_module",
+          "passed": true,
+          "detail": "Functions: 10/10 present",
+          "duration_ms": 0.026226043701171875,
+          "category": "static"
+        },
+        {
+          "name": "supabase_cache_disabled_behavior",
+          "passed": true,
+          "detail": "All disabled no-op checks passed",
+          "duration_ms": 0.027894973754882812,
+          "category": "static"
+        },
+        {
+          "name": "budget_allocation_sum_invariant",
+          "passed": true,
+          "detail": "Sum=$50000.00 vs budget=$50000.00, diff=$0.00 (tolerance=$500.00)",
+          "duration_ms": 0.26297569274902344,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_fallback_cascade",
+          "passed": true,
+          "detail": "No available fallback (no API keys for remaining providers) -- cascade logic correct (skipped 'gemini')",
+          "duration_ms": 0.03600120544433594,
+          "category": "static"
+        },
+        {
+          "name": "budget_cpc_tier_cascade",
+          "passed": true,
+          "detail": "4-tier CPC cascade verified: 13 base categories, fallbacks correct",
+          "duration_ms": 0.028848648071289062,
+          "category": "static"
+        },
+        {
+          "name": "nova_hallucination_guard",
+          "passed": true,
+          "detail": "Rule-based mode: template CPC values expected. Narnia-specific claims: False",
+          "duration_ms": 0.5970001220703125,
+          "category": "static"
+        },
+        {
+          "name": "cache_ttl_expiration",
+          "passed": true,
+          "detail": "TTL mechanism verified: fresh entry retrieved, expired entry correctly evicted",
+          "duration_ms": 0.03790855407714844,
+          "category": "static"
+        },
+        {
+          "name": "circuit_breaker_state_machine",
+          "passed": true,
+          "detail": "State machine verified: closed->open(after 3 failures)->half-open(after cooldown)",
+          "duration_ms": 0.07700920104980469,
+          "category": "static"
+        },
+        {
+          "name": "cross_module_data_contract",
+          "passed": true,
+          "detail": "compute_insights keys: ['hiring_difficulty_index'], enrichment contracts: enrich_salary: OK; get_ad_platform_benchmarks: callable (error=get_ad_platform_benchmarks() got an unex)",
+          "duration_ms": 0.05984306335449219,
+          "category": "static"
+        },
+        {
+          "name": "async_job_cleanup_mechanism",
+          "passed": true,
+          "detail": "cleanup_fn=callable, expiry=1800s, fake_job_inserted=True",
+          "duration_ms": 0.026941299438476562,
+          "category": "static"
+        },
+        {
+          "name": "input_validation_feedback",
+          "passed": true,
+          "detail": "Validation patterns found: 5/5 (_input_warnings, _validation_warnings, roles_check, locations_check, budget_check)",
+          "duration_ms": 1.1892318725585938,
+          "category": "static"
+        },
+        {
+          "name": "llm_routing_task_classification_8_types",
+          "passed": true,
+          "detail": "classify_task: 6/8 correct | mismatches: 'Analyze multi-market budget op': expected=complex, got=conversational; 'Process these 500 records': expected=batch, got=conversational",
+          "duration_ms": 0.1010894775390625,
+          "category": "static"
+        }
+      ],
+      "failures": [
+        {
+          "name": "claude_api_key",
+          "passed": false,
+          "detail": "Missing or too short",
+          "duration_ms": 0.051975250244140625,
+          "category": "static"
+        },
+        {
+          "name": "env_vars",
+          "passed": false,
+          "detail": "Missing required: ANTHROPIC_API_KEY",
+          "duration_ms": 0.05936622619628906,
+          "category": "static"
+        },
+        {
+          "name": "llm_provider_availability",
+          "passed": false,
+          "detail": "LLM providers with keys: NONE (0/4)",
+          "duration_ms": 0.025033950805664062,
+          "category": "static"
+        }
+      ]
+    },
+    {
+      "run_number": 22,
+      "timestamp": "2026-03-09T21:15:00.000778+00:00",
+      "status": "degraded",
+      "passed": 73,
+      "failed": 3,
+      "healed": 1,
+      "total": 76,
+      "duration_seconds": 9.04,
+      "tests": [
+        {
+          "name": "health_endpoint",
+          "passed": true,
+          "detail": "status=ok",
+          "duration_ms": 8.01992416381836,
+          "category": "static"
+        },
+        {
+          "name": "kb_json_files",
+          "passed": true,
+          "detail": "13/13 valid",
+          "duration_ms": 7.2193145751953125,
+          "category": "static"
+        },
+        {
+          "name": "nova_import",
+          "passed": true,
+          "detail": "Nova=True, chat=True",
+          "duration_ms": 8.734941482543945,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_import",
+          "passed": true,
+          "detail": "All 10 core functions present",
+          "duration_ms": 4.876852035522461,
+          "category": "static"
+        },
+        {
+          "name": "claude_api_key",
+          "passed": false,
+          "detail": "Missing or too short",
+          "duration_ms": 0.051021575927734375,
+          "category": "static"
+        },
+        {
+          "name": "data_matrix_health",
+          "passed": true,
+          "detail": "Pending (first check not yet run)",
+          "duration_ms": 0.45800209045410156,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_cache",
+          "passed": true,
+          "detail": "entries=0, max=500",
+          "duration_ms": 0.037670135498046875,
+          "category": "static"
+        },
+        {
+          "name": "nova_tool_count",
+          "passed": true,
+          "detail": "27 tools (expected >= 23)",
+          "duration_ms": 3.5247802734375,
+          "category": "static"
+        },
+        {
+          "name": "env_vars",
+          "passed": false,
+          "detail": "Missing required: ANTHROPIC_API_KEY",
+          "duration_ms": 0.04291534423828125,
+          "category": "static"
+        },
+        {
+          "name": "modules_compile",
+          "passed": true,
+          "detail": "25 files compile clean",
+          "duration_ms": 217.07892417907715,
+          "category": "static"
+        },
+        {
+          "name": "chat_learned_answer",
+          "passed": true,
+          "detail": "confidence=1.0, mentions_joveo=True",
+          "duration_ms": 3.969907760620117,
+          "category": "static"
+        },
+        {
+          "name": "chat_response_structure",
+          "passed": true,
+          "detail": "fields=all present",
+          "duration_ms": 19.88697052001953,
+          "category": "static"
+        },
+        {
+          "name": "chat_empty_message",
+          "passed": true,
+          "detail": "has_response=True, no_error=True",
+          "duration_ms": 0.11014938354492188,
+          "category": "static"
+        },
+        {
+          "name": "ask_before_answering",
+          "passed": true,
+          "detail": "asks_location=True",
+          "duration_ms": 1.2316703796386719,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_lazy_loaders",
+          "passed": true,
+          "detail": "All 6 lazy loaders OK",
+          "duration_ms": 9.181022644042969,
+          "category": "static"
+        },
+        {
+          "name": "enrichment_context",
+          "passed": true,
+          "detail": "store/get=True",
+          "duration_ms": 0.06008148193359375,
+          "category": "static"
+        },
+        {
+          "name": "ad_platform_benchmarks",
+          "passed": true,
+          "detail": "platforms=5, has_google=True",
+          "duration_ms": 0.04506111145019531,
+          "category": "static"
+        },
+        {
+          "name": "compute_insights",
+          "passed": true,
+          "detail": "difficulty=0.5, has_salary_comp=False",
+          "duration_ms": 0.048160552978515625,
+          "category": "static"
+        },
+        {
+          "name": "employer_brand",
+          "passed": true,
+          "detail": "keys=['company', 'industry', 'company_size', 'primary_hiring_channels', 'employer_brand_strength']",
+          "duration_ms": 0.04363059997558594,
+          "category": "static"
+        },
+        {
+          "name": "fallback_telemetry",
+          "passed": true,
+          "detail": "total_fallbacks=0",
+          "duration_ms": 0.03504753112792969,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_benchmarks",
+          "passed": true,
+          "detail": "All 3 combos valid",
+          "duration_ms": 0.05602836608886719,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_seasonal",
+          "passed": true,
+          "detail": "Both collar types return valid multiplier",
+          "duration_ms": 0.05626678466796875,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_freshness",
+          "passed": true,
+          "detail": "All 6 platforms have data for >= 2025",
+          "duration_ms": 0.051021575927734375,
+          "category": "static"
+        },
+        {
+          "name": "collar_classification",
+          "passed": true,
+          "detail": "All 5 roles classified validly",
+          "duration_ms": 0.05412101745605469,
+          "category": "static"
+        },
+        {
+          "name": "budget_engine_v3_params",
+          "passed": true,
+          "detail": "5 channels returned, cpc_source present",
+          "duration_ms": 0.11992454528808594,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_ad_benchmarks_v3",
+          "passed": true,
+          "detail": "structured_confidence dict present",
+          "duration_ms": 0.15592575073242188,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_collar_intelligence",
+          "passed": true,
+          "detail": "collar_type=blue_collar",
+          "duration_ms": 0.051975250244140625,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_hiring_trends",
+          "passed": true,
+          "detail": "hiring_difficulty_index=5.0",
+          "duration_ms": 8544.915914535522,
+          "category": "static"
+        },
+        {
+          "name": "nova_v3_tool_handlers",
+          "passed": true,
+          "detail": "Both v3 tool handlers execute OK",
+          "duration_ms": 4.977703094482422,
+          "category": "static"
+        },
+        {
+          "name": "ppt_v3_features",
+          "passed": true,
+          "detail": "PPT v3 features present (trend_engine, collar_intel, role normalization)",
+          "duration_ms": 79.82802391052246,
+          "category": "static"
+        },
+        {
+          "name": "data_synthesizer_integration",
+          "passed": true,
+          "detail": "All 10 synthesizer functions present",
+          "duration_ms": 4.021167755126953,
+          "category": "static"
+        },
+        {
+          "name": "structured_confidence",
+          "passed": true,
+          "detail": "structured_confidence present (confidence=0.9, 3 sources)",
+          "duration_ms": 0.5156993865966797,
+          "category": "static"
+        },
+        {
+          "name": "data_matrix_v3_layers",
+          "passed": true,
+          "detail": "Data matrix fully tracks v3 layers (4 products x 2 new layers)",
+          "duration_ms": 0.026941299438476562,
+          "category": "static"
+        },
+        {
+          "name": "kb_data_contracts",
+          "passed": true,
+          "detail": "13/13 KB files pass schema validation",
+          "duration_ms": 3.4868717193603516,
+          "category": "static"
+        },
+        {
+          "name": "enrichment_output_contract",
+          "passed": true,
+          "detail": "Enrichment output contract validation: True",
+          "duration_ms": 0.05817413330078125,
+          "category": "static"
+        },
+        {
+          "name": "regression_check",
+          "passed": true,
+          "detail": "Regression scenario 0 (healthcare): $100,000 budget, 8 channels",
+          "duration_ms": 0.4611015319824219,
+          "category": "static"
+        },
+        {
+          "name": "eval_budget_sanity",
+          "passed": true,
+          "detail": "Budget sanity eval: 100.0% (30/30)",
+          "duration_ms": 7.4329376220703125,
+          "category": "static"
+        },
+        {
+          "name": "eval_collar_consistency",
+          "passed": true,
+          "detail": "Collar consistency eval: 90.2% (46/51)",
+          "duration_ms": 0.7719993591308594,
+          "category": "static"
+        },
+        {
+          "name": "structured_logging",
+          "passed": true,
+          "detail": "Structured JSON logging produces valid JSON output",
+          "duration_ms": 0.0820159912109375,
+          "category": "static"
+        },
+        {
+          "name": "openapi_spec_valid",
+          "passed": true,
+          "detail": "OpenAPI spec: 11 paths documented, version 3.0.3",
+          "duration_ms": 102.83780097961426,
+          "category": "static"
+        },
+        {
+          "name": "role_decomposition",
+          "passed": true,
+          "detail": "Role decomposition: 50 engineers -> 4 seniority levels, sum=50",
+          "duration_ms": 0.05602836608886719,
+          "category": "static"
+        },
+        {
+          "name": "channel_quality_scores",
+          "passed": true,
+          "detail": "Channel quality scores: blue=0.65, white=0.7",
+          "duration_ms": 0.04506111145019531,
+          "category": "static"
+        },
+        {
+          "name": "dynamic_cpc_bounds",
+          "passed": true,
+          "detail": "Dynamic CPC: $1.45 (bounds 0.10-50.00)",
+          "duration_ms": 0.06914138793945312,
+          "category": "static"
+        },
+        {
+          "name": "what_if_simulator",
+          "passed": true,
+          "detail": "What-if simulator: $100K + $20K = $120000",
+          "duration_ms": 0.07081031799316406,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_health",
+          "passed": true,
+          "detail": "LLM router: 12 providers",
+          "duration_ms": 0.06604194641113281,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_classify",
+          "passed": true,
+          "detail": "classify_task: 3/3 correct",
+          "duration_ms": 0.053882598876953125,
+          "category": "static"
+        },
+        {
+          "name": "llm_provider_availability",
+          "passed": false,
+          "detail": "LLM providers with keys: NONE (0/4)",
+          "duration_ms": 0.02384185791015625,
+          "category": "static"
+        },
+        {
+          "name": "async_job_cleanup",
+          "passed": true,
+          "detail": "Async jobs: 0 active, lock=present",
+          "duration_ms": 0.02288818359375,
+          "category": "static"
+        },
+        {
+          "name": "api_key_tiers",
+          "passed": true,
+          "detail": "API tiers: 3/3 valid (free=5rpm, pro=30rpm, enterprise=100rpm)",
+          "duration_ms": 0.02384185791015625,
+          "category": "static"
+        },
+        {
+          "name": "joveo_benchmarks_loaded",
+          "passed": true,
+          "detail": "Joveo 2026: 15 occupations with CPA, market_conditions=present, two_market=present",
+          "duration_ms": 0.11491775512695312,
+          "category": "static"
+        },
+        {
+          "name": "audit_trail",
+          "passed": true,
+          "detail": "Audit trail: 17 entries, stages=['auto_qc']",
+          "duration_ms": 0.35309791564941406,
+          "category": "static"
+        },
+        {
+          "name": "slo_compliance",
+          "passed": true,
+          "detail": "SLO compliance: 0/4 compliant, targets=['slos', 'all_compliant', 'checked_at', 'uptime_seconds']",
+          "duration_ms": 0.05316734313964844,
+          "category": "static"
+        },
+        {
+          "name": "tier2_modules_importable",
+          "passed": true,
+          "detail": "Tier2 modules: 5/5 healthy",
+          "duration_ms": 0.032901763916015625,
+          "category": "static"
+        },
+        {
+          "name": "publisher_cross_validation",
+          "passed": true,
+          "detail": "Found 5/5 critical publishers",
+          "duration_ms": 0.3390312194824219,
+          "category": "static"
+        },
+        {
+          "name": "campaign_month_threading",
+          "passed": true,
+          "detail": "_get_trend_engine_cpc.month=True, calculate_budget_allocation.campaign_start_month=True",
+          "duration_ms": 0.18668174743652344,
+          "category": "static"
+        },
+        {
+          "name": "geopolitical_function_exists",
+          "passed": true,
+          "detail": "fetch_geopolitical_context is callable",
+          "duration_ms": 0.027179718017578125,
+          "category": "static"
+        },
+        {
+          "name": "geopolitical_fallback",
+          "passed": true,
+          "detail": "Keys present: 4/4, locations: 2",
+          "duration_ms": 0.03910064697265625,
+          "category": "static"
+        },
+        {
+          "name": "security_filter",
+          "passed": true,
+          "detail": "Blocked 5/5 adversarial prompts",
+          "duration_ms": 0.04982948303222656,
+          "category": "static"
+        },
+        {
+          "name": "confidence_breakdown",
+          "passed": true,
+          "detail": "Grade=A, Overall=0.95, Keys: 7/7",
+          "duration_ms": 0.03504753112792969,
+          "category": "static"
+        },
+        {
+          "name": "claude_opus_provider",
+          "passed": true,
+          "detail": "Config=True, Routing=True, Model=claude-opus-4-20250514",
+          "duration_ms": 0.025033950805664062,
+          "category": "static"
+        },
+        {
+          "name": "email_alerts_module",
+          "passed": true,
+          "detail": "Functions: 5/5 present, _is_enabled()=False: True",
+          "duration_ms": 0.0247955322265625,
+          "category": "static"
+        },
+        {
+          "name": "email_alerts_noop_when_disabled",
+          "passed": true,
+          "detail": "All no-op calls succeeded",
+          "duration_ms": 0.025033950805664062,
+          "category": "static"
+        },
+        {
+          "name": "grafana_logger_module",
+          "passed": true,
+          "detail": "Handler subclass=True, setup callable=True, stats returns dict=True, setup returns False=True",
+          "duration_ms": 0.028848648071289062,
+          "category": "static"
+        },
+        {
+          "name": "grafana_logger_stats_structure",
+          "passed": true,
+          "detail": "Keys: 3/3 present, all zero=True",
+          "duration_ms": 0.024080276489257812,
+          "category": "static"
+        },
+        {
+          "name": "supabase_cache_module",
+          "passed": true,
+          "detail": "Functions: 10/10 present",
+          "duration_ms": 0.03409385681152344,
+          "category": "static"
+        },
+        {
+          "name": "supabase_cache_disabled_behavior",
+          "passed": true,
+          "detail": "All disabled no-op checks passed",
+          "duration_ms": 0.031948089599609375,
+          "category": "static"
+        },
+        {
+          "name": "budget_allocation_sum_invariant",
+          "passed": true,
+          "detail": "Sum=$50000.00 vs budget=$50000.00, diff=$0.00 (tolerance=$500.00)",
+          "duration_ms": 0.2911090850830078,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_fallback_cascade",
+          "passed": true,
+          "detail": "No available fallback (no API keys for remaining providers) -- cascade logic correct (skipped 'gemini')",
+          "duration_ms": 0.03790855407714844,
+          "category": "static"
+        },
+        {
+          "name": "budget_cpc_tier_cascade",
+          "passed": true,
+          "detail": "4-tier CPC cascade verified: 13 base categories, fallbacks correct",
+          "duration_ms": 0.025033950805664062,
+          "category": "static"
+        },
+        {
+          "name": "nova_hallucination_guard",
+          "passed": true,
+          "detail": "Rule-based mode: template CPC values expected. Narnia-specific claims: False",
+          "duration_ms": 0.6418228149414062,
+          "category": "static"
+        },
+        {
+          "name": "cache_ttl_expiration",
+          "passed": true,
+          "detail": "TTL mechanism verified: fresh entry retrieved, expired entry correctly evicted",
+          "duration_ms": 0.032901763916015625,
+          "category": "static"
+        },
+        {
+          "name": "circuit_breaker_state_machine",
+          "passed": true,
+          "detail": "State machine verified: closed->open(after 3 failures)->half-open(after cooldown)",
+          "duration_ms": 0.07700920104980469,
+          "category": "static"
+        },
+        {
+          "name": "cross_module_data_contract",
+          "passed": true,
+          "detail": "compute_insights keys: ['hiring_difficulty_index'], enrichment contracts: enrich_salary: OK; get_ad_platform_benchmarks: callable (error=get_ad_platform_benchmarks() got an unex)",
+          "duration_ms": 0.051021575927734375,
+          "category": "static"
+        },
+        {
+          "name": "async_job_cleanup_mechanism",
+          "passed": true,
+          "detail": "cleanup_fn=callable, expiry=1800s, fake_job_inserted=True",
+          "duration_ms": 0.02384185791015625,
+          "category": "static"
+        },
+        {
+          "name": "input_validation_feedback",
+          "passed": true,
+          "detail": "Validation patterns found: 5/5 (_input_warnings, _validation_warnings, roles_check, locations_check, budget_check)",
+          "duration_ms": 1.4088153839111328,
+          "category": "static"
+        },
+        {
+          "name": "llm_routing_task_classification_8_types",
+          "passed": true,
+          "detail": "classify_task: 6/8 correct | mismatches: 'Analyze multi-market budget op': expected=complex, got=conversational; 'Process these 500 records': expected=batch, got=conversational",
+          "duration_ms": 0.10180473327636719,
+          "category": "static"
+        }
+      ],
+      "failures": [
+        {
+          "name": "claude_api_key",
+          "passed": false,
+          "detail": "Missing or too short",
+          "duration_ms": 0.051021575927734375,
+          "category": "static"
+        },
+        {
+          "name": "env_vars",
+          "passed": false,
+          "detail": "Missing required: ANTHROPIC_API_KEY",
+          "duration_ms": 0.04291534423828125,
+          "category": "static"
+        },
+        {
+          "name": "llm_provider_availability",
+          "passed": false,
+          "detail": "LLM providers with keys: NONE (0/4)",
+          "duration_ms": 0.02384185791015625,
+          "category": "static"
+        }
+      ]
+    },
+    {
+      "run_number": 23,
+      "timestamp": "2026-03-10T13:08:36.175881+00:00",
+      "status": "degraded",
+      "passed": 73,
+      "failed": 3,
+      "healed": 1,
+      "total": 76,
+      "duration_seconds": 7.61,
+      "tests": [
+        {
+          "name": "health_endpoint",
+          "passed": true,
+          "detail": "status=ok",
+          "duration_ms": 13.427972793579102,
+          "category": "static"
+        },
+        {
+          "name": "kb_json_files",
+          "passed": true,
+          "detail": "13/13 valid",
+          "duration_ms": 8.371114730834961,
+          "category": "static"
+        },
+        {
+          "name": "nova_import",
+          "passed": true,
+          "detail": "Nova=True, chat=True",
+          "duration_ms": 26.762008666992188,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_import",
+          "passed": true,
+          "detail": "All 10 core functions present",
+          "duration_ms": 4.877805709838867,
+          "category": "static"
+        },
+        {
+          "name": "claude_api_key",
+          "passed": false,
+          "detail": "Missing or too short",
+          "duration_ms": 0.0667572021484375,
+          "category": "static"
+        },
+        {
+          "name": "data_matrix_health",
+          "passed": true,
+          "detail": "Pending (first check not yet run)",
+          "duration_ms": 0.45228004455566406,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_cache",
+          "passed": true,
+          "detail": "entries=0, max=500",
+          "duration_ms": 0.04291534423828125,
+          "category": "static"
+        },
+        {
+          "name": "nova_tool_count",
+          "passed": true,
+          "detail": "27 tools (expected >= 23)",
+          "duration_ms": 3.696918487548828,
+          "category": "static"
+        },
+        {
+          "name": "env_vars",
+          "passed": false,
+          "detail": "Missing required: ANTHROPIC_API_KEY",
+          "duration_ms": 0.07224082946777344,
+          "category": "static"
+        },
+        {
+          "name": "modules_compile",
+          "passed": true,
+          "detail": "27 files compile clean",
+          "duration_ms": 196.4101791381836,
+          "category": "static"
+        },
+        {
+          "name": "chat_learned_answer",
+          "passed": true,
+          "detail": "confidence=1.0, mentions_joveo=True",
+          "duration_ms": 3.754138946533203,
+          "category": "static"
+        },
+        {
+          "name": "chat_response_structure",
+          "passed": true,
+          "detail": "fields=all present",
+          "duration_ms": 32.11402893066406,
+          "category": "static"
+        },
+        {
+          "name": "chat_empty_message",
+          "passed": true,
+          "detail": "has_response=True, no_error=True",
+          "duration_ms": 0.10395050048828125,
+          "category": "static"
+        },
+        {
+          "name": "ask_before_answering",
+          "passed": true,
+          "detail": "asks_location=True",
+          "duration_ms": 1.25885009765625,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_lazy_loaders",
+          "passed": true,
+          "detail": "All 6 lazy loaders OK",
+          "duration_ms": 14.74308967590332,
+          "category": "static"
+        },
+        {
+          "name": "enrichment_context",
+          "passed": true,
+          "detail": "store/get=True",
+          "duration_ms": 0.06389617919921875,
+          "category": "static"
+        },
+        {
+          "name": "ad_platform_benchmarks",
+          "passed": true,
+          "detail": "platforms=5, has_google=True",
+          "duration_ms": 0.036716461181640625,
+          "category": "static"
+        },
+        {
+          "name": "compute_insights",
+          "passed": true,
+          "detail": "difficulty=0.5, has_salary_comp=False",
+          "duration_ms": 0.03600120544433594,
+          "category": "static"
+        },
+        {
+          "name": "employer_brand",
+          "passed": true,
+          "detail": "keys=['company', 'industry', 'company_size', 'primary_hiring_channels', 'employer_brand_strength']",
+          "duration_ms": 0.07700920104980469,
+          "category": "static"
+        },
+        {
+          "name": "fallback_telemetry",
+          "passed": true,
+          "detail": "total_fallbacks=0",
+          "duration_ms": 0.05602836608886719,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_benchmarks",
+          "passed": true,
+          "detail": "All 3 combos valid",
+          "duration_ms": 0.07390975952148438,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_seasonal",
+          "passed": true,
+          "detail": "Both collar types return valid multiplier",
+          "duration_ms": 0.04100799560546875,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_freshness",
+          "passed": true,
+          "detail": "All 6 platforms have data for >= 2025",
+          "duration_ms": 0.03600120544433594,
+          "category": "static"
+        },
+        {
+          "name": "collar_classification",
+          "passed": true,
+          "detail": "All 5 roles classified validly",
+          "duration_ms": 0.041961669921875,
+          "category": "static"
+        },
+        {
+          "name": "budget_engine_v3_params",
+          "passed": true,
+          "detail": "5 channels returned, cpc_source present",
+          "duration_ms": 0.11014938354492188,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_ad_benchmarks_v3",
+          "passed": true,
+          "detail": "structured_confidence dict present",
+          "duration_ms": 0.14209747314453125,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_collar_intelligence",
+          "passed": true,
+          "detail": "collar_type=blue_collar",
+          "duration_ms": 0.07390975952148438,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_hiring_trends",
+          "passed": true,
+          "detail": "hiring_difficulty_index=5.0",
+          "duration_ms": 5434.957027435303,
+          "category": "static"
+        },
+        {
+          "name": "nova_v3_tool_handlers",
+          "passed": true,
+          "detail": "Both v3 tool handlers execute OK",
+          "duration_ms": 18.50104331970215,
+          "category": "static"
+        },
+        {
+          "name": "ppt_v3_features",
+          "passed": true,
+          "detail": "PPT v3 features present (trend_engine, collar_intel, role normalization)",
+          "duration_ms": 165.0099754333496,
+          "category": "static"
+        },
+        {
+          "name": "data_synthesizer_integration",
+          "passed": true,
+          "detail": "All 10 synthesizer functions present",
+          "duration_ms": 6.078004837036133,
+          "category": "static"
+        },
+        {
+          "name": "structured_confidence",
+          "passed": true,
+          "detail": "structured_confidence present (confidence=0.9, 3 sources)",
+          "duration_ms": 1521.347999572754,
+          "category": "static"
+        },
+        {
+          "name": "data_matrix_v3_layers",
+          "passed": true,
+          "detail": "Data matrix fully tracks v3 layers (4 products x 2 new layers)",
+          "duration_ms": 0.06389617919921875,
+          "category": "static"
+        },
+        {
+          "name": "kb_data_contracts",
+          "passed": true,
+          "detail": "13/13 KB files pass schema validation",
+          "duration_ms": 17.309904098510742,
+          "category": "static"
+        },
+        {
+          "name": "enrichment_output_contract",
+          "passed": true,
+          "detail": "Enrichment output contract validation: True",
+          "duration_ms": 0.08416175842285156,
+          "category": "static"
+        },
+        {
+          "name": "regression_check",
+          "passed": true,
+          "detail": "Regression scenario 0 (healthcare): $100,000 budget, 8 channels",
+          "duration_ms": 0.6022453308105469,
+          "category": "static"
+        },
+        {
+          "name": "eval_budget_sanity",
+          "passed": true,
+          "detail": "Budget sanity eval: 100.0% (30/30)",
+          "duration_ms": 4.431962966918945,
+          "category": "static"
+        },
+        {
+          "name": "eval_collar_consistency",
+          "passed": true,
+          "detail": "Collar consistency eval: 90.2% (46/51)",
+          "duration_ms": 0.7548332214355469,
+          "category": "static"
+        },
+        {
+          "name": "structured_logging",
+          "passed": true,
+          "detail": "Structured JSON logging produces valid JSON output",
+          "duration_ms": 0.1049041748046875,
+          "category": "static"
+        },
+        {
+          "name": "openapi_spec_valid",
+          "passed": true,
+          "detail": "OpenAPI spec: 11 paths documented, version 3.0.3",
+          "duration_ms": 127.61807441711426,
+          "category": "static"
+        },
+        {
+          "name": "role_decomposition",
+          "passed": true,
+          "detail": "Role decomposition: 50 engineers -> 4 seniority levels, sum=50",
+          "duration_ms": 0.06914138793945312,
+          "category": "static"
+        },
+        {
+          "name": "channel_quality_scores",
+          "passed": true,
+          "detail": "Channel quality scores: blue=0.65, white=0.7",
+          "duration_ms": 0.035762786865234375,
+          "category": "static"
+        },
+        {
+          "name": "dynamic_cpc_bounds",
+          "passed": true,
+          "detail": "Dynamic CPC: $1.45 (bounds 0.10-50.00)",
+          "duration_ms": 0.06818771362304688,
+          "category": "static"
+        },
+        {
+          "name": "what_if_simulator",
+          "passed": true,
+          "detail": "What-if simulator: $100K + $20K = $120000",
+          "duration_ms": 0.08606910705566406,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_health",
+          "passed": true,
+          "detail": "LLM router: 12 providers",
+          "duration_ms": 0.07915496826171875,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_classify",
+          "passed": true,
+          "detail": "classify_task: 3/3 correct",
+          "duration_ms": 0.05698204040527344,
+          "category": "static"
+        },
+        {
+          "name": "llm_provider_availability",
+          "passed": false,
+          "detail": "LLM providers with keys: NONE (0/4)",
+          "duration_ms": 0.025033950805664062,
+          "category": "static"
+        },
+        {
+          "name": "async_job_cleanup",
+          "passed": true,
+          "detail": "Async jobs: 0 active, lock=present",
+          "duration_ms": 0.027894973754882812,
+          "category": "static"
+        },
+        {
+          "name": "api_key_tiers",
+          "passed": true,
+          "detail": "API tiers: 3/3 valid (free=5rpm, pro=30rpm, enterprise=100rpm)",
+          "duration_ms": 0.024080276489257812,
+          "category": "static"
+        },
+        {
+          "name": "joveo_benchmarks_loaded",
+          "passed": true,
+          "detail": "Joveo 2026: 15 occupations with CPA, market_conditions=present, two_market=present",
+          "duration_ms": 0.11491775512695312,
+          "category": "static"
+        },
+        {
+          "name": "audit_trail",
+          "passed": true,
+          "detail": "Audit trail: 18 entries, stages=['auto_qc']",
+          "duration_ms": 0.38933753967285156,
+          "category": "static"
+        },
+        {
+          "name": "slo_compliance",
+          "passed": true,
+          "detail": "SLO compliance: 0/4 compliant, targets=['slos', 'all_compliant', 'checked_at', 'uptime_seconds']",
+          "duration_ms": 0.07390975952148438,
+          "category": "static"
+        },
+        {
+          "name": "tier2_modules_importable",
+          "passed": true,
+          "detail": "Tier2 modules: 5/5 healthy",
+          "duration_ms": 0.05507469177246094,
+          "category": "static"
+        },
+        {
+          "name": "publisher_cross_validation",
+          "passed": true,
+          "detail": "Found 5/5 critical publishers",
+          "duration_ms": 0.6101131439208984,
+          "category": "static"
+        },
+        {
+          "name": "campaign_month_threading",
+          "passed": true,
+          "detail": "_get_trend_engine_cpc.month=True, calculate_budget_allocation.campaign_start_month=True",
+          "duration_ms": 0.1881122589111328,
+          "category": "static"
+        },
+        {
+          "name": "geopolitical_function_exists",
+          "passed": true,
+          "detail": "fetch_geopolitical_context is callable",
+          "duration_ms": 0.04792213439941406,
+          "category": "static"
+        },
+        {
+          "name": "geopolitical_fallback",
+          "passed": true,
+          "detail": "Keys present: 4/4, locations: 2",
+          "duration_ms": 0.047206878662109375,
+          "category": "static"
+        },
+        {
+          "name": "security_filter",
+          "passed": true,
+          "detail": "Blocked 5/5 adversarial prompts",
+          "duration_ms": 0.07510185241699219,
+          "category": "static"
+        },
+        {
+          "name": "confidence_breakdown",
+          "passed": true,
+          "detail": "Grade=A, Overall=0.95, Keys: 7/7",
+          "duration_ms": 0.03814697265625,
+          "category": "static"
+        },
+        {
+          "name": "claude_opus_provider",
+          "passed": true,
+          "detail": "Config=True, Routing=True, Model=claude-opus-4-20250514",
+          "duration_ms": 0.026941299438476562,
+          "category": "static"
+        },
+        {
+          "name": "email_alerts_module",
+          "passed": true,
+          "detail": "Functions: 5/5 present, _is_enabled()=False: True",
+          "duration_ms": 0.025033950805664062,
+          "category": "static"
+        },
+        {
+          "name": "email_alerts_noop_when_disabled",
+          "passed": true,
+          "detail": "All no-op calls succeeded",
+          "duration_ms": 0.026941299438476562,
+          "category": "static"
+        },
+        {
+          "name": "grafana_logger_module",
+          "passed": true,
+          "detail": "Handler subclass=True, setup callable=True, stats returns dict=True, setup returns False=True",
+          "duration_ms": 0.030040740966796875,
+          "category": "static"
+        },
+        {
+          "name": "grafana_logger_stats_structure",
+          "passed": true,
+          "detail": "Keys: 3/3 present, all zero=True",
+          "duration_ms": 0.025272369384765625,
+          "category": "static"
+        },
+        {
+          "name": "supabase_cache_module",
+          "passed": true,
+          "detail": "Functions: 10/10 present",
+          "duration_ms": 0.0247955322265625,
+          "category": "static"
+        },
+        {
+          "name": "supabase_cache_disabled_behavior",
+          "passed": true,
+          "detail": "All disabled no-op checks passed",
+          "duration_ms": 0.028133392333984375,
+          "category": "static"
+        },
+        {
+          "name": "budget_allocation_sum_invariant",
+          "passed": true,
+          "detail": "Sum=$50000.00 vs budget=$50000.00, diff=$0.00 (tolerance=$500.00)",
+          "duration_ms": 0.2827644348144531,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_fallback_cascade",
+          "passed": true,
+          "detail": "No available fallback (no API keys for remaining providers) -- cascade logic correct (skipped 'gemini')",
+          "duration_ms": 0.03600120544433594,
+          "category": "static"
+        },
+        {
+          "name": "budget_cpc_tier_cascade",
+          "passed": true,
+          "detail": "4-tier CPC cascade verified: 13 base categories, fallbacks correct",
+          "duration_ms": 0.027179718017578125,
+          "category": "static"
+        },
+        {
+          "name": "nova_hallucination_guard",
+          "passed": true,
+          "detail": "Rule-based mode: template CPC values expected. Narnia-specific claims: False",
+          "duration_ms": 0.7030963897705078,
+          "category": "static"
+        },
+        {
+          "name": "cache_ttl_expiration",
+          "passed": true,
+          "detail": "TTL mechanism verified: fresh entry retrieved, expired entry correctly evicted",
+          "duration_ms": 0.032901763916015625,
+          "category": "static"
+        },
+        {
+          "name": "circuit_breaker_state_machine",
+          "passed": true,
+          "detail": "State machine verified: closed->open(after 3 failures)->half-open(after cooldown)",
+          "duration_ms": 0.08702278137207031,
+          "category": "static"
+        },
+        {
+          "name": "cross_module_data_contract",
+          "passed": true,
+          "detail": "compute_insights keys: ['hiring_difficulty_index'], enrichment contracts: enrich_salary: OK; get_ad_platform_benchmarks: callable (error=get_ad_platform_benchmarks() got an unex)",
+          "duration_ms": 0.05698204040527344,
+          "category": "static"
+        },
+        {
+          "name": "async_job_cleanup_mechanism",
+          "passed": true,
+          "detail": "cleanup_fn=callable, expiry=1800s, fake_job_inserted=True",
+          "duration_ms": 0.026941299438476562,
+          "category": "static"
+        },
+        {
+          "name": "input_validation_feedback",
+          "passed": true,
+          "detail": "Validation patterns found: 5/5 (_input_warnings, _validation_warnings, roles_check, locations_check, budget_check)",
+          "duration_ms": 1.4252662658691406,
+          "category": "static"
+        },
+        {
+          "name": "llm_routing_task_classification_8_types",
+          "passed": true,
+          "detail": "classify_task: 6/8 correct | mismatches: 'Analyze multi-market budget op': expected=complex, got=conversational; 'Process these 500 records': expected=batch, got=conversational",
+          "duration_ms": 0.09393692016601562,
+          "category": "static"
+        }
+      ],
+      "failures": [
+        {
+          "name": "claude_api_key",
+          "passed": false,
+          "detail": "Missing or too short",
+          "duration_ms": 0.0667572021484375,
+          "category": "static"
+        },
+        {
+          "name": "env_vars",
+          "passed": false,
+          "detail": "Missing required: ANTHROPIC_API_KEY",
+          "duration_ms": 0.07224082946777344,
+          "category": "static"
+        },
+        {
+          "name": "llm_provider_availability",
+          "passed": false,
+          "detail": "LLM providers with keys: NONE (0/4)",
+          "duration_ms": 0.025033950805664062,
+          "category": "static"
+        }
+      ]
+    },
+    {
+      "run_number": 24,
+      "timestamp": "2026-03-10T13:08:48.258980+00:00",
+      "status": "degraded",
+      "passed": 73,
+      "failed": 3,
+      "healed": 1,
+      "total": 76,
+      "duration_seconds": 5.18,
+      "tests": [
+        {
+          "name": "health_endpoint",
+          "passed": true,
+          "detail": "status=ok",
+          "duration_ms": 5.759000778198242,
+          "category": "static"
+        },
+        {
+          "name": "kb_json_files",
+          "passed": true,
+          "detail": "13/13 valid",
+          "duration_ms": 3.751039505004883,
+          "category": "static"
+        },
+        {
+          "name": "nova_import",
+          "passed": true,
+          "detail": "Nova=True, chat=True",
+          "duration_ms": 7.8639984130859375,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_import",
+          "passed": true,
+          "detail": "All 10 core functions present",
+          "duration_ms": 2.3641586303710938,
+          "category": "static"
+        },
+        {
+          "name": "claude_api_key",
+          "passed": false,
+          "detail": "Missing or too short",
+          "duration_ms": 0.053882598876953125,
+          "category": "static"
+        },
+        {
+          "name": "data_matrix_health",
+          "passed": true,
+          "detail": "Pending (first check not yet run)",
+          "duration_ms": 0.39696693420410156,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_cache",
+          "passed": true,
+          "detail": "entries=0, max=500",
+          "duration_ms": 0.04100799560546875,
+          "category": "static"
+        },
+        {
+          "name": "nova_tool_count",
+          "passed": true,
+          "detail": "27 tools (expected >= 23)",
+          "duration_ms": 3.900289535522461,
+          "category": "static"
+        },
+        {
+          "name": "env_vars",
+          "passed": false,
+          "detail": "Missing required: ANTHROPIC_API_KEY",
+          "duration_ms": 0.051975250244140625,
+          "category": "static"
+        },
+        {
+          "name": "modules_compile",
+          "passed": true,
+          "detail": "27 files compile clean",
+          "duration_ms": 194.19002532958984,
+          "category": "static"
+        },
+        {
+          "name": "chat_learned_answer",
+          "passed": true,
+          "detail": "confidence=1.0, mentions_joveo=True",
+          "duration_ms": 3.734111785888672,
+          "category": "static"
+        },
+        {
+          "name": "chat_response_structure",
+          "passed": true,
+          "detail": "fields=all present",
+          "duration_ms": 18.672943115234375,
+          "category": "static"
+        },
+        {
+          "name": "chat_empty_message",
+          "passed": true,
+          "detail": "has_response=True, no_error=True",
+          "duration_ms": 0.10895729064941406,
+          "category": "static"
+        },
+        {
+          "name": "ask_before_answering",
+          "passed": true,
+          "detail": "asks_location=True",
+          "duration_ms": 1.5659332275390625,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_lazy_loaders",
+          "passed": true,
+          "detail": "All 6 lazy loaders OK",
+          "duration_ms": 10.705709457397461,
+          "category": "static"
+        },
+        {
+          "name": "enrichment_context",
+          "passed": true,
+          "detail": "store/get=True",
+          "duration_ms": 0.0629425048828125,
+          "category": "static"
+        },
+        {
+          "name": "ad_platform_benchmarks",
+          "passed": true,
+          "detail": "platforms=5, has_google=True",
+          "duration_ms": 0.0457763671875,
+          "category": "static"
+        },
+        {
+          "name": "compute_insights",
+          "passed": true,
+          "detail": "difficulty=0.5, has_salary_comp=False",
+          "duration_ms": 0.047206878662109375,
+          "category": "static"
+        },
+        {
+          "name": "employer_brand",
+          "passed": true,
+          "detail": "keys=['company', 'industry', 'company_size', 'primary_hiring_channels', 'employer_brand_strength']",
+          "duration_ms": 0.04124641418457031,
+          "category": "static"
+        },
+        {
+          "name": "fallback_telemetry",
+          "passed": true,
+          "detail": "total_fallbacks=0",
+          "duration_ms": 0.03719329833984375,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_benchmarks",
+          "passed": true,
+          "detail": "All 3 combos valid",
+          "duration_ms": 0.057697296142578125,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_seasonal",
+          "passed": true,
+          "detail": "Both collar types return valid multiplier",
+          "duration_ms": 0.050067901611328125,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_freshness",
+          "passed": true,
+          "detail": "All 6 platforms have data for >= 2025",
+          "duration_ms": 0.06198883056640625,
+          "category": "static"
+        },
+        {
+          "name": "collar_classification",
+          "passed": true,
+          "detail": "All 5 roles classified validly",
+          "duration_ms": 0.10704994201660156,
+          "category": "static"
+        },
+        {
+          "name": "budget_engine_v3_params",
+          "passed": true,
+          "detail": "5 channels returned, cpc_source present",
+          "duration_ms": 0.14400482177734375,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_ad_benchmarks_v3",
+          "passed": true,
+          "detail": "structured_confidence dict present",
+          "duration_ms": 0.1468658447265625,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_collar_intelligence",
+          "passed": true,
+          "detail": "collar_type=blue_collar",
+          "duration_ms": 0.05412101745605469,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_hiring_trends",
+          "passed": true,
+          "detail": "hiring_difficulty_index=5.0",
+          "duration_ms": 4724.501848220825,
+          "category": "static"
+        },
+        {
+          "name": "nova_v3_tool_handlers",
+          "passed": true,
+          "detail": "Both v3 tool handlers execute OK",
+          "duration_ms": 3.7691593170166016,
+          "category": "static"
+        },
+        {
+          "name": "ppt_v3_features",
+          "passed": true,
+          "detail": "PPT v3 features present (trend_engine, collar_intel, role normalization)",
+          "duration_ms": 74.94997978210449,
+          "category": "static"
+        },
+        {
+          "name": "data_synthesizer_integration",
+          "passed": true,
+          "detail": "All 10 synthesizer functions present",
+          "duration_ms": 4.707098007202148,
+          "category": "static"
+        },
+        {
+          "name": "structured_confidence",
+          "passed": true,
+          "detail": "structured_confidence present (confidence=0.9, 3 sources)",
+          "duration_ms": 0.8058547973632812,
+          "category": "static"
+        },
+        {
+          "name": "data_matrix_v3_layers",
+          "passed": true,
+          "detail": "Data matrix fully tracks v3 layers (4 products x 2 new layers)",
+          "duration_ms": 0.030040740966796875,
+          "category": "static"
+        },
+        {
+          "name": "kb_data_contracts",
+          "passed": true,
+          "detail": "13/13 KB files pass schema validation",
+          "duration_ms": 3.7572383880615234,
+          "category": "static"
+        },
+        {
+          "name": "enrichment_output_contract",
+          "passed": true,
+          "detail": "Enrichment output contract validation: True",
+          "duration_ms": 0.052928924560546875,
+          "category": "static"
+        },
+        {
+          "name": "regression_check",
+          "passed": true,
+          "detail": "Regression scenario 0 (healthcare): $100,000 budget, 8 channels",
+          "duration_ms": 0.6458759307861328,
+          "category": "static"
+        },
+        {
+          "name": "eval_budget_sanity",
+          "passed": true,
+          "detail": "Budget sanity eval: 100.0% (30/30)",
+          "duration_ms": 8.88824462890625,
+          "category": "static"
+        },
+        {
+          "name": "eval_collar_consistency",
+          "passed": true,
+          "detail": "Collar consistency eval: 90.2% (46/51)",
+          "duration_ms": 0.7450580596923828,
+          "category": "static"
+        },
+        {
+          "name": "structured_logging",
+          "passed": true,
+          "detail": "Structured JSON logging produces valid JSON output",
+          "duration_ms": 0.08392333984375,
+          "category": "static"
+        },
+        {
+          "name": "openapi_spec_valid",
+          "passed": true,
+          "detail": "OpenAPI spec: 11 paths documented, version 3.0.3",
+          "duration_ms": 100.26407241821289,
+          "category": "static"
+        },
+        {
+          "name": "role_decomposition",
+          "passed": true,
+          "detail": "Role decomposition: 50 engineers -> 4 seniority levels, sum=50",
+          "duration_ms": 0.06580352783203125,
+          "category": "static"
+        },
+        {
+          "name": "channel_quality_scores",
+          "passed": true,
+          "detail": "Channel quality scores: blue=0.65, white=0.7",
+          "duration_ms": 0.03695487976074219,
+          "category": "static"
+        },
+        {
+          "name": "dynamic_cpc_bounds",
+          "passed": true,
+          "detail": "Dynamic CPC: $1.45 (bounds 0.10-50.00)",
+          "duration_ms": 0.064849853515625,
+          "category": "static"
+        },
+        {
+          "name": "what_if_simulator",
+          "passed": true,
+          "detail": "What-if simulator: $100K + $20K = $120000",
+          "duration_ms": 0.06914138793945312,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_health",
+          "passed": true,
+          "detail": "LLM router: 12 providers",
+          "duration_ms": 0.06890296936035156,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_classify",
+          "passed": true,
+          "detail": "classify_task: 3/3 correct",
+          "duration_ms": 0.052928924560546875,
+          "category": "static"
+        },
+        {
+          "name": "llm_provider_availability",
+          "passed": false,
+          "detail": "LLM providers with keys: NONE (0/4)",
+          "duration_ms": 0.025987625122070312,
+          "category": "static"
+        },
+        {
+          "name": "async_job_cleanup",
+          "passed": true,
+          "detail": "Async jobs: 0 active, lock=present",
+          "duration_ms": 0.023126602172851562,
+          "category": "static"
+        },
+        {
+          "name": "api_key_tiers",
+          "passed": true,
+          "detail": "API tiers: 3/3 valid (free=5rpm, pro=30rpm, enterprise=100rpm)",
+          "duration_ms": 0.029325485229492188,
+          "category": "static"
+        },
+        {
+          "name": "joveo_benchmarks_loaded",
+          "passed": true,
+          "detail": "Joveo 2026: 15 occupations with CPA, market_conditions=present, two_market=present",
+          "duration_ms": 0.1308917999267578,
+          "category": "static"
+        },
+        {
+          "name": "audit_trail",
+          "passed": true,
+          "detail": "Audit trail: 19 entries, stages=['auto_qc']",
+          "duration_ms": 0.24819374084472656,
+          "category": "static"
+        },
+        {
+          "name": "slo_compliance",
+          "passed": true,
+          "detail": "SLO compliance: 0/4 compliant, targets=['slos', 'all_compliant', 'checked_at', 'uptime_seconds']",
+          "duration_ms": 0.07486343383789062,
+          "category": "static"
+        },
+        {
+          "name": "tier2_modules_importable",
+          "passed": true,
+          "detail": "Tier2 modules: 5/5 healthy",
+          "duration_ms": 0.03719329833984375,
+          "category": "static"
+        },
+        {
+          "name": "publisher_cross_validation",
+          "passed": true,
+          "detail": "Found 5/5 critical publishers",
+          "duration_ms": 0.3719329833984375,
+          "category": "static"
+        },
+        {
+          "name": "campaign_month_threading",
+          "passed": true,
+          "detail": "_get_trend_engine_cpc.month=True, calculate_budget_allocation.campaign_start_month=True",
+          "duration_ms": 0.20885467529296875,
+          "category": "static"
+        },
+        {
+          "name": "geopolitical_function_exists",
+          "passed": true,
+          "detail": "fetch_geopolitical_context is callable",
+          "duration_ms": 0.03790855407714844,
+          "category": "static"
+        },
+        {
+          "name": "geopolitical_fallback",
+          "passed": true,
+          "detail": "Keys present: 4/4, locations: 2",
+          "duration_ms": 0.031948089599609375,
+          "category": "static"
+        },
+        {
+          "name": "security_filter",
+          "passed": true,
+          "detail": "Blocked 5/5 adversarial prompts",
+          "duration_ms": 0.0591278076171875,
+          "category": "static"
+        },
+        {
+          "name": "confidence_breakdown",
+          "passed": true,
+          "detail": "Grade=A, Overall=0.95, Keys: 7/7",
+          "duration_ms": 0.05817413330078125,
+          "category": "static"
+        },
+        {
+          "name": "claude_opus_provider",
+          "passed": true,
+          "detail": "Config=True, Routing=True, Model=claude-opus-4-20250514",
+          "duration_ms": 0.032901763916015625,
+          "category": "static"
+        },
+        {
+          "name": "email_alerts_module",
+          "passed": true,
+          "detail": "Functions: 5/5 present, _is_enabled()=False: True",
+          "duration_ms": 0.031232833862304688,
+          "category": "static"
+        },
+        {
+          "name": "email_alerts_noop_when_disabled",
+          "passed": true,
+          "detail": "All no-op calls succeeded",
+          "duration_ms": 0.03814697265625,
+          "category": "static"
+        },
+        {
+          "name": "grafana_logger_module",
+          "passed": true,
+          "detail": "Handler subclass=True, setup callable=True, stats returns dict=True, setup returns False=True",
+          "duration_ms": 0.03504753112792969,
+          "category": "static"
+        },
+        {
+          "name": "grafana_logger_stats_structure",
+          "passed": true,
+          "detail": "Keys: 3/3 present, all zero=True",
+          "duration_ms": 0.028848648071289062,
+          "category": "static"
+        },
+        {
+          "name": "supabase_cache_module",
+          "passed": true,
+          "detail": "Functions: 10/10 present",
+          "duration_ms": 0.025033950805664062,
+          "category": "static"
+        },
+        {
+          "name": "supabase_cache_disabled_behavior",
+          "passed": true,
+          "detail": "All disabled no-op checks passed",
+          "duration_ms": 0.030994415283203125,
+          "category": "static"
+        },
+        {
+          "name": "budget_allocation_sum_invariant",
+          "passed": true,
+          "detail": "Sum=$50000.00 vs budget=$50000.00, diff=$0.00 (tolerance=$500.00)",
+          "duration_ms": 0.6618499755859375,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_fallback_cascade",
+          "passed": true,
+          "detail": "No available fallback (no API keys for remaining providers) -- cascade logic correct (skipped 'gemini')",
+          "duration_ms": 0.09512901306152344,
+          "category": "static"
+        },
+        {
+          "name": "budget_cpc_tier_cascade",
+          "passed": true,
+          "detail": "4-tier CPC cascade verified: 13 base categories, fallbacks correct",
+          "duration_ms": 0.05412101745605469,
+          "category": "static"
+        },
+        {
+          "name": "nova_hallucination_guard",
+          "passed": true,
+          "detail": "Rule-based mode: template CPC values expected. Narnia-specific claims: False",
+          "duration_ms": 0.8041858673095703,
+          "category": "static"
+        },
+        {
+          "name": "cache_ttl_expiration",
+          "passed": true,
+          "detail": "TTL mechanism verified: fresh entry retrieved, expired entry correctly evicted",
+          "duration_ms": 0.041961669921875,
+          "category": "static"
+        },
+        {
+          "name": "circuit_breaker_state_machine",
+          "passed": true,
+          "detail": "State machine verified: closed->open(after 3 failures)->half-open(after cooldown)",
+          "duration_ms": 0.08821487426757812,
+          "category": "static"
+        },
+        {
+          "name": "cross_module_data_contract",
+          "passed": true,
+          "detail": "compute_insights keys: ['hiring_difficulty_index'], enrichment contracts: enrich_salary: OK; get_ad_platform_benchmarks: callable (error=get_ad_platform_benchmarks() got an unex)",
+          "duration_ms": 0.05698204040527344,
+          "category": "static"
+        },
+        {
+          "name": "async_job_cleanup_mechanism",
+          "passed": true,
+          "detail": "cleanup_fn=callable, expiry=1800s, fake_job_inserted=True",
+          "duration_ms": 0.030040740966796875,
+          "category": "static"
+        },
+        {
+          "name": "input_validation_feedback",
+          "passed": true,
+          "detail": "Validation patterns found: 5/5 (_input_warnings, _validation_warnings, roles_check, locations_check, budget_check)",
+          "duration_ms": 1.2018680572509766,
+          "category": "static"
+        },
+        {
+          "name": "llm_routing_task_classification_8_types",
+          "passed": true,
+          "detail": "classify_task: 6/8 correct | mismatches: 'Analyze multi-market budget op': expected=complex, got=conversational; 'Process these 500 records': expected=batch, got=conversational",
+          "duration_ms": 0.09799003601074219,
+          "category": "static"
+        }
+      ],
+      "failures": [
+        {
+          "name": "claude_api_key",
+          "passed": false,
+          "detail": "Missing or too short",
+          "duration_ms": 0.053882598876953125,
+          "category": "static"
+        },
+        {
+          "name": "env_vars",
+          "passed": false,
+          "detail": "Missing required: ANTHROPIC_API_KEY",
+          "duration_ms": 0.051975250244140625,
+          "category": "static"
+        },
+        {
+          "name": "llm_provider_availability",
+          "passed": false,
+          "detail": "LLM providers with keys: NONE (0/4)",
+          "duration_ms": 0.025987625122070312,
+          "category": "static"
+        }
+      ]
+    },
+    {
+      "run_number": 25,
+      "timestamp": "2026-03-10T13:09:04.003210+00:00",
+      "status": "degraded",
+      "passed": 73,
+      "failed": 3,
+      "healed": 1,
+      "total": 76,
+      "duration_seconds": 5.16,
+      "tests": [
+        {
+          "name": "health_endpoint",
+          "passed": true,
+          "detail": "status=ok",
+          "duration_ms": 5.225896835327148,
+          "category": "static"
+        },
+        {
+          "name": "kb_json_files",
+          "passed": true,
+          "detail": "13/13 valid",
+          "duration_ms": 5.814075469970703,
+          "category": "static"
+        },
+        {
+          "name": "nova_import",
+          "passed": true,
+          "detail": "Nova=True, chat=True",
+          "duration_ms": 7.129907608032227,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_import",
+          "passed": true,
+          "detail": "All 10 core functions present",
+          "duration_ms": 2.4559497833251953,
+          "category": "static"
+        },
+        {
+          "name": "claude_api_key",
+          "passed": false,
+          "detail": "Missing or too short",
+          "duration_ms": 0.0400543212890625,
+          "category": "static"
+        },
+        {
+          "name": "data_matrix_health",
+          "passed": true,
+          "detail": "Pending (first check not yet run)",
+          "duration_ms": 0.35309791564941406,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_cache",
+          "passed": true,
+          "detail": "entries=0, max=500",
+          "duration_ms": 0.029802322387695312,
+          "category": "static"
+        },
+        {
+          "name": "nova_tool_count",
+          "passed": true,
+          "detail": "27 tools (expected >= 23)",
+          "duration_ms": 3.651857376098633,
+          "category": "static"
+        },
+        {
+          "name": "env_vars",
+          "passed": false,
+          "detail": "Missing required: ANTHROPIC_API_KEY",
+          "duration_ms": 0.053882598876953125,
+          "category": "static"
+        },
+        {
+          "name": "modules_compile",
+          "passed": true,
+          "detail": "27 files compile clean",
+          "duration_ms": 170.975923538208,
+          "category": "static"
+        },
+        {
+          "name": "chat_learned_answer",
+          "passed": true,
+          "detail": "confidence=1.0, mentions_joveo=True",
+          "duration_ms": 3.4668445587158203,
+          "category": "static"
+        },
+        {
+          "name": "chat_response_structure",
+          "passed": true,
+          "detail": "fields=all present",
+          "duration_ms": 17.674922943115234,
+          "category": "static"
+        },
+        {
+          "name": "chat_empty_message",
+          "passed": true,
+          "detail": "has_response=True, no_error=True",
+          "duration_ms": 0.09584426879882812,
+          "category": "static"
+        },
+        {
+          "name": "ask_before_answering",
+          "passed": true,
+          "detail": "asks_location=True",
+          "duration_ms": 1.3570785522460938,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_lazy_loaders",
+          "passed": true,
+          "detail": "All 6 lazy loaders OK",
+          "duration_ms": 8.329153060913086,
+          "category": "static"
+        },
+        {
+          "name": "enrichment_context",
+          "passed": true,
+          "detail": "store/get=True",
+          "duration_ms": 0.10585784912109375,
+          "category": "static"
+        },
+        {
+          "name": "ad_platform_benchmarks",
+          "passed": true,
+          "detail": "platforms=5, has_google=True",
+          "duration_ms": 0.06818771362304688,
+          "category": "static"
+        },
+        {
+          "name": "compute_insights",
+          "passed": true,
+          "detail": "difficulty=0.5, has_salary_comp=False",
+          "duration_ms": 0.06794929504394531,
+          "category": "static"
+        },
+        {
+          "name": "employer_brand",
+          "passed": true,
+          "detail": "keys=['company', 'industry', 'company_size', 'primary_hiring_channels', 'employer_brand_strength']",
+          "duration_ms": 0.16307830810546875,
+          "category": "static"
+        },
+        {
+          "name": "fallback_telemetry",
+          "passed": true,
+          "detail": "total_fallbacks=0",
+          "duration_ms": 0.03886222839355469,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_benchmarks",
+          "passed": true,
+          "detail": "All 3 combos valid",
+          "duration_ms": 0.05888938903808594,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_seasonal",
+          "passed": true,
+          "detail": "Both collar types return valid multiplier",
+          "duration_ms": 0.041961669921875,
+          "category": "static"
+        },
+        {
+          "name": "trend_engine_freshness",
+          "passed": true,
+          "detail": "All 6 platforms have data for >= 2025",
+          "duration_ms": 0.03719329833984375,
+          "category": "static"
+        },
+        {
+          "name": "collar_classification",
+          "passed": true,
+          "detail": "All 5 roles classified validly",
+          "duration_ms": 0.04506111145019531,
+          "category": "static"
+        },
+        {
+          "name": "budget_engine_v3_params",
+          "passed": true,
+          "detail": "5 channels returned, cpc_source present",
+          "duration_ms": 0.11205673217773438,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_ad_benchmarks_v3",
+          "passed": true,
+          "detail": "structured_confidence dict present",
+          "duration_ms": 0.1552104949951172,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_collar_intelligence",
+          "passed": true,
+          "detail": "collar_type=blue_collar",
+          "duration_ms": 0.051975250244140625,
+          "category": "static"
+        },
+        {
+          "name": "orchestrator_hiring_trends",
+          "passed": true,
+          "detail": "hiring_difficulty_index=5.0",
+          "duration_ms": 4741.230726242065,
+          "category": "static"
+        },
+        {
+          "name": "nova_v3_tool_handlers",
+          "passed": true,
+          "detail": "Both v3 tool handlers execute OK",
+          "duration_ms": 3.782987594604492,
+          "category": "static"
+        },
+        {
+          "name": "ppt_v3_features",
+          "passed": true,
+          "detail": "PPT v3 features present (trend_engine, collar_intel, role normalization)",
+          "duration_ms": 70.5099105834961,
+          "category": "static"
+        },
+        {
+          "name": "data_synthesizer_integration",
+          "passed": true,
+          "detail": "All 10 synthesizer functions present",
+          "duration_ms": 3.167390823364258,
+          "category": "static"
+        },
+        {
+          "name": "structured_confidence",
+          "passed": true,
+          "detail": "structured_confidence present (confidence=0.9, 3 sources)",
+          "duration_ms": 0.5588531494140625,
+          "category": "static"
+        },
+        {
+          "name": "data_matrix_v3_layers",
+          "passed": true,
+          "detail": "Data matrix fully tracks v3 layers (4 products x 2 new layers)",
+          "duration_ms": 0.0362396240234375,
+          "category": "static"
+        },
+        {
+          "name": "kb_data_contracts",
+          "passed": true,
+          "detail": "13/13 KB files pass schema validation",
+          "duration_ms": 7.6580047607421875,
+          "category": "static"
+        },
+        {
+          "name": "enrichment_output_contract",
+          "passed": true,
+          "detail": "Enrichment output contract validation: True",
+          "duration_ms": 0.06723403930664062,
+          "category": "static"
+        },
+        {
+          "name": "regression_check",
+          "passed": true,
+          "detail": "Regression scenario 0 (healthcare): $100,000 budget, 8 channels",
+          "duration_ms": 0.4673004150390625,
+          "category": "static"
+        },
+        {
+          "name": "eval_budget_sanity",
+          "passed": true,
+          "detail": "Budget sanity eval: 100.0% (30/30)",
+          "duration_ms": 4.094123840332031,
+          "category": "static"
+        },
+        {
+          "name": "eval_collar_consistency",
+          "passed": true,
+          "detail": "Collar consistency eval: 90.2% (46/51)",
+          "duration_ms": 0.843048095703125,
+          "category": "static"
+        },
+        {
+          "name": "structured_logging",
+          "passed": true,
+          "detail": "Structured JSON logging produces valid JSON output",
+          "duration_ms": 0.09608268737792969,
+          "category": "static"
+        },
+        {
+          "name": "openapi_spec_valid",
+          "passed": true,
+          "detail": "OpenAPI spec: 11 paths documented, version 3.0.3",
+          "duration_ms": 92.51213073730469,
+          "category": "static"
+        },
+        {
+          "name": "role_decomposition",
+          "passed": true,
+          "detail": "Role decomposition: 50 engineers -> 4 seniority levels, sum=50",
+          "duration_ms": 0.0629425048828125,
+          "category": "static"
+        },
+        {
+          "name": "channel_quality_scores",
+          "passed": true,
+          "detail": "Channel quality scores: blue=0.65, white=0.7",
+          "duration_ms": 0.03504753112792969,
+          "category": "static"
+        },
+        {
+          "name": "dynamic_cpc_bounds",
+          "passed": true,
+          "detail": "Dynamic CPC: $1.45 (bounds 0.10-50.00)",
+          "duration_ms": 0.06508827209472656,
+          "category": "static"
+        },
+        {
+          "name": "what_if_simulator",
+          "passed": true,
+          "detail": "What-if simulator: $100K + $20K = $120000",
+          "duration_ms": 0.06604194641113281,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_health",
+          "passed": true,
+          "detail": "LLM router: 12 providers",
+          "duration_ms": 0.06604194641113281,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_classify",
+          "passed": true,
+          "detail": "classify_task: 3/3 correct",
+          "duration_ms": 0.051975250244140625,
+          "category": "static"
+        },
+        {
+          "name": "llm_provider_availability",
+          "passed": false,
+          "detail": "LLM providers with keys: NONE (0/4)",
+          "duration_ms": 0.02574920654296875,
+          "category": "static"
+        },
+        {
+          "name": "async_job_cleanup",
+          "passed": true,
+          "detail": "Async jobs: 0 active, lock=present",
+          "duration_ms": 0.02288818359375,
+          "category": "static"
+        },
+        {
+          "name": "api_key_tiers",
+          "passed": true,
+          "detail": "API tiers: 3/3 valid (free=5rpm, pro=30rpm, enterprise=100rpm)",
+          "duration_ms": 0.025033950805664062,
+          "category": "static"
+        },
+        {
+          "name": "joveo_benchmarks_loaded",
+          "passed": true,
+          "detail": "Joveo 2026: 15 occupations with CPA, market_conditions=present, two_market=present",
+          "duration_ms": 0.11610984802246094,
+          "category": "static"
+        },
+        {
+          "name": "audit_trail",
+          "passed": true,
+          "detail": "Audit trail: 20 entries, stages=['auto_qc']",
+          "duration_ms": 0.26988983154296875,
+          "category": "static"
+        },
+        {
+          "name": "slo_compliance",
+          "passed": true,
+          "detail": "SLO compliance: 0/4 compliant, targets=['slos', 'all_compliant', 'checked_at', 'uptime_seconds']",
+          "duration_ms": 0.06508827209472656,
+          "category": "static"
+        },
+        {
+          "name": "tier2_modules_importable",
+          "passed": true,
+          "detail": "Tier2 modules: 5/5 healthy",
+          "duration_ms": 0.030279159545898438,
+          "category": "static"
+        },
+        {
+          "name": "publisher_cross_validation",
+          "passed": true,
+          "detail": "Found 5/5 critical publishers",
+          "duration_ms": 0.4458427429199219,
+          "category": "static"
+        },
+        {
+          "name": "campaign_month_threading",
+          "passed": true,
+          "detail": "_get_trend_engine_cpc.month=True, calculate_budget_allocation.campaign_start_month=True",
+          "duration_ms": 0.06985664367675781,
+          "category": "static"
+        },
+        {
+          "name": "geopolitical_function_exists",
+          "passed": true,
+          "detail": "fetch_geopolitical_context is callable",
+          "duration_ms": 0.029087066650390625,
+          "category": "static"
+        },
+        {
+          "name": "geopolitical_fallback",
+          "passed": true,
+          "detail": "Keys present: 4/4, locations: 2",
+          "duration_ms": 0.028133392333984375,
+          "category": "static"
+        },
+        {
+          "name": "security_filter",
+          "passed": true,
+          "detail": "Blocked 5/5 adversarial prompts",
+          "duration_ms": 0.04982948303222656,
+          "category": "static"
+        },
+        {
+          "name": "confidence_breakdown",
+          "passed": true,
+          "detail": "Grade=A, Overall=0.95, Keys: 7/7",
+          "duration_ms": 0.03600120544433594,
+          "category": "static"
+        },
+        {
+          "name": "claude_opus_provider",
+          "passed": true,
+          "detail": "Config=True, Routing=True, Model=claude-opus-4-20250514",
+          "duration_ms": 0.027179718017578125,
+          "category": "static"
+        },
+        {
+          "name": "email_alerts_module",
+          "passed": true,
+          "detail": "Functions: 5/5 present, _is_enabled()=False: True",
+          "duration_ms": 0.0247955322265625,
+          "category": "static"
+        },
+        {
+          "name": "email_alerts_noop_when_disabled",
+          "passed": true,
+          "detail": "All no-op calls succeeded",
+          "duration_ms": 0.025987625122070312,
+          "category": "static"
+        },
+        {
+          "name": "grafana_logger_module",
+          "passed": true,
+          "detail": "Handler subclass=True, setup callable=True, stats returns dict=True, setup returns False=True",
+          "duration_ms": 0.027894973754882812,
+          "category": "static"
+        },
+        {
+          "name": "grafana_logger_stats_structure",
+          "passed": true,
+          "detail": "Keys: 3/3 present, all zero=True",
+          "duration_ms": 0.024080276489257812,
+          "category": "static"
+        },
+        {
+          "name": "supabase_cache_module",
+          "passed": true,
+          "detail": "Functions: 10/10 present",
+          "duration_ms": 0.026702880859375,
+          "category": "static"
+        },
+        {
+          "name": "supabase_cache_disabled_behavior",
+          "passed": true,
+          "detail": "All disabled no-op checks passed",
+          "duration_ms": 0.026941299438476562,
+          "category": "static"
+        },
+        {
+          "name": "budget_allocation_sum_invariant",
+          "passed": true,
+          "detail": "Sum=$50000.00 vs budget=$50000.00, diff=$0.00 (tolerance=$500.00)",
+          "duration_ms": 0.2810955047607422,
+          "category": "static"
+        },
+        {
+          "name": "llm_router_fallback_cascade",
+          "passed": true,
+          "detail": "No available fallback (no API keys for remaining providers) -- cascade logic correct (skipped 'gemini')",
+          "duration_ms": 0.03409385681152344,
+          "category": "static"
+        },
+        {
+          "name": "budget_cpc_tier_cascade",
+          "passed": true,
+          "detail": "4-tier CPC cascade verified: 13 base categories, fallbacks correct",
+          "duration_ms": 0.025987625122070312,
+          "category": "static"
+        },
+        {
+          "name": "nova_hallucination_guard",
+          "passed": true,
+          "detail": "Rule-based mode: template CPC values expected. Narnia-specific claims: False",
+          "duration_ms": 0.6070137023925781,
+          "category": "static"
+        },
+        {
+          "name": "cache_ttl_expiration",
+          "passed": true,
+          "detail": "TTL mechanism verified: fresh entry retrieved, expired entry correctly evicted",
+          "duration_ms": 0.0362396240234375,
+          "category": "static"
+        },
+        {
+          "name": "circuit_breaker_state_machine",
+          "passed": true,
+          "detail": "State machine verified: closed->open(after 3 failures)->half-open(after cooldown)",
+          "duration_ms": 0.08082389831542969,
+          "category": "static"
+        },
+        {
+          "name": "cross_module_data_contract",
+          "passed": true,
+          "detail": "compute_insights keys: ['hiring_difficulty_index'], enrichment contracts: enrich_salary: OK; get_ad_platform_benchmarks: callable (error=get_ad_platform_benchmarks() got an unex)",
+          "duration_ms": 0.051975250244140625,
+          "category": "static"
+        },
+        {
+          "name": "async_job_cleanup_mechanism",
+          "passed": true,
+          "detail": "cleanup_fn=callable, expiry=1800s, fake_job_inserted=True",
+          "duration_ms": 0.026941299438476562,
+          "category": "static"
+        },
+        {
+          "name": "input_validation_feedback",
+          "passed": true,
+          "detail": "Validation patterns found: 5/5 (_input_warnings, _validation_warnings, roles_check, locations_check, budget_check)",
+          "duration_ms": 1.1830329895019531,
+          "category": "static"
+        },
+        {
+          "name": "llm_routing_task_classification_8_types",
+          "passed": true,
+          "detail": "classify_task: 6/8 correct | mismatches: 'Analyze multi-market budget op': expected=complex, got=conversational; 'Process these 500 records': expected=batch, got=conversational",
+          "duration_ms": 0.08606910705566406,
+          "category": "static"
+        }
+      ],
+      "failures": [
+        {
+          "name": "claude_api_key",
+          "passed": false,
+          "detail": "Missing or too short",
+          "duration_ms": 0.0400543212890625,
+          "category": "static"
+        },
+        {
+          "name": "env_vars",
+          "passed": false,
+          "detail": "Missing required: ANTHROPIC_API_KEY",
+          "duration_ms": 0.053882598876953125,
+          "category": "static"
+        },
+        {
+          "name": "llm_provider_availability",
+          "passed": false,
+          "detail": "LLM providers with keys: NONE (0/4)",
+          "duration_ms": 0.02574920654296875,
+          "category": "static"
+        }
+      ]
     }
   ],
-  "run_count": 19,
+  "run_count": 25,
   "weekly_count": 0,
-  "last_updated": "2026-03-09T20:49:08.751101+00:00"
+  "last_updated": "2026-03-10T13:09:04.003304+00:00"
 }

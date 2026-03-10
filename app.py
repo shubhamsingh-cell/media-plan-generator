@@ -2524,16 +2524,50 @@ def generate_excel(data):
         cell.alignment = center_alignment
     exec_row += 1
 
-    qoh_data = [
-        ("Programmatic (Joveo)", "18-25 days", "78-85%", "\u2605\u2605\u2605\u2605\u2606", "High-volume hiring; ML optimization improves quality over time"),
-        ("Direct Job Boards", "22-30 days", "72-80%", "\u2605\u2605\u2605\u2606\u2606", "Broad reach; consistent pipeline for standard roles"),
-        ("Niche/Industry Boards", "25-35 days", "82-90%", "\u2605\u2605\u2605\u2605\u2605", "Specialized roles; highest quality match; lower volume"),
-        ("Social Media", "20-30 days", "70-78%", "\u2605\u2605\u2605\u2606\u2606", "Passive candidates; employer brand-driven; younger demographics"),
-        ("Employee Referrals", "15-20 days", "88-95%", "\u2605\u2605\u2605\u2605\u2605", "Highest retention; fastest fill; limited scale"),
-        ("Employer Branding", "30-45 days", "85-92%", "\u2605\u2605\u2605\u2605\u2605", "Long-term pipeline; highest quality but slower ROI"),
-        ("Events & Career Fairs", "25-40 days", "75-82%", "\u2605\u2605\u2605\u2606\u2606", "Face-to-face engagement; strong for campus/entry-level"),
-        ("Staffing Agencies", "10-15 days", "60-70%", "\u2605\u2605\u2606\u2606\u2606", "Fastest fill; lowest retention; highest per-hire cost"),
-    ]
+    # v3.5: Dynamic QoH table from budget engine channel allocations
+    _CHANNEL_QUALITY_META = {
+        "programmatic": ("18-25 days", "78-85%", 4, "High-volume hiring; ML optimization improves quality over time"),
+        "programmatic_dsp": ("18-25 days", "78-85%", 4, "High-volume hiring; ML optimization improves quality over time"),
+        "job_board": ("22-30 days", "72-80%", 3, "Broad reach; consistent pipeline for standard roles"),
+        "niche_board": ("25-35 days", "82-90%", 5, "Specialized roles; highest quality match; lower volume"),
+        "social_media": ("20-30 days", "70-78%", 3, "Passive candidates; employer brand-driven; younger demographics"),
+        "social": ("20-30 days", "70-78%", 3, "Passive candidates; employer brand-driven; younger demographics"),
+        "referral": ("15-20 days", "88-95%", 5, "Highest retention; fastest fill; limited scale"),
+        "employer_branding": ("30-45 days", "85-92%", 5, "Long-term pipeline; highest quality but slower ROI"),
+        "events": ("25-40 days", "75-82%", 3, "Face-to-face engagement; strong for campus/entry-level"),
+        "staffing_agency": ("10-15 days", "60-70%", 2, "Fastest fill; lowest retention; highest per-hire cost"),
+        "search_engine": ("20-28 days", "74-82%", 3, "Intent-driven candidates via Google/Bing job ads"),
+        "display": ("25-35 days", "65-75%", 2, "Brand awareness and passive candidate re-engagement"),
+    }
+    _qoh_budget = data.get("_budget_allocation", {})
+    _qoh_ch_allocs = _qoh_budget.get("channel_allocations", {}) if isinstance(_qoh_budget, dict) else {}
+    if _qoh_ch_allocs and isinstance(_qoh_ch_allocs, dict):
+        qoh_data = []
+        for ch_name, ch_data in _qoh_ch_allocs.items():
+            if not isinstance(ch_data, dict):
+                continue
+            category = ch_data.get("category", "job_board")
+            meta = _CHANNEL_QUALITY_META.get(category, _CHANNEL_QUALITY_META.get("job_board"))
+            label = ch_name.replace("_", " ").title()
+            if "joveo" in ch_name.lower() or category in ("programmatic", "programmatic_dsp"):
+                if "programmatic" not in label.lower():
+                    label = f"Programmatic ({label})"
+            stars = "\u2605" * meta[2] + "\u2606" * (5 - meta[2])
+            qoh_data.append((label, meta[0], meta[1], stars, meta[3]))
+        qoh_data.sort(key=lambda x: x[3].count("\u2605"), reverse=True)
+        qoh_data = qoh_data[:8]
+    else:
+        # Fallback: original hardcoded table (only when budget engine produced nothing)
+        qoh_data = [
+            ("Programmatic (Joveo)", "18-25 days", "78-85%", "\u2605\u2605\u2605\u2605\u2606", "High-volume hiring; ML optimization improves quality over time"),
+            ("Direct Job Boards", "22-30 days", "72-80%", "\u2605\u2605\u2605\u2606\u2606", "Broad reach; consistent pipeline for standard roles"),
+            ("Niche/Industry Boards", "25-35 days", "82-90%", "\u2605\u2605\u2605\u2605\u2605", "Specialized roles; highest quality match; lower volume"),
+            ("Social Media", "20-30 days", "70-78%", "\u2605\u2605\u2605\u2606\u2606", "Passive candidates; employer brand-driven; younger demographics"),
+            ("Employee Referrals", "15-20 days", "88-95%", "\u2605\u2605\u2605\u2605\u2605", "Highest retention; fastest fill; limited scale"),
+            ("Employer Branding", "30-45 days", "85-92%", "\u2605\u2605\u2605\u2605\u2605", "Long-term pipeline; highest quality but slower ROI"),
+            ("Events & Career Fairs", "25-40 days", "75-82%", "\u2605\u2605\u2605\u2606\u2606", "Face-to-face engagement; strong for campus/entry-level"),
+            ("Staffing Agencies", "10-15 days", "60-70%", "\u2605\u2605\u2606\u2606\u2606", "Fastest fill; lowest retention; highest per-hire cost"),
+        ]
 
     for idx, (ch_type, ttf, retention, quality, best_for) in enumerate(qoh_data):
         c1 = ws_exec.cell(row=exec_row, column=2, value=ch_type)
@@ -2586,14 +2620,30 @@ def generate_excel(data):
     ws_exec.cell(row=exec_row, column=2, value="Key performance indicators estimated from your channel mix, industry benchmarks, and campaign parameters.").font = Font(name="Calibri", italic=True, size=9, color="596780")
     exec_row += 2
 
-    # Calculate estimated metrics
-    est_total_reach = est_impressions
-    num_channels = regional_count + niche_count + global_count
-    est_hires = funnel_stages[-1][1] if funnel_stages else 0
-    est_applies = funnel_stages[2][1] if len(funnel_stages) > 2 else 0
-    est_cpa = round(budget_midpoint / max(est_applies, 1), 2) if est_applies > 0 else 0  # budget-derived CPA
+    # Calculate estimated metrics -- v3.5: prefer budget engine total_projected
+    _qm_budget = data.get("_budget_allocation", {})
+    _qm_total_proj = _qm_budget.get("total_projected", {}) if isinstance(_qm_budget, dict) else {}
+    if isinstance(_qm_total_proj, dict) and _qm_total_proj.get("hires", 0) > 0:
+        # Budget engine projections (highest accuracy)
+        est_total_reach = est_impressions  # Keep impressions from earlier calculation
+        est_hires = int(_qm_total_proj.get("hires", 0))
+        est_applies = int(_qm_total_proj.get("applications", 0))
+        _qm_cpa = _qm_total_proj.get("cost_per_application")
+        est_cpa = round(float(_qm_cpa), 2) if isinstance(_qm_cpa, (int, float)) and _qm_cpa > 0 else round(budget_midpoint / max(est_applies, 1), 2)
+        _qm_cph = _qm_total_proj.get("cost_per_hire")
+        est_cph_display = round(float(_qm_cph), 0) if isinstance(_qm_cph, (int, float)) and _qm_cph > 0 else round(budget_midpoint / max(est_hires, 1), 0)
+        _qm_ch_allocs = _qm_budget.get("channel_allocations", {})
+        num_channels = len([c for c in _qm_ch_allocs.values()
+                            if isinstance(c, dict) and c.get("percentage", 0) > 0]) if isinstance(_qm_ch_allocs, dict) else (regional_count + niche_count + global_count)
+    else:
+        # Fallback: original local calculations
+        est_total_reach = est_impressions
+        num_channels = regional_count + niche_count + global_count
+        est_hires = funnel_stages[-1][1] if funnel_stages else 0
+        est_applies = funnel_stages[2][1] if len(funnel_stages) > 2 else 0
+        est_cpa = round(budget_midpoint / max(est_applies, 1), 2) if est_applies > 0 else 0
+        est_cph_display = round(budget_midpoint / max(est_hires, 1), 0) if est_hires > 0 else avg_cph
     channel_diversity = min(round(num_channels / 10 * 100, 0), 100)  # score out of 100
-    est_cph_display = round(budget_midpoint / max(est_hires, 1), 0) if est_hires > 0 else avg_cph
 
     quality_metrics = [
         (f"{est_total_reach:,.0f}", "Estimated Total Reach", "Total impressions across all selected channels"),
@@ -9457,8 +9507,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             try:
                 from nova import handle_chat_request
                 response = handle_chat_request(data)
-                if _metrics:
-                    _metrics.record_chat()
+                # NOTE: Chat path routing is recorded inside nova.py (_nova_metrics.record_chat)
+                # which forwards to MetricsCollector. Do NOT double-count here.
             except Exception as chat_err:
                 logger.error("Nova chat error: %s", chat_err, exc_info=True)
                 response = {
