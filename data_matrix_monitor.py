@@ -609,6 +609,11 @@ class DataMatrixMonitor:
 
         # 7. v3.5 Conversational routing health
         try:
+            if "nova" not in sys.modules:
+                try:
+                    import nova as _nova_import  # noqa: F811
+                except Exception:
+                    pass
             if "nova" in sys.modules:
                 nova_mod = sys.modules["nova"]
                 nova_cls = getattr(nova_mod, "Nova", None)
