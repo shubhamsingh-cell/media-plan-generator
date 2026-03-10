@@ -6,8 +6,12 @@ python-pptx>=1.0.0,<2.0.0
 PyPDF2>=3.0.0,<4.0.0
 python-docx>=1.0.0,<2.0.0
 
+# Error tracking
+sentry-sdk>=2.0.0,<3.0.0
+
 # All other dependencies (json, urllib, http.server, threading,
 # concurrent.futures, ssl, hashlib, etc.) are Python stdlib.
+# Upstash Redis + PostHog use stdlib urllib.request (no pip packages needed).
 
 # Optional: pip install pytrends  (enables live Google Trends data)
 # Not required -- benchmark fallback data is used when unavailable.

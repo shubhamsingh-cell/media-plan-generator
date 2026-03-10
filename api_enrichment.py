@@ -105,6 +105,13 @@ try:
 except ImportError:
     _HAS_SUPABASE = False
 
+# Upstash Redis persistent cache (L4, after Supabase)
+try:
+    from upstash_cache import cache_get as _upstash_get, cache_set as _upstash_set
+    _HAS_UPSTASH = True
+except ImportError:
+    _HAS_UPSTASH = False
+
 # ---------------------------------------------------------------------------
 # Constants & configuration
 # ---------------------------------------------------------------------------
@@ -644,6 +651,17 @@ def _get_cached(key: str) -> Optional[Any]:
         except Exception:
             pass
 
+    # L4: Upstash Redis persistent cache
+    if _HAS_UPSTASH:
+        try:
+            upstash_data = _upstash_get(key)
+            if upstash_data is not None:
+                with _cache_lock:
+                    _memory_cache[key] = {"ts": time.time(), "data": upstash_data}
+                return upstash_data
+        except Exception:
+            pass
+
     return None
 
 
@@ -699,6 +717,13 @@ def _set_cached(key: str, data: Any) -> None:
     if _HAS_SUPABASE:
         try:
             _supa_set(key, data, ttl_seconds=CACHE_TTL, category="api")
+        except Exception:
+            pass
+
+    # L4: Replicate to Upstash Redis persistent cache
+    if _HAS_UPSTASH:
+        try:
+            _upstash_set(key, data, ttl_seconds=CACHE_TTL, category="api")
         except Exception:
             pass
 

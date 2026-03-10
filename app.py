@@ -39,6 +39,28 @@ from shared_utils import (
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# SENTRY ERROR TRACKING
+# ═══════════════════════════════════════════════════════════════════════════════
+_SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()
+if _SENTRY_DSN:
+    try:
+        import sentry_sdk
+        sentry_sdk.init(
+            dsn=_SENTRY_DSN,
+            traces_sample_rate=0.2,          # 20% of requests get performance traces
+            profiles_sample_rate=0.1,        # 10% get profiling
+            environment=os.environ.get("RENDER", "local"),
+            release=f"media-plan-generator@3.5.1",
+            send_default_pii=False,          # Never send PII
+            attach_stacktrace=True,
+        )
+        logger.info("Sentry error tracking initialized")
+    except ImportError:
+        logger.warning("sentry-sdk not installed -- error tracking disabled")
+    except Exception as _sentry_err:
+        logger.warning("Sentry init failed: %s", _sentry_err)
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # KNOWLEDGE BASE LOADER
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -8284,6 +8306,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             _metrics.enter_request()
         try:
             self._handle_GET()
+        except Exception as _exc:
+            # Sentry captures unhandled exceptions automatically; log + re-raise
+            logger.exception("Unhandled exception in do_GET: %s", _exc)
+            try:
+                self.send_error(500, "Internal Server Error")
+            except Exception:
+                pass
         finally:
             if _metrics:
                 _metrics.exit_request()
@@ -8301,7 +8330,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self._serve_file(os.path.join(TEMPLATES_DIR, "index.html"), "text/html")
         elif path in ("/api/health", "/health"):
             # Lightweight liveness probe (fast, for Render.com health checks)
-            self._send_json(health_check_liveness())
+            _health = health_check_liveness()
+            # Expose PostHog key for frontend JS (public key, safe to expose)
+            _ph_key = os.environ.get("POSTHOG_API_KEY", "").strip()
+            if _ph_key:
+                _health["posthog_key"] = _ph_key
+            self._send_json(_health)
         elif path in ("/api/health/ready", "/ready"):
             # Deep readiness probe (checks KB, disk, memory, modules)
             result = health_check_readiness()
@@ -8354,6 +8388,57 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(qc_err_body)))
                 self.end_headers()
                 self.wfile.write(qc_err_body)
+        elif path == "/api/health/integrations":
+            # External integrations status (admin-protected)
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            integrations = {}
+            # Sentry
+            try:
+                _sentry_dsn = os.environ.get("SENTRY_DSN", "").strip()
+                if _sentry_dsn:
+                    import sentry_sdk as _sk
+                    integrations["sentry"] = {
+                        "status": "ok", "detail": "Error tracking active",
+                        "dsn_configured": True, "sdk_version": _sk.VERSION,
+                    }
+                else:
+                    integrations["sentry"] = {"status": "disabled", "detail": "SENTRY_DSN not set", "dsn_configured": False}
+            except Exception as _e:
+                integrations["sentry"] = {"status": "error", "detail": str(_e)}
+            # Upstash Redis
+            try:
+                from upstash_cache import get_stats as _upstash_stats
+                integrations["upstash_redis"] = _upstash_stats()
+            except ImportError:
+                integrations["upstash_redis"] = {"status": "disabled", "detail": "upstash_cache module not available"}
+            except Exception as _e:
+                integrations["upstash_redis"] = {"status": "error", "detail": str(_e)}
+            # PostHog
+            try:
+                _ph_key = os.environ.get("POSTHOG_API_KEY", "").strip()
+                if _ph_key:
+                    integrations["posthog"] = {
+                        "status": "ok", "detail": "Analytics active (backend + frontend)",
+                        "key_configured": True,
+                    }
+                else:
+                    integrations["posthog"] = {"status": "disabled", "detail": "POSTHOG_API_KEY not set"}
+            except Exception as _e:
+                integrations["posthog"] = {"status": "error", "detail": str(_e)}
+            # Supabase
+            try:
+                from supabase_cache import cache_get as _test_supa
+                integrations["supabase"] = {"status": "ok", "detail": "Persistent cache (L3)"}
+            except ImportError:
+                integrations["supabase"] = {"status": "disabled", "detail": "supabase_cache not available"}
+            _int_body = json.dumps(integrations, indent=2).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(_int_body)))
+            self.end_headers()
+            self.wfile.write(_int_body)
         elif path == "/api/health/orchestrator":
             # Orchestrator cache stats + fallback telemetry (admin-protected)
             if not self._check_admin_auth():
@@ -8828,6 +8913,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             _metrics.enter_request()
         try:
             self._handle_POST()
+        except Exception as _exc:
+            logger.exception("Unhandled exception in do_POST: %s", _exc)
+            try:
+                self.send_error(500, "Internal Server Error")
+            except Exception:
+                pass
         finally:
             if _metrics:
                 _metrics.exit_request()
@@ -9528,6 +9619,16 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     )
                 except Exception:
                     pass
+                # PostHog: track failed generation
+                try:
+                    from posthog_tracker import track_plan_failed
+                    track_plan_failed(
+                        email=data.get("requester_email", "anonymous"),
+                        client=data.get("client_name", ""),
+                        error=str(e),
+                    )
+                except Exception:
+                    pass
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -9586,6 +9687,30 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 log_request(data, "success", file_size=len(zip_bytes), generation_time=generation_time, doc_filename=doc_filename)
                 if _metrics:
                     _metrics.record_generation(generation_time)
+                # PostHog: track successful generation
+                try:
+                    from posthog_tracker import track_plan_generated, track_file_upload
+                    track_plan_generated(
+                        email=data.get("requester_email", "anonymous"),
+                        client=data.get("client_name", ""),
+                        industry=data.get("industry", ""),
+                        budget=str(data.get("budget", "") or data.get("budget_range", "")),
+                        roles=data.get("target_roles") or data.get("roles", []),
+                        gen_time=generation_time,
+                        file_size=len(zip_bytes),
+                    )
+                    # Track file uploads if any
+                    _briefs = data.get("uploaded_briefs") or []
+                    _transcripts = data.get("uploaded_transcripts") or []
+                    _historical = data.get("uploaded_historical") or []
+                    if _briefs:
+                        track_file_upload(data.get("requester_email", "anonymous"), "brief", len(_briefs))
+                    if _transcripts:
+                        track_file_upload(data.get("requester_email", "anonymous"), "transcript", len(_transcripts))
+                    if _historical:
+                        track_file_upload(data.get("requester_email", "anonymous"), "historical", len(_historical))
+                except Exception:
+                    pass
             else:
                 # Fallback to Excel only if PPT fails — save Excel as doc copy
                 doc_filename = None

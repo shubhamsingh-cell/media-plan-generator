@@ -1117,6 +1117,16 @@
                 <div class="panel-header"><h3>&#x1f5a7; Infrastructure Health</h3></div>
                 <div class="infra-grid" id="infraGrid"><div class="loading-overlay" style="grid-column:1/-1;"><div class="spinner"></div><div class="loading-text">Loading infrastructure data...</div></div></div>
             </div>
+
+            <!-- Panel 8: External Integrations Status -->
+            <div class="panel" style="margin-top:20px;">
+                <div class="panel-header"><h3>&#x1f517; External Integrations</h3></div>
+                <div class="infra-grid" id="integrationsGrid">
+                    <div class="loading-overlay" style="grid-column:1/-1;">
+                        <div class="spinner"></div><div class="loading-text">Checking integrations...</div>
+                    </div>
+                </div>
+            </div>
         </section>
     </div>
 </div>
@@ -1153,7 +1163,7 @@ function authUrl(url) {
 
 // ===== PRODUCT PERFORMANCE STATE =====
 let perfHealth = null, perfMetrics = null, perfSlos = null, perfNova = null;
-let perfQc = null, perfMatrix = null, perfOrchestrator = null;
+let perfQc = null, perfMatrix = null, perfOrchestrator = null, perfIntegrations = null;
 
 async function fetchPerfData() {
     const endpoints = [
@@ -1164,6 +1174,7 @@ async function fetchPerfData() {
         ['/api/health/auto-qc', 'perfQc'],
         ['/api/health/data-matrix', 'perfMatrix'],
         ['/api/health/orchestrator', 'perfOrchestrator'],
+        ['/api/health/integrations', 'perfIntegrations'],
     ];
     const results = await Promise.allSettled(endpoints.map(async ([url]) => {
         const c = new AbortController();
@@ -1182,7 +1193,7 @@ async function fetchPerfData() {
             return await r.json();
         } catch { clearTimeout(t); return null; }
     }));
-    [perfHealth, perfMetrics, perfSlos, perfNova, perfQc, perfMatrix, perfOrchestrator] =
+    [perfHealth, perfMetrics, perfSlos, perfNova, perfQc, perfMatrix, perfOrchestrator, perfIntegrations] =
         results.map(r => r.status === 'fulfilled' ? r.value : null);
     renderPerfOverview();
     renderSloPanel();
@@ -1191,6 +1202,7 @@ async function fetchPerfData() {
     renderMatrixPanel();
     renderHealLog();
     renderInfraPanel();
+    renderIntegrationsPanel();
     const ts = document.getElementById('perfLastUpdated');
     if (ts) ts.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
 }
@@ -1392,6 +1404,39 @@ function renderInfraPanel() {
     grid.innerHTML = cards.map(c => {
         const dc = c.status==='ok'?'var(--green)':c.status==='partial'?'var(--amber)':'var(--red)';
         return '<div class="infra-card"><div class="infra-card-header"><span class="infra-dot" style="background:'+dc+';"></span><span class="infra-card-name">'+escapeHtml(c.name)+'</span></div><div class="infra-card-detail">'+escapeHtml(c.detail)+'</div>'+(c.sub?'<div class="infra-card-sub">'+escapeHtml(c.sub)+'</div>':'')+'</div>';
+    }).join('');
+}
+
+function renderIntegrationsPanel() {
+    const grid = document.getElementById('integrationsGrid');
+    if (!perfIntegrations) { grid.innerHTML = '<div class="table-empty" style="grid-column:1/-1;">Integrations data unavailable</div>'; return; }
+    const meta = {
+        sentry: { icon:'&#x1f6e1;', label:'Sentry', desc:'Error tracking & crash reporting. Captures unhandled exceptions in do_GET/do_POST, performance traces (20% sample), stack traces.' },
+        upstash_redis: { icon:'&#x26a1;', label:'Upstash Redis', desc:'Persistent L4 cache layer. Stores API enrichment results with 24h TTL. Reduces cold-start API calls and speeds up repeat queries.' },
+        posthog: { icon:'&#x1f4ca;', label:'PostHog', desc:'Product analytics. Tracks plan_generated, plan_failed, chat_message, file_uploaded events. Frontend autocapture + backend batch events.' },
+        supabase: { icon:'&#x1f4be;', label:'Supabase', desc:'Persistent L3 cache. Long-term storage of enrichment API responses across server restarts.' },
+    };
+    const cards = [];
+    for (const [k, d] of Object.entries(perfIntegrations)) {
+        const m = meta[k] || { icon:'&#x2699;', label:k, desc:'' };
+        cards.push({
+            icon: m.icon, name: m.label, status: d.status || 'unknown',
+            detail: d.detail || '', desc: m.desc,
+            sub: d.keys ? d.keys + ' cached keys' : (d.sdk_version ? 'SDK v' + d.sdk_version : ''),
+        });
+    }
+    if (cards.length === 0) { grid.innerHTML = '<div class="table-empty" style="grid-column:1/-1;">No integrations configured</div>'; return; }
+    grid.innerHTML = cards.map(c => {
+        const dc = c.status==='ok'?'var(--green)':c.status==='disabled'?'var(--text-muted)':c.status==='partial'?'var(--amber)':'var(--red)';
+        const badge = c.status==='ok'?'Active':c.status==='disabled'?'Not configured':'Error';
+        return '<div class="infra-card" style="position:relative;">' +
+            '<div class="infra-card-header"><span class="infra-dot" style="background:'+dc+';"></span>' +
+            '<span class="infra-card-name">'+c.icon+' '+escapeHtml(c.name)+'</span>' +
+            '<span style="margin-left:auto;font-size:10px;padding:2px 8px;border-radius:9px;background:'+dc+';color:white;font-weight:600;">'+badge+'</span></div>' +
+            '<div class="infra-card-detail">'+escapeHtml(c.detail)+'</div>' +
+            '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.4;">'+escapeHtml(c.desc)+'</div>' +
+            (c.sub ? '<div class="infra-card-sub">'+escapeHtml(c.sub)+'</div>' : '') +
+            '</div>';
     }).join('');
 }
 
