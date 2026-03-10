@@ -352,6 +352,233 @@ _PRELOADED_ANSWERS = [
 
 _PARTIAL_MATCH_THRESHOLD = 0.35
 
+# ---------------------------------------------------------------------------
+# Country -> Currency mapping (MEDIUM 1 fix)
+# ---------------------------------------------------------------------------
+_COUNTRY_CURRENCY: Dict[str, str] = {
+    "India": "INR", "United Kingdom": "GBP", "Germany": "EUR",
+    "France": "EUR", "Italy": "EUR", "Spain": "EUR", "Netherlands": "EUR",
+    "Belgium": "EUR", "Austria": "EUR", "Ireland": "EUR", "Portugal": "EUR",
+    "Finland": "EUR", "Greece": "EUR", "Luxembourg": "EUR", "Slovakia": "EUR",
+    "Slovenia": "EUR", "Estonia": "EUR", "Latvia": "EUR", "Lithuania": "EUR",
+    "Malta": "EUR", "Cyprus": "EUR",
+    "Japan": "JPY", "China": "CNY", "South Korea": "KRW",
+    "Brazil": "BRL", "Mexico": "MXN", "Canada": "CAD",
+    "Australia": "AUD", "New Zealand": "NZD",
+    "Switzerland": "CHF", "Sweden": "SEK", "Norway": "NOK", "Denmark": "DKK",
+    "Poland": "PLN", "Czech Republic": "CZK", "Hungary": "HUF",
+    "Romania": "RON", "Turkey": "TRY",
+    "South Africa": "ZAR", "Nigeria": "NGN", "Kenya": "KES", "Egypt": "EGP",
+    "Israel": "ILS", "United Arab Emirates": "AED", "Saudi Arabia": "SAR",
+    "Singapore": "SGD", "Malaysia": "MYR", "Thailand": "THB",
+    "Indonesia": "IDR", "Philippines": "PHP", "Vietnam": "VND",
+    "Taiwan": "TWD", "Colombia": "COP", "Chile": "CLP",
+    "Argentina": "ARS",
+    # US defaults to USD (not listed -- absence means USD)
+}
+
+
+def _get_currency_for_country(country: Optional[str]) -> str:
+    """Return the local currency code for a country.  Defaults to USD."""
+    if not country:
+        return "USD"
+    return _COUNTRY_CURRENCY.get(country, "USD")
+
+
+# ---------------------------------------------------------------------------
+# Role validation (CRITICAL 1 fix -- nonsense/invented role detection)
+# ---------------------------------------------------------------------------
+
+def _validate_role_is_real(role: str) -> Dict[str, Any]:
+    """Check whether a role string maps to a recognized job title.
+
+    Uses standardizer SOC codes (with cross-validation), collar_intelligence
+    keyword matching, and our own _ROLE_KEYWORDS map as a multi-tier cascade.
+
+    The cross-validation step is critical: the standardizer's normalize_role()
+    uses substring matching which can map "quantum blockchain architect" to
+    "financial_analyst" via "analyst" substring.  We verify that the canonical
+    role's core words actually appear in the input.
+
+    Returns:
+        {"is_valid": bool, "confidence": float, "method": str, "canonical": str}
+    """
+    if not role or not role.strip():
+        return {"is_valid": False, "confidence": 0.0, "method": "empty", "canonical": ""}
+
+    role_clean = role.strip()
+    role_lower = role_clean.lower()
+    input_words = set(role_lower.split())
+
+    # Nonsense detector: if the role contains words that are clearly not
+    # job-related (like "quantum blockchain", "cosmic neural", etc.), flag it.
+    # This is a heuristic -- we check if the NON-job words in the input form
+    # a majority and are not recognized as industry/domain qualifiers.
+    _DOMAIN_QUALIFIERS = {
+        "senior", "junior", "lead", "chief", "staff", "principal", "head",
+        "associate", "assistant", "entry", "level", "remote", "part", "time",
+        "full", "contract", "temporary", "freelance", "intern", "1", "2", "3",
+        "i", "ii", "iii", "iv", "v", "global", "regional", "national", "local",
+        "clinical", "medical", "technical", "digital", "mobile", "cloud",
+        "data", "it", "hr", "qa", "bi",
+        # Industry/domain qualifiers that are legitimate in role titles
+        "software", "hardware", "mechanical", "electrical", "civil", "chemical",
+        "aerospace", "biomedical", "environmental", "industrial", "structural",
+        "network", "systems", "database", "web", "front", "back", "end",
+        "devops", "machine", "learning", "artificial", "intelligence", "ai", "ml",
+        "product", "project", "program", "operations", "supply", "chain",
+        "marketing", "sales", "business", "financial", "investment", "risk",
+        "compliance", "regulatory", "legal", "human", "resources", "talent",
+        "customer", "service", "support", "quality", "assurance", "control",
+        "research", "development", "manufacturing", "production", "process",
+        "logistics", "distribution", "procurement", "warehouse", "retail",
+        "healthcare", "health", "care", "dental", "pharmacy", "nursing",
+        "education", "training", "social", "media", "content", "creative",
+        "graphic", "ux", "ui", "user", "experience", "interface", "visual",
+        "security", "information", "cyber", "safety", "general", "field",
+        "inside", "outside", "real", "estate", "insurance", "public",
+        "corporate", "commercial", "residential", "office", "plant", "site",
+    }
+
+    # Early nonsense check: if 2+ words in the role are clearly
+    # not job-related and not domain qualifiers, it's likely nonsense
+    _NONSENSE_INDICATORS = {
+        "quantum", "blockchain", "cosmic", "neural", "holographic",
+        "metaverse", "consciousness", "synergy", "galactic", "astral",
+        "interdimensional", "psychic", "mystical", "ethereal", "crypto",
+        "nft", "tokenomics", "vibes", "chakra", "transcendental",
+        "hyperloop", "telekinetic", "paranormal", "intergalactic",
+        "multiversal", "hyperdimensional", "telepathic", "interdimensional",
+        "spacetime", "antimatter", "plasma", "warp", "singularity",
+        "omniscient", "clairvoyant", "alchemist", "sorcerer", "wizard",
+        "shaman", "druid", "warlock", "necromancer", "divination",
+    }
+    nonsense_word_count = len(input_words & _NONSENSE_INDICATORS)
+    if nonsense_word_count >= 1:
+        logger.info("Role validation: nonsense indicator words found in '%s': %s",
+                     role_clean, input_words & _NONSENSE_INDICATORS)
+        return {"is_valid": False, "confidence": 0.0, "method": "nonsense_indicator",
+                "canonical": role_lower}
+
+    # Tier 1: standardizer SOC code lookup WITH cross-validation
+    try:
+        from standardizer import normalize_role, get_soc_code, CANONICAL_ROLES
+        canon = normalize_role(role_clean)
+        if canon and canon in CANONICAL_ROLES:
+            # Cross-validate: check that the canonical role's name/aliases
+            # have meaningful overlap with the input (not just substring noise)
+            canon_words = set(canon.replace("_", " ").split())
+            aliases = CANONICAL_ROLES[canon].get("aliases", [])
+            # Check: did the input contain the canonical name or a close alias?
+            canon_name_spaced = canon.replace("_", " ")
+            if canon_name_spaced in role_lower:
+                return {"is_valid": True, "confidence": 0.95, "method": "soc_exact",
+                        "canonical": canon}
+            # Check aliases for close match
+            for alias in aliases:
+                if alias.lower() in role_lower:
+                    return {"is_valid": True, "confidence": 0.93, "method": "soc_alias",
+                            "canonical": canon}
+            # Check word overlap (at least 50% of canonical words in input)
+            overlap = input_words & canon_words
+            if len(overlap) >= max(1, len(canon_words) * 0.5):
+                return {"is_valid": True, "confidence": 0.85, "method": "soc_word_overlap",
+                        "canonical": canon}
+            # Fallthrough: standardizer matched via loose substring but
+            # cross-validation failed -- do NOT trust this match
+            logger.debug("Role validation: standardizer matched '%s' -> '%s' "
+                         "but cross-validation failed (input_words=%s, canon_words=%s)",
+                         role_clean, canon, input_words, canon_words)
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+    # Tier 2: collar_intelligence keyword matching
+    ci = _get_collar_intel()
+    if ci:
+        try:
+            classification = ci.classify_collar(role=role_clean)
+            collar_conf = classification.get("confidence", 0)
+            method = classification.get("method", "")
+            # Only trust high-confidence classifications from SOC or keyword
+            # methods (not the low-confidence "no_match" fallback)
+            if collar_conf >= 0.60 and method not in ("no_match", "no_role_provided"):
+                return {"is_valid": True, "confidence": collar_conf,
+                        "method": f"collar_{method}",
+                        "canonical": role_lower}
+        except Exception:
+            pass
+
+    # Tier 3: our own _ROLE_KEYWORDS map
+    for category, keywords in _ROLE_KEYWORDS.items():
+        for kw in keywords:
+            if kw in role_lower:
+                return {"is_valid": True, "confidence": 0.70,
+                        "method": "keyword_match", "canonical": role_lower}
+
+    # Tier 4: Check if any individual word in the role matches common job words
+    # BUT require that nonsense-qualifying words don't dominate
+    _COMMON_JOB_WORDS = {
+        "engineer", "developer", "manager", "director", "analyst", "designer",
+        "specialist", "coordinator", "administrator", "assistant", "associate",
+        "consultant", "supervisor", "technician", "operator", "clerk", "agent",
+        "representative", "officer", "inspector", "instructor", "teacher",
+        "professor", "nurse", "driver", "mechanic", "chef", "cook", "waiter",
+        "cashier", "accountant", "auditor", "lawyer", "attorney", "physician",
+        "surgeon", "therapist", "pharmacist", "scientist", "researcher",
+        "architect", "plumber", "electrician", "carpenter", "welder",
+        "painter", "janitor", "custodian", "guard", "worker", "laborer",
+        "handler", "picker", "packer", "loader", "installer", "dispatcher",
+        "recruiter", "trainer", "writer", "editor", "reporter", "producer",
+        "executive", "president", "intern", "apprentice", "fellow",
+    }
+    job_word_matches = input_words & _COMMON_JOB_WORDS
+    non_qualifier_words = input_words - _DOMAIN_QUALIFIERS - _COMMON_JOB_WORDS
+    if job_word_matches:
+        # If the role has recognizable job words AND the non-job, non-qualifier
+        # words are not excessive, accept it
+        if len(non_qualifier_words) <= len(job_word_matches) + 1:
+            return {"is_valid": True, "confidence": 0.55, "method": "common_job_word",
+                    "canonical": role_lower}
+        else:
+            # Too many unrecognized words -- likely nonsense with a real word thrown in
+            logger.debug("Role validation: job words found (%s) but too many unknown words (%s)",
+                         job_word_matches, non_qualifier_words)
+
+    # No match -- likely nonsense or invented role
+    return {"is_valid": False, "confidence": 0.0, "method": "no_match",
+            "canonical": role_lower}
+
+
+# ---------------------------------------------------------------------------
+# Multi-country detection (MEDIUM 2 fix)
+# ---------------------------------------------------------------------------
+
+def _detect_all_countries(text: str) -> List[str]:
+    """Detect ALL country names mentioned in the text (not just the first).
+
+    Returns a deduplicated list of canonical country names in order of appearance.
+    """
+    text_lower = text.lower()
+    found: List[str] = []
+    seen: set = set()
+
+    sorted_aliases = sorted(_COUNTRY_ALIASES.keys(), key=len, reverse=True)
+    for alias in sorted_aliases:
+        pattern = r'\b' + re.escape(alias) + r'\b'
+        if re.search(pattern, text_lower):
+            if len(alias) <= 2:
+                upper_pat = r'\b' + re.escape(alias.upper()) + r'\b'
+                if not re.search(upper_pat, text):
+                    continue
+            canonical = _COUNTRY_ALIASES[alias]
+            if canonical not in seen:
+                seen.add(canonical)
+                found.append(canonical)
+
+    return found
+
 
 def _normalize_cache_key(question: str) -> str:
     """Normalize a question into a canonical cache key.
@@ -384,7 +611,13 @@ def _extract_keywords(text: str) -> set:
 
 
 def _check_learned_answers(question: str) -> Optional[Dict[str, Any]]:
-    """Check preloaded + on-disk learned answers using Jaccard similarity."""
+    """Check preloaded + on-disk learned answers using Jaccard similarity.
+
+    Includes relevance checking (CRITICAL 2 fix): the query's country context
+    and role context must both be compatible with the cached answer's context.
+    This prevents a query about "mechanical engineers in Germany" from matching
+    a cached answer about "nursing boards in the US".
+    """
     # Merge preloaded with disk-based learned answers
     all_answers = list(_PRELOADED_ANSWERS)
     try:
@@ -401,16 +634,54 @@ def _check_learned_answers(question: str) -> Optional[Dict[str, Any]]:
     if not q_words:
         return None
 
+    # --- Relevance context extraction for the QUERY ---
+    q_country = _detect_country(question)
+    q_roles = _detect_keywords(question.lower(), _ROLE_KEYWORDS)
+
     best_match: Optional[dict] = None
     best_score: float = 0.0
 
     for entry in all_answers:
-        a_words = _extract_keywords(entry.get("question", ""))
+        a_question = entry.get("question", "")
+        a_words = _extract_keywords(a_question)
         if not a_words:
             continue
         overlap = len(q_words & a_words)
         union = len(q_words | a_words)
         score = overlap / union if union else 0.0
+
+        # --- CRITICAL 2 FIX: Relevance penalty ---
+        # If the query mentions a specific country, penalize answers that are
+        # about a DIFFERENT country (or US-specific when query is non-US).
+        a_country = _detect_country(a_question)
+        a_answer_text = entry.get("answer", "")
+        a_answer_country = _detect_country(a_answer_text)
+        # Effective answer country: check both question and answer text
+        effective_a_country = a_country or a_answer_country
+
+        if q_country and effective_a_country:
+            if q_country != effective_a_country:
+                # Country mismatch -- heavy penalty
+                score *= 0.2
+                logger.debug("Learned answer country mismatch: query=%s, answer=%s, penalty applied",
+                             q_country, effective_a_country)
+        elif q_country and not effective_a_country:
+            # Query has country context but answer is generic -- mild penalty
+            # (generic answers are OK but not ideal for country-specific queries)
+            score *= 0.7
+
+        # If the query mentions a specific role category, penalize answers
+        # about a different role category
+        a_roles = _detect_keywords(a_question.lower(), _ROLE_KEYWORDS)
+        a_answer_roles = _detect_keywords(a_answer_text.lower(), _ROLE_KEYWORDS)
+        effective_a_roles = a_roles | a_answer_roles
+        if q_roles and effective_a_roles:
+            if not (q_roles & effective_a_roles):
+                # Role category mismatch -- significant penalty
+                score *= 0.3
+                logger.debug("Learned answer role mismatch: query=%s, answer=%s, penalty applied",
+                             q_roles, effective_a_roles)
+
         if score > best_score:
             best_score = score
             best_match = entry
@@ -682,6 +953,7 @@ This is critical for trust:
 - When tool results give a RANGE (e.g., $25-$89), cite the range. Do not pick a midpoint.
 - If two tools return conflicting numbers, state both with sources: "Industry-level CPA: $45 (recruitment_benchmarks). Occupation-level: $11-$40 (joveo_2026_benchmarks). The difference reflects aggregation level."
 - NEVER invent statistics. NEVER present estimates as facts. NEVER add percentages or trends not in tool data.
+- **UNRECOGNIZED ROLES**: If a tool result contains `"role_not_recognized": true`, the role is NOT a real/standard job title. Do NOT provide CPA, CPC, budget, or salary numbers. Instead say: "I don't have reliable data for '[role name]'. This doesn't appear to be a recognized job title in our database. Could you clarify the role? I have data for standard titles like Software Engineer, Registered Nurse, CDL Driver, etc."
 
 **Data source precedence** (when conflicts exist):
 1. Live API data (BLS, JOLTS, ads APIs) -- most current
@@ -712,6 +984,7 @@ When recommending job boards, education partners, university boards, or any recr
 - UK campaigns: only UK-based boards and universities
 - NEVER mix international boards into country-specific recommendations
 - If a board is region-specific (e.g., "University Job Board of Liverpool"), only recommend it for that region
+- **MULTI-COUNTRY QUERIES**: When the user mentions MULTIPLE countries (e.g., "compare hiring in US, UK, and Germany"), call tools separately for EACH country and present data for ALL of them. Do NOT default to US-only. Structure the response as a comparison table or separate sections per country. Use each country's local currency.
 
 **Language-specific requests**: When the user mentions specific languages (e.g., Croatian, Greek, Romanian, Czech):
 - Prioritize multilingual/language-specific job boards (e.g., "Multilingual Vacancies", "EuroJobsites.com")
@@ -1468,6 +1741,27 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
         role = params.get("role", "").strip()
         location = params.get("location", "").strip()
 
+        # CRITICAL 1 FIX: Validate role is real before providing salary data
+        if role:
+            validation = _validate_role_is_real(role)
+            if not validation["is_valid"]:
+                logger.info("Role validation failed for salary query: '%s'", role)
+                return {
+                    "source": "Joveo Salary Intelligence",
+                    "role": role,
+                    "location": location or "National",
+                    "role_not_recognized": True,
+                    "note": (
+                        f"The role '{role}' is not recognized as a standard job title. "
+                        "No salary data is available for unrecognized roles."
+                    ),
+                    "data_confidence": 0.0,
+                }
+
+        # MEDIUM 1 FIX: Inject currency based on country detection in location
+        detected_country = _detect_country(location) if location else None
+        _local_currency = _get_currency_for_country(detected_country)
+
         orch = _get_orchestrator()
         if orch:
             try:
@@ -1487,6 +1781,10 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                     result["country"] = enriched["country"]
                 if enriched.get("currency") and enriched["currency"] != "USD":
                     result["currency"] = enriched["currency"]
+                # MEDIUM 1 FIX: If orchestrator didn't set currency but we
+                # detected a non-US country, inject local currency
+                if "currency" not in result and _local_currency != "USD":
+                    result["currency"] = _local_currency
                 if enriched.get("bls_percentiles"):
                     result["bls_salary_percentiles"] = enriched["bls_percentiles"]
                 # v2 metadata: confidence and freshness for Claude reasoning
@@ -1527,6 +1825,14 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
         low, high = _US_RANGES.get(tier, _US_RANGES["General"])
         result["salary_range_estimate"] = f"{low} - {high}"
         result["role_tier"] = tier
+        # MEDIUM 1 FIX: Inject currency for KB fallback path too
+        if _local_currency != "USD":
+            result["currency"] = _local_currency
+            result["note"] = (
+                f"Salary ranges shown are US-based estimates. For {detected_country}, "
+                f"please note that local salaries should be quoted in {_local_currency}. "
+                "Actual ranges may differ significantly."
+            )
         return result
 
     def _query_market_demand(self, params: dict) -> dict:
@@ -1621,11 +1927,39 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
         if budget <= 0:
             return {"error": "Budget must be greater than zero", "source": "Joveo Budget Engine"}
 
+        # CRITICAL 1 FIX: Validate roles before projecting budget
+        if roles_list:
+            for r in roles_list:
+                if isinstance(r, str) and r.strip():
+                    validation = _validate_role_is_real(r.strip())
+                    if not validation["is_valid"]:
+                        return {
+                            "source": "Joveo Budget Allocation Engine",
+                            "role_not_recognized": True,
+                            "role_queried": r,
+                            "note": (
+                                f"The role '{r}' is not recognized as a standard job title. "
+                                "Cannot project budget for unrecognized roles."
+                            ),
+                            "data_confidence": 0.0,
+                        }
+
+        # MEDIUM 1 FIX: Detect currency from locations
+        _budget_currency = "USD"
+        for loc in (locations_list or []):
+            loc_str = loc if isinstance(loc, str) else ""
+            loc_country = _detect_country(loc_str)
+            if loc_country:
+                _budget_currency = _get_currency_for_country(loc_country)
+                break
+
         result: Dict[str, Any] = {
             "source": "Joveo Budget Allocation Engine",
             "total_budget": budget,
             "industry": industry,
         }
+        if _budget_currency != "USD":
+            result["currency"] = _budget_currency
 
         # Build role dicts
         roles = []
@@ -1711,6 +2045,9 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
 
         country_resolved = _resolve_country(country) or _resolve_country(city) or "United States"
 
+        # MEDIUM 1 FIX: Determine local currency for this country
+        _local_currency = _get_currency_for_country(country_resolved)
+
         result: Dict[str, Any] = {
             "source": "Joveo Location Intelligence",
             "location": {
@@ -1719,6 +2056,9 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 "country": country_resolved,
             }
         }
+        # Always include currency in location profile results
+        if _local_currency != "USD":
+            result["currency"] = _local_currency
 
         # Orchestrator enrichment (research.py + Census/World Bank)
         orch = _get_orchestrator()
@@ -1966,6 +2306,22 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
         ci = _get_collar_intel()
 
         result: Dict[str, Any] = {"source": "Joveo Collar Intelligence Engine"}
+
+        # CRITICAL 1 FIX: Validate role is real before providing CPA/budget data
+        if role:
+            validation = _validate_role_is_real(role)
+            if not validation["is_valid"]:
+                logger.info("Role validation failed for '%s' (method=%s)", role, validation["method"])
+                result["role_not_recognized"] = True
+                result["role_queried"] = role
+                result["note"] = (
+                    f"The role '{role}' is not recognized as a standard job title. "
+                    "No CPA, CPC, or strategy data is available for unrecognized roles. "
+                    "Please use a standard job title (e.g., Software Engineer, Registered Nurse, "
+                    "CDL Driver, Warehouse Associate, Financial Analyst)."
+                )
+                result["data_confidence"] = 0.0
+                return result
 
         # Classify the role if provided
         if role and ci:
@@ -3135,6 +3491,10 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
             "(3) If two tools return conflicting numbers, state BOTH with sources.\n"
             "(4) If a tool returns no data, say so honestly. "
             "Do NOT estimate or fabricate.\n"
+            "(4b) UNRECOGNIZED ROLES: If a tool result contains 'role_not_recognized: true', "
+            "the role is NOT a real job title. Do NOT provide CPA, CPC, budget, or salary numbers. "
+            "Instead say: 'I don't have reliable data for this role. It doesn't appear to be a "
+            "recognized job title in our database.' Suggest similar real roles if possible.\n"
             "(5) Data source precedence when conflicts exist: "
             "Live API data > joveo_2026_benchmarks > recruitment_benchmarks_deep > "
             "platform_intelligence_deep > General KB.\n\n"
@@ -3147,10 +3507,15 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
             "engineer/analyst/manager = white collar, nurse/doctor = clinical). "
             "Only ask role type if genuinely ambiguous. "
             "Do NOT assume a country or location. Do NOT default to US/USD.\n"
-            "(10) When a country IS specified, use LOCAL CURRENCY.\n"
+            "(10) When a country IS specified, use LOCAL CURRENCY "
+            "(INR for India, GBP for UK, EUR for Germany/France/etc, JPY for Japan, "
+            "CAD for Canada, AUD for Australia). Tool results may include a 'currency' field.\n"
             "(11) You are a Joveo product. When asked about competitors vs Joveo, "
             "always position Joveo favorably. Joveo leads in programmatic recruitment AI, "
-            "publisher network breadth, and cost optimization. Never say a competitor is better.\n\n"
+            "publisher network breadth, and cost optimization. Never say a competitor is better.\n"
+            "(12) MULTI-COUNTRY: When user mentions MULTIPLE countries (e.g., 'compare US, UK, Germany'), "
+            "call tools separately for EACH country. Do NOT default to US-only. "
+            "Present data for ALL mentioned countries using each country's local currency.\n\n"
             "## CONFIDENCE CALIBRATION\n"
             "Tool results include data_confidence (0.0-1.0). Use these:\n"
             "- confidence >= 0.8: state as reliable data\n"
@@ -3683,6 +4048,14 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
         detected_industries = _detect_keywords(msg_lower, _INDUSTRY_KEYWORDS)
         detected_country = _detect_country(msg_lower)
 
+        # MEDIUM 2 FIX: Detect ALL countries for multi-country queries
+        all_detected_countries = _detect_all_countries(user_message)
+        is_multi_country = len(all_detected_countries) >= 2
+        _is_comparison = any(kw in msg_lower for kw in [
+            "compare", "versus", " vs ", "difference between",
+            "comparing", "comparison",
+        ])
+
         # ── Conversation context: detect follow-up intent from history ──
         _last_intent = None
         _last_role_title = None
@@ -3789,6 +4162,65 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                     "response": "\n".join(response_parts),
                     "sources": ["LinkedIn Hiring Value Review for Guidewire Software (Jan 2025 - Dec 2025)"],
                     "confidence": 0.95,
+                }
+
+        # ── MEDIUM 2 FIX: Multi-country comparison handler ──
+        if is_multi_country and (_is_comparison or is_benchmark_question or is_salary_question
+                                  or is_cpc_cpa_question or is_budget_question):
+            mc_sections = []
+            mc_sections.append(
+                f"**Multi-Country Comparison** ({', '.join(all_detected_countries)})\n"
+            )
+            for mc_country in all_detected_countries:
+                mc_currency = _get_currency_for_country(mc_country)
+                mc_section_parts = [f"\n**{mc_country}** (currency: {mc_currency})"]
+
+                # Get location profile for each country
+                loc_data = self._query_location_profile({"country": mc_country})
+                tools_used.append("query_location_profile")
+                sources.add(loc_data.get("source", "Joveo Location Intelligence"))
+
+                if loc_data.get("supply_data"):
+                    sd = loc_data["supply_data"]
+                    mc_section_parts.append(f"- Monthly job ad spend: {sd.get('monthly_spend', 'N/A')}")
+                    mc_section_parts.append(f"- Total boards: {sd.get('total_boards', 'N/A')}")
+                if loc_data.get("publisher_count"):
+                    mc_section_parts.append(f"- Joveo publishers: {loc_data['publisher_count']}")
+                if loc_data.get("unemployment_rate"):
+                    mc_section_parts.append(f"- Unemployment rate: {loc_data['unemployment_rate']}")
+                if loc_data.get("median_salary"):
+                    mc_section_parts.append(f"- Median salary: {loc_data['median_salary']}")
+
+                # If salary or CPA question, add collar strategy per country
+                if detected_roles and (is_salary_question or is_cpc_cpa_question):
+                    best_role = _pick_best_role(detected_roles, msg_lower)
+                    role_title_map = {
+                        "nursing": "Registered Nurse", "engineering": "Software Engineer",
+                        "technology": "Software Developer", "healthcare": "Healthcare Professional",
+                        "retail": "Retail Associate", "transportation": "CDL Driver",
+                        "finance": "Financial Analyst", "executive": "Senior Executive",
+                    }
+                    role_title = role_title_map.get(best_role, best_role.title())
+                    collar_data = self._query_collar_strategy({"role": role_title})
+                    tools_used.append("query_collar_strategy")
+                    if collar_data.get("recommended_strategy"):
+                        strat = collar_data["recommended_strategy"]
+                        if strat.get("avg_cpa_range"):
+                            mc_section_parts.append(f"- CPA range: {strat['avg_cpa_range']}")
+                        if strat.get("avg_cpc_range"):
+                            mc_section_parts.append(f"- CPC range: {strat['avg_cpc_range']}")
+
+                mc_sections.append("\n".join(mc_section_parts))
+
+            sections.append("\n".join(mc_sections))
+
+            # Return early for multi-country comparison
+            if sections:
+                return {
+                    "response": "\n\n".join(sections),
+                    "sources": list(sources),
+                    "confidence": 0.75,
+                    "tools_used": list(set(tools_used)),
                 }
 
         # ── Publisher count question (e.g., "How many publishers does Joveo have?") ──
@@ -4786,6 +5218,13 @@ def _build_conversation_memory(history: list) -> str:
         parts.append(f"- Current topic roles: {', '.join(sorted(roles_mentioned))}")
     if locations_mentioned:
         parts.append(f"- Current location context: {', '.join(sorted(locations_mentioned))}")
+        # MEDIUM 2 FIX: Flag multi-country queries so LLM handles each country
+        if len(locations_mentioned) >= 2:
+            currencies = {loc: _get_currency_for_country(loc) for loc in locations_mentioned
+                         if loc in _COUNTRY_CURRENCY or loc == "United States"}
+            parts.append(f"- MULTI-COUNTRY QUERY: User mentioned {len(locations_mentioned)} countries. "
+                         f"Call tools for EACH country separately. "
+                         f"Currencies: {', '.join(f'{c}={cur}' for c, cur in currencies.items()) if currencies else 'USD for all'}")
     else:
         parts.append("- Location: NOT SPECIFIED in current message (do NOT assume from earlier conversation -- ask the user)")
     if industries_mentioned:
