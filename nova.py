@@ -3253,6 +3253,22 @@ When presenting budget projections:
             any(re.search(p, _msg_lower) for p in _greeting_pats_start) or
             any(re.search(p, _msg_lower) for p in _greeting_pats_anywhere)
         )
+        # Messages like "hi nova is this a bad wednesday?" are NOT pure greetings --
+        # they start with a greeting word but contain a real question/comment after.
+        # Only treat as pure greeting if the message is SHORT (greeting + maybe a name).
+        if _is_pure_greeting:
+            # Strip greeting prefix and check remaining content length
+            _stripped = re.sub(
+                r'^(hi|hello|hey|hola|howdy|sup|yo|good\s+(morning|afternoon|evening|day))\b'
+                r'[\s,!.]*'  # trailing punctuation/space
+                r'(nova|there|buddy|friend|team|guys)?\b'  # optional addressee
+                r'[\s,!.]*',  # more trailing punctuation
+                '', _msg_lower, count=1
+            ).strip()
+            # If there's substantial remaining content (> 3 words), it's NOT a pure greeting --
+            # let it go to the LLM for a natural conversational response
+            if len(_stripped.split()) > 3:
+                _is_pure_greeting = False
         # Only treat as greeting if no data keywords are present
         if _is_pure_greeting:
             _data_words = {"cpa", "cpc", "salary", "budget", "cost", "hire",
@@ -3299,16 +3315,9 @@ When presenting budget projections:
                     )
                 else:
                     _greeting_resp = (
-                        "Hello! I'm *Nova*, your recruitment marketing intelligence assistant. "
-                        "I have access to data from *10,238+ Supply Partners*, job boards across *70+ countries*, "
-                        "and comprehensive industry benchmarks and salary data.\n\n"
-                        "Here are some things I can help with:\n\n"
-                        "- *Publisher & Board Recommendations*: \"What publishers work best for nursing roles?\"\n"
-                        "- *Industry Benchmarks*: \"What's the average CPA for tech roles?\"\n"
-                        "- *Budget Planning*: \"How should I allocate a $50K budget for 10 engineering hires?\"\n"
-                        "- *Market Intelligence*: \"What's the talent supply for tech roles in Germany?\"\n"
-                        "- *DEI Strategy*: \"What DEI-focused job boards are available in the US?\"\n\n"
-                        "What would you like to know?"
+                        "Hey there! I'm Nova, your recruitment marketing intelligence assistant "
+                        "at Joveo. I can pull real data on publishers, benchmarks, budgets, salary "
+                        "trends, and more across 70+ countries. What would you like to explore?"
                     )
                 logger.info("NOVA MODE: Greeting early-exit -- 0 tokens")
                 return {
