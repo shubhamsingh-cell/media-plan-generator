@@ -923,6 +923,30 @@ class Nova:
 
 Be approachable, helpful, and knowledgeable -- like a friendly expert colleague. NEVER say "I'm just a computer program" or "I don't have feelings." For casual/social messages, engage warmly and briefly, then redirect to how you can help. Use a conversational but professional tone throughout.
 
+## RULE #0: NEVER REFUSE -- ALWAYS PROVIDE VALUE (HIGHEST PRIORITY)
+
+You have access to 25+ tools spanning 9 data layers, multiple LLMs, a comprehensive knowledge base, and deep recruitment marketing expertise. **There is NO recruitment marketing question you cannot help with.**
+
+**ABSOLUTE PROHIBITIONS -- never say any of these:**
+- "I don't have the capability"
+- "I can't help with that"
+- "I don't have access to real-time data"
+- "I'm not able to provide"
+- "I cannot provide specific numbers"
+- "I would recommend checking [external source]"
+- "Beyond my current capabilities"
+- "I don't have data for this"
+- Any variation of "I can't", "I'm unable", "I don't have" when it comes to recruitment topics
+
+**INSTEAD, always do one of these:**
+1. Call the relevant tools to get data (PREFERRED -- always try tools first)
+2. If tools return no data for the exact query, provide general industry benchmarks and ranges for the closest match
+3. If no exact benchmarks exist, provide strategic recommendations based on recruitment marketing expertise
+4. Combine multiple data sources -- use salary data, market demand, collar intelligence, and benchmarks together to build a comprehensive answer
+5. When data is limited, clearly state it's a general range/estimate and provide actionable guidance
+
+**You are a recruitment marketing expert. Act like one.** A human expert would never say "I can't help" -- they would share their knowledge, provide ranges, make recommendations, and help the client move forward. Do the same.
+
 ## RULE #1: BE PRECISE AND CONCISE
 
 Answer ONLY what was asked. Do NOT add extra context, trends, seniority breakdowns, market commentary, or "bottom line" summaries unless the user explicitly asks for them.
@@ -957,7 +981,7 @@ This is critical for trust:
 - When tool results give a RANGE (e.g., $25-$89), cite the range. Do not pick a midpoint.
 - If two tools return conflicting numbers, state both with sources: "Industry-level CPA: $45 (recruitment_benchmarks). Occupation-level: $11-$40 (joveo_2026_benchmarks). The difference reflects aggregation level."
 - NEVER invent statistics. NEVER present estimates as facts. NEVER add percentages or trends not in tool data.
-- **UNRECOGNIZED ROLES**: If a tool result contains `"role_not_recognized": true`, the role is NOT a real/standard job title. Do NOT provide CPA, CPC, budget, or salary numbers. Instead say: "I don't have reliable data for '[role name]'. This doesn't appear to be a recognized job title in our database. Could you clarify the role? I have data for standard titles like Software Engineer, Registered Nurse, CDL Driver, etc."
+- **UNRECOGNIZED ROLES**: If a tool result contains `"role_not_recognized": true`, the role is NOT a standard job title. Do NOT provide exact CPA/CPC numbers. Instead say: "'[role name]' doesn't appear to be a recognized job title in our database. Could you clarify the role? I have data for standard titles like Software Engineer, Registered Nurse, CDL Driver, etc. In the meantime, here are general benchmarks for the closest matching category..." and provide general industry ranges.
 
 **Data source precedence** (when conflicts exist):
 1. Live API data (BLS, JOLTS, ads APIs) -- most current
@@ -1041,8 +1065,18 @@ Always call tools before answering data questions.
 Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these:
 - confidence >= 0.8 + live_api: state as reliable data
 - confidence 0.5-0.8 or curated: qualify as "based on available data"
-- confidence < 0.5 or fallback: label as estimate
-- No data: say "I don't have reliable data for this"
+- confidence < 0.5 or fallback: label as estimate and provide general industry ranges
+- No exact data: provide the closest available benchmarks, general industry ranges, or strategic recommendations. NEVER say "I don't have data" -- always provide value with appropriate caveats.
+
+## BUDGET METRICS CLARITY
+
+When presenting budget projections:
+- **CPA (Cost Per Application)**: Total spend / Number of applications received. This is NOT cost per hire.
+- **CPH (Cost Per Hire)**: Total spend / Number of hires made. This is always higher than CPA.
+- Always present BOTH CPA and CPH clearly labeled when showing budget breakdowns.
+- If the user specifies a hiring target (e.g., "hire 20 drivers"), compare projected hires against that target explicitly.
+- If projected hires exceed the target, note that the budget may be sufficient and suggest optimizations.
+- If projected hires fall short of the target, recommend budget adjustments or strategy changes.
 """
 
     # ------------------------------------------------------------------
@@ -1131,14 +1165,16 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
             },
             {
                 "name": "query_budget_projection",
-                "description": "Budget allocation across 6 channels with projected clicks, applications, hires. Use when user provides a dollar budget or asks about ROI/spend allocation.",
+                "description": "Budget allocation across 6 channels with projected clicks, applications, hires, CPA (cost per application), and CPH (cost per hire). Use when user provides a dollar budget or asks about ROI/spend allocation. IMPORTANT: If the user mentions how many people they want to hire (e.g., '20 drivers', '50 nurses'), pass that as target_hires.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
                         "budget": {"type": "number", "description": "Total budget in USD"},
                         "roles": {"type": "array", "items": {"type": "string"}, "description": "Role titles"},
                         "locations": {"type": "array", "items": {"type": "string"}, "description": "Hiring locations"},
-                        "industry": {"type": "string", "description": "Industry"}
+                        "industry": {"type": "string", "description": "Industry"},
+                        "openings": {"type": "integer", "description": "Number of positions/openings to fill per role. Default 1. If user says 'hire 20 drivers', openings=20."},
+                        "target_hires": {"type": "integer", "description": "Total hiring target across all roles. Use this when user specifies a total number to hire (e.g., 'I need to hire 50 people'). This is used to assess budget sufficiency."}
                     },
                     "required": ["budget"]
                 }
@@ -1967,6 +2003,8 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
         roles_list = params.get("roles", [])
         locations_list = params.get("locations", [])
         industry = params.get("industry", "general")
+        openings_per_role = max(1, int(params.get("openings", 1) or 1))
+        target_hires = int(params.get("target_hires", 0) or 0)
 
         if budget <= 0:
             return {"error": "Budget must be greater than zero", "source": "Joveo Budget Engine"}
@@ -1997,15 +2035,25 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 _budget_currency = _get_currency_for_country(loc_country)
                 break
 
+        # Build role dicts with proper opening counts
+        # If target_hires is set but openings_per_role is default (1),
+        # distribute target_hires across roles evenly
+        num_roles = len(roles_list) if roles_list else 1
+        if target_hires > 0 and openings_per_role == 1:
+            openings_per_role = max(1, target_hires // num_roles)
+
         result: Dict[str, Any] = {
             "source": "Joveo Budget Allocation Engine",
             "total_budget": budget,
             "industry": industry,
+            "openings_per_role": openings_per_role,
+            "total_openings": openings_per_role * num_roles,
         }
+        if target_hires > 0:
+            result["target_hires"] = target_hires
         if _budget_currency != "USD":
             result["currency"] = _budget_currency
 
-        # Build role dicts
         roles = []
         for r in (roles_list or ["General Hire"]):
             role_lower = r.lower() if isinstance(r, str) else ""
@@ -2018,7 +2066,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 tier = "Skilled Trades / Technical"
             elif any(kw in role_lower for kw in ["cashier", "hourly", "retail"]):
                 tier = "Hourly / Entry-Level"
-            roles.append({"title": r, "count": 1, "tier": tier})
+            roles.append({"title": r, "count": openings_per_role, "tier": tier})
 
         # Build location dicts
         locations = []
@@ -2041,6 +2089,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                     result["total_projected"] = allocation.get("total_projected", {})
                     result["sufficiency"] = allocation.get("sufficiency", {})
                     result["recommendations"] = allocation.get("recommendations", [])
+                    _add_hire_target_comparison(result, target_hires)
                     return result
             except Exception as e:
                 logger.debug("Orchestrator enrich_budget failed: %s", e)
@@ -2062,6 +2111,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
             result["total_projected"] = allocation.get("total_projected", {})
             result["sufficiency"] = allocation.get("sufficiency", {})
             result["recommendations"] = allocation.get("recommendations", [])
+            _add_hire_target_comparison(result, target_hires)
         except Exception as e:
             logger.error("Budget engine call failed: %s", e, exc_info=True)
             result["estimated_allocation"] = {
@@ -3313,7 +3363,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                     logger.info("NOVA MODE: LLM Router (free provider, no tools) responded successfully")
                     _nova_metrics.record_latency((time.time() - _t0) * 1000)
                     _nova_metrics.record_chat("conversational")
-                    router_result = _filter_competitor_names(router_result)
+                    router_result = _sanitize_refusal_language(_filter_competitor_names(router_result))
                     if router_result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
                         _set_response_cache(cache_key, router_result)
                     return router_result
@@ -3330,7 +3380,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                             free_tool_result.get("llm_provider", "unknown"))
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 _nova_metrics.record_chat("tool")
-                free_tool_result = _filter_competitor_names(free_tool_result)
+                free_tool_result = _sanitize_refusal_language(_filter_competitor_names(free_tool_result))
                 if free_tool_result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
                     _set_response_cache(cache_key, free_tool_result)
                 return free_tool_result
@@ -3345,7 +3395,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 logger.info("NOVA MODE: Claude API response received successfully")
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 _nova_metrics.record_chat("claude")
-                result = _filter_competitor_names(result)
+                result = _sanitize_refusal_language(_filter_competitor_names(result))
                 if result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
                     _set_response_cache(cache_key, result)
                 return result
@@ -3375,7 +3425,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 "tools_used": [],
             }
 
-        return _filter_competitor_names(result)
+        return _sanitize_refusal_language(_filter_competitor_names(result))
 
     # ------------------------------------------------------------------
     # LLM Router integration (v3.1 -- free LLM providers first)
@@ -3540,11 +3590,14 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
             "Only ask role type if genuinely ambiguous. "
             "Do NOT assume a country or location from prior conversation context. "
             "(3) NEVER invent CPC, CPA, CPH, salary, or benchmark statistics. "
-            "If you do not have specific data for this query, say: "
-            "'I don't have specific data for this. Let me look that up.' "
+            "If you need data for a specific query, provide general industry context "
+            "and note that you can look up specific benchmarks. "
             "(4) Be concise, specific, and cite sources when possible. "
             "(5) You are a Joveo product. When asked about competitors vs Joveo, "
-            "always position Joveo favorably. Never say a competitor is better than Joveo."
+            "always position Joveo favorably. Never say a competitor is better than Joveo. "
+            "(6) NEVER say 'I can't help', 'I don't have the capability', "
+            "'beyond my capabilities', or any refusal language. You are a recruitment "
+            "marketing expert -- always provide value, even if general."
         )
         # Add enrichment context if available
         if enrichment_context:
@@ -3637,12 +3690,12 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
             "When tools give a RANGE (e.g., $25-$89), cite the full range. "
             "Do NOT pick a midpoint or round.\n"
             "(3) If two tools return conflicting numbers, state BOTH with sources.\n"
-            "(4) If a tool returns no data, say so honestly. "
-            "Do NOT estimate or fabricate.\n"
+            "(4) If a tool returns no data for the exact query, provide general industry "
+            "benchmarks or ranges for the closest match. NEVER say 'I can't help' or 'I don't have data'. "
+            "Always provide value.\n"
             "(4b) UNRECOGNIZED ROLES: If a tool result contains 'role_not_recognized: true', "
-            "the role is NOT a real job title. Do NOT provide CPA, CPC, budget, or salary numbers. "
-            "Instead say: 'I don't have reliable data for this role. It doesn't appear to be a "
-            "recognized job title in our database.' Suggest similar real roles if possible.\n"
+            "the role is NOT a standard job title. Suggest similar real roles and provide "
+            "general benchmarks for the closest matching category.\n"
             "(5) Data source precedence when conflicts exist: "
             "Live API data > joveo_2026_benchmarks > recruitment_benchmarks_deep > "
             "platform_intelligence_deep > General KB.\n\n"
@@ -3668,8 +3721,14 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
             "Tool results include data_confidence (0.0-1.0). Use these:\n"
             "- confidence >= 0.8: state as reliable data\n"
             "- confidence 0.5-0.8: qualify as 'based on available data'\n"
-            "- confidence < 0.5: label as estimate\n"
-            "- No data: say 'I don't have reliable data for this'"
+            "- confidence < 0.5: label as estimate and provide general ranges\n"
+            "- No exact data: provide closest available benchmarks with appropriate caveats. "
+            "NEVER say 'I don't have data' -- always provide value.\n\n"
+            "## NEVER REFUSE\n"
+            "You are a recruitment marketing expert. NEVER say 'I can't help', "
+            "'I don't have access', 'beyond my capabilities', or any refusal. "
+            "Always provide value: call tools, share general benchmarks, "
+            "or give strategic recommendations."
         )
         if enrichment_context:
             context_summary = _summarize_enrichment(enrichment_context)
@@ -3813,9 +3872,11 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                     # Add guardrail for empty tool results
                     if not has_data:
                         tool_result_content = (
-                            "[TOOL RETURNED NO DATA. Do NOT invent or estimate numbers. "
-                            "Tell the user you do not have reliable data for this specific query. "
-                            "Offer to help with a related question instead.]\n" + tool_result_content
+                            "[TOOL RETURNED NO DATA for this exact query. Do NOT invent exact numbers. "
+                            "Instead: provide general industry benchmarks or ranges for the closest "
+                            "matching role/industry/location. Share strategic recommendations based on "
+                            "your recruitment marketing expertise. NEVER say 'I can't help' or "
+                            "'I don't have data' -- always provide value with appropriate caveats.]\n" + tool_result_content
                         )
 
                     # Add tool result to conversation (OpenAI format)
@@ -3840,35 +3901,65 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                                len(response_text))
                 return None
 
-            # Quality gate (v3.5.1): if the LLM returned text WITHOUT calling
-            # any tools and the text contains refusal/inability patterns, it means
-            # the free LLM ignored the tools and gave a generic "I can't help"
-            # response.  Reject and fall back to Claude which handles tools better.
-            if not tool_results_raw:
-                _resp_lower = response_text.lower().replace("\u2019", "'").replace("\u2018", "'")
-                _refusal_signals = [
-                    "i don't have the capability",
-                    "i don't have access to real-time",
-                    "i'm not able to provide",
-                    "i cannot provide specific",
-                    "i don't have specific information",
-                    "i'm sorry, but i don't have",
-                    "i don't have data",
-                    "i do not have access",
-                    "i cannot access",
-                    "i'm unable to",
-                    "i can suggest that you check",
-                    "i would recommend checking",
-                    "beyond my current capabilities",
-                ]
-                if any(sig in _resp_lower for sig in _refusal_signals):
-                    logger.warning(
-                        "Free LLM tools: REJECTED no-tool refusal response from %s "
-                        "(LLM said it can't help instead of calling tools) -- falling back to Claude",
-                        active_provider,
-                    )
-                    _nova_metrics.record_chat("suppressed")
-                    return None  # Fall back to Claude
+            # Quality gate (v3.5.1): detect refusal/inability patterns and
+            # fall back to Claude.  Two cases:
+            # Case A: LLM returned text WITHOUT calling any tools (ignored them)
+            # Case B: LLM called tools but STILL said "I can't help" in response
+            _resp_lower = response_text.lower().replace("\u2019", "'").replace("\u2018", "'")
+            _refusal_signals = [
+                "i don't have the capability",
+                "i don't have access to real-time",
+                "i'm not able to provide",
+                "i cannot provide specific",
+                "i don't have specific information",
+                "i'm sorry, but i don't have",
+                "i don't have data",
+                "i do not have data",
+                "i do not have access",
+                "i cannot access",
+                "i'm unable to",
+                "i can suggest that you check",
+                "i would recommend checking",
+                "beyond my current capabilities",
+                "i can't help with",
+                "i am not able to",
+                "i'm not equipped",
+                "i don't currently have",
+                "outside my capabilities",
+                "outside of my capabilities",
+                "i lack the ability",
+                "i unfortunately cannot",
+                "unfortunately, i don't",
+                "unfortunately, i cannot",
+                "unfortunately, i can't",
+                "i'm sorry, i cannot",
+                "i'm sorry, i can't",
+                "i apologize, but i cannot",
+                "i apologize, but i can't",
+            ]
+            _has_refusal = any(sig in _resp_lower for sig in _refusal_signals)
+
+            if _has_refusal and not tool_results_raw:
+                # Case A: No tools called + refusal -> definitely fall back
+                logger.warning(
+                    "Free LLM tools: REJECTED no-tool refusal response from %s "
+                    "(LLM said it can't help instead of calling tools) -- falling back to Claude",
+                    active_provider,
+                )
+                _nova_metrics.record_chat("suppressed")
+                return None  # Fall back to Claude
+
+            if _has_refusal and tool_results_raw:
+                # Case B: Tools were called but response STILL says "I can't help".
+                # This means the LLM ignored the tool data. Fall back to Claude
+                # which is better at synthesizing tool results.
+                logger.warning(
+                    "Free LLM tools: REJECTED refusal-with-tools response from %s "
+                    "(LLM called %d tools but still refused to answer) -- falling back to Claude",
+                    active_provider, len(tools_used),
+                )
+                _nova_metrics.record_chat("suppressed")
+                return None  # Fall back to Claude
 
             # Source-grounded verification
             response_text, grounding_score = _verify_response_grounding(
@@ -4101,9 +4192,11 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                         tool_content = tool_result
                         if not has_data:
                             tool_content = (
-                                "[TOOL RETURNED NO DATA. Do NOT invent or estimate numbers. "
-                                "Tell the user you do not have reliable data for this specific query. "
-                                "Offer to help with a related question instead.]\n" + tool_result
+                                "[TOOL RETURNED NO DATA for this exact query. Do NOT invent exact numbers. "
+                                "Instead: provide general industry benchmarks or ranges for the closest "
+                                "matching role/industry/location. Share strategic recommendations based on "
+                                "your recruitment marketing expertise. NEVER say 'I can't help' or "
+                                "'I don't have data' -- always provide value with appropriate caveats.]\n" + tool_result
                             )
                         tool_results.append({
                             "type": "tool_result",
@@ -4628,11 +4721,29 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 locations_for_budget = [detected_country] if detected_country else ["United States"]
                 industry = list(detected_industries)[0] if detected_industries else "general"
 
+                # Extract hiring target from message (e.g., "hire 20 drivers", "10 nurses")
+                _hire_target = 0
+                _hire_match = re.search(
+                    r'(?:hire|hiring|recruit|fill|need)\s+(\d+)|(\d+)\s+(?:hires?|positions?|openings?|roles?|people|headcount)',
+                    msg_lower,
+                )
+                if _hire_match:
+                    _hire_target = int(_hire_match.group(1) or _hire_match.group(2))
+                # Also check for "N [role]" pattern (e.g., "10 software engineers")
+                if _hire_target == 0:
+                    _role_count_match = re.search(r'(\d+)\s+(?:' + '|'.join(
+                        re.escape(r.lower()) for r in roles_for_budget
+                    ) + r')', msg_lower)
+                    if _role_count_match:
+                        _hire_target = int(_role_count_match.group(1))
+
                 budget_data = self._query_budget_projection({
                     "budget": budget_amount,
                     "roles": roles_for_budget or ["General Hire"],
                     "locations": locations_for_budget,
                     "industry": industry,
+                    "openings": _hire_target if _hire_target > 0 else 1,
+                    "target_hires": _hire_target,
                 })
                 tools_used.append("query_budget_projection")
                 sources.add("Joveo Budget Allocation Engine")
@@ -4880,9 +4991,9 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
         if not sections:
             if is_off_topic:
                 response_text = (
-                    "I appreciate your question, but I'm specifically designed for *recruitment marketing intelligence*. "
-                    "I can't help with general knowledge questions.\n\n"
-                    "Here's what I can help with:\n\n"
+                    "That falls outside my area of expertise, but I'm here to help with anything "
+                    "*recruitment marketing* related!\n\n"
+                    "Here are some things I can help with right now:\n\n"
                     "- *Job boards and publishers* for specific countries or industries\n"
                     "- *CPC, CPA, and cost-per-hire benchmarks* by industry and platform\n"
                     "- *Budget allocation* recommendations with projected outcomes\n"
@@ -4893,24 +5004,46 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                     "or _\"How should I allocate a $100K hiring budget?\"_"
                 )
             else:
-                # Try a general knowledge base search
+                # Try multiple data sources to build a useful response
                 kb_data = self._query_knowledge_base({"topic": "all"})
                 tools_used.append("query_knowledge_base")
                 sources.add("Recruitment Industry Knowledge Base")
 
-                response_text = (
-                    "I can help you with recruitment marketing intelligence. "
-                    "Based on Joveo's data across *10,238+ Supply Partners* in *70+ countries*, "
-                    "I can answer questions about:\n\n"
-                    "- *Job boards and publishers* for specific countries or industries\n"
-                    "- *CPC, CPA, and cost-per-hire benchmarks* by industry and platform\n"
-                    "- *Budget allocation* recommendations with projected outcomes\n"
-                    "- *Salary intelligence* for specific roles and locations\n"
-                    "- *DEI recruitment channels* and diversity-focused boards\n"
-                    "- *Market trends* in recruitment advertising\n\n"
-                    "Could you rephrase your question with more specifics? "
-                    "For example, mention a role, location, industry, or metric."
-                )
+                # Try to extract something useful from the query and provide actual data
+                _bench = kb_data.get("benchmarks", {})
+                _quick_stats = []
+                _cpa_data = _bench.get("cost_per_application", {})
+                if _cpa_data:
+                    _avg = _cpa_data.get("overall_average") or _cpa_data.get("average")
+                    if _avg:
+                        _quick_stats.append(f"Average CPA across industries: {_avg}")
+                _cpc_data = _bench.get("cost_per_click", {})
+                if _cpc_data:
+                    _avg_cpc = _cpc_data.get("overall_average") or _cpc_data.get("average")
+                    if _avg_cpc:
+                        _quick_stats.append(f"Average CPC across platforms: {_avg_cpc}")
+
+                if _quick_stats:
+                    response_text = (
+                        "Here's what I found that may be relevant:\n\n"
+                        + "\n".join(f"- {s}" for s in _quick_stats) + "\n\n"
+                        "To give you more targeted data, it helps to know:\n"
+                        "- *Role*: What position(s) are you hiring for?\n"
+                        "- *Location*: Which country or region?\n"
+                        "- *Industry*: What sector (e.g., healthcare, tech, logistics)?\n\n"
+                        "For example: _\"What's the CPA for nursing roles in the US?\"_ or "
+                        "_\"Recommend publishers for tech hiring in Germany.\"_"
+                    )
+                else:
+                    response_text = (
+                        "I'd like to help you find the right recruitment data. "
+                        "To give you the most accurate information, could you include:\n\n"
+                        "- *Role*: What position(s) are you hiring for?\n"
+                        "- *Location*: Which country or region?\n"
+                        "- *Industry*: What sector (e.g., healthcare, tech, logistics)?\n\n"
+                        "For example: _\"What's the CPA for nursing roles in the US?\"_ or "
+                        "_\"How should I allocate a $50K budget for 10 engineering hires?\"_"
+                    )
             sections.append(response_text)
 
         response = "\n\n".join(sections)
@@ -4919,8 +5052,8 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
         # Lower confidence for fallback/off-topic/injection responses
         if is_off_topic or is_injection or is_unethical:
             confidence = 1.0  # we're confident in our refusal/redirect
-        elif not tools_used or (len(tools_used) == 1 and tools_used[0] == "query_knowledge_base" and
-                                 "Could you rephrase" in response):
+        elif not tools_used or (len(tools_used) == 1 and tools_used[0] == "query_knowledge_base"
+                                and "To give you" in response):
             confidence = round(min(confidence, 0.4), 2)  # generic fallback = lower confidence
 
         return {
@@ -4966,6 +5099,61 @@ _BLOCKED_PATTERNS = [
     _security_re.compile(r"(are\s+you|do\s+you)\s+(hallucinating|lying|making\s*things\s*up|fabricating|guessing)", _security_re.IGNORECASE),
     _security_re.compile(r"(your|the)\s*(instructions|rules)\s*(say|tell|require|state)", _security_re.IGNORECASE),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Budget target comparison helper (v3.5.1)
+# ---------------------------------------------------------------------------
+
+def _add_hire_target_comparison(result: dict, target_hires: int) -> None:
+    """Add target_hires vs projected_hires comparison to budget result.
+
+    Enriches the budget projection result with a clear comparison of
+    how many hires the budget is projected to deliver vs the user's target.
+    This helps the LLM present CPA vs CPH correctly and flag any gaps.
+    """
+    if target_hires <= 0:
+        return
+
+    total_proj = result.get("total_projected", {})
+    projected_hires = total_proj.get("hires", 0)
+    projected_apps = total_proj.get("applications", 0)
+    budget = result.get("total_budget", 0)
+
+    comparison = {
+        "target_hires": target_hires,
+        "projected_hires": projected_hires,
+        "gap": target_hires - projected_hires,
+        "on_track": projected_hires >= target_hires,
+    }
+
+    if projected_hires > 0 and budget > 0:
+        comparison["projected_cost_per_hire"] = round(budget / projected_hires, 2)
+    if projected_apps > 0 and budget > 0:
+        comparison["projected_cost_per_application"] = round(budget / projected_apps, 2)
+
+    if projected_hires >= target_hires:
+        comparison["assessment"] = (
+            f"Budget is projected to deliver {projected_hires} hires, "
+            f"meeting the target of {target_hires}. "
+            f"Consider optimizing spend or reducing budget."
+        )
+    elif projected_hires >= target_hires * 0.7:
+        comparison["assessment"] = (
+            f"Budget is projected to deliver {projected_hires} hires "
+            f"({round(projected_hires / target_hires * 100)}% of target {target_hires}). "
+            f"Close to target -- consider increasing budget by "
+            f"~{round((target_hires / max(projected_hires, 1) - 1) * 100)}% "
+            f"or optimizing channel mix."
+        )
+    else:
+        comparison["assessment"] = (
+            f"Budget is projected to deliver only {projected_hires} hires "
+            f"({round(projected_hires / max(target_hires, 1) * 100)}% of target {target_hires}). "
+            f"Significant gap -- recommend increasing budget or adjusting strategy."
+        )
+
+    result["hire_target_comparison"] = comparison
 
 
 # ---------------------------------------------------------------------------
@@ -5041,6 +5229,66 @@ def _filter_competitor_names(response: dict) -> dict:
 
     response = dict(response)  # Don't mutate the original
     response["response"] = text
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Universal refusal sanitizer (v3.5.1)
+# ---------------------------------------------------------------------------
+# Last-line defense: catches any "I can't help" language that slipped through
+# all LLM quality gates and replaces it with constructive phrasing.
+# Applied as post-processing on ALL responses in chat().
+
+_REFUSAL_REPLACEMENTS = [
+    # (pattern, replacement) -- order matters; longer/more specific first
+    (re.compile(r"I(?:'m| am) (?:sorry,? (?:but )?)?(?:I )?(?:don't|do not) have (?:the )?(?:capability|ability|access)(?: to [^.]*)?\.?", re.IGNORECASE),
+     "Based on available recruitment marketing data and industry expertise, here's what I can share:"),
+    (re.compile(r"I (?:don't|do not) have (?:specific |reliable |real-time |current |enough )?data (?:for|on|about) [^.]*\.?", re.IGNORECASE),
+     "While exact data for this specific query is limited, here are general industry benchmarks and recommendations:"),
+    (re.compile(r"I (?:can(?:'t|not)|am (?:not |un)able to) (?:provide|give|offer|share) (?:specific |exact |real-time |current )?(?:data|numbers|figures|information|details) (?:for|on|about) [^.]*\.?", re.IGNORECASE),
+     "Based on general industry benchmarks and our recruitment marketing expertise:"),
+    (re.compile(r"I (?:don't|do not) have (?:access to )?(?:real-time|current|live|up-to-date) (?:data|information|statistics)\.?", re.IGNORECASE),
+     "Based on our comprehensive recruitment data and industry benchmarks:"),
+    (re.compile(r"(?:^|(?<=\. )|(?<=\n))(?:This is |That(?:'s| is) )?(?:beyond|outside) (?:my |the )?(?:current )?(?:capabilities|scope|ability)\.?", re.IGNORECASE | re.MULTILINE),
+     "Here's what I can share based on our recruitment marketing intelligence:"),
+    (re.compile(r"I (?:would |can )?(?:recommend|suggest) (?:that )?(?:you )?(?:check|visit|consult|look at|refer to) (?!the (?:data|benchmarks?|breakdown|comparison|results?|ranges?|section|table) (?:above|below|provided|I pulled|we pulled))[^.]*\.?", re.IGNORECASE),
+     "Based on our data and industry expertise:"),
+    (re.compile(r"I(?:'m| am) (?:not |un)?able to (?:help|assist) with (?:that|this)[^.]*\.?", re.IGNORECASE),
+     "Here's what I can share on this topic:"),
+    (re.compile(r"Unfortunately,? I (?:don't|do not|can(?:'t|not)) [^.]*\.?", re.IGNORECASE),
+     "Based on available data:"),
+]
+
+
+def _sanitize_refusal_language(response: dict) -> dict:
+    """Remove refusal/inability language from a Nova response.
+
+    This is the absolute last-line defense. If any LLM path produced
+    a response containing "I can't help" variants, this function
+    rewrites those sentences into constructive phrasing.
+
+    Applied AFTER competitor filtering, BEFORE returning to the user.
+    """
+    text = response.get("response", "")
+    if not text:
+        return response
+
+    changed = False
+    for pattern, replacement in _REFUSAL_REPLACEMENTS:
+        new_text = pattern.sub(replacement, text)
+        if new_text != text:
+            text = new_text
+            changed = True
+
+    if changed:
+        # Clean up artifacts: double spaces, double periods, leading whitespace on lines
+        text = re.sub(r'  +', ' ', text)
+        text = re.sub(r'\.\.+', '.', text)
+        text = re.sub(r'\n +', '\n', text)
+        response = dict(response)
+        response["response"] = text
+        logger.info("Refusal sanitizer: cleaned refusal language from response")
+
     return response
 
 
