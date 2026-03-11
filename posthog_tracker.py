@@ -47,6 +47,18 @@ _event_queue: queue.Queue = queue.Queue(maxsize=500)
 _flush_thread: Optional[threading.Thread] = None
 _shutdown = threading.Event()
 
+# ---------------------------------------------------------------------------
+# Runtime stats (thread-safe counters for observability)
+# ---------------------------------------------------------------------------
+_stats_lock = threading.Lock()
+_stats: Dict[str, Any] = {
+    "total_queued": 0,
+    "total_sent": 0,
+    "total_dropped": 0,
+    "total_send_errors": 0,
+    "events_by_type": {},
+}
+
 
 # ---------------------------------------------------------------------------
 # Internal: batch sender
@@ -69,8 +81,12 @@ def _send_batch(events: list) -> None:
     try:
         with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
             resp.read()  # Drain response
+        with _stats_lock:
+            _stats["total_sent"] += len(events)
     except Exception as e:
         logger.debug("PostHog batch send failed: %s", e)
+        with _stats_lock:
+            _stats["total_send_errors"] += 1
 
 
 def _flush_loop() -> None:
@@ -139,8 +155,13 @@ def capture(event: str, distinct_id: str = "server", properties: Optional[Dict[s
 
     try:
         _event_queue.put_nowait(evt)
+        with _stats_lock:
+            _stats["total_queued"] += 1
+            _stats["events_by_type"][event] = _stats["events_by_type"].get(event, 0) + 1
     except queue.Full:
         logger.debug("PostHog event queue full, dropping event: %s", event)
+        with _stats_lock:
+            _stats["total_dropped"] += 1
 
 
 def shutdown() -> None:
@@ -189,6 +210,25 @@ def track_file_upload(email: str, upload_type: str, file_count: int) -> None:
         "upload_type": upload_type,
         "file_count": file_count,
     })
+
+
+# ---------------------------------------------------------------------------
+# Stats API (for observability dashboard)
+# ---------------------------------------------------------------------------
+
+def get_posthog_stats() -> Dict[str, Any]:
+    """Return PostHog tracking runtime statistics.
+
+    Returns dict with: enabled, total_queued, total_sent, total_dropped,
+    total_send_errors, events_by_type, queue_size.
+    """
+    with _stats_lock:
+        snapshot = dict(_stats)
+        snapshot["events_by_type"] = dict(_stats["events_by_type"])
+    snapshot["enabled"] = _ENABLED
+    snapshot["queue_size"] = _event_queue.qsize()
+    snapshot["queue_max"] = 500
+    return snapshot
 
 
 # ---------------------------------------------------------------------------

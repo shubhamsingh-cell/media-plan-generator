@@ -99,6 +99,17 @@ _send_timestamps: List[float] = []
 # escalation_level indexes into _DEDUP_BACKOFF_LEVELS for exponential backoff.
 _dedup_cache: Dict[str, tuple] = {}
 
+# Runtime stats for observability
+_email_stats: Dict[str, Any] = {
+    "total_sent": 0,
+    "total_failed": 0,
+    "total_rate_limited": 0,
+    "total_deduplicated": 0,
+    "last_sent_time": None,
+    "last_sent_subject": None,
+    "emails_by_type": {},
+}
+
 
 def _is_enabled() -> bool:
     """Check whether the email alert system is active.
@@ -137,6 +148,7 @@ def _can_send(dedup_key: str = "") -> bool:
                 "email_alerts: hourly rate limit reached (%d/%d), skipping",
                 len(_send_timestamps), _HOURLY_LIMIT,
             )
+            _email_stats["total_rate_limited"] += 1
             return False
 
         # --- Deduplication with exponential backoff ---
@@ -151,6 +163,7 @@ def _can_send(dedup_key: str = "") -> bool:
                         "window=%.0fs, level=%d)",
                         dedup_key[:60], now - last_sent, window, level,
                     )
+                    _email_stats["total_deduplicated"] += 1
                     return False
 
         # --- Prune stale dedup entries (older than 2x the max backoff window) ---
@@ -229,6 +242,10 @@ def _send_email(to: str, subject: str, html: str) -> bool:
                 "email_alerts: sent email (id=%s, subject=%s)",
                 email_id, subject[:80],
             )
+            with _lock:
+                _email_stats["total_sent"] += 1
+                _email_stats["last_sent_time"] = time.time()
+                _email_stats["last_sent_subject"] = subject[:100]
             return True
 
     except urllib.error.HTTPError as http_err:
@@ -241,10 +258,14 @@ def _send_email(to: str, subject: str, html: str) -> bool:
             "email_alerts: Resend API HTTP %d: %s",
             http_err.code, error_body[:200],
         )
+        with _lock:
+            _email_stats["total_failed"] += 1
         return False
 
     except Exception as exc:
         logger.warning("email_alerts: failed to send email: %s", exc)
+        with _lock:
+            _email_stats["total_failed"] += 1
         return False
 
 
@@ -647,6 +668,7 @@ def get_alert_status() -> Dict[str, Any]:
         cutoff = now - 3600.0
         active_timestamps = [ts for ts in _send_timestamps if ts > cutoff]
         dedup_count = len(_dedup_cache)
+        stats_snapshot = dict(_email_stats)
 
     return {
         "enabled": _is_enabled(),
@@ -657,6 +679,12 @@ def get_alert_status() -> Dict[str, Any]:
         "emails_sent_this_hour": len(active_timestamps),
         "remaining_this_hour": max(0, _HOURLY_LIMIT - len(active_timestamps)),
         "dedup_cache_size": dedup_count,
+        "total_sent": stats_snapshot.get("total_sent", 0),
+        "total_failed": stats_snapshot.get("total_failed", 0),
+        "total_rate_limited": stats_snapshot.get("total_rate_limited", 0),
+        "total_deduplicated": stats_snapshot.get("total_deduplicated", 0),
+        "last_sent_time": stats_snapshot.get("last_sent_time"),
+        "last_sent_subject": stats_snapshot.get("last_sent_subject"),
     }
 
 

@@ -606,7 +606,7 @@ class DataMatrixMonitor:
                     "status": "ok" if overall >= 85 else ("partial" if overall >= 70 else "error"),
                     "detail": f"Overall eval score: {overall}%",
                     "score": overall,
-                    "categories": {k: v.get("score_pct", 0) for k, v in scores.get("categories", {}).items()},
+                    "categories": scores.get("categories", {}),
                 }
             else:
                 results["eval_score"] = {

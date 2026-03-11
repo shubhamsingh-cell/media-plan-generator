@@ -1413,46 +1413,83 @@ function renderInfraPanel() {
 function renderIntegrationsPanel() {
     const grid = document.getElementById('integrationsGrid');
     if (!perfIntegrations) { grid.innerHTML = '<div class="table-empty" style="grid-column:1/-1;">Integrations data unavailable</div>'; return; }
-    // Backend now returns categorized response -- flatten infrastructure + add summary
     const infra = perfIntegrations.infrastructure || {};
     const summary = perfIntegrations.summary || {};
     const meta = {
-        sentry: { icon:'&#x1f6e1;', label:'Sentry', desc:'Error tracking & crash reporting. Captures unhandled exceptions in do_GET/do_POST, performance traces (20% sample), stack traces.' },
-        upstash_redis: { icon:'&#x26a1;', label:'Upstash Redis', desc:'Persistent L4 cache layer. Stores API enrichment results with 24h TTL. Reduces cold-start API calls and speeds up repeat queries.' },
-        posthog: { icon:'&#x1f4ca;', label:'PostHog', desc:'Product analytics. Tracks plan_generated, plan_failed, chat_message, file_uploaded events. Frontend autocapture + backend batch events.' },
-        supabase: { icon:'&#x1f4be;', label:'Supabase', desc:'Persistent L3 cache. Long-term storage of enrichment API responses across server restarts.' },
+        sentry: { icon:'&#x1f6e1;', label:'Sentry' },
+        upstash_redis: { icon:'&#x26a1;', label:'Upstash Redis' },
+        posthog: { icon:'&#x1f4ca;', label:'PostHog' },
+        supabase: { icon:'&#x1f4be;', label:'Supabase' },
+        grafana_loki: { icon:'&#x1f4dd;', label:'Grafana Loki' },
+        resend: { icon:'&#x2709;', label:'Resend Email' },
     };
+    // Build runtime metrics line for each integration
+    function runtimeLine(k, d) {
+        const rt = d.runtime;
+        if (!rt) return '';
+        if (k === 'posthog') {
+            const parts = [];
+            if (rt.total_sent > 0) parts.push(rt.total_sent + ' sent');
+            if (rt.total_queued > 0) parts.push(rt.total_queued + ' queued');
+            if (rt.send_errors > 0) parts.push(rt.send_errors + ' errors');
+            if (rt.events_by_type && Object.keys(rt.events_by_type).length > 0) {
+                parts.push(Object.entries(rt.events_by_type).map(([e,c]) => e+':'+c).join(', '));
+            }
+            return parts.length ? parts.join(' | ') : '';
+        }
+        if (k === 'supabase') {
+            return (rt.hits||0) + ' hits, ' + (rt.misses||0) + ' misses, ' + (rt.writes||0) + ' writes' + ((rt.errors||0) > 0 ? ', ' + rt.errors + ' errors' : '') + ' (hit rate: ' + ((rt.hit_rate||0)*100).toFixed(0) + '%)';
+        }
+        if (k === 'grafana_loki') {
+            const parts = [rt.records_shipped + ' shipped'];
+            if (rt.records_dropped > 0) parts.push(rt.records_dropped + ' dropped');
+            if (rt.flush_errors > 0) parts.push(rt.flush_errors + ' flush errors');
+            if (rt.last_flush_iso) parts.push('last: ' + new Date(rt.last_flush_iso).toLocaleTimeString());
+            return parts.join(' | ');
+        }
+        if (k === 'resend') {
+            const parts = [rt.total_sent + ' sent'];
+            if (rt.total_failed > 0) parts.push(rt.total_failed + ' failed');
+            if (rt.rate_limited > 0) parts.push(rt.rate_limited + ' rate-limited');
+            parts.push((rt.emails_this_hour||0) + ' sent, ' + (rt.remaining_this_hour||0) + ' remaining this hour');
+            if (rt.last_sent_subject) parts.push('last: "' + rt.last_sent_subject.substring(0, 40) + '"');
+            return parts.join(' | ');
+        }
+        return '';
+    }
     const cards = [];
-    // Show infrastructure tools (Sentry, Upstash, PostHog, Supabase)
     for (const [k, d] of Object.entries(infra)) {
         if (!d || typeof d !== 'object' || !d.status) continue;
-        const m = meta[k] || { icon:'&#x2699;', label: d.name || k, desc: d.value || '' };
+        const m = meta[k] || { icon:'&#x2699;', label: d.name || k };
+        const rl = runtimeLine(k, d);
         cards.push({
-            icon: m.icon, name: m.label, status: d.status || 'unknown',
-            detail: d.detail || '', desc: m.desc,
-            sub: d.keys ? d.keys + ' cached keys' : (d.sdk_version ? 'SDK v' + d.sdk_version : ''),
+            key: k, icon: m.icon, name: m.label, status: d.status || 'unknown',
+            detail: d.detail || '', desc: d.value || '',
+            sub: d.sdk_version ? 'SDK v' + d.sdk_version : (d.keys != null ? d.keys + ' cached keys' : ''),
+            runtime: rl,
         });
     }
-    // Add summary card showing total integrations
+    // Summary card
     if (summary.total_integrations) {
         cards.push({
-            icon: '&#x1f310;', name: 'All Integrations', status: 'ok',
+            key: '_summary', icon: '&#x1f310;', name: 'All Integrations', status: 'ok',
             detail: summary.active + ' active / ' + summary.total_integrations + ' total APIs & tools',
-            desc: 'Free Data APIs, LLMs, Ad Platforms, Communication. See full details on Observability page.',
-            sub: (summary.disabled || 0) + ' need API keys',
+            desc: 'Free Data APIs, LLMs, Ad Platforms, Communication.',
+            sub: (summary.disabled || 0) + ' need API keys', runtime: '',
         });
     }
     if (cards.length === 0) { grid.innerHTML = '<div class="table-empty" style="grid-column:1/-1;">No integrations configured</div>'; return; }
     grid.innerHTML = cards.map(c => {
         const dc = c.status==='ok'?'var(--green)':c.status==='disabled'?'var(--text-muted)':c.status==='partial'?'var(--amber)':'var(--red)';
-        const badge = c.status==='ok'?'Active':c.status==='disabled'?'Not configured':'Error';
+        const badge = c.status==='ok'?'Active':c.status==='disabled'?'Off':c.status==='partial'?'Partial':'Error';
         return '<div class="infra-card" style="position:relative;">' +
             '<div class="infra-card-header"><span class="infra-dot" style="background:'+dc+';"></span>' +
             '<span class="infra-card-name">'+c.icon+' '+escapeHtml(c.name)+'</span>' +
             '<span style="margin-left:auto;font-size:10px;padding:2px 8px;border-radius:9px;background:'+dc+';color:white;font-weight:600;">'+badge+'</span></div>' +
             '<div class="infra-card-detail">'+escapeHtml(c.detail)+'</div>' +
             '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.4;">'+escapeHtml(c.desc)+'</div>' +
-            (c.sub ? '<div class="infra-card-sub">'+escapeHtml(c.sub)+'</div>' : '') +
+            (c.runtime ? '<div class="infra-card-sub" style="margin-top:6px;padding:4px 8px;background:var(--gray-50);border-radius:4px;font-size:11px;">'+escapeHtml(c.runtime)+'</div>' : '') +
+            (c.sub && !c.runtime ? '<div class="infra-card-sub">'+escapeHtml(c.sub)+'</div>' : '') +
             '</div>';
     }).join('');
 }

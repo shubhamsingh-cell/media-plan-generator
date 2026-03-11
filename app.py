@@ -47,7 +47,7 @@ if _SENTRY_DSN:
         import sentry_sdk
         sentry_sdk.init(
             dsn=_SENTRY_DSN,
-            traces_sample_rate=1.0,          # 100% temporarily to verify traces work
+            traces_sample_rate=0.1,          # 10% of requests get traces
             profiles_sample_rate=0.1,        # 10% get profiling
             environment=os.environ.get("RENDER", "local"),
             release=f"media-plan-generator@3.5.1",
@@ -8441,15 +8441,18 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
             # ---- Infrastructure & Monitoring ----
             infra = result["infrastructure"]
+            # -- Sentry --
             try:
                 _sentry_dsn = os.environ.get("SENTRY_DSN", "").strip()
                 if _sentry_dsn:
                     import sentry_sdk as _sk
-                    infra["sentry"] = {"name": "Sentry", "status": "ok", "detail": "Error tracking active", "sdk_version": _sk.VERSION, "value": "Catches unhandled exceptions, 20% traces, 10% profiling"}
+                    infra["sentry"] = {"name": "Sentry", "status": "ok", "detail": "Error tracking + performance tracing active", "sdk_version": _sk.VERSION,
+                        "value": "Unhandled exceptions, 10% perf traces, 10% profiling. Tracks do_GET/do_POST latency and child spans for enrichment, KB load, synthesis, Excel/PPT gen."}
                 else:
                     infra["sentry"] = {"name": "Sentry", "status": "disabled", "detail": "SENTRY_DSN not set", "value": "Error tracking and performance monitoring"}
             except Exception as _e:
                 infra["sentry"] = {"name": "Sentry", "status": "error", "detail": str(_e)}
+            # -- Upstash Redis --
             try:
                 from upstash_cache import get_stats as _upstash_stats
                 _us = _upstash_stats()
@@ -8460,15 +8463,75 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 infra["upstash_redis"] = {"name": "Upstash Redis", "status": "disabled", "detail": "Not configured", "value": "L4 persistent cache layer"}
             except Exception as _e:
                 infra["upstash_redis"] = {"name": "Upstash Redis", "status": "error", "detail": str(_e)}
-            _ph_key = os.environ.get("POSTHOG_API_KEY", "").strip()
-            infra["posthog"] = {"name": "PostHog", "status": "ok" if _ph_key else "disabled",
-                "detail": "Analytics active (backend + frontend)" if _ph_key else "POSTHOG_API_KEY not set",
-                "value": "Product analytics: plan_generated, plan_failed, chat_message, file_uploaded events"}
+            # -- PostHog (with runtime stats) --
             try:
-                from supabase_cache import cache_get as _test_supa
-                infra["supabase"] = {"name": "Supabase PostgreSQL", "status": "ok", "detail": "Persistent cache (L3)", "value": "L3 distributed cache with TTL, hit counting, category tagging"}
+                from posthog_tracker import get_posthog_stats as _ph_stats_fn
+                _ph_data = _ph_stats_fn()
+                infra["posthog"] = {"name": "PostHog", "status": "ok" if _ph_data.get("enabled") else "disabled",
+                    "detail": f"Analytics active -- {_ph_data.get('total_sent', 0)} events sent, {_ph_data.get('total_queued', 0)} queued" if _ph_data.get("enabled") else "POSTHOG_API_KEY not set",
+                    "value": "Product analytics: plan_generated, plan_failed, chat_message, file_uploaded events",
+                    "runtime": {"total_queued": _ph_data.get("total_queued", 0), "total_sent": _ph_data.get("total_sent", 0),
+                        "total_dropped": _ph_data.get("total_dropped", 0), "send_errors": _ph_data.get("total_send_errors", 0),
+                        "queue_size": _ph_data.get("queue_size", 0), "events_by_type": _ph_data.get("events_by_type", {})}}
+            except Exception:
+                _ph_key = os.environ.get("POSTHOG_API_KEY", "").strip()
+                infra["posthog"] = {"name": "PostHog", "status": "ok" if _ph_key else "disabled",
+                    "detail": "Analytics active (backend + frontend)" if _ph_key else "POSTHOG_API_KEY not set",
+                    "value": "Product analytics: plan_generated, plan_failed, chat_message, file_uploaded events"}
+            # -- Supabase (with runtime stats) --
+            try:
+                from supabase_cache import get_supabase_stats as _supa_stats_fn
+                _supa_data = _supa_stats_fn()
+                _supa_enabled = _supa_data.get("enabled", False)
+                _supa_hits = _supa_data.get("hits", 0)
+                _supa_misses = _supa_data.get("misses", 0)
+                _supa_writes = _supa_data.get("writes", 0)
+                _supa_hr = _supa_data.get("hit_rate", 0)
+                infra["supabase"] = {"name": "Supabase PostgreSQL", "status": "ok" if _supa_enabled else "disabled",
+                    "detail": f"L3 cache -- {_supa_hits} hits, {_supa_misses} misses, {_supa_writes} writes (hit rate: {_supa_hr:.0%})" if _supa_enabled else "Not configured",
+                    "value": "L3 distributed cache with TTL, hit counting, category tagging",
+                    "runtime": {"hits": _supa_hits, "misses": _supa_misses, "writes": _supa_writes,
+                        "errors": _supa_data.get("errors", 0), "hit_rate": _supa_hr}}
             except ImportError:
                 infra["supabase"] = {"name": "Supabase PostgreSQL", "status": "disabled", "detail": "Not available", "value": "L3 persistent cache layer"}
+            except Exception as _e:
+                infra["supabase"] = {"name": "Supabase PostgreSQL", "status": "error", "detail": str(_e)}
+            # -- Grafana Loki (centralized logging) --
+            try:
+                from grafana_logger import get_grafana_stats as _graf_stats_fn
+                _graf_data = _graf_stats_fn()
+                _graf_shipped = _graf_data.get("records_shipped", 0)
+                _graf_dropped = _graf_data.get("records_dropped", 0)
+                _graf_errors = _graf_data.get("flush_errors", 0)
+                _graf_url = os.environ.get("GRAFANA_LOKI_URL", "").strip()
+                infra["grafana_loki"] = {"name": "Grafana Loki", "status": "ok" if _graf_url else "disabled",
+                    "detail": f"Centralized logging -- {_graf_shipped} records shipped, {_graf_dropped} dropped, {_graf_errors} flush errors" if _graf_url else "GRAFANA_LOKI_URL not set",
+                    "value": "Ships WARNING/ERROR/CRITICAL logs to Grafana Cloud Loki for centralized search and alerting.",
+                    "runtime": {"records_shipped": _graf_shipped, "records_dropped": _graf_dropped,
+                        "flush_errors": _graf_errors, "last_flush_iso": _graf_data.get("last_flush_iso")}}
+            except ImportError:
+                infra["grafana_loki"] = {"name": "Grafana Loki", "status": "disabled", "detail": "Module not available", "value": "Centralized logging to Grafana Cloud"}
+            except Exception as _e:
+                infra["grafana_loki"] = {"name": "Grafana Loki", "status": "error", "detail": str(_e)}
+            # -- Resend Email Alerts (with runtime stats) --
+            try:
+                from email_alerts import get_alert_status as _resend_stats_fn
+                _resend_data = _resend_stats_fn()
+                _resend_enabled = _resend_data.get("enabled", False)
+                _resend_sent = _resend_data.get("total_sent", 0)
+                _resend_this_hr = _resend_data.get("emails_sent_this_hour", 0)
+                infra["resend"] = {"name": "Resend Email", "status": "ok" if _resend_enabled else "disabled",
+                    "detail": f"Email alerts active -- {_resend_sent} sent total, {_resend_this_hr} this hour" if _resend_enabled else "RESEND_API_KEY or ALERT_EMAIL_TO not set",
+                    "value": "Error alerts, circuit breaker notifications, daily digest summaries. Rate-limited with exponential backoff dedup.",
+                    "runtime": {"total_sent": _resend_sent, "total_failed": _resend_data.get("total_failed", 0),
+                        "rate_limited": _resend_data.get("total_rate_limited", 0), "deduplicated": _resend_data.get("total_deduplicated", 0),
+                        "emails_this_hour": _resend_this_hr, "remaining_this_hour": _resend_data.get("remaining_this_hour", 0),
+                        "last_sent_subject": _resend_data.get("last_sent_subject")}}
+            except Exception:
+                _resend_key = os.environ.get("RESEND_API_KEY", "").strip()
+                infra["resend"] = {"name": "Resend Email", "status": "ok" if _resend_key else "disabled",
+                    "detail": "Alert emails active" if _resend_key else "RESEND_API_KEY not set",
+                    "value": "Error alerts, circuit breaker notifications, daily digests"}
 
             # ---- Free Data APIs (no key required or free tier) ----
             free_apis = result["free_data_apis"]
@@ -8563,14 +8626,10 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
             # ---- Communication ----
             comms = result["communication"]
-            _resend_key = os.environ.get("RESEND_API_KEY", "").strip()
-            comms["resend"] = {"name": "Resend Email", "status": "ok" if _resend_key else "disabled",
-                "detail": "Alert emails active" if _resend_key else "RESEND_API_KEY not set",
-                "value": "Error alerts, circuit breaker notifications, daily digests"}
             _slack_token = os.environ.get("SLACK_BOT_TOKEN", "").strip()
             comms["slack"] = {"name": "Slack Bot", "status": "ok" if _slack_token else "disabled",
                 "detail": "Bot connected" if _slack_token else "SLACK_BOT_TOKEN not set",
-                "value": "Slack bot for media plan requests and alerts"}
+                "value": "Nova chatbot for media plan queries, recruitment channel intelligence, and workforce analytics via Slack"}
 
             # ---- Summary counts ----
             result["summary"] = {
