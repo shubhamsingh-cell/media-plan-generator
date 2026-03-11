@@ -919,6 +919,10 @@ class Nova:
 
         return f"""You are Nova, Joveo's recruitment marketing AI assistant. Joveo optimizes job ad spend across {total_pubs:,}+ publishers in {len(pub_countries)} countries via programmatic advertising.
 
+## PERSONALITY: WARM AND PROFESSIONAL
+
+Be approachable, helpful, and knowledgeable -- like a friendly expert colleague. NEVER say "I'm just a computer program" or "I don't have feelings." For casual/social messages, engage warmly and briefly, then redirect to how you can help. Use a conversational but professional tone throughout.
+
 ## RULE #1: BE PRECISE AND CONCISE
 
 Answer ONLY what was asked. Do NOT add extra context, trends, seniority breakdowns, market commentary, or "bottom line" summaries unless the user explicitly asks for them.
@@ -3128,6 +3132,63 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 return cached
 
+        # --- Greeting early-exit (0 tokens, 100% confidence) ---
+        # Catch greetings, pleasantries, and "how are you" BEFORE any LLM call.
+        # These don't need LLM processing and should return instantly with a
+        # warm, branded response.
+        _msg_lower = user_message.lower().strip()
+        _greeting_pats = [
+            r'^(hi|hello|hey|hola|howdy)\b',
+            r'^good (morning|afternoon|evening|day)\b',
+            r'^(how are you|how\'s it going|what\'s up|how do you do)',
+            r'^(bye|goodbye|see you|later|take care|thanks|thank you|thx|ty)\b',
+        ]
+        _is_pure_greeting = any(re.search(p, _msg_lower) for p in _greeting_pats)
+        # Only treat as greeting if no data keywords are present
+        if _is_pure_greeting:
+            _data_words = {"cpa", "cpc", "salary", "budget", "cost", "hire",
+                           "recruit", "benchmark", "board", "platform", "trend",
+                           "industry", "compare", "allocat", "campaign", "role"}
+            if not any(dw in _msg_lower for dw in _data_words):
+                _nova_metrics.record_rule_based()
+                _nova_metrics.record_latency((time.time() - _t0) * 1000)
+                # Pick response based on type
+                if any(kw in _msg_lower for kw in ["bye", "goodbye", "later", "take care", "see you"]):
+                    _greeting_resp = (
+                        "Thanks for chatting! Feel free to come back anytime you need "
+                        "recruitment marketing insights. Have a great day!"
+                    )
+                elif any(kw in _msg_lower for kw in ["thanks", "thank you", "thx", "ty"]):
+                    _greeting_resp = (
+                        "You're welcome! Happy to help. Let me know if you have any "
+                        "other recruitment marketing questions."
+                    )
+                elif any(kw in _msg_lower for kw in ["how are you", "how's it going", "what's up", "how do you do"]):
+                    _greeting_resp = (
+                        "Thanks for asking! I'm ready to help you find the best "
+                        "recruitment strategies and data. What can I assist you with today?"
+                    )
+                else:
+                    _greeting_resp = (
+                        "Hello! I'm *Nova*, your recruitment marketing intelligence assistant. "
+                        "I have access to data from *10,238+ Supply Partners*, job boards across *70+ countries*, "
+                        "and comprehensive industry benchmarks and salary data.\n\n"
+                        "Here are some things I can help with:\n\n"
+                        "- *Publisher & Board Recommendations*: \"What publishers work best for nursing roles?\"\n"
+                        "- *Industry Benchmarks*: \"What's the average CPA for tech roles?\"\n"
+                        "- *Budget Planning*: \"How should I allocate a $50K budget for 10 engineering hires?\"\n"
+                        "- *Market Intelligence*: \"What's the talent supply for tech roles in Germany?\"\n"
+                        "- *DEI Strategy*: \"What DEI-focused job boards are available in the US?\"\n\n"
+                        "What would you like to know?"
+                    )
+                logger.info("NOVA MODE: Greeting early-exit -- 0 tokens")
+                return {
+                    "response": _greeting_resp,
+                    "sources": [],
+                    "confidence": 1.0,
+                    "tools_used": [],
+                }
+
         # --- LLM routing strategy (v3.5 -- INVERTED: tools by default) ---
         # PRINCIPLE: Unknown queries default to tool path (safe).
         # Only obvious greetings/meta skip tools.
@@ -3384,6 +3445,11 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
         # Build system prompt (condensed version for free LLMs -- no tool instructions)
         system_prompt = (
             "You are Nova, a recruitment marketing AI assistant built by Joveo. "
+            "PERSONALITY: Be warm, professional, and approachable. You are a helpful "
+            "expert colleague -- NOT a cold robot. Use a friendly but knowledgeable tone. "
+            "For casual/social messages, be personable and brief. Never say 'I'm just a "
+            "computer program' or 'I don't have feelings'. Instead, engage warmly and "
+            "redirect to how you can help with recruitment marketing. "
             "RULES: (1) Answer ONLY what was asked -- 1-3 sentences for simple questions. "
             "Do NOT volunteer extra context, trends, or commentary. "
             "(2) If the question is missing location or industry, ASK instead of guessing. "
