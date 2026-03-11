@@ -8503,12 +8503,28 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 _graf_shipped = _graf_data.get("records_shipped", 0)
                 _graf_dropped = _graf_data.get("records_dropped", 0)
                 _graf_errors = _graf_data.get("flush_errors", 0)
+                _graf_last_err = _graf_data.get("last_error")
                 _graf_url = os.environ.get("GRAFANA_LOKI_URL", "").strip()
-                infra["grafana_loki"] = {"name": "Grafana Loki", "status": "ok" if _graf_url else "disabled",
-                    "detail": f"Centralized logging -- {_graf_shipped} records shipped, {_graf_dropped} dropped, {_graf_errors} flush errors" if _graf_url else "GRAFANA_LOKI_URL not set",
+                # Status: degraded if configured but currently failing
+                _graf_status = "disabled"
+                if _graf_url:
+                    _graf_last_err_t = _graf_data.get("last_error_time")
+                    _graf_last_flush_t = _graf_data.get("last_flush_time")
+                    # Degraded if: no successes, OR last error is more recent than last success
+                    if _graf_errors > 0 and (_graf_shipped == 0 or (_graf_last_err_t and (not _graf_last_flush_t or _graf_last_err_t > _graf_last_flush_t))):
+                        _graf_status = "degraded"
+                    else:
+                        _graf_status = "ok"
+                _graf_detail = f"Centralized logging -- {_graf_shipped} shipped, {_graf_dropped} dropped, {_graf_errors} errors" if _graf_url else "GRAFANA_LOKI_URL not set"
+                if _graf_last_err and _graf_url:
+                    _graf_detail += f" | last error: {_graf_last_err[:150]}"
+                infra["grafana_loki"] = {"name": "Grafana Loki", "status": _graf_status,
+                    "detail": _graf_detail,
                     "value": "Ships WARNING/ERROR/CRITICAL logs to Grafana Cloud Loki for centralized search and alerting.",
                     "runtime": {"records_shipped": _graf_shipped, "records_dropped": _graf_dropped,
-                        "flush_errors": _graf_errors, "last_flush_iso": _graf_data.get("last_flush_iso")}}
+                        "flush_errors": _graf_errors, "last_flush_iso": _graf_data.get("last_flush_iso"),
+                        "last_error": _graf_last_err, "last_error_status": _graf_data.get("last_error_status"),
+                        "last_error_iso": _graf_data.get("last_error_iso")}}
             except ImportError:
                 infra["grafana_loki"] = {"name": "Grafana Loki", "status": "disabled", "detail": "Module not available", "value": "Centralized logging to Grafana Cloud"}
             except Exception as _e:
@@ -8519,14 +8535,30 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 _resend_data = _resend_stats_fn()
                 _resend_enabled = _resend_data.get("enabled", False)
                 _resend_sent = _resend_data.get("total_sent", 0)
+                _resend_failed = _resend_data.get("total_failed", 0)
                 _resend_this_hr = _resend_data.get("emails_sent_this_hour", 0)
-                infra["resend"] = {"name": "Resend Email", "status": "ok" if _resend_enabled else "disabled",
-                    "detail": f"Email alerts active -- {_resend_sent} sent total, {_resend_this_hr} this hour" if _resend_enabled else "RESEND_API_KEY or ALERT_EMAIL_TO not set",
+                _resend_last_err = _resend_data.get("last_error")
+                # Status: degraded if enabled but currently failing
+                _resend_status = "disabled"
+                if _resend_enabled:
+                    _resend_last_err_t = _resend_data.get("last_error_time")
+                    _resend_last_sent_t = _resend_data.get("last_sent_time")
+                    if _resend_failed > 0 and (_resend_sent == 0 or (_resend_last_err_t and (not _resend_last_sent_t or _resend_last_err_t > _resend_last_sent_t))):
+                        _resend_status = "degraded"
+                    else:
+                        _resend_status = "ok"
+                _resend_detail = f"Email alerts -- {_resend_sent} sent, {_resend_failed} failed, {_resend_this_hr} this hour" if _resend_enabled else "RESEND_API_KEY or ALERT_EMAIL_TO not set"
+                if _resend_last_err and _resend_enabled:
+                    _resend_detail += f" | last error: {_resend_last_err[:150]}"
+                infra["resend"] = {"name": "Resend Email", "status": _resend_status,
+                    "detail": _resend_detail,
                     "value": "Error alerts, circuit breaker notifications, daily digest summaries. Rate-limited with exponential backoff dedup.",
-                    "runtime": {"total_sent": _resend_sent, "total_failed": _resend_data.get("total_failed", 0),
+                    "runtime": {"total_sent": _resend_sent, "total_failed": _resend_failed,
                         "rate_limited": _resend_data.get("total_rate_limited", 0), "deduplicated": _resend_data.get("total_deduplicated", 0),
                         "emails_this_hour": _resend_this_hr, "remaining_this_hour": _resend_data.get("remaining_this_hour", 0),
-                        "last_sent_subject": _resend_data.get("last_sent_subject")}}
+                        "from_email": _resend_data.get("from_email"),
+                        "last_sent_subject": _resend_data.get("last_sent_subject"),
+                        "last_error": _resend_last_err, "last_error_status": _resend_data.get("last_error_status")}}
             except Exception:
                 _resend_key = os.environ.get("RESEND_API_KEY", "").strip()
                 infra["resend"] = {"name": "Resend Email", "status": "ok" if _resend_key else "disabled",
@@ -8645,6 +8677,30 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(_int_body)))
             self.end_headers()
             self.wfile.write(_int_body)
+        elif path == "/api/health/integrations/diagnose":
+            # Run live connectivity diagnostics for Grafana Loki and Resend (admin-protected)
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            diag_results = {}
+            # Grafana Loki diagnostic
+            try:
+                from grafana_logger import diagnose_grafana
+                diag_results["grafana_loki"] = diagnose_grafana()
+            except ImportError:
+                diag_results["grafana_loki"] = {"ok": False, "detail": "grafana_logger module not available"}
+            except Exception as _de:
+                diag_results["grafana_loki"] = {"ok": False, "detail": f"diagnostic error: {_de}"}
+            # Resend Email diagnostic
+            try:
+                from email_alerts import diagnose_resend
+                diag_results["resend"] = diagnose_resend()
+            except ImportError:
+                diag_results["resend"] = {"ok": False, "detail": "email_alerts module not available"}
+            except Exception as _de:
+                diag_results["resend"] = {"ok": False, "detail": f"diagnostic error: {_de}"}
+            diag_results["timestamp"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            self._send_json(diag_results)
         elif path == "/api/health/orchestrator":
             # Orchestrator cache stats + fallback telemetry (admin-protected)
             if not self._check_admin_auth():

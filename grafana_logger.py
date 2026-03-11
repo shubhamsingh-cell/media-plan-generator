@@ -100,6 +100,7 @@ class _Stats:
     __slots__ = (
         "_lock", "records_shipped", "records_dropped",
         "flush_errors", "last_flush_time",
+        "last_error", "last_error_time", "last_error_status",
     )
 
     def __init__(self) -> None:
@@ -108,6 +109,9 @@ class _Stats:
         self.records_dropped: int = 0
         self.flush_errors: int = 0
         self.last_flush_time: Optional[float] = None
+        self.last_error: Optional[str] = None
+        self.last_error_time: Optional[float] = None
+        self.last_error_status: Optional[int] = None  # HTTP status code
 
     def add_shipped(self, count: int) -> None:
         with self._lock:
@@ -117,9 +121,12 @@ class _Stats:
         with self._lock:
             self.records_dropped += count
 
-    def add_flush_error(self) -> None:
+    def add_flush_error(self, error_msg: str = "", http_status: Optional[int] = None) -> None:
         with self._lock:
             self.flush_errors += 1
+            self.last_error = error_msg[:500] if error_msg else None
+            self.last_error_time = time.time()
+            self.last_error_status = http_status
 
     def set_last_flush(self) -> None:
         with self._lock:
@@ -136,6 +143,13 @@ class _Stats:
                     datetime.fromtimestamp(self.last_flush_time, tz=timezone.utc).isoformat()
                     if self.last_flush_time else None
                 ),
+                "last_error": self.last_error,
+                "last_error_time": self.last_error_time,
+                "last_error_iso": (
+                    datetime.fromtimestamp(self.last_error_time, tz=timezone.utc).isoformat()
+                    if self.last_error_time else None
+                ),
+                "last_error_status": self.last_error_status,
             }
 
 
@@ -275,7 +289,8 @@ class GrafanaLokiHandler(logging.Handler):
         self._env_label = env_label
 
         # Buffer (thread-safe via lock; deque with maxlen for overflow safety)
-        self._buffer: deque[Tuple[logging.LogRecord, str]] = deque()
+        # (level_label, timestamp_ns, log_line, retry_count)
+        self._buffer: deque[Tuple[str, str, str, int]] = deque()
         self._buffer_lock = threading.Lock()
         self._max_buffer_size = max_buffer_size
 
@@ -351,6 +366,39 @@ class GrafanaLokiHandler(logging.Handler):
 
     # -- Internal -----------------------------------------------------------
 
+    def _requeue_records(self, records: list, max_retries: int, should_retry: bool) -> None:
+        """Put failed records back into the buffer for retry.
+
+        Args:
+            records: The failed batch of records to potentially re-queue.
+            max_retries: Maximum number of retry attempts per record.
+            should_retry: If False, all records are dropped (e.g. auth errors).
+        """
+        if not should_retry:
+            _stats.add_dropped(len(records))
+            return
+
+        retryable = []
+        dropped_retries = 0
+        for rec in records:
+            retry_count = rec[3] if len(rec) > 3 else 0
+            if retry_count < max_retries:
+                retryable.append((rec[0], rec[1], rec[2], retry_count + 1))
+            else:
+                dropped_retries += 1
+        if dropped_retries:
+            _stats.add_dropped(dropped_retries)
+        if retryable:
+            with self._buffer_lock:
+                for item in reversed(retryable):
+                    self._buffer.appendleft(item)
+                overflow = len(self._buffer) - self._max_buffer_size
+                if overflow > 0:
+                    # Pop from the right (oldest existing records) to keep retryable ones
+                    for _ in range(overflow):
+                        self._buffer.pop()
+                    _stats.add_dropped(overflow)
+
     def _flush_loop(self) -> None:
         """Background loop: flush every ``_flush_interval`` seconds."""
         while not self._stop_event.is_set():
@@ -415,50 +463,44 @@ class GrafanaLokiHandler(logging.Handler):
             _stats.add_shipped(total_sent)
             _stats.set_last_flush()
 
-        except (urllib.error.URLError, urllib.error.HTTPError, OSError, ValueError) as exc:
-            # Log locally to stderr, but never raise
-            _stats.add_flush_error()
+        except urllib.error.HTTPError as http_err:
+            # Capture the actual HTTP status and response body for diagnosis
+            error_body = ""
             try:
-                print(
-                    f"[grafana_logger] Loki push failed ({len(records)} records): {exc}",
-                    file=sys.stderr,
-                )
+                error_body = http_err.read().decode("utf-8", errors="replace")[:500]
             except Exception:
                 pass
-            # Put the records back at the front of the buffer so they can
-            # be retried on the next flush (subject to max_buffer_size).
-            # Increment retry count; drop records that exceeded max retries.
-            retryable = []
-            dropped_retries = 0
-            for rec in records:
-                retry_count = rec[3] if len(rec) > 3 else 0
-                if retry_count < _MAX_FLUSH_RETRIES:
-                    retryable.append((rec[0], rec[1], rec[2], retry_count + 1))
-                else:
-                    dropped_retries += 1
-            if dropped_retries:
-                _stats.add_dropped(dropped_retries)
-            with self._buffer_lock:
-                # Prepend retryable records; newest stay at the end
-                for item in reversed(retryable):
-                    self._buffer.appendleft(item)
-                # Enforce cap: drop oldest if needed after re-insertion
-                overflow = len(self._buffer) - self._max_buffer_size
-                if overflow > 0:
-                    for _ in range(overflow):
-                        self._buffer.popleft()
-                    _stats.add_dropped(overflow)
+            error_msg = f"HTTP {http_err.code}: {error_body}" if error_body else f"HTTP {http_err.code}"
+            _stats.add_flush_error(error_msg=error_msg, http_status=http_err.code)
+            logger.warning(
+                "grafana_logger: Loki push failed (%d records) -- HTTP %d: %s",
+                len(records), http_err.code, error_body[:200],
+            )
+            # Retry on transient server errors (5xx, 429); skip retry on
+            # auth errors (401/403) which won't resolve on retry
+            should_retry = http_err.code >= 500 or http_err.code == 429
+            self._requeue_records(records, _MAX_FLUSH_RETRIES, should_retry)
+
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            # Network/URL errors (DNS, connection refused, timeout, etc.)
+            error_msg = f"{type(exc).__name__}: {exc}"
+            _stats.add_flush_error(error_msg=error_msg)
+            logger.warning(
+                "grafana_logger: Loki push failed (%d records) -- %s: %s",
+                len(records), type(exc).__name__, exc,
+            )
+            # Network errors are always retryable
+            self._requeue_records(records, _MAX_FLUSH_RETRIES, should_retry=True)
 
         except Exception as exc:
-            # Catch-all for unexpected errors
-            _stats.add_flush_error()
-            try:
-                print(
-                    f"[grafana_logger] Unexpected Loki push error: {exc}",
-                    file=sys.stderr,
-                )
-            except Exception:
-                pass
+            # Catch-all for unexpected errors -- drop records (no retry for unknown errors)
+            error_msg = f"{type(exc).__name__}: {exc}"
+            _stats.add_flush_error(error_msg=error_msg)
+            _stats.add_dropped(len(records))
+            logger.warning(
+                "grafana_logger: unexpected Loki push error (%d records dropped): %s",
+                len(records), exc,
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -531,5 +573,82 @@ def get_grafana_stats() -> Dict[str, Any]:
         last_flush_time  -- Unix timestamp of the most recent successful
                             flush, or None if no flush has occurred yet.
         last_flush_iso   -- ISO-8601 formatted version of last_flush_time.
+        last_error       -- Most recent error message (if any).
+        last_error_status -- HTTP status code of last error (if applicable).
     """
     return _stats.snapshot()
+
+
+def diagnose_grafana() -> Dict[str, Any]:
+    """Run a lightweight diagnostic check on Grafana Loki connectivity.
+
+    Sends a single test log entry and reports success/failure with
+    detailed error information. Useful for startup validation and
+    the /api/health/integrations/diagnose endpoint.
+
+    Returns a dict with: ok (bool), detail (str), http_status (int|None).
+    """
+    loki_url = os.environ.get("GRAFANA_LOKI_URL", "").strip()
+    api_key = os.environ.get("GRAFANA_API_KEY", "").strip()
+    user_id = os.environ.get("GRAFANA_USER_ID", "").strip()
+
+    # Check env vars first
+    if not loki_url:
+        return {"ok": False, "detail": "GRAFANA_LOKI_URL not set", "http_status": None}
+    if not api_key:
+        return {"ok": False, "detail": "GRAFANA_API_KEY not set", "http_status": None}
+    if not user_id:
+        # GRAFANA_USER_ID is optional (defaults to empty), but may cause auth failures
+        pass  # Will be caught by the HTTP request below if auth fails
+
+    # Validate URL format
+    push_url = loki_url.rstrip("/") + "/loki/api/v1/push"
+    auth_header = _build_auth_header(user_id, api_key)
+
+    # Build a minimal test payload
+    test_payload = json.dumps({
+        "streams": [{
+            "stream": {
+                "app": _APP_LABEL,
+                "env": os.environ.get("RENDER_ENV", "development"),
+                "level": "info",
+            },
+            "values": [[
+                str(int(time.time() * 1_000_000_000)),
+                json.dumps({"message": "grafana_logger diagnostic ping", "level": "INFO"}),
+            ]],
+        }]
+    }).encode("utf-8")
+
+    try:
+        req = urllib.request.Request(
+            push_url, data=test_payload, method="POST",
+            headers={"Content-Type": "application/json", "Authorization": auth_header},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            _ = resp.read()
+            status_code = resp.status
+        return {"ok": True, "detail": f"Loki push OK (URL: {push_url})", "http_status": status_code}
+
+    except urllib.error.HTTPError as http_err:
+        error_body = ""
+        try:
+            error_body = http_err.read().decode("utf-8", errors="replace")[:300]
+        except Exception:
+            pass
+        detail = f"HTTP {http_err.code}"
+        if http_err.code == 401:
+            detail += " Unauthorized -- check GRAFANA_API_KEY and GRAFANA_USER_ID"
+        elif http_err.code == 403:
+            detail += " Forbidden -- API key may lack push permissions"
+        elif http_err.code == 404:
+            detail += f" Not Found -- check GRAFANA_LOKI_URL ({loki_url})"
+        if error_body:
+            detail += f" | body: {error_body[:200]}"
+        return {"ok": False, "detail": detail, "http_status": http_err.code}
+
+    except urllib.error.URLError as url_err:
+        return {"ok": False, "detail": f"Connection failed: {url_err.reason}", "http_status": None}
+
+    except Exception as exc:
+        return {"ok": False, "detail": f"{type(exc).__name__}: {exc}", "http_status": None}

@@ -1441,18 +1441,21 @@ function renderIntegrationsPanel() {
             return (rt.hits||0) + ' hits, ' + (rt.misses||0) + ' misses, ' + (rt.writes||0) + ' writes' + ((rt.errors||0) > 0 ? ', ' + rt.errors + ' errors' : '') + ' (hit rate: ' + ((rt.hit_rate||0)*100).toFixed(0) + '%)';
         }
         if (k === 'grafana_loki') {
-            const parts = [rt.records_shipped + ' shipped'];
+            const parts = [(rt.records_shipped||0) + ' shipped'];
             if (rt.records_dropped > 0) parts.push(rt.records_dropped + ' dropped');
             if (rt.flush_errors > 0) parts.push(rt.flush_errors + ' flush errors');
-            if (rt.last_flush_iso) parts.push('last: ' + new Date(rt.last_flush_iso).toLocaleTimeString());
+            if (rt.last_flush_iso) parts.push('last flush: ' + new Date(rt.last_flush_iso).toLocaleTimeString());
+            if (rt.last_error) parts.push('ERR: ' + rt.last_error.substring(0, 120));
             return parts.join(' | ');
         }
         if (k === 'resend') {
-            const parts = [rt.total_sent + ' sent'];
-            if (rt.total_failed > 0) parts.push(rt.total_failed + ' failed');
-            if (rt.rate_limited > 0) parts.push(rt.rate_limited + ' rate-limited');
-            parts.push((rt.emails_this_hour||0) + ' sent, ' + (rt.remaining_this_hour||0) + ' remaining this hour');
+            const parts = [(rt.total_sent||0) + ' sent'];
+            if ((rt.total_failed||0) > 0) parts.push(rt.total_failed + ' failed');
+            if ((rt.rate_limited||0) > 0) parts.push(rt.rate_limited + ' rate-limited');
+            parts.push((rt.emails_this_hour||0) + ' this hour, ' + (rt.remaining_this_hour||0) + ' remaining');
+            if (rt.from_email) parts.push('from: ' + rt.from_email);
             if (rt.last_sent_subject) parts.push('last: "' + rt.last_sent_subject.substring(0, 40) + '"');
+            if (rt.last_error) parts.push('ERR: ' + rt.last_error.substring(0, 120));
             return parts.join(' | ');
         }
         return '';
@@ -1480,15 +1483,16 @@ function renderIntegrationsPanel() {
     }
     if (cards.length === 0) { grid.innerHTML = '<div class="table-empty" style="grid-column:1/-1;">No integrations configured</div>'; return; }
     grid.innerHTML = cards.map(c => {
-        const dc = c.status==='ok'?'var(--green)':c.status==='disabled'?'var(--text-muted)':c.status==='partial'?'var(--amber)':'var(--red)';
-        const badge = c.status==='ok'?'Active':c.status==='disabled'?'Off':c.status==='partial'?'Partial':'Error';
+        const dc = c.status==='ok'?'var(--green)':c.status==='disabled'?'var(--text-muted)':c.status==='degraded'?'var(--amber)':c.status==='partial'?'var(--amber)':'var(--red)';
+        const badge = c.status==='ok'?'Active':c.status==='disabled'?'Off':c.status==='degraded'?'Degraded':c.status==='partial'?'Partial':'Error';
+        const hasError = c.runtime && c.runtime.includes('ERR:');
         return '<div class="infra-card" style="position:relative;">' +
             '<div class="infra-card-header"><span class="infra-dot" style="background:'+dc+';"></span>' +
             '<span class="infra-card-name">'+c.icon+' '+escapeHtml(c.name)+'</span>' +
             '<span style="margin-left:auto;font-size:10px;padding:2px 8px;border-radius:9px;background:'+dc+';color:white;font-weight:600;">'+badge+'</span></div>' +
             '<div class="infra-card-detail">'+escapeHtml(c.detail)+'</div>' +
             '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.4;">'+escapeHtml(c.desc)+'</div>' +
-            (c.runtime ? '<div class="infra-card-sub" style="margin-top:6px;padding:4px 8px;background:var(--gray-50);border-radius:4px;font-size:11px;">'+escapeHtml(c.runtime)+'</div>' : '') +
+            (c.runtime ? '<div class="infra-card-sub" style="margin-top:6px;padding:4px 8px;background:'+(hasError?'#fff3f3':'var(--gray-50)')+';border-radius:4px;font-size:11px;'+(hasError?'border-left:3px solid var(--red);color:#b71c1c;':'')+'">'+escapeHtml(c.runtime)+'</div>' : '') +
             (c.sub && !c.runtime ? '<div class="infra-card-sub">'+escapeHtml(c.sub)+'</div>' : '') +
             '</div>';
     }).join('');

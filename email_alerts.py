@@ -107,6 +107,9 @@ _email_stats: Dict[str, Any] = {
     "total_deduplicated": 0,
     "last_sent_time": None,
     "last_sent_subject": None,
+    "last_error": None,
+    "last_error_time": None,
+    "last_error_status": None,
     "emails_by_type": {},
 }
 
@@ -254,18 +257,25 @@ def _send_email(to: str, subject: str, html: str) -> bool:
             error_body = http_err.read().decode("utf-8")[:500]
         except Exception:
             pass
+        error_detail = f"HTTP {http_err.code}: {error_body[:200]}" if error_body else f"HTTP {http_err.code}"
         logger.warning(
-            "email_alerts: Resend API HTTP %d: %s",
-            http_err.code, error_body[:200],
+            "email_alerts: Resend API %s", error_detail,
         )
         with _lock:
             _email_stats["total_failed"] += 1
+            _email_stats["last_error"] = error_detail
+            _email_stats["last_error_time"] = time.time()
+            _email_stats["last_error_status"] = http_err.code
         return False
 
     except Exception as exc:
-        logger.warning("email_alerts: failed to send email: %s", exc)
+        error_detail = f"{type(exc).__name__}: {exc}"
+        logger.warning("email_alerts: failed to send email: %s", error_detail)
         with _lock:
             _email_stats["total_failed"] += 1
+            _email_stats["last_error"] = error_detail
+            _email_stats["last_error_time"] = time.time()
+            _email_stats["last_error_status"] = None
         return False
 
 
@@ -685,7 +695,86 @@ def get_alert_status() -> Dict[str, Any]:
         "total_deduplicated": stats_snapshot.get("total_deduplicated", 0),
         "last_sent_time": stats_snapshot.get("last_sent_time"),
         "last_sent_subject": stats_snapshot.get("last_sent_subject"),
+        "last_error": stats_snapshot.get("last_error"),
+        "last_error_time": stats_snapshot.get("last_error_time"),
+        "last_error_status": stats_snapshot.get("last_error_status"),
     }
+
+
+def diagnose_resend() -> Dict[str, Any]:
+    """Run a lightweight diagnostic check on Resend API connectivity.
+
+    Validates configuration and tests the API key by hitting the Resend
+    domains endpoint (GET /domains -- lightweight, no side effects).
+
+    Returns a dict with: ok (bool), detail (str), config_warnings (list).
+    """
+    warnings_list: List[str] = []
+
+    # Check env vars
+    if not _API_KEY:
+        return {"ok": False, "detail": "RESEND_API_KEY not set", "config_warnings": warnings_list}
+    if not _TO_EMAIL:
+        return {"ok": False, "detail": "ALERT_EMAIL_TO not set", "config_warnings": warnings_list}
+
+    # Check from_email configuration
+    if _FROM_EMAIL == "onboarding@resend.dev":
+        warnings_list.append(
+            "Using default sender 'onboarding@resend.dev' -- this only works for "
+            "the account owner's email. Set RESEND_FROM_EMAIL to a verified domain sender."
+        )
+
+    # Test API key validity by hitting GET /domains (read-only, no side effects)
+    try:
+        req = urllib.request.Request(
+            "https://api.resend.com/domains",
+            method="GET",
+            headers={
+                "Authorization": f"Bearer {_API_KEY}",
+                "Accept": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            resp_data = json.loads(resp.read().decode("utf-8"))
+
+        # Check if any domains are verified
+        domains = resp_data.get("data", [])
+        verified = [d for d in domains if d.get("status") == "verified"]
+        if not verified and _FROM_EMAIL != "onboarding@resend.dev":
+            warnings_list.append(
+                f"No verified domains found. Sender '{_FROM_EMAIL}' may not work."
+            )
+        elif verified:
+            verified_names = [d.get("name", "?") for d in verified]
+            # Check if from_email domain matches a verified domain
+            from_domain = _FROM_EMAIL.split("@")[-1] if "@" in _FROM_EMAIL else ""
+            if from_domain and from_domain not in verified_names and _FROM_EMAIL != "onboarding@resend.dev":
+                warnings_list.append(
+                    f"Sender domain '{from_domain}' not in verified domains: {verified_names}"
+                )
+
+        detail = f"API key valid, {len(verified)} verified domain(s)"
+        if verified:
+            detail += f": {', '.join(d.get('name', '?') for d in verified)}"
+        return {"ok": True, "detail": detail, "config_warnings": warnings_list}
+
+    except urllib.error.HTTPError as http_err:
+        error_body = ""
+        try:
+            error_body = http_err.read().decode("utf-8")[:300]
+        except Exception:
+            pass
+        detail = f"HTTP {http_err.code}"
+        if http_err.code == 401:
+            detail += " Unauthorized -- RESEND_API_KEY is invalid"
+        elif http_err.code == 403:
+            detail += " Forbidden -- API key lacks permissions"
+        if error_body:
+            detail += f" | {error_body[:200]}"
+        return {"ok": False, "detail": detail, "config_warnings": warnings_list}
+
+    except Exception as exc:
+        return {"ok": False, "detail": f"{type(exc).__name__}: {exc}", "config_warnings": warnings_list}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
