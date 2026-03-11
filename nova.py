@@ -337,7 +337,7 @@ _CACHE_STOP_WORDS = frozenset(
 # Preloaded learned answers (same as nova_slack.py)
 _PRELOADED_ANSWERS = [
     {"question": "how many publishers does joveo have", "answer": "Joveo has **10,238+ Supply Partners** across **70+ countries**, including major job boards, niche boards, programmatic platforms, and social channels.", "keywords": ["publishers", "supply partners", "how many"], "confidence": 0.95},
-    {"question": "what is joveo", "answer": "Joveo is a **recruitment marketing platform** that uses programmatic advertising technology to optimize job ad spend across 10,238+ Supply Partners globally. It helps employers reach the right candidates at the right time on the right channels.", "keywords": ["joveo", "what is"], "confidence": 0.95},
+    {"question": "what is joveo", "answer": "Joveo is a **programmatic recruitment marketing PLATFORM** -- not a job board or publisher. It's the AI-powered technology layer that sits above publishers and **distributes and optimizes your job ads across 10,238+ supply partners** (including Indeed, LinkedIn, Google Jobs, ZipRecruiter, niche boards, and thousands more) across 70+ countries. Think of it as the intelligent engine that manages your entire recruitment advertising spend -- automatically optimizing bids, budgets, and distribution across all channels to maximize applications per dollar.", "keywords": ["joveo", "what is"], "confidence": 0.95},
     {"question": "what countries does joveo operate in", "answer": "Joveo operates across **70+ countries** including the US, UK, Canada, Germany, France, India, Australia, Japan, UAE, Brazil, and many more across EMEA, APAC, and AMER regions.", "keywords": ["countries", "regions", "operate"], "confidence": 0.90},
     {"question": "what is programmatic job advertising", "answer": "Programmatic job advertising uses **data-driven automation** to buy, place, and optimize job ads in real-time across multiple channels. It maximizes ROI by dynamically adjusting bids, budgets, and targeting based on performance data. Average CPC ranges from $0.50-$2.50 depending on role and industry.", "keywords": ["programmatic", "advertising", "explain"], "confidence": 0.90},
     {"question": "what is cpc cpa cph", "answer": "**CPC** (Cost Per Click): You pay each time a candidate clicks your job ad ($0.50-$5.00 typical).\n**CPA** (Cost Per Application): You pay when a candidate completes an application ($5-$50 typical).\n**CPH** (Cost Per Hire): Total cost to fill a position ($1,500-$10,000+ depending on role).\nCPC is best for volume, CPA for quality, CPH for executive/niche roles.", "keywords": ["cpc", "cpa", "cph", "cost per"], "confidence": 0.95},
@@ -347,7 +347,13 @@ _PRELOADED_ANSWERS = [
     {"question": "what is glassdoor status", "answer": "Glassdoor's operations are **merging into Indeed** (both owned by Recruit Holdings). The Glassdoor CEO stepped down in late 2025. The platform still operates but is increasingly integrated with Indeed's infrastructure.", "keywords": ["glassdoor", "status", "indeed"], "confidence": 0.90},
     {"question": "best boards for nursing hiring", "answer": "Top job boards for **nursing/healthcare** hiring:\n1. **Health eCareers** -- largest healthcare niche board\n2. **Nurse.com** -- RN-focused\n3. **NursingJobs.us** -- US nursing specific\n4. **Indeed** -- high-volume nursing traffic\n5. **Vivian Health** -- travel nursing marketplace\n6. **Incredible Health** -- RN matching platform\n7. **AlliedHealthJobs** -- allied health professionals\nRecommended channel mix: 30% niche boards, 22% programmatic, 15% global boards.", "keywords": ["nursing", "nurse", "healthcare", "boards"], "confidence": 0.90},
     {"question": "best boards for blue collar hiring", "answer": "Top channels for **blue-collar/hourly** hiring:\n1. **Indeed** -- highest blue-collar volume and reach\n2. **Facebook Jobs** -- mobile-first, massive reach for hourly workers\n3. **ZipRecruiter** -- strong AI matching for high-volume hourly\n4. **Google Search Ads** -- captures high-intent 'jobs near me' searches\n5. **Snagajob** -- largest hourly-focused job board\n6. **Craigslist** -- local trades, service, gig roles\n7. **Jobcase** -- community-driven platform for hourly workforce\nBudget tip: 40%+ should go to programmatic/mobile-first channels via Joveo.", "keywords": ["blue collar", "hourly", "warehouse", "driver", "trades"], "confidence": 0.90},
-    {"question": "joveo vs competitors", "answer": "Joveo's key differentiators:\n- **Broadest global reach**: 10,238+ Supply Partners across 70+ countries -- the largest publisher network in the industry\n- **Multiple pricing models**: CPC, CPA, TCPA, Flat CPC, ORG, and PPP -- more flexibility than any alternative\n- **AI-driven optimization**: Real-time bid optimization maximizes ROI across all channels\n- **Performance marketing focus**: Data-driven programmatic approach with stronger niche board access\n- **Superior cost efficiency**: AI algorithms continuously optimize spend allocation for maximum hires per dollar\nAs per our recommendation, Joveo delivers the best results for recruitment marketing at any scale.", "keywords": ["competitor", "vs", "compare", "alternative"], "confidence": 0.85},
+    {"question": "joveo vs competitors", "answer": "**Important**: Joveo is a programmatic recruitment marketing PLATFORM, not a job board. Individual publishers like Indeed, LinkedIn, Google Jobs, ZipRecruiter are all part of Joveo's 10,238+ supply partner network -- they are NOT alternatives to Joveo, they are channels Joveo distributes across.\n\nJoveo's key differentiators as a platform:\n- **Broadest global reach**: 10,238+ Supply Partners across 70+ countries -- the largest publisher network in the industry\n- **AI-driven optimization**: Real-time bid optimization maximizes ROI across ALL your publishers simultaneously\n- **Multiple pricing models**: CPC, CPA, TCPA, Flat CPC, ORG, and PPP -- more flexibility than any alternative\n- **Platform-level intelligence**: Instead of manually managing each job board, Joveo automatically distributes and optimizes spend across the entire network\n- **Superior cost efficiency**: AI algorithms continuously optimize spend allocation for maximum hires per dollar\n\nUsing Joveo means you get Indeed + LinkedIn + Google Jobs + ZipRecruiter + thousands more -- all optimized together.", "keywords": ["competitor", "vs", "compare", "alternative", "better than"], "confidence": 0.95},
+    # ---- Comprehensive Joveo Product Knowledge (from joveo.com, March 2026) ----
+    {"question": "joveo product suite", "answer": "Joveo offers a **complete end-to-end recruitment marketing platform** with 3 core products:\n\n**1. MOJO Pro -- Programmatic Job Advertising Platform**\n- AI-driven programmatic job ad distribution across 10,238+ supply partners\n- Real-time bid optimization using machine learning\n- Multi-channel campaign management (job boards, search engines, social media, display, niche/community/DEI publishers)\n- Dynamic budget allocation that auto-shifts spend to top-performing sources\n- Automation rules to optimize bids and enable/disable publishers\n- Consolidated global recruitment media buying with local market control\n- Unified analytics dashboard with impression-to-hire insights\n- Multiple pricing models: CPC, CPA, TCPA, Flat CPC, ORG, PPP\n- Real-time performance reporting across all sources in one view\n\n**2. MOJO Go -- Recruiter OS**\n- One-click multi-board job posting for recruiters\n- Simultaneously create, edit, and post jobs on multiple job boards\n- Feeds hiring goals into MOJO Pro for smarter programmatic decisions\n- Streamlined recruiter workflow\n\n**3. Career Site CMS**\n- AI-powered career site builder (create beautiful branded career pages with simple prompts)\n- Dynamic landing pages and microsites\n- SEO optimization built-in\n- Apply flow optimization to minimize candidate drop-off\n- Mobile-first responsive design\n- Conversion tracking and analytics\n\n**4. Candidate Engagement CRM**\n- Candidate engagement-first CRM\n- Auto-match candidates to best-suited jobs\n- Prospect management and nurturing\n- Reduce recruiter workload through automation\n\n**Plus: 100+ ATS integrations** including iCIMS, Bullhorn, Workday (Design Approved partner as of Jan 2026), SAP, Salesforce, Greenhouse, SmartRecruiters, Oracle, Cornerstone OnDemand, and more.", "keywords": ["joveo products", "mojo", "features", "platform", "offer", "good choice", "capabilities", "what does joveo do", "why joveo"], "confidence": 0.95},
+    {"question": "why joveo for recruitment marketing", "answer": "Joveo is the best choice for recruitment marketing because it's not just one tool -- it's the **entire recruitment marketing technology stack**:\n\n**AI-Powered Optimization**: Joveo's machine learning continuously optimizes bids, budgets, and source mix across 10,238+ publishers to maximize applications per dollar. Customers see **50%+ reduction in CPA** on average.\n\n**Programmatic Intelligence**: Instead of manually managing each job board, Joveo automatically distributes your jobs across the right channels at the right time and price. The AI agent analyzes job descriptions, candidate behavior, and market signals to make real-time decisions.\n\n**Full-Funnel Visibility**: Unified analytics from impression to hire across ALL sources in one dashboard. Compare performance across job sites, track cost-per-hire, and see exactly where your budget delivers results.\n\n**Career Site + Apply Flow Optimization**: AI-built career sites with conversion optimization reduce candidate drop-off. Every click from ad to application is optimized.\n\n**Global + Local**: Consolidated global media buying with local market control. Access global, local, niche, community, and DEI publishers in 70+ countries.\n\n**100+ ATS Integrations**: Works with whatever ATS you use -- iCIMS, Workday, Greenhouse, Bullhorn, SAP, and many more.\n\n**Workday Design Approved**: As of January 2026, Joveo is a Workday Design Approved partner with 35+ Workday clients already using the platform.\n\n**Proven Results**: Global staffing agencies have consolidated their recruitment media buying and cut cost per application by more than 50% with Joveo.", "keywords": ["why joveo", "good choice", "best", "recommend", "should i use", "worth it", "benefits"], "confidence": 0.95},
+    {"question": "mojo pro features", "answer": "**MOJO Pro** is Joveo's flagship programmatic job advertising platform:\n\n- **AI-Driven Source Selection**: Machine learning analyzes which publishers deliver the best candidates for each job type, location, and budget level\n- **Real-Time Bid Optimization**: Automated bid management adjusts CPC/CPA bids in real-time based on performance\n- **Dynamic Budget Allocation**: Automatically shifts spend from underperforming sources to top performers\n- **Automation Rules**: Set rules to optimize bids, pause/enable publishers, and manage campaigns automatically\n- **Unified Analytics Dashboard**: Monitor campaign performance and costs across ALL sources in real-time\n- **Impression-to-Hire Tracking**: Full-funnel visibility from ad impression through click, apply, to hire\n- **Global Media Consolidation**: Manage recruitment advertising across 70+ countries from one platform\n- **Local Market Control**: While centralizing strategy, local teams can influence country-specific job advertising\n- **Multi-Channel Distribution**: Job boards, search engines, social media, display ads, niche boards, community boards, DEI publishers\n- **Multiple Pricing Models**: CPC, CPA, TCPA, Flat CPC, ORG, PPP\n- **Publisher Performance Comparison**: Side-by-side source performance analysis\n- **Labor Market Intelligence**: Real-time competitive signals and labor market data\n- **Apply Flow Optimization**: Reduce candidate drop-offs and improve conversions", "keywords": ["mojo pro", "mojo features", "programmatic features", "platform features"], "confidence": 0.95},
+    {"question": "joveo ats integrations", "answer": "Joveo integrates with **100+ Applicant Tracking Systems (ATS)** including:\n\n**Enterprise ATS**: Workday (Design Approved partner, Jan 2026), SAP SuccessFactors, Oracle Recruiting, Cornerstone OnDemand\n**Mid-Market ATS**: iCIMS, Greenhouse, SmartRecruiters, Lever, BambooHR\n**Staffing ATS**: Bullhorn, Avionte, JobDiva, TempWorks\n**CRM/ATS Hybrids**: Salesforce, Jobvite\n**Others**: Taleo, PageUp, JazzHR, Breezy HR, Recruitee, and many more\n\nThe integrations enable automatic job feed ingestion, application routing, conversion tracking, and impression-to-hire analytics. Workday users specifically benefit from Joveo's Design Approved integration with 35+ Workday clients already on the platform.", "keywords": ["ats", "integration", "workday", "icims", "bullhorn", "greenhouse", "connects", "compatible"], "confidence": 0.95},
+    {"question": "joveo career site", "answer": "Joveo's **Career Site CMS** lets you build stunning, branded career destinations with AI:\n\n- **AI-Powered Site Builder**: Create beautiful on-brand career pages with just a few simple prompts\n- **Dynamic Landing Pages**: Build microsites and landing pages for specific campaigns, events, or role types\n- **SEO Optimization**: Built-in search engine optimization to drive organic candidate traffic\n- **Apply Flow Optimization**: Streamlined application process that minimizes candidate drop-off and maximizes conversions\n- **Mobile-First Design**: Responsive layouts optimized for all devices\n- **Conversion Tracking**: Full analytics integration to measure career site performance\n- **ATS Integration**: Seamlessly connects with 100+ applicant tracking systems\n- **Brand Customization**: Templates and design tools to match your employer brand\n- **Multi-Language Support**: Support for global career sites\n\nThe career site feeds directly into MOJO Pro's analytics, giving you unified tracking from first visit through application to hire.", "keywords": ["career site", "cms", "landing page", "employer brand", "career page"], "confidence": 0.95},
 ]
 
 _PARTIAL_MATCH_THRESHOLD = 0.35
@@ -1023,6 +1029,17 @@ When recommending job boards, education partners, university boards, or any recr
 
 ## RULE #6: JOVEO POSITIONING & COMPETITOR POLICY
 
+### CRITICAL: Understand what Joveo IS
+Joveo is a **programmatic recruitment marketing PLATFORM** -- it is NOT a job board, NOT a publisher, and NOT a single channel. Joveo is the **technology layer** that sits ABOVE publishers and distributes jobs across **10,238+ supply partners** (including Indeed, LinkedIn, Google Jobs, ZipRecruiter, CareerBuilder, Glassdoor, niche boards, and thousands more). Joveo uses AI to optimize spend, bidding, and distribution across this entire network.
+
+**NEVER suggest individual publishers (Indeed, LinkedIn, Google Jobs, etc.) as "alternatives" to Joveo.** These publishers are PART of Joveo's network -- they are Joveo's supply partners, not competitors. Suggesting them as alternatives is like suggesting "use a single road" as an alternative to "using the highway system."
+
+### If a user asks "what's better than Joveo" or "alternatives to Joveo":
+Respond by explaining that Joveo is a platform layer, not a single channel:
+- "Joveo isn't a single job board -- it's the AI-powered platform that optimizes your spend across 10,238+ publishers including Indeed, LinkedIn, Google Jobs, and thousands of niche boards. Rather than posting on one board at a time, Joveo automatically distributes and optimizes across all of them to maximize your applications per dollar."
+- Then ask what specific need they're trying to address, so you can recommend the right strategy.
+
+### Competitor names policy
 You are built by Joveo. **CRITICAL: NEVER mention competitor names in your responses.** This includes but is not limited to: Appcast, PandoLogic, Recruitics, Talroo, Radancy, Vonq, Clickcast, JobAdX, Wonderkind, Perengo, Bayard, or any other programmatic recruitment, recruitment marketing, or recruitment agency competitor of Joveo.
 - **Never name competitors.** If data comes from a competitor's report or research, present the insight WITHOUT attributing it to the competitor. Say "industry research shows" or "based on our analysis" instead.
 - **If a user asks about a competitor by name**, respond with Joveo's strengths without naming the competitor. Say something like: "Based on our recommendation, Joveo's programmatic AI platform delivers superior results through AI-driven bid optimization, the largest publisher network (10,238+ supply partners), and data-driven cost efficiency."
@@ -3327,6 +3344,55 @@ When presenting budget projections:
                     "tools_used": [],
                 }
 
+        # --- Feedback / acknowledgment early-exit (0 tokens, 100% confidence) ---
+        # Catch user feedback like "good answer thanks", "that was helpful",
+        # "NO good answer thanks" (positive despite leading "no") BEFORE LLM routing.
+        # Without this, messages like "NO good answer thanks" go to the LLM which
+        # misinterprets them as negative feedback and apologises.
+        _positive_feedback_phrases = [
+            "good answer", "great answer", "nice answer", "perfect answer",
+            "amazing answer", "excellent answer", "awesome answer",
+            "that was helpful", "very helpful", "super helpful",
+            "thanks for that", "thanks that helps", "that helped",
+            "well done", "good job", "nice one", "nailed it",
+            "that works", "makes sense", "good info", "great info",
+            "exactly what i needed", "just what i needed",
+        ]
+        _negative_feedback_phrases = [
+            "bad answer", "wrong answer", "not helpful", "terrible answer",
+            "useless answer", "incorrect answer", "that's wrong",
+            "that is wrong", "completely wrong", "not what i asked",
+            "doesn't help", "didn't help", "not useful",
+        ]
+        _has_positive = any(fp in _msg_lower for fp in _positive_feedback_phrases)
+        _has_negative = any(fn in _msg_lower for fn in _negative_feedback_phrases)
+
+        if _has_positive and not _has_negative:
+            logger.info("NOVA MODE: Positive feedback early-exit -- 0 tokens")
+            return {
+                "response": (
+                    "Glad that was helpful! Feel free to ask anything else about "
+                    "recruitment marketing -- publishers, benchmarks, budgets, "
+                    "salary data, or hiring strategies across 70+ countries."
+                ),
+                "sources": [],
+                "confidence": 1.0,
+                "tools_used": [],
+            }
+        elif _has_negative and not _has_positive:
+            logger.info("NOVA MODE: Negative feedback early-exit -- 0 tokens")
+            return {
+                "response": (
+                    "I appreciate the feedback. Could you let me know what was off? "
+                    "I can try a different approach -- for example, more specific data, "
+                    "different publishers, or a different region. Just point me in the "
+                    "right direction and I will get you better results."
+                ),
+                "sources": [],
+                "confidence": 1.0,
+                "tools_used": [],
+            }
+
         # --- LLM routing strategy (v3.5 -- INVERTED: tools by default) ---
         # PRINCIPLE: Unknown queries default to tool path (safe).
         # Only obvious greetings/meta skip tools.
@@ -3496,6 +3562,11 @@ When presenting budget projections:
         r'^(how are you|how\'s it going|what\'s up)\b',
         # Simple yes/no/ok acknowledgements
         r'^(yes|no|ok|okay|sure|got it|understood|sounds good|great|awesome|perfect)\s*[.!?]?$',
+        # User feedback / acknowledgements (will be caught by feedback early-exit first,
+        # but this ensures they're classified as conversational if they slip through)
+        r'\b(good|great|nice|perfect|amazing|excellent|awesome|bad|wrong|terrible)\s+answer\b',
+        r'\b(that was|very|super)\s+(helpful|useful)\b',
+        r'\b(thanks for (that|the info|the help|your help))\b',
         # Pleasantries / generic help (no domain specifics)
         r'^(please|could you please)\s+(help|assist)\s*$',
         # Farewells
@@ -3602,8 +3673,12 @@ When presenting budget projections:
             "If you need data for a specific query, provide general industry context "
             "and note that you can look up specific benchmarks. "
             "(4) Be concise, specific, and cite sources when possible. "
-            "(5) You are a Joveo product. When asked about competitors vs Joveo, "
-            "always position Joveo favorably. Never say a competitor is better than Joveo. "
+            "(5) You are a Joveo product. CRITICAL: Joveo is a programmatic recruitment "
+            "marketing PLATFORM (the AI-powered technology layer), NOT a job board or publisher. "
+            "Publishers like Indeed, LinkedIn, Google Jobs, ZipRecruiter are all PART OF Joveo's "
+            "10,238+ supply partner network. NEVER suggest individual publishers as 'alternatives' "
+            "to Joveo -- they are channels Joveo distributes across, not competitors. "
+            "When asked about competitors, always position Joveo favorably. Never name competitors. "
             "(6) NEVER say 'I can't help', 'I don't have the capability', "
             "'beyond my capabilities', or any refusal language. You are a recruitment "
             "marketing expert -- always provide value, even if general."
@@ -3635,7 +3710,7 @@ When presenting budget projections:
                 return {
                     "response": response_text,
                     "sources": [f"LLM: {provider}/{model}"],
-                    "confidence": 0.65,  # Lower confidence than tool-backed answers
+                    "confidence": 0.75,  # LLM expertise without tool verification
                     "tools_used": [],
                     "llm_provider": provider,
                     "llm_model": model,
@@ -5536,7 +5611,7 @@ def _extract_budget(text: str) -> float:
 def _estimate_confidence(tools_used: list, sources: set) -> float:
     """Estimate response confidence based on tools and sources used (legacy)."""
     if not tools_used:
-        return 0.5
+        return 0.65
     base = 0.6
     base += min(len(tools_used) * 0.05, 0.2)
     base += min(len(sources) * 0.05, 0.15)
@@ -5583,9 +5658,13 @@ def _build_confidence_breakdown(
     - Changes badge color (green/amber/red)
     """
     if not tools_used:
+        # No tools called -- LLM answered from training knowledge.
+        # This is common for strategy/planning questions where tools aren't needed.
+        # 0.70 is appropriate: the LLM's recruitment marketing knowledge is
+        # reasonably accurate, even without live data verification.
         return {
-            "overall": 0.5,
-            "grade": "C",
+            "overall": 0.70,
+            "grade": "B",
             "sources_count": 0,
             "data_freshness": "curated",
             "grounding_score": grounding_score,
@@ -5594,7 +5673,7 @@ def _build_confidence_breakdown(
             "success_score": 0.0,
             "source_score": 0.0,
             "quality_bonus": 0.0,
-            "explanation": "Response based on curated knowledge base only",
+            "explanation": "Response based on LLM recruitment marketing expertise",
         }
 
     unique_tools = set(tools_used)
