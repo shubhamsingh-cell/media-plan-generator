@@ -55,10 +55,44 @@ if _SENTRY_DSN:
             attach_stacktrace=True,
         )
         logger.info("Sentry error tracking initialized")
+        _SENTRY_AVAILABLE = True
     except ImportError:
         logger.warning("sentry-sdk not installed -- error tracking disabled")
+        _SENTRY_AVAILABLE = False
     except Exception as _sentry_err:
         logger.warning("Sentry init failed: %s", _sentry_err)
+        _SENTRY_AVAILABLE = False
+else:
+    _SENTRY_AVAILABLE = False
+
+
+def _sentry_start_txn(op: str, name: str):
+    """Start a Sentry transaction if SDK is available. Returns (txn, start_child_fn).
+
+    Usage::
+
+        txn, span = _sentry_start_txn("http.server", "POST /api/chat")
+        # ... do work ...
+        child = span("enrichment", "API enrichment")  # returns context-manager or no-op
+        with child:
+            enrich_data(...)
+        if txn:
+            txn.finish()
+    """
+    if not _SENTRY_AVAILABLE:
+        from contextlib import nullcontext
+        return None, lambda op, desc: nullcontext()
+    try:
+        txn = sentry_sdk.start_transaction(op=op, name=name)
+        sentry_sdk.get_current_scope().set_transaction(txn)
+
+        def _child(child_op: str, description: str):
+            return txn.start_child(op=child_op, description=description)
+
+        return txn, _child
+    except Exception:
+        from contextlib import nullcontext
+        return None, lambda op, desc: nullcontext()
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # KNOWLEDGE BASE LOADER
@@ -8304,16 +8338,35 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         _req_start = time.time()
         if _metrics:
             _metrics.enter_request()
+
+        # ── Sentry Performance: wrap entire GET in a transaction ──
+        parsed_for_sentry = urlparse(self.path)
+        _sentry_txn, self._sentry_span = _sentry_start_txn(
+            "http.server", f"GET {parsed_for_sentry.path}"
+        )
+        if _sentry_txn:
+            _sentry_txn.set_tag("http.method", "GET")
+            _sentry_txn.set_tag("http.url", parsed_for_sentry.path)
+            _sentry_txn.set_data("request_id", self._request_id)
+
         try:
             self._handle_GET()
         except Exception as _exc:
             # Sentry captures unhandled exceptions automatically; log + re-raise
             logger.exception("Unhandled exception in do_GET: %s", _exc)
+            if _sentry_txn:
+                _sentry_txn.set_status("internal_error")
             try:
                 self.send_error(500, "Internal Server Error")
             except Exception:
                 pass
         finally:
+            if _sentry_txn:
+                _sentry_txn.set_data("duration_ms", (time.time() - _req_start) * 1000)
+                try:
+                    _sentry_txn.finish()
+                except Exception:
+                    pass
             if _metrics:
                 _metrics.exit_request()
                 _latency = (time.time() - _req_start) * 1000
@@ -9028,15 +9081,34 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         _req_start = time.time()
         if _metrics:
             _metrics.enter_request()
+
+        # ── Sentry Performance: wrap entire POST in a transaction ──
+        parsed_for_sentry = urlparse(self.path)
+        _sentry_txn, self._sentry_span = _sentry_start_txn(
+            "http.server", f"POST {parsed_for_sentry.path}"
+        )
+        if _sentry_txn:
+            _sentry_txn.set_tag("http.method", "POST")
+            _sentry_txn.set_tag("http.url", parsed_for_sentry.path)
+            _sentry_txn.set_data("request_id", self._request_id)
+
         try:
             self._handle_POST()
         except Exception as _exc:
             logger.exception("Unhandled exception in do_POST: %s", _exc)
+            if _sentry_txn:
+                _sentry_txn.set_status("internal_error")
             try:
                 self.send_error(500, "Internal Server Error")
             except Exception:
                 pass
         finally:
+            if _sentry_txn:
+                _sentry_txn.set_data("duration_ms", (time.time() - _req_start) * 1000)
+                try:
+                    _sentry_txn.finish()
+                except Exception:
+                    pass
             if _metrics:
                 _metrics.exit_request()
                 _latency = (time.time() - _req_start) * 1000
@@ -9576,12 +9648,14 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     logger.warning("Standardizer normalization failed (non-fatal): %s", e)
 
             # Enrich data with live API data
+            _span_fn = getattr(self, '_sentry_span', lambda o, d: __import__('contextlib').nullcontext())
             enriched = {}
             if enrich_data is not None:
                 try:
-                    # Feature 6c: propagate request_id to enrich_data
-                    _rid = getattr(self, "_request_id", None)
-                    enriched = enrich_data(data, request_id=_rid) if _rid else enrich_data(data)
+                    with _span_fn("enrich", "API enrichment (BLS, salary, company intel)"):
+                        # Feature 6c: propagate request_id to enrich_data
+                        _rid = getattr(self, "_request_id", None)
+                        enriched = enrich_data(data, request_id=_rid) if _rid else enrich_data(data)
                     data["_enriched"] = enriched
                     logger.info("API enrichment complete: %s", enriched.get('enrichment_summary', {}))
                 except Exception as e:
@@ -9591,13 +9665,15 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 data["_enriched"] = {}
 
             # ── Phase 2: Load Knowledge Base ──
-            kb = load_knowledge_base()
+            with _span_fn("kb.load", "Load knowledge base"):
+                kb = load_knowledge_base()
             data["_knowledge_base"] = kb  # Pass KB to PPT for fallback data
 
             # ── Phase 3: Data Synthesis ──
             if data_synthesize is not None:
                 try:
-                    synthesized = data_synthesize(enriched, kb, data)
+                    with _span_fn("synthesize", "Data synthesis (fuse enriched + KB)"):
+                        synthesized = data_synthesize(enriched, kb, data)
                     data["_synthesized"] = synthesized
                     logger.info("Data synthesis complete: %s", list(synthesized.keys()) if isinstance(synthesized, dict) else 'N/A')
                 except Exception as e:
@@ -9720,7 +9796,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
             start_time = time.time()
             try:
-                excel_bytes = generate_excel(data)
+                with _span_fn("generate.excel", "Generate Excel media plan"):
+                    excel_bytes = generate_excel(data)
             except Exception as e:
                 import traceback
                 tb = traceback.format_exc()
@@ -9760,7 +9837,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             pptx_warning = None
             if generate_pptx is not None:
                 try:
-                    pptx_bytes = generate_pptx(data)
+                    with _span_fn("generate.pptx", "Generate strategy PPT deck"):
+                        pptx_bytes = generate_pptx(data)
                     logger.info("PPT generated: %d bytes", len(pptx_bytes))
                 except Exception as e:
                     logger.error("PPT generation error: %s", e, exc_info=True)
@@ -9908,7 +9986,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 return
             try:
                 from nova import handle_chat_request
-                response = handle_chat_request(data)
+                _chat_span_fn = getattr(self, '_sentry_span', lambda o, d: __import__('contextlib').nullcontext())
+                with _chat_span_fn("nova.chat", "Nova chat LLM routing + response"):
+                    response = handle_chat_request(data)
                 # NOTE: Chat path routing is recorded inside nova.py (_nova_metrics.record_chat)
                 # which forwards to MetricsCollector. Do NOT double-count here.
             except Exception as chat_err:
@@ -10100,7 +10180,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 return
             try:
                 from nova_slack import handle_chat_standalone
-                response = handle_chat_standalone(data)
+                _admin_span_fn = getattr(self, '_sentry_span', lambda o, d: __import__('contextlib').nullcontext())
+                with _admin_span_fn("nova.admin_chat", "Nova admin chat (standalone)"):
+                    response = handle_chat_standalone(data)
             except Exception as chat_err:
                 logger.error("Nova chat error: %s", chat_err, exc_info=True)
                 response = {"error": "Internal error processing request"}

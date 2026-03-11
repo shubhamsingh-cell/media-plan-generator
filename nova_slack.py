@@ -672,6 +672,7 @@ class NovaSlackBot:
                 ),
                 "confidence": learned["confidence"],
                 "sources": ["Learned Answers"],
+                "tools_used": [],
                 "queued_for_review": False,
             }
 
@@ -714,6 +715,7 @@ class NovaSlackBot:
                         ),
                         "confidence": conf,
                         "sources": sources,
+                        "tools_used": tools_used,
                         "queued_for_review": False,
                     }
             except Exception as exc:
@@ -730,6 +732,7 @@ class NovaSlackBot:
                 ),
                 "confidence": learned["confidence"],
                 "sources": ["Learned Answers (partial match)"],
+                "tools_used": [],
                 "queued_for_review": False,
             }
 
@@ -748,6 +751,7 @@ class NovaSlackBot:
             )
 
         iq_conf = iq_response.get("confidence", 0) if iq_response else 0.0
+        iq_tools = iq_response.get("tools_used", []) if iq_response else []
         return {
             "text": (
                 f"*Nova says:*\n\n"
@@ -758,6 +762,7 @@ class NovaSlackBot:
             ),
             "confidence": iq_conf,
             "sources": [],
+            "tools_used": iq_tools,
             "queued_for_review": True,
         }
 
@@ -1552,5 +1557,6 @@ def handle_chat_standalone(request_data: dict) -> dict:
         "response": result["text"],
         "confidence": result["confidence"],
         "sources": result["sources"],
+        "tools_used": result.get("tools_used", []),
         "queued_for_review": result["queued_for_review"],
     }

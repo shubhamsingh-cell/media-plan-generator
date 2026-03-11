@@ -1565,6 +1565,46 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
             else:
                 result["niche_industries_available"] = list(niche.keys())
 
+        # Cross-reference industry-specific primary platforms from
+        # platform_intelligence_deep.json's recruitment_channel_strategy_guide.
+        # This ensures major platforms like Indeed/LinkedIn appear for
+        # industry-specific queries (e.g. healthcare) instead of only
+        # showing the generic global_reach list.
+        if industry:
+            platform_intel = self._data_cache.get("platform_intelligence", {})
+            strategy_guide = platform_intel.get("recruitment_channel_strategy_guide", {})
+            platforms_db = platform_intel.get("platforms", {})
+            if strategy_guide:
+                guide_keys = list(strategy_guide.keys())
+                matched_guide_key = _match_industry_key(industry, guide_keys)
+                if matched_guide_key:
+                    guide_entry = strategy_guide[matched_guide_key]
+                    # Collect all recommended platforms across sub-categories
+                    # (primary, niche, programmatic, supplementary, etc.)
+                    primary_ids = guide_entry.get("primary", [])
+                    niche_ids = guide_entry.get("niche", [])
+                    programmatic_ids = guide_entry.get("programmatic", [])
+                    supplementary_ids = guide_entry.get("supplementary", [])
+                    budget_range = guide_entry.get("budget_range", "")
+
+                    def _resolve_platform_name(pid: str) -> str:
+                        """Resolve a platform key to its display name."""
+                        p_info = platforms_db.get(pid, {})
+                        return p_info.get("name", pid.replace("_", " ").title())
+
+                    result["primary_for_industry"] = {
+                        "industry": matched_guide_key,
+                        "primary": [_resolve_platform_name(p) for p in primary_ids],
+                        "niche": [_resolve_platform_name(p) for p in niche_ids],
+                        "programmatic": [_resolve_platform_name(p) for p in programmatic_ids],
+                    }
+                    if supplementary_ids:
+                        result["primary_for_industry"]["supplementary"] = [
+                            _resolve_platform_name(p) for p in supplementary_ids
+                        ]
+                    if budget_range:
+                        result["primary_for_industry"]["budget_range"] = budget_range
+
         if channel_type in ("non_traditional", "all"):
             result["non_traditional"] = non_traditional
 
@@ -3137,13 +3177,32 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
         # These don't need LLM processing and should return instantly with a
         # warm, branded response.
         _msg_lower = user_message.lower().strip()
-        _greeting_pats = [
-            r'^(hi|hello|hey|hola|howdy)\b',
+        # Greeting patterns: ^-anchored for hello/hi, unanchored for casual chat
+        _greeting_pats_start = [
+            r'^(hi|hello|hey|hola|howdy|sup|yo)\b',
             r'^good (morning|afternoon|evening|day)\b',
-            r'^(how are you|how\'s it going|what\'s up|how do you do)',
             r'^(bye|goodbye|see you|later|take care|thanks|thank you|thx|ty)\b',
         ]
-        _is_pure_greeting = any(re.search(p, _msg_lower) for p in _greeting_pats)
+        # These can appear ANYWHERE in the message (e.g., "btw hows life nova?")
+        _greeting_pats_anywhere = [
+            r'\bhow are you\b', r'\bhow\'s it going\b', r'\bwhat\'s up\b',
+            r'\bhow do you do\b', r'\bhow you doing\b', r'\bhow\'s life\b',
+            r'\bhows life\b', r'\bhow is life\b', r'\bhows it going\b',
+            r'\bhow are things\b', r'\bhow have you been\b',
+            r'\bhow\'s your day\b', r'\bhows your day\b',
+            r'\bhow you been\b', r'\bhow are u\b', r'\bhow r u\b',
+            r'\bfeeling today\b', r'\bhow\'s everything\b',
+            r'\bwhat\'s good\b', r'\bwhat\'s new\b', r'\bwhats up\b',
+            r'\bwhats new\b', r'\bwhats good\b',
+            r'\bare you (a |an )?(real|human|person|bot|ai|robot|machine|program|computer)\b',
+            r'\bdo you have (feelings|emotions|a personality)\b',
+            r'\bare you alive\b', r'\bwho made you\b', r'\bwho built you\b',
+            r'\bwho created you\b',
+        ]
+        _is_pure_greeting = (
+            any(re.search(p, _msg_lower) for p in _greeting_pats_start) or
+            any(re.search(p, _msg_lower) for p in _greeting_pats_anywhere)
+        )
         # Only treat as greeting if no data keywords are present
         if _is_pure_greeting:
             _data_words = {"cpa", "cpc", "salary", "budget", "cost", "hire",
@@ -3163,10 +3222,30 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                         "You're welcome! Happy to help. Let me know if you have any "
                         "other recruitment marketing questions."
                     )
-                elif any(kw in _msg_lower for kw in ["how are you", "how's it going", "what's up", "how do you do"]):
+                elif any(kw in _msg_lower for kw in [
+                    "who made you", "who built you", "who created you",
+                    "are you a bot", "are you ai", "are you a robot",
+                    "are you real", "are you human", "are you a machine",
+                    "are you a program", "are you a computer",
+                    "are you alive", "do you have feelings", "do you have emotions",
+                ]):
                     _greeting_resp = (
-                        "Thanks for asking! I'm ready to help you find the best "
-                        "recruitment strategies and data. What can I assist you with today?"
+                        "I'm Nova, built by the team at Joveo! I'm your recruitment "
+                        "marketing intelligence assistant with access to data from 10,238+ "
+                        "supply partners across 70+ countries. What can I help you with today?"
+                    )
+                elif any(kw in _msg_lower for kw in [
+                    "how are you", "how's it going", "what's up", "how do you do",
+                    "how you doing", "how's life", "hows life", "how is life",
+                    "hows it going", "how are things", "how have you been",
+                    "how's your day", "hows your day", "how you been", "how are u",
+                    "feeling today", "how's everything", "what's good", "what's new",
+                    "whats up", "whats new", "whats good", "how r u",
+                ]):
+                    _greeting_resp = (
+                        "Thanks for asking! I'm always ready to help you find the best "
+                        "recruitment strategies, salary benchmarks, and job board recommendations. "
+                        "What can I assist you with today?"
                     )
                 else:
                     _greeting_resp = (
@@ -4228,6 +4307,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                     "response": "\n".join(response_parts),
                     "sources": ["LinkedIn Hiring Value Review for Guidewire Software (Jan 2025 - Dec 2025)"],
                     "confidence": 0.95,
+                    "tools_used": ["query_linkedin_guidewire"],
                 }
 
         # ── MEDIUM 2 FIX: Multi-country comparison handler ──
@@ -5650,6 +5730,35 @@ def _format_channel_response(data: dict, industry: str) -> str:
     """Format channel data into a readable response."""
     parts = []
     parts.append("*Recruitment Channels*\n")
+
+    # Show industry-specific primary platform recommendations first
+    # (sourced from recruitment_channel_strategy_guide)
+    if "primary_for_industry" in data:
+        pfi = data["primary_for_industry"]
+        ind_label = pfi.get("industry", industry).replace("_", " ").title()
+        if pfi.get("primary"):
+            parts.append(f"*Recommended Primary Platforms for {ind_label}:*")
+            for ch in pfi["primary"]:
+                parts.append(f"- {ch}")
+            parts.append("")
+        if pfi.get("niche"):
+            parts.append(f"*Specialist/Niche for {ind_label}:*")
+            for ch in pfi["niche"]:
+                parts.append(f"- {ch}")
+            parts.append("")
+        if pfi.get("supplementary"):
+            parts.append(f"*Supplementary for {ind_label}:*")
+            for ch in pfi["supplementary"]:
+                parts.append(f"- {ch}")
+            parts.append("")
+        if pfi.get("programmatic"):
+            parts.append(f"*Programmatic Partners:*")
+            for ch in pfi["programmatic"]:
+                parts.append(f"- {ch}")
+            parts.append("")
+        if pfi.get("budget_range"):
+            parts.append(f"_Typical budget range: {pfi['budget_range']}_")
+            parts.append("")
 
     if "niche_industry_channels" in data:
         nic = data["niche_industry_channels"]
