@@ -47,7 +47,7 @@ if _SENTRY_DSN:
         import sentry_sdk
         sentry_sdk.init(
             dsn=_SENTRY_DSN,
-            traces_sample_rate=0.2,          # 20% of requests get performance traces
+            traces_sample_rate=1.0,          # 100% temporarily to verify traces work
             profiles_sample_rate=0.1,        # 10% get profiling
             environment=os.environ.get("RENDER", "local"),
             release=f"media-plan-generator@3.5.1",
@@ -76,29 +76,23 @@ from contextlib import nullcontext as _nullctx
 
 
 def _sentry_start_txn(op: str, name: str):
-    """Start a Sentry transaction (root span) using SDK 2.x context-manager API.
+    """Start a Sentry root span (transaction) using SDK 2.x API.
 
-    Returns (txn_context_manager, child_span_fn).
-    - txn_context_manager: use with ``with`` to auto-finish the transaction
-    - child_span_fn(op, name): returns a context-manager child span
+    In SDK 2.x, ``sentry_sdk.start_span()`` creates a root span (transaction)
+    when no parent span exists on the current scope. Child spans are created
+    the same way -- the SDK auto-parents them.
 
-    Usage::
-
-        txn_cm, span = _sentry_start_txn("http.server", "POST /api/chat")
-        with txn_cm:
-            with span("enrich", "API enrichment"):
-                enrich_data(...)
+    Returns (root_span_cm, child_span_fn).
     """
     if not _SENTRY_AVAILABLE:
         return _nullctx(), lambda op, name: _nullctx()
     try:
-        txn_cm = sentry_sdk.start_transaction(op=op, name=name)
+        root_span = sentry_sdk.start_span(op=op, name=name)
 
         def _child(child_op: str, child_name: str):
-            """Create a child span (SDK 2.x: use ``name``, not ``description``)."""
             return sentry_sdk.start_span(op=child_op, name=child_name)
 
-        return txn_cm, _child
+        return root_span, _child
     except Exception:
         return _nullctx(), lambda op, name: _nullctx()
 
