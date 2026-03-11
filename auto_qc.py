@@ -2448,6 +2448,65 @@ class AutoQC:
         except Exception as e:
             return TestResult("v35_version_marker", False, f"Error: {e}")
 
+    def _test_81_eval_framework_return_contract(self) -> TestResult:
+        """Eval framework run_full_eval() returns expected types (prevents data_matrix_monitor crash)."""
+        try:
+            if "eval_framework" not in sys.modules:
+                importlib.import_module("eval_framework")
+            ef = sys.modules["eval_framework"]
+            suite = ef.EvalSuite()
+            scores = suite.run_full_eval()
+
+            # Contract checks
+            issues = []
+            if not isinstance(scores, dict):
+                return TestResult("eval_framework_return_contract", False,
+                                  f"run_full_eval returned {type(scores).__name__}, expected dict")
+
+            if "overall_score" not in scores:
+                issues.append("missing 'overall_score' key")
+            elif not isinstance(scores["overall_score"], (int, float)):
+                issues.append(f"overall_score is {type(scores['overall_score']).__name__}, expected number")
+
+            if "categories" not in scores:
+                issues.append("missing 'categories' key")
+            else:
+                cats = scores["categories"]
+                if not isinstance(cats, dict):
+                    issues.append(f"categories is {type(cats).__name__}, expected dict")
+                else:
+                    # Every value in categories must be a number (float/int)
+                    bad_types = {k: type(v).__name__ for k, v in cats.items()
+                                 if not isinstance(v, (int, float))}
+                    if bad_types:
+                        issues.append(f"categories has non-numeric values: {bad_types}")
+
+            ok = len(issues) == 0
+            detail = "Contract valid" if ok else "; ".join(issues)
+            return TestResult("eval_framework_return_contract", ok, detail)
+        except Exception as e:
+            return TestResult("eval_framework_return_contract", False, f"Error: {e}")
+
+    def _test_82_extended_health_no_errors(self) -> TestResult:
+        """Extended health probes should not have 'error' status (catches silent failures)."""
+        try:
+            if "data_matrix_monitor" not in sys.modules:
+                importlib.import_module("data_matrix_monitor")
+            from data_matrix_monitor import get_data_matrix_monitor
+            monitor = get_data_matrix_monitor()
+            status = monitor.get_status()
+            ext = status.get("extended_health", {})
+            if not ext:
+                return TestResult("extended_health_no_errors", True,
+                                  "Extended health not yet populated (pending first check)")
+            errors = {k: v.get("detail", "?") for k, v in ext.items()
+                      if isinstance(v, dict) and v.get("status") == "error"}
+            ok = len(errors) == 0
+            detail = f"All {len(ext)} probes clean" if ok else f"{len(errors)} errors: {errors}"
+            return TestResult("extended_health_no_errors", ok, detail)
+        except Exception as e:
+            return TestResult("extended_health_no_errors", False, f"Error: {e}")
+
     # ══════════════════════════════════════════════════════════════════════
     # DYNAMIC TESTS (generated weekly from user interaction analysis)
     # ══════════════════════════════════════════════════════════════════════

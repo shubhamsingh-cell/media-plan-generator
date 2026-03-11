@@ -528,6 +528,7 @@ class DataMatrixMonitor:
                     "detail": "llm_router not loaded yet",
                 }
         except Exception as e:
+            logger.error("extended_health: llm_providers probe failed: %s", e, exc_info=True)
             results["llm_providers"] = {"status": "error", "detail": str(e)}
 
         # 2. Async job queue depth
@@ -551,6 +552,7 @@ class DataMatrixMonitor:
                     "status": "ok", "detail": "app not loaded (0 jobs)", "total": 0,
                 }
         except Exception as e:
+            logger.error("extended_health: async_job_queue probe failed: %s", e, exc_info=True)
             results["async_job_queue"] = {"status": "error", "detail": str(e)}
 
         # 3. API key usage tracking
@@ -574,6 +576,7 @@ class DataMatrixMonitor:
                 "providers": provider_status,
             }
         except Exception as e:
+            logger.error("extended_health: api_keys probe failed: %s", e, exc_info=True)
             results["api_keys"] = {"status": "error", "detail": str(e)}
 
         # 4. KB file freshness
@@ -593,6 +596,7 @@ class DataMatrixMonitor:
                 "stale_files": stale_files[:5],
             }
         except Exception as e:
+            logger.error("extended_health: kb_freshness probe failed: %s", e, exc_info=True)
             results["kb_freshness"] = {"status": "error", "detail": str(e)}
 
         # 5. Eval score trend
@@ -602,11 +606,23 @@ class DataMatrixMonitor:
                 suite = ef.EvalSuite()
                 scores = suite.run_full_eval()
                 overall = scores.get("overall_score", 0)
+                # categories is Dict[str, float] from run_full_eval() --
+                # type-guard: if values are dicts (future change), extract score_pct;
+                # if floats (current), use directly.
+                raw_cats = scores.get("categories", {})
+                safe_cats = {}
+                for k, v in raw_cats.items():
+                    if isinstance(v, (int, float)):
+                        safe_cats[k] = v
+                    elif isinstance(v, dict):
+                        safe_cats[k] = v.get("score_pct", v.get("score", 0))
+                    else:
+                        safe_cats[k] = 0
                 results["eval_score"] = {
                     "status": "ok" if overall >= 85 else ("partial" if overall >= 70 else "error"),
                     "detail": f"Overall eval score: {overall}%",
                     "score": overall,
-                    "categories": scores.get("categories", {}),
+                    "categories": safe_cats,
                 }
             else:
                 results["eval_score"] = {
@@ -614,6 +630,7 @@ class DataMatrixMonitor:
                     "detail": "eval_framework not loaded",
                 }
         except Exception as e:
+            logger.error("extended_health: eval_score probe failed: %s", e, exc_info=True)
             results["eval_score"] = {"status": "error", "detail": str(e)}
 
         # 6. Regression baseline age
@@ -632,6 +649,7 @@ class DataMatrixMonitor:
                     "detail": "No baseline saved yet (first run will create it)",
                 }
         except Exception as e:
+            logger.error("extended_health: regression_baseline probe failed: %s", e, exc_info=True)
             results["regression_baseline"] = {"status": "error", "detail": str(e)}
 
         # 7. v3.5 Conversational routing health
@@ -662,6 +680,7 @@ class DataMatrixMonitor:
             else:
                 results["v35_routing"] = {"status": "partial", "detail": "nova module not loaded"}
         except Exception as e:
+            logger.error("extended_health: v35_routing probe failed: %s", e, exc_info=True)
             results["v35_routing"] = {"status": "error", "detail": str(e)}
 
         return results
