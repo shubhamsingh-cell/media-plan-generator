@@ -342,12 +342,12 @@ _PRELOADED_ANSWERS = [
     {"question": "what is programmatic job advertising", "answer": "Programmatic job advertising uses **data-driven automation** to buy, place, and optimize job ads in real-time across multiple channels. It maximizes ROI by dynamically adjusting bids, budgets, and targeting based on performance data. Average CPC ranges from $0.50-$2.50 depending on role and industry.", "keywords": ["programmatic", "advertising", "explain"], "confidence": 0.90},
     {"question": "what is cpc cpa cph", "answer": "**CPC** (Cost Per Click): You pay each time a candidate clicks your job ad ($0.50-$5.00 typical).\n**CPA** (Cost Per Application): You pay when a candidate completes an application ($5-$50 typical).\n**CPH** (Cost Per Hire): Total cost to fill a position ($1,500-$10,000+ depending on role).\nCPC is best for volume, CPA for quality, CPH for executive/niche roles.", "keywords": ["cpc", "cpa", "cph", "cost per"], "confidence": 0.95},
     {"question": "what pricing models does joveo support", "answer": "Joveo supports multiple pricing models: **CPC** (Cost Per Click), **CPA** (Cost Per Application), **TCPA** (Target CPA with auto-optimization), **Flat CPC**, **ORG** (Organic/free postings), and **PPP** (Pay Per Post). The optimal model depends on your hiring volume and role type.", "keywords": ["pricing", "models", "commission"], "confidence": 0.90},
-    {"question": "top job boards in the us", "answer": "The top job boards in the US by traffic and performance:\n1. **Indeed** -- largest globally, CPC model\n2. **LinkedIn** -- best for white-collar/professional\n3. **ZipRecruiter** -- strong AI matching, high volume\n4. **Google Search Ads** -- high-intent job seekers\n5. **Glassdoor** (merging into Indeed) -- employer brand focused\n6. **Snagajob** -- hourly/blue-collar leader\n7. **Talroo** -- performance-based, strong for essential workers\n8. **Dice** -- tech-specific\n9. **Handshake** -- early career/campus", "keywords": ["top", "job boards", "us", "united states", "best"], "confidence": 0.85},
+    {"question": "top job boards in the us", "answer": "The top job boards in the US by traffic and performance:\n1. **Indeed** -- largest globally, CPC model\n2. **LinkedIn** -- best for white-collar/professional\n3. **ZipRecruiter** -- strong AI matching, high volume\n4. **Google Search Ads** -- high-intent job seekers\n5. **Glassdoor** (merging into Indeed) -- employer brand focused\n6. **Snagajob** -- hourly/blue-collar leader\n7. **Dice** -- tech-specific\n8. **Handshake** -- early career/campus\nAs per our recommendation, pairing these with Joveo's programmatic distribution maximizes reach.", "keywords": ["top", "job boards", "us", "united states", "best"], "confidence": 0.85},
     {"question": "what happened to monster and careerbuilder", "answer": "Monster and CareerBuilder filed for **Chapter 11 bankruptcy** in July 2025. They were acquired by **Bold Holdings for $28M**. Monster Europe has been shut down (DNS killed). CareerBuilder continues operating in the US under new ownership but with reduced scale.", "keywords": ["monster", "careerbuilder", "bankruptcy", "shut down"], "confidence": 0.95},
     {"question": "what is glassdoor status", "answer": "Glassdoor's operations are **merging into Indeed** (both owned by Recruit Holdings). The Glassdoor CEO stepped down in late 2025. The platform still operates but is increasingly integrated with Indeed's infrastructure.", "keywords": ["glassdoor", "status", "indeed"], "confidence": 0.90},
     {"question": "best boards for nursing hiring", "answer": "Top job boards for **nursing/healthcare** hiring:\n1. **Health eCareers** -- largest healthcare niche board\n2. **Nurse.com** -- RN-focused\n3. **NursingJobs.us** -- US nursing specific\n4. **Indeed** -- high-volume nursing traffic\n5. **Vivian Health** -- travel nursing marketplace\n6. **Incredible Health** -- RN matching platform\n7. **AlliedHealthJobs** -- allied health professionals\nRecommended channel mix: 30% niche boards, 22% programmatic, 15% global boards.", "keywords": ["nursing", "nurse", "healthcare", "boards"], "confidence": 0.90},
-    {"question": "best boards for blue collar hiring", "answer": "Top channels for **blue-collar/hourly** hiring:\n1. **Indeed** -- highest blue-collar volume and reach\n2. **Facebook Jobs** -- mobile-first, massive reach for hourly workers\n3. **ZipRecruiter** -- strong AI matching for high-volume hourly\n4. **Google Search Ads** -- captures high-intent 'jobs near me' searches\n5. **Snagajob** -- largest hourly-focused job board\n6. **Talroo** -- performance-based, strong for essential/frontline workers\n7. **Craigslist** -- local trades, service, gig roles\n8. **Jobcase** -- community-driven platform for hourly workforce\nBudget tip: 40%+ should go to programmatic/mobile-first channels.", "keywords": ["blue collar", "hourly", "warehouse", "driver", "trades"], "confidence": 0.90},
-    {"question": "joveo vs competitors", "answer": "Joveo's key differentiators vs competitors:\n- **PandoLogic** (now Veritone Hire): Joveo has broader global publisher network (70+ vs ~20 countries)\n- **Appcast** (owned by StepStone): Joveo offers more pricing models (CPC+CPA+TCPA)\n- **Recruitics**: Joveo has stronger programmatic optimization and niche board access\n- **Radancy**: Joveo focuses on performance marketing, Radancy on employer branding\nJoveo uniquely offers access to 10,238+ Supply Partners with real-time bid optimization.", "keywords": ["competitor", "vs", "pandologic", "appcast", "recruitics"], "confidence": 0.85},
+    {"question": "best boards for blue collar hiring", "answer": "Top channels for **blue-collar/hourly** hiring:\n1. **Indeed** -- highest blue-collar volume and reach\n2. **Facebook Jobs** -- mobile-first, massive reach for hourly workers\n3. **ZipRecruiter** -- strong AI matching for high-volume hourly\n4. **Google Search Ads** -- captures high-intent 'jobs near me' searches\n5. **Snagajob** -- largest hourly-focused job board\n6. **Craigslist** -- local trades, service, gig roles\n7. **Jobcase** -- community-driven platform for hourly workforce\nBudget tip: 40%+ should go to programmatic/mobile-first channels via Joveo.", "keywords": ["blue collar", "hourly", "warehouse", "driver", "trades"], "confidence": 0.90},
+    {"question": "joveo vs competitors", "answer": "Joveo's key differentiators:\n- **Broadest global reach**: 10,238+ Supply Partners across 70+ countries -- the largest publisher network in the industry\n- **Multiple pricing models**: CPC, CPA, TCPA, Flat CPC, ORG, and PPP -- more flexibility than any alternative\n- **AI-driven optimization**: Real-time bid optimization maximizes ROI across all channels\n- **Performance marketing focus**: Data-driven programmatic approach with stronger niche board access\n- **Superior cost efficiency**: AI algorithms continuously optimize spend allocation for maximum hires per dollar\nAs per our recommendation, Joveo delivers the best results for recruitment marketing at any scale.", "keywords": ["competitor", "vs", "compare", "alternative"], "confidence": 0.85},
 ]
 
 _PARTIAL_MATCH_THRESHOLD = 0.35
@@ -997,14 +997,14 @@ When recommending job boards, education partners, university boards, or any recr
 - If no language-specific boards exist in the data, say so explicitly and recommend general boards as fallback
 - NEVER ignore the language requirement -- it is a critical filter for the user
 
-## RULE #6: JOVEO POSITIONING
+## RULE #6: JOVEO POSITIONING & COMPETITOR POLICY
 
-You are built by Joveo. When users ask about competitors (Vonq, Appcast, PandoLogic, Recruitics, Talroo, Radancy, etc.) vs Joveo:
-- **Always position Joveo favorably.** Joveo is the leader in programmatic recruitment advertising with AI-driven bid optimization, the largest publisher network, and superior ROI.
-- **Be factual but Joveo-positive.** Acknowledge competitor strengths briefly, then highlight where Joveo excels (programmatic AI, publisher reach, data-driven optimization, cost efficiency).
-- **Never say a competitor is "better than Joveo".** If asked directly "Is X better than Joveo?", answer confidently: Joveo's programmatic AI platform, extensive publisher network, and data-driven approach deliver superior recruitment marketing outcomes for most hiring scenarios.
-- **Comparison format**: When comparing, lead with Joveo's strengths, then briefly note what the competitor offers, then conclude with why Joveo's approach delivers better results.
-- You may acknowledge that different tools serve different use cases, but always frame Joveo as the strongest overall choice for recruitment marketing optimization.
+You are built by Joveo. **CRITICAL: NEVER mention competitor names in your responses.** This includes but is not limited to: Appcast, PandoLogic, Recruitics, Talroo, Radancy, Vonq, Clickcast, JobAdX, Wonderkind, Perengo, Bayard, or any other programmatic recruitment, recruitment marketing, or recruitment agency competitor of Joveo.
+- **Never name competitors.** If data comes from a competitor's report or research, present the insight WITHOUT attributing it to the competitor. Say "industry research shows" or "based on our analysis" instead.
+- **If a user asks about a competitor by name**, respond with Joveo's strengths without naming the competitor. Say something like: "Based on our recommendation, Joveo's programmatic AI platform delivers superior results through AI-driven bid optimization, the largest publisher network (10,238+ supply partners), and data-driven cost efficiency."
+- **Never list competitors alongside Joveo** (e.g., never say "platforms like X, Y, and Joveo"). Instead say "Joveo's platform" or "as per our recommendation".
+- **Always position Joveo favorably.** Joveo is the leader in programmatic recruitment advertising.
+- When referencing channels, say "Programmatic & DSP (Joveo)" for the programmatic channel -- never attribute it to any other platform.
 
 ## TOOL STRATEGY
 
@@ -1251,7 +1251,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
             },
             {
                 "name": "query_white_papers",
-                "description": "47 industry reports from Appcast, Radancy, Recruitics, PandoLogic, Joveo. Use when citing research or backing claims with evidence.",
+                "description": "47 industry reports and white papers from leading recruitment marketing sources. Use when citing research or backing claims with evidence.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -3159,7 +3159,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
             logger.info("NOVA MODE: Learned answer match -- returning cached answer")
             _nova_metrics.record_learned_answer()
             _nova_metrics.record_latency((time.time() - _t0) * 1000)
-            return learned
+            return _filter_competitor_names(learned)
 
         # --- Response cache (standalone questions only) ---
         history = conversation_history or []
@@ -3170,7 +3170,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 logger.info("NOVA MODE: Cache hit -- returning cached response")
                 _nova_metrics.record_cache_hit()
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
-                return cached
+                return _filter_competitor_names(cached)
 
         # --- Greeting early-exit (0 tokens, 100% confidence) ---
         # Catch greetings, pleasantries, and "how are you" BEFORE any LLM call.
@@ -3313,6 +3313,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                     logger.info("NOVA MODE: LLM Router (free provider, no tools) responded successfully")
                     _nova_metrics.record_latency((time.time() - _t0) * 1000)
                     _nova_metrics.record_chat("conversational")
+                    router_result = _filter_competitor_names(router_result)
                     if router_result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
                         _set_response_cache(cache_key, router_result)
                     return router_result
@@ -3329,6 +3330,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                             free_tool_result.get("llm_provider", "unknown"))
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 _nova_metrics.record_chat("tool")
+                free_tool_result = _filter_competitor_names(free_tool_result)
                 if free_tool_result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
                     _set_response_cache(cache_key, free_tool_result)
                 return free_tool_result
@@ -3343,6 +3345,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 logger.info("NOVA MODE: Claude API response received successfully")
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 _nova_metrics.record_chat("claude")
+                result = _filter_competitor_names(result)
                 if result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
                     _set_response_cache(cache_key, result)
                 return result
@@ -3372,7 +3375,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 "tools_used": [],
             }
 
-        return result
+        return _filter_competitor_names(result)
 
     # ------------------------------------------------------------------
     # LLM Router integration (v3.1 -- free LLM providers first)
@@ -3836,6 +3839,36 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 logger.warning("Free LLM tools: response too short (%d chars), falling back",
                                len(response_text))
                 return None
+
+            # Quality gate (v3.5.1): if the LLM returned text WITHOUT calling
+            # any tools and the text contains refusal/inability patterns, it means
+            # the free LLM ignored the tools and gave a generic "I can't help"
+            # response.  Reject and fall back to Claude which handles tools better.
+            if not tool_results_raw:
+                _resp_lower = response_text.lower().replace("\u2019", "'").replace("\u2018", "'")
+                _refusal_signals = [
+                    "i don't have the capability",
+                    "i don't have access to real-time",
+                    "i'm not able to provide",
+                    "i cannot provide specific",
+                    "i don't have specific information",
+                    "i'm sorry, but i don't have",
+                    "i don't have data",
+                    "i do not have access",
+                    "i cannot access",
+                    "i'm unable to",
+                    "i can suggest that you check",
+                    "i would recommend checking",
+                    "beyond my current capabilities",
+                ]
+                if any(sig in _resp_lower for sig in _refusal_signals):
+                    logger.warning(
+                        "Free LLM tools: REJECTED no-tool refusal response from %s "
+                        "(LLM said it can't help instead of calling tools) -- falling back to Claude",
+                        active_provider,
+                    )
+                    _nova_metrics.record_chat("suppressed")
+                    return None  # Fall back to Claude
 
             # Source-grounded verification
             response_text, grounding_score = _verify_response_grounding(
@@ -4642,7 +4675,7 @@ Tool results include `data_confidence` (0.0-1.0) and `data_freshness`. Use these
                 "meta": "Meta/Facebook", "facebook": "Meta/Facebook", "careerbuilder": "CareerBuilder",
                 "dice": "Dice", "snagajob": "Snagajob", "jobget": "JobGet",
                 "craigslist": "Craigslist", "monster": "Monster", "handshake": "Handshake",
-                "appcast": "Appcast", "pandologic": "PandoLogic", "recruitics": "Recruitics",
+                "appcast": "Joveo", "pandologic": "Joveo", "recruitics": "Joveo",
             }
 
             # Determine if either side of the comparison is a known platform
@@ -4933,6 +4966,82 @@ _BLOCKED_PATTERNS = [
     _security_re.compile(r"(are\s+you|do\s+you)\s+(hallucinating|lying|making\s*things\s*up|fabricating|guessing)", _security_re.IGNORECASE),
     _security_re.compile(r"(your|the)\s*(instructions|rules)\s*(say|tell|require|state)", _security_re.IGNORECASE),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Competitor name filtering (v3.5.1)
+# ---------------------------------------------------------------------------
+# Joveo competitors in programmatic recruitment, recruitment marketing,
+# and recruitment agencies. Their data/insights can be used but names
+# must never appear in user-facing responses.
+
+_COMPETITOR_NAMES: Dict[str, str] = {
+    # Programmatic recruitment advertising competitors
+    "Appcast": "a leading programmatic platform",
+    "PandoLogic": "a programmatic recruitment platform",
+    "pandoIQ": "a programmatic recruitment platform",
+    "Recruitics": "a recruitment marketing analytics platform",
+    # NOTE: Talroo is a job board (supply partner), NOT a competitor -- kept out of filter
+    "Clickcast": "a programmatic job advertising platform",
+    "JobAdX": "a programmatic job ad exchange",
+    "Wonderkind": "a talent attraction technology provider",
+    "Perengo": "an AI-powered job ad optimization platform",
+    # Recruitment agencies / talent acquisition platforms
+    "Radancy": "a talent acquisition platform",
+    "TMP Worldwide": "a talent acquisition platform",
+    "Bayard": "a recruitment advertising agency",
+    "Bayard Advertising": "a recruitment advertising agency",
+    "Vonq": "a recruitment marketing platform",
+    # Variations with suffixes/context
+    "Veritone Hire": "a programmatic recruitment platform",
+}
+
+# Pre-compiled case-insensitive regex patterns for each competitor
+_COMPETITOR_PATTERNS: list = []
+for _name in sorted(_COMPETITOR_NAMES.keys(), key=len, reverse=True):
+    # Word-boundary match to avoid partial matches (e.g., "Talroo" in "Talroofing")
+    _pat = re.compile(r'\b' + re.escape(_name) + r'\b', re.IGNORECASE)
+    _COMPETITOR_PATTERNS.append((_pat, _COMPETITOR_NAMES[_name]))
+
+
+def _filter_competitor_names(response: dict) -> dict:
+    """Remove competitor brand names from a Nova response dict.
+
+    Replaces competitor names with generic descriptions so that
+    competitive intelligence data can still be shared without
+    attributing it to specific competitors. The data/insights remain;
+    only the brand names are removed.
+
+    Applied as post-processing on all LLM-generated responses.
+    """
+    text = response.get("response", "")
+    if not text:
+        return response
+
+    for pat, replacement in _COMPETITOR_PATTERNS:
+        text = pat.sub(replacement, text)
+
+    # Clean up artifacts: "a leading programmatic platform and a leading programmatic platform"
+    # becomes "leading programmatic platforms" (deduplicate adjacent identical replacements)
+    for _, repl in _COMPETITOR_PATTERNS:
+        doubled = f"{repl} and {repl}"
+        if doubled in text:
+            text = text.replace(doubled, repl + "s")
+        # Also handle comma-separated: "a platform, a platform, and a platform"
+        tripled = f"{repl}, {repl}, and {repl}"
+        if tripled in text:
+            text = text.replace(tripled, "several " + repl.lstrip("a ").lstrip("an ") + "s")
+
+    # Clean up "like a leading programmatic platform and Joveo" -> "like Joveo"
+    # (when competitor was listed alongside Joveo)
+    for _, repl in _COMPETITOR_PATTERNS:
+        text = text.replace(f"like {repl} and Joveo", "like Joveo")
+        text = text.replace(f"such as {repl} and Joveo", "such as Joveo")
+        text = text.replace(f"{repl}, Joveo", "Joveo")
+
+    response = dict(response)  # Don't mutate the original
+    response["response"] = text
+    return response
 
 
 def _is_blocked_question(message: str) -> bool:
