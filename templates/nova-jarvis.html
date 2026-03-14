@@ -11,10 +11,10 @@
   *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
   @font-face{font-family:'JarvisFont';src:local('SF Mono'),local('Menlo'),local('Consolas');font-display:swap}
   :root{
-    --cyan:#00d4ff;--cyan-dim:rgba(0,212,255,.15);--cyan-glow:rgba(0,212,255,.4);
+    --cyan:#818CF8;--cyan-dim:rgba(99,102,241,.15);--cyan-glow:rgba(99,102,241,.4);
     --orange:#ff6b35;--green:#00ff88;--red:#ff3355;
-    --bg:#06080d;--surface:rgba(10,18,32,.85);--border:rgba(0,212,255,.12);
-    --text:#c8d6e5;--text-dim:rgba(200,214,229,.5);
+    --bg:#08090D;--surface:rgba(10,18,32,.85);--border:rgba(99,102,241,.12);
+    --text:#E2E8F0;--text-dim:rgba(226,232,240,.5);
   }
   html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'JarvisFont',monospace}
 
@@ -39,7 +39,7 @@
   .hud-top-left{display:flex;align-items:center;gap:12px}
   .nova-logo{
     font-size:20px;font-weight:700;letter-spacing:6px;color:var(--cyan);
-    text-shadow:0 0 20px var(--cyan-glow),0 0 40px rgba(0,212,255,.15);
+    text-shadow:0 0 20px var(--cyan-glow),0 0 40px rgba(99,102,241,.15);
   }
   .nova-logo span{color:var(--text-dim);font-weight:400;font-size:11px;letter-spacing:2px;margin-left:8px}
   .hud-status{display:flex;gap:16px;font-size:10px;letter-spacing:1px;text-transform:uppercase}
@@ -109,8 +109,8 @@
 
   .msg-user{
     align-self:flex-end;
-    background:linear-gradient(135deg,rgba(0,212,255,.12),rgba(0,212,255,.06));
-    border:1px solid rgba(0,212,255,.2);
+    background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(99,102,241,.06));
+    border:1px solid rgba(99,102,241,.2);
     border-radius:12px 12px 4px 12px;
     padding:10px 14px;font-size:13px;line-height:1.6;color:#e0f0ff;
   }
@@ -130,9 +130,9 @@
   .msg-assistant li::marker{color:var(--cyan)}
   .msg-assistant table{border-collapse:collapse;width:100%;margin:8px 0;font-size:11px}
   .msg-assistant th,.msg-assistant td{border:1px solid var(--border);padding:5px 8px;text-align:left}
-  .msg-assistant th{background:rgba(0,212,255,.08);color:var(--cyan);font-weight:600}
+  .msg-assistant th{background:rgba(99,102,241,.08);color:var(--cyan);font-weight:600}
   .msg-assistant code{
-    background:rgba(0,212,255,.08);padding:1px 5px;border-radius:3px;
+    background:rgba(99,102,241,.08);padding:1px 5px;border-radius:3px;
     font-family:inherit;font-size:12px;color:var(--cyan);
   }
   .msg-assistant p{margin:4px 0}
@@ -145,8 +145,8 @@
   }
   .meta-badge{
     font-size:9px;padding:2px 7px;border-radius:10px;
-    background:rgba(0,212,255,.1);color:var(--cyan);
-    border:1px solid rgba(0,212,255,.15);letter-spacing:.5px;
+    background:rgba(99,102,241,.1);color:var(--cyan);
+    border:1px solid rgba(99,102,241,.15);letter-spacing:.5px;
   }
   .conf-badge{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;letter-spacing:.5px}
   .conf-high{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.2)}
@@ -177,28 +177,28 @@
     background:rgba(6,10,18,.8);
   }
   .chat-input{
-    flex:1;background:rgba(0,212,255,.04);border:1px solid var(--border);
+    flex:1;background:rgba(99,102,241,.04);border:1px solid var(--border);
     border-radius:8px;padding:10px 14px;font-family:inherit;font-size:13px;
     color:var(--text);resize:none;outline:none;min-height:20px;max-height:120px;
     line-height:1.5;transition:border-color .2s;
   }
-  .chat-input:focus{border-color:rgba(0,212,255,.4);background:rgba(0,212,255,.06)}
+  .chat-input:focus{border-color:rgba(99,102,241,.4);background:rgba(99,102,241,.06)}
   .chat-input::placeholder{color:var(--text-dim)}
   .chat-send{
     width:40px;height:40px;border-radius:8px;
-    background:linear-gradient(135deg,rgba(0,212,255,.15),rgba(0,212,255,.08));
-    border:1px solid rgba(0,212,255,.3);color:var(--cyan);
+    background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(99,102,241,.08));
+    border:1px solid rgba(99,102,241,.3);color:var(--cyan);
     cursor:pointer;display:flex;align-items:center;justify-content:center;
     flex-shrink:0;transition:all .2s;
   }
-  .chat-send:hover{background:rgba(0,212,255,.2);border-color:var(--cyan);box-shadow:0 0 15px rgba(0,212,255,.2)}
+  .chat-send:hover{background:rgba(99,102,241,.2);border-color:var(--cyan);box-shadow:0 0 15px rgba(99,102,241,.2)}
   .chat-send:active{transform:scale(.95)}
   .chat-send:disabled{opacity:.3;cursor:not-allowed;transform:none;box-shadow:none}
   .chat-send svg{width:18px;height:18px}
 
   .chat-footer{
     text-align:center;padding:6px;font-size:9px;color:var(--text-dim);
-    letter-spacing:1px;border-top:1px solid rgba(0,212,255,.05);flex-shrink:0;
+    letter-spacing:1px;border-top:1px solid rgba(99,102,241,.05);flex-shrink:0;
   }
 
   /* ── Bottom HUD ── */
@@ -223,13 +223,13 @@
   .suggestions{display:flex;flex-direction:column;gap:6px;margin-top:4px}
   .suggestions-title{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:2px}
   .suggestion-btn{
-    background:rgba(0,212,255,.04);border:1px solid var(--border);
+    background:rgba(99,102,241,.04);border:1px solid var(--border);
     padding:8px 12px;border-radius:8px;cursor:pointer;
     font-family:inherit;font-size:11px;color:var(--text);text-align:left;
     transition:all .2s;line-height:1.4;
   }
   .suggestion-btn:hover{
-    border-color:rgba(0,212,255,.3);background:rgba(0,212,255,.08);
+    border-color:rgba(99,102,241,.3);background:rgba(99,102,241,.08);
     color:var(--cyan);transform:translateX(4px);
   }
 
@@ -362,7 +362,7 @@ function spawnPulse(){
     maxRadius: 0.8 + Math.random()*1.2, // radians
     speed: 0.6 + Math.random()*0.5,
     life: 1.0,
-    color: isThinking ? [0,255,136] : [0,212,255],
+    color: isThinking ? [0,255,136] : [99,102,241],
   });
 }
 
@@ -433,17 +433,17 @@ function drawOrb(){
   // Core glow
   var coreGlow = ctx.createRadialGradient(CX, CY, 0, CX, CY, orbRadius*1.8);
   var glowAlpha = 0.08 + thinkIntensity*0.06;
-  coreGlow.addColorStop(0, 'rgba(0,212,255,'+glowAlpha*2+')');
-  coreGlow.addColorStop(0.3, 'rgba(0,212,255,'+glowAlpha+')');
-  coreGlow.addColorStop(0.7, 'rgba(0,100,200,'+glowAlpha*0.3+')');
+  coreGlow.addColorStop(0, 'rgba(99,102,241,'+glowAlpha*2+')');
+  coreGlow.addColorStop(0.3, 'rgba(99,102,241,'+glowAlpha+')');
+  coreGlow.addColorStop(0.7, 'rgba(60,50,150,'+glowAlpha*0.3+')');
   coreGlow.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = coreGlow;
   ctx.fillRect(0,0,W,H);
 
   // Inner orb sphere (subtle fill)
   var innerGrad = ctx.createRadialGradient(CX-30, CY-40, orbRadius*0.1, CX, CY, orbRadius);
-  innerGrad.addColorStop(0, 'rgba(0,60,120,0.06)');
-  innerGrad.addColorStop(0.8, 'rgba(0,30,60,0.03)');
+  innerGrad.addColorStop(0, 'rgba(50,40,120,0.06)');
+  innerGrad.addColorStop(0.8, 'rgba(30,20,60,0.03)');
   innerGrad.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.beginPath();
   ctx.arc(CX, CY, orbRadius, 0, Math.PI*2);
@@ -482,10 +482,10 @@ function drawOrb(){
     var sizeBase = dot.size * p.scale * breathe;
     var size = sizeBase + pulseBrightness * 2;
 
-    var r=0, g=212, b=255;
+    var r=99, g=102, b=241;
     if(pulseBrightness > 0.1){
       if(isThinking){ g=255; b=136; r=0; }
-      else { r=100; g=230; b=255; }
+      else { r=129; g=140; b=248; }
     }
 
     drawList.push({z:p.z, fn:function(px,py,sz,al,cr,cg,cb){
@@ -528,7 +528,7 @@ function drawOrb(){
             ctx.beginPath();
             ctx.moveTo(ax,ay);
             ctx.lineTo(bx,by);
-            ctx.strokeStyle='rgba(0,212,255,'+la.toFixed(4)+')';
+            ctx.strokeStyle='rgba(99,102,241,'+la.toFixed(4)+')';
             ctx.lineWidth=0.5;
             ctx.stroke();
           };
@@ -550,7 +550,7 @@ function drawOrb(){
       return function(){
         ctx.beginPath();
         ctx.arc(x,y,s,0,Math.PI*2);
-        ctx.fillStyle='rgba(0,212,255,'+a.toFixed(3)+')';
+        ctx.fillStyle='rgba(99,102,241,'+a.toFixed(3)+')';
         ctx.fill();
       };
     }(rx,ry,rp.size,al)});
@@ -572,7 +572,7 @@ function drawOrb(){
       return function(){
         ctx.beginPath();
         ctx.arc(x,y,s,0,Math.PI*2);
-        ctx.fillStyle='rgba(0,180,255,'+a.toFixed(3)+')';
+        ctx.fillStyle='rgba(129,140,248,'+a.toFixed(3)+')';
         ctx.fill();
       };
     }(CX+rx,CY+ry2,rp.size,al)});

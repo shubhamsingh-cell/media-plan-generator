@@ -21,18 +21,18 @@
   // ---------------------------------------------------------------------------
   var CONFIG = {
     apiUrl: '/api/chat',
-    primaryColor: '#2563EB',
-    primaryDark: '#0F172A',
-    primaryLight: '#DBEAFE',
-    accentColor: '#2563EB',
-    accentLight: '#3B82F6',
-    textColor: '#1A1A1A',
-    textLight: '#6B6B6B',
-    bgColor: '#FFFFFF',
-    bgLight: '#F9FAFB',
-    borderColor: '#E5E7EB',
-    errorColor: '#DC2626',
-    successColor: '#059669',
+    primaryColor: '#6366F1',
+    primaryDark: '#0F1424',
+    primaryLight: '#818CF8',
+    accentColor: '#6366F1',
+    accentLight: '#818CF8',
+    textColor: '#E2E8F0',
+    textLight: 'rgba(226,232,240,0.7)',
+    bgColor: '#08090D',
+    bgLight: 'rgba(15,18,30,0.6)',
+    borderColor: 'rgba(255,255,255,0.06)',
+    errorColor: '#F87171',
+    successColor: '#34D399',
     maxHistoryStorage: 50,
     storageKey: 'nova_chat_history',
     sessionKey: 'nova_session',
@@ -71,25 +71,26 @@
     var css = ''
       + '#nova-float-btn {'
       + '  position: fixed; bottom: 24px; right: 24px; z-index: 99999;'
-      + '  width: 64px; height: 64px; border-radius: 50%;'
-      + '  background: radial-gradient(circle at 40% 35%, #0a1628 0%, #060a10 100%);'
-      + '  color: #fff; border: 1px solid rgba(37,99,235,0.2); cursor: pointer;'
-      + '  box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 15px rgba(37,99,235,0.1), 0 0 0 1px rgba(37,99,235,0.1) inset;'
+      + '  width: 68px; height: 68px; border-radius: 50%;'
+      + '  background: radial-gradient(circle at 35% 30%, #1a1040 0%, #0a0818 60%, #050510 100%);'
+      + '  color: #fff; border: 1.5px solid rgba(99,102,241,0.25); cursor: pointer;'
+      + '  box-shadow: 0 4px 30px rgba(0,0,0,0.6), 0 0 20px rgba(99,102,241,0.2), 0 0 60px rgba(99,102,241,0.08), 0 0 0 1px rgba(99,102,241,0.15) inset;'
       + '  display: flex; align-items: center; justify-content: center;'
-      + '  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;'
+      + '  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;'
       + '  font-size: 0; padding: 0; overflow: hidden;'
       + '}'
       + '#nova-float-btn:hover {'
-      + '  transform: translateY(-2px) scale(1.08);'
-      + '  box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 25px rgba(37,99,235,0.15), 0 0 0 1px rgba(37,99,235,0.2) inset;'
+      + '  transform: translateY(-3px) scale(1.1);'
+      + '  box-shadow: 0 8px 40px rgba(0,0,0,0.7), 0 0 35px rgba(99,102,241,0.3), 0 0 80px rgba(99,102,241,0.12), 0 0 0 1px rgba(99,102,241,0.3) inset;'
+      + '  border-color: rgba(99,102,241,0.4);'
       + '}'
       + '#nova-float-btn:active {'
       + '  transform: scale(0.95);'
       + '}'
       + '#nova-float-btn svg { width: 26px; height: 26px; }'
       + '#nova-float-btn canvas { display: block; }'
-      + '#nova-float-btn.nova-btn-close { background: linear-gradient(135deg, #0F172A 0%, #2563EB 100%); border-color: rgba(255,255,255,0.15); }'
-      + '#nova-float-btn.nova-btn-close:hover { box-shadow: 0 8px 28px rgba(15,23,42,0.45); }'
+      + '#nova-float-btn.nova-btn-close { background: linear-gradient(135deg, #0F1424 0%, #6366F1 100%); border-color: rgba(255,255,255,0.15); }'
+      + '#nova-float-btn.nova-btn-close:hover { box-shadow: 0 8px 36px rgba(99,102,241,0.35), 0 0 60px rgba(99,102,241,0.1); }'
 
       // ── Dark Glassmorphism Panel ──
       + '#nova-panel {'
@@ -128,14 +129,14 @@
       + '}'
       + '.nova-header-icon {'
       + '  width: 36px; height: 36px; border-radius: 10px;'
-      + '  background: rgba(37,99,235,0.1);'
+      + '  background: rgba(99,102,241,0.12);'
       + '  backdrop-filter: blur(8px);'
-      + '  border: 1px solid rgba(37,99,235,0.2);'
+      + '  border: 1px solid rgba(99,102,241,0.2);'
       + '  display: flex; align-items: center; justify-content: center;'
       + '  font-size: 18px;'
-      + '  box-shadow: 0 0 12px rgba(37,99,235,0.1);'
+      + '  box-shadow: 0 0 16px rgba(99,102,241,0.15);'
       + '}'
-      + '.nova-header-icon svg { filter: drop-shadow(0 0 4px rgba(37,99,235,0.3)); }'
+      + '.nova-header-icon svg { filter: drop-shadow(0 0 4px rgba(99,102,241,0.4)); }'
       + '.nova-header-title {'
       + '  font-size: 16px; font-weight: 700; letter-spacing: 1.5px;'
       + '  color: #E2E8F0;'
@@ -175,9 +176,9 @@
       + '}'
       + '.nova-msg-user {'
       + '  align-self: flex-end;'
-      + '  background: rgba(37,99,235,0.15);'
+      + '  background: rgba(99,102,241,0.15);'
       + '  color: #e0f0ff;'
-      + '  border: 1px solid rgba(37,99,235,0.15);'
+      + '  border: 1px solid rgba(99,102,241,0.15);'
       + '  border-bottom-right-radius: 4px;'
       + '  box-shadow: 0 2px 12px rgba(0,0,0,0.08);'
       + '}'
@@ -200,18 +201,18 @@
       + '.nova-msg-assistant em { font-style: italic; color: #6b7c8d; }'
       + '.nova-msg-assistant ul, .nova-msg-assistant ol { margin: 4px 0; padding-left: 18px; }'
       + '.nova-msg-assistant li { margin-bottom: 3px; }'
-      + '.nova-msg-assistant li::marker { color: rgba(37,99,235,0.5); }'
+      + '.nova-msg-assistant li::marker { color: rgba(99,102,241,0.5); }'
       + '.nova-msg-assistant table {'
       + '  border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 11px;'
       + '}'
       + '.nova-msg-assistant th, .nova-msg-assistant td {'
-      + '  border: 1px solid rgba(37,99,235,0.1); padding: 5px 8px; text-align: left;'
+      + '  border: 1px solid rgba(99,102,241,0.1); padding: 5px 8px; text-align: left;'
       + '}'
       + '.nova-msg-assistant th {'
-      + '  background: rgba(37,99,235,0.08); font-weight: 600; color: #93C5FD;'
+      + '  background: rgba(99,102,241,0.08); font-weight: 600; color: #93C5FD;'
       + '}'
       + '.nova-msg-assistant code {'
-      + '  background: rgba(37,99,235,0.08); padding: 1px 5px; border-radius: 4px;'
+      + '  background: rgba(99,102,241,0.08); padding: 1px 5px; border-radius: 4px;'
       + '  font-family: "SF Mono", Monaco, Menlo, monospace; font-size: 11.5px; color: #93C5FD;'
       + '}'
       + '.nova-msg-assistant p { margin: 4px 0; }'
@@ -220,13 +221,13 @@
       // ── Meta info (sources, confidence) ──
       + '.nova-msg-meta {'
       + '  margin-top: 8px; padding-top: 6px;'
-      + '  border-top: 1px solid rgba(37,99,235,0.08);'
+      + '  border-top: 1px solid rgba(99,102,241,0.08);'
       + '  display: flex; flex-wrap: wrap; gap: 4px; align-items: center;'
       + '}'
       + '.nova-badge {'
       + '  font-size: 9px; padding: 2px 7px; border-radius: 10px;'
-      + '  background: rgba(37,99,235,0.08); color: #60A5FA;'
-      + '  border: 1px solid rgba(37,99,235,0.12);'
+      + '  background: rgba(99,102,241,0.08); color: #60A5FA;'
+      + '  border: 1px solid rgba(99,102,241,0.12);'
       + '  font-weight: 500; white-space: nowrap; letter-spacing: 0.3px;'
       + '}'
       + '.nova-confidence {'
@@ -241,7 +242,7 @@
       + '  display: none; position: absolute; bottom: 100%; left: 50%;'
       + '  transform: translateX(-50%); margin-bottom: 6px;'
       + '  background: rgba(10,18,32,0.95); color: #c8d6e5; padding: 10px 14px;'
-      + '  border: 1px solid rgba(37,99,235,0.15);'
+      + '  border: 1px solid rgba(99,102,241,0.15);'
       + '  border-radius: 10px; font-size: 11px; line-height: 1.5;'
       + '  min-width: 260px; max-width: 340px; z-index: 999;'
       + '  box-shadow: 0 8px 24px rgba(0,0,0,0.4); font-weight: 400;'
@@ -251,7 +252,7 @@
       + '.nova-confidence:hover .nova-confidence-tooltip { display: block; }'
       + '.nova-tooltip-title { font-weight: 600; margin-bottom: 4px; font-size: 12px; color: #60A5FA; }'
       + '.nova-tooltip-row { display: flex; justify-content: space-between; padding: 1px 0; }'
-      + '.nova-tooltip-divider { border-top: 1px solid rgba(37,99,235,0.1); margin: 4px 0; }'
+      + '.nova-tooltip-divider { border-top: 1px solid rgba(99,102,241,0.1); margin: 4px 0; }'
       + '.nova-tooltip-note { font-size: 9px; opacity: 0.5; margin-top: 4px; }'
 
       // ── Typing indicator ──
@@ -264,9 +265,9 @@
       + '}'
       + '.nova-typing-dot {'
       + '  width: 6px; height: 6px; border-radius: 50%;'
-      + '  background: #2563EB;'
+      + '  background: #6366F1;'
       + '  animation: nova-bounce 1.4s infinite;'
-      + '  box-shadow: 0 0 6px rgba(37,99,235,0.4);'
+      + '  box-shadow: 0 0 6px rgba(99,102,241,0.4);'
       + '}'
       + '.nova-typing-dot:nth-child(2) { animation-delay: 0.2s; }'
       + '.nova-typing-dot:nth-child(3) { animation-delay: 0.4s; }'
@@ -280,7 +281,7 @@
       + '  padding: 12px 16px 8px; display: flex; flex-direction: column; gap: 6px;'
       + '}'
       + '.nova-suggestions-title {'
-      + '  font-size: 9px; color: rgba(37,99,235,0.5); font-weight: 600;'
+      + '  font-size: 9px; color: rgba(99,102,241,0.5); font-weight: 600;'
       + '  text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;'
       + '}'
       + '.nova-suggestion-btn {'
@@ -312,13 +313,13 @@
       + '  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;'
       + '}'
       + '.nova-input:focus {'
-      + '  border-color: rgba(37,99,235,0.4); background: rgba(37,99,235,0.04);'
-      + '  box-shadow: 0 0 0 3px rgba(37,99,235,0.06);'
+      + '  border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.04);'
+      + '  box-shadow: 0 0 0 3px rgba(99,102,241,0.06);'
       + '}'
       + '.nova-input::placeholder { color: rgba(130,160,190,0.5); }'
       + '.nova-send-btn {'
       + '  width: 40px; height: 40px; border-radius: 12px;'
-      + '  background: #2563EB;'
+      + '  background: #6366F1;'
       + '  color: #fff;'
       + '  border: none; cursor: pointer;'
       + '  display: flex; align-items: center; justify-content: center;'
@@ -351,6 +352,13 @@
       + '    border-radius: 16px;'
       + '  }'
       + '  #nova-float-btn { bottom: 12px; right: 12px; }'
+      + '}'
+
+      // ── Reduced motion ──
+      + '@media (prefers-reduced-motion: reduce) {'
+      + '  .nova-msg-user, .nova-msg-assistant { animation: none !important; }'
+      + '  .nova-typing-dot { animation: none !important; opacity: 0.5; }'
+      + '  #nova-float-btn, .nova-send-btn { transition: none !important; }'
       + '}';
 
     var styleEl = document.createElement('style');
@@ -486,77 +494,105 @@
     btn.setAttribute('aria-label', 'Open Nova Chat');
     btn.addEventListener('click', togglePanel);
 
-    // Create mini orb canvas
+    // Create mini orb canvas (2x resolution for retina)
     var orbCanvas = document.createElement('canvas');
-    orbCanvas.width = 128; orbCanvas.height = 128;
-    orbCanvas.style.width = '64px'; orbCanvas.style.height = '64px';
+    orbCanvas.width = 136; orbCanvas.height = 136;
+    orbCanvas.style.width = '68px'; orbCanvas.style.height = '68px';
     btn.appendChild(orbCanvas);
     document.body.appendChild(btn);
     state.floatingBtn = btn;
     state.orbCanvas = orbCanvas;
 
-    // Mini orb animation
+    // Premium AI orb animation -- luminous indigo/cyan energy sphere
     (function() {
       var ctx = orbCanvas.getContext('2d');
-      var S = 128, C = S / 2, R = 36;
+      var S = 136, C = S / 2, R = 38;
       var t = 0;
+
+      // Sphere particles -- denser, brighter
       var dots = [];
-      for (var ring = 0; ring < 8; ring++) {
-        var phi = Math.PI * (ring + 0.5) / 8;
-        var count = Math.floor(16 * Math.sin(phi));
-        if (count < 3) count = 3;
+      for (var ring = 0; ring < 10; ring++) {
+        var phi = Math.PI * (ring + 0.5) / 10;
+        var count = Math.floor(20 * Math.sin(phi));
+        if (count < 4) count = 4;
         for (var d = 0; d < count; d++) {
           dots.push({
             phi: phi,
             theta: (2 * Math.PI * d / count) + (ring % 2) * 0.2,
-            size: 0.8 + Math.random() * 0.8,
-            bright: 0.3 + Math.random() * 0.7,
+            size: 0.7 + Math.random() * 1.0,
+            bright: 0.4 + Math.random() * 0.6,
             phase: Math.random() * Math.PI * 2,
-            ring: ring
+            ring: ring,
+            // Each particle gets a hue blend: 0=indigo, 1=cyan
+            hueBlend: Math.random()
           });
         }
       }
+
+      // Orbital ring particles (2 rings for more depth)
       var ringParts = [];
-      for (var i = 0; i < 30; i++) {
+      for (var i = 0; i < 40; i++) {
+        var isOuter = i > 25;
         ringParts.push({
-          angle: (2 * Math.PI * i / 30) + Math.random() * 0.1,
-          radius: R * 1.4 + (Math.random() - 0.5) * 8,
-          speed: 0.15 + Math.random() * 0.1,
-          size: 0.5 + Math.random() * 0.6,
-          bright: 0.2 + Math.random() * 0.4
+          angle: (2 * Math.PI * i / (isOuter ? 15 : 25)) + Math.random() * 0.2,
+          radius: isOuter ? R * 1.6 + (Math.random() - 0.5) * 6 : R * 1.3 + (Math.random() - 0.5) * 8,
+          speed: isOuter ? 0.2 + Math.random() * 0.08 : 0.12 + Math.random() * 0.1,
+          tilt: isOuter ? 0.35 : 0.2,
+          size: 0.5 + Math.random() * 0.7,
+          bright: 0.25 + Math.random() * 0.5,
+          isCyan: Math.random() > 0.6
         });
       }
+
+      // Energy pulses -- ripple waves across the sphere
       var pulses = [];
       function spawnPulse() {
         pulses.push({
           phi: Math.random() * Math.PI,
           theta: Math.random() * Math.PI * 2,
-          radius: 0, maxR: 0.8 + Math.random(),
-          speed: 0.6 + Math.random() * 0.4, life: 1
+          radius: 0, speed: 0.5 + Math.random() * 0.5, life: 1
         });
       }
       function dist(p1, t1, p2, t2) {
         return Math.acos(Math.min(1, Math.max(-1,
           Math.sin(p1) * Math.sin(p2) * Math.cos(t1 - t2) + Math.cos(p1) * Math.cos(p2))));
       }
+
       var animId;
       function draw() {
         ctx.clearRect(0, 0, S, S);
-        var rotY = t * 0.25, rotX = 0.35;
-        // Core glow
-        var g = ctx.createRadialGradient(C, C, 0, C, C, R * 1.6);
-        g.addColorStop(0, 'rgba(37,99,235,0.10)');
-        g.addColorStop(0.5, 'rgba(37,99,235,0.03)');
-        g.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = g;
+        var rotY = t * 0.2, rotX = 0.4 + Math.sin(t * 0.3) * 0.05;
+
+        // Multi-layer core glow (indigo center fading to cyan halo)
+        var g1 = ctx.createRadialGradient(C, C, 0, C, C, R * 0.6);
+        g1.addColorStop(0, 'rgba(129,140,248,0.25)');
+        g1.addColorStop(0.5, 'rgba(99,102,241,0.12)');
+        g1.addColorStop(1, 'rgba(99,102,241,0)');
+        ctx.fillStyle = g1;
+        ctx.fillRect(0, 0, S, S);
+
+        var g2 = ctx.createRadialGradient(C, C, R * 0.3, C, C, R * 1.8);
+        g2.addColorStop(0, 'rgba(99,102,241,0.06)');
+        g2.addColorStop(0.4, 'rgba(34,211,238,0.04)');
+        g2.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g2;
+        ctx.fillRect(0, 0, S, S);
+
+        // Breathing outer aura
+        var breathe = 0.5 + 0.5 * Math.sin(t * 0.8);
+        var g3 = ctx.createRadialGradient(C, C, R * 1.0, C, C, R * 2.2);
+        g3.addColorStop(0, 'rgba(99,102,241,' + (0.04 * breathe).toFixed(3) + ')');
+        g3.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g3;
         ctx.fillRect(0, 0, S, S);
 
         var list = [];
+        var cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+        var cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+
         for (var i = 0; i < dots.length; i++) {
           var dot = dots[i];
-          var th = dot.theta + t * (0.1 + dot.ring * 0.006);
-          var cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-          var cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+          var th = dot.theta + t * (0.08 + dot.ring * 0.005);
           var x = R * Math.sin(dot.phi) * Math.cos(th);
           var y = R * Math.cos(dot.phi);
           var z = R * Math.sin(dot.phi) * Math.sin(th);
@@ -564,59 +600,79 @@
           var y2 = y * cosX - z2 * sinX, z3 = y * sinX + z2 * cosX;
           var sc = 300 / (300 + z3);
 
+          // Pulse interaction
           var pulseBr = 0;
           for (var pi = 0; pi < pulses.length; pi++) {
             var p = pulses[pi];
             var dd = Math.abs(dist(dot.phi, th, p.phi, p.theta) - p.radius);
-            if (dd < 0.15) pulseBr = Math.max(pulseBr, (1 - dd / 0.15) * p.life);
+            if (dd < 0.18) pulseBr = Math.max(pulseBr, (1 - dd / 0.18) * p.life);
           }
 
-          var al = (0.2 + dot.bright * 0.5 + pulseBr * 0.7) * (0.4 + sc * 0.6);
-          al = Math.min(1, al + Math.sin(t * 1.5 + dot.phase) * 0.04);
-          var sz = (dot.size + pulseBr * 1.5) * sc;
-          var cr = 37, cg = pulseBr > 0.1 ? 130 : 99, cb = 235;
+          var al = (0.3 + dot.bright * 0.55 + pulseBr * 0.8) * (0.5 + sc * 0.5);
+          al = Math.min(1, al + Math.sin(t * 1.2 + dot.phase) * 0.06);
+          var sz = (dot.size + pulseBr * 1.8) * sc;
 
-          list.push({ z: z3, fn: (function(px, py, s, a, r, gg, b) {
+          // Dual-color system: indigo base, cyan highlights on pulses
+          var blend = dot.hueBlend;
+          if (pulseBr > 0.1) blend = Math.min(1, blend + pulseBr * 0.6);
+          var cr = Math.round(99 * (1 - blend * 0.65) + 34 * blend * 0.65);
+          var cg = Math.round(102 * (1 - blend) + 211 * blend);
+          var cb = Math.round(241 * (1 - blend * 0.3) + 238 * blend * 0.3);
+
+          list.push({ z: z3, fn: (function(px, py, s, a, r, gg, b, glow) {
             return function() {
+              // Glow halo for bright particles
+              if (a > 0.35 || glow > 0.1) {
+                ctx.beginPath();
+                ctx.arc(px, py, s * 3.5, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(' + r + ',' + gg + ',' + b + ',' + (a * 0.08 + glow * 0.15).toFixed(3) + ')';
+                ctx.fill();
+              }
+              // Core dot
               ctx.beginPath();
               ctx.arc(px, py, s, 0, Math.PI * 2);
               ctx.fillStyle = 'rgba(' + r + ',' + gg + ',' + b + ',' + a.toFixed(3) + ')';
               ctx.fill();
-              if (a > 0.45) {
+              // Hot center for very bright particles
+              if (a > 0.6) {
                 ctx.beginPath();
-                ctx.arc(px, py, s * 2.5, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(' + r + ',' + gg + ',' + b + ',' + (a * 0.12).toFixed(3) + ')';
+                ctx.arc(px, py, s * 0.5, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,255,255,' + (a * 0.3).toFixed(3) + ')';
                 ctx.fill();
               }
             };
-          })(C + x2 * sc, C + y2 * sc, sz, al, cr, cg, cb) });
+          })(C + x2 * sc, C + y2 * sc, sz, al, cr, cg, cb, pulseBr) });
         }
 
-        // Orbital ring
+        // Dual orbital rings
         for (var i = 0; i < ringParts.length; i++) {
           var rp = ringParts[i];
           var a = rp.angle + t * rp.speed;
           var rx = C + Math.cos(a) * rp.radius;
-          var ry = C + Math.sin(a) * rp.radius * 0.25;
+          var ry = C + Math.sin(a) * rp.radius * rp.tilt;
           var rz = Math.sin(a) * rp.radius;
-          var al = rp.bright * (0.4 + 0.4 * Math.sin(t * 2 + i));
-          list.push({ z: rz, fn: (function(x, y, s, a) {
+          var al = rp.bright * (0.5 + 0.5 * Math.sin(t * 1.8 + i * 0.3));
+          var clr = rp.isCyan ? '34,211,238' : '129,140,248';
+          list.push({ z: rz, fn: (function(x, y, s, a, c) {
             return function() {
+              ctx.beginPath(); ctx.arc(x, y, s * 2.5, 0, Math.PI * 2);
+              ctx.fillStyle = 'rgba(' + c + ',' + (a * 0.1).toFixed(3) + ')';
+              ctx.fill();
               ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2);
-              ctx.fillStyle = 'rgba(37,99,235,' + a.toFixed(3) + ')';
+              ctx.fillStyle = 'rgba(' + c + ',' + a.toFixed(3) + ')';
               ctx.fill();
             };
-          })(rx, ry, rp.size, al) });
+          })(rx, ry, rp.size, al, clr) });
         }
 
         list.sort(function(a, b) { return a.z - b.z; });
         for (var i = 0; i < list.length; i++) list[i].fn();
 
-        // Pulses
-        if (Math.floor(t * 60) % 50 === 0) spawnPulse();
+        // Spawn pulses more frequently for livelier feel
+        if (Math.floor(t * 60) % 35 === 0) spawnPulse();
         for (var i = pulses.length - 1; i >= 0; i--) {
           pulses[i].radius += pulses[i].speed * 0.016;
-          pulses[i].life -= 0.01;
+          pulses[i].life -= 0.008;
           if (pulses[i].life <= 0) pulses.splice(i, 1);
         }
 

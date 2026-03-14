@@ -9,25 +9,25 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --navy: #202058;
-            --purple: #5A54BD;
-            --teal: #6BB3CD;
-            --pink: #B5669C;
-            --bronze: #CE9047;
-            --bg: #f8f9fc;
-            --card-bg: #fff;
-            --border: #e2e8f0;
-            --text: #1a202c;
-            --text-secondary: #64748b;
-            --text-muted: #94a3b8;
-            --green: #22c55e;
-            --amber: #f59e0b;
-            --red: #ef4444;
+            --navy: #0F1424;
+            --purple: #6366F1;
+            --teal: #22D3EE;
+            --pink: #F472B6;
+            --bronze: #FBBF24;
+            --bg: #08090D;
+            --card-bg: rgba(15,18,30,0.6);
+            --border: rgba(255,255,255,0.06);
+            --text: #E2E8F0;
+            --text-secondary: rgba(226,232,240,0.7);
+            --text-muted: rgba(226,232,240,0.35);
+            --green: #34D399;
+            --amber: #FBBF24;
+            --red: #F87171;
             --radius: 10px;
-            --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 
         /* Top bar */
         .topbar { background: var(--navy); color: white; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
@@ -41,23 +41,23 @@
 
         /* Section */
         .section { margin-bottom: 28px; }
-        .section-title { font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        .section-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
         .section-title .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--purple); color: white; }
 
         /* Stat cards row */
         .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
         .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
         .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px; }
-        .stat-value { font-size: 28px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; }
+        .stat-value { font-size: 28px; font-weight: 800; color: var(--text); letter-spacing: -0.02em; }
         .stat-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
 
         /* Tables */
         .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card-bg); box-shadow: var(--shadow); }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { background: #f1f5f9; color: var(--navy); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 14px; text-align: left; border-bottom: 2px solid var(--border); }
+        th { background: rgba(99,102,241,0.08); color: var(--text); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 14px; text-align: left; border-bottom: 2px solid var(--border); }
         td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
         tr:last-child td { border-bottom: none; }
-        tr:hover { background: #f8fafc; }
+        tr:hover { background: rgba(99,102,241,0.04); }
 
         /* Status dots & badges */
         .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
@@ -80,7 +80,7 @@
         .int-card.disabled::before { background: var(--text-muted); }
         .int-card.error::before { background: var(--red); }
         .int-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-        .int-name { font-size: 15px; font-weight: 700; color: var(--navy); }
+        .int-name { font-size: 15px; font-weight: 700; color: var(--text); }
         .int-detail { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; line-height: 1.5; }
         .int-meta { font-size: 11px; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 12px; }
         .int-meta span { display: flex; align-items: center; gap: 4px; }
@@ -97,22 +97,22 @@
         .int-chip.disabled::before, .int-chip.no_key::before { background: var(--text-muted); }
         .int-chip.error::before { background: var(--red); }
         .int-chip-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-        .int-chip-name { font-size: 13px; font-weight: 700; color: var(--navy); }
+        .int-chip-name { font-size: 13px; font-weight: 700; color: var(--text); }
         .int-chip-host { font-size: 10px; color: var(--text-muted); font-family: monospace; }
         .int-chip-value { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
         .badge-teal { background: var(--teal); }
-        .badge-no-key { background: var(--amber); color: #333; }
+        .badge-no-key { background: var(--amber); color: #08090D; }
 
         /* Cache layers */
         .cache-layers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
         .cache-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); text-align: center; }
         .cache-layer { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--purple); margin-bottom: 4px; }
-        .cache-name { font-size: 13px; font-weight: 700; color: var(--navy); }
-        .cache-val { font-size: 22px; font-weight: 800; color: var(--navy); margin: 6px 0; }
+        .cache-name { font-size: 13px; font-weight: 700; color: var(--text); }
+        .cache-val { font-size: 22px; font-weight: 800; color: var(--text); margin: 6px 0; }
         .cache-sub { font-size: 11px; color: var(--text-secondary); }
 
         /* Progress bar */
-        .pbar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 6px; }
+        .pbar { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-top: 6px; }
         .pbar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
 
         /* Loading */
@@ -396,7 +396,7 @@ function renderIntegrations() {
                 html += `<div class="int-card ${cls}">
                     <div class="int-header"><span class="int-name">${esc(d.name||k)}</span>${chipBadge(d.status)}</div>
                     <div class="int-detail">${esc(d.detail || '')}</div>
-                    <div class="int-detail" style="color:var(--navy);font-weight:500;">${esc(d.value || '')}</div>
+                    <div class="int-detail" style="color:var(--text);font-weight:500;">${esc(d.value || '')}</div>
                     <div class="int-meta">
                         ${d.sdk_version ? '<span>SDK v'+esc(d.sdk_version)+'</span>' : ''}
                         ${d.keys != null ? '<span>'+fmt(d.keys)+' cached keys</span>' : ''}
