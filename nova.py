@@ -92,7 +92,7 @@ JOVEO_PRIMARY_COLOR = "#0066CC"
 MAX_HISTORY_TURNS = 6
 MAX_MESSAGE_LENGTH = 4000
 CLAUDE_MODEL_PRIMARY = "claude-haiku-4-5-20251001"    # Fast + cheap for simple/medium queries
-CLAUDE_MODEL_COMPLEX = "claude-sonnet-4-6"            # Deep reasoning for complex strategy queries
+CLAUDE_MODEL_COMPLEX = "claude-sonnet-4-20250514"      # Deep reasoning for complex strategy queries
 
 # Response cache settings
 RESPONSE_CACHE_TTL = 7 * 86400  # 7 days
