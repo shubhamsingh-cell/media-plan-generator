@@ -179,6 +179,8 @@ def load_knowledge_base() -> dict:
         "white_papers":           "industry_white_papers.json",
         "joveo_2026_benchmarks":  "joveo_2026_benchmarks.json",
         "google_ads_benchmarks":  "google_ads_2025_benchmarks.json",
+        "external_benchmarks":    "external_benchmarks_2025.json",
+        "client_media_plans":     "client_media_plans_kb.json",
     }
 
     kb = {}

@@ -1,0 +1,1029 @@
+{
+  "description": "Aggregated benchmark data from 25+ external TA tech, recruitment marketing, job board, analyst, and staffing reports (2024-2026). All data sourced from publicly available reports and press releases.",
+  "last_updated": "2026-03-14",
+  "data_coverage_period": "2024-2025 data, published 2025-2026",
+  "total_reports_analyzed": 25,
+  "reports": {
+    "recruitics_talent_market_index_2025": {
+      "title": "Talent Market Index (Monthly Reports, 2025)",
+      "publisher": "Recruitics",
+      "year": 2025,
+      "url": "https://www.recruitics.com/labor-market-index",
+      "methodology": "Aggregates billions of data points from job advertisements and proprietary Recruitics data, tracking CPC and CPA across 9 job categories monthly",
+      "key_metrics": {
+        "job_categories_tracked": 9,
+        "categories": ["Healthcare", "Hospitality", "Retail", "IT & Related", "Food Services", "Transportation & Logistics", "Light Industrial", "Finance & Ops", "Sales"],
+        "note": "Reports percentage changes rather than absolute CPC dollar values"
+      },
+      "monthly_trends_2025": {
+        "january": {
+          "healthcare": {"mom_change_pct": -4.58, "yoy_change_pct": 2.46},
+          "hospitality": {"mom_change_pct": -10.26, "yoy_change_pct": 225.0},
+          "transportation_logistics": {"mom_change_pct": -5.13, "yoy_change_pct": 131.25}
+        },
+        "april": {
+          "it_related": {"mom_change_pct": -19.0, "yoy_change_pct": -10.75},
+          "food_services": {"mom_change_pct": -6.12, "yoy_change_pct": -25.8},
+          "hospitality": {"mom_change_pct": -39.0, "yoy_change_pct": 41.0},
+          "light_industrial": {"mom_change_pct": 8.16, "yoy_change_pct": -19.7}
+        },
+        "may": {
+          "finance_ops": {"mom_change_pct": 89.8},
+          "it_related": {"mom_change_pct": 28.9},
+          "light_industrial": {"yoy_change_pct": -32.4},
+          "food_services": {"yoy_change_pct": -24.6}
+        },
+        "june": {
+          "sales": {"mom_change_pct": 78.7},
+          "hospitality": {"mom_change_pct": 53.2},
+          "finance_ops": {"mom_change_pct": 33.3},
+          "retail": {"mom_change_pct": 33.9, "yoy_change_pct": 56.3},
+          "healthcare": {"mom_change_pct": 2.9, "yoy_change_pct": -15.0},
+          "light_industrial": {"mom_change_pct": 18.8, "yoy_change_pct": -27.0},
+          "transportation_logistics": {"mom_change_pct": -10.3, "yoy_change_pct": 13.0}
+        }
+      },
+      "key_findings": [
+        "Year-over-year talent attraction prices continue to surge in many categories, signaling increased competition for talent",
+        "Healthcare remains the highest-cost category for talent attraction",
+        "Seasonal patterns significantly impact month-over-month pricing, with sharp swings in hospitality and retail",
+        "Transportation & Logistics prices remain persistently elevated YoY despite monthly fluctuations",
+        "Finance & Ops and IT showed sharp surges mid-year, signaling return to growth in strategic functions"
+      ]
+    },
+    "appcast_benchmark_2025": {
+      "title": "2025 Recruitment Marketing Benchmark Report (9th Annual, covering 2024 data)",
+      "publisher": "Appcast",
+      "year": 2025,
+      "url": "https://www.appcast.io/2025-benchmark-report/",
+      "methodology": "Analyzed 379 million job ad clicks and 30+ million applies from 1,300+ U.S. employers. Pay-for-performance recruitment ads only (CPC or CPA basis). Search/social section: 150+ employers, 1.7 billion impressions, 35 million clicks.",
+      "key_metrics": {
+        "overall_apply_rate_2024": {
+          "year_end": 6.1,
+          "yoy_increase_pct": 35,
+          "unit": "percent"
+        },
+        "cpc_trend_2024": {
+          "yoy_increase_pct": 27,
+          "note": "Rose over 27% in 2024, driven by harder-to-fill roles and job board pricing"
+        },
+        "cpa_trend_2024": {
+          "yoy_increase_pct": 4.8,
+          "range_excl_healthcare": "$15-$35",
+          "note": "Stable; down substantially from 2023 across all occupations"
+        },
+        "cph_2024": {
+          "average": 750,
+          "year_end_peak": 851,
+          "unit": "USD",
+          "note": "Appcast CPH reflects cost of recruitment advertising spend per hire, not total cost per hire"
+        }
+      },
+      "apply_rate_by_occupation": {
+        "technology": 6.41,
+        "marketing_advertising": 6.31,
+        "business_consumer_services": 6.29,
+        "note": "Healthcare, construction, skilled trades had lowest apply rates with highest CPAs"
+      },
+      "industry_data": {
+        "sitting_down_jobs": {
+          "description": "White-collar office roles (tech, marketing, consulting, HR)",
+          "apply_rate_trend": "Higher apply rates due to increased competition from layoffs",
+          "cpa_trend": "Lower CPAs due to candidate oversupply"
+        },
+        "standing_up_jobs": {
+          "description": "Healthcare, construction, skilled trades, education",
+          "apply_rate_trend": "Persistently low apply rates",
+          "cpa_trend": "Higher CPAs due to talent shortages"
+        }
+      },
+      "geographic_insight": "Every state experienced lower CPAs in 2024 compared to prior year",
+      "key_findings": [
+        "Labor market in near-perfect balance, shifting power to employers ('Great Stay' era)",
+        "CPC rose 27% but CPA only 4.8% due to rising apply rates offsetting cost increases",
+        "CPH (recruitment ad spend per hire) remained flat at ~$750, peaking at $851 year-end",
+        "Occupational divide: white-collar roles saw high apply rates while healthcare/trades struggled",
+        "Balanced recruitment strategy should incorporate search, display, and social media channels"
+      ]
+    },
+    "appcast_benchmark_2026_preview": {
+      "title": "2026 Recruitment Marketing Benchmark Report (10th Annual, covering 2025 data)",
+      "publisher": "Appcast",
+      "year": 2026,
+      "url": "https://www.appcast.io/2025-benchmark-report/",
+      "key_metrics": {
+        "cpa_trend_2025": "Rose sharply despite softer labor market",
+        "cph_trend_2025": "Rose sharply, driven by shifts in job board pricing and programmatic media models",
+        "apply_rates_2025": "Remained high, fueled by increased job-seeker volume",
+        "remote_work_trend": "Remote jobs began losing footing after years of outperforming in-person roles"
+      },
+      "key_findings": [
+        "CPA and CPH rose sharply in 2025 despite softer labor market",
+        "White-collar recession deepened with apply rates for office roles rising significantly",
+        "Frontline standing-up roles, especially healthcare, remained costly and hard to fill",
+        "Shifts in job board pricing and programmatic media models drove cost increases"
+      ]
+    },
+    "radancy_ta_insights_2025": {
+      "title": "Radancy Talent Acquisition Insights & Fosway AI Report 2025",
+      "publisher": "Radancy / Fosway Group",
+      "year": 2025,
+      "url": "https://blog.radancy.com/2025/11/14/fosway-report-recap-ai-in-talent-acquisition-2025/",
+      "key_metrics": {
+        "average_cost_per_hire_overall": {"value": 4700, "unit": "USD"},
+        "applicant_to_interview_rate": {"value": 17, "unit": "percent", "note": "Only 17% of applicants made it to interview stage (Josh Bersin data)"},
+        "application_abandonment_rate": {"value": 60, "unit": "percent", "note": "60% abandoned applications that were too slow or complex"},
+        "poor_candidate_communication": {"value": 60, "unit": "percent", "note": "Less than 4 in 10 candidates received regular communication"},
+        "offer_decline_due_to_poor_experience": {"value": 25, "unit": "percent", "note": "More than 25% turned down a job due to poor experience"},
+        "employees_actively_job_searching_2024": {"value": 51, "unit": "percent"},
+        "ai_full_maturity": {"value": 1, "unit": "percent", "note": "Only 1% of companies have fully matured AI in hiring"}
+      },
+      "key_findings": [
+        "Average cost per hire approximately $4,700, making over-reliance on external hiring costly",
+        "AI leaders implementing AI at 3-5x the rate of average organizations",
+        "Organizations investing in AI already reducing costs, shortening time to hire, improving quality of hires",
+        "WEF estimates 39% of core skills will change by 2030; 63% of employers see skills gaps as top barrier",
+        "51% of employees actively looking for new roles in 2024, equalling highest level since 2014"
+      ]
+    },
+    "pandologic_veritone_2025": {
+      "title": "Evolution of Programmatic Job Advertising: Strategic Talent Acquisition",
+      "publisher": "PandoLogic / Veritone (with Aptitude Research)",
+      "year": 2025,
+      "url": "https://www.veritone.com/blog/the-evolution-of-programmatic-job-advertising-3-game-changing-stats-for-2025/",
+      "key_metrics": {
+        "companies_increasing_programmatic_investment": {"value": 56, "unit": "percent"},
+        "companies_not_understanding_programmatic": {"value": 50, "unit": "percent"},
+        "enterprise_companies_using_programmatic": {"value": 34, "unit": "percent"},
+        "data_points_in_platform": "5 billion+ job advertising performance data points",
+        "programmatic_growth_vs_market": "2x faster than overall job advertising market"
+      },
+      "key_findings": [
+        "56% of companies plan to increase programmatic job advertising investment in 2025",
+        "50% of companies still don't fully understand what programmatic advertising is",
+        "Only 34% of enterprise companies currently use programmatic job advertising",
+        "Quality of hire and cost-per-qualified-application becoming standard metrics",
+        "Pay-for-performance models quickly gaining market share from pay-for-duration"
+      ]
+    },
+    "phenom_ai_automation_2026": {
+      "title": "State of AI & Automation for HR: 2026 Benchmarks Report",
+      "publisher": "Phenom",
+      "year": 2025,
+      "url": "https://www.phenom.com/state-ai-automation-report-2026",
+      "methodology": "Analyzed nearly 500 organizations using Phenom's proprietary AI & Automation Maturity Model (Level 0-5) across 12+ industries",
+      "key_metrics": {
+        "low_ai_maturity_organizations": {"value": 83, "unit": "percent", "note": "83% scored within lowest two maturity categories"},
+        "low_intelligence_maturity": {"value": 86, "unit": "percent", "note": "86% at Assisted/Semi-automated Intelligence levels"},
+        "high_intelligence_maturity": {"value": 1, "unit": "percent", "note": "Less than 1% reached high intelligence maturity"},
+        "high_automation_maturity": {"value": 5, "unit": "percent"},
+        "organizations_scaled_ai": {"value": 25, "unit": "percent", "note": "Only 25% have successfully scaled AI initiatives"}
+      },
+      "industries_covered": ["Healthcare", "Manufacturing", "Financial Services", "Transportation", "Pharmaceuticals", "Consumer Goods & Services", "Restaurants", "Hotels & Travel", "Professional Services", "Energy & Utilities", "Government"],
+      "key_findings": [
+        "83% of organizations demonstrate low AI and automation maturity in HR",
+        "Less than 1% reached high intelligence maturity levels",
+        "Significant variation in AI adoption by sector and function",
+        "Key opportunity: automating hiring workflows to cut time-to-hire",
+        "AI matching can improve quality-of-hire, reduce bias, and increase retention"
+      ]
+    },
+    "icims_workforce_report_2025": {
+      "title": "iCIMS Workforce Reports (Monthly, 2025)",
+      "publisher": "iCIMS",
+      "year": 2025,
+      "url": "https://www.icims.com/resources/insights/all/",
+      "methodology": "Proprietary data from 3+ million global platform users, 200+ million applications, 5.5+ million hires annually",
+      "key_metrics": {
+        "overall_applicants_per_opening": {"value": 34, "unit": "applicants"},
+        "applicants_per_opening_by_category": {
+          "computer_mathematical": 65,
+          "business_financial": 62,
+          "manufacturing": 47,
+          "food_prep": 33,
+          "healthcare_support": 25,
+          "healthcare_practitioners": 15
+        },
+        "white_collar_apo_multiplier": "Nearly 2x overall average",
+        "apo_yoy_growth": {"value": 17, "unit": "percent", "note": "From 29 (March 2024) to 34 (March 2025)"},
+        "entry_level_apo_may_2025": {"value": 36, "unit": "applicants", "yoy_increase_pct": 22},
+        "applications_yoy_may_2025": {"value": 21, "unit": "percent increase"},
+        "hiring_yoy_may_2025": {"value": -8, "unit": "percent change"},
+        "new_grad_unemployment_rate": {"value": 6.6, "unit": "percent", "note": "Highest in a decade (excluding pandemic)"},
+        "manufacturing_applications_yoy_growth": {"value": 37, "unit": "percent"},
+        "recruiters_expect_ai_in_roles": {"value": 96, "unit": "percent", "note": "Nearly all say new hires will manage/work alongside AI agents in next 2 years"}
+      },
+      "industry_data": {
+        "highest_application_abandonment": "Hospitality",
+        "highest_interview_no_show": "Hospitality",
+        "strongest_applicant_growth": "Manufacturing (+37% YoY)"
+      },
+      "key_findings": [
+        "Applicants per opening at series high of 34, creating buyer's market for employers",
+        "White-collar jobs draw nearly 2x average APO; healthcare remains critically short",
+        "Entry-level unemployment hit 6.6%, highest in a decade excluding pandemic",
+        "Applications up 21% but hiring down 8%, reflecting employer caution",
+        "96% of recruiters say new hires will manage or work alongside AI agents within 2 years"
+      ]
+    },
+    "employ_recruiter_nation_2025": {
+      "title": "Recruiter Nation 2025: What's Shaping Talent Acquisition Today",
+      "publisher": "Employ Inc. (Jobvite / Lever / JazzHR)",
+      "year": 2025,
+      "url": "https://www.employinc.com/news_item/recruiter-nation-2025-whats-shaping-talent-acquisition-today/",
+      "key_metrics": {
+        "recruiters_reporting_increased_hiring": {"value": 70, "unit": "percent"},
+        "top_priority_more_candidates": {"value": 52, "unit": "percent", "note": "Up from 46%, surpassing candidate quality for first time in 2 years"},
+        "competition_from_employers": {"value": 50, "unit": "percent"},
+        "not_enough_quality_candidates": {"value": 46, "unit": "percent"},
+        "rising_candidate_expectations": {"value": 42, "unit": "percent", "note": "Up sharply from 24% in 2024"},
+        "plan_to_increase_spend": {"value": 67, "unit": "percent"},
+        "investing_in_new_tech": {"value": 52, "unit": "percent"},
+        "investing_in_ai_tools": {"value": 67, "unit": "percent"},
+        "investing_in_crm": {"value": 51, "unit": "percent"},
+        "investing_in_ats": {"value": 50, "unit": "percent"},
+        "plan_to_downsize_tech_stack": {"value": 20, "unit": "percent", "note": "Dramatic drop from 46% in 2024"},
+        "first_year_turnover_2025": {"value": 12.1, "unit": "percent", "note": "Down from 23.7% in 2024, a 48.9% decrease"}
+      },
+      "key_findings": [
+        "70% of recruiters report increased hiring year-over-year",
+        "Getting more candidates per role (52%) surpassed candidate quality as top priority",
+        "Rising candidate expectations jumped from 24% to 42% as a key challenge",
+        "67% plan to increase tech spending, with AI tools as the top investment area",
+        "First-year turnover dropped 49% from 23.7% to 12.1% ('Great Stay' effect)"
+      ]
+    },
+    "smartrecruiters_benchmarks_2025": {
+      "title": "Recruiting Benchmarks 2025 Report (with Lighthouse Research)",
+      "publisher": "SmartRecruiters (with Lighthouse Research & Advisory)",
+      "year": 2025,
+      "url": "https://www.smartrecruiters.com/resources/landing/global-recruiting-benchmarks-2026/",
+      "methodology": "Nearly 90 million applications for 1.5 million jobs across 95 countries",
+      "key_metrics": {
+        "global_median_time_to_hire_days": 38,
+        "us_median_time_to_hire_days": 35,
+        "global_applications_per_opening": 73,
+        "us_applications_per_opening": 74,
+        "global_interview_rate_pct": 4.0,
+        "global_offer_rate_pct": 1.4,
+        "us_offer_decline_rate_pct": 20,
+        "global_referral_hires_pct": 7,
+        "global_internal_hires_pct": 8,
+        "us_internal_hires_pct": 9,
+        "us_referral_hires_pct": 7,
+        "global_hires_per_recruiter_monthly": 30,
+        "us_hires_per_recruiter_monthly": 54,
+        "hiring_scorecard_adoption_pct": 99,
+        "ai_time_to_hire_reduction_pct": 26
+      },
+      "industry_benchmarks": {
+        "healthcare": {
+          "applications_per_opening": 40,
+          "vs_global_avg_pct": -45,
+          "interview_rate_pct": 5.3,
+          "offer_rate_pct": 2.0,
+          "hires_per_recruiter_monthly": 38,
+          "internal_hires_pct": 20,
+          "time_to_hire_days": 41
+        },
+        "technology": {
+          "applications_per_opening": 110,
+          "vs_global_avg_pct": 51,
+          "interview_rate_pct": 3.4,
+          "offer_rate_pct": 0.7,
+          "referral_hires_pct": 16,
+          "reqs_per_recruiter_monthly": 26,
+          "time_to_hire_days": 48
+        },
+        "manufacturing": {
+          "applications_per_opening": 38,
+          "offer_acceptance_rate_pct": 92,
+          "internal_hires_pct": 14,
+          "time_to_hire_days": 55
+        }
+      },
+      "key_findings": [
+        "Global median time to hire is 38 days; US is 35 days (8% faster)",
+        "73 applications per opening globally but only 3 interviewed, 1 hired",
+        "Companies using AI hire 26% faster, saving approximately 11 days",
+        "US recruiters handle 54 hires/month, 85% more than global average of 30",
+        "Healthcare leads internal mobility at 20% of hires; tech leads referrals at 16%"
+      ]
+    },
+    "indeed_hiring_lab_2025": {
+      "title": "2025 US Jobs & Hiring Trends Report",
+      "publisher": "Indeed Hiring Lab",
+      "year": 2025,
+      "url": "https://www.hiringlab.org/2024/12/10/indeed-2025-us-jobs-and-hiring-trends-report/",
+      "key_metrics": {
+        "job_posting_index_vs_prepandemic_pct": 10,
+        "job_posting_yoy_change_pct": -10,
+        "avg_monthly_job_gains_2024": 180000,
+        "avg_monthly_job_gains_2023": 251000,
+        "hires_rate_oct_2024_pct": 3.3,
+        "hires_rate_note": "Lowest since 2013",
+        "unemployment_rate_nov_2024_pct": 4.2,
+        "unemployment_rate_nov_2025_pct": 4.6,
+        "quits_rate_sept_2024_pct": 1.9,
+        "quits_rate_note": "Lowest since July 2015",
+        "pay_transparency_in_postings_pct": 57.8,
+        "pay_transparency_prior_year_pct": 52.2,
+        "postings_mentioning_benefits_pct": 61,
+        "bachelor_degree_requirement_pct": 17.6,
+        "bachelor_degree_prepandemic_pct": 20,
+        "posted_wage_growth_yoy_pct": 3.2,
+        "job_openings_dec_2025_millions": 6.5,
+        "unemployed_people_dec_2025_millions": 7.5,
+        "job_openings_gap_millions": 1.0
+      },
+      "wage_growth_by_level": {
+        "low_wage_pct": 3.3,
+        "middle_wage_pct": 3.4,
+        "high_wage_pct": 3.5
+      },
+      "sector_trends": {
+        "strongest_sectors": ["Healthcare (physicians/surgeons 50%+ above pre-pandemic)", "Therapy", "Personal and home health"],
+        "weakest_sectors": ["Software development", "Tech/information", "Business/professional services"],
+        "healthcare_job_additions_monthly": 62000,
+        "healthcare_share_of_2025_job_growth_pct": 65
+      },
+      "key_findings": [
+        "Job postings fell to 2017 levels by end of 2025 despite population growth",
+        "1 million more unemployed than available jobs by Dec 2025, widest gap since 2017",
+        "Healthcare accounts for 65% of jobs added in 2025; tech remains one of weakest sectors",
+        "Pay transparency rose to 57.8% of postings; degree requirements fell to 17.6%",
+        "Low-hire, low-fire environment persisted through 2025 ('Great Stay')"
+      ]
+    },
+    "linkedin_future_of_recruiting_2025": {
+      "title": "The Future of Recruiting 2025",
+      "publisher": "LinkedIn",
+      "year": 2025,
+      "url": "https://business.linkedin.com/talent-solutions/resources/future-of-recruiting",
+      "methodology": "Billions of data points from LinkedIn platform, survey of 1,000+ talent professionals, advice from dozens of talent leaders",
+      "key_metrics": {
+        "ta_pros_believe_ai_improves_quality_of_hire_pct": 61,
+        "ai_messaging_quality_hire_improvement_pct": 9,
+        "skills_based_hiring_priority_pct": 75,
+        "job_posts_omitting_degree_pct": 25,
+        "recruiting_more_competitive_pct": 52,
+        "quality_of_hire_metric_job_performance_pct": 66,
+        "quality_of_hire_metric_retention_pct": 60,
+        "quality_of_hire_metric_hiring_mgr_satisfaction_pct": 44,
+        "internal_mobility_yoy_increase_pct": 6,
+        "recruiter_skill_relationship_development_increase": "54x more likely to be listed as required",
+        "hiring_yoy_change_pct": -6.6,
+        "platform_members_billions": 1.2
+      },
+      "candidate_priorities": {
+        "excellent_compensation_benefits_pct": 62.3,
+        "survey_respondents": 37018,
+        "survey_period": "Q4 2024"
+      },
+      "key_findings": [
+        "75% of recruiters say skills-based hiring will be their top priority",
+        "61% of TA pros believe AI can improve quality of hire measurement",
+        "Companies using AI-Assisted Messaging are 9% more likely to make quality hires",
+        "25% of LinkedIn job postings already omit degree requirements",
+        "Internal mobility increased 6% year-over-year"
+      ]
+    },
+    "glassdoor_worklife_trends_2025": {
+      "title": "Glassdoor Worklife Trends 2025 & 2026",
+      "publisher": "Glassdoor",
+      "year": 2025,
+      "url": "https://www.glassdoor.com/blog/worklife-trends-2025/",
+      "methodology": "7.0 million salaries, 173,479 interview reviews (Jan 2020 - Oct 2025)",
+      "key_metrics": {
+        "employees_feeling_stuck_pct": 65,
+        "disconnect_mentions_yoy_increase_pct": 24,
+        "misalignment_mentions_yoy_increase_pct": 149,
+        "positive_business_outlook_pct": 45.6,
+        "salary_bump_mgr_transition_pct": 11,
+        "salary_bump_ic_pct": 7,
+        "gen_z_workforce_share_pct": 20,
+        "gen_z_managers_by_2025_pct": 10,
+        "ai_job_security_worry_pct": 60,
+        "career_opportunity_rating_remote_2020": 4.1,
+        "career_opportunity_rating_remote_2025": 3.5
+      },
+      "key_findings": [
+        "65% of professionals feel stuck in current roles",
+        "Employee-leadership disconnect mentions rose 24%, misalignment surged 149%",
+        "Gen Z makes up ~20% of workforce; 1 in 10 managers in 2025 will be Gen Z",
+        "Layoff mentions in reviews higher in late 2025 than March 2020 levels",
+        "Remote/hybrid worker career opportunity ratings fell from 4.1 to 3.5 (2020-2025)"
+      ]
+    },
+    "ziprecruiter_labor_market_2025": {
+      "title": "2025 Annual Employer Survey & New Hires Survey",
+      "publisher": "ZipRecruiter",
+      "year": 2025,
+      "url": "https://www.ziprecruiter-research.org/annual-employer-survey-2025",
+      "methodology": "Survey of 1,500 businesses of varying sizes and industries throughout the U.S.",
+      "key_metrics": {
+        "employer_turnover_2023_pct": 177.0,
+        "employer_turnover_2025_pct": 49.5,
+        "turnover_decline_factor": 3.6,
+        "retention_focus_employers_pct": 76,
+        "plan_to_increase_hiring_pct": 63,
+        "plan_to_hire_more_entry_level_pct": 32,
+        "kept_base_pay_unchanged_pct": 57,
+        "plan_to_raise_salaries_next_year_pct": 61,
+        "q4_new_hires_higher_pay_pct": 56.4,
+        "q4_new_hires_pay_cuts_pct": 27.3,
+        "q4_signing_bonus_pct": 15.4,
+        "q4_negotiated_offer_pct": 30.4,
+        "skills_valued_most_by_employers_pct": 51.5,
+        "education_valued_most_pct": 6.2,
+        "long_term_unemployment_yoy_increase_pct": 15
+      },
+      "key_findings": [
+        "Turnover plummeted from 177% (2023) to 49.5% (2025) - 'The Great Freeze'",
+        "63% of businesses plan to increase hiring, especially entry-level roles",
+        "27.3% of new hires accepted pay cuts in Q4 2025, up from 24.5% in Q3",
+        "Only 15.4% received signing bonuses in Q4, down from 21.7% in Q3",
+        "Top 3 skills employers seek are all soft skills: time management, attention to detail, critical thinking"
+      ]
+    },
+    "handshake_early_talent_2025": {
+      "title": "2025 Campus to Career Report & Gen Z Hiring Trends",
+      "publisher": "Handshake",
+      "year": 2025,
+      "url": "https://joinhandshake.com/blog/employers/campus-recruiting-strategies-campus-career-report-key-findings/",
+      "key_metrics": {
+        "median_starting_salary_2025": {"value": 67500, "unit": "USD", "yoy_increase": 2500},
+        "salary_transparency_fulltime_pct": 77,
+        "salary_transparency_internship_pct": 81,
+        "salary_transparency_fulltime_prior_pct": 73,
+        "salary_transparency_internship_prior_pct": 70,
+        "students_more_likely_to_apply_high_salary_pct": 63,
+        "remote_fulltime_jobs_pct": 5,
+        "remote_jobs_peak_2022_pct": 7,
+        "students_research_employer_brand_pct": 68,
+        "networking_events_vs_info_sessions_attendance_multiplier": 3.5,
+        "class_of_2025_hiring_growth_pct": 7.3,
+        "employers_actively_recruiting_fall_2025_pct": 87
+      },
+      "gen_z_workforce_share_by_2030_pct": 33,
+      "key_findings": [
+        "Median full-time starting salary rose to $67,500 in 2025 (+$2,500 YoY)",
+        "Pay transparency in postings up to 77% full-time, 81% internship",
+        "Remote job availability stabilized at ~5%, down from 7% peak in 2022",
+        "Gen Z will make up a third of the workforce by 2030",
+        "Class of 2025 hiring expected to increase 7.3% over Class of 2024 (NACE data)"
+      ]
+    },
+    "shrm_benchmarking_2025": {
+      "title": "2025 Recruiting Executives Benchmarking Report",
+      "publisher": "SHRM",
+      "year": 2025,
+      "url": "https://www.shrm.org/topics-tools/research/2025-recruiting-benchmarking",
+      "methodology": "2,371 SHRM members surveyed Jan 9 - Mar 3, 2025, with stratified sampling of VP+ executives",
+      "key_metrics": {
+        "median_time_to_fill_days": 45,
+        "median_cost_per_hire_nonexecutive": {"value": 1200, "unit": "USD"},
+        "median_cost_per_hire_executive": {"value": 10625, "unit": "USD"},
+        "executive_vs_nonexecutive_cost_ratio": 7,
+        "executive_cph_increase_since_2017_pct": 113,
+        "executive_cph_increase_since_2022_pct": 21,
+        "cost_of_unfilled_position_monthly": {"min": 4000, "max": 9000, "unit": "USD"},
+        "recruiters_managing_20_reqs_pct": 50,
+        "organizations_tracking_quality_of_hire_pct": 20,
+        "organizations_using_ai_for_hr_2025_pct": 43,
+        "organizations_using_ai_for_hr_2024_pct": 26,
+        "ai_adoption_yoy_increase_pct": 65,
+        "enterprise_ai_in_recruitment_pct": 78,
+        "enterprise_ai_growth_since_2022_pct": 189
+      },
+      "key_findings": [
+        "Median time to fill is 45 days for both executive and non-executive roles",
+        "Non-executive cost per hire: $1,200 median; Executive: $10,625 (7x more expensive)",
+        "Executive hiring costs up 113% since 2017 and 21% since 2022",
+        "Only 20% of organizations track quality of hire in a meaningful way",
+        "AI adoption for HR tasks jumped 65% in one year (26% to 43%); enterprise at 78%"
+      ]
+    },
+    "gartner_ta_trends_2025_2026": {
+      "title": "Gartner HR Research: Talent Acquisition Trends 2025-2026",
+      "publisher": "Gartner",
+      "year": 2025,
+      "url": "https://www.gartner.com/en/newsroom/press-releases/2025-10-07-gartner-says-ai-revolution-and-cost-pressures-are-two-forces-driving-the-top-four-trends-for-talent-acquisition-in-2026",
+      "key_metrics": {
+        "hr_needs_more_agility_pct": 72,
+        "pressure_to_improve_hire_quality_pct": 45,
+        "evp_investment_increase_pct": 65,
+        "internal_evp_communication_challenging_pct": 75,
+        "workers_needing_updated_skills_pct": 25,
+        "workers_needing_skills_2020_pct": 8,
+        "ai_weekly_time_savings_hours": 5,
+        "ai_time_lost_to_redundant_tasks_pct": 41,
+        "chros_listing_swp_as_priority_pct": 42,
+        "employees_redeployed_by_2030_pct": 20,
+        "hr_recruiting_capacity_turned_inward_pct": 33,
+        "ai_proficiency_in_hiring_by_2027_pct": 75,
+        "gen_z_values_job_mobility_over_security": true
+      },
+      "four_ta_trends_2026": [
+        "Reimagine recruiting model with AI-powered innovation",
+        "Harness data-driven insights for talent strategy agility",
+        "Evolve assessment practices to safeguard talent quality amid candidate fraud",
+        "Align attraction and sourcing strategies with shifting talent demands"
+      ],
+      "key_findings": [
+        "72% of recruiting leaders say HR needs to be more agile than pre-pandemic",
+        "25% of workers will need updated skills (up from 8% in 2020), driven by GenAI",
+        "By 2027, 75% of hiring will include certifications and tests for AI proficiency",
+        "1 in 5 employees will need to be redeployed by 2030",
+        "HR will turn one-third of its recruiting capacity inward for internal mobility"
+      ]
+    },
+    "josh_bersin_ta_revolution_2025": {
+      "title": "The Talent Acquisition Revolution: How AI Is Transforming Recruiting",
+      "publisher": "The Josh Bersin Company (with AMS)",
+      "year": 2025,
+      "url": "https://joshbersin.com/emerging-trends-in-talent-acquisition-factbook/",
+      "key_metrics": {
+        "applicant_to_interview_rate_pct": 17,
+        "application_abandonment_rate_pct": 60,
+        "companies_using_skills_insights_pct": 20,
+        "companies_with_skills_marketplace_pct": 9,
+        "ta_market_value_billions": 850,
+        "ta_market_growth_rate_pct": 13,
+        "ai_time_to_hire_improvement": "2-3x faster",
+        "employees_considering_job_change_annual_pct": 20
+      },
+      "four_focus_areas": [
+        "Implementing skills-based approaches to hiring and mobility",
+        "Redesigning TA tech stack with AI at the forefront",
+        "Developing multifaceted approach to fill talent and skills gaps",
+        "Upskilling and elevating the TA function for the future"
+      ],
+      "key_findings": [
+        "TA market valued at $850 billion, growing at 13% per year",
+        "Only 17% of applicants reach interview stage; 60% abandon slow/complex applications",
+        "AI-enabled technology yields 2-3x faster time to hire",
+        "Only 20% of companies use skills insights for hiring; 9% have skills-based marketplace",
+        "TA is evolving from manual, reactive function into strategic, AI-powered ecosystem"
+      ]
+    },
+    "lighthouse_ta_trends_2025": {
+      "title": "2025 Talent Acquisition Trends Study",
+      "publisher": "Lighthouse Research & Advisory",
+      "year": 2025,
+      "url": "https://lhra.io/blog/speed-trust-and-the-candidate-ai-takeover-2025-ta-trends-new-report/",
+      "methodology": "Survey of 1,000 global candidates and 1,013 TA/HR leaders",
+      "key_metrics": {
+        "employers_embracing_skills_first_pct": 84,
+        "proactive_teams_50plus_applications_pct": "2x more likely",
+        "proactive_teams_ai_saves_5plus_hours_pct": "2x more likely",
+        "companies_seeking_new_assessment_tools_pct": 25
+      },
+      "key_findings": [
+        "84% of employers embracing or exploring skills-first hiring strategy",
+        "Assessments are now the top tool for managing high applicant volumes (2x video interviews)",
+        "Candidate #1 priority is smooth/fast application process; employers rank it only #3",
+        "Proactive TA teams are 2x more likely to use AI saving recruiters 5+ hours weekly",
+        "AI reshaping entry-level/administrative roles across retail, logistics, finance, customer service"
+      ]
+    },
+    "aptitude_research_2025": {
+      "title": "Aptitude Research: Talent Acquisition & Programmatic Advertising 2025",
+      "publisher": "Aptitude Research",
+      "year": 2025,
+      "url": "https://www.aptituderesearch.com/research_report/unlock-the-future-of-talent-acquisition/",
+      "key_metrics": {
+        "chros_talent_intelligence_priority_pct": 84,
+        "companies_increasing_talent_intelligence_investment_pct": 72,
+        "companies_increased_automation_investment_pct": 60,
+        "avg_tech_solutions_per_company": 10,
+        "companies_consolidating_providers_pct": 32,
+        "companies_anticipating_hiring_changes_pct": 68,
+        "ta_leaders_office_mandates_hinder_recruiting_pct": 52,
+        "ta_leaders_remote_easier_to_fill_pct": 72,
+        "ta_leaders_critical_thinking_top_priority_pct": 73,
+        "candidates_bad_interview_lose_interest_pct": 65
+      },
+      "key_findings": [
+        "84% of CHROs say talent intelligence is a top priority",
+        "Average company invests in 10+ tech solutions for recruitment; 32% consolidating",
+        "52% of TA leaders say office mandates hinder recruitment; 72% find remote easier",
+        "73% rank critical thinking as #1 recruiting priority; AI skills rank 5th",
+        "65% of candidates lose interest after a bad interview experience"
+      ]
+    },
+    "sia_staffing_market_2025": {
+      "title": "Global Staffing Market Estimates & Forecasts 2025-2030",
+      "publisher": "Staffing Industry Analysts (SIA)",
+      "year": 2025,
+      "url": "https://www.staffingindustry.com/research/research-reports/americas/global-staffing-market-estimates-forecasts-2025-2030-update",
+      "key_metrics": {
+        "us_staffing_market_size_2025_billions": 188.7,
+        "us_staffing_market_growth_2025_pct": 1,
+        "us_staffing_market_decline_2024_pct": -10,
+        "americas_staffing_market_billions": 205,
+        "global_staffing_market_2024_billions": 626,
+        "global_staffing_annual_growth_pct": 6,
+        "us_staffing_companies": 26000,
+        "us_staffing_offices": 49000,
+        "temp_staffing_hours_yoy_march_2025_pct": -4,
+        "professional_staffing_yoy_pct": -7,
+        "temp_help_employment_yoy_feb_2025_pct": -5.8,
+        "us_temp_workers_hired_2022_millions": 14.6,
+        "global_staffing_employees_millions": 62.2
+      },
+      "regional_data": {
+        "us_share_of_global_revenue_pct": 25,
+        "asia_pacific": "Strongest performing region 2024",
+        "india_growth_pct": 13,
+        "china_growth_pct": 16,
+        "italy_growth_pct": 3,
+        "spain_growth_pct": 8
+      },
+      "key_findings": [
+        "US staffing market forecast to grow 1% in 2025 to $188.7B after 10% decline in 2024",
+        "Global staffing revenue was $626B in 2024; US generates ~25% of global revenue",
+        "Temporary staffing hours still down 4% YoY in March 2025; professional staffing down 7%",
+        "Asia Pacific strongest performing region, with India (13%) and China (16%) growth",
+        "26,000 staffing firms in US operating ~49,000 offices"
+      ]
+    },
+    "korn_ferry_talent_shortage_2025": {
+      "title": "Future of Work: The Global Talent Crunch & Workforce 2025",
+      "publisher": "Korn Ferry",
+      "year": 2025,
+      "url": "https://www.kornferry.com/insights/this-week-in-leadership/talent-crunch-future-of-work",
+      "methodology": "Workforce 2025 survey: 15,000 global employees across job roles, age demographics, and industries. TA Trends: 400 talent professionals across 13 industries.",
+      "key_metrics": {
+        "global_talent_shortage_by_2030_millions": 85,
+        "unrealized_revenue_by_2030_trillions": 8.5,
+        "us_tech_revenue_loss_annually_billions": 162,
+        "india_tech_worker_surplus_by_2030_millions": 1,
+        "ai_major_role_in_ta_pct": 67,
+        "concerned_ai_compromising_human_touch_pct": 40,
+        "hybrid_work_companies_pct": 76,
+        "finding_in_office_candidates_challenging_pct": 64,
+        "skills_based_hiring_value_recognized_pct": 39,
+        "skills_based_hiring_planned_pct": 17,
+        "employees_stay_for_advancement_pct": 67,
+        "evp_crucial_in_recruitment_pct": 45,
+        "cost_of_living_concern_pct": 70,
+        "feel_underpaid_pct": 35,
+        "office_workers_wanting_to_be_there_pct": 19
+      },
+      "industry_sentiment": {
+        "healthcare_workers_stretched_thin_pct": 39,
+        "healthcare_managers_overwhelmed_pct": 46,
+        "tech_managers_overwhelmed_pct": 58,
+        "tech_workers_fear_ai_replacement_pct": 59,
+        "financial_services_ai_trained_pct": 62,
+        "financial_services_ai_boosts_value_pct": 66
+      },
+      "key_findings": [
+        "By 2030: 85 million person talent shortage could result in $8.5T in unrealized revenue",
+        "US could lose $162B annually in tech revenue alone due to talent shortage",
+        "67% of talent pros see AI having major role; 40% worry about losing human touch",
+        "64% of TA leaders find it challenging to find candidates willing to work in office",
+        "67% of employees would stay if offered advancement/upskilling, even if they hated their job"
+      ]
+    },
+    "manpowergroup_talent_shortage_2025": {
+      "title": "2025 Global Talent Shortage Survey",
+      "publisher": "ManpowerGroup",
+      "year": 2025,
+      "url": "https://go.manpowergroup.com/talent-shortage",
+      "methodology": "Over 40,000 employers surveyed across 42 countries",
+      "key_metrics": {
+        "global_talent_shortage_pct": 74,
+        "global_shortage_2024_pct": 77,
+        "global_shortage_2019_pct": 54,
+        "global_shortage_2014_pct": 36,
+        "uk_shortage_2025_pct": 76,
+        "uk_shortage_2024_pct": 80
+      },
+      "shortage_by_country": {
+        "germany": 86,
+        "israel": 85,
+        "portugal": 84,
+        "sweden": 76,
+        "puerto_rico": 53,
+        "colombia": 59
+      },
+      "shortage_by_industry": {
+        "health_medical_life_sciences": 84,
+        "energy_community_services": 83,
+        "it": 83,
+        "industrials_materials": 72
+      },
+      "hardest_skills_to_find": ["IT & Data", "Engineering", "Sales & Marketing"],
+      "employer_strategies": ["Upskilling current employees", "Increasing wages", "Offering flexible work"],
+      "key_findings": [
+        "74% of employers globally report difficulty finding skilled talent (down from 77% in 2024)",
+        "Germany (86%), Israel (85%), and Portugal (84%) face the worst shortages",
+        "Health/Medical/Life Sciences (84%) and IT (83%) industries face greatest shortages",
+        "Shortage more than doubled in a decade: from 36% (2014) to 74% (2025)",
+        "First decrease in 10 years suggests slight easing, but levels remain historically high"
+      ]
+    },
+    "robert_half_salary_guide_2025": {
+      "title": "2025 Salary Guide",
+      "publisher": "Robert Half",
+      "year": 2025,
+      "url": "https://www.roberthalf.com/us/en/insights/salary-guide",
+      "methodology": "Online survey of 2,500+ hiring managers across finance/accounting, technology, marketing/creative, legal, admin, and HR at companies with 20+ employees",
+      "key_metrics": {
+        "salary_yoy_increase_avg_pct": 3.0,
+        "in_office_premium_willing_pct": 66,
+        "in_office_premium_up_to_20pct": 59,
+        "ai_reshaping_skill_sets_pct": 54,
+        "contract_talent_for_ai_projects_pct": 37,
+        "salary_expectations_top_challenge_pct": 48,
+        "investing_in_upskilling_for_retirements_pct": 45,
+        "bringing_back_retirees_pct": 41,
+        "expect_voluntary_turnover_same_or_increase_pct": 63
+      },
+      "key_findings": [
+        "Salaries increased 3.0% YoY across 7 professions tracked",
+        "66% of managers willing to pay more for in-office work; 59% up to 20% premium",
+        "54% say AI/automation reshaping needed skill sets; 37% hiring contractors for AI projects",
+        "48% rank meeting salary expectations as top hiring challenge",
+        "Finance & accounting saw most robust compensation growth amid regulatory demand"
+      ]
+    },
+    "gem_recruiting_benchmarks_2025": {
+      "title": "2025 Recruiting Benchmarks Report (5th Annual)",
+      "publisher": "Gem",
+      "year": 2025,
+      "url": "https://www.gem.com/resource/2025-recruiting-benchmarks",
+      "methodology": "Data from 140+ million applications, 14 million candidates, and 1 million hires",
+      "key_metrics": {
+        "avg_time_to_hire_days": 41,
+        "avg_time_to_hire_2021_days": 33,
+        "time_to_hire_increase_pct": 24,
+        "interviews_per_hire": 20,
+        "interviews_per_hire_2021": 14,
+        "interviews_increase_pct": 42,
+        "offer_acceptance_rate_pct": 84,
+        "offer_acceptance_rate_2021_pct": 81,
+        "hiring_likelihood_vs_3yrs_ago": "3x less likely",
+        "recruiter_headcount_2022": 31,
+        "recruiter_headcount_2024": 24,
+        "open_reqs_per_recruiter": 14,
+        "reqs_increase_over_3yrs_pct": 56,
+        "applications_per_recruiter": 2500,
+        "applications_increase_over_3yrs": "2.7x",
+        "hiring_decline_2023_pct": -28.1,
+        "hiring_rebound_2024_pct": 5.8
+      },
+      "source_channel_effectiveness": {
+        "job_boards_social_applications_pct": 49.0,
+        "job_boards_social_hires_pct": 24.6,
+        "sourced_vs_inbound_hire_likelihood": "5x more likely",
+        "talent_rediscovery_share_2024_pct": 44.0,
+        "talent_rediscovery_share_2021_pct": 29.1
+      },
+      "key_findings": [
+        "Average time to hire increased 24% to 41 days (from 33 in 2021)",
+        "Interviews per hire up 42% to 20 (from 14 in 2021)",
+        "Offer acceptance rate improved to 84% (from 81% in 2021, Great Resignation era)",
+        "Recruiter teams shrank from 31 to 24 while managing 56% more reqs and 2.7x more applications",
+        "Sourced candidates 5x more likely to be hired than inbound; talent rediscovery rose to 44%"
+      ]
+    }
+  },
+  "aggregated_benchmarks": {
+    "avg_cost_per_hire_by_industry": {
+      "source": "SHRM 2025, Radancy, industry aggregations from multiple reports",
+      "overall_us_average": {"value": 4700, "unit": "USD", "source": "SHRM/Radancy"},
+      "by_industry": {
+        "technology_engineering": {"value": 6200, "range": "6000-8000", "unit": "USD"},
+        "healthcare_life_sciences": {"value": 5000, "range": "5000-12000", "unit": "USD", "note": "Highly variable; specialist roles significantly higher"},
+        "manufacturing": {"value": 5600, "range": "5000-5600", "unit": "USD"},
+        "finance_insurance": {"value": 4300, "unit": "USD"},
+        "retail_hospitality": {"value": 2700, "unit": "USD"},
+        "executive_roles": {"value": 10625, "range": "10625-28000+", "unit": "USD", "source": "SHRM 2025"}
+      },
+      "shrm_median_nonexecutive": {"value": 1200, "unit": "USD", "note": "SHRM median; represents direct recruitment costs only"},
+      "appcast_recruitment_ad_cph": {"value": 750, "range": "750-851", "unit": "USD", "note": "Recruitment advertising cost per hire only (not total CPH)"}
+    },
+    "avg_time_to_fill_by_industry": {
+      "source": "SHRM 2025, SmartRecruiters 2025, Gem 2025, multiple industry reports",
+      "overall_median_days": {"shrm": 45, "smartrecruiters_global": 38, "smartrecruiters_us": 35, "gem": 41},
+      "by_industry": {
+        "construction": {"days": 13, "range": "12-20"},
+        "retail": {"days": 17, "range": "14-21"},
+        "hospitality": {"days": 17, "range": "14-21"},
+        "education": {"days": 29, "range": "29-60+"},
+        "manufacturing_entry": {"days": 37, "range": "25-44"},
+        "manufacturing_skilled": {"days": 60, "range": "60-90+"},
+        "financial_services": {"days": 45, "range": "44-47"},
+        "technology_general": {"days": 48, "range": "44-68"},
+        "technology_ai_ml": {"days": 89},
+        "healthcare_general": {"days": 45, "range": "41-49"},
+        "healthcare_specialists": {"days": 155, "range": "125-180+"},
+        "engineering": {"days": 55, "range": "49-70"},
+        "government": {"days": 60, "range": "41-119"}
+      },
+      "ai_impact_on_time_to_hire": {
+        "reduction_pct": 26,
+        "days_saved": 11,
+        "source": "SmartRecruiters 2025"
+      }
+    },
+    "avg_cpa_by_channel": {
+      "source": "Appcast 2025, Recruitics 2025, Gem 2025",
+      "appcast_overall_trend": {
+        "cpa_yoy_change_2024_pct": 4.8,
+        "cpa_range_excl_healthcare": "$15-$35",
+        "note": "Down substantially from 2023 across all occupations"
+      },
+      "source_channel_effectiveness": {
+        "job_boards_social": {
+          "share_of_applications_pct": 49.0,
+          "share_of_hires_pct": 24.6,
+          "source": "Gem 2025"
+        },
+        "sourced_outbound": {
+          "hire_likelihood_vs_inbound": "5x more likely",
+          "source": "Gem 2025"
+        },
+        "referrals": {
+          "global_share_of_hires_pct": 7,
+          "us_share_pct": 7,
+          "tech_industry_pct": 16,
+          "source": "SmartRecruiters 2025"
+        },
+        "internal_mobility": {
+          "global_share_of_hires_pct": 8,
+          "us_share_pct": 9,
+          "healthcare_pct": 20,
+          "source": "SmartRecruiters 2025"
+        }
+      },
+      "cpc_trends": {
+        "appcast_cpc_yoy_increase_2024_pct": 27,
+        "note": "CPCs rose 27% in 2024 driven by harder-to-fill roles and job board pricing"
+      },
+      "apply_rate_benchmarks": {
+        "overall_2024_pct": 6.1,
+        "technology_pct": 6.41,
+        "marketing_advertising_pct": 6.31,
+        "business_consumer_services_pct": 6.29,
+        "source": "Appcast 2025"
+      }
+    },
+    "talent_shortage_by_industry": {
+      "source": "ManpowerGroup 2025, Korn Ferry, iCIMS 2025",
+      "global_shortage_rate_pct": 74,
+      "by_industry": {
+        "health_medical_life_sciences": {"shortage_pct": 84, "applicants_per_opening": 15, "note": "Practitioners at 15 APO (iCIMS)"},
+        "energy_community_services": {"shortage_pct": 83},
+        "it_technology": {"shortage_pct": 83, "applicants_per_opening": 65, "note": "High applicant volume but talent mismatch"},
+        "industrials_materials": {"shortage_pct": 72},
+        "manufacturing": {"applicants_per_opening": 38, "offer_acceptance_pct": 92}
+      },
+      "by_country_top_shortage": {
+        "germany": 86,
+        "israel": 85,
+        "portugal": 84,
+        "sweden": 76,
+        "us": "Not separately reported; ~74% global avg"
+      },
+      "korn_ferry_2030_projections": {
+        "global_talent_shortage_millions": 85,
+        "unrealized_revenue_trillions": 8.5,
+        "us_tech_revenue_loss_billions": 162
+      }
+    },
+    "applicants_per_opening_by_role": {
+      "source": "iCIMS 2025, SmartRecruiters 2025",
+      "overall_average": 34,
+      "by_occupation": {
+        "computer_mathematical": 65,
+        "business_financial": 62,
+        "manufacturing": 47,
+        "food_prep": 33,
+        "healthcare_support": 25,
+        "healthcare_practitioners": 15
+      },
+      "by_industry_smartrecruiters": {
+        "technology": 110,
+        "global_average": 73,
+        "us_average": 74,
+        "healthcare": 40,
+        "manufacturing": 38
+      }
+    },
+    "offer_and_acceptance_metrics": {
+      "source": "Gem 2025, SmartRecruiters 2025, ZipRecruiter 2025",
+      "offer_acceptance_rate_gem_pct": 84,
+      "offer_decline_rate_us_smartrecruiters_pct": 20,
+      "manufacturing_offer_acceptance_pct": 92,
+      "new_hires_higher_pay_q4_2025_pct": 56.4,
+      "new_hires_accepting_pay_cuts_q4_2025_pct": 27.3,
+      "new_hires_signing_bonus_q4_2025_pct": 15.4
+    },
+    "recruiter_workload_benchmarks": {
+      "source": "Gem 2025, SmartRecruiters 2025, SHRM 2025",
+      "avg_team_size_2024": 24,
+      "avg_team_size_2022": 31,
+      "open_reqs_per_recruiter": 14,
+      "applications_per_recruiter": 2500,
+      "us_hires_per_recruiter_monthly": 54,
+      "global_hires_per_recruiter_monthly": 30,
+      "interviews_per_hire": 20,
+      "shrm_recruiters_managing_20_reqs_pct": 50
+    },
+    "ai_adoption_in_recruitment": {
+      "source": "SHRM 2025, Phenom 2025, LinkedIn 2025, Gartner 2025, Employ 2025",
+      "shrm_ai_adoption_2025_pct": 43,
+      "shrm_ai_adoption_2024_pct": 26,
+      "enterprise_ai_adoption_pct": 78,
+      "phenom_low_ai_maturity_pct": 83,
+      "phenom_high_automation_maturity_pct": 5,
+      "linkedin_ai_improves_quality_of_hire_pct": 61,
+      "smartrecruiters_ai_time_reduction_pct": 26,
+      "josh_bersin_ai_time_improvement": "2-3x faster",
+      "employ_investing_in_ai_tools_pct": 67,
+      "gartner_ai_proficiency_hiring_by_2027_pct": 75,
+      "organizations_scaled_ai_pct": 25
+    },
+    "compensation_and_wage_trends": {
+      "source": "Indeed 2025, Robert Half 2025, Handshake 2025, ZipRecruiter 2025",
+      "posted_wage_growth_yoy_pct": 3.2,
+      "robert_half_salary_increase_avg_pct": 3.0,
+      "entry_level_median_salary": {"value": 67500, "unit": "USD", "source": "Handshake 2025"},
+      "in_office_premium_offered_pct": 66,
+      "in_office_premium_amount": "Up to 20%",
+      "pay_transparency_in_postings_pct": 57.8,
+      "employers_plan_raise_salaries_pct": 61,
+      "low_wage_growth_pct": 3.3,
+      "mid_wage_growth_pct": 3.4,
+      "high_wage_growth_pct": 3.5
+    },
+    "workforce_mobility_and_turnover": {
+      "source": "ZipRecruiter 2025, Employ 2025, LinkedIn 2025, Glassdoor 2025",
+      "ziprecruiter_turnover_2023_pct": 177.0,
+      "ziprecruiter_turnover_2025_pct": 49.5,
+      "employ_first_year_turnover_2024_pct": 23.7,
+      "employ_first_year_turnover_2025_pct": 12.1,
+      "linkedin_internal_mobility_yoy_increase_pct": 6,
+      "indeed_quits_rate_pct": 1.9,
+      "indeed_quits_rate_note": "Lowest since July 2015",
+      "glassdoor_employees_feeling_stuck_pct": 65,
+      "era_label": "The Great Stay / The Great Freeze"
+    },
+    "top_hiring_trends_2025": [
+      {
+        "trend": "The Great Stay / Great Freeze",
+        "description": "Record-low quits rates, plummeting turnover, and reduced mobility define the 2025 labor market. Workers stay put due to economic uncertainty.",
+        "data_points": ["Quits rate at 1.9% (lowest since 2015)", "Turnover dropped from 177% to 49.5%", "First-year turnover fell 49% to 12.1%"]
+      },
+      {
+        "trend": "AI Transformation of Recruiting",
+        "description": "AI adoption in HR surged 65% YoY but 83% of organizations remain at low maturity. AI reduces time-to-hire by 26% and yields 2-3x faster results.",
+        "data_points": ["43% of organizations use AI for HR (up from 26%)", "78% of enterprises use AI in recruitment", "Only 5% at high automation maturity"]
+      },
+      {
+        "trend": "Skills-Based Hiring Revolution",
+        "description": "84% of employers embracing skills-first strategies. Degree requirements dropped to 17.6% of postings. Critical thinking ranked #1 priority over AI skills.",
+        "data_points": ["75% of recruiters say skills-based hiring is top priority", "25% of LinkedIn postings omit degree requirements", "73% of TA leaders rank critical thinking as #1"]
+      },
+      {
+        "trend": "White-Collar Recession & Blue-Collar Shortage",
+        "description": "Dramatic occupational divide: tech/office roles flooded with applicants while healthcare/trades face critical shortages.",
+        "data_points": ["Computer/math roles: 65 APO vs Healthcare practitioners: 15 APO", "Technology apply rate: 6.41% vs Healthcare: much lower", "Healthcare accounts for 65% of 2025 job growth"]
+      },
+      {
+        "trend": "Rising Recruitment Costs Despite Softer Market",
+        "description": "CPC rose 27%, CPA and CPH rose sharply in 2025 due to job board pricing changes and programmatic model shifts.",
+        "data_points": ["CPC up 27% in 2024", "CPA and CPH rose sharply in 2025", "Executive CPH up 113% since 2017 to $10,625 median"]
+      },
+      {
+        "trend": "Recruiter Teams Doing More With Less",
+        "description": "Teams shrank 23% (31 to 24) while managing 56% more reqs and 2.7x more applications. Efficiency gains through AI and automation.",
+        "data_points": ["14 open reqs per recruiter (up 56%)", "2,500+ applications per recruiter (up 2.7x)", "US recruiters handle 54 hires/month vs 30 global avg"]
+      },
+      {
+        "trend": "Candidate Experience as Competitive Advantage",
+        "description": "60% of candidates abandon slow applications. 25% turn down jobs due to poor experience. Smooth/fast process is candidate #1 priority.",
+        "data_points": ["Only 17% of applicants reach interview stage", "65% lose interest after bad interview", "Offer acceptance rate improved to 84%"]
+      },
+      {
+        "trend": "Pay Transparency & Compensation Shifts",
+        "description": "Pay transparency in postings reached 57.8%. Salary growth at 3.0-3.5%. 27% of new hires accepting pay cuts by Q4 2025.",
+        "data_points": ["57.8% of postings include pay info (up from 52.2%)", "Median entry-level salary: $67,500", "66% of managers willing to pay 20% premium for in-office work"]
+      },
+      {
+        "trend": "Global Talent Shortage Persists",
+        "description": "74% of employers globally can't find skilled talent. By 2030: 85M person shortage, $8.5T unrealized revenue.",
+        "data_points": ["Shortage doubled in a decade: 36% (2014) to 74% (2025)", "Healthcare/Life Sciences: 84% shortage", "IT industry: 83% shortage"]
+      },
+      {
+        "trend": "Internal Mobility & Retention Focus",
+        "description": "Organizations shifting 33% of recruiting capacity inward. Internal mobility up 6% YoY. Healthcare leads at 20% internal hires.",
+        "data_points": ["67% of employees would stay for advancement opportunities", "Healthcare: 20% internal hires", "76% of employers focus on retention"]
+      }
+    ]
+  }
+}
