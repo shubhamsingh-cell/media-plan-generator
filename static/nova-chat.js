@@ -71,22 +71,25 @@
     var css = ''
       + '#nova-float-btn {'
       + '  position: fixed; bottom: 24px; right: 24px; z-index: 99999;'
-      + '  width: 56px; height: 56px; border-radius: 16px;'
-      + '  background: linear-gradient(135deg, ' + CONFIG.primaryDark + ' 0%, ' + CONFIG.primaryColor + ' 100%);'
-      + '  color: #fff; border: none; cursor: pointer;'
-      + '  box-shadow: 0 4px 20px rgba(25,25,25,0.35), 0 0 0 1px rgba(255,255,255,0.1) inset;'
+      + '  width: 64px; height: 64px; border-radius: 50%;'
+      + '  background: radial-gradient(circle at 40% 35%, #0a1628 0%, #060a10 100%);'
+      + '  color: #fff; border: 1px solid rgba(0,212,255,0.2); cursor: pointer;'
+      + '  box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 15px rgba(0,212,255,0.15), 0 0 0 1px rgba(0,212,255,0.1) inset;'
       + '  display: flex; align-items: center; justify-content: center;'
       + '  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;'
-      + '  font-size: 0;'
+      + '  font-size: 0; padding: 0; overflow: hidden;'
       + '}'
       + '#nova-float-btn:hover {'
-      + '  transform: translateY(-2px) scale(1.05);'
-      + '  box-shadow: 0 8px 28px rgba(25,25,25,0.45), 0 0 0 1px rgba(255,255,255,0.15) inset;'
+      + '  transform: translateY(-2px) scale(1.08);'
+      + '  box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 25px rgba(0,212,255,0.25), 0 0 0 1px rgba(0,212,255,0.2) inset;'
       + '}'
       + '#nova-float-btn:active {'
-      + '  transform: scale(0.97);'
+      + '  transform: scale(0.95);'
       + '}'
       + '#nova-float-btn svg { width: 26px; height: 26px; }'
+      + '#nova-float-btn canvas { display: block; }'
+      + '#nova-float-btn.nova-btn-close { background: linear-gradient(135deg, #191919 0%, #0A66C9 100%); border-color: rgba(255,255,255,0.15); }'
+      + '#nova-float-btn.nova-btn-close:hover { box-shadow: 0 8px 28px rgba(25,25,25,0.45); }'
 
       + '#nova-panel {'
       + '  position: fixed; bottom: 92px; right: 24px; z-index: 99998;'
@@ -465,15 +468,156 @@
   function buildWidget(containerId) {
     injectStyles();
 
-    // Floating button
+    // Floating button with mini 3D orb
     var btn = document.createElement('button');
     btn.id = 'nova-float-btn';
-    btn.innerHTML = ICONS.chat;
     btn.title = 'Open Nova Chat';
     btn.setAttribute('aria-label', 'Open Nova Chat');
     btn.addEventListener('click', togglePanel);
+
+    // Create mini orb canvas
+    var orbCanvas = document.createElement('canvas');
+    orbCanvas.width = 128; orbCanvas.height = 128;
+    orbCanvas.style.width = '64px'; orbCanvas.style.height = '64px';
+    btn.appendChild(orbCanvas);
     document.body.appendChild(btn);
     state.floatingBtn = btn;
+    state.orbCanvas = orbCanvas;
+
+    // Mini orb animation
+    (function() {
+      var ctx = orbCanvas.getContext('2d');
+      var S = 128, C = S / 2, R = 36;
+      var t = 0;
+      var dots = [];
+      for (var ring = 0; ring < 8; ring++) {
+        var phi = Math.PI * (ring + 0.5) / 8;
+        var count = Math.floor(16 * Math.sin(phi));
+        if (count < 3) count = 3;
+        for (var d = 0; d < count; d++) {
+          dots.push({
+            phi: phi,
+            theta: (2 * Math.PI * d / count) + (ring % 2) * 0.2,
+            size: 0.8 + Math.random() * 0.8,
+            bright: 0.3 + Math.random() * 0.7,
+            phase: Math.random() * Math.PI * 2,
+            ring: ring
+          });
+        }
+      }
+      var ringParts = [];
+      for (var i = 0; i < 30; i++) {
+        ringParts.push({
+          angle: (2 * Math.PI * i / 30) + Math.random() * 0.1,
+          radius: R * 1.4 + (Math.random() - 0.5) * 8,
+          speed: 0.15 + Math.random() * 0.1,
+          size: 0.5 + Math.random() * 0.6,
+          bright: 0.2 + Math.random() * 0.4
+        });
+      }
+      var pulses = [];
+      function spawnPulse() {
+        pulses.push({
+          phi: Math.random() * Math.PI,
+          theta: Math.random() * Math.PI * 2,
+          radius: 0, maxR: 0.8 + Math.random(),
+          speed: 0.6 + Math.random() * 0.4, life: 1
+        });
+      }
+      function dist(p1, t1, p2, t2) {
+        return Math.acos(Math.min(1, Math.max(-1,
+          Math.sin(p1) * Math.sin(p2) * Math.cos(t1 - t2) + Math.cos(p1) * Math.cos(p2))));
+      }
+      var animId;
+      function draw() {
+        ctx.clearRect(0, 0, S, S);
+        var rotY = t * 0.25, rotX = 0.35;
+        // Core glow
+        var g = ctx.createRadialGradient(C, C, 0, C, C, R * 1.6);
+        g.addColorStop(0, 'rgba(0,212,255,0.12)');
+        g.addColorStop(0.5, 'rgba(0,212,255,0.04)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, S, S);
+
+        var list = [];
+        for (var i = 0; i < dots.length; i++) {
+          var dot = dots[i];
+          var th = dot.theta + t * (0.1 + dot.ring * 0.006);
+          var cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+          var cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+          var x = R * Math.sin(dot.phi) * Math.cos(th);
+          var y = R * Math.cos(dot.phi);
+          var z = R * Math.sin(dot.phi) * Math.sin(th);
+          var x2 = x * cosY - z * sinY, z2 = x * sinY + z * cosY;
+          var y2 = y * cosX - z2 * sinX, z3 = y * sinX + z2 * cosX;
+          var sc = 300 / (300 + z3);
+
+          var pulseBr = 0;
+          for (var pi = 0; pi < pulses.length; pi++) {
+            var p = pulses[pi];
+            var dd = Math.abs(dist(dot.phi, th, p.phi, p.theta) - p.radius);
+            if (dd < 0.15) pulseBr = Math.max(pulseBr, (1 - dd / 0.15) * p.life);
+          }
+
+          var al = (0.2 + dot.bright * 0.5 + pulseBr * 0.7) * (0.4 + sc * 0.6);
+          al = Math.min(1, al + Math.sin(t * 1.5 + dot.phase) * 0.04);
+          var sz = (dot.size + pulseBr * 1.5) * sc;
+          var cr = 0, cg = pulseBr > 0.1 ? 230 : 212, cb = 255;
+
+          list.push({ z: z3, fn: (function(px, py, s, a, r, gg, b) {
+            return function() {
+              ctx.beginPath();
+              ctx.arc(px, py, s, 0, Math.PI * 2);
+              ctx.fillStyle = 'rgba(' + r + ',' + gg + ',' + b + ',' + a.toFixed(3) + ')';
+              ctx.fill();
+              if (a > 0.45) {
+                ctx.beginPath();
+                ctx.arc(px, py, s * 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(' + r + ',' + gg + ',' + b + ',' + (a * 0.12).toFixed(3) + ')';
+                ctx.fill();
+              }
+            };
+          })(C + x2 * sc, C + y2 * sc, sz, al, cr, cg, cb) });
+        }
+
+        // Orbital ring
+        for (var i = 0; i < ringParts.length; i++) {
+          var rp = ringParts[i];
+          var a = rp.angle + t * rp.speed;
+          var rx = C + Math.cos(a) * rp.radius;
+          var ry = C + Math.sin(a) * rp.radius * 0.25;
+          var rz = Math.sin(a) * rp.radius;
+          var al = rp.bright * (0.4 + 0.4 * Math.sin(t * 2 + i));
+          list.push({ z: rz, fn: (function(x, y, s, a) {
+            return function() {
+              ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2);
+              ctx.fillStyle = 'rgba(0,212,255,' + a.toFixed(3) + ')';
+              ctx.fill();
+            };
+          })(rx, ry, rp.size, al) });
+        }
+
+        list.sort(function(a, b) { return a.z - b.z; });
+        for (var i = 0; i < list.length; i++) list[i].fn();
+
+        // Pulses
+        if (Math.floor(t * 60) % 50 === 0) spawnPulse();
+        for (var i = pulses.length - 1; i >= 0; i--) {
+          pulses[i].radius += pulses[i].speed * 0.016;
+          pulses[i].life -= 0.01;
+          if (pulses[i].life <= 0) pulses.splice(i, 1);
+        }
+
+        t += 0.016;
+        animId = requestAnimationFrame(draw);
+      }
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) cancelAnimationFrame(animId);
+        else animId = requestAnimationFrame(draw);
+      });
+      draw();
+    })();
 
     // Chat panel
     var panel = document.createElement('div');
@@ -575,12 +719,24 @@
   function togglePanel() {
     state.isOpen = !state.isOpen;
     var panel = state.chatPanel;
+    var btn = state.floatingBtn;
+    var orbCanvas = state.orbCanvas;
     if (state.isOpen) {
       panel.classList.remove('nova-hidden');
       panel.classList.add('nova-visible');
-      state.floatingBtn.innerHTML = ICONS.close;
-      state.floatingBtn.title = 'Close Nova Chat';
-      state.floatingBtn.setAttribute('aria-label', 'Close Nova Chat');
+      // Hide orb, show close icon
+      if (orbCanvas) orbCanvas.style.display = 'none';
+      btn.classList.add('nova-btn-close');
+      // Insert close SVG without destroying canvas
+      var closeSpan = document.createElement('span');
+      closeSpan.id = 'nova-close-icon';
+      closeSpan.innerHTML = ICONS.close;
+      closeSpan.style.display = 'flex';
+      closeSpan.style.alignItems = 'center';
+      closeSpan.style.justifyContent = 'center';
+      btn.appendChild(closeSpan);
+      btn.title = 'Close Nova Chat';
+      btn.setAttribute('aria-label', 'Close Nova Chat');
       // Focus input
       setTimeout(function () {
         var input = document.getElementById('nova-input');
@@ -589,9 +745,13 @@
     } else {
       panel.classList.remove('nova-visible');
       panel.classList.add('nova-hidden');
-      state.floatingBtn.innerHTML = ICONS.chat;
-      state.floatingBtn.title = 'Open Nova Chat';
-      state.floatingBtn.setAttribute('aria-label', 'Open Nova Chat');
+      // Remove close icon, restore orb
+      var closeIcon = document.getElementById('nova-close-icon');
+      if (closeIcon) closeIcon.remove();
+      btn.classList.remove('nova-btn-close');
+      if (orbCanvas) orbCanvas.style.display = 'block';
+      btn.title = 'Open Nova Chat';
+      btn.setAttribute('aria-label', 'Open Nova Chat');
     }
   }
 
