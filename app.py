@@ -611,6 +611,14 @@ try:
 except ImportError:
     _HAS_COLLAR_INTEL = False
 
+# v3.5: Consolidated 4-sheet Excel generator (replaces 26+ sheet legacy generator)
+try:
+    from excel_v2 import generate_excel_v2
+    logger.info("excel_v2 loaded successfully -- 4-sheet consolidated generator")
+except ImportError as e:
+    logger.warning("excel_v2 import failed, falling back to legacy generator: %s", e)
+    generate_excel_v2 = None
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROLE-TIER CLASSIFICATION ENGINE
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -9712,8 +9720,22 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         except Exception:
                             gen_data["_verification"] = {"status": "skipped", "reason": "verification_error"}
 
-                        # Excel generation
-                        excel_bytes = generate_excel(gen_data)
+                        # Excel generation (v2 consolidated 4-sheet or legacy fallback)
+                        if generate_excel_v2 is not None:
+                            try:
+                                excel_bytes = generate_excel_v2(
+                                    gen_data,
+                                    research_mod=research,
+                                    load_kb_fn=load_knowledge_base,
+                                    classify_tier_fn=classify_role_tier,
+                                    fetch_logo_fn=fetch_client_logo,
+                                )
+                                logger.info("Async Excel generated via excel_v2 (4-sheet)")
+                            except Exception as v2_err:
+                                logger.warning("excel_v2 failed, falling back to legacy: %s", v2_err)
+                                excel_bytes = generate_excel(gen_data)
+                        else:
+                            excel_bytes = generate_excel(gen_data)
 
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
@@ -10130,7 +10152,22 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             start_time = time.time()
             try:
                 with _span_fn("generate.excel", "Generate Excel media plan"):
-                    excel_bytes = generate_excel(data)
+                    # Use v2 consolidated 4-sheet generator with legacy fallback
+                    if generate_excel_v2 is not None:
+                        try:
+                            excel_bytes = generate_excel_v2(
+                                data,
+                                research_mod=research,
+                                load_kb_fn=load_knowledge_base,
+                                classify_tier_fn=classify_role_tier,
+                                fetch_logo_fn=fetch_client_logo,
+                            )
+                            logger.info("Excel generated via excel_v2 (4-sheet consolidated)")
+                        except Exception as v2_err:
+                            logger.warning("excel_v2 failed, falling back to legacy: %s", v2_err)
+                            excel_bytes = generate_excel(data)
+                    else:
+                        excel_bytes = generate_excel(data)
             except Exception as e:
                 import traceback
                 tb = traceback.format_exc()
