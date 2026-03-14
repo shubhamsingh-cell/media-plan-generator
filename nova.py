@@ -899,6 +899,7 @@ class Nova:
             "workforce_trends": "workforce_trends_intelligence.json",
             "white_papers": "industry_white_papers.json",
             "joveo_2026_benchmarks": "joveo_2026_benchmarks.json",
+            "google_ads_benchmarks": "google_ads_2025_benchmarks.json",
         }
         for _cache_key, _rf_name in _research_files.items():
             _rf_path = os.path.join(str(DATA_DIR), _rf_name)
@@ -1071,7 +1072,8 @@ Always call tools before answering data questions.
 - `query_regional_market` -- regional boards, salaries, regulations
 - `query_supply_ecosystem` -- programmatic mechanics, bidding
 - `query_workforce_trends` -- Gen-Z, remote work, DEI trends
-- `query_white_papers` -- 47 industry reports
+- `query_white_papers` -- 74 industry reports (includes Appcast 2026 with 200+ occupation-level benchmarks)
+- `query_google_ads_benchmarks` -- Joveo first-party Google Ads 2025 data: 6,338 keywords, 8 categories, CPC/CTR stats
 - `query_linkedin_guidewire` -- LinkedIn case study
 - `query_ad_platform` -- platform recs by role type
 - `query_hiring_insights` -- hiring difficulty, salary competitiveness
@@ -1315,6 +1317,17 @@ When presenting budget projections:
                 }
             },
             {
+                "name": "query_google_ads_benchmarks",
+                "description": "Joveo's first-party Google Ads 2025 campaign data: 6,338 keywords, $454K spend across 8 job categories. Returns CPC/CTR stats, top-performing keywords, and blended benchmarks. Use when asked about Google Ads CPC, keywords, or search campaign performance for recruitment.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "category": {"type": "string", "description": "Job category: 'skilled_healthcare', 'general_recruitment', 'software_tech', 'logistics_supply_chain', 'corporate_professional', 'administrative_clerical', 'education_public_service', 'retail_hospitality'. Leave empty for all."},
+                    },
+                    "required": []
+                }
+            },
+            {
                 "name": "suggest_smart_defaults",
                 "description": "Auto-detect budget range, channel split, CPA/CPH from partial info (roles, locations). Use when user asks 'how much should I budget' or provides roles without budget.",
                 "input_schema": {
@@ -1497,6 +1510,7 @@ When presenting budget projections:
             "simulate_what_if": self._simulate_what_if,
             "query_skills_gap": self._query_skills_gap,
             "query_geopolitical_risk": self._query_geopolitical_risk,
+            "query_google_ads_benchmarks": self._query_google_ads_benchmarks,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -2894,7 +2908,14 @@ When presenting budget projections:
         return result
 
     def _query_recruitment_benchmarks(self, args: dict) -> dict:
-        """Handler for query_recruitment_benchmarks tool."""
+        """Handler for query_recruitment_benchmarks tool.
+
+        Data priority cascade:
+          Priority 1: Client-provided data (not applicable here)
+          Priority 2: Live API data (handled by orchestrator)
+          Priority 3: KB benchmark data -- recruitment_benchmarks_deep + Appcast 2026 + Google Ads 2025
+          Priority 4: Embedded research.py fallback
+        """
         industry = (args.get("industry", "") or "").lower().strip().replace(" ", "_")
         metric = (args.get("metric", "all") or "all").lower().strip()
         rb = self._data_cache.get("recruitment_benchmarks", {})
@@ -2912,10 +2933,79 @@ When presenting budget projections:
         if not ind_data:
             return {"error": f"Industry '{industry}' not found", "available": list(benchmarks.keys())[:15], "source": "recruitment_benchmarks_deep"}
 
-        if metric != "all" and metric in ind_data:
-            return {"industry": industry, "metric": metric, "data": ind_data[metric], "source": "recruitment_benchmarks_deep (22 industries)"}
+        # Enrich with Appcast 2026 occupation-level benchmarks (Priority 3)
+        _APPCAST_OCC_MAP = {
+            "healthcare_medical": "healthcare", "technology_engineering": "technology",
+            "retail_consumer": "retail", "finance_banking": "finance",
+            "logistics_supply_chain": "warehousing_logistics",
+            "hospitality_travel": "hospitality", "manufacturing": "manufacturing",
+            "construction_infrastructure": "construction_skilled_trades",
+            "food_beverage": "food_service", "education": "education",
+            "legal_services": "legal", "government_utilities": "administration",
+        }
+        appcast_occ = _APPCAST_OCC_MAP.get(industry, "")
+        wp = self._data_cache.get("white_papers", {})
+        appcast_report = wp.get("reports", {}).get("appcast_benchmark_2026", {})
+        appcast_bm = appcast_report.get("benchmarks", {})
+        appcast_enrichment = {}
+        if appcast_occ and appcast_bm:
+            _cpa = appcast_bm.get("cpa_by_occupation_2025", {}).get(appcast_occ)
+            _cph = appcast_bm.get("cph_by_occupation_2025", {}).get(appcast_occ)
+            _ar = appcast_bm.get("apply_rate_by_occupation_2025", {}).get(appcast_occ)
+            _cps = appcast_bm.get("cost_per_screen_by_occupation_2025", {}).get(appcast_occ)
+            _cpi = appcast_bm.get("cost_per_interview_by_occupation_2025", {}).get(appcast_occ)
+            _cpo = appcast_bm.get("cost_per_offer_by_occupation_2025", {}).get(appcast_occ)
+            if any([_cpa, _cph, _ar]):
+                appcast_enrichment = {
+                    "cpa": _cpa, "cph": _cph, "apply_rate": _ar,
+                    "cost_per_screen": _cps, "cost_per_interview": _cpi,
+                    "cost_per_offer": _cpo,
+                    "source": "Appcast 2026 Report (302M clicks, 27.4M applies)",
+                }
 
-        return {"industry": industry, "data": ind_data, "source": "recruitment_benchmarks_deep (22 industries)"}
+        # Enrich with Google Ads 2025 first-party data (Priority 3)
+        _GADS_CAT_MAP = {
+            "healthcare_medical": "skilled_healthcare", "healthcare": "skilled_healthcare",
+            "pharma_biotech": "skilled_healthcare",
+            "technology_engineering": "software_tech", "technology": "software_tech",
+            "tech_engineering": "software_tech",
+            "logistics_supply_chain": "logistics_supply_chain", "logistics": "logistics_supply_chain",
+            "transportation": "logistics_supply_chain", "manufacturing": "logistics_supply_chain",
+            "retail_consumer": "retail_hospitality", "retail": "retail_hospitality",
+            "hospitality": "retail_hospitality", "hospitality_travel": "retail_hospitality",
+            "finance": "corporate_professional", "finance_banking": "corporate_professional",
+            "insurance": "corporate_professional",
+            "general_entry_level": "general_recruitment", "general": "general_recruitment",
+            "education": "education_public_service", "government_utilities": "education_public_service",
+        }
+        gads_cat = _GADS_CAT_MAP.get(industry, "")
+        gads_data = self._data_cache.get("google_ads_benchmarks", {})
+        gads_categories = gads_data.get("categories", {})
+        gads_enrichment = {}
+        if gads_cat and gads_cat in gads_categories:
+            gc = gads_categories[gads_cat]
+            gads_enrichment = {
+                "blended_cpc": gc.get("blended_cpc"),
+                "blended_ctr": gc.get("blended_ctr"),
+                "cpc_median": gc.get("cpc_stats", {}).get("median"),
+                "keywords_analyzed": gc.get("total_keywords"),
+                "source": "Joveo Google Ads 2025 (first-party)",
+            }
+
+        result = {"industry": industry, "source": "recruitment_benchmarks_deep (22 industries)"}
+
+        if metric != "all" and metric in ind_data:
+            result["metric"] = metric
+            result["data"] = ind_data[metric]
+        else:
+            result["data"] = ind_data
+
+        if appcast_enrichment:
+            result["appcast_2026_benchmarks"] = appcast_enrichment
+        if gads_enrichment:
+            result["google_ads_2025_benchmarks"] = gads_enrichment
+
+        return result
 
     def _query_employer_branding(self, args: dict) -> dict:
         """Handler for query_employer_branding tool."""
@@ -3057,6 +3147,74 @@ When presenting budget projections:
             if isinstance(rv, dict):
                 overview.append({"key": rk, "title": rv.get("title"), "publisher": rv.get("publisher"), "year": rv.get("year")})
         return {"total_reports": len(reports), "sample": overview, "source": "industry_white_papers"}
+
+    def _query_google_ads_benchmarks(self, args: dict) -> dict:
+        """Handler for query_google_ads_benchmarks tool.
+
+        Returns Joveo's first-party Google Ads 2025 campaign performance data.
+        6,338 keywords analyzed, $454K total spend, 8 job categories.
+        Data priority: Priority 3 (KB benchmark data -- first-party Joveo data).
+        """
+        category = (args.get("category", "") or "").lower().strip()
+        gads = self._data_cache.get("google_ads_benchmarks", {})
+        categories = gads.get("categories", {})
+
+        if not categories:
+            return {"error": "Google Ads 2025 benchmark data not available", "source": "google_ads_2025_benchmarks"}
+
+        if category:
+            cat_data = categories.get(category, {})
+            if not cat_data:
+                # Try partial match
+                for k in categories:
+                    if category in k.lower():
+                        cat_data = categories[k]
+                        category = k
+                        break
+            if cat_data:
+                return {
+                    "category": category,
+                    "category_name": cat_data.get("category_name", category),
+                    "blended_cpc": cat_data.get("blended_cpc"),
+                    "blended_ctr": cat_data.get("blended_ctr"),
+                    "cpc_stats": cat_data.get("cpc_stats", {}),
+                    "ctr_stats": cat_data.get("ctr_stats", {}),
+                    "total_keywords": cat_data.get("total_keywords"),
+                    "total_spend": cat_data.get("total_spend"),
+                    "top_keywords": [
+                        {"keyword": kw.get("keyword"), "cpc": kw.get("cpc"),
+                         "ctr_pct": kw.get("ctr_pct"), "clicks": kw.get("clicks")}
+                        for kw in (cat_data.get("top_performing_keywords", []) or [])[:5]
+                    ],
+                    "source": "Joveo Google Ads 2025 (first-party, 6,338 keywords)",
+                    "data_priority": 3,
+                }
+            return {
+                "error": f"Category '{category}' not found",
+                "available": list(categories.keys()),
+                "source": "google_ads_2025_benchmarks",
+            }
+
+        # No category specified -- return summary of all categories
+        summary = []
+        for cat_key, cat_val in categories.items():
+            if isinstance(cat_val, dict):
+                summary.append({
+                    "category": cat_key,
+                    "category_name": cat_val.get("category_name", cat_key),
+                    "blended_cpc": cat_val.get("blended_cpc"),
+                    "blended_ctr": cat_val.get("blended_ctr"),
+                    "total_keywords": cat_val.get("total_keywords"),
+                    "total_spend": cat_val.get("total_spend"),
+                })
+        return {
+            "total_categories": len(summary),
+            "total_keywords_overall": gads.get("total_keywords_analyzed", 0),
+            "total_spend_overall": gads.get("total_spend", 0),
+            "categories": summary,
+            "source": "Joveo Google Ads 2025 (first-party, 6,338 keywords)",
+            "data_priority": 3,
+        }
 
     def _suggest_smart_defaults(self, args: dict) -> dict:
         """Auto-detect optimal hiring parameters and suggest budget/channel defaults.

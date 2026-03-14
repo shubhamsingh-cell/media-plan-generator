@@ -115,18 +115,21 @@
     "healthcare_medical": {
       "cpa": {
         "range": "$35-$58+",
-        "median": "$41",
+        "median": "$35.00",
+        "appcast_2025_median": "$35.00",
         "easy_to_fill": "$12",
         "hard_to_fill": "$58-$400",
         "specialized_nursing_competitive_markets": "$200-$400",
         "trend_yoy": "+15-20%",
         "2024": "$35 average",
-        "2025": "$41+ (record high, 2yr peak)",
+        "2025": "$35.00 (Appcast 2026 report, highest CPA of any occupation)",
         "notes": "Frontline 'standing-up' roles remain costly and hard to fill. Healthcare is structurally constrained."
       },
       "cpc": {
         "range": "$0.50-$1.44+",
         "median": "$1.36",
+        "search_cpc_2025": "$3.55",
+        "social_cpc_2025": "$2.19",
         "easy_to_fill_floor": "$0.50",
         "hard_to_fill_ceiling": "$1.44+",
         "trend_yoy": "+10-15%",
@@ -134,16 +137,21 @@
         "2025": "$1.36 (near record high)"
       },
       "cph": {
-        "recruitment_marketing_only": "$800-$1,200",
+        "recruitment_marketing_only": "$2,100",
+        "appcast_2025_median_cph": "$2,100",
         "total_cost_per_hire": "$9,000-$12,000",
         "physician_recruitment": "$180,000-$250,000",
         "rn_specialized": "$15,000-$25,000",
-        "notes": "Includes background checks, credential verification, drug testing, compliance measures"
+        "cost_per_screen": "$169",
+        "cost_per_interview": "$366",
+        "cost_per_offer": "$1,085",
+        "notes": "Second-highest CPH of any occupation after technology. Includes background checks, credential verification, drug testing, compliance measures"
       },
       "apply_rate": {
-        "2024": "4.5-5.5%",
-        "2025": "Declining relative to white-collar",
-        "notes": "Below average apply rates; among hardest-to-fill sectors"
+        "2024": "3.41%",
+        "2025": "3.22% (lowest of all 24 occupations, declining)",
+        "yoy_change": "-5.67%",
+        "notes": "Lowest apply rate of any sector. Ultra-tight labor market. Standing-up roles chronically hard to fill."
       },
       "time_to_fill": {
         "average_days": 49,
@@ -175,18 +183,21 @@
 
     "technology_engineering": {
       "cpa": {
-        "range": "$25-$89",
-        "median": "$45",
-        "entry_level": "$25-$40",
+        "range": "$14.78-$89",
+        "median": "$14.78",
+        "appcast_2025_median": "$14.78",
+        "entry_level": "$10-$25",
         "senior_specialized": "$65-$89",
         "ai_ml_roles": "$75-$120",
         "trend_yoy": "+8-12%",
-        "2024": "$40 median",
-        "2025": "$45-$89 (highest CPA of any sector per some measures)",
-        "notes": "Technology had highest apply rate (6.41%) in 2024 but specialized roles remain very expensive"
+        "2024": "$40 median (total cost)",
+        "2025": "$14.78 (Appcast recruitment media CPA), $45-$89 (total cost including agency/ATS)",
+        "notes": "Technology had highest apply rate (7.14%) in 2025 but CPH doubled to $2,795 — volume masks quality problem"
       },
       "cpc": {
         "range": "$0.75-$3.50",
+        "search_cpc_2025": "$1.19",
+        "social_cpc_2025": "$1.19",
         "linkedin_cpc": "$1.50-$4.50",
         "indeed_cpc": "$0.50-$2.00",
         "google_ads_cpc": "$2.50-$5.00",
@@ -194,9 +205,14 @@
         "trend_yoy": "+15-20%"
       },
       "cph": {
-        "recruitment_marketing_only": "$700-$1,500",
+        "recruitment_marketing_only": "$2,795",
+        "appcast_2025_median_cph": "$2,795",
         "total_cost_per_hire_standard": "$6,000-$7,000",
         "total_cost_per_hire_specialized": "$12,000-$20,000",
+        "cost_per_screen": "$156",
+        "cost_per_interview": "$286",
+        "cost_per_offer": "$773",
+        "yoy_change": "Doubled from $1,364 in 2024 to $2,795 in 2025",
         "with_hidden_engineering_time": "$22,750",
         "external_recruiter_fee": "15-30% of first-year salary ($18,000-$36,000 for $120K role)",
         "notes": "Deloitte 2024 benchmark. Hidden costs include engineering team evaluation time."

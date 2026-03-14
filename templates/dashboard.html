@@ -4,17 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Media Planner — Admin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --navy: #08294A;
-            --navy-light: #0E3A6B;
-            --navy-lighter: #14497A;
-            --accent-blue: #0A66C9;
-            --accent-light: #5BA3E6;
-            --accent-pale: #D1E8FF;
-            --accent-dark: #08294A;
-            --blue-primary: #0A66C9;
-            --blue-light: #D1E8FF;
+            --navy: #0F172A;
+            --navy-light: #1E293B;
+            --navy-lighter: #334155;
+            --accent-blue: #2563EB;
+            --accent-light: #60A5FA;
+            --accent-pale: #DBEAFE;
+            --accent-dark: #1E40AF;
+            --blue-primary: #2563EB;
+            --blue-light: #DBEAFE;
             --green: #10B981;
             --green-light: #D1FAE5;
             --green-dark: #059669;
@@ -52,7 +55,7 @@
         ::selection { background: var(--accent-blue); color: white; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: var(--off-white);
             color: var(--text);
             min-height: 100vh;
@@ -68,7 +71,7 @@
             left: 0;
             width: var(--sidebar-width);
             height: 100vh;
-            background: linear-gradient(180deg, var(--navy) 0%, #061E38 100%);
+            background: var(--navy);
             color: white;
             z-index: 100;
             display: flex;
@@ -134,7 +137,7 @@
         }
 
         .sidebar-nav a.active {
-            background: rgba(10, 102, 201, 0.2);
+            background: rgba(37, 99, 235, 0.2);
             color: white;
         }
 
@@ -246,7 +249,7 @@
         }
         .btn-primary:hover {
             background: var(--accent-dark);
-            box-shadow: 0 4px 12px rgba(10,102,201,0.3);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
         .btn-outline {
@@ -403,7 +406,7 @@
 
         .search-box:focus-within {
             border-color: var(--accent-blue);
-            box-shadow: 0 0 0 3px rgba(10,102,201,0.1);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
             background: white;
         }
 
@@ -587,7 +590,7 @@
         .doc-card-icon {
             width: 42px;
             height: 42px;
-            background: linear-gradient(135deg, var(--accent-blue), var(--accent-dark));
+            background: #2563EB;
             border-radius: var(--radius-xs);
             display: flex;
             align-items: center;
@@ -814,8 +817,8 @@
         .slo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; padding:20px 24px; }
         .slo-card { border:1px solid var(--gray-200); border-radius:var(--radius-sm); padding:16px; border-left:4px solid var(--gray-300); transition:all .2s ease; }
         .slo-card:hover { box-shadow:var(--shadow-sm); }
-        .slo-card.slo-ok { border-left-color:var(--green); background:linear-gradient(135deg,#D1FAE5 0%,var(--white) 100%); }
-        .slo-card.slo-breach { border-left-color:var(--red); background:linear-gradient(135deg,#FEE2E2 0%,var(--white) 100%); }
+        .slo-card.slo-ok { border-left-color:var(--green); background:#D1FAE5; }
+        .slo-card.slo-breach { border-left-color:var(--red); background:#FEE2E2; }
         .slo-card-name { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--text-secondary); margin-bottom:8px; }
         .slo-actual { font-size:22px; font-weight:700; color:var(--navy); }
         .slo-target { font-size:11px; color:var(--text-muted); margin-top:2px; }
@@ -870,6 +873,14 @@
             .infra-grid { grid-template-columns:1fr; }
             .mx { width:22px; height:22px; line-height:22px; font-size:10px; }
             .routing-legend { gap:8px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
     </style>
 </head>
@@ -1277,7 +1288,7 @@ function renderChatPerf() {
     if (modelEl) modelEl.textContent = perfNova.model || '';
     const cr = perfNova.chat_routing || {};
     const segs = [
-        { key:'conversational', label:'Conversational', color:'#0A66C9' },
+        { key:'conversational', label:'Conversational', color:'#2563EB' },
         { key:'tool', label:'Tool (Free LLM)', color:'#10B981' },
         { key:'claude', label:'Claude (Paid)', color:'#F59E0B' },
         { key:'suppressed', label:'Suppressed', color:'#9CA3AF' },

@@ -152,7 +152,7 @@ _INDUSTRY_KEY_TO_KB_KEY = {
 def load_knowledge_base() -> dict:
     """Load and merge all knowledge base files into unified dict.
 
-    Loads 8 JSON data files from the ``data/`` directory, each into its own
+    Loads 10 JSON data files from the ``data/`` directory, each into its own
     section key.  The ``core`` section (recruitment_industry_knowledge.json) is
     additionally merged into the top level for backward compatibility so that
     existing code referencing ``kb["benchmarks"]``, ``kb["salary_trends"]``,
@@ -178,6 +178,7 @@ def load_knowledge_base() -> dict:
         "workforce_trends":       "workforce_trends_intelligence.json",
         "white_papers":           "industry_white_papers.json",
         "joveo_2026_benchmarks":  "joveo_2026_benchmarks.json",
+        "google_ads_benchmarks":  "google_ads_2025_benchmarks.json",
     }
 
     kb = {}
@@ -878,6 +879,51 @@ def _verify_plan_data(data):
     if not check_items:
         return {"status": "skipped", "reason": "no_data_to_verify"}
 
+    # ── Cross-reference with KB benchmark data (Priority 3) ──
+    # Pull Appcast 2026 and Google Ads 2025 benchmarks for LLM verification context
+    kb_benchmark_context = ""
+    try:
+        _vkb = load_knowledge_base()
+        _vwp = _vkb.get("white_papers", {})
+        _vappcast = _vwp.get("reports", {}).get("appcast_benchmark_2026", {}).get("benchmarks", {})
+        _vgads = _vkb.get("google_ads_benchmarks", {})
+
+        # Appcast occupation-level benchmarks for this industry
+        _V_APPCAST_MAP = {
+            "healthcare_medical": "healthcare", "tech_engineering": "technology",
+            "technology": "technology", "retail_consumer": "retail",
+            "finance_banking": "finance", "logistics_supply_chain": "warehousing_logistics",
+            "hospitality_travel": "hospitality", "manufacturing": "manufacturing",
+            "general_entry_level": "administration",
+        }
+        _v_occ = _V_APPCAST_MAP.get(data.get("industry", ""), "")
+        if _vappcast and _v_occ:
+            _v_cpa = _vappcast.get("cpa_by_occupation_2025", {}).get(_v_occ, "N/A")
+            _v_cph = _vappcast.get("cph_by_occupation_2025", {}).get(_v_occ, "N/A")
+            _v_ar = _vappcast.get("apply_rate_by_occupation_2025", {}).get(_v_occ, "N/A")
+            kb_benchmark_context += f"\nAppcast 2026 benchmarks for {_v_occ}: CPA={_v_cpa}, CPH={_v_cph}, Apply Rate={_v_ar}"
+            kb_benchmark_context += f"\nOverall medians: CPC={_vappcast.get('overall_median_cpc', 'N/A')}, CPA={_vappcast.get('overall_median_cpa', 'N/A')}, CPH={_vappcast.get('overall_median_cph', 'N/A')}"
+
+        # Google Ads first-party CPC benchmarks
+        _V_GADS_MAP = {
+            "healthcare_medical": "skilled_healthcare", "healthcare": "skilled_healthcare",
+            "pharma_biotech": "skilled_healthcare",
+            "tech_engineering": "software_tech", "technology": "software_tech",
+            "logistics_supply_chain": "logistics_supply_chain", "logistics": "logistics_supply_chain",
+            "transportation": "logistics_supply_chain", "manufacturing": "logistics_supply_chain",
+            "retail_consumer": "retail_hospitality", "retail": "retail_hospitality",
+            "hospitality": "retail_hospitality", "hospitality_travel": "retail_hospitality",
+            "finance": "corporate_professional", "finance_banking": "corporate_professional",
+            "general_entry_level": "general_recruitment", "general": "general_recruitment",
+            "education": "education_public_service",
+        }
+        _v_gcat = _V_GADS_MAP.get(data.get("industry", ""), "")
+        _v_gads_cat = _vgads.get("categories", {}).get(_v_gcat, {})
+        if _v_gads_cat:
+            kb_benchmark_context += f"\nJoveo Google Ads 2025 ({_v_gcat}): blended CPC=${_v_gads_cat.get('blended_cpc', 'N/A')}, median CPC=${_v_gads_cat.get('cpc_stats', {}).get('median', 'N/A')}, CTR={_v_gads_cat.get('blended_ctr', 'N/A')}%"
+    except Exception:
+        pass  # Non-fatal
+
     prompt = f"""Verify this recruitment media plan data for reasonableness.
 
 Client: {client}
@@ -889,10 +935,15 @@ Budget: {budget}
 Key allocations:
 {chr(10).join(check_items)}
 
+KB Benchmark Reference Data (use these to cross-check):
+{kb_benchmark_context if kb_benchmark_context else "No KB benchmarks available for this industry."}
+
 Check:
-1. Are CPC values reasonable for the industry/channels? (typical ranges: Indeed $0.10-2.00, LinkedIn $1.50-8.00, Google $0.50-5.00)
-2. Are click/application projections mathematically consistent with budget and CPC?
-3. Are channel recommendations appropriate for this industry?
+1. Are CPC values reasonable for the industry/channels? Cross-reference against the KB benchmark data above.
+2. Are CPA projections consistent with Appcast occupation-level benchmarks shown above?
+3. Are click/application projections mathematically consistent with budget and CPC?
+4. Are channel recommendations appropriate for this industry?
+5. If any generated metric deviates by more than 50% from the KB benchmark, flag it.
 
 Return ONLY valid JSON:
 {{"verified": true, "issues": [], "severity": "none"}}
@@ -1973,6 +2024,181 @@ def generate_excel(data):
             exec_row += 1
 
         exec_row += 1
+
+    # ── Appcast 2026 Full-Funnel Benchmark Data (KB Priority 3) ──
+    # Dynamically pull from industry_white_papers.json -> appcast_benchmark_2026 -> benchmarks
+    kb = load_knowledge_base()
+    _wp = kb.get("white_papers", {})
+    _appcast_rpt = _wp.get("reports", {}).get("appcast_benchmark_2026", {})
+    _appcast_bm = _appcast_rpt.get("benchmarks", {})
+    # Mapping from client industry to Appcast occupation key
+    _EXCEL_APPCAST_MAP = {
+        "healthcare_medical": "healthcare", "technology": "technology", "tech_engineering": "technology",
+        "retail_consumer": "retail", "retail": "retail", "finance_banking": "finance",
+        "insurance": "insurance", "logistics_supply_chain": "warehousing_logistics",
+        "transportation": "transportation", "manufacturing": "manufacturing",
+        "hospitality_travel": "hospitality", "hospitality": "hospitality",
+        "food_beverage": "food_service", "education": "education",
+        "pharma_biotech": "science_engineering", "construction_real_estate": "construction_skilled_trades",
+        "blue_collar_trades": "construction_skilled_trades", "general_entry_level": "administration",
+        "general": "administration", "media_entertainment": "marketing_advertising",
+    }
+    _app_occ_key = _EXCEL_APPCAST_MAP.get(client_industry, "")
+    if _appcast_bm and _app_occ_key:
+        _cpa_by_occ = _appcast_bm.get("cpa_by_occupation_2025", {})
+        _cph_by_occ = _appcast_bm.get("cph_by_occupation_2025", {})
+        _ar_by_occ = _appcast_bm.get("apply_rate_by_occupation_2025", {})
+        _cps_by_occ = _appcast_bm.get("cost_per_screen_by_occupation_2025", {})
+        _cpi_by_occ = _appcast_bm.get("cost_per_interview_by_occupation_2025", {})
+        _cpo_by_occ = _appcast_bm.get("cost_per_offer_by_occupation_2025", {})
+
+        _occ_cpa = _cpa_by_occ.get(_app_occ_key)
+        _occ_cph = _cph_by_occ.get(_app_occ_key)
+        _occ_ar = _ar_by_occ.get(_app_occ_key)
+        _occ_cps = _cps_by_occ.get(_app_occ_key)
+        _occ_cpi = _cpi_by_occ.get(_app_occ_key)
+        _occ_cpo = _cpo_by_occ.get(_app_occ_key)
+
+        if any([_occ_cpa, _occ_cph, _occ_ar]):
+            exec_row += 1
+            ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+            ws_exec.cell(row=exec_row, column=2, value=f"Full-Funnel Recruitment Costs: {_app_occ_key.replace('_', ' ').title()} (2025 Actuals)").font = Font(name="Calibri", bold=True, size=12, color="1B2A4A")
+            ws_exec.cell(row=exec_row, column=2).border = Border(bottom=Side(style="medium", color="2E75B6"))
+            exec_row += 1
+            ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+            ws_exec.cell(row=exec_row, column=2, value="Source: 10th Annual Recruitment Marketing Benchmark Report (302M clicks, 27.4M applies, ~1,200 employers)").font = Font(name="Calibri", italic=True, size=9, color="596780")
+            exec_row += 1
+
+            # Funnel table headers
+            _funnel_headers = ["Metric", "Value", "Full Funnel Context"]
+            for i, h in enumerate(_funnel_headers):
+                cell = ws_exec.cell(row=exec_row, column=2 + i, value=h)
+                cell.font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+                cell.fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
+                cell.border = thin_border
+                cell.alignment = center_alignment
+            exec_row += 1
+
+            # Overall funnel median
+            _overall_cpc = _appcast_bm.get("overall_median_cpc", "")
+            _overall_cpa = _appcast_bm.get("overall_median_cpa", "")
+            _overall_cph = _appcast_bm.get("overall_median_cph", "")
+            _overall_ar = _appcast_bm.get("overall_apply_rate", "")
+
+            _funnel_rows = [
+                ("Median CPA (This Occupation)", _occ_cpa or "N/A", f"Overall median: {_overall_cpa}" if _overall_cpa else ""),
+                ("Cost-Per-Hire (This Occupation)", _occ_cph or "N/A", f"Overall median: {_overall_cph}" if _overall_cph else ""),
+                ("Apply Rate (This Occupation)", _occ_ar or "N/A", f"Overall: {_overall_ar}" if _overall_ar else ""),
+                ("Cost-Per-Screen", _occ_cps or "N/A", "Screened = qualified applicants"),
+                ("Cost-Per-Interview", _occ_cpi or "N/A", f"Screen rate: {_appcast_bm.get('screen_rate', 'N/A')}; Interview rate: {_appcast_bm.get('interview_rate', 'N/A')}"),
+                ("Cost-Per-Offer", _occ_cpo or "N/A", f"Offer rate: {_appcast_bm.get('offer_rate', 'N/A')}; Hire rate: {_appcast_bm.get('hire_rate', 'N/A')}"),
+            ]
+            for _metric, _val, _ctx in _funnel_rows:
+                ws_exec.cell(row=exec_row, column=2, value=_metric).font = Font(name="Calibri", bold=True, size=10, color="1B2A4A")
+                ws_exec.cell(row=exec_row, column=2).border = thin_border
+                ws_exec.cell(row=exec_row, column=3, value=_val).font = Font(name="Calibri", bold=True, size=10)
+                ws_exec.cell(row=exec_row, column=3).border = thin_border
+                ws_exec.cell(row=exec_row, column=3).alignment = center_alignment
+                ws_exec.cell(row=exec_row, column=4, value=_ctx).font = Font(name="Calibri", italic=True, size=9, color="596780")
+                ws_exec.cell(row=exec_row, column=4).border = thin_border
+                ws_exec.cell(row=exec_row, column=4).alignment = wrap_alignment
+                exec_row += 1
+
+            # Job ad optimization insights from Appcast 2026
+            _jad_insights = _appcast_bm.get("job_ad_insights_2025", {})
+            if _jad_insights:
+                exec_row += 1
+                ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+                ws_exec.cell(row=exec_row, column=2, value="Job Ad Optimization Insights (2025 Data)").font = Font(name="Calibri", bold=True, size=11, color="1B2A4A")
+                ws_exec.cell(row=exec_row, column=2).border = Border(bottom=Side(style="thin", color="2E75B6"))
+                exec_row += 1
+                _insight_items = [
+                    f"Optimal title length: {_jad_insights.get('optimal_title_length', 'N/A')}",
+                    f"Salary transparency impact: {_jad_insights.get('salary_transparency_lift', 'N/A')}",
+                    f"Best day to post: {_jad_insights.get('best_day_to_post', 'N/A')}",
+                    f"Apply time 1-5 min: {_jad_insights.get('apply_time_1_5_min', 'N/A')} vs 16+ min: {_jad_insights.get('apply_time_16_plus_min', 'N/A')}",
+                    f"53% of applies arrive in first 10 days",
+                    f"Mobile: {_appcast_bm.get('mobile_click_share', '63%')} of clicks, {_appcast_bm.get('mobile_apply_share', '71%')} of applies",
+                ]
+                for _ins in _insight_items:
+                    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+                    ws_exec.cell(row=exec_row, column=2, value=f"  \u2022  {_ins}").font = Font(name="Calibri", size=9, color="1B2A4A")
+                    exec_row += 1
+
+    # ── Google Ads 2025 Benchmark Data (Joveo First-Party, KB Priority 3) ──
+    _gads_bm = kb.get("google_ads_benchmarks", {})
+    _EXCEL_GADS_MAP = {
+        "healthcare_medical": "skilled_healthcare", "healthcare": "skilled_healthcare",
+        "pharma_biotech": "skilled_healthcare",
+        "tech_engineering": "software_tech", "technology": "software_tech",
+        "logistics_supply_chain": "logistics_supply_chain", "logistics": "logistics_supply_chain",
+        "transportation": "logistics_supply_chain", "manufacturing": "logistics_supply_chain",
+        "blue_collar_trades": "logistics_supply_chain", "construction": "logistics_supply_chain",
+        "retail_consumer": "retail_hospitality", "retail": "retail_hospitality",
+        "hospitality": "retail_hospitality", "hospitality_travel": "retail_hospitality",
+        "food_beverage": "retail_hospitality",
+        "finance": "corporate_professional", "finance_banking": "corporate_professional",
+        "insurance": "corporate_professional", "professional_services": "corporate_professional",
+        "general_entry_level": "general_recruitment", "general": "general_recruitment",
+        "education": "education_public_service", "government_utilities": "education_public_service",
+    }
+    _gads_cat_key = _EXCEL_GADS_MAP.get(client_industry, "")
+    _gads_cat = _gads_bm.get("categories", {}).get(_gads_cat_key, {})
+    if _gads_cat:
+        exec_row += 2
+        ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+        ws_exec.cell(row=exec_row, column=2, value=f"Google Ads Recruitment Benchmarks: {_gads_cat.get('category_name', _gads_cat_key)} (Joveo 2025 First-Party Data)").font = Font(name="Calibri", bold=True, size=12, color="1B2A4A")
+        ws_exec.cell(row=exec_row, column=2).border = Border(bottom=Side(style="medium", color="2E75B6"))
+        exec_row += 1
+        ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+        _gads_total_kw = _gads_bm.get("total_keywords_analyzed", 0)
+        _gads_total_spend = _gads_bm.get("total_spend", 0)
+        ws_exec.cell(row=exec_row, column=2, value=f"Source: Joveo's own Google Ads campaign data — {_gads_total_kw:,} keywords, ${_gads_total_spend:,.0f} total spend analyzed").font = Font(name="Calibri", italic=True, size=9, color="596780")
+        exec_row += 1
+
+        _gads_rows = [
+            ("Blended CPC", f"${_gads_cat.get('blended_cpc', 'N/A')}", "Weighted by spend across all keywords in category"),
+            ("Blended CTR", f"{_gads_cat.get('blended_ctr', 'N/A')}%", "Click-through rate (clicks / impressions)"),
+            ("Median CPC", f"${_gads_cat.get('cpc_stats', {}).get('median', 'N/A')}", f"Range: ${_gads_cat.get('cpc_stats', {}).get('p25', 'N/A')} (P25) to ${_gads_cat.get('cpc_stats', {}).get('p75', 'N/A')} (P75)"),
+            ("Keywords Analyzed", f"{_gads_cat.get('total_keywords', 0):,}", f"Total spend in category: ${_gads_cat.get('total_spend', 0):,.0f}"),
+        ]
+        for _m, _v, _n in _gads_rows:
+            ws_exec.cell(row=exec_row, column=2, value=_m).font = Font(name="Calibri", bold=True, size=10, color="1B2A4A")
+            ws_exec.cell(row=exec_row, column=2).border = thin_border
+            ws_exec.cell(row=exec_row, column=3, value=_v).font = Font(name="Calibri", bold=True, size=10)
+            ws_exec.cell(row=exec_row, column=3).border = thin_border
+            ws_exec.cell(row=exec_row, column=3).alignment = center_alignment
+            ws_exec.cell(row=exec_row, column=4, value=_n).font = Font(name="Calibri", italic=True, size=9, color="596780")
+            ws_exec.cell(row=exec_row, column=4).border = thin_border
+            exec_row += 1
+
+        # Top performing keywords
+        _top_kw = _gads_cat.get("top_performing_keywords", [])
+        if _top_kw:
+            exec_row += 1
+            ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+            ws_exec.cell(row=exec_row, column=2, value="Top Performing Google Ads Keywords (by spend)").font = Font(name="Calibri", bold=True, size=10, color="1B2A4A")
+            exec_row += 1
+            _kw_headers = ["Keyword", "CPC", "CTR %", "Clicks"]
+            for i, h in enumerate(_kw_headers):
+                cell = ws_exec.cell(row=exec_row, column=2 + i, value=h)
+                cell.font = Font(name="Calibri", bold=True, size=9, color="FFFFFF")
+                cell.fill = PatternFill(start_color="0A66C9", end_color="0A66C9", fill_type="solid")
+                cell.border = thin_border
+            exec_row += 1
+            for kw in _top_kw[:5]:
+                ws_exec.cell(row=exec_row, column=2, value=kw.get("keyword", "")).font = Font(name="Calibri", size=9)
+                ws_exec.cell(row=exec_row, column=2).border = thin_border
+                ws_exec.cell(row=exec_row, column=3, value=f"${kw.get('cpc', 'N/A')}").font = Font(name="Calibri", size=9)
+                ws_exec.cell(row=exec_row, column=3).border = thin_border
+                ws_exec.cell(row=exec_row, column=3).alignment = center_alignment
+                ws_exec.cell(row=exec_row, column=4, value=f"{kw.get('ctr_pct', 'N/A')}%").font = Font(name="Calibri", size=9)
+                ws_exec.cell(row=exec_row, column=4).border = thin_border
+                ws_exec.cell(row=exec_row, column=4).alignment = center_alignment
+                ws_exec.cell(row=exec_row, column=5, value=f"{kw.get('clicks', 0):,}").font = Font(name="Calibri", size=9)
+                ws_exec.cell(row=exec_row, column=5).border = thin_border
+                ws_exec.cell(row=exec_row, column=5).alignment = center_alignment
+                exec_row += 1
 
     # ── CPQA Section — Joveo's Recommended Metric ──
     exec_row += 1

@@ -1,0 +1,589 @@
+{
+  "last_updated": "2026-03-14",
+  "data_source": "Joveo Google Ads 2025 Campaign Performance Data",
+  "data_period": "2025",
+  "description": "Real Google Ads keyword performance data from Joveo's recruitment advertising campaigns in 2025. Contains CPC, CTR, CPM, and spend data across job categories. This is first-party data from actual campaigns run for clients.",
+  "total_keywords_analyzed": 6338,
+  "total_spend": 454452.66,
+  "total_impressions": 3266533,
+  "total_clicks": 396993,
+  "categories": {
+    "skilled_healthcare": {
+      "category_name": "Skilled Healthcare",
+      "total_keywords": 484,
+      "total_spend": 193335.77,
+      "total_impressions": 1106553,
+      "total_clicks": 111651,
+      "blended_cpc": 1.73,
+      "blended_ctr": 10.09,
+      "cpc_stats": {
+        "mean": 4.43,
+        "median": 2.3,
+        "p25": 1.61,
+        "p75": 3.53,
+        "min": 0.05,
+        "max": 53.05
+      },
+      "ctr_stats": {
+        "mean": 13.57,
+        "median": 8.25
+      },
+      "top_performing_keywords": [
+        {
+          "keyword": "physician employment opportunities",
+          "spend": 5877.71,
+          "clicks": 1728,
+          "cpc": 3.4,
+          "ctr_pct": 4.67
+        },
+        {
+          "keyword": "patient care technician jobs",
+          "spend": 5186.91,
+          "clicks": 2787,
+          "cpc": 1.86,
+          "ctr_pct": 7.84
+        },
+        {
+          "keyword": "er nurse jobs",
+          "spend": 4144.22,
+          "clicks": 2203,
+          "cpc": 1.88,
+          "ctr_pct": 6.53
+        },
+        {
+          "keyword": "nursing jobs",
+          "spend": 4036.99,
+          "clicks": 1133,
+          "cpc": 3.56,
+          "ctr_pct": 5.48
+        },
+        {
+          "keyword": "patient care technician",
+          "spend": 3668.55,
+          "clicks": 1594,
+          "cpc": 2.3,
+          "ctr_pct": 7.34
+        },
+        {
+          "keyword": "nursing jobs",
+          "spend": 3074.85,
+          "clicks": 1800,
+          "cpc": 1.71,
+          "ctr_pct": 8.55
+        },
+        {
+          "keyword": "gifted health care",
+          "spend": 2987.94,
+          "clicks": 2272,
+          "cpc": 1.32,
+          "ctr_pct": 16.07
+        },
+        {
+          "keyword": "nursing job listings",
+          "spend": 2633.12,
+          "clicks": 1020,
+          "cpc": 2.58,
+          "ctr_pct": 5.66
+        },
+        {
+          "keyword": "fairfax hospital job openings",
+          "spend": 2583.78,
+          "clicks": 889,
+          "cpc": 2.91,
+          "ctr_pct": 8.63
+        },
+        {
+          "keyword": "nursing job listings",
+          "spend": 2437.87,
+          "clicks": 1256,
+          "cpc": 1.94,
+          "ctr_pct": 7.74
+        }
+      ]
+    },
+    "general_recruitment": {
+      "category_name": "General Recruitment",
+      "total_keywords": 97,
+      "total_spend": 145624.48,
+      "total_impressions": 1009005,
+      "total_clicks": 151988,
+      "blended_cpc": 0.96,
+      "blended_ctr": 15.06,
+      "cpc_stats": {
+        "mean": 2.43,
+        "median": 1.25,
+        "p25": 0.68,
+        "p75": 2.18,
+        "min": 0.02,
+        "max": 35.27
+      },
+      "ctr_stats": {
+        "mean": 17.4,
+        "median": 14.68
+      },
+      "top_performing_keywords": [
+        {
+          "keyword": "online jobs",
+          "spend": 41943.61,
+          "clicks": 25304,
+          "cpc": 1.66,
+          "ctr_pct": 12.06
+        },
+        {
+          "keyword": "online jobs",
+          "spend": 37440.42,
+          "clicks": 29258,
+          "cpc": 1.28,
+          "ctr_pct": 12.6
+        },
+        {
+          "keyword": "work from home jobs",
+          "spend": 6838.42,
+          "clicks": 3567,
+          "cpc": 1.92,
+          "ctr_pct": 9.33
+        },
+        {
+          "keyword": "work from home jobs",
+          "spend": 6121.21,
+          "clicks": 4544,
+          "cpc": 1.35,
+          "ctr_pct": 9.17
+        },
+        {
+          "keyword": "work from home jobs",
+          "spend": 5636.28,
+          "clicks": 1345,
+          "cpc": 4.19,
+          "ctr_pct": 8.88
+        },
+        {
+          "keyword": "inova careers",
+          "spend": 4610.73,
+          "clicks": 2006,
+          "cpc": 2.3,
+          "ctr_pct": 24.68
+        },
+        {
+          "keyword": "make money from home",
+          "spend": 3259.91,
+          "clicks": 1712,
+          "cpc": 1.9,
+          "ctr_pct": 12.46
+        },
+        {
+          "keyword": "make money from home",
+          "spend": 3111.8,
+          "clicks": 2227,
+          "cpc": 1.4,
+          "ctr_pct": 12.17
+        },
+        {
+          "keyword": "remote jobs",
+          "spend": 2703.18,
+          "clicks": 2299,
+          "cpc": 1.18,
+          "ctr_pct": 8.62
+        },
+        {
+          "keyword": "remote jobs",
+          "spend": 2630.73,
+          "clicks": 1486,
+          "cpc": 1.77,
+          "ctr_pct": 8.86
+        }
+      ]
+    },
+    "software_tech": {
+      "category_name": "Software & Tech",
+      "total_keywords": 124,
+      "total_spend": 78381.07,
+      "total_impressions": 508338,
+      "total_clicks": 75243,
+      "blended_cpc": 1.04,
+      "blended_ctr": 14.8,
+      "cpc_stats": {
+        "mean": 2.75,
+        "median": 2.05,
+        "p25": 1.1,
+        "p75": 4.02,
+        "min": 0.02,
+        "max": 12.64
+      },
+      "ctr_stats": {
+        "mean": 9.03,
+        "median": 6.05
+      },
+      "top_performing_keywords": [
+        {
+          "keyword": "AI Jobs",
+          "spend": 17715.5,
+          "clicks": 16743,
+          "cpc": 1.06,
+          "ctr_pct": 24.72
+        },
+        {
+          "keyword": "ai jobs",
+          "spend": 16491.83,
+          "clicks": 17185,
+          "cpc": 0.96,
+          "ctr_pct": 28.49
+        },
+        {
+          "keyword": "outlier ai jobs",
+          "spend": 7517.11,
+          "clicks": 8602,
+          "cpc": 0.87,
+          "ctr_pct": 29.21
+        },
+        {
+          "keyword": "ai training jobs",
+          "spend": 4174.24,
+          "clicks": 4216,
+          "cpc": 0.99,
+          "ctr_pct": 27.94
+        },
+        {
+          "keyword": "ai jobs",
+          "spend": 2641.68,
+          "clicks": 432,
+          "cpc": 6.12,
+          "ctr_pct": 3.86
+        },
+        {
+          "keyword": "ai jobs",
+          "spend": 2155.74,
+          "clicks": 264,
+          "cpc": 8.17,
+          "ctr_pct": 6.13
+        },
+        {
+          "keyword": "ai jobs",
+          "spend": 1607.07,
+          "clicks": 355,
+          "cpc": 4.53,
+          "ctr_pct": 12.59
+        },
+        {
+          "keyword": "outlier ai jobs",
+          "spend": 1400.61,
+          "clicks": 897,
+          "cpc": 1.56,
+          "ctr_pct": 19.2
+        },
+        {
+          "keyword": "outlier ai training",
+          "spend": 1171.26,
+          "clicks": 575,
+          "cpc": 2.04,
+          "ctr_pct": 13.16
+        },
+        {
+          "keyword": "machine learning",
+          "spend": 952.28,
+          "clicks": 436,
+          "cpc": 2.18,
+          "ctr_pct": 9.19
+        }
+      ]
+    },
+    "logistics_supply_chain": {
+      "category_name": "Logistics & Supply Chain",
+      "total_keywords": 108,
+      "total_spend": 30656.92,
+      "total_impressions": 581018,
+      "total_clicks": 52716,
+      "blended_cpc": 0.58,
+      "blended_ctr": 9.07,
+      "cpc_stats": {
+        "mean": 1.11,
+        "median": 0.62,
+        "p25": 0.39,
+        "p75": 1.32,
+        "min": 0.16,
+        "max": 5.05
+      },
+      "ctr_stats": {
+        "mean": 11.96,
+        "median": 10.32
+      },
+      "top_performing_keywords": [
+        {
+          "keyword": "lagerhelfer stellenanzeigen",
+          "spend": 1591.76,
+          "clicks": 470,
+          "cpc": 3.39,
+          "ctr_pct": 15.95
+        },
+        {
+          "keyword": "driver jobs Dubai",
+          "spend": 1181.33,
+          "clicks": 1029,
+          "cpc": 1.15,
+          "ctr_pct": 18.86
+        },
+        {
+          "keyword": "driver jobs",
+          "spend": 1136.86,
+          "clicks": 298,
+          "cpc": 3.81,
+          "ctr_pct": 19.08
+        },
+        {
+          "keyword": "entregador autônomo",
+          "spend": 909.21,
+          "clicks": 1474,
+          "cpc": 0.62,
+          "ctr_pct": 8.38
+        },
+        {
+          "keyword": "versand jobs hannover",
+          "spend": 774.41,
+          "clicks": 565,
+          "cpc": 1.37,
+          "ctr_pct": 9.8
+        },
+        {
+          "keyword": "trabalho de motorista",
+          "spend": 663.0,
+          "clicks": 1740,
+          "cpc": 0.38,
+          "ctr_pct": 10.63
+        },
+        {
+          "keyword": "lagerhelfer jobs",
+          "spend": 609.01,
+          "clicks": 168,
+          "cpc": 3.63,
+          "ctr_pct": 18.46
+        },
+        {
+          "keyword": "entregador autônomo",
+          "spend": 602.3,
+          "clicks": 1806,
+          "cpc": 0.33,
+          "ctr_pct": 8.6
+        },
+        {
+          "keyword": "entregador autônomo",
+          "spend": 593.06,
+          "clicks": 995,
+          "cpc": 0.6,
+          "ctr_pct": 8.39
+        },
+        {
+          "keyword": "trabalho de motorista",
+          "spend": 579.91,
+          "clicks": 2902,
+          "cpc": 0.2,
+          "ctr_pct": 10.43
+        }
+      ]
+    },
+    "corporate_professional": {
+      "category_name": "Corporate Professional",
+      "total_keywords": 41,
+      "total_spend": 4290.44,
+      "total_impressions": 39944,
+      "total_clicks": 4080,
+      "blended_cpc": 1.05,
+      "blended_ctr": 10.21,
+      "cpc_stats": {
+        "mean": 1.86,
+        "median": 1.57,
+        "p25": 0.86,
+        "p75": 2.09,
+        "min": 0.02,
+        "max": 10.97
+      },
+      "ctr_stats": {
+        "mean": 9.02,
+        "median": 6.9
+      },
+      "top_performing_keywords": [
+        {
+          "keyword": "online finance jobs from home",
+          "spend": 881.52,
+          "clicks": 603,
+          "cpc": 1.46,
+          "ctr_pct": 10.8
+        },
+        {
+          "keyword": "wells fargo careers",
+          "spend": 635.23,
+          "clicks": 956,
+          "cpc": 0.66,
+          "ctr_pct": 21.53
+        },
+        {
+          "keyword": "wells fargo employment",
+          "spend": 564.22,
+          "clicks": 618,
+          "cpc": 0.91,
+          "ctr_pct": 9.55
+        },
+        {
+          "keyword": "blogging jobs",
+          "spend": 428.99,
+          "clicks": 807,
+          "cpc": 0.53,
+          "ctr_pct": 14.1
+        },
+        {
+          "keyword": "online finance jobs",
+          "spend": 300.72,
+          "clicks": 164,
+          "cpc": 1.83,
+          "ctr_pct": 8.82
+        },
+        {
+          "keyword": "personal banker jobs near me",
+          "spend": 286.64,
+          "clicks": 193,
+          "cpc": 1.49,
+          "ctr_pct": 7.65
+        },
+        {
+          "keyword": "งาน เขียน พาร์ทไทม์",
+          "spend": 268.36,
+          "clicks": 240,
+          "cpc": 1.12,
+          "ctr_pct": 6.01
+        },
+        {
+          "keyword": "remote program manager jobs",
+          "spend": 243.84,
+          "clicks": 29,
+          "cpc": 8.41,
+          "ctr_pct": 5.48
+        },
+        {
+          "keyword": "voice over work from home",
+          "spend": 241.31,
+          "clicks": 22,
+          "cpc": 10.97,
+          "ctr_pct": 7.72
+        },
+        {
+          "keyword": "freelance writing earn money",
+          "spend": 100.02,
+          "clicks": 75,
+          "cpc": 1.33,
+          "ctr_pct": 5.27
+        }
+      ]
+    },
+    "administrative_clerical": {
+      "category_name": "Administrative & Clerical",
+      "total_keywords": 5,
+      "total_spend": 1065.5,
+      "total_impressions": 8278,
+      "total_clicks": 513,
+      "blended_cpc": 2.08,
+      "blended_ctr": 6.2,
+      "cpc_stats": {
+        "mean": 2.32,
+        "median": 2.37,
+        "p25": 1.82,
+        "p75": 2.39,
+        "min": 1.36,
+        "max": 3.66
+      },
+      "ctr_stats": {
+        "mean": 6.83,
+        "median": 5.86
+      },
+      "top_performing_keywords": [
+        {
+          "keyword": "Medical Records Technician job",
+          "spend": 545.09,
+          "clicks": 228,
+          "cpc": 2.39,
+          "ctr_pct": 5.86
+        },
+        {
+          "keyword": "Medical Records Technician job",
+          "spend": 463.38,
+          "clicks": 254,
+          "cpc": 1.82,
+          "ctr_pct": 6.25
+        }
+      ]
+    },
+    "education_public_service": {
+      "category_name": "Education & Public Service",
+      "total_keywords": 5,
+      "total_spend": 585.95,
+      "total_impressions": 2881,
+      "total_clicks": 273,
+      "blended_cpc": 2.15,
+      "blended_ctr": 9.48,
+      "cpc_stats": {
+        "mean": 3.4,
+        "median": 2.14,
+        "p25": 1.6,
+        "p75": 2.35,
+        "min": 0.63,
+        "max": 10.26
+      },
+      "ctr_stats": {
+        "mean": 31.37,
+        "median": 11.11
+      },
+      "top_performing_keywords": [
+        {
+          "keyword": "donation coordinator jobs",
+          "spend": 393.62,
+          "clicks": 184,
+          "cpc": 2.14,
+          "ctr_pct": 7.51
+        },
+        {
+          "keyword": "cne nursing",
+          "spend": 116.95,
+          "clicks": 73,
+          "cpc": 1.6,
+          "ctr_pct": 34.27
+        },
+        {
+          "keyword": "Social worker jobs",
+          "spend": 51.29,
+          "clicks": 5,
+          "cpc": 10.26,
+          "ctr_pct": 3.94
+        }
+      ]
+    },
+    "retail_hospitality": {
+      "category_name": "Retail & Hospitality",
+      "total_keywords": 16,
+      "total_spend": 512.53,
+      "total_impressions": 10516,
+      "total_clicks": 529,
+      "blended_cpc": 0.97,
+      "blended_ctr": 5.03,
+      "cpc_stats": {
+        "mean": 1.57,
+        "median": 1.31,
+        "p25": 1.16,
+        "p75": 1.81,
+        "min": 0.58,
+        "max": 4.26
+      },
+      "ctr_stats": {
+        "mean": 14.46,
+        "median": 9.35
+      },
+      "top_performing_keywords": [
+        {
+          "keyword": "store jobs",
+          "spend": 411.36,
+          "clicks": 448,
+          "cpc": 0.92,
+          "ctr_pct": 4.59
+        }
+      ]
+    }
+  },
+  "blended_cpc": 1.14
+}

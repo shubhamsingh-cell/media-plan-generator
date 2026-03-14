@@ -832,6 +832,61 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                     high_cph = synth_cph * 1.2
                     result["cph"] = f"${low_cph:,.0f} - ${high_cph:,.0f}"
 
+    # Layer 2.5: Appcast 2026 KB Benchmark Overlay (Priority 3)
+    # Cross-reference/override CPA, CPH, apply_rate with Appcast occupation-level
+    # data if the current values are still from hardcoded fallback.
+    if result.get("confidence") == "curated":
+        try:
+            _PPT_APPCAST_MAP = {
+                "healthcare": "healthcare", "healthcare_medical": "healthcare",
+                "technology": "technology", "tech_engineering": "technology",
+                "retail": "retail", "retail_consumer": "retail",
+                "finance": "finance", "finance_banking": "finance",
+                "insurance": "insurance",
+                "logistics": "warehousing_logistics", "logistics_supply_chain": "warehousing_logistics",
+                "transportation": "transportation",
+                "hospitality": "hospitality", "hospitality_travel": "hospitality",
+                "food_beverage": "food_service",
+                "blue_collar_trades": "construction_skilled_trades",
+                "construction": "construction_skilled_trades", "construction_real_estate": "construction_skilled_trades",
+                "pharma_biotech": "science_engineering", "energy_utilities": "science_engineering",
+                "general": "administration", "general_entry_level": "administration",
+                "government_utilities": "administration",
+                "manufacturing": "manufacturing",
+                "education": "education",
+                "legal_services": "legal",
+                "marketing": "marketing_advertising", "media_entertainment": "marketing_advertising",
+                "professional_services": "consulting",
+            }
+            _app_key = _PPT_APPCAST_MAP.get(industry, "")
+            if _app_key and data:
+                _kb = data.get("_knowledge_base", {})
+                if not _kb:
+                    try:
+                        from app import load_knowledge_base
+                        _kb = load_knowledge_base()
+                    except Exception:
+                        _kb = {}
+                _wp = _kb.get("white_papers", {})
+                _appcast_bm = _wp.get("reports", {}).get("appcast_benchmark_2026", {}).get("benchmarks", {})
+                if _appcast_bm:
+                    _occ_cpa = _appcast_bm.get("cpa_by_occupation_2025", {}).get(_app_key)
+                    _occ_cph = _appcast_bm.get("cph_by_occupation_2025", {}).get(_app_key)
+                    _occ_ar = _appcast_bm.get("apply_rate_by_occupation_2025", {}).get(_app_key)
+                    if _occ_cpa:
+                        result["cpa"] = _occ_cpa
+                        result["cpa_source"] = "Appcast 2026 (302M clicks)"
+                    if _occ_cph:
+                        result["cph"] = _occ_cph
+                        result["cph_source"] = "Appcast 2026 (302M clicks)"
+                    if _occ_ar:
+                        result["apply_rate"] = _occ_ar
+                        result["apply_rate_source"] = "Appcast 2026 (302M clicks)"
+                    if any([_occ_cpa, _occ_cph, _occ_ar]):
+                        result["confidence"] = "appcast_kb"
+        except Exception:
+            pass  # Non-fatal; fall through to curated values
+
     return result
 
 

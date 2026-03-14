@@ -5,6 +5,21 @@ Takes raw enrichment data from api_enrichment.py and the recruitment knowledge
 base, cross-references and validates data points, and produces synthesized
 analysis with confidence scores.
 
+DATA PRIORITY SYSTEM (see data_orchestrator.py for full documentation):
+    Priority 1: Client-provided data (uploaded briefs/historical data)
+    Priority 2: Live API data (real-time market signals from 25 APIs)
+    Priority 3: KB benchmark data (Appcast 2026, Google Ads 2025, recruitment_benchmarks_deep)
+    Priority 4: Embedded research.py fallback data
+
+KB data sources consumed by synthesis functions:
+    - google_ads_benchmarks:  kb["google_ads_benchmarks"] -> 8 categories, CPC/CTR stats
+    - Appcast 2026 report:    kb["white_papers"]["reports"]["appcast_benchmark_2026"]["benchmarks"]
+                              -> CPA/CPH/apply_rate by 24 occupations, full funnel, international
+    - recruitment_benchmarks: kb["recruitment_benchmarks"]["industry_benchmarks"] -> 22 industries
+    - platform_intelligence:  kb["platform_intelligence"]["platforms"] -> 91 platforms
+    - workforce_trends:       kb["workforce_trends"] -> Gen-Z, remote work, DEI
+    - white_papers:           kb["white_papers"]["reports"] -> 74 industry reports
+
 The enriched dict (from ``api_enrichment.enrich_data``) may contain these keys:
     salary_data, bls_data, onet_data, industry_employment, sec_data,
     adzuna_data, google_trends_data, location_demographics, geonames_data,
@@ -477,6 +492,152 @@ def _kb_funnel_benchmarks(kb: dict) -> dict:
     """Get funnel conversion rate benchmarks across industries."""
     rb = kb.get("recruitment_benchmarks", {})
     return rb.get("funnel_conversion_rates", {})
+
+
+def _kb_google_ads_benchmarks(kb: dict, category: str = "") -> dict:
+    """Get Google Ads 2025 campaign performance data from Joveo's first-party data.
+
+    Data priority: Priority 3 (KB benchmark data).
+    Source: data/google_ads_2025_benchmarks.json -- 6,338 keywords, $454K spend,
+    8 job categories with CPC/CTR stats and top-performing keywords.
+
+    Args:
+        kb: Knowledge base dict from load_knowledge_base().
+        category: Optional category key (e.g. 'skilled_healthcare', 'general_recruitment',
+                  'software_tech', 'logistics_supply_chain', etc.). If empty, returns all categories.
+
+    Returns:
+        Category dict with blended_cpc, blended_ctr, cpc_stats, top_performing_keywords,
+        or full categories dict if no category specified.
+    """
+    gab = kb.get("google_ads_benchmarks", {})
+    categories = gab.get("categories", {})
+    if category:
+        return categories.get(category, categories.get(category.lower(), {}))
+    return categories
+
+
+def _kb_appcast_2026_benchmarks(kb: dict) -> dict:
+    """Extract structured Appcast 2026 benchmark data from white papers KB.
+
+    Data priority: Priority 3 (KB benchmark data).
+    Source: industry_white_papers.json -> reports -> appcast_benchmark_2026 -> benchmarks.
+    Contains 200+ data points from 10th annual report:
+      - cpa_by_occupation_2025 (24 occupations)
+      - cph_by_occupation_2025 (24 occupations)
+      - apply_rate_by_occupation_2025 (24 occupations)
+      - cost_per_screen/interview/offer_by_occupation_2025
+      - search_cpc_by_occupation_2025
+      - social_cpc_by_occupation_2025
+      - international_cpa_2025 (18 countries)
+      - job_ad_insights_2025
+      - full funnel median costs (CPC -> CPA -> Screen -> Interview -> Offer -> Hire)
+
+    Returns:
+        The benchmarks dict from the Appcast 2026 report, or empty dict.
+    """
+    wp = kb.get("white_papers", {})
+    reports = wp.get("reports", {})
+    appcast_2026 = reports.get("appcast_benchmark_2026", {})
+    return appcast_2026.get("benchmarks", {})
+
+
+def _kb_appcast_occupation_cpa(kb: dict, occupation: str = "") -> Optional[str]:
+    """Get Appcast 2026 CPA for a specific occupation.
+
+    Args:
+        kb: Knowledge base dict.
+        occupation: Occupation key (e.g. 'healthcare', 'technology', 'retail').
+
+    Returns:
+        CPA string (e.g. '$35.00') or None if not found.
+    """
+    benchmarks = _kb_appcast_2026_benchmarks(kb)
+    cpa_data = benchmarks.get("cpa_by_occupation_2025", {})
+    if occupation:
+        return cpa_data.get(occupation, cpa_data.get(occupation.lower(), None))
+    return None
+
+
+def _kb_appcast_occupation_cph(kb: dict, occupation: str = "") -> Optional[str]:
+    """Get Appcast 2026 CPH for a specific occupation.
+
+    Returns:
+        CPH string (e.g. '$2,795') or None if not found.
+    """
+    benchmarks = _kb_appcast_2026_benchmarks(kb)
+    cph_data = benchmarks.get("cph_by_occupation_2025", {})
+    if occupation:
+        return cph_data.get(occupation, cph_data.get(occupation.lower(), None))
+    return None
+
+
+# ── Mapping from standardized industry keys to Appcast occupation keys ──
+_INDUSTRY_TO_APPCAST_OCCUPATION: Dict[str, str] = {
+    "healthcare": "healthcare",
+    "healthcare_medical": "healthcare",
+    "technology": "technology",
+    "tech_engineering": "technology",
+    "retail": "retail",
+    "retail_consumer": "retail",
+    "finance": "finance",
+    "finance_banking": "finance",
+    "insurance": "insurance",
+    "construction": "construction_skilled_trades",
+    "construction_real_estate": "construction_skilled_trades",
+    "blue_collar_trades": "construction_skilled_trades",
+    "logistics": "warehousing_logistics",
+    "logistics_supply_chain": "warehousing_logistics",
+    "transportation": "transportation",
+    "manufacturing": "manufacturing",
+    "hospitality": "hospitality",
+    "hospitality_travel": "hospitality",
+    "food_beverage": "food_service",
+    "education": "education",
+    "legal_services": "legal",
+    "marketing": "marketing_advertising",
+    "media_entertainment": "marketing_advertising",
+    "general": "administration",
+    "general_entry_level": "administration",
+    "pharma_biotech": "science_engineering",
+    "energy_utilities": "science_engineering",
+    "professional_services": "consulting",
+    "government_utilities": "administration",
+}
+
+
+# ── Mapping from Google Ads benchmark categories to industry keys ──
+_INDUSTRY_TO_GOOGLE_ADS_CATEGORY: Dict[str, str] = {
+    "healthcare": "skilled_healthcare",
+    "healthcare_medical": "skilled_healthcare",
+    "pharma_biotech": "skilled_healthcare",
+    "technology": "software_tech",
+    "tech_engineering": "software_tech",
+    "retail": "retail_hospitality",
+    "retail_consumer": "retail_hospitality",
+    "hospitality": "retail_hospitality",
+    "hospitality_travel": "retail_hospitality",
+    "food_beverage": "retail_hospitality",
+    "logistics": "logistics_supply_chain",
+    "logistics_supply_chain": "logistics_supply_chain",
+    "transportation": "logistics_supply_chain",
+    "blue_collar_trades": "logistics_supply_chain",
+    "manufacturing": "logistics_supply_chain",
+    "construction": "logistics_supply_chain",
+    "construction_real_estate": "logistics_supply_chain",
+    "finance": "corporate_professional",
+    "finance_banking": "corporate_professional",
+    "insurance": "corporate_professional",
+    "professional_services": "corporate_professional",
+    "legal_services": "corporate_professional",
+    "marketing": "corporate_professional",
+    "media_entertainment": "corporate_professional",
+    "general": "general_recruitment",
+    "general_entry_level": "general_recruitment",
+    "education": "education_public_service",
+    "government_utilities": "education_public_service",
+    "energy_utilities": "education_public_service",
+}
 
 
 
@@ -1512,6 +1673,64 @@ def fuse_ad_platform_analysis(
         budget=budget,
     )
 
+    # --- Enrich Google Ads entry with Joveo first-party benchmark data ---
+    # Data priority: Priority 3 (KB benchmark data) -- used to cross-validate
+    # live API results or fill gaps when API data is unavailable.
+    gads_category = _INDUSTRY_TO_GOOGLE_ADS_CATEGORY.get(industry, "")
+    gads_kb = _kb_google_ads_benchmarks(kb, gads_category) if gads_category else {}
+    if gads_kb and isinstance(result.get("google"), dict):
+        google_entry = result["google"]
+        google_entry["joveo_google_ads_benchmarks"] = {
+            "category": gads_kb.get("category_name", gads_category),
+            "blended_cpc": gads_kb.get("blended_cpc"),
+            "blended_ctr": gads_kb.get("blended_ctr"),
+            "cpc_stats": gads_kb.get("cpc_stats", {}),
+            "ctr_stats": gads_kb.get("ctr_stats", {}),
+            "total_keywords_analyzed": gads_kb.get("total_keywords"),
+            "total_spend_analyzed": gads_kb.get("total_spend"),
+            "source": "Joveo Google Ads 2025 Campaign Data (first-party)",
+            "data_priority": 3,
+        }
+        # Add top keywords for ad copy recommendations
+        top_kw = gads_kb.get("top_performing_keywords", [])
+        if top_kw:
+            google_entry["joveo_top_keywords"] = [
+                {
+                    "keyword": kw.get("keyword"),
+                    "cpc": kw.get("cpc"),
+                    "ctr_pct": kw.get("ctr_pct"),
+                }
+                for kw in top_kw[:5]
+            ]
+        # Cross-validate: if live API CPC exists, compare to KB benchmark
+        live_cpc = google_entry.get("avg_cpc", 0)
+        kb_blended_cpc = gads_kb.get("blended_cpc", 0)
+        if isinstance(live_cpc, (int, float)) and live_cpc > 0 and kb_blended_cpc:
+            deviation = abs(live_cpc - kb_blended_cpc) / kb_blended_cpc
+            google_entry["cpc_kb_cross_validation"] = {
+                "live_cpc": live_cpc,
+                "kb_benchmark_cpc": kb_blended_cpc,
+                "deviation_pct": round(deviation * 100, 1),
+                "within_tolerance": deviation <= 0.50,
+                "note": "Live CPC within expected range" if deviation <= 0.50
+                        else "Live CPC deviates significantly from Joveo 2025 benchmarks",
+            }
+
+    # --- Enrich with Appcast 2026 search/social CPC data ---
+    # Data priority: Priority 3 (KB benchmark data from Appcast 2026 report)
+    appcast_bm = _kb_appcast_2026_benchmarks(kb)
+    appcast_occupation = _INDUSTRY_TO_APPCAST_OCCUPATION.get(industry, "")
+    if appcast_bm and appcast_occupation:
+        search_cpc_data = appcast_bm.get("search_cpc_by_occupation_2025", {})
+        social_cpc_data = appcast_bm.get("social_cpc_by_occupation_2025", {})
+        search_cpc = search_cpc_data.get(appcast_occupation)
+        social_cpc = social_cpc_data.get(appcast_occupation)
+        if search_cpc or social_cpc:
+            if isinstance(result.get("google"), dict):
+                result["google"]["appcast_search_cpc_benchmark"] = search_cpc
+            if isinstance(result.get("meta"), dict):
+                result["meta"]["appcast_social_cpc_benchmark"] = social_cpc
+
     # --- Meta (Facebook + Instagram) ---
     result["meta"] = _build_meta_platform_entry(
         enriched_data=meta_ads,
@@ -2202,6 +2421,86 @@ def fuse_workforce_insights(enriched: dict, kb: dict, industry: str) -> dict:
                         "top_findings": findings[:3] if isinstance(findings, list) else [],
                     })
         result["relevant_research"] = relevant_reports[:10]  # Top 10 relevant reports
+
+    # ── Appcast 2026 Benchmark Report: structured occupation-level data ──
+    # Data priority: Priority 3 (KB benchmark data)
+    # These are the richest industry benchmarks available (302M clicks, 27.4M applies)
+    appcast_bm = _kb_appcast_2026_benchmarks(kb)
+    if appcast_bm:
+        appcast_occupation = _INDUSTRY_TO_APPCAST_OCCUPATION.get(industry, "")
+        occupation_benchmarks = {}
+
+        # Extract industry-specific Appcast metrics
+        cpa_data = appcast_bm.get("cpa_by_occupation_2025", {})
+        cph_data = appcast_bm.get("cph_by_occupation_2025", {})
+        apply_rate_data = appcast_bm.get("apply_rate_by_occupation_2025", {})
+        cost_per_screen = appcast_bm.get("cost_per_screen_by_occupation_2025", {})
+        cost_per_interview = appcast_bm.get("cost_per_interview_by_occupation_2025", {})
+        cost_per_offer = appcast_bm.get("cost_per_offer_by_occupation_2025", {})
+
+        if appcast_occupation:
+            occupation_benchmarks["occupation_key"] = appcast_occupation
+            if cpa_data.get(appcast_occupation):
+                occupation_benchmarks["cpa"] = cpa_data[appcast_occupation]
+            if cph_data.get(appcast_occupation):
+                occupation_benchmarks["cph"] = cph_data[appcast_occupation]
+            if apply_rate_data.get(appcast_occupation):
+                occupation_benchmarks["apply_rate"] = apply_rate_data[appcast_occupation]
+            if cost_per_screen.get(appcast_occupation):
+                occupation_benchmarks["cost_per_screen"] = cost_per_screen[appcast_occupation]
+            if cost_per_interview.get(appcast_occupation):
+                occupation_benchmarks["cost_per_interview"] = cost_per_interview[appcast_occupation]
+            if cost_per_offer.get(appcast_occupation):
+                occupation_benchmarks["cost_per_offer"] = cost_per_offer[appcast_occupation]
+
+        # Full funnel median costs (industry-wide)
+        full_funnel = {}
+        for funnel_key in ("overall_median_cpc", "overall_median_cpa",
+                           "overall_median_cps", "overall_median_cpi",
+                           "overall_median_cpo", "overall_median_cph"):
+            val = appcast_bm.get(funnel_key)
+            if val:
+                full_funnel[funnel_key] = val
+
+        # International CPA data
+        intl_cpa = appcast_bm.get("international_cpa_2025", {})
+
+        # Job ad optimization insights
+        job_ad_insights = appcast_bm.get("job_ad_insights_2025", {})
+
+        result["appcast_2026_benchmarks"] = {
+            "source": "Appcast 10th Annual Recruitment Marketing Benchmark Report (2026)",
+            "data_year": 2025,
+            "data_analyzed": appcast_bm.get("data_analyzed", "302M clicks, 27.4M applies"),
+            "data_priority": 3,
+            "occupation_benchmarks": occupation_benchmarks,
+            "full_funnel_costs": full_funnel,
+            "international_cpa": intl_cpa,
+            "job_ad_insights": job_ad_insights,
+            "overall_apply_rate": appcast_bm.get("overall_apply_rate"),
+            "mobile_click_share": appcast_bm.get("mobile_click_share"),
+            "mobile_apply_share": appcast_bm.get("mobile_apply_share"),
+        }
+
+    # ── Google Ads 2025 Benchmark Data (Joveo first-party) ──
+    # Data priority: Priority 3 (KB benchmark data)
+    gads_category = _INDUSTRY_TO_GOOGLE_ADS_CATEGORY.get(industry, "")
+    gads_kb = _kb_google_ads_benchmarks(kb, gads_category) if gads_category else {}
+    if gads_kb:
+        result["google_ads_2025_benchmarks"] = {
+            "source": "Joveo Google Ads 2025 Campaign Data (first-party)",
+            "data_priority": 3,
+            "category": gads_kb.get("category_name", gads_category),
+            "blended_cpc": gads_kb.get("blended_cpc"),
+            "blended_ctr": gads_kb.get("blended_ctr"),
+            "cpc_stats": gads_kb.get("cpc_stats", {}),
+            "total_keywords": gads_kb.get("total_keywords"),
+            "total_spend": gads_kb.get("total_spend"),
+            "top_keywords": [
+                {"keyword": kw.get("keyword"), "cpc": kw.get("cpc"), "ctr_pct": kw.get("ctr_pct")}
+                for kw in (gads_kb.get("top_performing_keywords", []) or [])[:5]
+            ],
+        }
 
     # Supply partner trends
     sp_trends = kb.get("workforce_trends", {}).get("supply_partner_trends", {})

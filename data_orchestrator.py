@@ -11,6 +11,41 @@ available data sources in order of cost and speed:
     5. data_synthesizer.py fusion   (cross-validates multi-source data)
     6. Static KB fallback           (JSON files, always available)
 
+DATA PRIORITY SYSTEM (highest to lowest):
+    Priority 1: Client-provided data
+        - Uploaded briefs, historical performance data, client budgets
+        - Always overrides other sources when available
+        - Source: user input / uploaded files
+    Priority 2: Live API data (real-time market signals)
+        - BLS salary API, JOLTS, Google Ads API, Meta Marketing API,
+          LinkedIn API, Adzuna, Jooble, etc.
+        - Cached 24h; confidence 0.85-1.0
+        - Source: api_enrichment.py -> 25 API integrations
+    Priority 3: KB benchmark data (curated industry intelligence)
+        - Appcast 2026 Benchmark Report (302M clicks, 27.4M applies, 24 occupations)
+          -> CPA/CPH/apply_rate by occupation, full funnel costs, international CPA
+          -> Source: data/industry_white_papers.json -> appcast_benchmark_2026
+        - Google Ads 2025 Benchmarks (Joveo first-party, 6,338 keywords, $454K spend)
+          -> CPC/CTR stats by 8 categories, top-performing keywords
+          -> Source: data/google_ads_2025_benchmarks.json
+        - Recruitment Benchmarks Deep (22 industries, CPA/CPC/CPH/time-to-fill)
+          -> Source: data/recruitment_benchmarks_deep.json
+        - Joveo 2026 Benchmarks (proprietary Joveo data)
+          -> Source: data/joveo_2026_benchmarks.json
+        - Platform Intelligence (91 platforms deep dive)
+          -> Source: data/platform_intelligence_deep.json
+        - Industry White Papers (74 reports from 74 publishers)
+          -> Source: data/industry_white_papers.json
+        - Confidence 0.65-0.80
+    Priority 4: Embedded research.py fallback data
+        - Hardcoded salary ranges, location data, platform audiences
+        - Always available, never fails
+        - Confidence 0.30-0.50
+
+    When sources conflict, higher-priority data wins. Multiple sources at
+    the same priority level are cross-validated (weighted median) via
+    data_synthesizer.py.
+
 v3 upgrades (AI Intelligence Engine):
     - Structured confidence (replaces scalar float with rich metadata:
       credible_interval, sources, freshness, collar_relevance, trend_direction)
@@ -24,6 +59,7 @@ v3 upgrades (AI Intelligence Engine):
         enrich_hiring_trends()       -- JOLTS + FRED + trend data fusion
     - Collar-aware API routing (prioritizes different sources by collar type)
     - data_synthesizer wired into chat pipeline (was batch-only in v2)
+    - KB benchmark enrichment layer (Google Ads 2025 + Appcast 2026)
 
     v2 features retained:
     - Additive cascade, confidence scoring, data freshness metadata
@@ -38,7 +74,7 @@ Thread-safe, lazy-loading, cached.  Never crashes -- all errors are caught
 and the caller always receives a usable dict.
 
 Consumers:
-    - nova.py       (chatbot tool handlers -- 21+ tools)
+    - nova.py       (chatbot tool handlers -- 22+ tools)
     - nova_slack.py (Slack bot)
     - ppt_generator.py
     - app.py        (generation pipeline -- also has its own richer bulk flow)
@@ -1973,6 +2009,82 @@ def enrich_ad_benchmarks(
                 sources_used.append("Research Intelligence (audiences)")
         except Exception:
             pass
+
+    # ── KB Benchmark Enrichment Layer (Priority 3) ──
+    # Cross-reference with Google Ads first-party data and Appcast benchmarks
+    # from the knowledge base. These provide additional validation/fallback
+    # data points beyond trend_engine and static benchmarks.
+    try:
+        # Lazy import to avoid circular dependency
+        from app import load_knowledge_base as _load_kb
+        _kb = _load_kb()
+        if _kb:
+            # Google Ads 2025 first-party benchmark data
+            _gads_bm = _kb.get("google_ads_benchmarks", {})
+            _gads_categories = _gads_bm.get("categories", {}) if isinstance(_gads_bm, dict) else {}
+            # Map industry to Google Ads category
+            _ORCH_GADS_MAP = {
+                "healthcare_medical": "skilled_healthcare", "healthcare": "skilled_healthcare",
+                "pharma_biotech": "skilled_healthcare",
+                "tech_engineering": "software_tech", "technology": "software_tech",
+                "logistics_supply_chain": "logistics_supply_chain", "logistics": "logistics_supply_chain",
+                "transportation": "logistics_supply_chain", "manufacturing": "logistics_supply_chain",
+                "blue_collar_trades": "logistics_supply_chain", "construction": "logistics_supply_chain",
+                "general_entry_level": "general_recruitment", "general": "general_recruitment",
+                "retail_consumer": "retail_hospitality", "retail": "retail_hospitality",
+                "hospitality": "retail_hospitality", "hospitality_travel": "retail_hospitality",
+                "food_beverage": "retail_hospitality",
+                "finance": "corporate_professional", "finance_banking": "corporate_professional",
+                "insurance": "corporate_professional", "professional_services": "corporate_professional",
+                "education": "education_public_service", "government_utilities": "education_public_service",
+            }
+            _gads_cat_key = _ORCH_GADS_MAP.get(norm_industry, "")
+            _gads_cat = _gads_categories.get(_gads_cat_key, {})
+            if _gads_cat:
+                result["google_ads_kb_benchmarks"] = {
+                    "category": _gads_cat.get("category_name", _gads_cat_key),
+                    "blended_cpc": _gads_cat.get("blended_cpc"),
+                    "blended_ctr": _gads_cat.get("blended_ctr"),
+                    "cpc_median": _gads_cat.get("cpc_stats", {}).get("median"),
+                    "source": "Joveo Google Ads 2025 (first-party, Priority 3)",
+                }
+                confidence = min(1.0, confidence + 0.03)
+                sources_used.append("Joveo Google Ads 2025 KB")
+
+            # Appcast 2026 search/social CPC benchmarks
+            _wp = _kb.get("white_papers", {})
+            _appcast = _wp.get("reports", {}).get("appcast_benchmark_2026", {}).get("benchmarks", {})
+            _APP_OCC_MAP = {
+                "healthcare_medical": "healthcare", "healthcare": "healthcare",
+                "tech_engineering": "technology", "technology": "technology",
+                "retail_consumer": "retail", "retail": "retail",
+                "finance_banking": "finance", "finance": "finance",
+                "logistics_supply_chain": "warehousing_logistics",
+                "hospitality_travel": "hospitality", "hospitality": "hospitality",
+                "manufacturing": "manufacturing",
+                "construction": "construction_skilled_trades",
+            }
+            _app_occ = _APP_OCC_MAP.get(norm_industry, "")
+            if _app_occ and _appcast:
+                _search_cpc = _appcast.get("search_cpc_by_occupation_2025", {}).get(_app_occ)
+                _social_cpc = _appcast.get("social_cpc_by_occupation_2025", {}).get(_app_occ)
+                _occ_cpa = _appcast.get("cpa_by_occupation_2025", {}).get(_app_occ)
+                _occ_cph = _appcast.get("cph_by_occupation_2025", {}).get(_app_occ)
+                _occ_apply_rate = _appcast.get("apply_rate_by_occupation_2025", {}).get(_app_occ)
+                if any([_search_cpc, _social_cpc, _occ_cpa]):
+                    result["appcast_2026_benchmarks"] = {
+                        "occupation": _app_occ,
+                        "search_cpc": _search_cpc,
+                        "social_cpc": _social_cpc,
+                        "cpa": _occ_cpa,
+                        "cph": _occ_cph,
+                        "apply_rate": _occ_apply_rate,
+                        "source": "Appcast 2026 Report (302M clicks, Priority 3)",
+                    }
+                    confidence = min(1.0, confidence + 0.03)
+                    sources_used.append("Appcast 2026 Benchmarks KB")
+    except Exception as e:
+        logger.debug("enrich_ad_benchmarks: KB enrichment failed (non-fatal): %s", e)
 
     result["source"] = " + ".join(sources_used) if sources_used else "Fallback"
     result["confidence"] = round(confidence, 2)

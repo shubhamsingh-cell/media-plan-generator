@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>N.O.V.A. - Recruitment Intelligence System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
   @font-face{font-family:'JarvisFont';src:local('SF Mono'),local('Menlo'),local('Consolas');font-display:swap}
@@ -241,6 +244,14 @@
     .main-area{grid-template-rows:200px 1fr}
     .chat-input-area{padding:10px 12px}
     .chat-messages{padding:12px}
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{
+      animation-duration:0.01ms !important;
+      animation-iteration-count:1 !important;
+      transition-duration:0.01ms !important;
+    }
   }
 </style>
 </head>
