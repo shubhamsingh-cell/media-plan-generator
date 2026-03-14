@@ -8971,6 +8971,18 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Document not found"}).encode())
+        elif path in ("/nova", "/nova/"):
+            # ── Nova Jarvis UI ──
+            jarvis_html = os.path.join(BASE_DIR, "templates", "nova-jarvis.html")
+            if os.path.exists(jarvis_html):
+                with open(jarvis_html, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Nova page not found")
         elif path in ("/admin/nova", "/admin/nova/"):
             # ── Nova Admin Dashboard ──
             if not self._check_admin_auth():
@@ -10427,7 +10439,7 @@ if __name__ == "__main__":
 
     # ── Startup banner ──
     logger.info("=" * 60)
-    logger.info("AI Media Planner v2.2.0")
+    logger.info("AI Media Planner v3.5.0")
     logger.info("Port: %d | PID: %d | Threads: daemon", port, os.getpid())
     logger.info("Health: http://localhost:%d/health", port)
     logger.info("Readiness: http://localhost:%d/ready", port)
