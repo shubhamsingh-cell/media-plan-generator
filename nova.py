@@ -900,6 +900,8 @@ class Nova:
             "white_papers": "industry_white_papers.json",
             "joveo_2026_benchmarks": "joveo_2026_benchmarks.json",
             "google_ads_benchmarks": "google_ads_2025_benchmarks.json",
+            "external_benchmarks": "external_benchmarks_2025.json",
+            "client_media_plans": "client_media_plans_kb.json",
         }
         for _cache_key, _rf_name in _research_files.items():
             _rf_path = os.path.join(str(DATA_DIR), _rf_name)
@@ -1074,6 +1076,8 @@ Always call tools before answering data questions.
 - `query_workforce_trends` -- Gen-Z, remote work, DEI trends
 - `query_white_papers` -- 74 industry reports (includes Appcast 2026 with 200+ occupation-level benchmarks)
 - `query_google_ads_benchmarks` -- Joveo first-party Google Ads 2025 data: 6,338 keywords, 8 categories, CPC/CTR stats
+- `query_external_benchmarks` -- 24 external reports (Recruitics, Appcast, SHRM, Gartner, etc.): cost-per-hire, time-to-fill, talent shortage, CPA trends, AI adoption, compensation data
+- `query_client_plans` -- 6 reference client media plans (RTX, BAE, Amazon, Rolls-Royce, Peraton): channel strategies, budgets, CPA benchmarks, 532 unique channels
 - `query_linkedin_guidewire` -- LinkedIn case study
 - `query_ad_platform` -- platform recs by role type
 - `query_hiring_insights` -- hiring difficulty, salary competitiveness
@@ -1328,6 +1332,32 @@ When presenting budget projections:
                 }
             },
             {
+                "name": "query_external_benchmarks",
+                "description": "External recruitment benchmarks from 24 industry reports (Recruitics, Appcast, Radancy, PandoLogic, iCIMS, LinkedIn, Glassdoor, SHRM, Gartner, Korn Ferry, ManpowerGroup, Robert Half, Gem, etc.). Contains aggregated benchmarks: cost-per-hire by industry, time-to-fill, CPA by channel, talent shortage data, applicants per opening, AI adoption rates, compensation trends, turnover rates. Use for competitor trend reports, market-wide benchmarks, hiring trend analysis, or when comparing across multiple analyst sources.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "report_key": {"type": "string", "description": "Specific report key (e.g., 'appcast_benchmark_2025', 'recruitics_talent_market_index_2025'). Leave empty for search."},
+                        "search_term": {"type": "string", "description": "Search across report titles, publishers, and findings (e.g., 'social CPC', 'talent shortage', 'apply rate')."},
+                        "benchmark_category": {"type": "string", "description": "Aggregated benchmark category: 'cost_per_hire', 'time_to_fill', 'cpa_by_channel', 'talent_shortage', 'applicants_per_opening', 'offer_metrics', 'recruiter_workload', 'ai_adoption', 'compensation', 'turnover', 'hiring_trends'. Leave empty for overview."}
+                    },
+                    "required": []
+                }
+            },
+            {
+                "name": "query_client_plans",
+                "description": "Reference client media plans from Joveo's portfolio: RTX (aerospace, NZ/Australia), BAE Systems (defense, Virginia), Amazon CS India (1,500 hires), Rolls-Royce Solutions America, RTX Poland, Peraton. Contains channel strategies, budget allocations, CPA/CPH benchmarks, hiring volumes, and aggregate patterns across 532 unique channels. Use when asked about 'how did we plan for similar clients', channel mix examples, budget allocation patterns, or real-world media plan references.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "plan_key": {"type": "string", "description": "Specific plan: 'rtx_us', 'bae_systems', 'amazon_cs_india', 'rolls_royce_solutions_america', 'rtx_poland', 'peraton'. Leave empty for search."},
+                        "industry": {"type": "string", "description": "Industry filter (e.g., 'aerospace', 'defense', 'technology')."},
+                        "aspect": {"type": "string", "description": "'channel_strategy', 'budget', 'benchmarks', 'key_insights', 'aggregate_patterns', or 'all'. Default: 'all'."}
+                    },
+                    "required": []
+                }
+            },
+            {
                 "name": "suggest_smart_defaults",
                 "description": "Auto-detect budget range, channel split, CPA/CPH from partial info (roles, locations). Use when user asks 'how much should I budget' or provides roles without budget.",
                 "input_schema": {
@@ -1511,6 +1541,8 @@ When presenting budget projections:
             "query_skills_gap": self._query_skills_gap,
             "query_geopolitical_risk": self._query_geopolitical_risk,
             "query_google_ads_benchmarks": self._query_google_ads_benchmarks,
+            "query_external_benchmarks": self._query_external_benchmarks,
+            "query_client_plans": self._query_client_plans,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -3005,6 +3037,27 @@ When presenting budget projections:
         if gads_enrichment:
             result["google_ads_2025_benchmarks"] = gads_enrichment
 
+        # Enrich with external benchmark aggregated data (Priority 3)
+        eb = self._data_cache.get("external_benchmarks", {})
+        eb_agg = eb.get("aggregated_benchmarks", {})
+        if eb_agg:
+            ext_enrichment = {}
+            # Cost per hire by industry
+            cph_by_ind = eb_agg.get("avg_cost_per_hire_by_industry", {}).get("by_industry", {})
+            if industry in cph_by_ind:
+                ext_enrichment["cost_per_hire"] = cph_by_ind[industry]
+            # Time to fill by industry
+            ttf_by_ind = eb_agg.get("avg_time_to_fill_by_industry", {}).get("by_industry", {})
+            if industry in ttf_by_ind:
+                ext_enrichment["time_to_fill"] = ttf_by_ind[industry]
+            # Talent shortage by industry
+            ts_by_ind = eb_agg.get("talent_shortage_by_industry", {}).get("by_industry", {})
+            if industry in ts_by_ind:
+                ext_enrichment["talent_shortage"] = ts_by_ind[industry]
+            if ext_enrichment:
+                ext_enrichment["source"] = "24 external analyst reports (2024-2026)"
+                result["external_benchmark_enrichment"] = ext_enrichment
+
         return result
 
     def _query_employer_branding(self, args: dict) -> dict:
@@ -3214,6 +3267,232 @@ When presenting budget projections:
             "categories": summary,
             "source": "Joveo Google Ads 2025 (first-party, 6,338 keywords)",
             "data_priority": 3,
+        }
+
+    def _query_external_benchmarks(self, args: dict) -> dict:
+        """Handler for query_external_benchmarks tool.
+
+        Queries aggregated benchmark data from 24 external recruitment reports
+        (Recruitics, Appcast, Radancy, PandoLogic, iCIMS, LinkedIn, Glassdoor,
+        SHRM, Gartner, Korn Ferry, ManpowerGroup, Robert Half, Gem, etc.).
+        """
+        report_key = (args.get("report_key", "") or "").strip()
+        search_term = (args.get("search_term", "") or "").lower().strip()
+        benchmark_category = (args.get("benchmark_category", "") or "").lower().strip()
+        eb = self._data_cache.get("external_benchmarks", {})
+        reports = eb.get("reports", {})
+        aggregated = eb.get("aggregated_benchmarks", {})
+
+        if not reports and not aggregated:
+            return {"error": "External benchmarks data not available", "source": "external_benchmarks_2025"}
+
+        # Direct report lookup
+        if report_key:
+            r = reports.get(report_key, {})
+            if r:
+                return {"report_key": report_key, "data": r, "source": "external_benchmarks_2025"}
+            return {
+                "error": f"Report '{report_key}' not found",
+                "available_reports": list(reports.keys()),
+                "source": "external_benchmarks_2025",
+            }
+
+        # Aggregated benchmark category lookup
+        _BENCH_MAP = {
+            "cost_per_hire": "avg_cost_per_hire_by_industry",
+            "cph": "avg_cost_per_hire_by_industry",
+            "time_to_fill": "avg_time_to_fill_by_industry",
+            "ttf": "avg_time_to_fill_by_industry",
+            "cpa_by_channel": "avg_cpa_by_channel",
+            "cpa": "avg_cpa_by_channel",
+            "talent_shortage": "talent_shortage_by_industry",
+            "shortage": "talent_shortage_by_industry",
+            "applicants_per_opening": "applicants_per_opening_by_role",
+            "applicants": "applicants_per_opening_by_role",
+            "offer_metrics": "offer_and_acceptance_metrics",
+            "offer": "offer_and_acceptance_metrics",
+            "recruiter_workload": "recruiter_workload_benchmarks",
+            "workload": "recruiter_workload_benchmarks",
+            "ai_adoption": "ai_adoption_in_recruitment",
+            "ai": "ai_adoption_in_recruitment",
+            "compensation": "compensation_and_wage_trends",
+            "wages": "compensation_and_wage_trends",
+            "salary": "compensation_and_wage_trends",
+            "turnover": "workforce_mobility_and_turnover",
+            "mobility": "workforce_mobility_and_turnover",
+            "hiring_trends": "top_hiring_trends_2025",
+            "trends": "top_hiring_trends_2025",
+        }
+        if benchmark_category:
+            agg_key = _BENCH_MAP.get(benchmark_category, benchmark_category)
+            data = aggregated.get(agg_key, {})
+            if data:
+                return {
+                    "benchmark_category": benchmark_category,
+                    "data": data,
+                    "source": "external_benchmarks_2025 (24 analyst reports aggregated)",
+                    "data_priority": 3,
+                }
+            return {
+                "error": f"Benchmark category '{benchmark_category}' not found",
+                "available_categories": list(aggregated.keys()),
+                "source": "external_benchmarks_2025",
+            }
+
+        # Search across reports
+        if search_term:
+            matches = []
+            for rk, rv in reports.items():
+                if not isinstance(rv, dict):
+                    continue
+                title = (rv.get("title", "") or "").lower()
+                publisher = (rv.get("publisher", "") or "").lower()
+                findings_text = " ".join(str(f) for f in rv.get("key_findings", []) if f).lower()
+                methodology = (rv.get("methodology", "") or "").lower()
+                if (search_term in title or search_term in publisher
+                        or search_term in findings_text or search_term in rk.lower()
+                        or search_term in methodology):
+                    matches.append({
+                        "key": rk,
+                        "title": rv.get("title"),
+                        "publisher": rv.get("publisher"),
+                        "year": rv.get("year"),
+                        "top_findings": rv.get("key_findings", [])[:3],
+                    })
+            # Also search aggregated benchmarks
+            agg_matches = []
+            for ak, av in aggregated.items():
+                if search_term in ak.lower() or search_term in str(av).lower()[:500]:
+                    agg_matches.append(ak)
+            result = {
+                "search_term": search_term,
+                "report_matches": matches[:10],
+                "aggregated_benchmark_matches": agg_matches[:5],
+                "total_reports": len(reports),
+                "source": "external_benchmarks_2025 (24 reports)",
+            }
+            return result
+
+        # No filters -- return overview
+        overview = []
+        for rk, rv in list(reports.items())[:15]:
+            if isinstance(rv, dict):
+                overview.append({
+                    "key": rk, "title": rv.get("title"),
+                    "publisher": rv.get("publisher"), "year": rv.get("year"),
+                })
+        return {
+            "total_reports": len(reports),
+            "data_coverage": eb.get("data_coverage_period", ""),
+            "sample_reports": overview,
+            "aggregated_benchmark_categories": list(aggregated.keys()),
+            "source": "external_benchmarks_2025 (24 analyst reports)",
+        }
+
+    def _query_client_plans(self, args: dict) -> dict:
+        """Handler for query_client_plans tool.
+
+        Queries reference client media plans from Joveo's portfolio.
+        Contains 6 real client plans with channel strategies, budget allocations,
+        benchmarks, and aggregate patterns across 532 unique channels.
+        """
+        plan_key = (args.get("plan_key", "") or "").strip()
+        industry = (args.get("industry", "") or "").lower().strip()
+        aspect = (args.get("aspect", "all") or "all").lower().strip()
+        cp = self._data_cache.get("client_media_plans", {})
+        plans = cp.get("plans", {})
+        aggregate = cp.get("aggregate_patterns", {})
+
+        if not plans:
+            return {"error": "Client media plans data not available", "source": "client_media_plans_kb"}
+
+        # Direct plan lookup
+        if plan_key:
+            plan = plans.get(plan_key, {})
+            if not plan:
+                return {
+                    "error": f"Plan '{plan_key}' not found",
+                    "available_plans": list(plans.keys()),
+                    "source": "client_media_plans_kb",
+                }
+            if aspect == "all":
+                return {"plan_key": plan_key, "data": plan, "source": "client_media_plans_kb"}
+            aspect_data = plan.get(aspect, {})
+            if aspect_data:
+                return {
+                    "plan_key": plan_key, "aspect": aspect,
+                    "client": plan.get("client"), "industry": plan.get("industry"),
+                    "data": aspect_data, "source": "client_media_plans_kb",
+                }
+            return {
+                "plan_key": plan_key,
+                "error": f"Aspect '{aspect}' not found in plan",
+                "available_aspects": list(plan.keys()),
+                "source": "client_media_plans_kb",
+            }
+
+        # Aggregate patterns
+        if aspect == "aggregate_patterns":
+            return {
+                "aggregate_patterns": aggregate,
+                "total_unique_channels": aggregate.get("total_unique_channels_identified", 0),
+                "key_patterns": aggregate.get("key_patterns", []),
+                "source": "client_media_plans_kb (6 reference plans, 532 channels)",
+            }
+
+        # Industry filter
+        if industry:
+            matches = []
+            for pk, pv in plans.items():
+                if not isinstance(pv, dict):
+                    continue
+                plan_industry = (pv.get("industry", "") or "").lower()
+                if industry in plan_industry or plan_industry in industry:
+                    plan_summary = {
+                        "key": pk,
+                        "client": pv.get("client"),
+                        "industry": pv.get("industry"),
+                        "regions": pv.get("regions"),
+                        "roles": (pv.get("roles", [])[:5] if isinstance(pv.get("roles"), list)
+                                  else list(pv.get("roles", {}).keys())[:5]),
+                        "hiring_volume": pv.get("hiring_volume"),
+                    }
+                    if aspect != "all" and aspect in pv:
+                        plan_summary[aspect] = pv[aspect]
+                    elif aspect == "all":
+                        plan_summary["budget"] = pv.get("budget")
+                        plan_summary["key_insights"] = pv.get("key_insights")
+                        plan_summary["channels_used"] = pv.get("channels_used")
+                    matches.append(plan_summary)
+            if matches:
+                return {
+                    "industry": industry, "matching_plans": matches,
+                    "source": "client_media_plans_kb",
+                }
+            return {
+                "industry": industry,
+                "error": f"No plans for industry '{industry}'",
+                "available_industries": cp.get("industries_covered", []),
+                "source": "client_media_plans_kb",
+            }
+
+        # No filters -- return overview
+        overview = []
+        for pk, pv in plans.items():
+            if isinstance(pv, dict):
+                overview.append({
+                    "key": pk, "client": pv.get("client"),
+                    "industry": pv.get("industry"),
+                    "regions": pv.get("regions"),
+                    "hiring_volume": pv.get("hiring_volume"),
+                })
+        return {
+            "total_plans": len(plans),
+            "industries_covered": cp.get("industries_covered", []),
+            "plans": overview,
+            "total_unique_channels": aggregate.get("total_unique_channels_identified", 0),
+            "key_patterns": aggregate.get("key_patterns", [])[:5],
+            "source": "client_media_plans_kb (6 reference plans)",
         }
 
     def _suggest_smart_defaults(self, args: dict) -> dict:

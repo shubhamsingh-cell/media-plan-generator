@@ -107,6 +107,71 @@
           "_source": "WordStream/LOCALiQ Facebook Ads Benchmarks 2025, Triple Whale",
           "_year": "2025-2026",
           "year": "2025-2026"
+        },
+        "tiktok_ads": {
+          "average_cpc_all_industries": "$1.00",
+          "cpc_range": "$0.20-$2.00",
+          "recruitment_estimated_cpc": "$0.50-$1.50",
+          "average_cpm": "$9.16",
+          "cpm_range": "$0.50-$10.00",
+          "average_ctr": "0.84%",
+          "ctr_range": "0.5%-1.5%",
+          "best_for_recruitment": "Entry-level, early-career, Gen Z roles, hourly positions",
+          "ad_formats_for_recruitment": ["In-Feed Ads", "Spark Ads", "UGC-style day-in-the-life content"],
+          "vs_other_platforms": "42% cheaper CPC than Facebook ($1.72) and 65% cheaper than Instagram ($3.56)",
+          "notes": "TikTok does not publish recruitment-specific CPC benchmarks. Estimated range based on general benchmarks and niche/moderate competition category. Strong for Gen Z candidate attraction with authentic employer branding content.",
+          "_source": "Varos, Lebesgue, WebFX, AdBacklog, Quimby Digital (aggregated 2025-2026)",
+          "year": "2025-2026"
+        },
+        "instagram_ads": {
+          "average_cpc_all_industries": "$0.40-$2.00",
+          "traffic_campaign_cpc": "$0.50",
+          "traffic_cpc_range": "$0.25-$0.90",
+          "lead_campaign_cpc": "$2.50-$3.00",
+          "lead_cpc_max": "$5.50",
+          "dm_lead_cpc": "$2.78",
+          "recruitment_estimated_cpc": "$1.50-$3.50",
+          "employment_services_ctr": "0.47%",
+          "average_cpm": "$8.16",
+          "best_for_recruitment": "Employer branding, visual storytelling, culture-focused hiring, millennial/Gen Z talent",
+          "vs_other_platforms": "Cheaper than LinkedIn ($2.80-$4.50 CPC) but higher CPC than TikTok for recruitment",
+          "notes": "Employment services show the lowest CTR (0.47%) among all Instagram ad industries, resulting in higher effective CPCs for recruitment. Instagram Lead Ads and Stories perform better for hiring campaigns.",
+          "_source": "WordStream/LOCALiQ, AdBacklog, Coupler.io, Affect Group (aggregated 2025-2026)",
+          "year": "2025-2026"
+        },
+        "reddit_ads": {
+          "average_cpc_range": "$0.50-$4.00",
+          "consumer_campaign_cpc": "$0.20-$0.80",
+          "b2b_saas_cpc": "$0.50-$2.00",
+          "recruitment_estimated_cpc": "$0.30-$1.50",
+          "average_cpm": "$3.50-$15.00",
+          "minimum_daily_budget": "$5.00",
+          "vs_meta_ads": "42% cheaper per click than Facebook, 69% more clicks at lower CPMs",
+          "best_for_recruitment": "Tech roles, niche communities, passive candidate engagement, subreddit-targeted hiring",
+          "ad_formats_for_recruitment": ["Promoted Posts", "Conversation Ads", "Subreddit-targeted campaigns"],
+          "notes": "Reddit remains one of the most affordable social ad platforms. Best for tech/startup hiring campaigns targeting specific subreddit communities (r/cscareerquestions, r/jobs, r/recruiting). CPC trending upward as platform ad revenue grows 39% YoY.",
+          "_source": "Varos, WordStream, AdBacklog, Marketing LTB, Aimers (aggregated 2025-2026)",
+          "year": "2025-2026"
+        },
+        "twitter_x_ads": {
+          "average_cpc_range": "$0.50-$3.00",
+          "recruitment_estimated_cpc": "$0.50-$2.50",
+          "average_cpm": "$6.00-$10.00",
+          "average_ctr": "0.86%",
+          "best_for_recruitment": "Tech industry hiring, executive/thought leadership recruitment, real-time event-based hiring",
+          "notes": "Twitter/X advertising costs have fluctuated significantly since the platform transition. Limited recruitment-specific benchmarks available. Better for employer branding and tech hiring than high-volume applications.",
+          "_source": "Industry estimates, WebFX, AdBacklog (aggregated 2025-2026)",
+          "year": "2025-2026"
+        },
+        "snapchat_ads": {
+          "average_cpc_range": "$1.00-$3.00",
+          "recruitment_estimated_cpc": "$1.00-$2.50",
+          "average_cpm": "$2.95",
+          "swipe_up_rate": "0.35%",
+          "best_for_recruitment": "Very young workforce (16-24), retail/food service/hospitality hourly roles",
+          "notes": "Very limited use in recruitment advertising. Best suited for hourly/entry-level roles targeting the youngest workforce demographic. Low swipe-up rates for employment ads.",
+          "_source": "Industry estimates, Snapchat Business (2025-2026)",
+          "year": "2025-2026"
         }
       },
       "by_industry_appcast": {
