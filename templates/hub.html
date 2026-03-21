@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nova AI Suite | Joveo — Recruitment Intelligence Platform</title>
     <meta name="description" content="AI-powered recruitment intelligence suite by Joveo. Media planning, competitive intel, performance tracking, and 12+ tools for talent acquisition.">
-    <meta name="theme-color" content="#08090D">
+    <meta name="theme-color" content="#000000">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,19 +14,22 @@
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --bg-primary: #06060b;
-            --bg-secondary: #0a0a12;
-            --bg-card: rgba(12, 12, 22, 0.7);
-            --bg-card-hover: rgba(18, 18, 32, 0.85);
+            /* Vercel/Linear-inspired: pure black bg, clean grays */
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: rgba(17, 17, 17, 0.8);
+            --bg-card-hover: rgba(26, 26, 26, 0.9);
+            --surface-1: #111111;
+            --surface-2: #1a1a1a;
             --accent: #6366f1;
             --accent-light: #818cf8;
-            --accent-glow: rgba(99, 102, 241, 0.15);
-            --accent-glow-strong: rgba(99, 102, 241, 0.3);
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            --border: rgba(99, 102, 241, 0.1);
-            --border-hover: rgba(99, 102, 241, 0.3);
+            --accent-glow: rgba(99, 102, 241, 0.12);
+            --accent-glow-strong: rgba(99, 102, 241, 0.25);
+            --text-primary: #ededed;
+            --text-secondary: #a1a1a1;
+            --text-muted: #666666;
+            --border: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.16);
             --success: #22c55e;
             --warning: #f59e0b;
             --cyan: #06b6d4;
@@ -54,9 +57,8 @@
             z-index: 0;
             pointer-events: none;
             background:
-                radial-gradient(ellipse 80% 60% at 50% -20%, rgba(99, 102, 241, 0.08), transparent),
-                radial-gradient(ellipse 60% 40% at 80% 60%, rgba(6, 182, 212, 0.04), transparent),
-                radial-gradient(ellipse 50% 50% at 20% 80%, rgba(244, 63, 94, 0.03), transparent);
+                radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99, 102, 241, 0.06), transparent),
+                radial-gradient(ellipse 50% 40% at 80% 50%, rgba(6, 182, 212, 0.03), transparent);
         }
 
         .grain {
@@ -80,7 +82,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: rgba(6, 6, 11, 0.8);
+            background: rgba(0, 0, 0, 0.8);
             backdrop-filter: blur(20px) saturate(1.5);
             border-bottom: 1px solid var(--border);
             transition: background 0.3s;
@@ -340,7 +342,7 @@
             border-radius: 100px;
             background: var(--accent-glow);
             color: var(--accent-light);
-            border: 1px solid rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .flagship-preview {
@@ -434,7 +436,7 @@
             font-size: 1.3rem;
             margin-bottom: 16px;
             background: var(--icon-bg, var(--accent-glow));
-            border: 1px solid var(--icon-border, rgba(99, 102, 241, 0.15));
+            border: 1px solid var(--icon-border, rgba(255, 255, 255, 0.06));
         }
 
         .card-title {
@@ -525,7 +527,7 @@
             overflow: hidden;
             border-top: 1px solid var(--border);
             border-bottom: 1px solid var(--border);
-            background: rgba(6, 6, 11, 0.5);
+            background: rgba(10, 10, 10, 0.6);
         }
 
         .marquee {
@@ -967,7 +969,7 @@
             <!-- 6. Market Pulse -->
             <a href="/market-pulse" class="product-card fade-in stagger-6" data-category="intelligence" data-keywords="market pulse trends real-time hiring">
                 <span class="card-status live">Live</span>
-                <div class="card-icon" style="--icon-bg: rgba(99, 102, 241, 0.1); --icon-border: rgba(99, 102, 241, 0.15);">
+                <div class="card-icon" style="--icon-bg: rgba(255, 255, 255, 0.05); --icon-border: rgba(255, 255, 255, 0.06);">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round"><path d="M2 12h4l3-9 4 18 3-9h4"/></svg>
                 </div>
                 <div class="card-title">Market Pulse</div>

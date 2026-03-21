@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Generate data-driven recruitment advertising media plans powered by AI. Analyze 91+ job boards, optimize budgets, and benchmark against industry standards. Free enterprise-grade tool by Joveo.">
-    <meta name="theme-color" content="#08090D">
+    <meta name="theme-color" content="#000000">
     <title>Nova AI Media Plan Generator | Joveo</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 
@@ -255,77 +255,77 @@
     <style>
         :root {
             /* ============================================
-               Design System: Deep Obsidian + Electric Indigo
-               "Sexy AI" 2026 -- Glassmorphism 2.0
+               Design System: Vercel/Linear-Inspired Pure Black
+               Clean, high-contrast, modern 2026
                ============================================ */
 
-            /* Core palette */
-            --obsidian: #08090D;
-            --obsidian-light: #0E1018;
-            --navy: #0F1424;
+            /* Core palette -- Vercel pure black + Linear accents */
+            --obsidian: #000000;
+            --obsidian-light: #0a0a0a;
+            --navy: #111111;
             --indigo: #6366F1;
             --indigo-light: #818CF8;
             --indigo-pale: rgba(99,102,241,0.08);
-            --indigo-glow: rgba(99,102,241,0.15);
+            --indigo-glow: rgba(99,102,241,0.12);
             --cyan-accent: #22D3EE;
-            --green-success: #34D399;
+            --green-success: #22c55e;
 
             /* Legacy aliases (backward compat with JS references) */
             --blue-primary: #6366F1;
             --blue-medium: #4F46E5;
-            --blue-light: rgba(99,102,241,0.2);
-            --blue-pale: rgba(99,102,241,0.08);
+            --blue-light: rgba(99,102,241,0.15);
+            --blue-pale: rgba(99,102,241,0.06);
 
             /* Semantic tokens */
             --accent: #6366F1;
             --accent-light: #818CF8;
-            --accent-pale: rgba(99,102,241,0.08);
+            --accent-pale: rgba(99,102,241,0.06);
             --accent-warm: #F87171;
             --primary: #6366F1;
-            --primary-dark: #0F1424;
-            --primary-light: rgba(99,102,241,0.2);
-            --success: #34D399;
-            --warning: #FBBF24;
-            --error: #F87171;
+            --primary-dark: #111111;
+            --primary-light: rgba(99,102,241,0.15);
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
 
-            /* Surfaces -- Glassmorphism 2.0 layered depth */
-            --bg: #08090D;
-            --bg-dark: #050608;
-            --surface-1: rgba(15,18,30,0.6);
-            --surface-2: rgba(20,24,40,0.5);
-            --surface-3: rgba(30,35,55,0.4);
-            --card: rgba(15,18,30,0.6);
-            --card-solid: #0F121E;
-            --card-hover: rgba(20,24,40,0.7);
+            /* Surfaces -- Clean layered depth */
+            --bg: #000000;
+            --bg-dark: #000000;
+            --surface-1: rgba(17,17,17,0.8);
+            --surface-2: rgba(26,26,26,0.7);
+            --surface-3: rgba(38,38,38,0.6);
+            --card: rgba(17,17,17,0.8);
+            --card-solid: #111111;
+            --card-hover: rgba(26,26,26,0.85);
 
             /* Glass effects */
             --glass-blur: blur(40px) saturate(1.5);
             --glass-blur-md: blur(24px) saturate(1.3);
             --glass-blur-sm: blur(16px) saturate(1.2);
-            --glass-border: rgba(255,255,255,0.06);
-            --glass-border-hover: rgba(255,255,255,0.1);
+            --glass-border: rgba(255,255,255,0.08);
+            --glass-border-hover: rgba(255,255,255,0.14);
             --glass-inset: 0 0 0 1px rgba(255,255,255,0.04) inset;
 
-            /* Typography */
-            --text: #E2E8F0;
-            --text-secondary: rgba(226,232,240,0.7);
-            --text-light: rgba(226,232,240,0.6);
-            --text-muted: rgba(226,232,240,0.35);
-            --text-inverse: #08090D;
+            /* Typography -- Clean grays */
+            --text: #ededed;
+            --text-secondary: #a1a1a1;
+            --text-light: #888888;
+            --text-muted: #666666;
+            --text-inverse: #000000;
 
-            /* Borders */
-            --border: rgba(255,255,255,0.06);
-            --border-subtle: rgba(255,255,255,0.03);
-            --border-accent: rgba(99,102,241,0.3);
+            /* Borders -- White opacity (Vercel style) */
+            --border: rgba(255,255,255,0.08);
+            --border-subtle: rgba(255,255,255,0.04);
+            --border-accent: rgba(99,102,241,0.25);
 
-            /* Shadows -- dark mode depth */
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3);
-            --shadow-lg: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
-            --shadow-xl: 0 16px 64px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4);
-            --shadow-glow: 0 0 20px rgba(99,102,241,0.15);
-            --shadow: 0 4px 12px rgba(0,0,0,0.4);
-            --shadow-accent: 0 0 30px rgba(99,102,241,0.1), 0 0 60px rgba(99,102,241,0.05);
+            /* Shadows */
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.4);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+            --shadow-xl: 0 16px 48px rgba(0,0,0,0.7), 0 4px 16px rgba(0,0,0,0.5);
+            --shadow-glow: 0 0 20px rgba(99,102,241,0.1);
+            --shadow: 0 4px 12px rgba(0,0,0,0.5);
+            --shadow-accent: 0 0 30px rgba(99,102,241,0.08), 0 0 60px rgba(99,102,241,0.04);
 
             /* Radius */
             --radius: 12px;

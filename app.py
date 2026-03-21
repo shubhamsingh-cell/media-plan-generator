@@ -10944,6 +10944,24 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "PPT generation failed"}).encode())
         # ── Budget Simulator APIs ──
+        elif path == "/api/simulator/defaults":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from budget_simulator import get_default_allocation
+                _sim_roles = data.get("roles", ["Software Engineer"])
+                _sim_locs = data.get("locations", ["United States"])
+                result = get_default_allocation(
+                    total_budget=float(data.get("total_budget", 100000)),
+                    industry=data.get("industry", "Technology"),
+                    roles=", ".join(_sim_roles) if isinstance(_sim_roles, list) else str(_sim_roles),
+                    locations=", ".join(_sim_locs) if isinstance(_sim_locs, list) else str(_sim_locs),
+                )
+                self._send_json(result)
+            except Exception as e:
+                logger.error("Simulator defaults POST error: %s", e, exc_info=True)
+                self._send_json({"error": str(e)})
         elif path == "/api/simulator/simulate":
             try:
                 content_len = int(self.headers.get("Content-Length", 0))
@@ -10953,7 +10971,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 _sim_roles = data.get("roles", ["Software Engineer"])
                 _sim_locs = data.get("locations", ["United States"])
                 result = simulate_scenario(
-                    channel_allocations=data.get("allocations", {}),
+                    channel_allocations=data.get("channel_allocations", data.get("allocations", {})),
                     total_budget=float(data.get("total_budget", 100000)),
                     industry=data.get("industry", "Technology"),
                     roles=", ".join(_sim_roles) if isinstance(_sim_roles, list) else str(_sim_roles),
