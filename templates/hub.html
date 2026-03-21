@@ -6,7 +6,7 @@
     <title>Nova AI Suite | Joveo — Recruitment Intelligence Platform</title>
     <meta name="description" content="AI-powered recruitment intelligence suite by Joveo. Media planning, competitive intel, performance tracking, and 12+ tools for talent acquisition.">
     <meta name="theme-color" content="#000000">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -760,15 +760,16 @@
         <a href="/" class="nav-logo">
             <svg viewBox="0 0 32 32" fill="none">
                 <rect width="32" height="32" rx="8" fill="#6366F1"/>
-                <path d="M8 22V14l4-4 4 6 4-8 4 12" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                <text x="16" y="22" text-anchor="middle" fill="white" font-family="Inter, sans-serif" font-weight="800" font-size="18">N</text>
             </svg>
             <span>Nova</span>
             <span class="suite-badge">AI Suite</span>
         </a>
         <div class="nav-links">
-            <a href="#products">Products</a>
-            <a href="#analytics">Analytics</a>
-            <a href="#intelligence">Intelligence</a>
+            <a href="#products" data-nav-filter="all">Products</a>
+            <a href="#products" data-nav-filter="analytics">Analytics</a>
+            <a href="#products" data-nav-filter="intelligence">Intelligence</a>
+            <a href="#" id="dashboardLink" title="Admin Dashboard">Dashboard</a>
             <a href="/media-plan" class="nav-cta">Generate Plan</a>
         </div>
     </nav>
@@ -1094,7 +1095,7 @@
 
     <!-- Footer -->
     <footer class="footer">
-        <p>Nova AI Suite &mdash; Built by <a href="https://joveo.com" target="_blank" rel="noopener">Joveo</a> &middot; Powered by AI &middot; 2024&ndash;2026</p>
+        <p>Nova AI Suite &mdash; Built by <a href="https://www.linkedin.com/in/shubhamsinghchandel/" target="_blank" rel="noopener">Shubham Singh Chandel</a> &middot; Powered by AI &middot; 2024&ndash;2026</p>
     </footer>
 
     <script>
@@ -1171,6 +1172,30 @@
                 e.preventDefault();
                 searchInput.focus();
             }
+        });
+
+        // ── Dashboard link: prompt for password ──
+        document.getElementById('dashboardLink').addEventListener('click', function(e) {
+            e.preventDefault();
+            var pw = prompt('Enter dashboard password:');
+            if (pw) window.location.href = '/dashboard?key=' + encodeURIComponent(pw);
+        });
+
+        // ── Nav links: scroll to products + activate filter ──
+        document.querySelectorAll('[data-nav-filter]').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                var filter = link.dataset.navFilter;
+                // Activate the matching filter button
+                filterBtns.forEach(function(btn) {
+                    btn.classList.remove('active');
+                    if (btn.dataset.filter === filter) btn.classList.add('active');
+                });
+                currentFilter = filter;
+                filterCards();
+                // Scroll to products section
+                document.getElementById('products').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
         });
     })();
     </script>

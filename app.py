@@ -7895,9 +7895,9 @@ def generate_excel(data):
     return output.getvalue()
 
 
-ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
-if not ADMIN_API_KEY:
-    logger.warning("ADMIN_API_KEY not set - admin endpoints unprotected (dev mode)")
+ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "Chandel13")
+if ADMIN_API_KEY == "Chandel13":
+    logger.info("ADMIN_API_KEY using default - set env var to override")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # OPENAPI 3.0 SPECIFICATION
@@ -9596,6 +9596,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_error(404, "Market Intel page not found")
         # ── API Portal GET routes ──
         elif path.startswith("/api/portal/"):
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
             try:
                 from api_portal import handle_portal_api
                 content_len = int(self.headers.get("Content-Length", 0))
@@ -9663,6 +9666,33 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
     def _handle_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
+
+        # ── Global body size limits ──
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            content_length = 0
+
+        MAX_BODY_SIZE = 10485760       # 10 MB absolute max (file uploads)
+        MAX_API_BODY_SIZE = 1048576    # 1 MB for non-file-upload routes
+
+        # File-upload routes that may need the larger 10 MB limit
+        _file_upload_routes = ("/api/generate", "/api/social-plan/download")
+
+        if content_length > MAX_BODY_SIZE:
+            self.send_response(413)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Request body too large. Maximum size is 10 MB."}).encode())
+            return
+
+        if content_length > MAX_API_BODY_SIZE and not any(path.startswith(r) for r in _file_upload_routes):
+            self.send_response(413)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Request body too large. Maximum size is 1 MB for this endpoint."}).encode())
+            return
+
         # ── API Versioning: strip /v1 prefix (Feature 4) ──
         if path.startswith("/v1/"):
             path = path[3:]
@@ -11160,6 +11190,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "PPT export failed"}).encode())
         # ── API Portal: All POST routes ──
         elif path.startswith("/api/portal/"):
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
             try:
                 content_len = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(content_len) if content_len > 0 else b"{}"
@@ -11299,8 +11332,45 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 data = json.loads(body)
                 from skill_target import handle_skill_target_request
                 result = handle_skill_target_request(path, "POST", data)
-                if isinstance(result, bytes):
-                    # Binary file download (Excel or PPT)
+                # Unwrap structured response from skill_target.py
+                if isinstance(result, dict) and "status_code" in result and "content_type" in result and "body" in result:
+                    sc = result["status_code"]
+                    ct = result["content_type"]
+                    resp_body = result["body"]
+                    if ct == "application/json":
+                        # Parse JSON body string and send as JSON with proper status
+                        parsed = json.loads(resp_body) if isinstance(resp_body, str) else resp_body
+                        self.send_response(sc)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(json.dumps(parsed).encode())
+                    elif ct in (
+                        "application/octet-stream",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    ):
+                        # Binary file download
+                        raw = resp_body if isinstance(resp_body, bytes) else resp_body.encode()
+                        if "/excel" in path:
+                            fn = "skill_target_report.xlsx"
+                        else:
+                            fn = "skill_target_report.pptx"
+                        self.send_response(sc)
+                        self.send_header("Content-Type", ct)
+                        self.send_header("Content-Disposition", f"attachment; filename={fn}")
+                        self.send_header("Content-Length", str(len(raw)))
+                        self.end_headers()
+                        self.wfile.write(raw)
+                    else:
+                        # Other content types -- send as-is
+                        raw = resp_body if isinstance(resp_body, bytes) else resp_body.encode() if isinstance(resp_body, str) else json.dumps(resp_body).encode()
+                        self.send_response(sc)
+                        self.send_header("Content-Type", ct)
+                        self.send_header("Content-Length", str(len(raw)))
+                        self.end_headers()
+                        self.wfile.write(raw)
+                elif isinstance(result, bytes):
+                    # Legacy: raw binary file download (Excel or PPT)
                     if "/excel" in path:
                         ct = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         fn = "skill_target_report.xlsx"

@@ -1,2003 +1,1248 @@
-#!/usr/bin/env python3
 """
-skill_target.py -- Skill-Based Targeting Engine for Recruitment Advertising
+skill_target.py -- Skill-Based Targeting Engine
 
-Helps recruiters identify the right job boards and channels based on the
-specific skills required for a role. Maps 50+ skills to optimal recruitment
-channels with rarity scoring, budget allocation, and collar intelligence.
+Uses O*NET occupation data + collar_intelligence to help recruiters target
+candidates by SKILLS rather than just job titles. Provides skill-to-occupation
+matching, demand trends, channel recommendations, salary benchmarks,
+geographic hotspots, adjacent skills, and exportable Excel/PPT reports.
 
-Capabilities:
-  - Skill categorization (technical, soft, certifications, domain)
-  - Channel recommendations with match scores per skill cluster
-  - Platform-specific targeting (LinkedIn, Indeed, GitHub Jobs, etc.)
-  - Skill rarity scoring (common, moderate, rare, unicorn)
-  - Budget allocation across recommended channels
-  - Competitor insight for similar skill profiles
-  - Talent pool estimation
-  - Collar type classification integration
-  - Excel & PowerPoint branded report generation
-
-Design tokens:
-    UI:    Deep Obsidian (bg #0a0a0f, cards rgba(15,15,25,0.8), accent #6366f1)
-    Excel: Sapphire Blue (Navy #0F172A, Accent #2563EB, Light #DBEAFE, Calibri, col B)
-    PPT:   Joveo brand (Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD)
-
-Thread-safe, stdlib-only core. Never crashes (all errors return structured dicts).
+Thread-safe. All public functions catch exceptions and return safe fallbacks.
 """
 
 from __future__ import annotations
 
 import io
-import json
 import logging
-import math
 import re
-import traceback
-from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# ── Optional imports (lazy, try/except) ──────────────────────────────────────
+# -- Lazy / optional imports --
 
 try:
-    from collar_intelligence import classify_collar as _classify_collar
+    from collar_intelligence import (
+        classify_collar, get_blended_allocation, get_collar_comparison,
+        analyze_skills_gap, COLLAR_STRATEGY, ROLE_SKILLS_MAP, SKILL_SCARCITY,
+    )
     _HAS_COLLAR = True
 except ImportError:
-    _classify_collar = None
     _HAS_COLLAR = False
+    COLLAR_STRATEGY = {}
+    ROLE_SKILLS_MAP = {}
+    SKILL_SCARCITY = {}
+
+try:
+    from research import (
+        get_market_trends, get_location_info, get_location_boards,
+        get_media_platform_audiences,
+    )
+    _HAS_RESEARCH = True
+except ImportError:
+    _HAS_RESEARCH = False
+
+try:
+    from api_enrichment import fetch_salary_data, fetch_location_demographics
+    _HAS_API = True
+except ImportError:
+    _HAS_API = False
 
 try:
     from shared_utils import INDUSTRY_LABEL_MAP, parse_budget
+    _HAS_UTILS = True
 except ImportError:
+    _HAS_UTILS = False
     INDUSTRY_LABEL_MAP = {}
-    def parse_budget(v, *, default=100_000.0):
-        try:
-            return float(v)
-        except Exception:
-            return default
-
-try:
-    import research as _research
-    _HAS_RESEARCH = True
-except ImportError:
-    _research = None
-    _HAS_RESEARCH = False
 
 
-# =============================================================================
-# CONSTANTS & DESIGN TOKENS
-# =============================================================================
+# ===========================================================================
+# 1. SKILLS-TO-OCCUPATIONS MAPPING  (O*NET-aligned, 60+ skills)
+# ===========================================================================
 
-# Excel palette - Sapphire Blue
-_NAVY = "0F172A"
-_SAPPHIRE = "2563EB"
-_BLUE_LIGHT = "DBEAFE"
-_BLUE_PALE = "EFF6FF"
-_WHITE = "FFFFFF"
-_GREEN = "16A34A"
-_GREEN_BG = "DCFCE7"
-_AMBER = "D97706"
-_AMBER_BG = "FEF3C7"
-_RED = "DC2626"
-_RED_BG = "FEE2E2"
-_MUTED = "78716C"
-_WARM_GRAY = "E7E5E4"
-_STONE = "1C1917"
+SKILLS_TO_OCCUPATIONS: Dict[str, List[Dict[str, str]]] = {
+    "Python": [
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+        {"soc": "15-2051", "title": "Data Scientist", "zone": "5"},
+        {"soc": "15-1211", "title": "Computer Systems Analyst", "zone": "4"},
+        {"soc": "15-1299", "title": "Computer Occupations, All Other", "zone": "4"},
+    ],
+    "JavaScript": [
+        {"soc": "15-1254", "title": "Web Developer", "zone": "3"},
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+        {"soc": "15-1255", "title": "Web and Digital Interface Designer", "zone": "4"},
+    ],
+    "SQL": [
+        {"soc": "15-1243", "title": "Database Administrator", "zone": "4"},
+        {"soc": "15-2051", "title": "Data Scientist", "zone": "5"},
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+        {"soc": "13-1111", "title": "Management Analyst", "zone": "4"},
+    ],
+    "Cloud (AWS/GCP/Azure)": [
+        {"soc": "15-1244", "title": "Network and Computer Systems Administrator", "zone": "4"},
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+        {"soc": "15-1212", "title": "Information Security Analyst", "zone": "4"},
+    ],
+    "Machine Learning": [
+        {"soc": "15-2051", "title": "Data Scientist", "zone": "5"},
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+        {"soc": "15-2041", "title": "Statistician", "zone": "5"},
+    ],
+    "Cybersecurity": [
+        {"soc": "15-1212", "title": "Information Security Analyst", "zone": "4"},
+        {"soc": "15-1244", "title": "Network and Computer Systems Administrator", "zone": "4"},
+    ],
+    "DevOps": [
+        {"soc": "15-1244", "title": "Network and Computer Systems Administrator", "zone": "4"},
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+    ],
+    "Kubernetes": [
+        {"soc": "15-1244", "title": "Network and Computer Systems Administrator", "zone": "4"},
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+    ],
+    "React": [
+        {"soc": "15-1254", "title": "Web Developer", "zone": "3"},
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+    ],
+    "TypeScript": [
+        {"soc": "15-1254", "title": "Web Developer", "zone": "3"},
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+    ],
+    "Java": [
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+        {"soc": "15-1299", "title": "Computer Occupations, All Other", "zone": "4"},
+    ],
+    "C++": [
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+        {"soc": "17-2061", "title": "Computer Hardware Engineer", "zone": "4"},
+    ],
+    "Rust": [{"soc": "15-1252", "title": "Software Developer", "zone": "4"}],
+    "Go": [
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+        {"soc": "15-1244", "title": "Network and Computer Systems Administrator", "zone": "4"},
+    ],
+    "Data Visualization": [
+        {"soc": "15-2051", "title": "Data Scientist", "zone": "5"},
+        {"soc": "15-1257", "title": "Web and Digital Interface Designer", "zone": "4"},
+    ],
+    "TensorFlow/PyTorch": [
+        {"soc": "15-2051", "title": "Data Scientist", "zone": "5"},
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+    ],
+    "System Design": [
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+        {"soc": "15-1241", "title": "Computer Network Architect", "zone": "4"},
+    ],
+    "Git": [
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+        {"soc": "15-1254", "title": "Web Developer", "zone": "3"},
+    ],
+    "Patient Assessment": [
+        {"soc": "29-1141", "title": "Registered Nurse", "zone": "3"},
+        {"soc": "29-1071", "title": "Physician Assistant", "zone": "5"},
+        {"soc": "29-1216", "title": "General Internal Medicine Physician", "zone": "5"},
+    ],
+    "BLS/ACLS": [
+        {"soc": "29-1141", "title": "Registered Nurse", "zone": "3"},
+        {"soc": "29-2041", "title": "Emergency Medical Technician", "zone": "2"},
+    ],
+    "Electronic Health Records": [
+        {"soc": "29-1141", "title": "Registered Nurse", "zone": "3"},
+        {"soc": "29-2072", "title": "Medical Records Specialist", "zone": "3"},
+    ],
+    "Medication Administration": [
+        {"soc": "29-1141", "title": "Registered Nurse", "zone": "3"},
+        {"soc": "29-2052", "title": "Pharmacy Technician", "zone": "2"},
+    ],
+    "Clinical Diagnosis": [
+        {"soc": "29-1216", "title": "General Internal Medicine Physician", "zone": "5"},
+        {"soc": "29-1071", "title": "Physician Assistant", "zone": "5"},
+    ],
+    "Therapeutic Techniques": [
+        {"soc": "21-1014", "title": "Mental Health Counselor", "zone": "5"},
+        {"soc": "29-1223", "title": "Psychiatrist", "zone": "5"},
+        {"soc": "29-1122", "title": "Occupational Therapist", "zone": "5"},
+    ],
+    "Phlebotomy": [
+        {"soc": "31-9097", "title": "Phlebotomist", "zone": "2"},
+        {"soc": "29-2012", "title": "Medical and Clinical Laboratory Technician", "zone": "3"},
+    ],
+    "Medical Coding": [
+        {"soc": "29-2072", "title": "Medical Records Specialist", "zone": "3"},
+        {"soc": "43-6013", "title": "Medical Secretary", "zone": "3"},
+    ],
+    "CDL License": [
+        {"soc": "53-3032", "title": "Heavy and Tractor-Trailer Truck Driver", "zone": "2"},
+        {"soc": "53-3033", "title": "Light Truck Driver", "zone": "2"},
+    ],
+    "Welding": [
+        {"soc": "51-4121", "title": "Welder, Cutter, Solderer", "zone": "3"},
+        {"soc": "47-2152", "title": "Plumber, Pipefitter", "zone": "3"},
+    ],
+    "Forklift Operation": [
+        {"soc": "53-7051", "title": "Industrial Truck and Tractor Operator", "zone": "1"},
+        {"soc": "53-7062", "title": "Laborer and Material Mover", "zone": "1"},
+    ],
+    "Blueprint Reading": [
+        {"soc": "47-2111", "title": "Electrician", "zone": "3"},
+        {"soc": "47-2152", "title": "Plumber, Pipefitter", "zone": "3"},
+        {"soc": "47-2061", "title": "Construction Laborer", "zone": "1"},
+    ],
+    "HVAC": [{"soc": "49-9021", "title": "HVAC Mechanic and Installer", "zone": "3"}],
+    "Electrical Troubleshooting": [
+        {"soc": "47-2111", "title": "Electrician", "zone": "3"},
+        {"soc": "49-2098", "title": "Security and Fire Alarm Systems Installer", "zone": "3"},
+    ],
+    "CNC Machining": [
+        {"soc": "51-4011", "title": "CNC Tool Operator", "zone": "3"},
+        {"soc": "51-4041", "title": "Machinist", "zone": "3"},
+    ],
+    "Plumbing": [{"soc": "47-2152", "title": "Plumber, Pipefitter", "zone": "3"}],
+    "Carpentry": [{"soc": "47-2031", "title": "Carpenter", "zone": "2"}],
+    "Heavy Equipment Operation": [
+        {"soc": "47-2073", "title": "Operating Engineer", "zone": "2"},
+        {"soc": "53-7032", "title": "Excavating Operator", "zone": "2"},
+    ],
+    "Project Management": [
+        {"soc": "11-9199", "title": "Manager, All Other", "zone": "4"},
+        {"soc": "13-1082", "title": "Project Management Specialist", "zone": "4"},
+    ],
+    "Data Analysis": [
+        {"soc": "15-2051", "title": "Data Scientist", "zone": "5"},
+        {"soc": "13-1111", "title": "Management Analyst", "zone": "4"},
+    ],
+    "Financial Modeling": [
+        {"soc": "13-2051", "title": "Financial Analyst", "zone": "4"},
+        {"soc": "13-2054", "title": "Financial Risk Specialist", "zone": "4"},
+    ],
+    "SEO/SEM": [
+        {"soc": "13-1161", "title": "Market Research Analyst", "zone": "4"},
+        {"soc": "27-3031", "title": "Public Relations Specialist", "zone": "4"},
+    ],
+    "Digital Marketing": [
+        {"soc": "13-1161", "title": "Market Research Analyst", "zone": "4"},
+        {"soc": "11-2021", "title": "Marketing Manager", "zone": "4"},
+    ],
+    "Salesforce": [
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+        {"soc": "15-1211", "title": "Computer Systems Analyst", "zone": "4"},
+    ],
+    "SAP": [
+        {"soc": "15-1211", "title": "Computer Systems Analyst", "zone": "4"},
+        {"soc": "15-1252", "title": "Software Developer", "zone": "4"},
+    ],
+    "Accounting (GAAP)": [
+        {"soc": "13-2011", "title": "Accountant and Auditor", "zone": "4"},
+        {"soc": "13-2082", "title": "Tax Preparer", "zone": "3"},
+    ],
+    "CRM Software": [
+        {"soc": "41-3091", "title": "Sales Representative", "zone": "3"},
+        {"soc": "11-2022", "title": "Sales Manager", "zone": "4"},
+    ],
+    "Negotiation": [
+        {"soc": "41-3091", "title": "Sales Representative", "zone": "3"},
+        {"soc": "13-1075", "title": "Labor Relations Specialist", "zone": "4"},
+    ],
+    "UX Design": [
+        {"soc": "15-1255", "title": "Web and Digital Interface Designer", "zone": "4"},
+        {"soc": "27-1024", "title": "Graphic Designer", "zone": "3"},
+    ],
+    "Figma/Sketch": [
+        {"soc": "15-1255", "title": "Web and Digital Interface Designer", "zone": "4"},
+        {"soc": "27-1024", "title": "Graphic Designer", "zone": "3"},
+    ],
+    "AutoCAD": [
+        {"soc": "17-3011", "title": "Architectural and Civil Drafter", "zone": "3"},
+        {"soc": "17-2051", "title": "Civil Engineer", "zone": "4"},
+    ],
+    "Six Sigma": [
+        {"soc": "17-2112", "title": "Industrial Engineer", "zone": "4"},
+        {"soc": "13-1082", "title": "Project Management Specialist", "zone": "4"},
+    ],
+    "Supply Chain Management": [
+        {"soc": "13-1081", "title": "Logistician", "zone": "4"},
+        {"soc": "11-3071", "title": "Transportation, Storage, Distribution Manager", "zone": "4"},
+    ],
+    "Customer Service": [
+        {"soc": "43-4051", "title": "Customer Service Representative", "zone": "2"},
+        {"soc": "41-2031", "title": "Retail Salesperson", "zone": "2"},
+    ],
+    "Food Safety (ServSafe)": [
+        {"soc": "35-1012", "title": "First-Line Supervisor of Food Preparation", "zone": "2"},
+        {"soc": "35-2014", "title": "Cook, Restaurant", "zone": "2"},
+    ],
+    "POS Systems": [
+        {"soc": "41-2011", "title": "Cashier", "zone": "1"},
+        {"soc": "41-2031", "title": "Retail Salesperson", "zone": "2"},
+    ],
+    "Curriculum Development": [
+        {"soc": "25-1000", "title": "Postsecondary Teacher", "zone": "5"},
+        {"soc": "25-2021", "title": "Elementary School Teacher", "zone": "4"},
+        {"soc": "25-9031", "title": "Instructional Coordinator", "zone": "5"},
+    ],
+    "Legal Research": [
+        {"soc": "23-1011", "title": "Lawyer", "zone": "5"},
+        {"soc": "23-2011", "title": "Paralegal and Legal Assistant", "zone": "3"},
+    ],
+    "Contract Negotiation": [
+        {"soc": "23-1011", "title": "Lawyer", "zone": "5"},
+        {"soc": "13-1075", "title": "Labor Relations Specialist", "zone": "4"},
+    ],
+}
 
-COL_START = 2  # Column B
 
-# UI Obsidian palette (for reference / JSON responses)
-_UI_BG = "#0a0a0f"
-_UI_CARD = "rgba(15,15,25,0.8)"
-_UI_ACCENT = "#6366f1"
+# ===========================================================================
+# 2. ADJACENT SKILLS GRAPH
+# ===========================================================================
+
+ADJACENT_SKILLS: Dict[str, List[Dict[str, Any]]] = {
+    "Python": [{"skill": "SQL", "relevance": 0.85}, {"skill": "Machine Learning", "relevance": 0.75}, {"skill": "Data Analysis", "relevance": 0.80}, {"skill": "Git", "relevance": 0.70}, {"skill": "Cloud (AWS/GCP/Azure)", "relevance": 0.65}, {"skill": "TensorFlow/PyTorch", "relevance": 0.60}],
+    "JavaScript": [{"skill": "React", "relevance": 0.90}, {"skill": "TypeScript", "relevance": 0.88}, {"skill": "Git", "relevance": 0.75}, {"skill": "SQL", "relevance": 0.55}, {"skill": "UX Design", "relevance": 0.50}],
+    "SQL": [{"skill": "Python", "relevance": 0.80}, {"skill": "Data Analysis", "relevance": 0.85}, {"skill": "Data Visualization", "relevance": 0.70}, {"skill": "Cloud (AWS/GCP/Azure)", "relevance": 0.55}],
+    "Cloud (AWS/GCP/Azure)": [{"skill": "Kubernetes", "relevance": 0.85}, {"skill": "DevOps", "relevance": 0.88}, {"skill": "Python", "relevance": 0.65}, {"skill": "Cybersecurity", "relevance": 0.60}, {"skill": "System Design", "relevance": 0.75}],
+    "Machine Learning": [{"skill": "Python", "relevance": 0.90}, {"skill": "TensorFlow/PyTorch", "relevance": 0.92}, {"skill": "Data Visualization", "relevance": 0.65}, {"skill": "SQL", "relevance": 0.60}, {"skill": "Cloud (AWS/GCP/Azure)", "relevance": 0.55}],
+    "Cybersecurity": [{"skill": "Cloud (AWS/GCP/Azure)", "relevance": 0.75}, {"skill": "Python", "relevance": 0.60}, {"skill": "DevOps", "relevance": 0.55}, {"skill": "System Design", "relevance": 0.50}],
+    "DevOps": [{"skill": "Kubernetes", "relevance": 0.90}, {"skill": "Cloud (AWS/GCP/Azure)", "relevance": 0.88}, {"skill": "Git", "relevance": 0.80}, {"skill": "Python", "relevance": 0.60}],
+    "Kubernetes": [{"skill": "DevOps", "relevance": 0.90}, {"skill": "Cloud (AWS/GCP/Azure)", "relevance": 0.88}, {"skill": "Go", "relevance": 0.50}],
+    "React": [{"skill": "JavaScript", "relevance": 0.95}, {"skill": "TypeScript", "relevance": 0.85}, {"skill": "UX Design", "relevance": 0.55}, {"skill": "Git", "relevance": 0.70}],
+    "TypeScript": [{"skill": "JavaScript", "relevance": 0.95}, {"skill": "React", "relevance": 0.80}, {"skill": "Git", "relevance": 0.65}],
+    "Java": [{"skill": "SQL", "relevance": 0.75}, {"skill": "System Design", "relevance": 0.70}, {"skill": "Cloud (AWS/GCP/Azure)", "relevance": 0.60}, {"skill": "Git", "relevance": 0.70}],
+    "C++": [{"skill": "System Design", "relevance": 0.80}, {"skill": "Rust", "relevance": 0.55}, {"skill": "Python", "relevance": 0.50}],
+    "Rust": [{"skill": "C++", "relevance": 0.70}, {"skill": "System Design", "relevance": 0.75}, {"skill": "Go", "relevance": 0.50}],
+    "Go": [{"skill": "Kubernetes", "relevance": 0.65}, {"skill": "DevOps", "relevance": 0.55}, {"skill": "Cloud (AWS/GCP/Azure)", "relevance": 0.60}],
+    "Data Visualization": [{"skill": "Data Analysis", "relevance": 0.90}, {"skill": "SQL", "relevance": 0.70}, {"skill": "Python", "relevance": 0.65}],
+    "TensorFlow/PyTorch": [{"skill": "Machine Learning", "relevance": 0.95}, {"skill": "Python", "relevance": 0.90}, {"skill": "Data Visualization", "relevance": 0.50}],
+    "System Design": [{"skill": "Cloud (AWS/GCP/Azure)", "relevance": 0.80}, {"skill": "DevOps", "relevance": 0.60}, {"skill": "Kubernetes", "relevance": 0.55}],
+    "Salesforce": [{"skill": "CRM Software", "relevance": 0.90}, {"skill": "SQL", "relevance": 0.55}, {"skill": "Project Management", "relevance": 0.45}],
+    "SAP": [{"skill": "Supply Chain Management", "relevance": 0.70}, {"skill": "SQL", "relevance": 0.55}, {"skill": "Financial Modeling", "relevance": 0.50}],
+    "Patient Assessment": [{"skill": "BLS/ACLS", "relevance": 0.85}, {"skill": "Electronic Health Records", "relevance": 0.80}, {"skill": "Medication Administration", "relevance": 0.75}, {"skill": "Clinical Diagnosis", "relevance": 0.65}],
+    "BLS/ACLS": [{"skill": "Patient Assessment", "relevance": 0.85}, {"skill": "Medication Administration", "relevance": 0.70}],
+    "Electronic Health Records": [{"skill": "Patient Assessment", "relevance": 0.75}, {"skill": "Medical Coding", "relevance": 0.70}],
+    "Therapeutic Techniques": [{"skill": "Patient Assessment", "relevance": 0.70}, {"skill": "Clinical Diagnosis", "relevance": 0.65}],
+    "Phlebotomy": [{"skill": "Patient Assessment", "relevance": 0.55}, {"skill": "BLS/ACLS", "relevance": 0.45}],
+    "Medical Coding": [{"skill": "Electronic Health Records", "relevance": 0.80}, {"skill": "Accounting (GAAP)", "relevance": 0.30}],
+    "CDL License": [{"skill": "Forklift Operation", "relevance": 0.50}, {"skill": "Heavy Equipment Operation", "relevance": 0.45}],
+    "Welding": [{"skill": "Blueprint Reading", "relevance": 0.75}, {"skill": "CNC Machining", "relevance": 0.55}, {"skill": "Plumbing", "relevance": 0.45}],
+    "Blueprint Reading": [{"skill": "Welding", "relevance": 0.65}, {"skill": "Electrical Troubleshooting", "relevance": 0.70}, {"skill": "Plumbing", "relevance": 0.65}, {"skill": "Carpentry", "relevance": 0.60}, {"skill": "AutoCAD", "relevance": 0.55}],
+    "HVAC": [{"skill": "Electrical Troubleshooting", "relevance": 0.75}, {"skill": "Plumbing", "relevance": 0.55}, {"skill": "Blueprint Reading", "relevance": 0.60}],
+    "CNC Machining": [{"skill": "Blueprint Reading", "relevance": 0.80}, {"skill": "Welding", "relevance": 0.55}, {"skill": "Six Sigma", "relevance": 0.40}],
+    "Electrical Troubleshooting": [{"skill": "Blueprint Reading", "relevance": 0.75}, {"skill": "HVAC", "relevance": 0.60}],
+    "Heavy Equipment Operation": [{"skill": "CDL License", "relevance": 0.55}, {"skill": "Carpentry", "relevance": 0.35}],
+    "Forklift Operation": [{"skill": "CDL License", "relevance": 0.40}, {"skill": "Supply Chain Management", "relevance": 0.35}],
+    "Carpentry": [{"skill": "Blueprint Reading", "relevance": 0.75}, {"skill": "Heavy Equipment Operation", "relevance": 0.35}],
+    "Plumbing": [{"skill": "Blueprint Reading", "relevance": 0.70}, {"skill": "Welding", "relevance": 0.55}, {"skill": "HVAC", "relevance": 0.50}],
+    "Project Management": [{"skill": "Six Sigma", "relevance": 0.55}, {"skill": "Data Analysis", "relevance": 0.50}, {"skill": "Negotiation", "relevance": 0.45}, {"skill": "Supply Chain Management", "relevance": 0.40}],
+    "Data Analysis": [{"skill": "SQL", "relevance": 0.85}, {"skill": "Python", "relevance": 0.75}, {"skill": "Data Visualization", "relevance": 0.88}],
+    "Financial Modeling": [{"skill": "Accounting (GAAP)", "relevance": 0.80}, {"skill": "Data Analysis", "relevance": 0.65}, {"skill": "SQL", "relevance": 0.50}],
+    "SEO/SEM": [{"skill": "Digital Marketing", "relevance": 0.90}, {"skill": "Data Analysis", "relevance": 0.55}],
+    "Digital Marketing": [{"skill": "SEO/SEM", "relevance": 0.90}, {"skill": "Data Analysis", "relevance": 0.55}, {"skill": "CRM Software", "relevance": 0.50}],
+    "CRM Software": [{"skill": "Salesforce", "relevance": 0.85}, {"skill": "Digital Marketing", "relevance": 0.50}, {"skill": "Negotiation", "relevance": 0.45}],
+    "Negotiation": [{"skill": "CRM Software", "relevance": 0.50}, {"skill": "Project Management", "relevance": 0.45}, {"skill": "Contract Negotiation", "relevance": 0.85}],
+    "UX Design": [{"skill": "Figma/Sketch", "relevance": 0.90}, {"skill": "JavaScript", "relevance": 0.50}, {"skill": "React", "relevance": 0.40}],
+    "Figma/Sketch": [{"skill": "UX Design", "relevance": 0.90}, {"skill": "React", "relevance": 0.40}],
+    "AutoCAD": [{"skill": "Blueprint Reading", "relevance": 0.80}, {"skill": "Six Sigma", "relevance": 0.30}],
+    "Six Sigma": [{"skill": "Project Management", "relevance": 0.65}, {"skill": "Data Analysis", "relevance": 0.55}, {"skill": "Supply Chain Management", "relevance": 0.60}],
+    "Supply Chain Management": [{"skill": "Project Management", "relevance": 0.60}, {"skill": "SAP", "relevance": 0.65}, {"skill": "Six Sigma", "relevance": 0.55}],
+    "Accounting (GAAP)": [{"skill": "Financial Modeling", "relevance": 0.80}, {"skill": "SAP", "relevance": 0.45}],
+    "Customer Service": [{"skill": "POS Systems", "relevance": 0.60}, {"skill": "CRM Software", "relevance": 0.45}, {"skill": "Negotiation", "relevance": 0.35}],
+    "Food Safety (ServSafe)": [{"skill": "Customer Service", "relevance": 0.50}],
+    "Curriculum Development": [{"skill": "Data Analysis", "relevance": 0.35}, {"skill": "Project Management", "relevance": 0.40}],
+    "Legal Research": [{"skill": "Contract Negotiation", "relevance": 0.80}, {"skill": "Data Analysis", "relevance": 0.40}],
+    "Contract Negotiation": [{"skill": "Legal Research", "relevance": 0.80}, {"skill": "Negotiation", "relevance": 0.85}],
+}
 
 
-# =============================================================================
-# SKILL KNOWLEDGE BASE (50+ skills)
-# =============================================================================
+# ===========================================================================
+# 3. SKILL DEMAND INDICATORS
+# ===========================================================================
 
-# Skill rarity tiers
-RARITY_COMMON = "common"         # >500k professionals
-RARITY_MODERATE = "moderate"     # 100k-500k
-RARITY_RARE = "rare"             # 10k-100k
-RARITY_UNICORN = "unicorn"       # <10k
+_SKILL_DEMAND: Dict[str, Dict[str, Any]] = {
+    "Python": {"growth": "high", "yoy_pct": 12, "pool": "large", "shortage": False},
+    "JavaScript": {"growth": "high", "yoy_pct": 8, "pool": "large", "shortage": False},
+    "SQL": {"growth": "stable", "yoy_pct": 4, "pool": "large", "shortage": False},
+    "Cloud (AWS/GCP/Azure)": {"growth": "very_high", "yoy_pct": 22, "pool": "medium", "shortage": True},
+    "Machine Learning": {"growth": "very_high", "yoy_pct": 28, "pool": "small", "shortage": True},
+    "Cybersecurity": {"growth": "very_high", "yoy_pct": 25, "pool": "small", "shortage": True},
+    "DevOps": {"growth": "high", "yoy_pct": 18, "pool": "medium", "shortage": True},
+    "Kubernetes": {"growth": "very_high", "yoy_pct": 30, "pool": "small", "shortage": True},
+    "React": {"growth": "high", "yoy_pct": 10, "pool": "large", "shortage": False},
+    "TypeScript": {"growth": "high", "yoy_pct": 20, "pool": "medium", "shortage": False},
+    "Java": {"growth": "stable", "yoy_pct": 3, "pool": "large", "shortage": False},
+    "C++": {"growth": "stable", "yoy_pct": 2, "pool": "medium", "shortage": False},
+    "Rust": {"growth": "high", "yoy_pct": 35, "pool": "small", "shortage": True},
+    "Go": {"growth": "high", "yoy_pct": 18, "pool": "small", "shortage": True},
+    "Data Visualization": {"growth": "high", "yoy_pct": 10, "pool": "medium", "shortage": False},
+    "TensorFlow/PyTorch": {"growth": "very_high", "yoy_pct": 25, "pool": "small", "shortage": True},
+    "System Design": {"growth": "high", "yoy_pct": 12, "pool": "medium", "shortage": True},
+    "Git": {"growth": "stable", "yoy_pct": 3, "pool": "large", "shortage": False},
+    "Salesforce": {"growth": "high", "yoy_pct": 14, "pool": "medium", "shortage": True},
+    "SAP": {"growth": "stable", "yoy_pct": 5, "pool": "medium", "shortage": True},
+    "Patient Assessment": {"growth": "high", "yoy_pct": 8, "pool": "medium", "shortage": True},
+    "BLS/ACLS": {"growth": "stable", "yoy_pct": 5, "pool": "medium", "shortage": False},
+    "Electronic Health Records": {"growth": "high", "yoy_pct": 10, "pool": "medium", "shortage": False},
+    "Medication Administration": {"growth": "stable", "yoy_pct": 5, "pool": "medium", "shortage": True},
+    "Clinical Diagnosis": {"growth": "stable", "yoy_pct": 4, "pool": "small", "shortage": True},
+    "Therapeutic Techniques": {"growth": "high", "yoy_pct": 12, "pool": "small", "shortage": True},
+    "Phlebotomy": {"growth": "stable", "yoy_pct": 6, "pool": "medium", "shortage": False},
+    "Medical Coding": {"growth": "high", "yoy_pct": 9, "pool": "medium", "shortage": False},
+    "CDL License": {"growth": "high", "yoy_pct": 8, "pool": "medium", "shortage": True},
+    "Welding": {"growth": "high", "yoy_pct": 10, "pool": "medium", "shortage": True},
+    "Forklift Operation": {"growth": "stable", "yoy_pct": 4, "pool": "large", "shortage": False},
+    "Blueprint Reading": {"growth": "stable", "yoy_pct": 3, "pool": "medium", "shortage": False},
+    "HVAC": {"growth": "high", "yoy_pct": 12, "pool": "small", "shortage": True},
+    "CNC Machining": {"growth": "stable", "yoy_pct": 5, "pool": "small", "shortage": True},
+    "Electrical Troubleshooting": {"growth": "high", "yoy_pct": 8, "pool": "medium", "shortage": True},
+    "Heavy Equipment Operation": {"growth": "stable", "yoy_pct": 4, "pool": "medium", "shortage": False},
+    "Carpentry": {"growth": "stable", "yoy_pct": 3, "pool": "medium", "shortage": False},
+    "Plumbing": {"growth": "high", "yoy_pct": 8, "pool": "medium", "shortage": True},
+    "Project Management": {"growth": "stable", "yoy_pct": 5, "pool": "large", "shortage": False},
+    "Data Analysis": {"growth": "high", "yoy_pct": 14, "pool": "large", "shortage": False},
+    "Financial Modeling": {"growth": "stable", "yoy_pct": 5, "pool": "medium", "shortage": False},
+    "SEO/SEM": {"growth": "high", "yoy_pct": 8, "pool": "medium", "shortage": False},
+    "Digital Marketing": {"growth": "high", "yoy_pct": 10, "pool": "large", "shortage": False},
+    "CRM Software": {"growth": "stable", "yoy_pct": 4, "pool": "large", "shortage": False},
+    "Negotiation": {"growth": "stable", "yoy_pct": 2, "pool": "large", "shortage": False},
+    "UX Design": {"growth": "high", "yoy_pct": 12, "pool": "medium", "shortage": False},
+    "Figma/Sketch": {"growth": "high", "yoy_pct": 15, "pool": "medium", "shortage": False},
+    "AutoCAD": {"growth": "stable", "yoy_pct": 3, "pool": "medium", "shortage": False},
+    "Six Sigma": {"growth": "stable", "yoy_pct": 2, "pool": "medium", "shortage": False},
+    "Supply Chain Management": {"growth": "high", "yoy_pct": 10, "pool": "medium", "shortage": True},
+    "Accounting (GAAP)": {"growth": "stable", "yoy_pct": 3, "pool": "large", "shortage": False},
+    "Customer Service": {"growth": "stable", "yoy_pct": 1, "pool": "large", "shortage": False},
+    "Food Safety (ServSafe)": {"growth": "stable", "yoy_pct": 3, "pool": "large", "shortage": False},
+    "Curriculum Development": {"growth": "stable", "yoy_pct": 4, "pool": "medium", "shortage": False},
+    "Legal Research": {"growth": "stable", "yoy_pct": 2, "pool": "medium", "shortage": False},
+    "Contract Negotiation": {"growth": "stable", "yoy_pct": 3, "pool": "medium", "shortage": False},
+    "POS Systems": {"growth": "stable", "yoy_pct": 1, "pool": "large", "shortage": False},
+}
 
-# Skill categories
-CAT_TECHNICAL = "technical"
-CAT_SOFT = "soft_skill"
-CAT_CERTIFICATION = "certification"
-CAT_DOMAIN = "domain_knowledge"
 
-# Channel IDs
-CH_LINKEDIN = "LinkedIn"
-CH_INDEED = "Indeed"
-CH_GITHUB = "GitHub Jobs"
-CH_STACKOVERFLOW = "Stack Overflow Jobs"
-CH_DICE = "Dice"
-CH_GLASSDOOR = "Glassdoor"
-CH_ZIPRECRUITER = "ZipRecruiter"
-CH_MONSTER = "Monster"
-CH_ANGELLIST = "AngelList/Wellfound"
-CH_HIRED = "Hired"
-CH_TRIPLEBYTE = "Triplebyte"
-CH_TOPTAL = "Toptal"
-CH_BEHANCE = "Behance"
-CH_DRIBBBLE = "Dribbble"
-CH_FLEXJOBS = "FlexJobs"
-CH_WEWORKREMOTELY = "We Work Remotely"
-CH_BUILTIN = "Built In"
-CH_CAREERBUILDER = "CareerBuilder"
-CH_SNAGAJOB = "Snagajob"
-CH_NURSE_COM = "Nurse.com"
-CH_HEALTHCAREJOBSITE = "HealthcareJobSite"
-CH_CLEARANCEJOBS = "ClearanceJobs"
-CH_USAJOBS = "USAJobs"
-CH_HANDSHAKE = "Handshake"
-CH_FACEBOOK = "Facebook Jobs"
-CH_GOOGLE_ADS = "Google Ads (PPC)"
-CH_PROGRAMMATIC = "Programmatic (Joveo/Appcast)"
+# ===========================================================================
+# 4. GEOGRAPHIC HOTSPOT DATA
+# ===========================================================================
 
-# Master skill database: skill_name -> metadata
-SKILL_DATABASE: Dict[str, Dict[str, Any]] = {
-    # ── Technical / Engineering ──
-    "python": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_COMMON,
-        "channels": [CH_LINKEDIN, CH_GITHUB, CH_STACKOVERFLOW, CH_DICE, CH_HIRED],
-        "talent_pool_base": 800_000, "demand_trend": "growing",
+_SKILL_HOTSPOTS: Dict[str, List[Dict[str, Any]]] = {
+    "Python": [
+        {"metro": "San Francisco-Oakland, CA", "concentration": 0.92, "employers": "Google, Meta, Stripe"},
+        {"metro": "Seattle-Tacoma, WA", "concentration": 0.88, "employers": "Amazon, Microsoft"},
+        {"metro": "New York-Newark, NY", "concentration": 0.82, "employers": "JP Morgan, Bloomberg"},
+        {"metro": "Austin-Round Rock, TX", "concentration": 0.78, "employers": "Dell, Oracle, Tesla"},
+        {"metro": "Boston-Cambridge, MA", "concentration": 0.76, "employers": "HubSpot, Wayfair"},
+    ],
+    "JavaScript": [
+        {"metro": "San Francisco-Oakland, CA", "concentration": 0.90, "employers": "Meta, Vercel, Stripe"},
+        {"metro": "New York-Newark, NY", "concentration": 0.85, "employers": "Squarespace, Datadog"},
+        {"metro": "Seattle-Tacoma, WA", "concentration": 0.82, "employers": "Amazon, Microsoft"},
+    ],
+    "Cloud (AWS/GCP/Azure)": [
+        {"metro": "Seattle-Tacoma, WA", "concentration": 0.95, "employers": "Amazon AWS, Microsoft Azure"},
+        {"metro": "Northern Virginia (Ashburn)", "concentration": 0.90, "employers": "AWS, Rackspace"},
+        {"metro": "San Francisco-Oakland, CA", "concentration": 0.88, "employers": "Google Cloud, Salesforce"},
+        {"metro": "Dallas-Fort Worth, TX", "concentration": 0.72, "employers": "AT&T, data centers"},
+    ],
+    "Machine Learning": [
+        {"metro": "San Francisco-Oakland, CA", "concentration": 0.95, "employers": "OpenAI, Google DeepMind, Anthropic"},
+        {"metro": "Seattle-Tacoma, WA", "concentration": 0.85, "employers": "Amazon, Allen AI"},
+        {"metro": "Boston-Cambridge, MA", "concentration": 0.80, "employers": "MIT, Moderna"},
+        {"metro": "New York-Newark, NY", "concentration": 0.75, "employers": "Bloomberg, Two Sigma"},
+    ],
+    "Cybersecurity": [
+        {"metro": "Washington-Arlington, DC", "concentration": 0.95, "employers": "NSA, CrowdStrike, Booz Allen"},
+        {"metro": "Northern Virginia (Ashburn)", "concentration": 0.90, "employers": "Mandiant, Palo Alto Networks"},
+        {"metro": "San Francisco-Oakland, CA", "concentration": 0.78, "employers": "Cloudflare, Zscaler"},
+    ],
+    "CDL License": [
+        {"metro": "Dallas-Fort Worth, TX", "concentration": 0.88, "employers": "FedEx, UPS, Werner"},
+        {"metro": "Atlanta-Sandy Springs, GA", "concentration": 0.85, "employers": "UPS, Ryder"},
+        {"metro": "Chicago-Naperville, IL", "concentration": 0.82, "employers": "Schneider, XPO"},
+        {"metro": "Memphis, TN", "concentration": 0.80, "employers": "FedEx, AutoZone DC"},
+        {"metro": "Indianapolis, IN", "concentration": 0.78, "employers": "FedEx Ground, Amazon"},
+    ],
+    "Welding": [
+        {"metro": "Houston-The Woodlands, TX", "concentration": 0.92, "employers": "Bechtel, Kiewit"},
+        {"metro": "Pittsburgh, PA", "concentration": 0.78, "employers": "US Steel, BWXT"},
+        {"metro": "Detroit-Warren, MI", "concentration": 0.75, "employers": "GM, Ford suppliers"},
+        {"metro": "Tulsa, OK", "concentration": 0.72, "employers": "Hilti, ONEOK"},
+    ],
+    "HVAC": [
+        {"metro": "Phoenix-Mesa, AZ", "concentration": 0.88, "employers": "Parker & Sons, Hays Cooling"},
+        {"metro": "Houston-The Woodlands, TX", "concentration": 0.85, "employers": "Service Experts"},
+        {"metro": "Dallas-Fort Worth, TX", "concentration": 0.82, "employers": "Aire Serv, Lennox"},
+    ],
+    "Patient Assessment": [
+        {"metro": "Rochester, MN", "concentration": 0.90, "employers": "Mayo Clinic"},
+        {"metro": "Boston-Cambridge, MA", "concentration": 0.88, "employers": "Mass General, Dana-Farber"},
+        {"metro": "Houston-The Woodlands, TX", "concentration": 0.85, "employers": "MD Anderson, Memorial Hermann"},
+        {"metro": "Nashville-Davidson, TN", "concentration": 0.82, "employers": "HCA, Vanderbilt"},
+    ],
+    "Financial Modeling": [
+        {"metro": "New York-Newark, NY", "concentration": 0.95, "employers": "Goldman Sachs, JP Morgan"},
+        {"metro": "Chicago-Naperville, IL", "concentration": 0.80, "employers": "Citadel, Morningstar"},
+        {"metro": "Charlotte-Concord, NC", "concentration": 0.75, "employers": "Bank of America, Wells Fargo"},
+    ],
+    "Digital Marketing": [
+        {"metro": "New York-Newark, NY", "concentration": 0.90, "employers": "Google, Dentsu, Omnicom"},
+        {"metro": "San Francisco-Oakland, CA", "concentration": 0.85, "employers": "Salesforce, Adobe"},
+        {"metro": "Chicago-Naperville, IL", "concentration": 0.75, "employers": "Publicis, Leo Burnett"},
+    ],
+    "Supply Chain Management": [
+        {"metro": "Memphis, TN", "concentration": 0.88, "employers": "FedEx, AutoZone"},
+        {"metro": "Chicago-Naperville, IL", "concentration": 0.85, "employers": "Caterpillar, McDonald's HQ"},
+        {"metro": "Dallas-Fort Worth, TX", "concentration": 0.80, "employers": "AT&T, Texas Instruments"},
+    ],
+}
+
+
+# ===========================================================================
+# 5. CHANNEL RECOMMENDATION DATA
+# ===========================================================================
+
+_SKILL_CATEGORY_CHANNELS: Dict[str, Dict[str, Any]] = {
+    "technology": {
+        "channels": [
+            {"name": "LinkedIn", "weight": 0.28, "reason": "Highest tech professional density"},
+            {"name": "Dice", "weight": 0.15, "reason": "Tech-specific job board"},
+            {"name": "GitHub Jobs / StackOverflow", "weight": 0.12, "reason": "Developer community boards"},
+            {"name": "Indeed Sponsored", "weight": 0.18, "reason": "Broad reach with tech filtering"},
+            {"name": "Programmatic Display", "weight": 0.15, "reason": "Retarget tech blog visitors"},
+            {"name": "AngelList / Wellfound", "weight": 0.07, "reason": "Startup-oriented talent"},
+            {"name": "Hired / Triplebyte", "weight": 0.05, "reason": "Pre-vetted tech talent"},
+        ],
+        "messaging": "Career growth, tech stack, remote flexibility, equity/compensation",
+        "avg_cpc_range": [1.80, 5.50], "avg_cpa_range": [25, 80],
     },
-    "javascript": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_COMMON,
-        "channels": [CH_LINKEDIN, CH_GITHUB, CH_STACKOVERFLOW, CH_BUILTIN],
-        "talent_pool_base": 1_200_000, "demand_trend": "stable",
+    "healthcare": {
+        "channels": [
+            {"name": "Vivian Health", "weight": 0.22, "reason": "Nursing/allied health marketplace"},
+            {"name": "Health eCareers", "weight": 0.18, "reason": "Multi-discipline healthcare board"},
+            {"name": "Indeed Sponsored", "weight": 0.20, "reason": "Broad healthcare applicant pool"},
+            {"name": "LinkedIn", "weight": 0.12, "reason": "Advanced practice and leadership roles"},
+            {"name": "Programmatic Display", "weight": 0.15, "reason": "Target healthcare content readers"},
+            {"name": "NurseFly", "weight": 0.08, "reason": "Travel nursing specialists"},
+            {"name": "Facebook/Instagram", "weight": 0.05, "reason": "Community-based outreach"},
+        ],
+        "messaging": "Sign-on bonus, shift flexibility, patient ratio, CE support",
+        "avg_cpc_range": [0.90, 3.50], "avg_cpa_range": [18, 55],
     },
-    "typescript": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_GITHUB, CH_STACKOVERFLOW, CH_BUILTIN],
-        "talent_pool_base": 450_000, "demand_trend": "growing",
+    "trades": {
+        "channels": [
+            {"name": "Indeed Sponsored", "weight": 0.28, "reason": "Largest blue-collar applicant pool"},
+            {"name": "Facebook Jobs", "weight": 0.22, "reason": "High mobile/trade-worker engagement"},
+            {"name": "Programmatic Display", "weight": 0.20, "reason": "Geo-targeted mobile display"},
+            {"name": "ZipRecruiter", "weight": 0.12, "reason": "Quick-apply for hourly roles"},
+            {"name": "Craigslist", "weight": 0.08, "reason": "Local trades hiring"},
+            {"name": "Talroo", "weight": 0.05, "reason": "Performance-based blue collar"},
+            {"name": "Trade-specific boards", "weight": 0.05, "reason": "HVAC-Talk, WeldingWeb, etc."},
+        ],
+        "messaging": "Pay rate, sign-on bonus, tools provided, schedule, proximity",
+        "avg_cpc_range": [0.30, 1.50], "avg_cpa_range": [8, 28],
     },
-    "java": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_COMMON,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_DICE, CH_STACKOVERFLOW],
-        "talent_pool_base": 900_000, "demand_trend": "stable",
+    "business": {
+        "channels": [
+            {"name": "LinkedIn", "weight": 0.30, "reason": "Professional/business role standard"},
+            {"name": "Indeed Sponsored", "weight": 0.22, "reason": "Volume + brand awareness"},
+            {"name": "Glassdoor", "weight": 0.12, "reason": "Employer brand + professional search"},
+            {"name": "Programmatic Display", "weight": 0.15, "reason": "Retarget business media readers"},
+            {"name": "Google Search Ads", "weight": 0.10, "reason": "Intent-based capture"},
+            {"name": "Niche boards", "weight": 0.06, "reason": "eFinancialCareers, MarketingHire"},
+            {"name": "Employer Career Site", "weight": 0.05, "reason": "Direct applicants, lowest CPA"},
+        ],
+        "messaging": "Career progression, compensation, culture, hybrid/remote, benefits",
+        "avg_cpc_range": [1.20, 4.00], "avg_cpa_range": [20, 65],
     },
-    "c++": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_DICE, CH_STACKOVERFLOW, CH_CLEARANCEJOBS],
-        "talent_pool_base": 350_000, "demand_trend": "stable",
+    "service": {
+        "channels": [
+            {"name": "Indeed Sponsored", "weight": 0.30, "reason": "Volume hiring standard"},
+            {"name": "Facebook Jobs", "weight": 0.25, "reason": "High mobile engagement"},
+            {"name": "Snagajob", "weight": 0.15, "reason": "Hourly-focused platform"},
+            {"name": "Programmatic Display", "weight": 0.15, "reason": "Geo-targeted mobile"},
+            {"name": "Google Search Ads", "weight": 0.08, "reason": "Jobs near me intent"},
+            {"name": "Craigslist", "weight": 0.07, "reason": "Local reach"},
+        ],
+        "messaging": "Flexible schedule, tips/hourly rate, team environment, benefits",
+        "avg_cpc_range": [0.25, 1.00], "avg_cpa_range": [6, 22],
     },
-    "rust": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_RARE,
-        "channels": [CH_GITHUB, CH_STACKOVERFLOW, CH_HIRED, CH_BUILTIN],
-        "talent_pool_base": 45_000, "demand_trend": "growing",
+    "education": {
+        "channels": [
+            {"name": "Indeed Sponsored", "weight": 0.25, "reason": "Broad educator reach"},
+            {"name": "LinkedIn", "weight": 0.20, "reason": "Higher-ed / leadership roles"},
+            {"name": "HigherEdJobs", "weight": 0.15, "reason": "University/college specific"},
+            {"name": "SchoolSpring", "weight": 0.15, "reason": "K-12 focused board"},
+            {"name": "Programmatic Display", "weight": 0.12, "reason": "Education media targeting"},
+            {"name": "State job boards", "weight": 0.08, "reason": "Public school postings"},
+            {"name": "Facebook", "weight": 0.05, "reason": "Community teacher groups"},
+        ],
+        "messaging": "Mission, impact, benefits, schedule, professional development",
+        "avg_cpc_range": [0.80, 2.50], "avg_cpa_range": [15, 45],
     },
-    "golang": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_GITHUB, CH_STACKOVERFLOW, CH_HIRED, CH_LINKEDIN],
-        "talent_pool_base": 180_000, "demand_trend": "growing",
-    },
-    "react": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_COMMON,
-        "channels": [CH_LINKEDIN, CH_GITHUB, CH_STACKOVERFLOW, CH_BUILTIN],
-        "talent_pool_base": 650_000, "demand_trend": "stable",
-    },
-    "angular": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_DICE, CH_STACKOVERFLOW],
-        "talent_pool_base": 280_000, "demand_trend": "declining",
-    },
-    "vue.js": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_GITHUB, CH_STACKOVERFLOW, CH_BUILTIN],
-        "talent_pool_base": 200_000, "demand_trend": "growing",
-    },
-    "node.js": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_COMMON,
-        "channels": [CH_LINKEDIN, CH_GITHUB, CH_STACKOVERFLOW, CH_BUILTIN],
-        "talent_pool_base": 700_000, "demand_trend": "stable",
-    },
-    "aws": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_COMMON,
-        "channels": [CH_LINKEDIN, CH_DICE, CH_INDEED, CH_HIRED],
-        "talent_pool_base": 600_000, "demand_trend": "growing",
-    },
-    "azure": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_DICE, CH_INDEED, CH_GLASSDOOR],
-        "talent_pool_base": 400_000, "demand_trend": "growing",
-    },
-    "gcp": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_DICE, CH_GITHUB, CH_HIRED],
-        "talent_pool_base": 200_000, "demand_trend": "growing",
-    },
-    "kubernetes": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_RARE,
-        "channels": [CH_LINKEDIN, CH_GITHUB, CH_STACKOVERFLOW, CH_HIRED],
-        "talent_pool_base": 95_000, "demand_trend": "growing",
-    },
-    "docker": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_GITHUB, CH_STACKOVERFLOW, CH_DICE],
-        "talent_pool_base": 350_000, "demand_trend": "stable",
-    },
-    "terraform": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_RARE,
-        "channels": [CH_LINKEDIN, CH_GITHUB, CH_STACKOVERFLOW, CH_HIRED],
-        "talent_pool_base": 80_000, "demand_trend": "growing",
-    },
-    "machine_learning": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_RARE,
-        "channels": [CH_LINKEDIN, CH_GITHUB, CH_HIRED, CH_TOPTAL],
-        "talent_pool_base": 70_000, "demand_trend": "growing",
-    },
-    "deep_learning": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_RARE,
-        "channels": [CH_LINKEDIN, CH_GITHUB, CH_HIRED, CH_TOPTAL],
-        "talent_pool_base": 35_000, "demand_trend": "growing",
-    },
-    "llm_ai": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_UNICORN,
-        "channels": [CH_LINKEDIN, CH_GITHUB, CH_HIRED, CH_TOPTAL, CH_ANGELLIST],
-        "talent_pool_base": 8_000, "demand_trend": "explosive",
-    },
-    "data_engineering": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_DICE, CH_GITHUB, CH_HIRED],
-        "talent_pool_base": 180_000, "demand_trend": "growing",
-    },
-    "sql": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_COMMON,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_DICE, CH_GLASSDOOR],
-        "talent_pool_base": 1_500_000, "demand_trend": "stable",
-    },
-    "cybersecurity": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_RARE,
-        "channels": [CH_LINKEDIN, CH_DICE, CH_CLEARANCEJOBS, CH_INDEED],
-        "talent_pool_base": 65_000, "demand_trend": "growing",
-    },
-    "devops": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_GITHUB, CH_STACKOVERFLOW, CH_DICE],
-        "talent_pool_base": 250_000, "demand_trend": "growing",
-    },
-    "ios_swift": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_STACKOVERFLOW, CH_HIRED, CH_BUILTIN],
-        "talent_pool_base": 220_000, "demand_trend": "stable",
-    },
-    "android_kotlin": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_STACKOVERFLOW, CH_HIRED, CH_BUILTIN],
-        "talent_pool_base": 280_000, "demand_trend": "stable",
-    },
-    "salesforce": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_DICE, CH_GLASSDOOR],
-        "talent_pool_base": 300_000, "demand_trend": "stable",
-    },
-    "sap": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_DICE, CH_MONSTER],
-        "talent_pool_base": 250_000, "demand_trend": "stable",
-    },
-    "ui_ux_design": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_DRIBBBLE, CH_BEHANCE, CH_BUILTIN],
-        "talent_pool_base": 350_000, "demand_trend": "stable",
-    },
-    "figma": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_DRIBBBLE, CH_BEHANCE, CH_BUILTIN],
-        "talent_pool_base": 300_000, "demand_trend": "growing",
-    },
-    "product_management": {
-        "category": CAT_DOMAIN, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_BUILTIN, CH_GLASSDOOR, CH_ANGELLIST],
-        "talent_pool_base": 400_000, "demand_trend": "stable",
-    },
-    # ── Trades / Blue collar ──
-    "welding": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_INDEED, CH_SNAGAJOB, CH_ZIPRECRUITER, CH_FACEBOOK],
-        "talent_pool_base": 420_000, "demand_trend": "growing",
-    },
-    "hvac": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_INDEED, CH_ZIPRECRUITER, CH_SNAGAJOB, CH_FACEBOOK],
-        "talent_pool_base": 380_000, "demand_trend": "growing",
-    },
-    "cdl_driving": {
-        "category": CAT_CERTIFICATION, "rarity": RARITY_COMMON,
-        "channels": [CH_INDEED, CH_ZIPRECRUITER, CH_SNAGAJOB, CH_FACEBOOK, CH_PROGRAMMATIC],
-        "talent_pool_base": 900_000, "demand_trend": "growing",
-    },
-    "forklift_operation": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_COMMON,
-        "channels": [CH_INDEED, CH_SNAGAJOB, CH_ZIPRECRUITER, CH_FACEBOOK],
-        "talent_pool_base": 700_000, "demand_trend": "stable",
-    },
-    "electrical_work": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_INDEED, CH_ZIPRECRUITER, CH_SNAGAJOB, CH_FACEBOOK],
-        "talent_pool_base": 350_000, "demand_trend": "growing",
-    },
-    "plumbing": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_MODERATE,
-        "channels": [CH_INDEED, CH_ZIPRECRUITER, CH_SNAGAJOB, CH_FACEBOOK],
-        "talent_pool_base": 320_000, "demand_trend": "growing",
-    },
-    "cnc_machining": {
-        "category": CAT_TECHNICAL, "rarity": RARITY_RARE,
-        "channels": [CH_INDEED, CH_ZIPRECRUITER, CH_MONSTER, CH_PROGRAMMATIC],
-        "talent_pool_base": 90_000, "demand_trend": "growing",
-    },
-    # ── Healthcare / Grey collar ──
-    "nursing_rn": {
-        "category": CAT_CERTIFICATION, "rarity": RARITY_COMMON,
-        "channels": [CH_INDEED, CH_NURSE_COM, CH_HEALTHCAREJOBSITE, CH_LINKEDIN],
-        "talent_pool_base": 3_100_000, "demand_trend": "growing",
-    },
-    "nursing_lpn": {
-        "category": CAT_CERTIFICATION, "rarity": RARITY_COMMON,
-        "channels": [CH_INDEED, CH_NURSE_COM, CH_HEALTHCAREJOBSITE, CH_ZIPRECRUITER],
-        "talent_pool_base": 700_000, "demand_trend": "growing",
-    },
-    "medical_coding": {
-        "category": CAT_CERTIFICATION, "rarity": RARITY_MODERATE,
-        "channels": [CH_INDEED, CH_LINKEDIN, CH_HEALTHCAREJOBSITE, CH_FLEXJOBS],
-        "talent_pool_base": 210_000, "demand_trend": "stable",
-    },
-    "pharmacy": {
-        "category": CAT_CERTIFICATION, "rarity": RARITY_MODERATE,
-        "channels": [CH_INDEED, CH_LINKEDIN, CH_HEALTHCAREJOBSITE, CH_GLASSDOOR],
-        "talent_pool_base": 320_000, "demand_trend": "stable",
-    },
-    # ── Certifications ──
-    "pmp": {
-        "category": CAT_CERTIFICATION, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_DICE, CH_GLASSDOOR],
-        "talent_pool_base": 400_000, "demand_trend": "stable",
-    },
-    "cpa": {
-        "category": CAT_CERTIFICATION, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_GLASSDOOR, CH_CAREERBUILDER],
-        "talent_pool_base": 670_000, "demand_trend": "stable",
-    },
-    "cissp": {
-        "category": CAT_CERTIFICATION, "rarity": RARITY_RARE,
-        "channels": [CH_LINKEDIN, CH_DICE, CH_CLEARANCEJOBS, CH_INDEED],
-        "talent_pool_base": 55_000, "demand_trend": "growing",
-    },
-    "aws_certified": {
-        "category": CAT_CERTIFICATION, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_DICE, CH_INDEED, CH_HIRED],
-        "talent_pool_base": 300_000, "demand_trend": "growing",
-    },
-    "six_sigma": {
-        "category": CAT_CERTIFICATION, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_GLASSDOOR, CH_MONSTER],
-        "talent_pool_base": 350_000, "demand_trend": "declining",
-    },
-    "scrum_master": {
-        "category": CAT_CERTIFICATION, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_GLASSDOOR, CH_BUILTIN],
-        "talent_pool_base": 280_000, "demand_trend": "stable",
-    },
-    # ── Soft skills ──
-    "leadership": {
-        "category": CAT_SOFT, "rarity": RARITY_COMMON,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_GLASSDOOR],
-        "talent_pool_base": 5_000_000, "demand_trend": "stable",
-    },
-    "communication": {
-        "category": CAT_SOFT, "rarity": RARITY_COMMON,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_GLASSDOOR],
-        "talent_pool_base": 8_000_000, "demand_trend": "stable",
-    },
-    "project_management": {
-        "category": CAT_SOFT, "rarity": RARITY_COMMON,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_GLASSDOOR, CH_BUILTIN],
-        "talent_pool_base": 2_000_000, "demand_trend": "stable",
-    },
-    "negotiation": {
-        "category": CAT_SOFT, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_GLASSDOOR],
-        "talent_pool_base": 400_000, "demand_trend": "stable",
-    },
-    "critical_thinking": {
-        "category": CAT_SOFT, "rarity": RARITY_COMMON,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_GLASSDOOR],
-        "talent_pool_base": 3_000_000, "demand_trend": "stable",
-    },
-    # ── Domain knowledge ──
-    "financial_analysis": {
-        "category": CAT_DOMAIN, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_GLASSDOOR, CH_CAREERBUILDER],
-        "talent_pool_base": 450_000, "demand_trend": "stable",
-    },
-    "regulatory_compliance": {
-        "category": CAT_DOMAIN, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_GLASSDOOR, CH_CAREERBUILDER],
-        "talent_pool_base": 320_000, "demand_trend": "growing",
-    },
-    "supply_chain": {
-        "category": CAT_DOMAIN, "rarity": RARITY_MODERATE,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_GLASSDOOR, CH_MONSTER],
-        "talent_pool_base": 380_000, "demand_trend": "growing",
-    },
-    "clinical_research": {
-        "category": CAT_DOMAIN, "rarity": RARITY_RARE,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_HEALTHCAREJOBSITE, CH_GLASSDOOR],
-        "talent_pool_base": 85_000, "demand_trend": "growing",
-    },
-    "digital_marketing": {
-        "category": CAT_DOMAIN, "rarity": RARITY_COMMON,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_BUILTIN, CH_GLASSDOOR],
-        "talent_pool_base": 600_000, "demand_trend": "stable",
-    },
-    "content_writing": {
-        "category": CAT_DOMAIN, "rarity": RARITY_COMMON,
-        "channels": [CH_LINKEDIN, CH_INDEED, CH_FLEXJOBS, CH_WEWORKREMOTELY],
-        "talent_pool_base": 500_000, "demand_trend": "stable",
+    "legal": {
+        "channels": [
+            {"name": "LinkedIn", "weight": 0.30, "reason": "Legal professional standard"},
+            {"name": "LawCrossing", "weight": 0.15, "reason": "Legal niche board"},
+            {"name": "Indeed Sponsored", "weight": 0.20, "reason": "Paralegal + associate volume"},
+            {"name": "Programmatic Display", "weight": 0.12, "reason": "Legal media retargeting"},
+            {"name": "Robert Half Legal", "weight": 0.10, "reason": "Legal staffing network"},
+            {"name": "Glassdoor", "weight": 0.08, "reason": "Firm reputation research"},
+            {"name": "Google Search Ads", "weight": 0.05, "reason": "Intent-based capture"},
+        ],
+        "messaging": "Practice area, billable expectations, partnership track, pro bono",
+        "avg_cpc_range": [2.00, 6.00], "avg_cpa_range": [30, 90],
     },
 }
 
-# ── Aliases for fuzzy matching ──
+_SKILL_TO_CATEGORY: Dict[str, str] = {
+    "Python": "technology", "JavaScript": "technology", "SQL": "technology",
+    "Cloud (AWS/GCP/Azure)": "technology", "Machine Learning": "technology",
+    "Cybersecurity": "technology", "DevOps": "technology", "Kubernetes": "technology",
+    "React": "technology", "TypeScript": "technology", "Java": "technology",
+    "C++": "technology", "Rust": "technology", "Go": "technology",
+    "Data Visualization": "technology", "TensorFlow/PyTorch": "technology",
+    "System Design": "technology", "Git": "technology",
+    "Salesforce": "technology", "SAP": "technology",
+    "Patient Assessment": "healthcare", "BLS/ACLS": "healthcare",
+    "Electronic Health Records": "healthcare", "Medication Administration": "healthcare",
+    "Clinical Diagnosis": "healthcare", "Therapeutic Techniques": "healthcare",
+    "Phlebotomy": "healthcare", "Medical Coding": "healthcare",
+    "CDL License": "trades", "Welding": "trades", "Forklift Operation": "trades",
+    "Blueprint Reading": "trades", "HVAC": "trades",
+    "Electrical Troubleshooting": "trades", "CNC Machining": "trades",
+    "Heavy Equipment Operation": "trades", "Carpentry": "trades", "Plumbing": "trades",
+    "Project Management": "business", "Data Analysis": "business",
+    "Financial Modeling": "business", "SEO/SEM": "business",
+    "Digital Marketing": "business", "CRM Software": "business",
+    "Negotiation": "business", "UX Design": "business",
+    "Figma/Sketch": "business", "AutoCAD": "business",
+    "Six Sigma": "business", "Supply Chain Management": "business",
+    "Accounting (GAAP)": "business",
+    "Customer Service": "service", "Food Safety (ServSafe)": "service",
+    "POS Systems": "service",
+    "Curriculum Development": "education",
+    "Legal Research": "legal", "Contract Negotiation": "legal",
+}
+
+
+# ===========================================================================
+# 6. INTERNAL HELPERS (defined before public functions that use them)
+# ===========================================================================
+
 _SKILL_ALIASES: Dict[str, str] = {
-    "py": "python", "python3": "python", "python 3": "python",
-    "js": "javascript", "es6": "javascript", "ecmascript": "javascript",
-    "ts": "typescript",
-    "c sharp": "java", "c#": "java",
-    "go": "golang", "go lang": "golang",
-    "k8s": "kubernetes", "kube": "kubernetes",
-    "tf": "terraform",
-    "ml": "machine_learning", "ai/ml": "machine_learning",
-    "ai": "llm_ai", "llm": "llm_ai", "gen ai": "llm_ai", "genai": "llm_ai",
-    "large language model": "llm_ai", "generative ai": "llm_ai",
-    "dl": "deep_learning", "neural networks": "deep_learning",
-    "ux": "ui_ux_design", "ux design": "ui_ux_design", "ui design": "ui_ux_design",
-    "product": "product_management", "pm": "product_management",
-    "rn": "nursing_rn", "registered nurse": "nursing_rn",
-    "lpn": "nursing_lpn", "licensed practical nurse": "nursing_lpn",
-    "truck driving": "cdl_driving", "cdl": "cdl_driving",
-    "forklift": "forklift_operation",
-    "electrician": "electrical_work", "electrical": "electrical_work",
-    "plumber": "plumbing",
-    "cnc": "cnc_machining", "machining": "cnc_machining",
-    "welder": "welding",
-    "security": "cybersecurity", "infosec": "cybersecurity",
-    "agile": "scrum_master",
-    "lean": "six_sigma",
-    "accounting": "cpa",
-    "compliance": "regulatory_compliance",
-    "react.js": "react", "reactjs": "react",
-    "angular.js": "angular", "angularjs": "angular",
-    "vuejs": "vue.js", "vue": "vue.js",
-    "nodejs": "node.js", "node": "node.js",
-    "amazon web services": "aws",
-    "google cloud": "gcp", "google cloud platform": "gcp",
-    "microsoft azure": "azure",
+    "aws": "Cloud (AWS/GCP/Azure)", "gcp": "Cloud (AWS/GCP/Azure)",
+    "azure": "Cloud (AWS/GCP/Azure)", "cloud": "Cloud (AWS/GCP/Azure)",
+    "ml": "Machine Learning", "ai": "Machine Learning", "deep learning": "Machine Learning",
+    "tensorflow": "TensorFlow/PyTorch", "pytorch": "TensorFlow/PyTorch", "torch": "TensorFlow/PyTorch",
+    "k8s": "Kubernetes", "docker": "DevOps", "ci/cd": "DevOps", "cicd": "DevOps",
+    "react.js": "React", "reactjs": "React",
+    "node.js": "JavaScript", "nodejs": "JavaScript", "angular": "JavaScript", "vue": "JavaScript",
+    "ts": "TypeScript", "figma": "Figma/Sketch", "sketch": "Figma/Sketch",
+    "ux": "UX Design", "ui": "UX Design", "ui/ux": "UX Design",
+    "gaap": "Accounting (GAAP)", "ifrs": "Accounting (GAAP)",
+    "sap erp": "SAP", "oracle erp": "SAP", "sfdc": "Salesforce", "salesforce crm": "Salesforce",
+    "pmp": "Project Management", "agile": "Project Management", "scrum": "Project Management",
+    "seo": "SEO/SEM", "sem": "SEO/SEM", "google ads": "SEO/SEM",
+    "cdl": "CDL License", "class a": "CDL License", "class a cdl": "CDL License",
+    "hvac-r": "HVAC", "refrigeration": "HVAC",
+    "mig welding": "Welding", "tig welding": "Welding", "arc welding": "Welding", "stick welding": "Welding",
+    "cnc": "CNC Machining", "lathe": "CNC Machining", "servsafe": "Food Safety (ServSafe)",
+    "autocad": "AutoCAD", "revit": "AutoCAD", "solidworks": "AutoCAD",
+    "lean": "Six Sigma", "lean six sigma": "Six Sigma",
+    "supply chain": "Supply Chain Management", "logistics": "Supply Chain Management",
+    "infosec": "Cybersecurity", "information security": "Cybersecurity",
+    "penetration testing": "Cybersecurity", "soc analyst": "Cybersecurity",
+    "rn": "Patient Assessment", "registered nurse": "Patient Assessment",
+    "ehr": "Electronic Health Records", "epic": "Electronic Health Records", "cerner": "Electronic Health Records",
+    "acls": "BLS/ACLS", "bls": "BLS/ACLS",
+    "icd-10": "Medical Coding", "cpt coding": "Medical Coding", "phlebotomist": "Phlebotomy",
 }
 
 
-# ── Channel metadata ──
-CHANNEL_METADATA: Dict[str, Dict[str, Any]] = {
-    CH_LINKEDIN: {
-        "type": "professional_network", "avg_cpc": 5.50, "avg_cpa": 45.0,
-        "best_for": ["white_collar", "grey_collar"],
-        "targeting_options": ["skills", "job_title", "company", "industry", "seniority", "education"],
-    },
-    CH_INDEED: {
-        "type": "job_board", "avg_cpc": 0.50, "avg_cpa": 18.0,
-        "best_for": ["blue_collar", "white_collar", "grey_collar", "pink_collar"],
-        "targeting_options": ["job_title", "location", "salary_range", "experience_level"],
-    },
-    CH_GITHUB: {
-        "type": "developer_community", "avg_cpc": 4.00, "avg_cpa": 55.0,
-        "best_for": ["white_collar"],
-        "targeting_options": ["language", "framework", "contribution_history"],
-    },
-    CH_STACKOVERFLOW: {
-        "type": "developer_community", "avg_cpc": 3.50, "avg_cpa": 50.0,
-        "best_for": ["white_collar"],
-        "targeting_options": ["tags", "reputation", "technology_stack"],
-    },
-    CH_DICE: {
-        "type": "tech_job_board", "avg_cpc": 1.20, "avg_cpa": 25.0,
-        "best_for": ["white_collar"],
-        "targeting_options": ["skill_tags", "clearance_level", "experience"],
-    },
-    CH_GLASSDOOR: {
-        "type": "review_job_board", "avg_cpc": 1.80, "avg_cpa": 28.0,
-        "best_for": ["white_collar", "grey_collar"],
-        "targeting_options": ["job_title", "location", "company_rating"],
-    },
-    CH_ZIPRECRUITER: {
-        "type": "job_board", "avg_cpc": 0.45, "avg_cpa": 15.0,
-        "best_for": ["blue_collar", "pink_collar"],
-        "targeting_options": ["job_title", "location", "salary_range"],
-    },
-    CH_MONSTER: {
-        "type": "job_board", "avg_cpc": 0.60, "avg_cpa": 20.0,
-        "best_for": ["blue_collar", "white_collar"],
-        "targeting_options": ["job_title", "location", "industry"],
-    },
-    CH_ANGELLIST: {
-        "type": "startup_board", "avg_cpc": 3.00, "avg_cpa": 40.0,
-        "best_for": ["white_collar"],
-        "targeting_options": ["role", "stage", "remote_preference", "equity"],
-    },
-    CH_HIRED: {
-        "type": "tech_marketplace", "avg_cpc": 8.00, "avg_cpa": 80.0,
-        "best_for": ["white_collar"],
-        "targeting_options": ["skill_assessment", "salary_expectation", "location"],
-    },
-    CH_TRIPLEBYTE: {
-        "type": "tech_assessment", "avg_cpc": 7.00, "avg_cpa": 75.0,
-        "best_for": ["white_collar"],
-        "targeting_options": ["assessment_score", "specialization"],
-    },
-    CH_TOPTAL: {
-        "type": "freelance_marketplace", "avg_cpc": 10.00, "avg_cpa": 120.0,
-        "best_for": ["white_collar"],
-        "targeting_options": ["skill_assessment", "availability", "rate"],
-    },
-    CH_BEHANCE: {
-        "type": "creative_portfolio", "avg_cpc": 2.50, "avg_cpa": 35.0,
-        "best_for": ["white_collar"],
-        "targeting_options": ["creative_field", "tools", "style"],
-    },
-    CH_DRIBBBLE: {
-        "type": "creative_portfolio", "avg_cpc": 3.00, "avg_cpa": 38.0,
-        "best_for": ["white_collar"],
-        "targeting_options": ["design_specialty", "tools", "availability"],
-    },
-    CH_FLEXJOBS: {
-        "type": "remote_job_board", "avg_cpc": 1.50, "avg_cpa": 22.0,
-        "best_for": ["white_collar", "pink_collar"],
-        "targeting_options": ["remote_type", "schedule", "job_category"],
-    },
-    CH_WEWORKREMOTELY: {
-        "type": "remote_job_board", "avg_cpc": 2.00, "avg_cpa": 30.0,
-        "best_for": ["white_collar"],
-        "targeting_options": ["category", "timezone", "experience"],
-    },
-    CH_BUILTIN: {
-        "type": "tech_community", "avg_cpc": 2.50, "avg_cpa": 32.0,
-        "best_for": ["white_collar"],
-        "targeting_options": ["tech_stack", "company_size", "perks"],
-    },
-    CH_CAREERBUILDER: {
-        "type": "job_board", "avg_cpc": 0.55, "avg_cpa": 18.0,
-        "best_for": ["white_collar", "pink_collar"],
-        "targeting_options": ["job_title", "location", "industry"],
-    },
-    CH_SNAGAJOB: {
-        "type": "hourly_job_board", "avg_cpc": 0.30, "avg_cpa": 10.0,
-        "best_for": ["blue_collar", "pink_collar"],
-        "targeting_options": ["shift_type", "hourly_rate", "location"],
-    },
-    CH_NURSE_COM: {
-        "type": "healthcare_board", "avg_cpc": 1.80, "avg_cpa": 25.0,
-        "best_for": ["grey_collar"],
-        "targeting_options": ["specialty", "license_type", "shift"],
-    },
-    CH_HEALTHCAREJOBSITE: {
-        "type": "healthcare_board", "avg_cpc": 1.50, "avg_cpa": 22.0,
-        "best_for": ["grey_collar"],
-        "targeting_options": ["specialty", "facility_type", "location"],
-    },
-    CH_CLEARANCEJOBS: {
-        "type": "cleared_job_board", "avg_cpc": 3.00, "avg_cpa": 45.0,
-        "best_for": ["white_collar"],
-        "targeting_options": ["clearance_level", "agency", "skill"],
-    },
-    CH_USAJOBS: {
-        "type": "government_board", "avg_cpc": 0.00, "avg_cpa": 0.0,
-        "best_for": ["white_collar", "blue_collar"],
-        "targeting_options": ["gs_level", "agency", "location"],
-    },
-    CH_HANDSHAKE: {
-        "type": "campus_recruiting", "avg_cpc": 1.00, "avg_cpa": 12.0,
-        "best_for": ["white_collar"],
-        "targeting_options": ["major", "graduation_year", "university", "gpa"],
-    },
-    CH_FACEBOOK: {
-        "type": "social_media", "avg_cpc": 0.80, "avg_cpa": 12.0,
-        "best_for": ["blue_collar", "pink_collar"],
-        "targeting_options": ["location", "interests", "demographics", "behavior"],
-    },
-    CH_GOOGLE_ADS: {
-        "type": "search_ppc", "avg_cpc": 2.50, "avg_cpa": 22.0,
-        "best_for": ["blue_collar", "white_collar", "grey_collar", "pink_collar"],
-        "targeting_options": ["keyword", "location", "device", "schedule"],
-    },
-    CH_PROGRAMMATIC: {
-        "type": "programmatic", "avg_cpc": 0.35, "avg_cpa": 8.0,
-        "best_for": ["blue_collar", "pink_collar", "grey_collar"],
-        "targeting_options": ["audience_segment", "geo", "behavioral", "contextual"],
-    },
-}
-
-
-# ── Competitor profiles by industry ──
-_COMPETITOR_PROFILES: Dict[str, List[Dict[str, Any]]] = {
-    "tech_engineering": [
-        {"name": "Google", "hot_skills": ["llm_ai", "machine_learning", "golang", "kubernetes"]},
-        {"name": "Meta", "hot_skills": ["react", "python", "machine_learning", "rust"]},
-        {"name": "Amazon", "hot_skills": ["aws", "java", "python", "devops"]},
-        {"name": "Microsoft", "hot_skills": ["azure", "typescript", "python", "llm_ai"]},
-        {"name": "Apple", "hot_skills": ["ios_swift", "c++", "machine_learning"]},
-    ],
-    "healthcare_medical": [
-        {"name": "UnitedHealth Group", "hot_skills": ["nursing_rn", "medical_coding", "data_engineering"]},
-        {"name": "HCA Healthcare", "hot_skills": ["nursing_rn", "nursing_lpn", "pharmacy"]},
-        {"name": "CVS Health", "hot_skills": ["pharmacy", "nursing_rn", "digital_marketing"]},
-    ],
-    "finance_banking": [
-        {"name": "JPMorgan Chase", "hot_skills": ["python", "java", "cybersecurity", "financial_analysis"]},
-        {"name": "Goldman Sachs", "hot_skills": ["python", "java", "machine_learning"]},
-        {"name": "Blackrock", "hot_skills": ["python", "data_engineering", "financial_analysis"]},
-    ],
-    "retail_consumer": [
-        {"name": "Walmart", "hot_skills": ["forklift_operation", "cdl_driving", "supply_chain"]},
-        {"name": "Amazon", "hot_skills": ["forklift_operation", "cdl_driving", "python"]},
-        {"name": "Target", "hot_skills": ["supply_chain", "leadership", "digital_marketing"]},
-    ],
-    "logistics_supply_chain": [
-        {"name": "UPS", "hot_skills": ["cdl_driving", "forklift_operation", "supply_chain"]},
-        {"name": "FedEx", "hot_skills": ["cdl_driving", "forklift_operation", "leadership"]},
-        {"name": "XPO Logistics", "hot_skills": ["cdl_driving", "supply_chain", "data_engineering"]},
-    ],
-    "construction_real_estate": [
-        {"name": "Turner Construction", "hot_skills": ["welding", "electrical_work", "pmp"]},
-        {"name": "Bechtel", "hot_skills": ["welding", "hvac", "plumbing", "pmp"]},
-    ],
-    "automotive": [
-        {"name": "Tesla", "hot_skills": ["python", "machine_learning", "electrical_work", "welding"]},
-        {"name": "Ford", "hot_skills": ["cnc_machining", "welding", "electrical_work"]},
-        {"name": "GM", "hot_skills": ["electrical_work", "welding", "python"]},
-    ],
-}
-
-# ── Industry -> default collar mapping ──
-_INDUSTRY_COLLAR_HINT: Dict[str, str] = {
-    "tech_engineering": "white_collar",
-    "healthcare_medical": "grey_collar",
-    "finance_banking": "white_collar",
-    "retail_consumer": "blue_collar",
-    "logistics_supply_chain": "blue_collar",
-    "hospitality_travel": "blue_collar",
-    "construction_real_estate": "blue_collar",
-    "automotive": "blue_collar",
-    "energy_utilities": "blue_collar",
-    "aerospace_defense": "white_collar",
-    "pharma_biotech": "white_collar",
-    "education": "white_collar",
-    "food_beverage": "blue_collar",
-    "media_entertainment": "white_collar",
-    "legal_services": "white_collar",
-    "insurance": "white_collar",
-    "telecommunications": "white_collar",
-    "mental_health": "grey_collar",
-    "general_entry_level": "pink_collar",
-}
-
-
-# =============================================================================
-# CORE ANALYSIS FUNCTIONS
-# =============================================================================
-
-def _normalize_skill(raw: str) -> str:
-    """Normalize a raw skill string to a knowledge-base key."""
-    if not raw:
-        return ""
-    s = raw.strip().lower()
-    s = re.sub(r"[^a-z0-9#+./_ -]", "", s)
-    s = s.strip()
-    # Direct match
-    if s in SKILL_DATABASE:
+def _normalize_skill(skill: str) -> str:
+    """Normalize a skill string for lookup. Tries exact, case-insensitive, then alias."""
+    s = skill.strip()
+    if s in SKILLS_TO_OCCUPATIONS:
         return s
-    # Underscore variant
-    us = s.replace(" ", "_").replace("-", "_")
-    if us in SKILL_DATABASE:
-        return us
-    # Alias lookup
-    if s in _SKILL_ALIASES:
-        return _SKILL_ALIASES[s]
-    if us in _SKILL_ALIASES:
-        return _SKILL_ALIASES[us]
-    # Partial match -- check if any key is contained in input or vice versa
-    for key in SKILL_DATABASE:
-        if key in s or s in key:
+    lower = s.lower()
+    for key in SKILLS_TO_OCCUPATIONS:
+        if key.lower() == lower:
             return key
-    return s  # return as-is, will be flagged as unknown
-
-
-def _categorize_skills(
-    required: List[str],
-    nice_to_have: List[str],
-) -> Dict[str, Any]:
-    """Categorize skills into technical, soft, certification, domain."""
-    categories: Dict[str, List[Dict[str, Any]]] = {
-        CAT_TECHNICAL: [],
-        CAT_SOFT: [],
-        CAT_CERTIFICATION: [],
-        CAT_DOMAIN: [],
-    }
-    unknown_skills: List[str] = []
-
-    all_skills = [(s, True) for s in required] + [(s, False) for s in nice_to_have]
-
-    for raw_skill, is_required in all_skills:
-        norm = _normalize_skill(raw_skill)
-        if norm in SKILL_DATABASE:
-            info = SKILL_DATABASE[norm]
-            entry = {
-                "skill": raw_skill,
-                "normalized": norm,
-                "is_required": is_required,
-                "rarity": info["rarity"],
-                "demand_trend": info["demand_trend"],
-                "talent_pool_base": info["talent_pool_base"],
-            }
-            cat = info["category"]
-            categories.get(cat, categories[CAT_DOMAIN]).append(entry)
-        else:
-            unknown_skills.append(raw_skill)
-
-    # Compute overall rarity score (0-100, higher = rarer combo)
-    rarity_weights = {RARITY_COMMON: 10, RARITY_MODERATE: 35, RARITY_RARE: 70, RARITY_UNICORN: 95}
-    all_known = []
-    for cat_list in categories.values():
-        all_known.extend(cat_list)
-
-    if all_known:
-        req_rarities = [rarity_weights.get(s["rarity"], 30) for s in all_known if s["is_required"]]
-        avg_rarity = sum(req_rarities) / len(req_rarities) if req_rarities else 30
-    else:
-        avg_rarity = 30
-
-    return {
-        "categories": {k: v for k, v in categories.items()},
-        "unknown_skills": unknown_skills,
-        "total_known": len(all_known),
-        "total_unknown": len(unknown_skills),
-        "overall_rarity_score": round(avg_rarity, 1),
-        "rarity_label": (
-            "unicorn" if avg_rarity >= 80 else
-            "rare" if avg_rarity >= 55 else
-            "moderate" if avg_rarity >= 25 else
-            "common"
-        ),
-    }
-
-
-def _recommend_channels(
-    skill_analysis: Dict[str, Any],
-    collar_type: str,
-    budget: float,
-) -> List[Dict[str, Any]]:
-    """Recommend channels based on skill clusters, collar type, and budget."""
-    channel_scores: Dict[str, Dict[str, Any]] = {}
-
-    all_skills = []
-    for cat_skills in skill_analysis["categories"].values():
-        all_skills.extend(cat_skills)
-
-    if not all_skills:
-        return [
-            {"channel": CH_INDEED, "match_score": 75, "reason": "General fallback - broad reach",
-             "avg_cpc": 0.50, "avg_cpa": 18.0, "platform_type": "job_board",
-             "targeting_options": ["job_title", "location"], "skills_covered": [], "collar_fit": True},
-            {"channel": CH_LINKEDIN, "match_score": 70, "reason": "General fallback - professional network",
-             "avg_cpc": 5.50, "avg_cpa": 45.0, "platform_type": "professional_network",
-             "targeting_options": ["skills", "job_title"], "skills_covered": [], "collar_fit": True},
-        ]
-
-    # Score each channel by how many skills it covers
-    for skill_info in all_skills:
-        norm = skill_info["normalized"]
-        if norm not in SKILL_DATABASE:
-            continue
-        db_entry = SKILL_DATABASE[norm]
-        weight = 2.0 if skill_info["is_required"] else 1.0
-        rarity_bonus = {RARITY_COMMON: 1.0, RARITY_MODERATE: 1.2, RARITY_RARE: 1.5, RARITY_UNICORN: 2.0}
-        rb = rarity_bonus.get(db_entry["rarity"], 1.0)
-
-        for ch in db_entry["channels"]:
-            if ch not in channel_scores:
-                channel_scores[ch] = {
-                    "channel": ch,
-                    "skills_covered": [],
-                    "raw_score": 0.0,
-                    "collar_fit": False,
-                }
-            channel_scores[ch]["skills_covered"].append(norm)
-            channel_scores[ch]["raw_score"] += weight * rb
-
-    # Apply collar fit bonus
-    for ch_name, cs in channel_scores.items():
-        meta = CHANNEL_METADATA.get(ch_name, {})
-        best_for = meta.get("best_for", [])
-        if collar_type in best_for:
-            cs["collar_fit"] = True
-            cs["raw_score"] *= 1.3
-
-    # Normalize to 0-100 match score
-    max_score = max((cs["raw_score"] for cs in channel_scores.values()), default=1.0)
-    for cs in channel_scores.values():
-        cs["match_score"] = round((cs["raw_score"] / max_score) * 100, 1)
-        meta = CHANNEL_METADATA.get(cs["channel"], {})
-        cs["avg_cpc"] = meta.get("avg_cpc", 1.0)
-        cs["avg_cpa"] = meta.get("avg_cpa", 20.0)
-        cs["platform_type"] = meta.get("type", "unknown")
-        cs["targeting_options"] = meta.get("targeting_options", [])
-        n_skills = len(cs["skills_covered"])
-        cs["reason"] = (
-            f"Covers {n_skills} skill{'s' if n_skills != 1 else ''}: "
-            f"{', '.join(cs['skills_covered'][:4])}"
-            f"{'...' if n_skills > 4 else ''}"
-        )
-        del cs["raw_score"]
-
-    ranked = sorted(channel_scores.values(), key=lambda x: x["match_score"], reverse=True)
-    return ranked[:10]
-
-
-def _build_targeting_strategy(
-    channels: List[Dict[str, Any]],
-    skill_analysis: Dict[str, Any],
-    job_title: str,
-    collar_type: str,
-    location: str,
-) -> List[Dict[str, Any]]:
-    """Build platform-specific targeting recommendations."""
-    strategies = []
-    for ch_rec in channels[:6]:
-        ch_name = ch_rec["channel"]
-        meta = CHANNEL_METADATA.get(ch_name, {})
-        targeting_opts = meta.get("targeting_options", [])
-
-        strategy = {
-            "channel": ch_name,
-            "match_score": ch_rec["match_score"],
-            "targeting_parameters": {},
-            "ad_copy_suggestions": [],
-            "audience_size_estimate": "medium",
-        }
-
-        if "skills" in targeting_opts or "skill_tags" in targeting_opts or "tags" in targeting_opts:
-            all_skills_list = []
-            for cat_skills in skill_analysis["categories"].values():
-                all_skills_list.extend([s["skill"] for s in cat_skills if s["is_required"]])
-            strategy["targeting_parameters"]["skills"] = all_skills_list[:10]
-
-        if "job_title" in targeting_opts:
-            strategy["targeting_parameters"]["job_title"] = job_title
-
-        if "location" in targeting_opts and location:
-            strategy["targeting_parameters"]["location"] = location
-
-        if "industry" in targeting_opts:
-            strategy["targeting_parameters"]["industry"] = "auto-detect"
-
-        if "seniority" in targeting_opts:
-            title_lower = job_title.lower()
-            if any(w in title_lower for w in ["senior", "lead", "principal", "staff"]):
-                strategy["targeting_parameters"]["seniority"] = "senior"
-            elif any(w in title_lower for w in ["director", "vp", "head"]):
-                strategy["targeting_parameters"]["seniority"] = "director+"
-            elif any(w in title_lower for w in ["junior", "entry", "associate", "intern"]):
-                strategy["targeting_parameters"]["seniority"] = "entry-level"
-            else:
-                strategy["targeting_parameters"]["seniority"] = "mid-level"
-
-        rarity = skill_analysis.get("overall_rarity_score", 30)
-        if rarity >= 70:
-            strategy["audience_size_estimate"] = "very_small"
-        elif rarity >= 50:
-            strategy["audience_size_estimate"] = "small"
-        elif rarity >= 25:
-            strategy["audience_size_estimate"] = "medium"
-        else:
-            strategy["audience_size_estimate"] = "large"
-
-        if collar_type == "blue_collar":
-            strategy["ad_copy_suggestions"] = [
-                "Highlight hourly rate and shift schedule upfront",
-                "Mention benefits: health insurance, 401k match",
-                "Use simple, direct language -- avoid jargon",
-                "Include 'No experience required' if applicable",
-            ]
-        elif collar_type == "grey_collar":
-            strategy["ad_copy_suggestions"] = [
-                "Lead with license/certification recognition",
-                "Mention sign-on bonuses and shift differentials",
-                "Highlight patient-to-staff ratios",
-                "Include continuing education support",
-            ]
-        elif collar_type == "pink_collar":
-            strategy["ad_copy_suggestions"] = [
-                "Emphasize flexible scheduling and work-life balance",
-                "Highlight growth opportunities and career paths",
-                "Mention team culture and supportive environment",
-            ]
-        else:
-            strategy["ad_copy_suggestions"] = [
-                "Lead with technical challenges and impact",
-                "Highlight tech stack alignment with candidate skills",
-                "Mention remote/hybrid options if available",
-                "Include compensation range for transparency",
-            ]
-
-        strategies.append(strategy)
-
-    return strategies
-
-
-def _allocate_budget(
-    channels: List[Dict[str, Any]],
-    total_budget: float,
-    collar_type: str,
-) -> Dict[str, Any]:
-    """Allocate budget across recommended channels."""
-    if not channels or total_budget <= 0:
-        return {"total_budget": total_budget, "allocations": [], "notes": ["No channels to allocate"]}
-
-    total_weight = sum(ch["match_score"] for ch in channels[:8])
-    if total_weight == 0:
-        total_weight = 1.0
-
-    allocations = []
-    remaining = total_budget
-
-    for ch in channels[:8]:
-        pct = ch["match_score"] / total_weight
-        amount = round(total_budget * pct, 2)
-        remaining -= amount
-        cpa = ch.get("avg_cpa", 20.0)
-        est_apps = int(amount / cpa) if cpa > 0 else 0
-
-        allocations.append({
-            "channel": ch["channel"],
-            "budget": amount,
-            "percentage": round(pct * 100, 1),
-            "estimated_applications": est_apps,
-            "avg_cpa": cpa,
-            "match_score": ch["match_score"],
-        })
-
-    if remaining != 0 and allocations:
-        allocations[0]["budget"] = round(allocations[0]["budget"] + remaining, 2)
-
-    notes = []
-    for ch in channels[:3]:
-        for sk in ch.get("skills_covered", []):
-            if sk in SKILL_DATABASE and SKILL_DATABASE[sk]["rarity"] == RARITY_UNICORN:
-                notes.append(f"Unicorn skill '{sk}' detected -- consider sourcing + headhunting budget")
-                break
-
-    if collar_type == "blue_collar":
-        notes.append("Blue collar: prioritize high-volume, low-CPA channels (Indeed, Snagajob, Programmatic)")
-    elif collar_type == "grey_collar":
-        notes.append("Grey collar: allocate 15-20% to niche healthcare/clinical boards")
-
-    total_est_apps = sum(a["estimated_applications"] for a in allocations)
-
-    return {
-        "total_budget": total_budget,
-        "allocations": allocations,
-        "total_estimated_applications": total_est_apps,
-        "estimated_cost_per_application": round(total_budget / total_est_apps, 2) if total_est_apps > 0 else 0,
-        "notes": notes,
-    }
-
-
-def _get_competitor_insight(
-    skill_analysis: Dict[str, Any],
-    industry: str,
-) -> Dict[str, Any]:
-    """Identify competitors hiring for similar skills."""
-    industry_key = industry.lower().replace(" ", "_") if industry else ""
-    matched_key = ""
-    for k in _COMPETITOR_PROFILES:
-        if k == industry_key or industry_key in k or k in industry_key:
-            matched_key = k
-            break
-
-    if not matched_key:
-        for k in _COMPETITOR_PROFILES:
-            if any(part in industry_key for part in k.split("_") if len(part) > 3):
-                matched_key = k
-                break
-
-    competitors = _COMPETITOR_PROFILES.get(matched_key, [])
-
-    required_norms = set()
-    for cat_skills in skill_analysis["categories"].values():
-        for s in cat_skills:
-            if s["is_required"]:
-                required_norms.add(s["normalized"])
-
-    scored = []
-    for comp in competitors:
-        overlap = required_norms.intersection(set(comp["hot_skills"]))
-        score = len(overlap) / max(len(required_norms), 1) * 100
-        scored.append({
-            "company": comp["name"],
-            "overlap_score": round(score, 1),
-            "shared_skills": list(overlap),
-            "their_hot_skills": comp["hot_skills"],
-        })
-
-    scored.sort(key=lambda x: x["overlap_score"], reverse=True)
-
-    return {
-        "industry_matched": matched_key or "general",
-        "competitors": scored[:5],
-        "talent_competition_level": (
-            "very_high" if any(c["overlap_score"] >= 60 for c in scored) else
-            "high" if any(c["overlap_score"] >= 40 for c in scored) else
-            "moderate" if scored else "low"
-        ),
-        "recommendation": (
-            "Multiple major employers are competing for the same skills. "
-            "Consider employer branding investment and faster offer timelines."
-            if any(c["overlap_score"] >= 40 for c in scored) else
-            "Moderate competition. Standard sourcing strategy should suffice."
-        ),
-    }
-
-
-def _estimate_talent_pool(
-    skill_analysis: Dict[str, Any],
-    location: str,
-) -> Dict[str, Any]:
-    """Estimate available talent pool size based on skill intersection."""
-    pool_sizes = []
-    for cat_skills in skill_analysis["categories"].values():
-        for s in cat_skills:
-            if s["is_required"] and "talent_pool_base" in s:
-                pool_sizes.append(s["talent_pool_base"])
-
-    if not pool_sizes:
-        return {
-            "estimated_total_pool": 50_000,
-            "active_seekers": 10_000,
-            "passive_reachable": 17_500,
-            "confidence": "low",
-            "methodology": "fallback_estimate",
-            "location_adjustment": location or "nationwide",
-            "location_multiplier": 1.0,
-            "required_skills_count": 0,
-            "smallest_single_pool": 0,
-            "pool_scarcity": "adequate",
-        }
-
-    smallest = min(pool_sizes)
-    n_required = len(pool_sizes)
-    overlap_factor = 0.5 ** max(n_required - 1, 0)
-    estimated = int(smallest * overlap_factor)
-
-    loc_lower = (location or "").lower()
-    if any(city in loc_lower for city in ["new york", "san francisco", "los angeles",
-                                           "chicago", "seattle", "boston", "austin"]):
-        loc_multiplier = 0.08
-    elif any(region in loc_lower for region in ["us", "united states", "usa", "nationwide", "remote"]):
-        loc_multiplier = 1.0
-    elif location:
-        loc_multiplier = 0.03
-    else:
-        loc_multiplier = 1.0
-
-    adjusted = max(int(estimated * loc_multiplier), 10)
-    active_seekers = int(adjusted * 0.20)
-    passive_reachable = int(adjusted * 0.35)
-
-    return {
-        "estimated_total_pool": adjusted,
-        "active_seekers": active_seekers,
-        "passive_reachable": passive_reachable,
-        "location_adjustment": location or "nationwide",
-        "location_multiplier": loc_multiplier,
-        "confidence": "medium" if n_required <= 3 else "low",
-        "methodology": "skill_intersection_overlap",
-        "required_skills_count": n_required,
-        "smallest_single_pool": smallest,
-        "pool_scarcity": (
-            "critical" if adjusted < 500 else
-            "scarce" if adjusted < 5_000 else
-            "tight" if adjusted < 50_000 else
-            "adequate" if adjusted < 200_000 else
-            "abundant"
-        ),
-    }
-
-
-def _classify_collar_type(job_title: str, industry: str, skills: List[str]) -> Dict[str, Any]:
-    """Classify collar type using collar_intelligence or fallback heuristics."""
-    if _HAS_COLLAR:
-        try:
-            result = _classify_collar(job_title, industry=industry)
-            return result
-        except Exception as e:
-            logger.warning("collar_intelligence failed: %s", e)
-
-    title_lower = job_title.lower() if job_title else ""
-    norm_skills = [_normalize_skill(s) for s in skills]
-
-    blue_skills = {"welding", "hvac", "cdl_driving", "forklift_operation", "electrical_work",
-                   "plumbing", "cnc_machining"}
-    grey_skills = {"nursing_rn", "nursing_lpn", "medical_coding", "pharmacy", "clinical_research"}
-
-    blue_count = len(blue_skills.intersection(norm_skills))
-    grey_count = len(grey_skills.intersection(norm_skills))
-
-    if blue_count >= 1:
-        collar = "blue_collar"
-    elif grey_count >= 1:
-        collar = "grey_collar"
-    elif any(w in title_lower for w in ["nurse", "medical", "clinical", "therapist", "technician"]):
-        collar = "grey_collar"
-    elif any(w in title_lower for w in ["admin", "receptionist", "secretary", "clerk", "assistant"]):
-        collar = "pink_collar"
-    elif any(w in title_lower for w in ["driver", "warehouse", "mechanic", "welder", "plumber",
-                                         "electrician", "operator", "laborer",
-                                         "janitor", "cook", "dishwasher"]):
-        collar = "blue_collar"
-    else:
-        collar = _INDUSTRY_COLLAR_HINT.get(industry, "white_collar")
-
-    return {
-        "collar_type": collar,
-        "confidence": 0.55,
-        "sub_type": collar.replace("_", " ").title(),
-        "method": "skill_target_fallback",
-        "indicators": [f"job_title={job_title}", f"industry={industry}"],
-        "channel_strategy": (
-            "volume" if collar == "blue_collar" else
-            "targeted" if collar in ("grey_collar", "pink_collar") else
-            "premium"
-        ),
-    }
-
-
-# =============================================================================
-# MAIN ENTRY POINT
-# =============================================================================
-
-def analyze_skills(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Main entry point for skill-based targeting analysis.
-
-    Args:
-        data: dict with keys:
-            - job_title (str)
-            - required_skills (list[str])
-            - nice_to_have_skills (list[str], optional)
-            - industry (str)
-            - location (str, optional)
-            - budget (float, optional)
-
-    Returns:
-        Full analysis dict with skill_analysis, channel_recommendations,
-        targeting_strategy, budget_allocation, competitor_insight,
-        talent_pool_estimate, collar_type.
-    """
+    alias_result = _SKILL_ALIASES.get(lower)
+    if alias_result:
+        return alias_result
+    return s
+
+
+_SALARY_ESTIMATES: Dict[str, Dict[str, int]] = {
+    "software": {"p25": 90000, "median": 120000, "p75": 155000},
+    "data scientist": {"p25": 95000, "median": 127000, "p75": 165000},
+    "web developer": {"p25": 55000, "median": 78000, "p75": 105000},
+    "network": {"p25": 65000, "median": 85000, "p75": 110000},
+    "security": {"p25": 80000, "median": 107000, "p75": 140000},
+    "database": {"p25": 72000, "median": 98000, "p75": 128000},
+    "nurse": {"p25": 62000, "median": 81000, "p75": 101000},
+    "physician": {"p25": 180000, "median": 230000, "p75": 310000},
+    "pharmacist": {"p25": 110000, "median": 128000, "p75": 150000},
+    "therapist": {"p25": 45000, "median": 58000, "p75": 78000},
+    "truck driver": {"p25": 42000, "median": 52000, "p75": 65000},
+    "welder": {"p25": 38000, "median": 47000, "p75": 60000},
+    "electrician": {"p25": 45000, "median": 61000, "p75": 82000},
+    "plumber": {"p25": 42000, "median": 59000, "p75": 80000},
+    "hvac": {"p25": 40000, "median": 52000, "p75": 72000},
+    "machinist": {"p25": 38000, "median": 48000, "p75": 62000},
+    "carpenter": {"p25": 38000, "median": 52000, "p75": 70000},
+    "laborer": {"p25": 30000, "median": 38000, "p75": 48000},
+    "cashier": {"p25": 24000, "median": 28000, "p75": 33000},
+    "customer service": {"p25": 30000, "median": 37000, "p75": 45000},
+    "sales": {"p25": 40000, "median": 62000, "p75": 95000},
+    "marketing": {"p25": 48000, "median": 68000, "p75": 95000},
+    "accountant": {"p25": 55000, "median": 77000, "p75": 100000},
+    "analyst": {"p25": 55000, "median": 72000, "p75": 95000},
+    "manager": {"p25": 70000, "median": 100000, "p75": 140000},
+    "engineer": {"p25": 75000, "median": 100000, "p75": 135000},
+    "teacher": {"p25": 42000, "median": 58000, "p75": 75000},
+    "lawyer": {"p25": 80000, "median": 127000, "p75": 190000},
+    "paralegal": {"p25": 42000, "median": 56000, "p75": 75000},
+    "operator": {"p25": 32000, "median": 42000, "p75": 55000},
+    "cook": {"p25": 26000, "median": 32000, "p75": 40000},
+    "medical records": {"p25": 36000, "median": 46000, "p75": 58000},
+    "drafter": {"p25": 42000, "median": 56000, "p75": 72000},
+    "industrial engineer": {"p25": 70000, "median": 92000, "p75": 118000},
+    "logistician": {"p25": 55000, "median": 77000, "p75": 100000},
+    "counselor": {"p25": 40000, "median": 50000, "p75": 65000},
+    "graphic designer": {"p25": 40000, "median": 55000, "p75": 75000},
+}
+
+
+def _estimate_salary(occ_lower: str) -> Dict[str, int]:
+    for keyword, data in _SALARY_ESTIMATES.items():
+        if keyword in occ_lower:
+            return data
+    return {"p25": 40000, "median": 55000, "p75": 75000}
+
+
+def _allocate_budget(budget: float, channels: List[Dict[str, Any]]) -> Dict[str, Any]:
+    allocation = []
+    for ch in channels:
+        w = ch.get("weight", 0)
+        amt = round(budget * w, 2)
+        allocation.append({"channel": ch.get("name", ""), "weight": w,
+                           "monthly_spend": amt, "annual_spend": round(amt * 12, 2)})
+    return {"monthly_budget": budget, "annual_budget": round(budget * 12, 2), "allocations": allocation}
+
+
+def _build_summary(skills, occupations, demand, collar_type):
     try:
-        job_title = str(data.get("job_title", "")).strip()
-        required_skills = data.get("required_skills", [])
-        nice_to_have = data.get("nice_to_have_skills", [])
-        industry = str(data.get("industry", "")).strip()
-        location = str(data.get("location", "")).strip()
-        budget_raw = data.get("budget", 50_000)
-
-        if not job_title:
-            return {"error": "job_title is required", "status": "error"}
-        if not required_skills:
-            return {"error": "required_skills list is required (at least 1 skill)", "status": "error"}
-
-        budget = parse_budget(budget_raw, default=50_000.0)
-
-        # 1. Classify collar type
-        collar_result = _classify_collar_type(job_title, industry, required_skills)
-        collar_type = collar_result.get("collar_type", "white_collar")
-
-        # 2. Categorize skills
-        skill_analysis = _categorize_skills(required_skills, nice_to_have)
-
-        # 3. Channel recommendations
-        channels = _recommend_channels(skill_analysis, collar_type, budget)
-
-        # 4. Targeting strategy
-        targeting = _build_targeting_strategy(channels, skill_analysis, job_title, collar_type, location)
-
-        # 5. Budget allocation
-        allocation = _allocate_budget(channels, budget, collar_type)
-
-        # 6. Competitor insight
-        competitors = _get_competitor_insight(skill_analysis, industry)
-
-        # 7. Talent pool estimate
-        talent_pool = _estimate_talent_pool(skill_analysis, location)
-
-        return {
-            "status": "success",
-            "job_title": job_title,
-            "industry": industry,
-            "location": location or "nationwide",
-            "generated_at": datetime.utcnow().isoformat() + "Z",
-            "collar_type": collar_result,
-            "skill_analysis": skill_analysis,
-            "channel_recommendations": channels,
-            "targeting_strategy": targeting,
-            "budget_allocation": allocation,
-            "competitor_insight": competitors,
-            "talent_pool_estimate": talent_pool,
-            "ui_theme": {
-                "bg": _UI_BG,
-                "card": _UI_CARD,
-                "accent": _UI_ACCENT,
-            },
-        }
-
-    except Exception as exc:
-        logger.error("analyze_skills failed: %s\n%s", exc, traceback.format_exc())
-        return {"error": str(exc), "status": "error", "traceback": traceback.format_exc()}
+        n_skills = len(skills)
+        n_occs = len(occupations)
+        top_occ = occupations[0]["title"] if occupations else "General"
+        d_summary = demand.get("summary", {})
+        shortage = d_summary.get("skills_in_shortage", 0)
+        overall = d_summary.get("overall_demand", "balanced").replace("_", " ")
+        collar_label = collar_type.replace("_", " ").title()
+        parts = [
+            f"Analyzed {n_skills} skill(s) matching {n_occs} O*NET occupation(s).",
+            f"Primary occupation: {top_occ} ({collar_label}).",
+            f"Market outlook: {overall} ({shortage} of {n_skills} skills in shortage).",
+        ]
+        if shortage > n_skills * 0.5:
+            parts.append("ALERT: Over half of the target skills are in shortage. "
+                         "Consider higher CPA budgets, sign-on bonuses, and niche channel investment.")
+        elif shortage > 0:
+            parts.append("Some skills show supply constraints. "
+                         "Targeted sourcing on niche boards recommended for scarce skills.")
+        else:
+            parts.append("Skills are broadly available. "
+                         "Focus on employer brand and competitive compensation.")
+        return " ".join(parts)
+    except Exception:
+        return "Skill analysis complete. See detailed sections for findings."
 
 
-# =============================================================================
-# EXCEL EXPORT
-# =============================================================================
+# ===========================================================================
+# 7. CORE PUBLIC FUNCTIONS
+# ===========================================================================
 
-def generate_skill_report_excel(analysis: Dict[str, Any]) -> bytes:
-    """Generate multi-sheet Excel report from skill analysis.
+def find_matching_occupations(skills: List[str]) -> List[Dict[str, Any]]:
+    """Match skills to O*NET-aligned occupations, sorted by match count."""
+    try:
+        occ_map: Dict[str, Dict[str, Any]] = {}
+        for skill in skills:
+            skill_key = _normalize_skill(skill)
+            for occ in SKILLS_TO_OCCUPATIONS.get(skill_key, []):
+                soc = occ["soc"]
+                if soc not in occ_map:
+                    occ_map[soc] = {"soc": soc, "title": occ["title"],
+                                    "zone": occ.get("zone", "3"),
+                                    "matched_skills": [], "match_count": 0}
+                if skill_key not in occ_map[soc]["matched_skills"]:
+                    occ_map[soc]["matched_skills"].append(skill_key)
+                    occ_map[soc]["match_count"] += 1
+        return sorted(occ_map.values(), key=lambda d: d["match_count"], reverse=True)
+    except Exception as e:
+        logger.error("find_matching_occupations error: %s", e)
+        return []
 
-    Sheets:
-        1. Executive Summary
-        2. Skill Analysis
-        3. Channel Recommendations
-        4. Targeting Strategy
-        5. Budget Allocation
-        6. Talent Pool & Competitors
 
-    Uses Sapphire Blue palette, Calibri font, data starts at column B.
-    """
+def get_skill_demand_trends(skills: List[str]) -> Dict[str, Any]:
+    """Return demand indicators for each skill."""
+    try:
+        results: Dict[str, Any] = {}
+        shortage_count = high_growth_count = 0
+        for skill in skills:
+            key = _normalize_skill(skill)
+            info = _SKILL_DEMAND.get(key, {"growth": "unknown", "yoy_pct": 0, "pool": "unknown", "shortage": False})
+            results[key] = info
+            if info.get("shortage"): shortage_count += 1
+            if info.get("growth") in ("high", "very_high"): high_growth_count += 1
+        total = max(len(skills), 1)
+        return {"skills": results, "summary": {
+            "total_skills_analyzed": len(skills), "skills_in_shortage": shortage_count,
+            "shortage_pct": round(shortage_count / total * 100, 1),
+            "high_growth_skills": high_growth_count,
+            "high_growth_pct": round(high_growth_count / total * 100, 1),
+            "overall_demand": ("critical_shortage" if shortage_count / total > 0.5
+                               else "tight" if shortage_count / total > 0.25 else "balanced"),
+        }}
+    except Exception as e:
+        logger.error("get_skill_demand_trends error: %s", e)
+        return {"skills": {}, "summary": {}}
+
+
+def recommend_channels(skill_profile: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Recommend recruiting channels based on skill profile + collar type."""
+    try:
+        skills = skill_profile.get("skills", [])
+        collar = skill_profile.get("collar_type", "")
+        categories: Dict[str, int] = {}
+        for skill in skills:
+            cat = _SKILL_TO_CATEGORY.get(_normalize_skill(skill), "business")
+            categories[cat] = categories.get(cat, 0) + 1
+        if not categories: categories = {"business": 1}
+        total_cat = sum(categories.values())
+        cat_weights = {c: cnt / total_cat for c, cnt in categories.items()}
+        channel_scores: Dict[str, Dict[str, Any]] = {}
+        for cat, cat_w in cat_weights.items():
+            cat_data = _SKILL_CATEGORY_CHANNELS.get(cat, _SKILL_CATEGORY_CHANNELS["business"])
+            for ch in cat_data["channels"]:
+                name = ch["name"]
+                if name not in channel_scores:
+                    channel_scores[name] = {"name": name, "weight": 0.0, "reasons": []}
+                channel_scores[name]["weight"] += ch["weight"] * cat_w
+                channel_scores[name]["reasons"].append(ch["reason"])
+        if collar and _HAS_COLLAR and collar in COLLAR_STRATEGY:
+            for platform in COLLAR_STRATEGY[collar].get("preferred_platforms", [])[:3]:
+                for ch_name in channel_scores:
+                    if platform.lower() in ch_name.lower():
+                        channel_scores[ch_name]["weight"] *= 1.15
+        total_w = sum(ch["weight"] for ch in channel_scores.values())
+        results = []
+        for ch in channel_scores.values():
+            ch["weight"] = round(ch["weight"] / total_w, 3) if total_w > 0 else 0
+            ch["reasons"] = list(dict.fromkeys(ch["reasons"]))[:3]
+            results.append(ch)
+        results.sort(key=lambda d: d["weight"], reverse=True)
+        return results[:10]
+    except Exception as e:
+        logger.error("recommend_channels error: %s", e)
+        return []
+
+
+def get_salary_benchmarks(occupations: List[str], location: str = "") -> Dict[str, Any]:
+    """Get salary benchmarks, optionally COLI-adjusted by location."""
+    try:
+        salary_data: Dict[str, Any] = {}
+        api_data = {}
+        if _HAS_API and occupations:
+            try: api_data = fetch_salary_data(occupations[:10])
+            except Exception: pass
+        coli = 100.0
+        if location and _HAS_RESEARCH:
+            try: coli = get_location_info(location).get("coli", 100.0)
+            except Exception: pass
+        coli_factor = coli / 100.0
+        for occ in occupations[:15]:
+            occ_lower = occ.lower().strip()
+            if occ in api_data and api_data[occ].get("median"):
+                raw = api_data[occ]
+                salary_data[occ] = {"source": "BLS API", "median": round(raw["median"] * coli_factor),
+                    "p25": round(raw.get("p25", raw["median"] * 0.78) * coli_factor),
+                    "p75": round(raw.get("p75", raw["median"] * 1.25) * coli_factor),
+                    "coli_adjusted": coli != 100.0, "coli": round(coli, 1)}
+            else:
+                est = _estimate_salary(occ_lower)
+                salary_data[occ] = {"source": "built-in estimate",
+                    "median": round(est["median"] * coli_factor),
+                    "p25": round(est["p25"] * coli_factor), "p75": round(est["p75"] * coli_factor),
+                    "coli_adjusted": coli != 100.0, "coli": round(coli, 1)}
+        medians = [v["median"] for v in salary_data.values() if v.get("median")]
+        return {"occupations": salary_data, "aggregate": {
+            "avg_median": round(sum(medians) / len(medians)) if medians else 0,
+            "min_median": min(medians) if medians else 0,
+            "max_median": max(medians) if medians else 0,
+            "location": location or "National (no location specified)", "coli": round(coli, 1)}}
+    except Exception as e:
+        logger.error("get_salary_benchmarks error: %s", e)
+        return {"occupations": {}, "aggregate": {}}
+
+
+def find_skill_hotspots(skills: List[str]) -> List[Dict[str, Any]]:
+    """Find geographic concentrations for skills."""
+    try:
+        metro_scores: Dict[str, Dict[str, Any]] = {}
+        for skill in skills:
+            key = _normalize_skill(skill)
+            for hs in _SKILL_HOTSPOTS.get(key, []):
+                metro = hs["metro"]
+                if metro not in metro_scores:
+                    metro_scores[metro] = {"metro": metro, "concentrations": [],
+                                           "skills_present": [], "top_employers": set()}
+                metro_scores[metro]["concentrations"].append(hs["concentration"])
+                metro_scores[metro]["skills_present"].append(key)
+                for emp in hs.get("employers", "").split(", "):
+                    if emp.strip(): metro_scores[metro]["top_employers"].add(emp.strip())
+        if _HAS_RESEARCH and not metro_scores:
+            for metro in ["New York, NY", "Los Angeles, CA", "Chicago, IL", "Houston, TX", "Dallas, TX"]:
+                try:
+                    info = get_location_info(metro)
+                    metro_scores[metro] = {"metro": metro, "concentrations": [0.50],
+                        "skills_present": list(skills[:3]),
+                        "top_employers": set(info.get("major_employers", "").split(", ")[:3])}
+                except Exception: pass
+        results = []
+        for metro, data in metro_scores.items():
+            concs = data["concentrations"]
+            results.append({"metro": data["metro"],
+                "avg_concentration": round(sum(concs) / len(concs), 3) if concs else 0,
+                "skills_present": list(dict.fromkeys(data["skills_present"])),
+                "skill_coverage": round(len(set(data["skills_present"])) / max(len(skills), 1), 2),
+                "top_employers": sorted(data["top_employers"])[:6]})
+        results.sort(key=lambda d: d["avg_concentration"], reverse=True)
+        return results[:15]
+    except Exception as e:
+        logger.error("find_skill_hotspots error: %s", e)
+        return []
+
+
+def get_adjacent_skills(skills: List[str]) -> List[Dict[str, Any]]:
+    """Find related skills, excluding those already in the input set."""
+    try:
+        input_set = {_normalize_skill(s) for s in skills}
+        adj_map: Dict[str, Dict[str, Any]] = {}
+        for skill in skills:
+            key = _normalize_skill(skill)
+            for adj in ADJACENT_SKILLS.get(key, []):
+                adj_name = adj["skill"]
+                if adj_name in input_set: continue
+                if adj_name not in adj_map:
+                    adj_map[adj_name] = {"skill": adj_name, "max_relevance": 0.0,
+                        "connected_to": [],
+                        "scarcity": SKILL_SCARCITY.get(adj_name, 0.40) if _HAS_COLLAR else 0.40}
+                if adj["relevance"] > adj_map[adj_name]["max_relevance"]:
+                    adj_map[adj_name]["max_relevance"] = adj["relevance"]
+                adj_map[adj_name]["connected_to"].append(key)
+        results = sorted(adj_map.values(), key=lambda d: d["max_relevance"], reverse=True)
+        for r in results:
+            r["max_relevance"] = round(r["max_relevance"], 2)
+            r["connected_to"] = list(dict.fromkeys(r["connected_to"]))
+        return results[:20]
+    except Exception as e:
+        logger.error("get_adjacent_skills error: %s", e)
+        return []
+
+
+def suggest_job_titles(skills: List[str], industry: str = "") -> List[str]:
+    """Generate optimized job title suggestions."""
+    try:
+        occupations = find_matching_occupations(skills)
+        base_titles = [occ["title"] for occ in occupations[:8]]
+        enhanced: List[str] = []
+        for title in base_titles:
+            enhanced.append(title)
+            if industry:
+                label = INDUSTRY_LABEL_MAP.get(industry, "") if _HAS_UTILS else ""
+                if not label: label = industry.replace("_", " ").title()
+                if len(label) < 25: enhanced.append(f"{title} ({label})")
+        if _HAS_COLLAR:
+            categories = {}
+            for s in skills:
+                cat = _SKILL_TO_CATEGORY.get(_normalize_skill(s), "business")
+                categories[cat] = categories.get(cat, 0) + 1
+            primary_cat = max(categories, key=categories.get) if categories else "business"
+            suffixes = {"technology": ["(Remote Available)", "(Hybrid)"],
+                "healthcare": ["(Day Shift)", "(Night Shift)", "(PRN)"],
+                "trades": ["(Full-Time)", "(Overtime Available)"],
+                "business": ["(Hybrid)", "(On-Site)"],
+                "service": ["(Full-Time)", "(Part-Time)"]}
+            for suffix in suffixes.get(primary_cat, []):
+                if base_titles: enhanced.append(f"{base_titles[0]} {suffix}")
+        seen = set()
+        unique = []
+        for t in enhanced:
+            if t.lower() not in seen: seen.add(t.lower()); unique.append(t)
+        return unique[:15]
+    except Exception as e:
+        logger.error("suggest_job_titles error: %s", e)
+        return []
+
+
+def analyze_skills(skills: List[str], industry: str = "", location: str = "") -> Dict[str, Any]:
+    """Main orchestrator: analyze skills for recruitment targeting."""
+    try:
+        occupations = find_matching_occupations(skills)
+        demand = get_skill_demand_trends(skills)
+        adjacent = get_adjacent_skills(skills)
+        hotspots = find_skill_hotspots(skills)
+        titles = suggest_job_titles(skills, industry)
+        collar_type = "white_collar"
+        if _HAS_COLLAR and occupations:
+            collar_type = classify_collar(occupations[0]["title"], industry).get("collar_type", "white_collar")
+        channels = recommend_channels({"skills": skills, "collar_type": collar_type})
+        salary = get_salary_benchmarks([o["title"] for o in occupations[:5]], location)
+        return {"input": {"skills": skills, "industry": industry, "location": location},
+            "occupations": occupations, "demand_trends": demand, "channels": channels,
+            "salary_benchmarks": salary, "hotspots": hotspots, "adjacent_skills": adjacent,
+            "suggested_titles": titles, "collar_type": collar_type,
+            "summary": _build_summary(skills, occupations, demand, collar_type)}
+    except Exception as e:
+        logger.error("analyze_skills error: %s", e)
+        return {"error": str(e), "input": {"skills": skills}}
+
+
+# ===========================================================================
+# 8. FULL ANALYSIS ORCHESTRATOR (threaded)
+# ===========================================================================
+
+def run_full_skill_analysis(skills: List[str], industry: str = "",
+                            location: str = "", budget: Optional[float] = None) -> Dict[str, Any]:
+    """Run comprehensive skill analysis with parallel sub-tasks."""
+    try:
+        if not skills: return {"error": "No skills provided", "input": {"skills": []}}
+        skills = [s.strip() for s in skills if s.strip()]
+        occupations = find_matching_occupations(skills)
+        collar_type = "white_collar"
+        if _HAS_COLLAR and occupations:
+            collar_type = classify_collar(occupations[0]["title"], industry).get("collar_type", "white_collar")
+        skill_profile = {"skills": skills, "collar_type": collar_type}
+        results: Dict[str, Any] = {"occupations": occupations, "collar_type": collar_type}
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {
+                executor.submit(get_skill_demand_trends, skills): "demand_trends",
+                executor.submit(recommend_channels, skill_profile): "channels",
+                executor.submit(get_salary_benchmarks, [o["title"] for o in occupations[:5]], location): "salary_benchmarks",
+                executor.submit(find_skill_hotspots, skills): "hotspots",
+                executor.submit(get_adjacent_skills, skills): "adjacent_skills",
+            }
+            for future in as_completed(futures):
+                key = futures[future]
+                try: results[key] = future.result(timeout=15)
+                except Exception as exc:
+                    logger.warning("Sub-task %s failed: %s", key, exc)
+                    results[key] = {} if key.endswith("trends") else []
+        results["suggested_titles"] = suggest_job_titles(skills, industry)
+        if budget and budget > 0:
+            results["budget_allocation"] = _allocate_budget(budget, results.get("channels", []))
+        if _HAS_COLLAR and occupations:
+            try: results["skills_gap"] = analyze_skills_gap(occupations[0]["title"], location, industry)
+            except Exception: pass
+        results["input"] = {"skills": skills, "industry": industry, "location": location, "budget": budget}
+        results["summary"] = _build_summary(skills, occupations, results.get("demand_trends", {}), collar_type)
+        return results
+    except Exception as e:
+        logger.error("run_full_skill_analysis error: %s", e)
+        return {"error": str(e), "input": {"skills": skills}}
+
+
+# ===========================================================================
+# 9. EXCEL EXPORT  (Sapphire Blue palette)
+# ===========================================================================
+
+def generate_skill_excel(analysis: Dict[str, Any]) -> bytes:
+    """Generate formatted Excel. Palette: #0F172A, #2563EB, #DBEAFE. Calibri, col B."""
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-        from openpyxl.utils import get_column_letter
     except ImportError:
-        logger.error("openpyxl not available for Excel generation")
+        logger.error("openpyxl not installed")
         return b""
-
-    wb = Workbook()
-    B = COL_START
-
-    # Design tokens
-    f_title = Font(name="Calibri", bold=True, size=18, color=_WHITE)
-    f_section = Font(name="Calibri", bold=True, size=14, color=_WHITE)
-    f_subsection = Font(name="Calibri", bold=True, size=12, color=_NAVY)
-    f_header = Font(name="Calibri", bold=True, size=10, color=_WHITE)
-    f_body = Font(name="Calibri", size=10, color=_STONE)
-    f_body_bold = Font(name="Calibri", bold=True, size=10, color=_STONE)
-    f_footnote = Font(name="Calibri", italic=True, size=9, color=_MUTED)
-    f_green = Font(name="Calibri", bold=True, size=10, color=_GREEN)
-    f_red = Font(name="Calibri", bold=True, size=10, color=_RED)
-    f_amber = Font(name="Calibri", bold=True, size=10, color=_AMBER)
-
-    fill_navy = PatternFill("solid", fgColor=_NAVY)
-    fill_sapphire = PatternFill("solid", fgColor=_SAPPHIRE)
-    fill_light = PatternFill("solid", fgColor=_BLUE_LIGHT)
-    fill_pale = PatternFill("solid", fgColor=_BLUE_PALE)
-    fill_white = PatternFill("solid", fgColor=_WHITE)
-    fill_green_bg = PatternFill("solid", fgColor=_GREEN_BG)
-    fill_red_bg = PatternFill("solid", fgColor=_RED_BG)
-    fill_amber_bg = PatternFill("solid", fgColor=_AMBER_BG)
-
-    align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    align_left = Alignment(horizontal="left", vertical="center", wrap_text=True)
-    align_right = Alignment(horizontal="right", vertical="center")
-
-    thin_border = Border(
-        left=Side(style="thin", color=_WARM_GRAY),
-        right=Side(style="thin", color=_WARM_GRAY),
-        top=Side(style="thin", color=_WARM_GRAY),
-        bottom=Side(style="thin", color=_WARM_GRAY),
-    )
-
-    def _col_widths(ws, widths):
-        for i, w in enumerate(widths, start=1):
-            ws.column_dimensions[get_column_letter(i)].width = w
-
-    def _section_header(ws, row, title, span=7):
-        for c in range(B, B + span):
-            ws.cell(row=row, column=c).fill = fill_navy
-        cell = ws.cell(row=row, column=B, value=title)
-        cell.font = f_section
-        cell.alignment = align_left
-        ws.row_dimensions[row].height = 32
-        return row + 1
-
-    def _table_header(ws, row, headers):
-        for i, h in enumerate(headers):
-            cell = ws.cell(row=row, column=B + i, value=h)
-            cell.font = f_header
-            cell.fill = fill_sapphire
-            cell.alignment = align_center
-            cell.border = thin_border
-        ws.row_dimensions[row].height = 28
-        return row + 1
-
-    def _data_row(ws, row, values, bold_first=False):
-        for i, v in enumerate(values):
-            cell = ws.cell(row=row, column=B + i, value=v)
-            cell.font = f_body_bold if (bold_first and i == 0) else f_body
-            cell.alignment = align_left if i == 0 else align_center
-            cell.border = thin_border
-            cell.fill = fill_pale if row % 2 == 0 else fill_white
-        ws.row_dimensions[row].height = 22
-        return row + 1
-
-    # ── Sheet 1: Executive Summary ──
-    ws1 = wb.active
-    ws1.title = "Executive Summary"
-    _col_widths(ws1, [4, 28, 22, 22, 22, 22, 22, 22])
-
-    r = 2
-    for c in range(B, B + 6):
-        ws1.cell(row=r, column=c).fill = fill_navy
-    cell = ws1.cell(row=r, column=B, value="Skill-Based Targeting Report")
-    cell.font = f_title
-    cell.alignment = align_left
-    ws1.row_dimensions[r].height = 42
-    r += 2
-
-    summary_items = [
-        ("Job Title", analysis.get("job_title", "")),
-        ("Industry", analysis.get("industry", "")),
-        ("Location", analysis.get("location", "")),
-        ("Collar Type", analysis.get("collar_type", {}).get("collar_type", "").replace("_", " ").title()),
-        ("Overall Skill Rarity", analysis.get("skill_analysis", {}).get("rarity_label", "").title()),
-        ("Rarity Score", f"{analysis.get('skill_analysis', {}).get('overall_rarity_score', 0)}/100"),
-        ("Budget", f"${analysis.get('budget_allocation', {}).get('total_budget', 0):,.0f}"),
-        ("Est. Applications", f"{analysis.get('budget_allocation', {}).get('total_estimated_applications', 0):,}"),
-        ("Talent Pool (Active)", f"{analysis.get('talent_pool_estimate', {}).get('active_seekers', 0):,}"),
-        ("Competition Level", analysis.get("competitor_insight", {}).get("talent_competition_level", "").replace("_", " ").title()),
-        ("Generated", analysis.get("generated_at", "")),
-    ]
-
-    r = _section_header(ws1, r, "Overview", 6)
-    for label, value in summary_items:
-        ws1.cell(row=r, column=B, value=label).font = f_body_bold
-        ws1.cell(row=r, column=B, value=label).alignment = align_left
-        ws1.cell(row=r, column=B + 1, value=str(value)).font = f_body
-        ws1.cell(row=r, column=B + 1, value=str(value)).alignment = align_left
-        ws1.row_dimensions[r].height = 22
-        r += 1
-
-    # ── Sheet 2: Skill Analysis ──
-    ws2 = wb.create_sheet("Skill Analysis")
-    _col_widths(ws2, [4, 24, 20, 16, 16, 18, 18])
-
-    r = 2
-    skill_data = analysis.get("skill_analysis", {})
-    categories = skill_data.get("categories", {})
-
-    cat_labels = {
-        CAT_TECHNICAL: "Technical Skills",
-        CAT_SOFT: "Soft Skills",
-        CAT_CERTIFICATION: "Certifications",
-        CAT_DOMAIN: "Domain Knowledge",
-    }
-
-    for cat_key, cat_label in cat_labels.items():
-        skills_list = categories.get(cat_key, [])
-        if not skills_list:
-            continue
-        r = _section_header(ws2, r, cat_label, 5)
-        r = _table_header(ws2, r, ["Skill", "Rarity", "Required", "Trend", "Pool Size"])
-        for sk in skills_list:
-            rarity_val = sk.get("rarity", "unknown").title()
-            r = _data_row(ws2, r, [
-                sk.get("skill", ""),
-                rarity_val,
-                "Yes" if sk.get("is_required") else "Nice-to-Have",
-                sk.get("demand_trend", "").title(),
-                f"{sk.get('talent_pool_base', 0):,}",
-            ], bold_first=True)
-        r += 1
-
-    unknown = skill_data.get("unknown_skills", [])
-    if unknown:
-        r = _section_header(ws2, r, "Unrecognized Skills", 5)
-        for sk in unknown:
-            ws2.cell(row=r, column=B, value=sk).font = f_body
-            ws2.cell(row=r, column=B + 1, value="Not in database").font = f_footnote
-            r += 1
-
-    # ── Sheet 3: Channel Recommendations ──
-    ws3 = wb.create_sheet("Channels")
-    _col_widths(ws3, [4, 26, 16, 14, 14, 14, 36])
-
-    r = 2
-    r = _section_header(ws3, r, "Channel Recommendations", 6)
-    r = _table_header(ws3, r, ["Channel", "Match Score", "Avg CPC", "Avg CPA", "Type", "Reason"])
-    ch_list = analysis.get("channel_recommendations", [])
-    for ch in ch_list:
-        r = _data_row(ws3, r, [
-            ch.get("channel", ""),
-            f"{ch.get('match_score', 0)}%",
-            f"${ch.get('avg_cpc', 0):.2f}",
-            f"${ch.get('avg_cpa', 0):.2f}",
-            ch.get("platform_type", "").replace("_", " ").title(),
-            ch.get("reason", ""),
-        ], bold_first=True)
-
-    # ── Sheet 4: Targeting Strategy ──
-    ws4 = wb.create_sheet("Targeting")
-    _col_widths(ws4, [4, 24, 18, 36, 42])
-
-    r = 2
-    r = _section_header(ws4, r, "Platform Targeting Strategy", 4)
-    strategies = analysis.get("targeting_strategy", [])
-    for strat in strategies:
-        r = _section_header(ws4, r, strat.get("channel", ""), 4)
-        ws4.cell(row=r, column=B, value="Match Score").font = f_body_bold
-        ws4.cell(row=r, column=B + 1, value=f"{strat.get('match_score', 0)}%").font = f_body
-        r += 1
-        ws4.cell(row=r, column=B, value="Audience Size").font = f_body_bold
-        ws4.cell(row=r, column=B + 1, value=strat.get("audience_size_estimate", "").replace("_", " ").title()).font = f_body
-        r += 1
-
-        params = strat.get("targeting_parameters", {})
-        if params:
-            ws4.cell(row=r, column=B, value="Targeting Parameters").font = f_subsection
-            r += 1
-            for pk, pv in params.items():
-                ws4.cell(row=r, column=B, value=pk.replace("_", " ").title()).font = f_body_bold
-                val_str = ", ".join(pv) if isinstance(pv, list) else str(pv)
-                ws4.cell(row=r, column=B + 1, value=val_str).font = f_body
-                r += 1
-
-        suggestions = strat.get("ad_copy_suggestions", [])
-        if suggestions:
-            ws4.cell(row=r, column=B, value="Ad Copy Tips").font = f_subsection
-            r += 1
-            for tip in suggestions:
-                ws4.cell(row=r, column=B, value=f"  {tip}").font = f_footnote
-                r += 1
-        r += 1
-
-    # ── Sheet 5: Budget Allocation ──
-    ws5 = wb.create_sheet("Budget")
-    _col_widths(ws5, [4, 26, 16, 14, 18, 16, 16])
-
-    r = 2
-    alloc = analysis.get("budget_allocation", {})
-    total_b = alloc.get("total_budget", 0)
-    r = _section_header(ws5, r, f"Budget Allocation (${total_b:,.0f})", 6)
-    r = _table_header(ws5, r, ["Channel", "Budget", "%", "Est. Apps", "Avg CPA", "Match"])
-    for a in alloc.get("allocations", []):
-        r = _data_row(ws5, r, [
-            a.get("channel", ""),
-            f"${a.get('budget', 0):,.0f}",
-            f"{a.get('percentage', 0)}%",
-            f"{a.get('estimated_applications', 0):,}",
-            f"${a.get('avg_cpa', 0):.2f}",
-            f"{a.get('match_score', 0)}%",
-        ], bold_first=True)
-
-    r += 1
-    notes = alloc.get("notes", [])
-    if notes:
-        ws5.cell(row=r, column=B, value="Notes").font = f_subsection
-        r += 1
-        for note in notes:
-            ws5.cell(row=r, column=B, value=note).font = f_footnote
-            r += 1
-
-    # ── Sheet 6: Talent Pool & Competitors ──
-    ws6 = wb.create_sheet("Talent & Competition")
-    _col_widths(ws6, [4, 26, 18, 18, 18, 30])
-
-    r = 2
-    tp = analysis.get("talent_pool_estimate", {})
-    r = _section_header(ws6, r, "Talent Pool Estimate", 5)
-    pool_items = [
-        ("Total Pool", f"{tp.get('estimated_total_pool', 0):,}"),
-        ("Active Seekers", f"{tp.get('active_seekers', 0):,}"),
-        ("Passive Reachable", f"{tp.get('passive_reachable', 0):,}"),
-        ("Pool Scarcity", tp.get("pool_scarcity", "").title()),
-        ("Location", tp.get("location_adjustment", "")),
-        ("Confidence", tp.get("confidence", "").title()),
-    ]
-    for label, val in pool_items:
-        ws6.cell(row=r, column=B, value=label).font = f_body_bold
-        ws6.cell(row=r, column=B + 1, value=val).font = f_body
-        r += 1
-
-    r += 1
-    comp = analysis.get("competitor_insight", {})
-    comp_list = comp.get("competitors", [])
-    if comp_list:
-        r = _section_header(ws6, r, "Competitor Analysis", 5)
-        r = _table_header(ws6, r, ["Company", "Overlap Score", "Shared Skills", "Their Hot Skills"])
-        for c in comp_list:
-            r = _data_row(ws6, r, [
-                c.get("company", ""),
-                f"{c.get('overlap_score', 0)}%",
-                ", ".join(c.get("shared_skills", [])),
-                ", ".join(c.get("their_hot_skills", [])[:4]),
-            ], bold_first=True)
-
-    buf = io.BytesIO()
-    wb.save(buf)
-    return buf.getvalue()
-
-
-# =============================================================================
-# PPT EXPORT
-# =============================================================================
-
-def generate_skill_report_ppt(analysis: Dict[str, Any]) -> bytes:
-    """Generate branded PPT report from skill analysis.
-
-    Slides:
-        1. Title
-        2. Skill Analysis Overview
-        3. Channel Recommendations
-        4. Budget Allocation
-        5. Talent Pool & Competition
-        6. Targeting Strategy Summary
-
-    Uses Joveo branding: Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD.
-    """
     try:
-        from pptx import Presentation
-        from pptx.util import Inches, Pt, Emu
-        from pptx.dml.color import RGBColor
-        from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
-        from pptx.enum.shapes import MSO_SHAPE
-    except ImportError:
-        logger.error("python-pptx not available for PPT generation")
+        wb = Workbook()
+        DARK, ACCENT, LIGHT, WHITE = "0F172A", "2563EB", "DBEAFE", "FFFFFF"
+        hdr_font = Font(name="Calibri", bold=True, color=WHITE, size=12)
+        body_font = Font(name="Calibri", color=DARK, size=10)
+        accent_font = Font(name="Calibri", bold=True, color=ACCENT, size=11)
+        dark_fill = PatternFill(start_color=DARK, end_color=DARK, fill_type="solid")
+        light_fill = PatternFill(start_color=LIGHT, end_color=LIGHT, fill_type="solid")
+        bdr = Border(left=Side(style="thin", color=ACCENT), right=Side(style="thin", color=ACCENT),
+                     top=Side(style="thin", color=ACCENT), bottom=Side(style="thin", color=ACCENT))
+
+        def _hdr(ws, row, cols):
+            for c in range(2, 2 + cols):
+                cell = ws.cell(row=row, column=c)
+                cell.fill = dark_fill
+                cell.font = hdr_font
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+                cell.border = bdr
+
+        def _drow(ws, row, cols, alt=False):
+            for c in range(2, 2 + cols):
+                cell = ws.cell(row=row, column=c)
+                cell.font = body_font
+                cell.border = bdr
+                cell.alignment = Alignment(vertical="center", wrap_text=True)
+                if alt:
+                    cell.fill = light_fill
+
+        # Sheet 1: Occupations
+        ws1 = wb.active
+        ws1.title = "Matched Occupations"
+        ws1.sheet_properties.tabColor = ACCENT
+        ws1.column_dimensions["A"].width = 3
+        ws1.column_dimensions["B"].width = 14
+        ws1.column_dimensions["C"].width = 38
+        ws1.column_dimensions["D"].width = 12
+        ws1.column_dimensions["E"].width = 14
+        ws1.column_dimensions["F"].width = 45
+        ws1.merge_cells("B1:F1")
+        ws1["B1"].value = "Skill-Based Occupation Matching"
+        ws1["B1"].font = Font(name="Calibri", bold=True, color=WHITE, size=14)
+        ws1["B1"].fill = dark_fill
+        ws1["B1"].alignment = Alignment(horizontal="center")
+        inp = analysis.get("input", {})
+        ws1["B2"] = f"Skills: {', '.join(inp.get('skills', []))}"
+        ws1["B2"].font = accent_font
+        ws1["B3"] = f"Industry: {inp.get('industry', 'N/A')}  |  Location: {inp.get('location', 'N/A')}"
+        ws1["B3"].font = body_font
+        row = 5
+        hdrs = ["SOC Code", "Occupation Title", "Job Zone", "Match Count", "Matched Skills"]
+        for i, h in enumerate(hdrs):
+            ws1.cell(row=row, column=2 + i, value=h)
+        _hdr(ws1, row, len(hdrs))
+        for idx, occ in enumerate(analysis.get("occupations", [])[:20]):
+            r = row + 1 + idx
+            ws1.cell(row=r, column=2, value=occ.get("soc", ""))
+            ws1.cell(row=r, column=3, value=occ.get("title", ""))
+            ws1.cell(row=r, column=4, value=occ.get("zone", ""))
+            ws1.cell(row=r, column=5, value=occ.get("match_count", 0))
+            ws1.cell(row=r, column=6, value=", ".join(occ.get("matched_skills", [])))
+            _drow(ws1, r, len(hdrs), alt=(idx % 2 == 0))
+
+        # Sheet 2: Demand
+        ws2 = wb.create_sheet("Demand Trends")
+        ws2.sheet_properties.tabColor = ACCENT
+        for col, w in [("A", 3), ("B", 32), ("C", 14), ("D", 14), ("E", 14), ("F", 14)]:
+            ws2.column_dimensions[col].width = w
+        ws2.merge_cells("B1:F1")
+        ws2["B1"].value = "Skill Demand Trends"
+        ws2["B1"].font = Font(name="Calibri", bold=True, color=WHITE, size=14)
+        ws2["B1"].fill = dark_fill
+        ws2["B1"].alignment = Alignment(horizontal="center")
+        row = 3
+        dh = ["Skill", "Growth", "YoY %", "Pool Size", "Shortage?"]
+        for i, h in enumerate(dh):
+            ws2.cell(row=row, column=2 + i, value=h)
+        _hdr(ws2, row, len(dh))
+        for idx, (sk, info) in enumerate(analysis.get("demand_trends", {}).get("skills", {}).items()):
+            r = row + 1 + idx
+            ws2.cell(row=r, column=2, value=sk)
+            ws2.cell(row=r, column=3, value=info.get("growth", ""))
+            ws2.cell(row=r, column=4, value=f"{info.get('yoy_pct', 0)}%")
+            ws2.cell(row=r, column=5, value=info.get("pool", ""))
+            ws2.cell(row=r, column=6, value="YES" if info.get("shortage") else "No")
+            _drow(ws2, r, len(dh), alt=(idx % 2 == 0))
+
+        # Sheet 3: Channels
+        ws3 = wb.create_sheet("Channels")
+        ws3.sheet_properties.tabColor = ACCENT
+        for col, w in [("A", 3), ("B", 32), ("C", 14), ("D", 50)]:
+            ws3.column_dimensions[col].width = w
+        ws3.merge_cells("B1:D1")
+        ws3["B1"].value = "Recommended Channels"
+        ws3["B1"].font = Font(name="Calibri", bold=True, color=WHITE, size=14)
+        ws3["B1"].fill = dark_fill
+        ws3["B1"].alignment = Alignment(horizontal="center")
+        row = 3
+        ch_h = ["Channel", "Weight", "Rationale"]
+        for i, h in enumerate(ch_h):
+            ws3.cell(row=row, column=2 + i, value=h)
+        _hdr(ws3, row, len(ch_h))
+        for idx, ch in enumerate(analysis.get("channels", [])):
+            r = row + 1 + idx
+            ws3.cell(row=r, column=2, value=ch.get("name", ""))
+            ws3.cell(row=r, column=3, value=f"{ch.get('weight', 0):.1%}")
+            ws3.cell(row=r, column=4, value="; ".join(ch.get("reasons", [])))
+            _drow(ws3, r, len(ch_h), alt=(idx % 2 == 0))
+
+        # Sheet 4: Salary
+        ws4 = wb.create_sheet("Salary Benchmarks")
+        ws4.sheet_properties.tabColor = ACCENT
+        for col, w in [("A", 3), ("B", 38), ("C", 16), ("D", 16), ("E", 16), ("F", 14)]:
+            ws4.column_dimensions[col].width = w
+        ws4.merge_cells("B1:F1")
+        ws4["B1"].value = "Salary Benchmarks"
+        ws4["B1"].font = Font(name="Calibri", bold=True, color=WHITE, size=14)
+        ws4["B1"].fill = dark_fill
+        ws4["B1"].alignment = Alignment(horizontal="center")
+        row = 3
+        sh = ["Occupation", "25th %ile", "Median", "75th %ile", "Source"]
+        for i, h in enumerate(sh):
+            ws4.cell(row=row, column=2 + i, value=h)
+        _hdr(ws4, row, len(sh))
+        for idx, (occ, info) in enumerate(analysis.get("salary_benchmarks", {}).get("occupations", {}).items()):
+            r = row + 1 + idx
+            ws4.cell(row=r, column=2, value=occ)
+            ws4.cell(row=r, column=3, value=f"${info.get('p25', 0):,}")
+            ws4.cell(row=r, column=4, value=f"${info.get('median', 0):,}")
+            ws4.cell(row=r, column=5, value=f"${info.get('p75', 0):,}")
+            ws4.cell(row=r, column=6, value=info.get("source", ""))
+            _drow(ws4, r, len(sh), alt=(idx % 2 == 0))
+
+        # Sheet 5: Hotspots
+        ws5 = wb.create_sheet("Hotspots")
+        ws5.sheet_properties.tabColor = ACCENT
+        for col, w in [("A", 3), ("B", 36), ("C", 18), ("D", 16), ("E", 42)]:
+            ws5.column_dimensions[col].width = w
+        ws5.merge_cells("B1:E1")
+        ws5["B1"].value = "Skill Geographic Hotspots"
+        ws5["B1"].font = Font(name="Calibri", bold=True, color=WHITE, size=14)
+        ws5["B1"].fill = dark_fill
+        ws5["B1"].alignment = Alignment(horizontal="center")
+        row = 3
+        hh = ["Metro Area", "Concentration", "Skill Coverage", "Top Employers"]
+        for i, h in enumerate(hh):
+            ws5.cell(row=row, column=2 + i, value=h)
+        _hdr(ws5, row, len(hh))
+        for idx, hs in enumerate(analysis.get("hotspots", [])[:15]):
+            r = row + 1 + idx
+            ws5.cell(row=r, column=2, value=hs.get("metro", ""))
+            ws5.cell(row=r, column=3, value=f"{hs.get('avg_concentration', 0):.0%}")
+            ws5.cell(row=r, column=4, value=f"{hs.get('skill_coverage', 0):.0%}")
+            ws5.cell(row=r, column=5, value=", ".join(hs.get("top_employers", [])))
+            _drow(ws5, r, len(hh), alt=(idx % 2 == 0))
+
+        # Sheet 6: Adjacent Skills
+        ws6 = wb.create_sheet("Adjacent Skills")
+        ws6.sheet_properties.tabColor = ACCENT
+        for col, w in [("A", 3), ("B", 30), ("C", 14), ("D", 14), ("E", 40)]:
+            ws6.column_dimensions[col].width = w
+        ws6.merge_cells("B1:E1")
+        ws6["B1"].value = "Adjacent / Related Skills"
+        ws6["B1"].font = Font(name="Calibri", bold=True, color=WHITE, size=14)
+        ws6["B1"].fill = dark_fill
+        ws6["B1"].alignment = Alignment(horizontal="center")
+        row = 3
+        ah = ["Skill", "Relevance", "Scarcity", "Connected To"]
+        for i, h in enumerate(ah):
+            ws6.cell(row=row, column=2 + i, value=h)
+        _hdr(ws6, row, len(ah))
+        for idx, adj in enumerate(analysis.get("adjacent_skills", [])[:20]):
+            r = row + 1 + idx
+            ws6.cell(row=r, column=2, value=adj.get("skill", ""))
+            ws6.cell(row=r, column=3, value=f"{adj.get('max_relevance', 0):.0%}")
+            ws6.cell(row=r, column=4, value=f"{adj.get('scarcity', 0):.0%}")
+            ws6.cell(row=r, column=5, value=", ".join(adj.get("connected_to", [])))
+            _drow(ws6, r, len(ah), alt=(idx % 2 == 0))
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        return buf.getvalue()
+    except Exception as e:
+        logger.error("generate_skill_excel error: %s", e)
         return b""
-
-    NAVY = RGBColor(0x20, 0x20, 0x58)
-    BLUE = RGBColor(0x5A, 0x54, 0xBD)
-    TEAL = RGBColor(0x6B, 0xB3, 0xCD)
-    WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-    OFF_WHITE = RGBColor(0xFF, 0xFD, 0xF9)
-    DARK_TEXT = RGBColor(0x20, 0x20, 0x58)
-    MUTED_TEXT = RGBColor(0x59, 0x67, 0x80)
-    GREEN = RGBColor(0x33, 0x87, 0x21)
-    AMBER = RGBColor(0xCE, 0x90, 0x47)
-    RED_ACCENT = RGBColor(0xB5, 0x66, 0x9C)
-    LIGHT_BG = RGBColor(0xF5, 0xF3, 0xFF)
-    WARM_GRAY = RGBColor(0xEB, 0xE6, 0xE0)
-
-    FONT_TITLE = "Poppins"
-    FONT_BODY = "Inter"
-
-    prs = Presentation()
-    prs.slide_width = Inches(13.333)
-    prs.slide_height = Inches(7.5)
-
-    def _add_bg(slide, color=OFF_WHITE):
-        bg = slide.background
-        fill = bg.fill
-        fill.solid()
-        fill.fore_color.rgb = color
-
-    def _add_shape(slide, left, top, width, height, fill_color, border_color=None):
-        shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
-        shape.fill.solid()
-        shape.fill.fore_color.rgb = fill_color
-        if border_color:
-            shape.line.color.rgb = border_color
-            shape.line.width = Pt(1)
-        else:
-            shape.line.fill.background()
-        return shape
-
-    def _add_text_box(slide, left, top, width, height, text,
-                      font_name=FONT_BODY, size=12, color=DARK_TEXT,
-                      bold=False, align=PP_ALIGN.LEFT):
-        txBox = slide.shapes.add_textbox(left, top, width, height)
-        tf = txBox.text_frame
-        tf.word_wrap = True
-        p = tf.paragraphs[0]
-        p.text = str(text)
-        p.font.name = font_name
-        p.font.size = Pt(size)
-        p.font.color.rgb = color
-        p.font.bold = bold
-        p.alignment = align
-        return txBox
-
-    def _add_kpi_card(slide, left, top, label, value, accent=BLUE):
-        _add_shape(slide, left, top, Inches(2.8), Inches(1.2), WHITE, WARM_GRAY)
-        _add_text_box(slide, left + Inches(0.2), top + Inches(0.15),
-                      Inches(2.4), Inches(0.4), label,
-                      size=10, color=MUTED_TEXT)
-        _add_text_box(slide, left + Inches(0.2), top + Inches(0.55),
-                      Inches(2.4), Inches(0.5), str(value),
-                      font_name=FONT_TITLE, size=22, color=accent, bold=True)
-
-    # ── Slide 1: Title ──
-    slide1 = prs.slides.add_slide(prs.slide_layouts[6])  # blank
-    _add_bg(slide1, NAVY)
-    _add_text_box(slide1, Inches(1), Inches(1.5), Inches(11), Inches(1.5),
-                  "Skill-Based Targeting Report",
-                  font_name=FONT_TITLE, size=36, color=WHITE, bold=True,
-                  align=PP_ALIGN.CENTER)
-
-    job_title = analysis.get("job_title", "")
-    _add_text_box(slide1, Inches(1), Inches(3.2), Inches(11), Inches(0.8),
-                  job_title,
-                  font_name=FONT_TITLE, size=24, color=TEAL, bold=True,
-                  align=PP_ALIGN.CENTER)
-
-    subtitle_parts = []
-    if analysis.get("industry"):
-        subtitle_parts.append(analysis["industry"].replace("_", " ").title())
-    if analysis.get("location"):
-        subtitle_parts.append(analysis["location"])
-    collar_label = analysis.get("collar_type", {}).get("collar_type", "").replace("_", " ").title()
-    if collar_label:
-        subtitle_parts.append(collar_label)
-
-    _add_text_box(slide1, Inches(1), Inches(4.2), Inches(11), Inches(0.6),
-                  " | ".join(subtitle_parts),
-                  size=14, color=WHITE, align=PP_ALIGN.CENTER)
-
-    _add_text_box(slide1, Inches(1), Inches(6.2), Inches(11), Inches(0.4),
-                  analysis.get("generated_at", ""),
-                  size=10, color=MUTED_TEXT, align=PP_ALIGN.CENTER)
-
-    # ── Slide 2: Skill Analysis Overview ──
-    slide2 = prs.slides.add_slide(prs.slide_layouts[6])
-    _add_bg(slide2)
-    _add_shape(slide2, Inches(0), Inches(0), Inches(13.333), Inches(1.0), NAVY)
-    _add_text_box(slide2, Inches(0.5), Inches(0.2), Inches(12), Inches(0.6),
-                  "Skill Analysis", font_name=FONT_TITLE, size=24, color=WHITE, bold=True)
-
-    skill_data = analysis.get("skill_analysis", {})
-    rarity_score = skill_data.get("overall_rarity_score", 0)
-    rarity_label = skill_data.get("rarity_label", "moderate").title()
-    total_known = skill_data.get("total_known", 0)
-    total_unknown = skill_data.get("total_unknown", 0)
-
-    _add_kpi_card(slide2, Inches(0.5), Inches(1.3), "Rarity Score", f"{rarity_score}/100", BLUE)
-    _add_kpi_card(slide2, Inches(3.6), Inches(1.3), "Rarity Level", rarity_label, NAVY)
-    _add_kpi_card(slide2, Inches(6.7), Inches(1.3), "Skills Mapped", f"{total_known}", TEAL)
-    _add_kpi_card(slide2, Inches(9.8), Inches(1.3), "Unmapped", f"{total_unknown}",
-                  GREEN if total_unknown == 0 else AMBER)
-
-    categories = skill_data.get("categories", {})
-    ppt_cat_labels = {
-        CAT_TECHNICAL: "Technical",
-        CAT_SOFT: "Soft Skills",
-        CAT_CERTIFICATION: "Certifications",
-        CAT_DOMAIN: "Domain",
-    }
-
-    y_pos = Inches(2.8)
-    for cat_key, cat_label in ppt_cat_labels.items():
-        skills_in_cat = categories.get(cat_key, [])
-        if not skills_in_cat:
-            continue
-        _add_text_box(slide2, Inches(0.5), y_pos, Inches(2.5), Inches(0.35),
-                      f"{cat_label} ({len(skills_in_cat)})",
-                      size=11, color=NAVY, bold=True)
-        skill_names = [s["skill"] for s in skills_in_cat[:6]]
-        _add_text_box(slide2, Inches(3.2), y_pos, Inches(9.5), Inches(0.35),
-                      ", ".join(skill_names) + ("..." if len(skills_in_cat) > 6 else ""),
-                      size=10, color=MUTED_TEXT)
-        y_pos += Inches(0.45)
-
-    # ── Slide 3: Channel Recommendations ──
-    slide3 = prs.slides.add_slide(prs.slide_layouts[6])
-    _add_bg(slide3)
-    _add_shape(slide3, Inches(0), Inches(0), Inches(13.333), Inches(1.0), NAVY)
-    _add_text_box(slide3, Inches(0.5), Inches(0.2), Inches(12), Inches(0.6),
-                  "Channel Recommendations", font_name=FONT_TITLE, size=24, color=WHITE, bold=True)
-
-    channels = analysis.get("channel_recommendations", [])
-    y = Inches(1.3)
-    for i, ch in enumerate(channels[:8]):
-        x_offset = Inches(0.5) if i % 2 == 0 else Inches(6.9)
-        if i > 0 and i % 2 == 0:
-            y += Inches(1.45)
-
-        _add_shape(slide3, x_offset, y, Inches(5.8), Inches(1.3), WHITE, WARM_GRAY)
-        _add_text_box(slide3, x_offset + Inches(0.2), y + Inches(0.1),
-                      Inches(3.5), Inches(0.35),
-                      ch.get("channel", ""),
-                      size=12, color=NAVY, bold=True)
-        score = ch.get("match_score", 0)
-        score_color = GREEN if score >= 70 else AMBER if score >= 40 else RED_ACCENT
-        _add_text_box(slide3, x_offset + Inches(4.2), y + Inches(0.1),
-                      Inches(1.2), Inches(0.35),
-                      f"{score}%",
-                      font_name=FONT_TITLE, size=14, color=score_color, bold=True,
-                      align=PP_ALIGN.RIGHT)
-        _add_text_box(slide3, x_offset + Inches(0.2), y + Inches(0.5),
-                      Inches(5.2), Inches(0.3),
-                      ch.get("reason", ""),
-                      size=9, color=MUTED_TEXT)
-        _add_text_box(slide3, x_offset + Inches(0.2), y + Inches(0.85),
-                      Inches(5.2), Inches(0.3),
-                      f"CPC: ${ch.get('avg_cpc', 0):.2f}  |  CPA: ${ch.get('avg_cpa', 0):.2f}  |  {ch.get('platform_type', '').replace('_', ' ').title()}",
-                      size=9, color=MUTED_TEXT)
-
-    # ── Slide 4: Budget Allocation ──
-    slide4 = prs.slides.add_slide(prs.slide_layouts[6])
-    _add_bg(slide4)
-    _add_shape(slide4, Inches(0), Inches(0), Inches(13.333), Inches(1.0), NAVY)
-    alloc = analysis.get("budget_allocation", {})
-    total_budget = alloc.get("total_budget", 0)
-    _add_text_box(slide4, Inches(0.5), Inches(0.2), Inches(12), Inches(0.6),
-                  f"Budget Allocation (${total_budget:,.0f})",
-                  font_name=FONT_TITLE, size=24, color=WHITE, bold=True)
-
-    total_apps = alloc.get("total_estimated_applications", 0)
-    avg_cpa = alloc.get("estimated_cost_per_application", 0)
-    _add_kpi_card(slide4, Inches(0.5), Inches(1.3), "Total Budget", f"${total_budget:,.0f}", NAVY)
-    _add_kpi_card(slide4, Inches(3.6), Inches(1.3), "Est. Applications", f"{total_apps:,}", BLUE)
-    _add_kpi_card(slide4, Inches(6.7), Inches(1.3), "Avg CPA", f"${avg_cpa:.2f}", TEAL)
-
-    allocations = alloc.get("allocations", [])
-    y = Inches(2.8)
-    _add_shape(slide4, Inches(0.5), y, Inches(12.3), Inches(0.4), BLUE)
-    headers = ["Channel", "Budget", "%", "Est. Apps", "CPA", "Match"]
-    x_positions = [0.5, 3.5, 5.5, 7.0, 8.8, 10.5]
-    widths_h = [3.0, 2.0, 1.5, 1.8, 1.7, 1.8]
-    for hi, htext in enumerate(headers):
-        _add_text_box(slide4, Inches(x_positions[hi]), y,
-                      Inches(widths_h[hi]), Inches(0.4),
-                      htext, size=10, color=WHITE, bold=True,
-                      align=PP_ALIGN.CENTER)
-    y += Inches(0.45)
-
-    for ai, a in enumerate(allocations[:7]):
-        row_bg = LIGHT_BG if ai % 2 == 0 else WHITE
-        _add_shape(slide4, Inches(0.5), y, Inches(12.3), Inches(0.38), row_bg)
-        row_vals = [
-            a.get("channel", ""),
-            f"${a.get('budget', 0):,.0f}",
-            f"{a.get('percentage', 0)}%",
-            f"{a.get('estimated_applications', 0):,}",
-            f"${a.get('avg_cpa', 0):.2f}",
-            f"{a.get('match_score', 0)}%",
-        ]
-        for ri, rv in enumerate(row_vals):
-            _add_text_box(slide4, Inches(x_positions[ri]), y,
-                          Inches(widths_h[ri]), Inches(0.38),
-                          rv, size=9, color=DARK_TEXT,
-                          bold=(ri == 0),
-                          align=PP_ALIGN.LEFT if ri == 0 else PP_ALIGN.CENTER)
-        y += Inches(0.40)
-
-    # ── Slide 5: Talent Pool & Competition ──
-    slide5 = prs.slides.add_slide(prs.slide_layouts[6])
-    _add_bg(slide5)
-    _add_shape(slide5, Inches(0), Inches(0), Inches(13.333), Inches(1.0), NAVY)
-    _add_text_box(slide5, Inches(0.5), Inches(0.2), Inches(12), Inches(0.6),
-                  "Talent Pool & Competition",
-                  font_name=FONT_TITLE, size=24, color=WHITE, bold=True)
-
-    tp = analysis.get("talent_pool_estimate", {})
-    _add_kpi_card(slide5, Inches(0.5), Inches(1.3), "Total Pool",
-                  f"{tp.get('estimated_total_pool', 0):,}", NAVY)
-    _add_kpi_card(slide5, Inches(3.6), Inches(1.3), "Active Seekers",
-                  f"{tp.get('active_seekers', 0):,}", GREEN)
-    _add_kpi_card(slide5, Inches(6.7), Inches(1.3), "Passive Reachable",
-                  f"{tp.get('passive_reachable', 0):,}", BLUE)
-
-    scarcity = tp.get("pool_scarcity", "adequate").title()
-    scarcity_color = GREEN if scarcity in ("Adequate", "Abundant") else AMBER if scarcity == "Tight" else RED_ACCENT
-    _add_kpi_card(slide5, Inches(9.8), Inches(1.3), "Pool Scarcity", scarcity, scarcity_color)
-
-    comp = analysis.get("competitor_insight", {})
-    comp_list = comp.get("competitors", [])
-    if comp_list:
-        _add_text_box(slide5, Inches(0.5), Inches(2.9), Inches(12), Inches(0.4),
-                      f"Competitor Landscape ({comp.get('talent_competition_level', '').replace('_', ' ').title()})",
-                      size=14, color=NAVY, bold=True)
-
-        y = Inches(3.4)
-        for ci, c in enumerate(comp_list[:4]):
-            x_off = Inches(0.5 + (ci % 2) * 6.4)
-            if ci == 2:
-                y += Inches(1.5)
-            _add_shape(slide5, x_off, y, Inches(5.8), Inches(1.3), WHITE, WARM_GRAY)
-            _add_text_box(slide5, x_off + Inches(0.2), y + Inches(0.1),
-                          Inches(3.5), Inches(0.35),
-                          c.get("company", ""),
-                          size=12, color=NAVY, bold=True)
-            overlap = c.get("overlap_score", 0)
-            ol_color = RED_ACCENT if overlap >= 50 else AMBER if overlap >= 25 else GREEN
-            _add_text_box(slide5, x_off + Inches(4.0), y + Inches(0.1),
-                          Inches(1.5), Inches(0.35),
-                          f"{overlap}% overlap",
-                          size=11, color=ol_color, bold=True, align=PP_ALIGN.RIGHT)
-            shared = c.get("shared_skills", [])
-            _add_text_box(slide5, x_off + Inches(0.2), y + Inches(0.5),
-                          Inches(5.2), Inches(0.3),
-                          f"Shared: {', '.join(shared) if shared else 'None'}",
-                          size=9, color=MUTED_TEXT)
-            their_skills = c.get("their_hot_skills", [])[:4]
-            _add_text_box(slide5, x_off + Inches(0.2), y + Inches(0.85),
-                          Inches(5.2), Inches(0.3),
-                          f"Their focus: {', '.join(their_skills)}",
-                          size=9, color=MUTED_TEXT)
-
-    # ── Slide 6: Targeting Strategy Summary ──
-    slide6 = prs.slides.add_slide(prs.slide_layouts[6])
-    _add_bg(slide6)
-    _add_shape(slide6, Inches(0), Inches(0), Inches(13.333), Inches(1.0), NAVY)
-    _add_text_box(slide6, Inches(0.5), Inches(0.2), Inches(12), Inches(0.6),
-                  "Targeting Strategy Summary",
-                  font_name=FONT_TITLE, size=24, color=WHITE, bold=True)
-
-    strategies = analysis.get("targeting_strategy", [])
-    y = Inches(1.3)
-    for si, strat in enumerate(strategies[:4]):
-        x_off = Inches(0.5 + (si % 2) * 6.4)
-        if si == 2:
-            y += Inches(2.8)
-        card_h = Inches(2.5)
-        _add_shape(slide6, x_off, y, Inches(5.8), card_h, WHITE, WARM_GRAY)
-        _add_text_box(slide6, x_off + Inches(0.2), y + Inches(0.1),
-                      Inches(4.0), Inches(0.35),
-                      strat.get("channel", ""),
-                      size=13, color=NAVY, bold=True)
-        _add_text_box(slide6, x_off + Inches(4.2), y + Inches(0.1),
-                      Inches(1.2), Inches(0.35),
-                      f"{strat.get('match_score', 0)}%",
-                      font_name=FONT_TITLE, size=14, color=BLUE, bold=True,
-                      align=PP_ALIGN.RIGHT)
-
-        params = strat.get("targeting_parameters", {})
-        param_y = y + Inches(0.5)
-        for pk, pv in list(params.items())[:3]:
-            val_str = ", ".join(pv[:3]) if isinstance(pv, list) else str(pv)
-            _add_text_box(slide6, x_off + Inches(0.2), param_y,
-                          Inches(5.2), Inches(0.25),
-                          f"{pk.replace('_', ' ').title()}: {val_str}",
-                          size=9, color=MUTED_TEXT)
-            param_y += Inches(0.28)
-
-        tips = strat.get("ad_copy_suggestions", [])
-        tip_y = param_y + Inches(0.1)
-        for tip in tips[:2]:
-            _add_text_box(slide6, x_off + Inches(0.2), tip_y,
-                          Inches(5.2), Inches(0.25),
-                          f"* {tip}",
-                          size=8, color=MUTED_TEXT)
-            tip_y += Inches(0.25)
-
-    buf = io.BytesIO()
-    prs.save(buf)
-    return buf.getvalue()
-
-
-# =============================================================================
-# UNIFIED HTTP HANDLER
-# =============================================================================
-
-def handle_skill_target_request(path: str, method: str, body: dict) -> dict:
-    """Unified handler for /api/skill-target/* routes.
-
-    Dispatches:
-        POST /api/skill-target/analyze  -> analyze_skills(body)
-        POST /api/skill-target/excel    -> generate_skill_report_excel(body)
-        POST /api/skill-target/ppt      -> generate_skill_report_ppt(body)
-
-    Args:
-        path: The request path (e.g., "/api/skill-target/analyze")
-        method: HTTP method (GET, POST, etc.)
-        body: Parsed JSON body (dict)
-
-    Returns:
-        dict with keys:
-            - status_code (int)
-            - content_type (str)
-            - body (bytes | dict)
-    """
-    if method.upper() != "POST":
-        return {
-            "status_code": 405,
-            "content_type": "application/json",
-            "body": {"error": "Method not allowed. Use POST.", "status": "error"},
-        }
-
-    p = path.rstrip("/").lower()
-
-    try:
-        if p.endswith("/analyze"):
-            result = analyze_skills(body)
-            return {
-                "status_code": 200 if result.get("status") == "success" else 400,
-                "content_type": "application/json",
-                "body": result,
-            }
-
-        elif p.endswith("/excel"):
-            if "skill_analysis" in body and "channel_recommendations" in body:
-                analysis = body
-            else:
-                analysis = analyze_skills(body)
-                if analysis.get("status") != "success":
-                    return {
-                        "status_code": 400,
-                        "content_type": "application/json",
-                        "body": analysis,
-                    }
-
-            excel_bytes = generate_skill_report_excel(analysis)
-            if not excel_bytes:
-                return {
-                    "status_code": 500,
-                    "content_type": "application/json",
-                    "body": {"error": "Excel generation failed (openpyxl not available)", "status": "error"},
-                }
-
-            return {
-                "status_code": 200,
-                "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "body": excel_bytes,
-                "filename": f"skill_target_report_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx",
-            }
-
-        elif p.endswith("/ppt"):
-            if "skill_analysis" in body and "channel_recommendations" in body:
-                analysis = body
-            else:
-                analysis = analyze_skills(body)
-                if analysis.get("status") != "success":
-                    return {
-                        "status_code": 400,
-                        "content_type": "application/json",
-                        "body": analysis,
-                    }
-
-            ppt_bytes = generate_skill_report_ppt(analysis)
-            if not ppt_bytes:
-                return {
-                    "status_code": 500,
-                    "content_type": "application/json",
-                    "body": {"error": "PPT generation failed (python-pptx not available)", "status": "error"},
-                }
-
-            return {
-                "status_code": 200,
-                "content_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                "body": ppt_bytes,
-                "filename": f"skill_target_report_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pptx",
-            }
-
-        else:
-            return {
-                "status_code": 404,
-                "content_type": "application/json",
-                "body": {
-                    "error": f"Unknown skill-target endpoint: {path}",
-                    "status": "error",
-                    "available_endpoints": [
-                        "POST /api/skill-target/analyze",
-                        "POST /api/skill-target/excel",
-                        "POST /api/skill-target/ppt",
-                    ],
-                },
-            }
-
-    except Exception as exc:
-        logger.error("handle_skill_target_request failed: %s\n%s", exc, traceback.format_exc())
-        return {
-            "status_code": 500,
-            "content_type": "application/json",
-            "body": {"error": str(exc), "status": "error"},
-        }

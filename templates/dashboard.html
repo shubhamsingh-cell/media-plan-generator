@@ -904,13 +904,19 @@
     </div>
     <nav class="sidebar-nav">
         <div class="sidebar-nav-label">Navigation</div>
-        <a href="/" title="Go to Media Plan Generator">
+        <a href="/" title="Go to Nova AI Suite Hub">
+            <span class="nav-icon">&#x1f3e0;</span> Nova Hub
+        </a>
+        <a href="/media-plan" title="Go to Media Plan Generator">
             <span class="nav-icon">&#x1f4cb;</span> Media Plan Generator
         </a>
-        <a href="/dashboard" class="active">
+        <a href="/dashboard?key=Chandel13" class="active">
             <span class="nav-icon">&#x1f4ca;</span> Admin Dashboard
         </a>
         <div class="sidebar-nav-label">Sections</div>
+        <a href="#product-status" onclick="scrollToSection('product-status')">
+            <span class="nav-icon">&#x1f680;</span> Product Suite Status
+        </a>
         <a href="#analytics" onclick="scrollToSection('analytics')">
             <span class="nav-icon">&#x1f4c8;</span> Analytics
         </a>
@@ -958,6 +964,20 @@
     </header>
 
     <div class="page-content">
+        <!-- Section 0: Product Suite Status -->
+        <section class="section-anchor" id="product-status">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>&#x1f680; Product Suite Status</h3>
+                    <div class="panel-header-actions">
+                        <span id="productCountBadge" class="badge" style="background:var(--green-light);color:var(--green);font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;">Loading...</span>
+                    </div>
+                </div>
+                <div id="productStatusGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;padding:20px;">
+                </div>
+            </div>
+        </section>
+
         <!-- Section 1: Analytics Summary Cards -->
         <section class="section-anchor" id="analytics">
             <div class="stats-grid" id="statsGrid">
@@ -1180,6 +1200,53 @@ function authUrl(url) {
     if (!_adminKey) return url;
     const sep = url.includes('?') ? '&' : '?';
     return url + sep + 'key=' + encodeURIComponent(_adminKey);
+}
+
+// ===== PRODUCT SUITE STATUS =====
+const PRODUCTS = [
+    { name: 'Media Plan Generator', path: '/media-plan', category: 'Planning', status: 'live' },
+    { name: 'Budget Simulator', path: '/simulator', category: 'Planning', status: 'live' },
+    { name: 'Competitive Intel', path: '/competitive', category: 'Intelligence', status: 'live' },
+    { name: 'Quick Plan', path: '/quick-plan', category: 'Planning', status: 'live' },
+    { name: 'Plan Audit', path: '/audit', category: 'Analytics', status: 'live' },
+    { name: 'Social Plan', path: '/social-plan', category: 'Planning', status: 'live' },
+    { name: 'Performance Tracker', path: '/tracker', category: 'Analytics', status: 'live' },
+    { name: 'HireSignal', path: '/hire-signal', category: 'Intelligence', status: 'live' },
+    { name: 'API Portal', path: '/api-portal', category: 'Tools', status: 'live' },
+    { name: 'Talent Heatmap', path: '/talent-heatmap', category: 'Analytics', status: 'live' },
+    { name: 'Market Pulse', path: '/market-pulse', category: 'Intelligence', status: 'live' },
+    { name: 'SkillTarget', path: '/skill-target', category: 'Planning', status: 'beta' },
+    { name: 'Market Intel Reports', path: '/market-intel', category: 'Intelligence', status: 'beta' },
+    { name: 'ApplyFlow Demo', path: '/applyflow-demo', category: 'Tools', status: 'live' },
+    { name: 'N.O.V.A. Jarvis', path: '/nova-jarvis', category: 'Intelligence', status: 'live' },
+];
+
+async function checkProductStatus() {
+    const grid = document.getElementById('productStatusGrid');
+    const badge = document.getElementById('productCountBadge');
+    let upCount = 0;
+    const checks = PRODUCTS.map(async (p) => {
+        try {
+            const res = await fetch(p.path, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
+            return { ...p, online: res.ok };
+        } catch {
+            return { ...p, online: false };
+        }
+    });
+    const results = await Promise.all(checks);
+    results.forEach(r => { if (r.online) upCount++; });
+    badge.textContent = upCount + '/' + results.length + ' Online';
+    badge.style.background = upCount === results.length ? 'var(--green-light)' : 'var(--amber-light)';
+    badge.style.color = upCount === results.length ? 'var(--green)' : 'var(--amber)';
+    grid.innerHTML = results.map(r => `
+        <a href="${r.path}" style="text-decoration:none;display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(15,18,30,0.5);border:1px solid rgba(255,255,255,0.06);border-radius:8px;transition:all 0.2s;" onmouseenter="this.style.borderColor='rgba(99,102,241,0.3)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.06)'">
+            <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${r.online ? 'var(--green)' : 'var(--red)'};box-shadow:0 0 6px ${r.online ? 'var(--green)' : 'var(--red)'}"></span>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</div>
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">${r.category}${r.status === 'beta' ? ' &middot; BETA' : ''}</div>
+            </div>
+        </a>
+    `).join('');
 }
 
 // ===== PRODUCT PERFORMANCE STATE =====
@@ -1895,6 +1962,7 @@ function startCountdown() {
 document.addEventListener('DOMContentLoaded', () => {
     refreshData();
     startCountdown();
+    checkProductStatus();
 });
 </script>
 

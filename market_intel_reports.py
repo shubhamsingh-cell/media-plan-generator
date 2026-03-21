@@ -1,14 +1,21 @@
 """
-market_intel_reports.py -- Comprehensive Recruitment Market Intelligence Reports
+market_intel_reports.py -- Market Intelligence Reports for Recruitment Advertising
 
-Generates data-rich market intelligence reports combining labor market data,
-compensation benchmarks, channel performance metrics, CPC trends, seasonal
-patterns, and actionable recommendations.
+Generates comprehensive market research reports for specific industries and roles,
+combining labor market data, compensation benchmarks, channel performance metrics,
+CPC trends, seasonal patterns, competitor analysis, talent supply data, and
+actionable recommendations.
 
 Outputs:
     - Structured Python dict (JSON-serializable)
-    - Excel workbook (Sapphire Blue palette)
-    - PowerPoint deck (Joveo branding)
+    - Excel workbook (Sapphire Blue palette: #0F172A, #2563EB, #DBEAFE)
+    - PowerPoint deck (Joveo branding: Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD)
+
+Entry points:
+    generate_report(data)              -- Main report generator
+    generate_intel_excel(report_data)  -- Excel export (returns bytes)
+    generate_intel_ppt(report_data)    -- PPT export (returns bytes)
+    handle_market_intel_request(path, method, body)  -- Unified HTTP handler
 
 All external module imports are lazy with fallback data so the module
 degrades gracefully when dependencies are unavailable.
@@ -17,894 +24,1038 @@ degrades gracefully when dependencies are unavailable.
 from __future__ import annotations
 
 import io
+import json
 import logging
 import math
 import statistics
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Lazy imports with fallback flags
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Lazy imports with thread-safe loading
+# ---------------------------------------------------------------------------
 
+_load_lock = threading.Lock()
+_loaded = False
 _trend_engine = None
 _research = None
 _api_enrichment = None
 _collar_intelligence = None
 _shared_utils = None
-
 _INDUSTRY_LABEL_MAP: Dict[str, str] = {}
 
 
 def _lazy_load():
-    """Import optional modules once, caching results."""
-    global _trend_engine, _research, _api_enrichment
+    """Import optional modules once, thread-safe."""
+    global _loaded, _trend_engine, _research, _api_enrichment
     global _collar_intelligence, _shared_utils, _INDUSTRY_LABEL_MAP
 
-    if _trend_engine is not None or _research is not None:
-        return  # already attempted
+    if _loaded:
+        return
+    with _load_lock:
+        if _loaded:
+            return
+        try:
+            import trend_engine as _te
+            _trend_engine = _te
+        except Exception:
+            pass
+        try:
+            import research as _r
+            _research = _r
+        except Exception:
+            pass
+        try:
+            import api_enrichment as _ae
+            _api_enrichment = _ae
+        except Exception:
+            pass
+        try:
+            import collar_intelligence as _ci
+            _collar_intelligence = _ci
+        except Exception:
+            pass
+        try:
+            import shared_utils as _su
+            _shared_utils = _su
+            _INDUSTRY_LABEL_MAP = getattr(_su, "INDUSTRY_LABEL_MAP", {})
+        except Exception:
+            pass
+        _loaded = True
 
-    try:
-        import trend_engine as _te
-        _trend_engine = _te
-    except Exception:
-        _trend_engine = None
 
-    try:
-        import research as _r
-        _research = _r
-    except Exception:
-        _research = None
+# ═══════════════════════════════════════════════════════════════════════════════
+# KNOWLEDGE BASE -- 22 Industries
+# ═══════════════════════════════════════════════════════════════════════════════
 
-    try:
-        import api_enrichment as _ae
-        _api_enrichment = _ae
-    except Exception:
-        _api_enrichment = None
-
-    try:
-        import collar_intelligence as _ci
-        _collar_intelligence = _ci
-    except Exception:
-        _collar_intelligence = None
-
-    try:
-        import shared_utils as _su
-        _shared_utils = _su
-        _INDUSTRY_LABEL_MAP = getattr(_su, "INDUSTRY_LABEL_MAP", {})
-    except Exception:
-        _shared_utils = None
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Fallback data (used when live modules are unavailable)
-# ─────────────────────────────────────────────────────────────────────────────
-
-_FALLBACK_INDUSTRY_LABELS: Dict[str, str] = {
-    "healthcare_medical": "Healthcare & Medical",
-    "blue_collar_trades": "Blue Collar / Skilled Trades",
-    "tech_engineering": "Technology & Engineering",
-    "general_entry_level": "General / Entry-Level",
-    "finance_banking": "Finance & Banking",
-    "retail_consumer": "Retail & Consumer",
-    "logistics_supply_chain": "Logistics & Supply Chain",
-    "hospitality_travel": "Hospitality & Travel",
-    "construction_real_estate": "Construction & Real Estate",
-    "education": "Education",
-    "automotive": "Automotive & Manufacturing",
-    "pharma_biotech": "Pharma & Biotech",
-    "energy_utilities": "Energy & Utilities",
-    "insurance": "Insurance",
-    "food_beverage": "Food & Beverage",
-    "aerospace_defense": "Aerospace & Defense",
-    "legal_services": "Legal Services",
-    "mental_health": "Mental Health & Behavioral",
-    "media_entertainment": "Media & Entertainment",
-    "telecommunications": "Telecommunications",
-    "maritime_marine": "Maritime & Marine",
-    "military_recruitment": "Military Recruitment",
+INDUSTRY_KB: Dict[str, Dict[str, Any]] = {
+    "technology": {
+        "label": "Technology & Software", "collar": "white_collar",
+        "growth_rate": 0.15, "avg_time_to_fill": 42, "turnover_rate": 0.132,
+        "top_roles": ["Software Engineer", "Data Scientist", "Product Manager", "DevOps Engineer"],
+        "talent_supply": "moderate", "demand_trend": "rising",
+    },
+    "healthcare_medical": {
+        "label": "Healthcare & Medical", "collar": "grey_collar",
+        "growth_rate": 0.13, "avg_time_to_fill": 49, "turnover_rate": 0.195,
+        "top_roles": ["Registered Nurse", "Medical Assistant", "Physician", "Pharmacist"],
+        "talent_supply": "tight", "demand_trend": "rising",
+    },
+    "manufacturing": {
+        "label": "Manufacturing", "collar": "blue_collar",
+        "growth_rate": 0.03, "avg_time_to_fill": 33, "turnover_rate": 0.28,
+        "top_roles": ["Machine Operator", "Quality Inspector", "Welder", "CNC Machinist"],
+        "talent_supply": "tight", "demand_trend": "stable",
+    },
+    "finance_banking": {
+        "label": "Finance & Banking", "collar": "white_collar",
+        "growth_rate": 0.07, "avg_time_to_fill": 44, "turnover_rate": 0.11,
+        "top_roles": ["Financial Analyst", "Accountant", "Compliance Officer", "Risk Manager"],
+        "talent_supply": "adequate", "demand_trend": "stable",
+    },
+    "retail_consumer": {
+        "label": "Retail & Consumer", "collar": "pink_collar",
+        "growth_rate": 0.02, "avg_time_to_fill": 21, "turnover_rate": 0.60,
+        "top_roles": ["Store Manager", "Sales Associate", "Merchandiser", "Cashier"],
+        "talent_supply": "surplus", "demand_trend": "stable",
+    },
+    "logistics_supply_chain": {
+        "label": "Logistics & Supply Chain", "collar": "blue_collar",
+        "growth_rate": 0.08, "avg_time_to_fill": 25, "turnover_rate": 0.43,
+        "top_roles": ["Warehouse Associate", "Truck Driver", "Forklift Operator", "Logistics Coordinator"],
+        "talent_supply": "tight", "demand_trend": "rising",
+    },
+    "construction_real_estate": {
+        "label": "Construction & Real Estate", "collar": "blue_collar",
+        "growth_rate": 0.04, "avg_time_to_fill": 30, "turnover_rate": 0.35,
+        "top_roles": ["Electrician", "Plumber", "Project Manager", "Carpenter"],
+        "talent_supply": "tight", "demand_trend": "stable",
+    },
+    "hospitality_travel": {
+        "label": "Hospitality & Travel", "collar": "pink_collar",
+        "growth_rate": 0.10, "avg_time_to_fill": 18, "turnover_rate": 0.73,
+        "top_roles": ["Hotel Manager", "Chef", "Front Desk Agent", "Server"],
+        "talent_supply": "moderate", "demand_trend": "rising",
+    },
+    "education": {
+        "label": "Education", "collar": "white_collar",
+        "growth_rate": 0.05, "avg_time_to_fill": 55, "turnover_rate": 0.16,
+        "top_roles": ["Teacher", "Professor", "School Administrator", "Tutor"],
+        "talent_supply": "moderate", "demand_trend": "stable",
+    },
+    "pharma_biotech": {
+        "label": "Pharma & Biotech", "collar": "white_collar",
+        "growth_rate": 0.11, "avg_time_to_fill": 52, "turnover_rate": 0.10,
+        "top_roles": ["Research Scientist", "Clinical Research Associate", "Regulatory Affairs", "QA Analyst"],
+        "talent_supply": "tight", "demand_trend": "rising",
+    },
+    "energy_utilities": {
+        "label": "Energy & Utilities", "collar": "blue_collar",
+        "growth_rate": 0.06, "avg_time_to_fill": 38, "turnover_rate": 0.12,
+        "top_roles": ["Electrical Engineer", "Lineworker", "Plant Operator", "Safety Inspector"],
+        "talent_supply": "moderate", "demand_trend": "stable",
+    },
+    "automotive": {
+        "label": "Automotive", "collar": "blue_collar",
+        "growth_rate": 0.04, "avg_time_to_fill": 32, "turnover_rate": 0.22,
+        "top_roles": ["Auto Technician", "Assembly Worker", "Design Engineer", "Parts Advisor"],
+        "talent_supply": "moderate", "demand_trend": "stable",
+    },
+    "insurance": {
+        "label": "Insurance", "collar": "white_collar",
+        "growth_rate": 0.05, "avg_time_to_fill": 40, "turnover_rate": 0.12,
+        "top_roles": ["Claims Adjuster", "Underwriter", "Actuary", "Insurance Agent"],
+        "talent_supply": "adequate", "demand_trend": "stable",
+    },
+    "aerospace_defense": {
+        "label": "Aerospace & Defense", "collar": "white_collar",
+        "growth_rate": 0.06, "avg_time_to_fill": 58, "turnover_rate": 0.09,
+        "top_roles": ["Aerospace Engineer", "Systems Analyst", "Avionics Tech", "Program Manager"],
+        "talent_supply": "tight", "demand_trend": "rising",
+    },
+    "food_beverage": {
+        "label": "Food & Beverage", "collar": "blue_collar",
+        "growth_rate": 0.03, "avg_time_to_fill": 19, "turnover_rate": 0.82,
+        "top_roles": ["Line Cook", "Food Production Worker", "Quality Control", "Delivery Driver"],
+        "talent_supply": "surplus", "demand_trend": "stable",
+    },
+    "telecommunications": {
+        "label": "Telecommunications", "collar": "white_collar",
+        "growth_rate": 0.04, "avg_time_to_fill": 36, "turnover_rate": 0.15,
+        "top_roles": ["Network Engineer", "Field Technician", "Sales Executive", "RF Engineer"],
+        "talent_supply": "moderate", "demand_trend": "stable",
+    },
+    "legal_services": {
+        "label": "Legal Services", "collar": "white_collar",
+        "growth_rate": 0.06, "avg_time_to_fill": 48, "turnover_rate": 0.17,
+        "top_roles": ["Paralegal", "Associate Attorney", "Legal Assistant", "Compliance Analyst"],
+        "talent_supply": "adequate", "demand_trend": "stable",
+    },
+    "media_entertainment": {
+        "label": "Media & Entertainment", "collar": "white_collar",
+        "growth_rate": 0.08, "avg_time_to_fill": 35, "turnover_rate": 0.20,
+        "top_roles": ["Content Creator", "Video Editor", "Marketing Manager", "UX Designer"],
+        "talent_supply": "surplus", "demand_trend": "rising",
+    },
+    "mental_health": {
+        "label": "Mental Health & Behavioral", "collar": "grey_collar",
+        "growth_rate": 0.18, "avg_time_to_fill": 55, "turnover_rate": 0.25,
+        "top_roles": ["Therapist", "Counselor", "Psychiatrist", "Social Worker"],
+        "talent_supply": "tight", "demand_trend": "rising",
+    },
+    "government": {
+        "label": "Government & Public Sector", "collar": "white_collar",
+        "growth_rate": 0.02, "avg_time_to_fill": 65, "turnover_rate": 0.08,
+        "top_roles": ["Program Analyst", "Administrative Officer", "IT Specialist", "Budget Analyst"],
+        "talent_supply": "adequate", "demand_trend": "stable",
+    },
+    "nonprofit": {
+        "label": "Nonprofit & Social Services", "collar": "pink_collar",
+        "growth_rate": 0.04, "avg_time_to_fill": 40, "turnover_rate": 0.19,
+        "top_roles": ["Program Manager", "Grant Writer", "Case Manager", "Development Director"],
+        "talent_supply": "adequate", "demand_trend": "stable",
+    },
+    "agriculture": {
+        "label": "Agriculture & Farming", "collar": "blue_collar",
+        "growth_rate": 0.01, "avg_time_to_fill": 22, "turnover_rate": 0.45,
+        "top_roles": ["Farm Worker", "Agricultural Technician", "Irrigation Specialist", "Equipment Operator"],
+        "talent_supply": "tight", "demand_trend": "declining",
+    },
 }
 
-_FALLBACK_CHANNEL_BENCHMARKS: Dict[str, Dict[str, float]] = {
-    "google_search": {"cpc": 3.80, "cpa": 55.0, "ctr": 0.042},
-    "indeed": {"cpc": 0.45, "cpa": 18.0, "ctr": 0.032},
-    "linkedin": {"cpc": 5.50, "cpa": 85.0, "ctr": 0.028},
-    "meta": {"cpc": 0.90, "cpa": 32.0, "ctr": 0.015},
-    "programmatic": {"cpc": 0.65, "cpa": 22.0, "ctr": 0.038},
-    "ziprecruiter": {"cpc": 0.55, "cpa": 20.0, "ctr": 0.035},
+# ═══════════════════════════════════════════════════════════════════════════════
+# REGIONAL SALARY DATA -- 35 Metros
+# ═══════════════════════════════════════════════════════════════════════════════
+
+METRO_SALARY_INDEX: Dict[str, Dict[str, Any]] = {
+    "new york": {"coli": 130, "median": 72000, "p25": 52000, "p75": 105000, "p90": 145000},
+    "san francisco": {"coli": 145, "median": 85000, "p25": 60000, "p75": 125000, "p90": 170000},
+    "los angeles": {"coli": 120, "median": 65000, "p25": 46000, "p75": 95000, "p90": 135000},
+    "chicago": {"coli": 107, "median": 60000, "p25": 42000, "p75": 85000, "p90": 120000},
+    "houston": {"coli": 96, "median": 58000, "p25": 40000, "p75": 82000, "p90": 115000},
+    "dallas": {"coli": 98, "median": 59000, "p25": 41000, "p75": 84000, "p90": 118000},
+    "austin": {"coli": 105, "median": 65000, "p25": 45000, "p75": 92000, "p90": 130000},
+    "seattle": {"coli": 130, "median": 78000, "p25": 55000, "p75": 115000, "p90": 155000},
+    "boston": {"coli": 125, "median": 72000, "p25": 50000, "p75": 100000, "p90": 140000},
+    "washington dc": {"coli": 122, "median": 75000, "p25": 52000, "p75": 105000, "p90": 142000},
+    "denver": {"coli": 108, "median": 63000, "p25": 44000, "p75": 90000, "p90": 125000},
+    "atlanta": {"coli": 100, "median": 58000, "p25": 40000, "p75": 82000, "p90": 115000},
+    "miami": {"coli": 112, "median": 55000, "p25": 38000, "p75": 78000, "p90": 110000},
+    "phoenix": {"coli": 100, "median": 55000, "p25": 38000, "p75": 78000, "p90": 108000},
+    "philadelphia": {"coli": 110, "median": 62000, "p25": 43000, "p75": 88000, "p90": 122000},
+    "san diego": {"coli": 118, "median": 65000, "p25": 45000, "p75": 92000, "p90": 128000},
+    "minneapolis": {"coli": 105, "median": 62000, "p25": 43000, "p75": 88000, "p90": 120000},
+    "detroit": {"coli": 92, "median": 52000, "p25": 36000, "p75": 74000, "p90": 102000},
+    "portland": {"coli": 110, "median": 62000, "p25": 43000, "p75": 88000, "p90": 120000},
+    "nashville": {"coli": 100, "median": 56000, "p25": 39000, "p75": 80000, "p90": 112000},
+    "charlotte": {"coli": 98, "median": 57000, "p25": 40000, "p75": 80000, "p90": 112000},
+    "raleigh": {"coli": 100, "median": 60000, "p25": 42000, "p75": 85000, "p90": 118000},
+    "salt lake city": {"coli": 100, "median": 56000, "p25": 39000, "p75": 80000, "p90": 110000},
+    "columbus": {"coli": 92, "median": 54000, "p25": 38000, "p75": 76000, "p90": 105000},
+    "indianapolis": {"coli": 90, "median": 52000, "p25": 36000, "p75": 74000, "p90": 102000},
+    "san antonio": {"coli": 90, "median": 50000, "p25": 35000, "p75": 72000, "p90": 100000},
+    "london": {"coli": 135, "median": 48000, "p25": 34000, "p75": 70000, "p90": 98000},
+    "toronto": {"coli": 108, "median": 55000, "p25": 38000, "p75": 78000, "p90": 108000},
+    "sydney": {"coli": 115, "median": 62000, "p25": 43000, "p75": 88000, "p90": 120000},
+    "berlin": {"coli": 95, "median": 50000, "p25": 35000, "p75": 72000, "p90": 98000},
+    "singapore": {"coli": 120, "median": 55000, "p25": 38000, "p75": 78000, "p90": 110000},
+    "mumbai": {"coli": 30, "median": 12000, "p25": 7000, "p75": 22000, "p90": 38000},
+    "bangalore": {"coli": 28, "median": 14000, "p25": 8000, "p75": 25000, "p90": 42000},
+    "dubai": {"coli": 85, "median": 40000, "p25": 28000, "p75": 60000, "p90": 85000},
+    "tokyo": {"coli": 110, "median": 42000, "p25": 30000, "p75": 62000, "p90": 88000},
 }
 
-_FALLBACK_SEASONAL: Dict[int, float] = {
+# ═══════════════════════════════════════════════════════════════════════════════
+# PLATFORM PERFORMANCE BENCHMARKS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+PLATFORM_BENCHMARKS: Dict[str, Dict[str, float]] = {
+    "indeed":        {"cpc": 0.45, "cpa": 18.0, "ctr": 0.032, "conv_rate": 0.025},
+    "linkedin":      {"cpc": 5.50, "cpa": 85.0, "ctr": 0.028, "conv_rate": 0.065},
+    "google_search": {"cpc": 3.80, "cpa": 55.0, "ctr": 0.042, "conv_rate": 0.069},
+    "meta":          {"cpc": 0.90, "cpa": 32.0, "ctr": 0.015, "conv_rate": 0.047},
+    "programmatic":  {"cpc": 0.65, "cpa": 22.0, "ctr": 0.038, "conv_rate": 0.029},
+    "ziprecruiter":  {"cpc": 0.55, "cpa": 20.0, "ctr": 0.035, "conv_rate": 0.028},
+    "glassdoor":     {"cpc": 1.20, "cpa": 38.0, "ctr": 0.030, "conv_rate": 0.032},
+    "tiktok":        {"cpc": 0.70, "cpa": 28.0, "ctr": 0.012, "conv_rate": 0.018},
+}
+
+# Collar-type CPC multipliers
+_COLLAR_CPC_MULT: Dict[str, float] = {
+    "blue_collar": 0.65, "white_collar": 1.25,
+    "grey_collar": 1.10, "pink_collar": 0.80,
+}
+
+_SEASONAL_MULT: Dict[int, float] = {
     1: 1.12, 2: 1.08, 3: 1.05, 4: 1.02, 5: 0.98, 6: 0.95,
     7: 0.92, 8: 0.94, 9: 1.06, 10: 1.03, 11: 0.96, 12: 0.89,
 }
 
-_FALLBACK_CPC_TREND: Dict[int, float] = {
-    2022: 1.07, 2023: 0.85, 2024: 0.78, 2025: 0.82,
-}
-
-_FALLBACK_SALARY: Dict[str, Dict[str, int]] = {
-    "general": {"p10": 35000, "p25": 45000, "median": 58000, "p75": 78000, "p90": 105000},
-}
-
-_FALLBACK_LABOR_MARKET: Dict[str, Any] = {
-    "unemployment_rate": 3.9,
-    "job_openings_rate": 5.5,
-    "hires_rate": 3.6,
-    "quits_rate": 2.3,
-    "supply_demand_ratio": 0.7,
-    "avg_time_to_fill_days": 44,
+_FALLBACK_SALARY: Dict[str, Any] = {
+    "p10": 35000, "p25": 45000, "median": 58000, "p75": 78000, "p90": 105000,
 }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Utility helpers
-# ─────────────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# UTILITY HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
 
-def _industry_label(industry_key: str) -> str:
-    """Resolve an industry key to a human-readable label."""
+def _industry_label(key: str) -> str:
     _lazy_load()
-    label_map = _INDUSTRY_LABEL_MAP or _FALLBACK_INDUSTRY_LABELS
-    return label_map.get(industry_key, industry_key.replace("_", " ").title())
+    m = _INDUSTRY_LABEL_MAP or {}
+    if key in m:
+        return m[key]
+    kb = INDUSTRY_KB.get(key)
+    if kb:
+        return kb["label"]
+    return key.replace("_", " ").title()
 
 
 def _detect_collar(role: str, industry: str) -> str:
-    """Classify role into collar type."""
+    """Classify into blue/white/grey/pink collar."""
     _lazy_load()
+
+    # Keyword heuristics first (most reliable for role-level detection)
+    blue_kw = {"driver", "warehouse", "technician", "mechanic", "operator",
+               "welder", "electrician", "plumber", "carpenter", "assembler",
+               "laborer", "forklift", "janitor", "maintenance", "hvac",
+               "construction", "installer", "loader"}
+    grey_kw = {"nurse", "therapist", "paramedic", "emt", "dental", "radiology",
+               "phlebotom", "respiratory", "surgical tech"}
+    pink_kw = {"receptionist", "secretary", "cashier", "caregiver", "nanny",
+               "aide", "clerk", "librarian"}
+    rl = role.lower()
+    for kw in grey_kw:
+        if kw in rl:
+            return "grey_collar"
+    for kw in blue_kw:
+        if kw in rl:
+            return "blue_collar"
+    for kw in pink_kw:
+        if kw in rl:
+            return "pink_collar"
+    # Try collar_intelligence module
     if _collar_intelligence:
         try:
             result = _collar_intelligence.classify_collar(role)
-            return result.get("collar", "white_collar")
+            ci_collar = result.get("collar", "")
+            if ci_collar in ("blue_collar", "white_collar", "grey_collar", "pink_collar"):
+                return ci_collar
         except Exception:
             pass
-    # Simple heuristic fallback
-    blue_keywords = [
-        "driver", "warehouse", "technician", "mechanic", "operator",
-        "welder", "electrician", "plumber", "carpenter", "assembler",
-        "laborer", "loader", "forklift", "janitor", "custodian",
-        "maintenance", "hvac", "construction", "installer",
-    ]
-    role_lower = role.lower()
-    for kw in blue_keywords:
-        if kw in role_lower:
-            return "blue_collar"
-    if industry in ("blue_collar_trades", "construction_real_estate",
-                    "logistics_supply_chain", "maritime_marine"):
-        return "blue_collar"
+    # Fallback to industry KB
+    kb = INDUSTRY_KB.get(industry)
+    if kb:
+        return kb.get("collar", "white_collar")
     return "white_collar"
 
 
 def _safe_get(func, *args, default=None, **kwargs):
-    """Call func and return its result, or default on any error."""
     try:
-        result = func(*args, **kwargs)
-        return result if result is not None else default
+        r = func(*args, **kwargs)
+        return r if r is not None else default
     except Exception as exc:
-        logger.debug("_safe_get caught %s: %s", type(exc).__name__, exc)
+        logger.debug("_safe_get: %s: %s", type(exc).__name__, exc)
         return default
 
 
-def _fmt_currency(value: float, decimals: int = 0) -> str:
-    """Format a number as USD currency string."""
-    if decimals == 0:
-        return f"${value:,.0f}"
-    return f"${value:,.{decimals}f}"
+def _fmt_currency(v: float, d: int = 0) -> str:
+    if d == 0:
+        return f"${v:,.0f}"
+    return f"${v:,.{d}f}"
 
 
-def _fmt_pct(value: float, decimals: int = 1) -> str:
-    """Format a decimal as a percentage string."""
-    return f"{value * 100:.{decimals}f}%" if value < 1 else f"{value:.{decimals}f}%"
+def _fmt_pct(v: float, d: int = 1) -> str:
+    return f"{v * 100:.{d}f}%" if v < 1 else f"{v:.{d}f}%"
 
 
-def _pct_change(old: float, new: float) -> float:
-    """Compute percentage change, safe for zero denominators."""
-    if old == 0:
-        return 0.0
-    return (new - old) / abs(old)
+def _resolve_metro(locations: List[str]) -> Optional[Dict[str, Any]]:
+    """Find the best matching metro salary data for a list of locations."""
+    for loc in locations:
+        key = loc.lower().split(",")[0].strip()
+        if key in METRO_SALARY_INDEX:
+            return METRO_SALARY_INDEX[key]
+        for metro_key in METRO_SALARY_INDEX:
+            if metro_key in key or key in metro_key:
+                return METRO_SALARY_INDEX[metro_key]
+    return None
 
 
-def _trend_arrow(pct: float) -> str:
-    """Return a text trend indicator."""
-    if pct > 0.05:
-        return "Rising"
-    elif pct < -0.05:
-        return "Declining"
-    return "Stable"
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATA COLLECTION
+# ═══════════════════════════════════════════════════════════════════════════════
 
-
-def _current_year() -> int:
-    return datetime.now().year
-
-
-def _current_month() -> int:
-    return datetime.now().month
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Data collection functions
-# ─────────────────────────────────────────────────────────────────────────────
-
-def collect_labor_market_data(
-    role: str,
-    industry: str,
-    location: str,
-) -> Dict[str, Any]:
-    """Collect labor market supply/demand and unemployment data.
-
-    Uses research.py's get_labour_market_intelligence and
-    api_enrichment.py's BLS/JOLTS functions where available.
-    """
+def _collect_market_overview(industry: str, locations: List[str]) -> Dict[str, Any]:
+    """Gather industry hiring trends, growth, talent supply/demand."""
     _lazy_load()
+    kb = INDUSTRY_KB.get(industry, INDUSTRY_KB.get("technology", {}))
     data: Dict[str, Any] = {
-        "source": "fallback",
-        "role": role,
         "industry": industry,
-        "location": location,
+        "industry_label": _industry_label(industry),
+        "growth_rate": kb.get("growth_rate", 0.05),
+        "avg_time_to_fill": kb.get("avg_time_to_fill", 40),
+        "turnover_rate": kb.get("turnover_rate", 0.15),
+        "top_roles": kb.get("top_roles", []),
+        "talent_supply": kb.get("talent_supply", "moderate"),
+        "demand_trend": kb.get("demand_trend", "stable"),
+        "source": "knowledge_base",
     }
-
-    # Try research module first
     if _research:
-        lmi = _safe_get(
-            _research.get_labour_market_intelligence,
-            industry, [location],
-            default={},
-        )
+        lmi = _safe_get(_research.get_labour_market_intelligence, industry, locations, default={})
         if lmi:
-            data["source"] = "research"
-            data["industry_metrics"] = lmi.get("industry_metrics", {})
-            data["national_summary"] = lmi.get("national_summary", {})
-            data["location_contexts"] = lmi.get("location_contexts", [])
-            data["hiring_difficulty"] = lmi.get("hiring_difficulty", "")
-
-    # Enrich with api_enrichment JOLTS/FRED if available
+            data["research_lmi"] = lmi
+            data["source"] = "research+knowledge_base"
     if _api_enrichment:
-        jolts = _safe_get(
-            _api_enrichment.get_jolts_hiring_difficulty,
-            industry,
-            default={},
-        )
+        jolts = _safe_get(_api_enrichment.get_jolts_hiring_difficulty, industry, default={})
         if jolts:
             data["jolts"] = jolts
-            data["source"] = "api_enrichment+research" if data["source"] == "research" else "api_enrichment"
-
-        tightness = _safe_get(
-            _api_enrichment.get_labor_market_tightness,
-            industry,
-            default={},
-        )
-        if tightness:
-            data["labor_market_tightness"] = tightness
-
-    # Fallback
-    if data["source"] == "fallback":
-        data.update(_FALLBACK_LABOR_MARKET)
-
-    # Always add a derived difficulty score (0-100)
-    data["difficulty_score"] = _compute_difficulty_score(data)
-    return data
-
-
-def _compute_difficulty_score(labor_data: Dict[str, Any]) -> int:
-    """Compute a 0-100 hiring difficulty score from labor market signals."""
-    score = 50  # neutral baseline
-
-    unemp = labor_data.get("unemployment_rate")
-    if unemp is not None:
-        if isinstance(unemp, str):
-            try:
-                unemp = float(unemp.replace("%", ""))
-            except ValueError:
-                unemp = None
-    if unemp is not None:
-        # Lower unemployment => harder to hire
-        if unemp < 3.0:
-            score += 20
-        elif unemp < 4.0:
-            score += 10
-        elif unemp > 6.0:
-            score -= 15
-
-    ratio = labor_data.get("supply_demand_ratio")
-    if ratio is not None:
-        try:
-            ratio = float(ratio)
-        except (ValueError, TypeError):
-            ratio = None
-    if ratio is not None:
-        if ratio < 0.5:
-            score += 15
-        elif ratio < 1.0:
-            score += 5
-        elif ratio > 2.0:
-            score -= 10
-
-    jolts = labor_data.get("jolts", {})
-    if jolts.get("openings_per_unemployed", 0) > 1.5:
+            data["source"] = "api+" + data["source"]
+    # Difficulty score
+    score = 50
+    supply = data["talent_supply"]
+    if supply == "tight":
+        score += 20
+    elif supply == "surplus":
+        score -= 15
+    if data["demand_trend"] == "rising":
         score += 10
-
-    return max(0, min(100, score))
-
-
-def collect_compensation_data(
-    role: str,
-    industry: str,
-    location: str,
-) -> Dict[str, Any]:
-    """Collect salary range data for the target role and location.
-
-    Uses research.py's get_role_salary_range and api_enrichment's
-    fetch_salary_data / fetch_careeronestop_data where available.
-    """
-    _lazy_load()
-    data: Dict[str, Any] = {
-        "source": "fallback",
-        "role": role,
-        "industry": industry,
-        "location": location,
-    }
-
-    # Try research module
-    if _research:
-        salary_str = _safe_get(
-            _research.get_role_salary_range, role, 100, default=""
-        )
-        if salary_str:
-            data["salary_range_text"] = salary_str
-            data["source"] = "research"
-
-    # Try api_enrichment BLS salary
-    if _api_enrichment:
-        salary_data = _safe_get(
-            _api_enrichment.fetch_salary_data, [role], default={}
-        )
-        if salary_data:
-            data["bls_salary"] = salary_data
-            data["source"] = "api_enrichment" if data["source"] == "fallback" else "research+api_enrichment"
-
-        # CareerOneStop
-        cos_data = _safe_get(
-            _api_enrichment.fetch_careeronestop_data, [role], [location], default={}
-        )
-        if cos_data:
-            data["careeronestop"] = cos_data
-
-        # H1B benchmarks for tech/skilled roles
-        h1b = _safe_get(
-            _api_enrichment.fetch_h1b_wage_benchmarks, [role], default={}
-        )
-        if h1b:
-            data["h1b_benchmarks"] = h1b
-
-    # Build unified salary ranges
-    data["salary_ranges"] = _build_salary_ranges(data)
+    elif data["demand_trend"] == "declining":
+        score -= 10
+    data["difficulty_score"] = max(0, min(100, score))
     return data
 
 
-def _build_salary_ranges(comp_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Unify salary data from multiple sources into a single range dict."""
-    # Attempt to extract from BLS data
-    bls = comp_data.get("bls_salary", {})
-    role = comp_data.get("role", "")
-    role_key = role.lower().replace(" ", "_")
-
-    # BLS data is typically keyed by role name
-    for key, val in bls.items():
-        if isinstance(val, dict) and "median" in val:
-            return {
-                "p10": val.get("p10", val["median"] * 0.6),
-                "p25": val.get("p25", val["median"] * 0.75),
-                "median": val["median"],
-                "p75": val.get("p75", val["median"] * 1.3),
-                "p90": val.get("p90", val["median"] * 1.6),
-                "source": "BLS OES",
-            }
-
-    # CareerOneStop extraction
-    cos = comp_data.get("careeronestop", {})
-    if cos:
-        for key, val in cos.items():
-            if isinstance(val, dict):
-                salary_info = val.get("salary") or val.get("wages") or {}
-                if isinstance(salary_info, dict) and salary_info.get("median"):
-                    med = salary_info["median"]
-                    return {
-                        "p10": salary_info.get("p10", med * 0.6),
-                        "p25": salary_info.get("p25", med * 0.75),
-                        "median": med,
-                        "p75": salary_info.get("p75", med * 1.3),
-                        "p90": salary_info.get("p90", med * 1.6),
-                        "source": "CareerOneStop",
-                    }
-
-    # Fallback
-    fb = _FALLBACK_SALARY.get("general", {})
-    return {**fb, "source": "estimate"}
-
-
-def collect_channel_performance(
-    industry: str,
-    collar_type: str,
+def _collect_salary_benchmarks(
+    role_category: str, industry: str, locations: List[str],
 ) -> Dict[str, Any]:
-    """Collect CPC/CPA/CTR benchmarks across all advertising channels.
-
-    Uses trend_engine's get_all_platform_benchmarks.
-    """
+    """Salary ranges by location and percentile."""
     _lazy_load()
-    data: Dict[str, Any] = {
-        "source": "fallback",
-        "industry": industry,
-        "collar_type": collar_type,
-        "channels": {},
+    data: Dict[str, Any] = {"source": "knowledge_base", "by_location": {}}
+
+    metro = _resolve_metro(locations)
+    base = metro if metro else dict(_FALLBACK_SALARY)
+
+    # Apply industry multiplier
+    kb = INDUSTRY_KB.get(industry, {})
+    collar = kb.get("collar", "white_collar")
+    mult = {"white_collar": 1.15, "grey_collar": 1.0, "blue_collar": 0.85, "pink_collar": 0.80}.get(collar, 1.0)
+
+    for loc in locations:
+        loc_metro = _resolve_metro([loc]) or base
+        loc_data = {
+            "p10": round(loc_metro.get("p10", base.get("p10", 35000)) * mult),
+            "p25": round(loc_metro.get("p25", base.get("p25", 45000)) * mult),
+            "median": round(loc_metro.get("median", base.get("median", 58000)) * mult),
+            "p75": round(loc_metro.get("p75", base.get("p75", 78000)) * mult),
+            "p90": round(loc_metro.get("p90", base.get("p90", 105000)) * mult),
+            "coli": loc_metro.get("coli", 100),
+        }
+        data["by_location"][loc] = loc_data
+
+    # BLS/API enrichment
+    if _api_enrichment:
+        bls = _safe_get(_api_enrichment.fetch_salary_data, [role_category], default={})
+        if bls:
+            data["bls_salary"] = bls
+            data["source"] = "api+knowledge_base"
+
+    # Aggregate
+    all_medians = [v["median"] for v in data["by_location"].values() if v.get("median")]
+    data["aggregate"] = {
+        "median": round(statistics.mean(all_medians)) if all_medians else base.get("median", 58000),
+        "min_p10": min((v["p10"] for v in data["by_location"].values()), default=35000),
+        "max_p90": max((v["p90"] for v in data["by_location"].values()), default=105000),
     }
+    return data
+
+
+def _collect_channel_performance(industry: str, collar_type: str) -> Dict[str, Any]:
+    """Platform effectiveness data with CPC, CPA, conversion rates."""
+    _lazy_load()
+    data: Dict[str, Any] = {"source": "knowledge_base", "channels": {}}
+
+    collar_mult = _COLLAR_CPC_MULT.get(collar_type, 1.0)
 
     if _trend_engine:
-        benchmarks = _safe_get(
-            _trend_engine.get_all_platform_benchmarks,
-            industry, collar_type,
-            default={},
-        )
+        benchmarks = _safe_get(_trend_engine.get_all_platform_benchmarks, industry, collar_type, default={})
         if benchmarks:
             data["source"] = "trend_engine"
-            for platform, metrics in benchmarks.items():
-                data["channels"][platform] = {
-                    "cpc": metrics.get("cpc", {}).get("value", 0),
-                    "cpa": metrics.get("cpa", {}).get("value", 0) if "cpa" in metrics else None,
-                    "ctr": metrics.get("ctr", {}).get("value", 0) if "ctr" in metrics else None,
-                    "confidence": metrics.get("cpc", {}).get("confidence", "medium"),
-                    "trend": metrics.get("cpc", {}).get("trend_direction", "stable"),
+            for plat, m in benchmarks.items():
+                data["channels"][plat] = {
+                    "cpc": m.get("cpc", {}).get("value", 0),
+                    "cpa": m.get("cpa", {}).get("value", 0) if "cpa" in m else None,
+                    "ctr": m.get("ctr", {}).get("value", 0) if "ctr" in m else None,
+                    "conv_rate": m.get("conv_rate", {}).get("value", 0) if "conv_rate" in m else None,
+                    "confidence": m.get("cpc", {}).get("confidence", "medium"),
+                    "trend": m.get("cpc", {}).get("trend_direction", "stable"),
                 }
 
     if not data["channels"]:
-        data["source"] = "fallback"
-        for platform, metrics in _FALLBACK_CHANNEL_BENCHMARKS.items():
-            data["channels"][platform] = {
-                "cpc": metrics["cpc"],
-                "cpa": metrics["cpa"],
-                "ctr": metrics.get("ctr"),
-                "confidence": "low",
+        data["source"] = "knowledge_base"
+        for plat, bm in PLATFORM_BENCHMARKS.items():
+            data["channels"][plat] = {
+                "cpc": round(bm["cpc"] * collar_mult, 2),
+                "cpa": round(bm["cpa"] * collar_mult, 2),
+                "ctr": bm.get("ctr"),
+                "conv_rate": bm.get("conv_rate"),
+                "confidence": "medium",
                 "trend": "stable",
             }
 
-    # Add rankings
-    data["ranked_by_cpc"] = sorted(
-        data["channels"].items(), key=lambda x: x[1].get("cpc", 999)
-    )
-    data["ranked_by_cpa"] = sorted(
-        data["channels"].items(),
-        key=lambda x: x[1].get("cpa") or 999,
-    )
+    data["ranked_by_cpc"] = sorted(data["channels"].items(), key=lambda x: x[1].get("cpc", 999))
+    data["ranked_by_cpa"] = sorted(data["channels"].items(), key=lambda x: x[1].get("cpa") or 999)
     return data
 
 
-def collect_cpc_trends(
-    industry: str,
-) -> Dict[str, Any]:
-    """Collect historical CPC trends across platforms.
-
-    Uses trend_engine's get_trend for multi-year CPC data per platform.
-    """
+def _collect_competitor_analysis(competitors: List[str], industry: str) -> Dict[str, Any]:
+    """Competitor hiring activity and strategies."""
     _lazy_load()
-    data: Dict[str, Any] = {
-        "source": "fallback",
-        "industry": industry,
-        "platform_trends": {},
-        "aggregate_trend": {},
-    }
+    data: Dict[str, Any] = {"source": "estimate", "competitors": []}
+    kb = INDUSTRY_KB.get(industry, {})
+    top_roles = kb.get("top_roles", ["General"])
 
-    platforms = ["google_search", "indeed", "linkedin", "meta", "programmatic"]
-
-    if _trend_engine:
-        any_success = False
-        for platform in platforms:
-            trend = _safe_get(
-                _trend_engine.get_trend,
-                platform, industry, "cpc", 4,
-                default={},
-            )
-            if trend and trend.get("data"):
-                any_success = True
-                data["platform_trends"][platform] = {
-                    "yearly_data": trend.get("data", {}),
-                    "yoy_change": trend.get("yoy_change_pct", 0),
-                    "trend_direction": trend.get("trend_direction", "stable"),
-                }
-        if any_success:
-            data["source"] = "trend_engine"
-
-    if not data["platform_trends"]:
-        data["source"] = "fallback"
-        for platform in platforms:
-            base = _FALLBACK_CHANNEL_BENCHMARKS.get(platform, {}).get("cpc", 1.0)
-            yearly = {}
-            for yr, mult in _FALLBACK_CPC_TREND.items():
-                yearly[yr] = round(base * mult, 2)
-            data["platform_trends"][platform] = {
-                "yearly_data": yearly,
-                "yoy_change": -3.5,
-                "trend_direction": "declining",
-            }
-
-    # Compute aggregate across platforms
-    all_yoy = [
-        v.get("yoy_change", 0) for v in data["platform_trends"].values()
-        if v.get("yoy_change") is not None
-    ]
-    if all_yoy:
-        avg_yoy = statistics.mean(all_yoy)
-        data["aggregate_trend"] = {
-            "avg_yoy_change": round(avg_yoy, 2),
-            "direction": _trend_arrow(avg_yoy / 100),
+    for comp_name in competitors[:10]:
+        entry: Dict[str, Any] = {
+            "name": comp_name,
+            "estimated_openings": 50 + hash(comp_name) % 200,
+            "primary_channels": ["Indeed", "LinkedIn", "Glassdoor"],
+            "top_roles_hiring": top_roles[:3],
+            "employer_brand_strength": "medium",
         }
+        # Try Wikipedia enrichment
+        if _api_enrichment and hasattr(_api_enrichment, "fetch_company_info"):
+            info = _safe_get(_api_enrichment.fetch_company_info, comp_name, default={})
+            if info and info.get("description"):
+                entry["description"] = info["description"][:300]
+                data["source"] = "api+estimate"
+        data["competitors"].append(entry)
 
+    data["market_position_summary"] = (
+        f"Analysis covers {len(data['competitors'])} competitor(s) in the "
+        f"{_industry_label(industry)} sector."
+    )
     return data
 
 
-def collect_seasonal_patterns(
-    industry: str,
-) -> Dict[str, Any]:
-    """Collect monthly hiring/CPC seasonal patterns.
+def _collect_talent_supply(role_category: str, industry: str, locations: List[str]) -> Dict[str, Any]:
+    """Talent pool size, availability, mobility patterns."""
+    kb = INDUSTRY_KB.get(industry, {})
+    supply_level = kb.get("talent_supply", "moderate")
+    pool_mult = {"tight": 0.6, "moderate": 1.0, "adequate": 1.3, "surplus": 1.8}.get(supply_level, 1.0)
+    base_pool = 5000
 
-    Uses trend_engine's get_seasonal_adjustment and
-    research.py's get_seasonal_hiring_advice.
-    """
-    _lazy_load()
     data: Dict[str, Any] = {
-        "source": "fallback",
-        "industry": industry,
-        "monthly_multipliers": {},
-        "hiring_advice": {},
+        "source": "estimate",
+        "supply_level": supply_level,
+        "estimated_pool_size": int(base_pool * pool_mult * len(locations)),
+        "active_seekers_pct": 0.25 if supply_level == "tight" else 0.40,
+        "passive_candidates_pct": 0.55,
+        "mobility_index": 0.7 if supply_level == "tight" else 0.5,
+        "avg_tenure_years": 3.2 if kb.get("turnover_rate", 0.15) > 0.30 else 5.5,
+        "remote_eligible_pct": 0.65 if kb.get("collar", "white_collar") == "white_collar" else 0.08,
+        "top_feeder_industries": [],
     }
+    return data
 
-    # Trend engine seasonal multipliers
+
+def _collect_seasonal_trends(industry: str) -> Dict[str, Any]:
+    """Monthly hiring seasonality patterns."""
+    _lazy_load()
+    data: Dict[str, Any] = {"source": "knowledge_base", "monthly": {}}
+
+    month_names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
     if _trend_engine:
-        for month in range(1, 13):
-            adj = _safe_get(
-                _trend_engine.get_seasonal_adjustment,
-                "mixed", month,
-                default={},
-            )
-            if adj:
-                data["monthly_multipliers"][month] = {
-                    "multiplier": adj.get("multiplier", 1.0),
-                    "label": adj.get("label", ""),
-                }
+        for m in range(1, 13):
+            adj = _safe_get(_trend_engine.get_seasonal_adjustment, "mixed", m, default={})
+            if adj and adj.get("multiplier"):
+                data["monthly"][m] = {"multiplier": adj["multiplier"], "label": month_names[m]}
                 data["source"] = "trend_engine"
 
-    # Research module seasonal advice
+    if not data["monthly"]:
+        for m in range(1, 13):
+            data["monthly"][m] = {"multiplier": _SEASONAL_MULT[m], "label": month_names[m]}
+
     if _research:
-        advice = _safe_get(
-            _research.get_seasonal_hiring_advice, industry, default={}
-        )
+        advice = _safe_get(_research.get_seasonal_hiring_advice, industry, default={})
         if advice:
             data["hiring_advice"] = advice
-            if data["source"] == "fallback":
-                data["source"] = "research"
-            else:
-                data["source"] += "+research"
-
-    # Fallback
-    if not data["monthly_multipliers"]:
-        month_names = [
-            "", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-        ]
-        for m in range(1, 13):
-            data["monthly_multipliers"][m] = {
-                "multiplier": _FALLBACK_SEASONAL[m],
-                "label": month_names[m],
-            }
-
-    if not data["hiring_advice"]:
+    if "hiring_advice" not in data:
         data["hiring_advice"] = {
             "peak_months": ["Jan", "Sep"],
-            "ramp_start": "Dec",
             "note": "Standard hiring follows Q1 budget releases and fall planning cycles.",
         }
 
-    # Derive peak and trough months
-    mults = data["monthly_multipliers"]
-    if mults:
-        sorted_months = sorted(mults.items(), key=lambda x: x[1].get("multiplier", 1.0))
-        data["trough_months"] = [m for m, _ in sorted_months[:3]]
-        data["peak_months"] = [m for m, _ in sorted_months[-3:]]
-
+    sorted_months = sorted(data["monthly"].items(), key=lambda x: x[1]["multiplier"])
+    data["trough_months"] = [m for m, _ in sorted_months[:3]]
+    data["peak_months"] = [m for m, _ in sorted_months[-3:]]
     return data
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Narrative generation
-# ─────────────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# NARRATIVE & RECOMMENDATIONS
+# ═══════════════════════════════════════════════════════════════════════════════
 
-def generate_executive_summary(all_data: Dict[str, Any]) -> str:
-    """Generate a narrative executive summary from collected intelligence data."""
-    role = all_data.get("role", "the target role")
-    industry_label = _industry_label(all_data.get("industry", ""))
-    location = all_data.get("location", "")
+def _build_executive_summary(report: Dict[str, Any]) -> str:
     paras: List[str] = []
+    ind = _industry_label(report.get("industry", ""))
+    role_cat = report.get("role_category", "the target role category")
+    locs = ", ".join(report.get("locations", [])[:3]) or "multiple regions"
 
     paras.append(
-        f"This market intelligence report analyzes the recruitment landscape for {role} "
-        f"positions in the {industry_label} sector{f', focused on {location}' if location else ''}. "
-        f"The analysis covers labor market dynamics, compensation benchmarks, channel performance, cost trends, and seasonal patterns."
+        f"This market intelligence report analyzes the recruitment landscape for "
+        f"{role_cat.replace('_', ' ')} positions in the {ind} sector across {locs}. "
+        f"The analysis covers labor market dynamics, compensation benchmarks, "
+        f"advertising channel performance, competitor activity, talent supply, "
+        f"and seasonal hiring patterns."
     )
 
-    labor = all_data.get("labor_market", {})
-    d = labor.get("difficulty_score", 50)
-    dt = "highly competitive" if d >= 70 else ("moderately competitive" if d >= 50 else "relatively accessible")
-    extras = []
-    if labor.get("unemployment_rate") is not None:
-        extras.append(f"unemployment at {labor['unemployment_rate']}%")
-    if labor.get("supply_demand_ratio") is not None:
-        extras.append(f"supply-to-demand ratio of {labor['supply_demand_ratio']}")
-    if labor.get("avg_time_to_fill_days") is not None:
-        extras.append(f"avg time-to-fill of {labor['avg_time_to_fill_days']} days")
-    paras.append(f"The labor market is {dt} (difficulty: {d}/100). " + (", ".join(extras) + "." if extras else ""))
+    overview = report.get("market_overview", {})
+    diff = overview.get("difficulty_score", 50)
+    diff_text = "highly competitive" if diff >= 70 else ("moderately competitive" if diff >= 50 else "relatively accessible")
+    paras.append(
+        f"The labor market is {diff_text} (difficulty score: {diff}/100). "
+        f"Industry growth rate stands at {_fmt_pct(overview.get('growth_rate', 0.05))} "
+        f"with average time-to-fill of {overview.get('avg_time_to_fill', 40)} days."
+    )
 
-    sal = all_data.get("compensation", {}).get("salary_ranges", {})
+    sal = report.get("salary_benchmarks", {}).get("aggregate", {})
     if sal.get("median"):
         paras.append(
-            f"Median salary: {_fmt_currency(sal['median'])} (25th-75th: {_fmt_currency(sal.get('p25',0))}"
-            f" to {_fmt_currency(sal.get('p75',0))}). Source: {sal.get('source','estimate')}."
+            f"Compensation benchmarks indicate an aggregate median salary of "
+            f"{_fmt_currency(sal['median'])} across analyzed locations."
         )
 
-    ranked = all_data.get("channel_performance", {}).get("ranked_by_cpc", [])
+    ch = report.get("channel_performance", {})
+    ranked = ch.get("ranked_by_cpc", [])
     if ranked:
-        lo, hi = ranked[0], ranked[-1]
+        cheapest = ranked[0]
         paras.append(
-            f"Lowest CPC: {lo[0].replace('_',' ').title()} at {_fmt_currency(lo[1]['cpc'],2)}. "
-            f"Highest: {hi[0].replace('_',' ').title()} at {_fmt_currency(hi[1]['cpc'],2)}."
+            f"Among advertising channels, {cheapest[0].replace('_', ' ').title()} "
+            f"offers the lowest CPC at {_fmt_currency(cheapest[1]['cpc'], 2)}."
         )
-
-    agg = all_data.get("cpc_trends", {}).get("aggregate_trend", {})
-    if agg:
-        paras.append(f"Aggregate CPC trend: {agg.get('direction','stable').lower()}, {agg.get('avg_yoy_change',0):+.1f}% YoY.")
-
-    peak = all_data.get("seasonal_patterns", {}).get("hiring_advice", {}).get("peak_months", [])
-    if peak:
-        paras.append(f"Peak hiring months: {', '.join(str(m) for m in peak)}.")
 
     return "\n\n".join(paras)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Recommendations engine
-# ─────────────────────────────────────────────────────────────────────────────
-
-def generate_recommendations(all_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Generate actionable recommendations ranked by impact_score (1-10)."""
+def _build_recommendations(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     recs: List[Dict[str, Any]] = []
-    channels = all_data.get("channel_performance", {})
-    labor = all_data.get("labor_market", {})
-    comp = all_data.get("compensation", {})
-    trends = all_data.get("cpc_trends", {})
-    seasonal = all_data.get("seasonal_patterns", {})
-    collar = all_data.get("collar_type", "white_collar")
-    difficulty = labor.get("difficulty_score", 50)
+    ch = report.get("channel_performance", {})
+    overview = report.get("market_overview", {})
+    sal = report.get("salary_benchmarks", {})
+    seasonal = report.get("seasonal_trends", {})
+    collar = report.get("collar_type", "white_collar")
+    diff = overview.get("difficulty_score", 50)
 
-    def _add(title, desc, impact, score, cat):
-        recs.append({"title": title, "description": desc, "impact": impact, "impact_score": score, "category": cat})
+    ranked = ch.get("ranked_by_cpc", [])
+    if ranked:
+        c = ranked[0]
+        recs.append({
+            "title": f"Prioritize {c[0].replace('_', ' ').title()} for cost efficiency",
+            "description": f"At {_fmt_currency(c[1]['cpc'], 2)} CPC, this channel offers the best cost-per-click. Allocate 30-40% of budget here.",
+            "impact": "high", "impact_score": 9, "category": "channel",
+        })
 
-    # Channel optimization
-    ranked_cpc = channels.get("ranked_by_cpc", [])
-    if ranked_cpc:
-        c = ranked_cpc[0]
-        _add(f"Prioritize {c[0].replace('_',' ').title()} for cost efficiency",
-             f"At {_fmt_currency(c[1]['cpc'],2)} CPC, allocate 30-40% of budget here for maximum reach efficiency.",
-             "high", 9, "channel")
-
-    # Declining CPC opportunity
-    for plat, info in trends.get("platform_trends", {}).items():
-        if info.get("yoy_change", 0) < -5:
-            _add(f"Increase {plat.replace('_',' ').title()} spend -- CPCs declining",
-                 f"CPCs declined {abs(info['yoy_change']):.1f}% YoY, presenting a buying opportunity.", "high", 8, "channel")
-            break
-
-    # Seasonal timing
     trough = seasonal.get("trough_months", [])
     if trough:
-        mn = {1:"Jan",2:"Feb",3:"Mar",4:"Apr",5:"May",6:"Jun",7:"Jul",8:"Aug",9:"Sep",10:"Oct",11:"Nov",12:"Dec"}
-        _add("Launch campaigns during low-competition months",
-             f"CPCs are lowest in {', '.join(mn.get(m,str(m)) for m in trough)}. Front-load budget to cut CPA 10-15%.",
-             "medium", 7, "timing")
+        mn = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
+              7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec"}
+        labels = [mn.get(m, str(m)) for m in trough]
+        recs.append({
+            "title": "Launch campaigns during low-competition months",
+            "description": f"CPCs are typically lowest in {', '.join(labels)}. Front-loading budget can reduce CPA by 10-15%.",
+            "impact": "medium", "impact_score": 7, "category": "timing",
+        })
 
-    # Compensation competitiveness
-    sal = comp.get("salary_ranges", {})
-    if difficulty >= 65 and sal.get("median"):
-        _add("Highlight compensation to attract scarce talent",
-             f"Difficulty {difficulty}/100. Feature salary (median: {_fmt_currency(sal['median'])}) in ads to boost apply rates 20-30%.",
-             "high", 8, "compensation")
+    if diff >= 65:
+        recs.append({
+            "title": "Highlight compensation to attract scarce talent",
+            "description": f"Difficulty score {diff}/100 -- prominently featuring salary ranges increases apply rates by 20-30%.",
+            "impact": "high", "impact_score": 8, "category": "compensation",
+        })
 
-    # Collar-specific advice
     if collar == "blue_collar":
-        _add("Use mobile-first application flows",
-             "Blue-collar candidates apply 3x more via mobile. Use short-form, mobile-optimized pages with Indeed/programmatic.",
-             "high", 8, "strategy")
+        recs.append({
+            "title": "Use mobile-first and SMS-based application flows",
+            "description": "Blue-collar candidates are 3x more likely to apply via mobile. Use Indeed and programmatic boards as primary channels.",
+            "impact": "high", "impact_score": 8, "category": "strategy",
+        })
+    elif collar == "grey_collar":
+        recs.append({
+            "title": "Target niche healthcare/clinical boards",
+            "description": "Grey-collar clinical roles convert best on specialty boards (Health eCareers, Nurse.com) alongside Indeed.",
+            "impact": "high", "impact_score": 8, "category": "strategy",
+        })
     else:
-        _add("Leverage LinkedIn and employer branding",
-             "Invest in LinkedIn Sponsored Jobs and company page content alongside search-based recruitment ads.",
-             "medium", 6, "strategy")
+        recs.append({
+            "title": "Leverage LinkedIn and employer branding",
+            "description": "White-collar candidates respond to employer brand. Invest in LinkedIn Sponsored Jobs and company page content.",
+            "impact": "medium", "impact_score": 6, "category": "strategy",
+        })
 
-    # Diversification
-    if ranked_cpc and len(ranked_cpc) >= 3:
-        _add("Diversify across 3-4 channels", "Reduces risk from platform CPC spikes and broadens candidate reach.", "medium", 6, "budget")
+    if len(ranked) >= 3:
+        recs.append({
+            "title": "Diversify across 3-4 channels for resilience",
+            "description": "A diversified mix across job boards, search, social, and programmatic reduces risk from CPC spikes.",
+            "impact": "medium", "impact_score": 6, "category": "budget",
+        })
 
-    # Tight market
-    if difficulty >= 75:
-        _add("Target passive candidates",
-             f"Difficulty {difficulty}/100. Use LinkedIn InMail, retargeting, and talent community nurture.", "high", 9, "strategy")
+    if diff >= 75:
+        recs.append({
+            "title": "Consider passive candidate targeting",
+            "description": f"Difficulty {diff}/100 indicates a very tight market. Supplement with LinkedIn InMail and retargeting.",
+            "impact": "high", "impact_score": 9, "category": "strategy",
+        })
+
+    comps = report.get("competitor_analysis", {}).get("competitors", [])
+    if comps:
+        recs.append({
+            "title": "Differentiate from competitor employer brands",
+            "description": f"With {len(comps)} active competitors, unique EVP messaging and faster apply flows provide an edge.",
+            "impact": "medium", "impact_score": 7, "category": "strategy",
+        })
 
     recs.sort(key=lambda r: r.get("impact_score", 0), reverse=True)
     return recs
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Excel report generation  (Sapphire Blue palette)
-# ─────────────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN ENTRY POINT
+# ═══════════════════════════════════════════════════════════════════════════════
 
-_SAPPHIRE_DARK, _SAPPHIRE_BLUE, _SAPPHIRE_LIGHT = "0F172A", "2563EB", "DBEAFE"
-_WHITE, _FONT_NAME = "FFFFFF", "Calibri"
+def generate_report(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Generate a comprehensive market intelligence report.
+
+    Parameters
+    ----------
+    data : dict
+        - industry (str): e.g. "technology", "healthcare_medical"
+        - role_category (str): e.g. "software_engineering", "nursing"
+        - locations (list[str]): geographic regions
+        - time_period (str, optional): "quarterly" or "annual"
+        - competitors (list[str], optional): competitor company names
+
+    Returns
+    -------
+    dict with keys: market_overview, salary_benchmarks, channel_performance,
+        competitor_analysis, talent_supply, seasonal_trends, recommendations,
+        collar_type, report_metadata
+    """
+    _lazy_load()
+    industry = data.get("industry", "technology")
+    role_category = data.get("role_category", "general")
+    locations = data.get("locations", ["United States"])
+    time_period = data.get("time_period", "quarterly")
+    competitors = data.get("competitors", [])
+
+    collar_type = _detect_collar(role_category, industry)
+
+    report: Dict[str, Any] = {
+        "industry": industry,
+        "role_category": role_category,
+        "locations": locations,
+        "collar_type": collar_type,
+    }
+
+    # Parallel data collection
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        futures = {
+            "market_overview": pool.submit(_collect_market_overview, industry, locations),
+            "salary_benchmarks": pool.submit(_collect_salary_benchmarks, role_category, industry, locations),
+            "channel_performance": pool.submit(_collect_channel_performance, industry, collar_type),
+            "talent_supply": pool.submit(_collect_talent_supply, role_category, industry, locations),
+            "seasonal_trends": pool.submit(_collect_seasonal_trends, industry),
+        }
+        if competitors:
+            futures["competitor_analysis"] = pool.submit(_collect_competitor_analysis, competitors, industry)
+
+        sources: List[Dict[str, str]] = []
+        confidence_scores: Dict[str, str] = {}
+        for key, fut in futures.items():
+            try:
+                result = fut.result(timeout=30)
+                report[key] = result
+                src = result.get("source", "estimate")
+                sources.append({"section": key, "source": src})
+                confidence_scores[key] = "high" if "api" in src else ("medium" if src != "estimate" else "low")
+            except Exception as exc:
+                logger.error("Collection failed for %s: %s", key, exc)
+                fallback = {"source": "error", "error": str(exc)}
+                if key == "competitor_analysis":
+                    fallback["competitors"] = []
+                elif key == "channel_performance":
+                    fallback["channels"] = {}
+                    fallback["ranked_by_cpc"] = []
+                    fallback["ranked_by_cpa"] = []
+                elif key == "seasonal_trends":
+                    fallback["monthly"] = {}
+                    fallback["trough_months"] = []
+                    fallback["peak_months"] = []
+                elif key == "salary_benchmarks":
+                    fallback["by_location"] = {}
+                    fallback["aggregate"] = {}
+                elif key == "market_overview":
+                    fallback["difficulty_score"] = 50
+                report[key] = fallback
+                sources.append({"section": key, "source": "error"})
+                confidence_scores[key] = "none"
+
+    if not competitors:
+        report["competitor_analysis"] = {"source": "none", "competitors": [], "note": "No competitors specified."}
+
+    report["recommendations"] = _build_recommendations(report)
+    report["executive_summary"] = _build_executive_summary(report)
+
+    report["report_metadata"] = {
+        "generated_at": datetime.now().isoformat(),
+        "time_period": time_period,
+        "data_sources": sources,
+        "confidence_scores": confidence_scores,
+        "industry_label": _industry_label(industry),
+        "collar_type": collar_type,
+        "locations_analyzed": len(locations),
+        "competitors_analyzed": len(competitors),
+    }
+
+    return report
 
 
-def generate_intel_excel(report: Dict[str, Any]) -> bytes:
-    """Generate Excel workbook. Sapphire palette, Calibri, data in col B."""
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXCEL EXPORT  (Sapphire Blue: #0F172A / #2563EB / #DBEAFE, Calibri, col B)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_XL_DARK = "0F172A"
+_XL_BLUE = "2563EB"
+_XL_LIGHT = "DBEAFE"
+_XL_WHITE = "FFFFFF"
+_XL_FONT = "Calibri"
+
+
+def generate_intel_excel(report_data: Dict[str, Any]) -> bytes:
+    """Generate an Excel workbook from report data. Returns xlsx bytes."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
 
     wb = Workbook()
-    dark_fill = PatternFill("solid", fgColor=_SAPPHIRE_DARK)
-    blue_fill = PatternFill("solid", fgColor=_SAPPHIRE_BLUE)
-    light_fill = PatternFill("solid", fgColor=_SAPPHIRE_LIGHT)
-    white_fill = PatternFill("solid", fgColor=_WHITE)
-    hdr_font = Font(name=_FONT_NAME, size=11, bold=True, color=_WHITE)
-    body_font = Font(name=_FONT_NAME, size=10, color="333333")
+    dark_fill = PatternFill("solid", fgColor=_XL_DARK)
+    blue_fill = PatternFill("solid", fgColor=_XL_BLUE)
+    light_fill = PatternFill("solid", fgColor=_XL_LIGHT)
+    white_fill = PatternFill("solid", fgColor=_XL_WHITE)
+    title_font = Font(name=_XL_FONT, size=16, bold=True, color=_XL_WHITE)
+    hdr_font = Font(name=_XL_FONT, size=11, bold=True, color=_XL_WHITE)
+    sub_font = Font(name=_XL_FONT, size=11, bold=True, color=_XL_DARK)
+    body_font = Font(name=_XL_FONT, size=10, color="333333")
+    num_font = Font(name=_XL_FONT, size=10, color="1E293B")
     thin_border = Border(bottom=Side(style="thin", color="CBD5E1"))
     c_align = Alignment(horizontal="center", vertical="center")
     l_align = Alignment(horizontal="left", vertical="center", wrap_text=True)
 
-    def _hdr(ws, row, c1, c2):
+    def _hdr_row(ws, row, c1, c2):
         for c in range(c1, c2 + 1):
             cell = ws.cell(row=row, column=c)
-            cell.fill, cell.font, cell.alignment = blue_fill, hdr_font, c_align
+            cell.fill = blue_fill
+            cell.font = hdr_font
+            cell.alignment = c_align
 
-    def _drow(ws, row, c1, c2, alt=False):
+    def _data_row(ws, row, c1, c2, alt=False):
         for c in range(c1, c2 + 1):
             cell = ws.cell(row=row, column=c)
             cell.fill = light_fill if alt else white_fill
-            cell.font, cell.border, cell.alignment = body_font, thin_border, l_align
+            cell.font = body_font
+            cell.border = thin_border
+            cell.alignment = l_align
 
-    def _sheet_title(ws, merge, title, col_range):
-        ws.column_dimensions["A"].width = 3
-        ws.sheet_properties.tabColor = _SAPPHIRE_BLUE
-        ws.merge_cells(merge)
-        ws.cell(row=2, column=2, value=title).font = Font(name=_FONT_NAME, size=14, bold=True, color=_WHITE)
-        for c in col_range:
-            ws.cell(row=2, column=c).fill = dark_fill
+    ind_label = _industry_label(report_data.get("industry", ""))
+    role_cat = report_data.get("role_category", "N/A").replace("_", " ").title()
+    locs = ", ".join(report_data.get("locations", [])[:5])
+    meta = report_data.get("report_metadata", {})
 
-    role = report.get("role", "N/A")
-    industry_label = _industry_label(report.get("industry", ""))
-    location = report.get("location", "N/A")
-
-    # Sheet 1: Overview
+    # -- Sheet 1: Overview --
     ws = wb.active
     ws.title = "Overview"
+    ws.sheet_properties.tabColor = _XL_BLUE
     ws.column_dimensions["A"].width = 3
-    ws.column_dimensions["B"].width = 30
-    ws.column_dimensions["C"].width = 45
-    ws.sheet_properties.tabColor = _SAPPHIRE_BLUE
+    ws.column_dimensions["B"].width = 28
+    ws.column_dimensions["C"].width = 50
+    ws.column_dimensions["D"].width = 22
+
     ws.merge_cells("B2:D2")
     t = ws.cell(row=2, column=2, value="Market Intelligence Report")
-    t.font = Font(name=_FONT_NAME, size=16, bold=True, color=_WHITE)
+    t.font = title_font
+    t.fill = dark_fill
+    t.alignment = c_align
     for c in range(2, 5):
         ws.cell(row=2, column=c).fill = dark_fill
-    for i, (lbl, val) in enumerate([
-        ("Role", role), ("Industry", industry_label), ("Location", location),
-        ("Generated", datetime.now().strftime("%Y-%m-%d %H:%M")),
-        ("Difficulty Score", f"{report.get('labor_market', {}).get('difficulty_score', 'N/A')}/100"),
-    ]):
-        ws.cell(row=4+i, column=2, value=lbl).font = Font(name=_FONT_NAME, size=11, bold=True, color=_SAPPHIRE_DARK)
-        ws.cell(row=4+i, column=3, value=val).font = body_font
-    summary = report.get("executive_summary", "")
+
+    info = [
+        ("Role Category", role_cat),
+        ("Industry", ind_label),
+        ("Locations", locs),
+        ("Collar Type", report_data.get("collar_type", "N/A").replace("_", " ").title()),
+        ("Generated", meta.get("generated_at", datetime.now().isoformat())[:16]),
+        ("Difficulty Score", f"{report_data.get('market_overview', {}).get('difficulty_score', 'N/A')}/100"),
+    ]
+    for i, (lbl, val) in enumerate(info):
+        ws.cell(row=4 + i, column=2, value=lbl).font = sub_font
+        ws.cell(row=4 + i, column=3, value=val).font = body_font
+
+    summary = report_data.get("executive_summary", "")
     if summary:
-        ws.merge_cells("B10:D10")
-        ws.cell(row=10, column=2, value="Executive Summary").font = Font(name=_FONT_NAME, size=13, bold=True, color=_SAPPHIRE_DARK)
-        ws.merge_cells("B11:D20")
-        sc = ws.cell(row=11, column=2, value=summary)
-        sc.font, sc.alignment = body_font, Alignment(wrap_text=True, vertical="top")
+        ws.merge_cells("B12:D12")
+        ws.cell(row=12, column=2, value="Executive Summary").font = Font(name=_XL_FONT, size=13, bold=True, color=_XL_DARK)
+        ws.merge_cells("B13:D22")
+        sc = ws.cell(row=13, column=2, value=summary)
+        sc.font = body_font
+        sc.alignment = Alignment(wrap_text=True, vertical="top")
 
-    # Sheet 2: Channel Performance
+    # -- Sheet 2: Channel Performance --
     ws2 = wb.create_sheet("Channel Performance")
-    _sheet_title(ws2, "B2:G2", "Channel Performance Benchmarks", range(2, 8))
-    for col, w in [("B", 22), ("C", 14), ("D", 14), ("E", 14), ("F", 16), ("G", 14)]:
-        ws2.column_dimensions[col].width = w
-    for i, h in enumerate(["Channel", "CPC", "CPA", "CTR", "Confidence", "Trend"]):
-        ws2.cell(row=4, column=2+i, value=h)
-    _hdr(ws2, 4, 2, 7)
-    for idx, (name, m) in enumerate(report.get("channel_performance", {}).get("channels", {}).items()):
-        r = 5 + idx
-        vals = [name.replace("_", " ").title(), f"${m.get('cpc',0):.2f}",
-                f"${m['cpa']:.2f}" if m.get("cpa") else "N/A",
-                f"{m['ctr']*100:.1f}%" if m.get("ctr") else "N/A",
-                m.get("confidence", "N/A"), m.get("trend", "N/A")]
-        for i, v in enumerate(vals):
-            ws2.cell(row=r, column=2+i, value=v)
-        _drow(ws2, r, 2, 7, alt=(idx % 2 == 1))
+    ws2.sheet_properties.tabColor = _XL_BLUE
+    ws2.column_dimensions["A"].width = 3
+    for col_letter, w in [("B", 20), ("C", 12), ("D", 12), ("E", 12), ("F", 14), ("G", 14), ("H", 12)]:
+        ws2.column_dimensions[col_letter].width = w
 
-    # Sheet 3: Compensation
-    ws3 = wb.create_sheet("Compensation")
-    _sheet_title(ws3, "B2:C2", "Salary Benchmarks", range(2, 4))
-    ws3.column_dimensions["B"].width = 20
-    ws3.column_dimensions["C"].width = 20
-    for i, h in enumerate(["Percentile", "Annual Salary"]):
-        ws3.cell(row=4, column=2+i, value=h)
-    _hdr(ws3, 4, 2, 3)
-    sal = report.get("compensation", {}).get("salary_ranges", {})
-    for idx, (lbl, key) in enumerate([("10th", "p10"), ("25th", "p25"), ("Median", "median"), ("75th", "p75"), ("90th", "p90")]):
-        r = 5 + idx
-        v = sal.get(key, 0)
-        ws3.cell(row=r, column=2, value=f"{lbl} Percentile")
-        ws3.cell(row=r, column=3, value=_fmt_currency(v) if v else "N/A")
-        _drow(ws3, r, 2, 3, alt=(idx % 2 == 1))
+    ws2.merge_cells("B2:H2")
+    ws2.cell(row=2, column=2, value="Channel Performance Benchmarks").font = Font(name=_XL_FONT, size=14, bold=True, color=_XL_WHITE)
+    for c in range(2, 9):
+        ws2.cell(row=2, column=c).fill = dark_fill
 
-    # Sheet 4: CPC Trends
-    ws4 = wb.create_sheet("CPC Trends")
-    _sheet_title(ws4, "B2:G2", "Historical CPC Trends", range(2, 8))
-    ws4.column_dimensions["B"].width = 22
-    pt = report.get("cpc_trends", {}).get("platform_trends", {})
-    all_years = sorted({yr for info in pt.values() for yr in info.get("yearly_data", {})})
-    ws4.cell(row=4, column=2, value="Platform")
-    for i, yr in enumerate(all_years):
-        ws4.column_dimensions[get_column_letter(3+i)].width = 14
-        ws4.cell(row=4, column=3+i, value=str(yr))
-    lc = 3 + len(all_years)
-    ws4.cell(row=4, column=lc, value="YoY %")
-    _hdr(ws4, 4, 2, lc)
-    for idx, (plat, info) in enumerate(pt.items()):
-        r = 5 + idx
-        ws4.cell(row=r, column=2, value=plat.replace("_", " ").title())
-        yd = info.get("yearly_data", {})
-        for i, yr in enumerate(all_years):
-            v = yd.get(yr) or yd.get(str(yr))
-            ws4.cell(row=r, column=3+i, value=f"${v:.2f}" if v else "N/A")
-        ws4.cell(row=r, column=lc, value=f"{info.get('yoy_change',0):+.1f}%")
-        _drow(ws4, r, 2, lc, alt=(idx % 2 == 1))
+    headers = ["Channel", "CPC", "CPA", "CTR", "Conv Rate", "Confidence", "Trend"]
+    for i, h in enumerate(headers):
+        ws2.cell(row=4, column=2 + i, value=h)
+    _hdr_row(ws2, 4, 2, 8)
 
-    # Sheet 5: Seasonal Patterns
-    ws5 = wb.create_sheet("Seasonal Patterns")
-    _sheet_title(ws5, "B2:D2", "Seasonal Hiring Patterns", range(2, 5))
-    for col, w in [("B", 14), ("C", 18), ("D", 18)]:
-        ws5.column_dimensions[col].width = w
-    for i, h in enumerate(["Month", "CPC Multiplier", "Interpretation"]):
-        ws5.cell(row=4, column=2+i, value=h)
-    _hdr(ws5, 4, 2, 4)
-    mn = ["","January","February","March","April","May","June","July","August","September","October","November","December"]
-    mults = report.get("seasonal_patterns", {}).get("monthly_multipliers", {})
+    channels = report_data.get("channel_performance", {}).get("channels", {})
+    for idx, (name, m) in enumerate(channels.items()):
+        r = 5 + idx
+        ws2.cell(row=r, column=2, value=name.replace("_", " ").title())
+        ws2.cell(row=r, column=3, value=f"${m.get('cpc', 0):.2f}")
+        cpa = m.get("cpa")
+        ws2.cell(row=r, column=4, value=f"${cpa:.2f}" if cpa else "N/A")
+        ctr = m.get("ctr")
+        ws2.cell(row=r, column=5, value=f"{ctr*100:.1f}%" if ctr else "N/A")
+        cr = m.get("conv_rate")
+        ws2.cell(row=r, column=6, value=f"{cr*100:.1f}%" if cr else "N/A")
+        ws2.cell(row=r, column=7, value=m.get("confidence", "N/A"))
+        ws2.cell(row=r, column=8, value=m.get("trend", "N/A"))
+        _data_row(ws2, r, 2, 8, alt=(idx % 2 == 1))
+
+    # -- Sheet 3: Salary Benchmarks --
+    ws3 = wb.create_sheet("Salary Benchmarks")
+    ws3.sheet_properties.tabColor = _XL_BLUE
+    ws3.column_dimensions["A"].width = 3
+    for col_letter, w in [("B", 22), ("C", 14), ("D", 14), ("E", 14), ("F", 14), ("G", 14), ("H", 10)]:
+        ws3.column_dimensions[col_letter].width = w
+
+    ws3.merge_cells("B2:H2")
+    ws3.cell(row=2, column=2, value="Salary Benchmarks by Location").font = Font(name=_XL_FONT, size=14, bold=True, color=_XL_WHITE)
+    for c in range(2, 9):
+        ws3.cell(row=2, column=c).fill = dark_fill
+
+    headers = ["Location", "P10", "P25", "Median", "P75", "P90", "COLI"]
+    for i, h in enumerate(headers):
+        ws3.cell(row=4, column=2 + i, value=h)
+    _hdr_row(ws3, 4, 2, 8)
+
+    by_loc = report_data.get("salary_benchmarks", {}).get("by_location", {})
+    for idx, (loc, sal) in enumerate(by_loc.items()):
+        r = 5 + idx
+        ws3.cell(row=r, column=2, value=loc)
+        ws3.cell(row=r, column=3, value=_fmt_currency(sal.get("p10", 0)))
+        ws3.cell(row=r, column=4, value=_fmt_currency(sal.get("p25", 0)))
+        ws3.cell(row=r, column=5, value=_fmt_currency(sal.get("median", 0)))
+        ws3.cell(row=r, column=6, value=_fmt_currency(sal.get("p75", 0)))
+        ws3.cell(row=r, column=7, value=_fmt_currency(sal.get("p90", 0)))
+        ws3.cell(row=r, column=8, value=sal.get("coli", "N/A"))
+        _data_row(ws3, r, 2, 8, alt=(idx % 2 == 1))
+
+    # -- Sheet 4: Seasonal Patterns --
+    ws4 = wb.create_sheet("Seasonal Patterns")
+    ws4.sheet_properties.tabColor = _XL_BLUE
+    ws4.column_dimensions["A"].width = 3
+    ws4.column_dimensions["B"].width = 14
+    ws4.column_dimensions["C"].width = 18
+    ws4.column_dimensions["D"].width = 30
+
+    ws4.merge_cells("B2:D2")
+    ws4.cell(row=2, column=2, value="Seasonal Hiring Patterns").font = Font(name=_XL_FONT, size=14, bold=True, color=_XL_WHITE)
+    for c in range(2, 5):
+        ws4.cell(row=2, column=c).fill = dark_fill
+
+    for i, h in enumerate(["Month", "Multiplier", "Interpretation"]):
+        ws4.cell(row=4, column=2 + i, value=h)
+    _hdr_row(ws4, 4, 2, 4)
+
+    month_names = ["", "January", "February", "March", "April", "May", "June",
+                   "July", "August", "September", "October", "November", "December"]
+    mults = report_data.get("seasonal_trends", {}).get("monthly", {})
     for idx in range(12):
-        r, m = 5 + idx, idx + 1
-        info = mults.get(m, mults.get(str(m), {}))
-        mult = info.get("multiplier", 1.0) if isinstance(info, dict) else 1.0
-        interp = "Above average" if mult > 1.05 else ("Below average (opportunity)" if mult < 0.95 else "Average")
-        ws5.cell(row=r, column=2, value=mn[m])
-        ws5.cell(row=r, column=3, value=f"{mult:.2f}x")
-        ws5.cell(row=r, column=4, value=interp)
-        _drow(ws5, r, 2, 4, alt=(idx % 2 == 1))
-
-    # Sheet 6: Recommendations
-    ws6 = wb.create_sheet("Recommendations")
-    _sheet_title(ws6, "B2:F2", "Recommendations", range(2, 7))
-    for col, w in [("B", 8), ("C", 38), ("D", 60), ("E", 12), ("F", 14)]:
-        ws6.column_dimensions[col].width = w
-    for i, h in enumerate(["#", "Recommendation", "Details", "Impact", "Category"]):
-        ws6.cell(row=4, column=2+i, value=h)
-    _hdr(ws6, 4, 2, 6)
-    for idx, rec in enumerate(report.get("recommendations", [])):
+        mn = idx + 1
         r = 5 + idx
-        for i, v in enumerate([idx+1, rec.get("title",""), rec.get("description",""), rec.get("impact","").upper(), rec.get("category","")]):
-            ws6.cell(row=r, column=2+i, value=v)
-        _drow(ws6, r, 2, 6, alt=(idx % 2 == 1))
+        info = mults.get(mn, mults.get(str(mn), {}))
+        mult = info.get("multiplier", 1.0) if isinstance(info, dict) else 1.0
+        interp = "Above average (higher competition)" if mult > 1.05 else ("Below average (opportunity)" if mult < 0.95 else "Average")
+        ws4.cell(row=r, column=2, value=month_names[mn])
+        ws4.cell(row=r, column=3, value=f"{mult:.2f}x")
+        ws4.cell(row=r, column=4, value=interp)
+        _data_row(ws4, r, 2, 4, alt=(idx % 2 == 1))
+
+    # -- Sheet 5: Recommendations --
+    ws5 = wb.create_sheet("Recommendations")
+    ws5.sheet_properties.tabColor = _XL_BLUE
+    ws5.column_dimensions["A"].width = 3
+    for col_letter, w in [("B", 6), ("C", 36), ("D", 60), ("E", 10), ("F", 14)]:
+        ws5.column_dimensions[col_letter].width = w
+
+    ws5.merge_cells("B2:F2")
+    ws5.cell(row=2, column=2, value="Strategic Recommendations").font = Font(name=_XL_FONT, size=14, bold=True, color=_XL_WHITE)
+    for c in range(2, 7):
+        ws5.cell(row=2, column=c).fill = dark_fill
+
+    for i, h in enumerate(["#", "Recommendation", "Details", "Impact", "Category"]):
+        ws5.cell(row=4, column=2 + i, value=h)
+    _hdr_row(ws5, 4, 2, 6)
+
+    for idx, rec in enumerate(report_data.get("recommendations", [])):
+        r = 5 + idx
+        ws5.cell(row=r, column=2, value=idx + 1)
+        ws5.cell(row=r, column=3, value=rec.get("title", ""))
+        ws5.cell(row=r, column=4, value=rec.get("description", ""))
+        ws5.cell(row=r, column=5, value=rec.get("impact", "").upper())
+        ws5.cell(row=r, column=6, value=rec.get("category", ""))
+        _data_row(ws5, r, 2, 6, alt=(idx % 2 == 1))
+
+    # -- Sheet 6: Competitor Analysis (if present) --
+    comps = report_data.get("competitor_analysis", {}).get("competitors", [])
+    if comps:
+        ws6 = wb.create_sheet("Competitors")
+        ws6.sheet_properties.tabColor = _XL_BLUE
+        ws6.column_dimensions["A"].width = 3
+        for col_letter, w in [("B", 24), ("C", 18), ("D", 30), ("E", 16)]:
+            ws6.column_dimensions[col_letter].width = w
+
+        ws6.merge_cells("B2:E2")
+        ws6.cell(row=2, column=2, value="Competitor Analysis").font = Font(name=_XL_FONT, size=14, bold=True, color=_XL_WHITE)
+        for c in range(2, 6):
+            ws6.cell(row=2, column=c).fill = dark_fill
+
+        for i, h in enumerate(["Company", "Est. Openings", "Primary Channels", "Brand Strength"]):
+            ws6.cell(row=4, column=2 + i, value=h)
+        _hdr_row(ws6, 4, 2, 5)
+
+        for idx, comp in enumerate(comps):
+            r = 5 + idx
+            ws6.cell(row=r, column=2, value=comp.get("name", ""))
+            ws6.cell(row=r, column=3, value=comp.get("estimated_openings", "N/A"))
+            ws6.cell(row=r, column=4, value=", ".join(comp.get("primary_channels", [])))
+            ws6.cell(row=r, column=5, value=comp.get("employer_brand_strength", "N/A"))
+            _data_row(ws6, r, 2, 5, alt=(idx % 2 == 1))
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -912,137 +1063,180 @@ def generate_intel_excel(report: Dict[str, Any]) -> bytes:
     return buf.read()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PowerPoint report generation  (Joveo branding)
-# ─────────────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# PPT EXPORT  (Port Gore #202058, Blue Violet #5A54BD, Downy teal #6BB3CD)
+# ═══════════════════════════════════════════════════════════════════════════════
 
-def generate_intel_ppt(report: Dict[str, Any]) -> bytes:
-    """Generate PowerPoint deck. Joveo branding: Port Gore, Blue Violet, Downy teal."""
-    from pptx import Presentation  # type: ignore
-    from pptx.util import Inches, Pt  # type: ignore
-    from pptx.dml.color import RGBColor  # type: ignore
-    from pptx.enum.text import PP_ALIGN  # type: ignore
-    from pptx.enum.shapes import MSO_SHAPE  # type: ignore
+def generate_intel_ppt(report_data: Dict[str, Any]) -> bytes:
+    """Generate a PowerPoint deck from report data. Returns pptx bytes."""
+    from pptx import Presentation
+    from pptx.util import Inches, Pt
+    from pptx.dml.color import RGBColor
+    from pptx.enum.text import PP_ALIGN
+    from pptx.enum.shapes import MSO_SHAPE
 
     prs = Presentation()
-    prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
-    PG, BV, DT = RGBColor(0x20,0x20,0x58), RGBColor(0x5A,0x54,0xBD), RGBColor(0x6B,0xB3,0xCD)
-    WH, LG, DK = RGBColor(0xFF,0xFF,0xFF), RGBColor(0xF0,0xF0,0xF8), RGBColor(0x1E,0x1E,0x2E)
-    role, loc = report.get("role","N/A"), report.get("location","N/A")
-    ind_label = _industry_label(report.get("industry",""))
+    prs.slide_width = Inches(13.333)
+    prs.slide_height = Inches(7.5)
 
-    def _bg(sl, c):
-        sl.background.fill.solid(); sl.background.fill.fore_color.rgb = c
-    def _tb(sl, l, t, w, h, txt, sz=12, b=False, c=DK, a=PP_ALIGN.LEFT):
-        tb = sl.shapes.add_textbox(Inches(l),Inches(t),Inches(w),Inches(h))
-        tb.text_frame.word_wrap = True
-        p = tb.text_frame.paragraphs[0]
-        p.text, p.font.size, p.font.bold, p.font.color.rgb, p.alignment = txt, Pt(sz), b, c, a
-        return tb
-    def _rect(sl, l, t, w, h, fc):
-        s = sl.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(l),Inches(t),Inches(w),Inches(h))
-        s.fill.solid(); s.fill.fore_color.rgb = fc; s.line.fill.background()
-        return s
-    def _slide_hdr(sl, title):
-        _bg(sl, WH); _rect(sl, 0,0,13.333,1.1, PG)
-        _tb(sl, 0.8,0.2,11,0.7, title, sz=24, b=True, c=WH)
+    port_gore = RGBColor(0x20, 0x20, 0x58)
+    blue_violet = RGBColor(0x5A, 0x54, 0xBD)
+    downy = RGBColor(0x6B, 0xB3, 0xCD)
+    white = RGBColor(0xFF, 0xFF, 0xFF)
+    light_bg = RGBColor(0xF0, 0xF0, 0xF8)
+    dark_text = RGBColor(0x1E, 0x1E, 0x2E)
+    muted = RGBColor(0x64, 0x74, 0x8B)
 
-    # Slide 1: Title
+    ind_label = _industry_label(report_data.get("industry", ""))
+    role_cat = report_data.get("role_category", "N/A").replace("_", " ").title()
+    locs = ", ".join(report_data.get("locations", [])[:3])
+
+    def _bg(slide, color):
+        slide.background.fill.solid()
+        slide.background.fill.fore_color.rgb = color
+
+    def _tb(slide, left, top, w, h, text, sz=12, bold=False, color=dark_text, align=PP_ALIGN.LEFT):
+        box = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(w), Inches(h))
+        tf = box.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = str(text)
+        p.font.size = Pt(sz)
+        p.font.bold = bold
+        p.font.color.rgb = color
+        p.alignment = align
+        return box
+
+    def _rect(slide, left, top, w, h, fill_color):
+        shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(left), Inches(top), Inches(w), Inches(h))
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = fill_color
+        shape.line.fill.background()
+        return shape
+
+    # -- Slide 1: Title --
     s1 = prs.slides.add_slide(prs.slide_layouts[6])
-    _bg(s1, PG); _rect(s1, 0,2.5,13.333,0.08, DT)
-    _tb(s1, 1,1.5,11,1.2, "MARKET INTELLIGENCE REPORT", sz=32, b=True, c=WH, a=PP_ALIGN.CENTER)
-    _tb(s1, 1,3.0,11,0.8, f"{role}  |  {ind_label}  |  {loc}", sz=18, c=DT, a=PP_ALIGN.CENTER)
-    _tb(s1, 1,5.5,11,0.5, f"Generated {datetime.now().strftime('%B %d, %Y')}  |  Powered by Joveo", sz=12, c=WH, a=PP_ALIGN.CENTER)
+    _bg(s1, port_gore)
+    _rect(s1, 0, 2.5, 13.333, 0.08, downy)
+    _tb(s1, 1, 1.5, 11, 1.2, "MARKET INTELLIGENCE REPORT", sz=32, bold=True, color=white, align=PP_ALIGN.CENTER)
+    _tb(s1, 1, 3.0, 11, 0.8, f"{role_cat}  |  {ind_label}  |  {locs}", sz=18, color=downy, align=PP_ALIGN.CENTER)
+    _tb(s1, 1, 5.5, 11, 0.5, f"Generated {datetime.now().strftime('%B %d, %Y')}  |  Powered by Joveo",
+        sz=12, color=white, align=PP_ALIGN.CENTER)
 
-    # Slide 2: Executive Summary
+    # -- Slide 2: Executive Summary --
     s2 = prs.slides.add_slide(prs.slide_layouts[6])
-    _slide_hdr(s2, "Executive Summary")
-    summary = report.get("executive_summary", "No summary available.")
-    _tb(s2, 0.8,1.5,11.5,5.0, summary[:1200], sz=13, c=DK)
-    ds = report.get("labor_market",{}).get("difficulty_score",50)
-    _rect(s2, 10.5,1.5,2.2,1.2, BV)
-    _tb(s2, 10.6,1.55,2.0,0.4, "HIRING DIFFICULTY", sz=9, b=True, c=WH, a=PP_ALIGN.CENTER)
-    _tb(s2, 10.6,1.95,2.0,0.7, f"{ds}/100", sz=28, b=True, c=WH, a=PP_ALIGN.CENTER)
+    _bg(s2, white)
+    _rect(s2, 0, 0, 13.333, 1.1, port_gore)
+    _tb(s2, 0.8, 0.2, 11, 0.7, "Executive Summary", sz=24, bold=True, color=white)
 
-    # Slide 3: Channel Performance (card layout)
+    summary = report_data.get("executive_summary", "No summary available.")
+    if len(summary) > 1200:
+        summary = summary[:1197] + "..."
+    _tb(s2, 0.8, 1.5, 11.5, 5.0, summary, sz=13, color=dark_text)
+
+    diff_score = report_data.get("market_overview", {}).get("difficulty_score", 50)
+    _rect(s2, 10.5, 1.5, 2.2, 1.2, blue_violet)
+    _tb(s2, 10.6, 1.55, 2.0, 0.4, "HIRING DIFFICULTY", sz=9, bold=True, color=white, align=PP_ALIGN.CENTER)
+    _tb(s2, 10.6, 1.95, 2.0, 0.7, f"{diff_score}/100", sz=28, bold=True, color=white, align=PP_ALIGN.CENTER)
+
+    # -- Slide 3: Channel Performance --
     s3 = prs.slides.add_slide(prs.slide_layouts[6])
-    _slide_hdr(s3, "Channel Performance Benchmarks")
-    chs = report.get("channel_performance",{}).get("channels",{})
-    for i,(nm,m) in enumerate(list(chs.items())[:6]):
-        x = 0.8 + i * 2.05
-        _rect(s3, x,1.5,1.85,4.5, LG)
-        _tb(s3, x+0.1,1.6,1.65,0.5, nm.replace("_"," ").title(), sz=11, b=True, c=PG, a=PP_ALIGN.CENTER)
-        _rect(s3, x+0.15,2.3,1.55,0.9, BV)
-        _tb(s3, x+0.2,2.35,1.45,0.3, "CPC", sz=9, c=WH, a=PP_ALIGN.CENTER)
-        _tb(s3, x+0.2,2.65,1.45,0.5, f"${m.get('cpc',0):.2f}", sz=20, b=True, c=WH, a=PP_ALIGN.CENTER)
+    _bg(s3, white)
+    _rect(s3, 0, 0, 13.333, 1.1, port_gore)
+    _tb(s3, 0.8, 0.2, 11, 0.7, "Channel Performance Benchmarks", sz=24, bold=True, color=white)
+
+    channels = report_data.get("channel_performance", {}).get("channels", {})
+    card_w = 1.85
+    gap = 0.2
+    for idx, (ch, m) in enumerate(channels.items()):
+        if idx >= 6:
+            break
+        x = 0.8 + idx * (card_w + gap)
+        _rect(s3, x, 1.5, card_w, 4.5, light_bg)
+        _tb(s3, x + 0.1, 1.6, card_w - 0.2, 0.5, ch.replace("_", " ").title(), sz=11, bold=True, color=port_gore, align=PP_ALIGN.CENTER)
+        _rect(s3, x + 0.15, 2.3, card_w - 0.3, 0.9, blue_violet)
+        _tb(s3, x + 0.2, 2.35, card_w - 0.4, 0.3, "CPC", sz=9, color=white, align=PP_ALIGN.CENTER)
+        _tb(s3, x + 0.2, 2.65, card_w - 0.4, 0.5, f"${m.get('cpc', 0):.2f}", sz=20, bold=True, color=white, align=PP_ALIGN.CENTER)
         cpa = m.get("cpa")
-        _tb(s3, x+0.1,3.5,1.65,0.3, "CPA", sz=9, b=True, c=BV, a=PP_ALIGN.CENTER)
-        _tb(s3, x+0.1,3.8,1.65,0.4, f"${cpa:.2f}" if cpa else "N/A", sz=16, b=True, c=DK, a=PP_ALIGN.CENTER)
-        _tb(s3, x+0.1,4.5,1.65,0.4, f"Trend: {m.get('trend','stable').title()}", sz=10, c=PG, a=PP_ALIGN.CENTER)
+        _tb(s3, x + 0.1, 3.5, card_w - 0.2, 0.3, "CPA", sz=9, bold=True, color=blue_violet, align=PP_ALIGN.CENTER)
+        _tb(s3, x + 0.1, 3.8, card_w - 0.2, 0.4, f"${cpa:.2f}" if cpa else "N/A", sz=16, bold=True, color=dark_text, align=PP_ALIGN.CENTER)
+        _tb(s3, x + 0.1, 4.5, card_w - 0.2, 0.4, f"Trend: {m.get('trend', 'stable').title()}", sz=10, color=port_gore, align=PP_ALIGN.CENTER)
 
-    # Slide 4: Compensation (bar chart)
+    # -- Slide 4: Salary Benchmarks --
     s4 = prs.slides.add_slide(prs.slide_layouts[6])
-    _slide_hdr(s4, "Compensation Benchmarks")
-    sal = report.get("compensation",{}).get("salary_ranges",{})
-    pcts = [("10th",sal.get("p10",0)),("25th",sal.get("p25",0)),("Median",sal.get("median",0)),("75th",sal.get("p75",0)),("90th",sal.get("p90",0))]
-    mx = max((v for _,v in pcts), default=1) or 1
-    for i,(lbl,v) in enumerate(pcts):
-        y = 2.0 + i*1.0
-        _tb(s4, 1,y,2,0.5, lbl, sz=12, b=True, c=DK)
-        bw = max(0.5, (v/mx)*8.0)
-        _rect(s4, 3.2,y+0.05,bw,0.4, DT if lbl=="Median" else BV)
-        _tb(s4, 3.3+bw,y,2,0.5, _fmt_currency(v) if v else "N/A", sz=12, b=True, c=DK)
+    _bg(s4, white)
+    _rect(s4, 0, 0, 13.333, 1.1, port_gore)
+    _tb(s4, 0.8, 0.2, 11, 0.7, "Salary Benchmarks by Location", sz=24, bold=True, color=white)
 
-    # Slide 5: CPC Trends
-    s5 = prs.slides.add_slide(prs.slide_layouts[6])
-    _slide_hdr(s5, "CPC Trend Analysis")
-    pt = report.get("cpc_trends",{}).get("platform_trends",{})
-    for i,(plat,info) in enumerate(list(pt.items())[:5]):
-        y = 1.5 + i*1.0
-        _tb(s5, 1,y,2.5,0.5, plat.replace("_"," ").title(), sz=11, b=True, c=DK)
-        yd = info.get("yearly_data",{})
-        _tb(s5, 3.8,y,7,0.5, "  |  ".join(f"{yr}: ${v:.2f}" for yr,v in sorted(yd.items()) if v), sz=10, c=DK)
-        yoy = info.get("yoy_change",0)
-        _tb(s5, 11.5,y,1.5,0.5, f"{yoy:+.1f}%", sz=12, b=True, c=DT if yoy<0 else RGBColor(0xDC,0x26,0x26))
-    agg = report.get("cpc_trends",{}).get("aggregate_trend",{})
+    by_loc = report_data.get("salary_benchmarks", {}).get("by_location", {})
+    y_off = 1.5
+    for idx, (loc, sal) in enumerate(list(by_loc.items())[:6]):
+        y = y_off + idx * 0.9
+        _tb(s4, 1.0, y, 2.5, 0.4, loc, sz=11, bold=True, color=dark_text)
+        med = sal.get("median", 0)
+        max_sal = max((s.get("median", 0) for s in by_loc.values()), default=1) or 1
+        bar_w = max(0.5, (med / max_sal) * 7.0)
+        _rect(s4, 3.5, y + 0.05, bar_w, 0.35, downy)
+        _tb(s4, 3.6 + bar_w, y, 2.0, 0.4, _fmt_currency(med), sz=11, bold=True, color=dark_text)
+
+    agg = report_data.get("salary_benchmarks", {}).get("aggregate", {})
     if agg:
-        _rect(s5, 1,6.5,11.3,0.6, LG)
-        _tb(s5, 1.2,6.5,10,0.5, f"Aggregate: {agg.get('avg_yoy_change',0):+.1f}% YoY  |  Direction: {agg.get('direction','stable')}", sz=12, b=True, c=PG)
+        _rect(s4, 1.0, 7.0, 11.3, 0.3, light_bg)
+        _tb(s4, 1.2, 7.0, 10.0, 0.3,
+            f"Aggregate median: {_fmt_currency(agg.get('median', 0))}  |  Range: {_fmt_currency(agg.get('min_p10', 0))} - {_fmt_currency(agg.get('max_p90', 0))}",
+            sz=10, bold=True, color=port_gore)
 
-    # Slide 6: Seasonal Patterns (bar chart)
-    s6 = prs.slides.add_slide(prs.slide_layouts[6])
-    _slide_hdr(s6, "Seasonal Hiring Patterns")
-    mults = report.get("seasonal_patterns",{}).get("monthly_multipliers",{})
-    ma = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-    mm = max((info.get("multiplier",1.0) if isinstance(info,dict) else 1.0) for info in mults.values()) if mults else 1.2
-    for i in range(12):
-        info = mults.get(i+1, mults.get(str(i+1), {}))
-        mult = info.get("multiplier",1.0) if isinstance(info,dict) else 1.0
-        x, bh = 0.8+i*1.02, max(0.2,(mult/mm)*3.5)
-        clr = DT if mult<0.97 else (BV if mult>1.03 else RGBColor(0x94,0xA3,0xB8))
-        _rect(s6, x,5.5-bh,0.85,bh, clr)
-        _tb(s6, x,5.6,0.85,0.3, ma[i], sz=9, b=True, c=DK, a=PP_ALIGN.CENTER)
-        _tb(s6, x,5.2-bh,0.85,0.3, f"{mult:.2f}x", sz=8, c=DK, a=PP_ALIGN.CENTER)
-    note = report.get("seasonal_patterns",{}).get("hiring_advice",{}).get("note","")
+    # -- Slide 5: Seasonal Patterns --
+    s5 = prs.slides.add_slide(prs.slide_layouts[6])
+    _bg(s5, white)
+    _rect(s5, 0, 0, 13.333, 1.1, port_gore)
+    _tb(s5, 0.8, 0.2, 11, 0.7, "Seasonal Hiring Patterns", sz=24, bold=True, color=white)
+
+    mults = report_data.get("seasonal_trends", {}).get("monthly", {})
+    month_abbrs = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    bar_base = 5.5
+    max_mult = max((info.get("multiplier", 1.0) if isinstance(info, dict) else 1.0 for info in mults.values()), default=1.2)
+
+    for idx in range(12):
+        mn = idx + 1
+        info = mults.get(mn, mults.get(str(mn), {}))
+        mult = info.get("multiplier", 1.0) if isinstance(info, dict) else 1.0
+        x = 0.8 + idx * 1.02
+        bar_h = max(0.2, (mult / max_mult) * 3.5)
+        y = bar_base - bar_h
+        color = downy if mult < 0.97 else (blue_violet if mult > 1.03 else RGBColor(0x94, 0xA3, 0xB8))
+        _rect(s5, x, y, 0.85, bar_h, color)
+        _tb(s5, x, bar_base + 0.1, 0.85, 0.3, month_abbrs[idx], sz=9, bold=True, color=dark_text, align=PP_ALIGN.CENTER)
+        _tb(s5, x, y - 0.3, 0.85, 0.3, f"{mult:.2f}x", sz=8, color=dark_text, align=PP_ALIGN.CENTER)
+
+    advice = report_data.get("seasonal_trends", {}).get("hiring_advice", {})
+    note = advice.get("note", "")
     if note:
-        _tb(s6, 0.8,6.3,11.5,0.8, note, sz=10, c=PG)
+        _tb(s5, 0.8, 6.3, 11.5, 0.8, note, sz=10, color=port_gore)
 
-    # Slide 7: Recommendations
+    # -- Slide 6: Recommendations --
+    s6 = prs.slides.add_slide(prs.slide_layouts[6])
+    _bg(s6, white)
+    _rect(s6, 0, 0, 13.333, 1.1, port_gore)
+    _tb(s6, 0.8, 0.2, 11, 0.7, "Key Recommendations", sz=24, bold=True, color=white)
+
+    recs = report_data.get("recommendations", [])
+    for idx, rec in enumerate(recs[:6]):
+        y = 1.4 + idx * 0.95
+        impact = rec.get("impact", "medium")
+        badge_c = blue_violet if impact == "high" else (downy if impact == "medium" else RGBColor(0x94, 0xA3, 0xB8))
+        _rect(s6, 0.8, y, 0.15, 0.7, badge_c)
+        _tb(s6, 1.1, y, 4.0, 0.35, rec.get("title", ""), sz=11, bold=True, color=dark_text)
+        _tb(s6, 1.1, y + 0.35, 10.5, 0.35, rec.get("description", ""), sz=9, color=muted)
+        _tb(s6, 11.8, y + 0.05, 1.0, 0.3, impact.upper(), sz=9, bold=True, color=badge_c, align=PP_ALIGN.RIGHT)
+
+    # -- Slide 7: Closing --
     s7 = prs.slides.add_slide(prs.slide_layouts[6])
-    _slide_hdr(s7, "Key Recommendations")
-    for i, rec in enumerate(report.get("recommendations",[])[:6]):
-        y, imp = 1.4+i*0.95, rec.get("impact","medium")
-        bc = BV if imp=="high" else (DT if imp=="medium" else RGBColor(0x94,0xA3,0xB8))
-        _rect(s7, 0.8,y,0.15,0.7, bc)
-        _tb(s7, 1.1,y,4,0.35, rec.get("title",""), sz=11, b=True, c=DK)
-        _tb(s7, 1.1,y+0.35,10.5,0.35, rec.get("description",""), sz=9, c=RGBColor(0x64,0x74,0x8B))
-        _tb(s7, 11.8,y+0.05,1,0.3, imp.upper(), sz=9, b=True, c=bc, a=PP_ALIGN.RIGHT)
-
-    # Slide 8: Closing
-    s8 = prs.slides.add_slide(prs.slide_layouts[6])
-    _bg(s8, PG); _rect(s8, 0,3.5,13.333,0.06, DT)
-    _tb(s8, 1,2.5,11,0.8, "Thank You", sz=36, b=True, c=WH, a=PP_ALIGN.CENTER)
-    _tb(s8, 1,4.0,11,0.6, "Powered by Joveo  |  Intelligent Recruitment Advertising", sz=14, c=DT, a=PP_ALIGN.CENTER)
+    _bg(s7, port_gore)
+    _rect(s7, 0, 3.5, 13.333, 0.06, downy)
+    _tb(s7, 1, 2.5, 11, 0.8, "Thank You", sz=36, bold=True, color=white, align=PP_ALIGN.CENTER)
+    _tb(s7, 1, 4.0, 11, 0.6, "Powered by Joveo  |  Intelligent Recruitment Advertising",
+        sz=14, color=downy, align=PP_ALIGN.CENTER)
 
     buf = io.BytesIO()
     prs.save(buf)
@@ -1050,144 +1244,158 @@ def generate_intel_ppt(report: Dict[str, Any]) -> bytes:
     return buf.read()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Main orchestrator
-# ─────────────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# UNIFIED HTTP HANDLER
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def handle_market_intel_request(
+    path: str, method: str, body: Optional[Dict[str, Any]] = None,
+):
+    """Unified handler for /api/market-intel/* routes.
+
+    Routes:
+        POST /api/market-intel/generate  -> generate_report(body) -> dict
+        POST /api/market-intel/excel     -> generate_intel_excel(body) -> bytes
+        POST /api/market-intel/ppt       -> generate_intel_ppt(body) -> bytes
+
+    Returns:
+        - bytes for excel/ppt routes (app.py sends as binary download)
+        - dict for generate route (app.py sends as JSON)
+    """
+    body = body or {}
+
+    try:
+        # POST /api/market-intel/generate
+        if path == "/api/market-intel/generate" and method == "POST":
+            report = generate_report(body)
+            # Strip bytes from JSON response
+            json_safe = {k: v for k, v in report.items() if not isinstance(v, bytes)}
+            return {"ok": True, "report": json_safe}
+
+        # POST /api/market-intel/excel
+        if path == "/api/market-intel/excel" and method == "POST":
+            if "market_overview" in body:
+                report_data = body
+            else:
+                report_data = generate_report(body)
+            return generate_intel_excel(report_data)
+
+        # POST /api/market-intel/ppt
+        if path == "/api/market-intel/ppt" and method == "POST":
+            if "market_overview" in body:
+                report_data = body
+            else:
+                report_data = generate_report(body)
+            return generate_intel_ppt(report_data)
+
+        return {"ok": False, "error": f"Unknown route: {method} {path}"}
+
+    except Exception as exc:
+        logger.exception("market_intel_request error on %s %s", method, path)
+        return {"ok": False, "error": str(exc)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BACKWARD COMPATIBILITY -- old API surface
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def generate_market_intel_report(
-    role: str,
-    industry: str,
-    location: str,
+    role: str, industry: str, location: str,
     options: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Generate a comprehensive market intelligence report.
-
-    Orchestrates parallel data collection via ThreadPoolExecutor, then
-    generates narrative summary, recommendations, and optional Excel/PPT
-    output files.
-
-    Parameters
-    ----------
-    role : str
-        Target job role (e.g., "Registered Nurse", "Software Engineer").
-    industry : str
-        Industry key (e.g., "healthcare_medical", "tech_engineering").
-    location : str
-        Target location (e.g., "New York, NY", "London, UK").
-    options : dict, optional
-        Control flags:
-            - include_excel: bool (default True)
-            - include_ppt: bool (default True)
-            - max_workers: int (default 4)
-
-    Returns
-    -------
-    dict
-        Complete report with keys: metadata, labor_market, compensation,
-        channel_performance, cpc_trends, seasonal_patterns,
-        executive_summary, recommendations, excel_bytes, ppt_bytes.
-    """
-    _lazy_load()
+    """Legacy entry point -- wraps generate_report for backward compatibility."""
     options = options or {}
-    include_excel = options.get("include_excel", True)
-    include_ppt = options.get("include_ppt", True)
-    max_workers = options.get("max_workers", 4)
-
-    collar_type = _detect_collar(role, industry)
-
-    report: Dict[str, Any] = {
-        "metadata": {
-            "role": role,
-            "industry": industry,
-            "industry_label": _industry_label(industry),
-            "location": location,
-            "collar_type": collar_type,
-            "generated_at": datetime.now().isoformat(),
-            "data_sources": [],
-        },
-        "role": role,
+    report = generate_report({
         "industry": industry,
-        "location": location,
-        "collar_type": collar_type,
+        "role_category": role,
+        "locations": [location],
+    })
+
+    # Map new keys to old keys for compatibility
+    report["role"] = role
+    report["location"] = location
+    report["metadata"] = report.get("report_metadata", {})
+
+    # Compensation mapping
+    sal = report.get("salary_benchmarks", {})
+    agg = sal.get("aggregate", {})
+    by_loc = sal.get("by_location", {})
+    first_loc = next(iter(by_loc.values()), {})
+    report["compensation"] = {
+        "salary_ranges": {
+            "p10": first_loc.get("p10", agg.get("min_p10", 35000)),
+            "p25": first_loc.get("p25", 45000),
+            "median": agg.get("median", 58000),
+            "p75": first_loc.get("p75", 78000),
+            "p90": first_loc.get("p90", agg.get("max_p90", 105000)),
+            "source": sal.get("source", "knowledge_base"),
+        },
+        "source": sal.get("source", "knowledge_base"),
     }
 
-    # Parallel data collection
-    futures: Dict[str, Any] = {}
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures["labor_market"] = executor.submit(
-            collect_labor_market_data, role, industry, location
-        )
-        futures["compensation"] = executor.submit(
-            collect_compensation_data, role, industry, location
-        )
-        futures["channel_performance"] = executor.submit(
-            collect_channel_performance, industry, collar_type
-        )
-        futures["cpc_trends"] = executor.submit(
-            collect_cpc_trends, industry
-        )
-        futures["seasonal_patterns"] = executor.submit(
-            collect_seasonal_patterns, industry
-        )
+    # Labor market mapping
+    overview = report.get("market_overview", {})
+    report["labor_market"] = {
+        "difficulty_score": overview.get("difficulty_score", 50),
+        "supply_demand_ratio": 0.7 if overview.get("talent_supply") == "tight" else 1.2,
+        "avg_time_to_fill_days": overview.get("avg_time_to_fill", 40),
+        "source": overview.get("source", "knowledge_base"),
+    }
 
-        for key, future in futures.items():
-            try:
-                report[key] = future.result(timeout=30)
-                source = report[key].get("source", "unknown")
-                report["metadata"]["data_sources"].append(
-                    {"section": key, "source": source}
-                )
-            except Exception as exc:
-                logger.error("Data collection failed for %s: %s", key, exc)
-                report[key] = {"source": "error", "error": str(exc)}
-                report["metadata"]["data_sources"].append(
-                    {"section": key, "source": "error"}
-                )
+    # Seasonal mapping
+    seasonal = report.get("seasonal_trends", {})
+    report["seasonal_patterns"] = {
+        "monthly_multipliers": seasonal.get("monthly", {}),
+        "hiring_advice": seasonal.get("hiring_advice", {}),
+        "peak_months": seasonal.get("peak_months", []),
+        "trough_months": seasonal.get("trough_months", []),
+    }
 
-    # Generate narrative and recommendations (sequential, depends on data)
-    report["executive_summary"] = generate_executive_summary(report)
-    report["recommendations"] = generate_recommendations(report)
+    # CPC trends stub
+    report["cpc_trends"] = {
+        "platform_trends": {},
+        "aggregate_trend": {"avg_yoy_change": -3.0, "direction": "declining"},
+        "source": "estimate",
+    }
 
-    # Generate output files
-    if include_excel:
+    # Generate exports if requested
+    if options.get("include_excel", True):
         try:
             report["excel_bytes"] = generate_intel_excel(report)
         except Exception as exc:
             logger.error("Excel generation failed: %s", exc)
             report["excel_bytes"] = None
-            report["excel_error"] = str(exc)
 
-    if include_ppt:
+    if options.get("include_ppt", True):
         try:
             report["ppt_bytes"] = generate_intel_ppt(report)
         except Exception as exc:
             logger.error("PPT generation failed: %s", exc)
             report["ppt_bytes"] = None
-            report["ppt_error"] = str(exc)
 
     return report
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CLI demo / quick test
-# ─────────────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLI demo
+# ═══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    import json
-    import sys
+    import sys as _sys
 
     logging.basicConfig(level=logging.INFO)
 
-    role = sys.argv[1] if len(sys.argv) > 1 else "Registered Nurse"
-    industry = sys.argv[2] if len(sys.argv) > 2 else "healthcare_medical"
-    location = sys.argv[3] if len(sys.argv) > 3 else "New York, NY"
+    industry = _sys.argv[1] if len(_sys.argv) > 1 else "technology"
+    role_cat = _sys.argv[2] if len(_sys.argv) > 2 else "software_engineering"
+    locs = _sys.argv[3].split(",") if len(_sys.argv) > 3 else ["San Francisco", "New York"]
 
-    print(f"Generating market intel report for: {role} / {industry} / {location}")
-    result = generate_market_intel_report(
-        role, industry, location,
-        options={"include_excel": False, "include_ppt": False},
-    )
+    print(f"Generating market intel report: {role_cat} / {industry} / {locs}")
+    result = generate_report({
+        "industry": industry,
+        "role_category": role_cat,
+        "locations": locs,
+        "competitors": ["Google", "Microsoft"],
+    })
 
-    # Print JSON-safe version (exclude bytes)
-    output = {k: v for k, v in result.items() if not k.endswith("_bytes")}
+    output = {k: v for k, v in result.items() if not isinstance(v, bytes)}
     print(json.dumps(output, indent=2, default=str))

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="ApplyFlow Conversational Apply Widget Demo - Configure a job posting and test the AI-powered chatbot apply experience. By Joveo.">
-<meta name="theme-color" content="#0a0a0f">
+<meta name="theme-color" content="#000000">
 <title>ApplyFlow Demo | Conversational Apply Widget | Joveo</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,17 +15,17 @@
    DESIGN SYSTEM: Deep Obsidian + Electric Indigo
    ═══════════════════════════════════════════════════════════════════ */
 :root {
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #0f0f19;
-  --bg-card: rgba(15, 15, 25, 0.8);
-  --bg-card-hover: rgba(20, 20, 35, 0.9);
-  --bg-input: rgba(20, 20, 35, 0.6);
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-card: rgba(17, 17, 17, 0.8);
+  --bg-card-hover: rgba(26, 26, 26, 0.9);
+  --bg-input: rgba(26, 26, 26, 0.6);
   --accent: #6366f1;
   --accent-light: #818cf8;
   --accent-dim: rgba(99, 102, 241, 0.3);
   --accent-glow: rgba(99, 102, 241, 0.15);
   --accent-bg: rgba(99, 102, 241, 0.08);
-  --text-primary: #e2e8f0;
+  --text-primary: #ededed;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
   --text-bright: #f8fafc;
@@ -90,7 +90,7 @@ body::before {
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border);
-  background: rgba(10, 10, 15, 0.95);
+  background: rgba(17, 17, 17, 0.95);
   backdrop-filter: blur(var(--blur));
   -webkit-backdrop-filter: blur(var(--blur));
 }
@@ -259,7 +259,7 @@ body::before {
 }
 
 .af-select option {
-  background: #0f0f19;
+  background: #0a0a0a;
   color: var(--text-primary);
 }
 
@@ -386,7 +386,7 @@ body::before {
 /* Chat Header */
 .af-chat-header {
   padding: 16px 20px;
-  background: rgba(15, 15, 25, 0.95);
+  background: rgba(17, 17, 17, 0.95);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -444,7 +444,7 @@ body::before {
 /* Progress Bar */
 .af-progress-wrap {
   padding: 10px 20px;
-  background: rgba(15, 15, 25, 0.6);
+  background: rgba(17, 17, 17, 0.6);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -541,7 +541,7 @@ body::before {
 }
 
 .af-msg.user .af-msg-bubble {
-  background: rgba(20, 20, 35, 0.9);
+  background: rgba(26, 26, 26, 0.9);
   border: 1px solid var(--border);
   color: var(--text-primary);
   border-bottom-right-radius: 4px;
@@ -619,7 +619,7 @@ body::before {
 /* Chat Input */
 .af-chat-input-wrap {
   padding: 12px 16px;
-  background: rgba(15, 15, 25, 0.95);
+  background: rgba(17, 17, 17, 0.95);
   border-top: 1px solid var(--border);
   display: flex;
   gap: 8px;
@@ -751,7 +751,7 @@ body::before {
 }
 
 .af-summary-card {
-  background: rgba(15, 15, 25, 0.6);
+  background: rgba(17, 17, 17, 0.6);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px;
