@@ -9,7 +9,7 @@ Thread-safe, never crashes (all errors return structured error dicts).
 
 Design tokens:
     Excel: Sapphire Blue palette (Navy #0F172A, Sapphire #2563EB, Light #DBEAFE)
-    PPT:   Joveo brand (Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD)
+    PPT:   Brand (Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD)
 """
 
 from __future__ import annotations
@@ -1144,7 +1144,7 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
         4. Channel Efficiency Matrix
         5. Recommendations
 
-    Uses Joveo branding: Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD.
+    Uses branding: Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD.
     """
     try:
         from pptx import Presentation
@@ -1156,7 +1156,7 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
         logger.error("python-pptx not available for PPT generation")
         return b""
 
-    # Joveo brand colors
+    # Brand colors
     NAVY = RGBColor(0x20, 0x20, 0x58)
     BLUE = RGBColor(0x5A, 0x54, 0xBD)
     TEAL = RGBColor(0x6B, 0xB3, 0xCD)
@@ -1236,7 +1236,7 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
     # Bottom bar
     _add_shape(slide1, Inches(0), Inches(7.0), prs.slide_width, Inches(0.5), BLUE)
     _add_text_box(slide1, Inches(0.5), Inches(7.05), Inches(4), Inches(0.4),
-                  "Powered by Nova AI | Joveo", FONT_BODY, 10, WHITE, align=PP_ALIGN.LEFT)
+                  "Powered by Nova AI Suite", FONT_BODY, 10, WHITE, align=PP_ALIGN.LEFT)
 
     # ── SLIDE 2: Performance Overview ─────────────────────────────────
     slide2 = prs.slides.add_slide(prs.slide_layouts[6])
@@ -1458,7 +1458,7 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
 
     _add_shape(slide5, Inches(0), Inches(7.0), prs.slide_width, Inches(0.5), NAVY)
     _add_text_box(slide5, Inches(0.5), Inches(7.05), Inches(4), Inches(0.4),
-                  "Powered by Nova AI | Joveo", FONT_BODY, 10, WHITE, align=PP_ALIGN.LEFT)
+                  "Powered by Nova AI Suite", FONT_BODY, 10, WHITE, align=PP_ALIGN.LEFT)
 
     # Write to bytes
     buf = io.BytesIO()

@@ -1174,7 +1174,7 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     ws1["B2"].font = title_font
 
     ws1.merge_cells("B3:I3")
-    ws1["B3"] = f"Industry: {industry_label} | Generated {datetime.utcnow().strftime('%Y-%m-%d')} | Powered by Nova AI / Joveo"
+    ws1["B3"] = f"Industry: {industry_label} | Generated {datetime.utcnow().strftime('%Y-%m-%d')} | Powered by Nova AI Suite"
     ws1["B3"].font = subtitle_font
 
     headers1 = ["Location", "Talent Density", "Talent Pool", "Competition",
@@ -1389,7 +1389,7 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
 def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
     """Generate a Talent Supply Heatmap PowerPoint presentation.
 
-    Uses Joveo branding: Port Gore (#202058), Blue Violet (#5A54BD),
+    Uses branding: Port Gore (#202058), Blue Violet (#5A54BD),
     Downy teal (#6BB3CD).
     """
     try:
@@ -1401,7 +1401,7 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
         logger.error("python-pptx not available for PPT generation")
         return b""
 
-    # Color constants -- Joveo branding
+    # Color constants -- Nova AI Suite branding
     PORT_GORE = RGBColor(0x20, 0x20, 0x58)
     BLUE_VIOLET = RGBColor(0x5A, 0x54, 0xBD)
     DOWNY_TEAL = RGBColor(0x6B, 0xB3, 0xCD)
@@ -1464,7 +1464,7 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
                   f"Generated {datetime.utcnow().strftime('%B %d, %Y')} | Powered by Nova AI",
                   font_size=12, color=MUTED_TEXT)
     _add_text_box(slide1, 1.5, 6.5, 10, 0.4,
-                  "Joveo | https://media-plan-generator.onrender.com",
+                  "Nova AI Suite | https://media-plan-generator.onrender.com",
                   font_size=10, color=MUTED_TEXT, alignment=PP_ALIGN.LEFT)
 
     # ── Slide 2: Location Rankings ──
@@ -1553,7 +1553,7 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
 
     # Footer
     _add_text_box(slide4, 0.8, 6.8, 11, 0.4,
-                  "Powered by Nova AI | Joveo | https://media-plan-generator.onrender.com",
+                  "Powered by Nova AI Suite | https://media-plan-generator.onrender.com",
                   font_size=8, color=MUTED_TEXT, alignment=PP_ALIGN.CENTER)
 
     buf = io.BytesIO()

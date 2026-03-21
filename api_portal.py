@@ -669,11 +669,11 @@ def get_openapi_spec() -> Dict[str, Any]:
             "description": (
                 "REST API for generating AI-powered recruitment advertising media plans. "
                 "Provides media plan generation, competitive intelligence, talent heatmaps, "
-                "market pulse analysis, and more. Powered by Joveo."
+                "market pulse analysis, and more. Powered by Nova AI Suite."
             ),
             "version": "1.0.0",
             "contact": {
-                "name": "Joveo API Support",
+                "name": "Nova AI Suite Support",
                 "url": "https://media-plan-generator.onrender.com",
             },
             "license": {

@@ -4,7 +4,7 @@ Generate Product Showcase Document for Media Plan Generator v3.4.
 
 A strategic product document written for CEO-level audience, showcasing
 the depth, intelligence, and capability of the system built by
-Shubham Singh Chandel, Chief of Strategic Initiatives & Supply at Joveo.
+Shubham Singh Chandel.
 
 This is NOT an engineering audit. It is a product capability showcase that
 translates technical depth into business value and strategic impact.
@@ -223,7 +223,7 @@ def build():
         ("Prepared by", "Shubham Singh Chandel"),
         ("Role", "Chief of Strategic Initiatives & Supply"),
         ("For", "Kshitij Jain, CEO"),
-        ("Organization", "Joveo Inc."),
+        ("Organization", "Nova AI Suite"),
         ("Classification", "Internal -- Executive Review"),
     ]
     for k, v in cover_lines:
@@ -247,7 +247,7 @@ def build():
 
     toc = [
         "1.  What This Product Does",
-        "2.  Why It Matters to Joveo",
+        "2.  Why It Matters",
         "3.  What It Delivers (4 Products)",
         "4.  Nova: The AI Assistant",
         "5.  The Intelligence Layer (30 Live Data Sources)",
@@ -307,10 +307,10 @@ def build():
     # ======================================================================
     # 2. WHY IT MATTERS TO JOVEO
     # ======================================================================
-    heading(doc, "2. Why It Matters to Joveo")
+    heading(doc, "2. Why It Matters")
 
     body(doc,
-        "Joveo's core business is programmatic recruitment advertising. Our clients ask us how "
+        "The core focus is programmatic recruitment advertising. Clients ask how "
         "to spend their hiring budgets, which channels to use, and what results to expect. "
         "Answering these questions today involves manual research, spreadsheet modeling, and "
         "tribal knowledge scattered across the team."
@@ -327,12 +327,12 @@ def build():
     body_bold_start(doc,
         "It makes institutional knowledge accessible. ",
         "The system encodes 13 curated knowledge bases (over 1 MB of structured recruitment "
-        "intelligence), 42 industry research sources, and Joveo's own internal benchmarks into "
+        "intelligence), 42 industry research sources, and internal benchmarks into "
         "a queryable AI assistant that anyone on the team can use."
     )
 
     body_bold_start(doc,
-        "It demonstrates what automation at Joveo can look like. ",
+        "It demonstrates what automation can look like. ",
         "This is not a proof-of-concept or a demo. It is a production system running on Render, "
         "handling real requests, with self-monitoring, self-healing, and self-upgrading quality "
         "assurance. It shows the standard of what our automation efforts can achieve."
@@ -415,7 +415,7 @@ def build():
 
     categories = [
         ("Supply & Channels",
-         "\"What does Joveo's supply look like for nurses in Texas?\" -- Pulls from "
+         "\"What does the supply look like for nurses in Texas?\" -- Pulls from "
          "global_supply.json, channels_db.json, and publisher data."),
         ("Salary & Compensation",
          "\"What's the average salary for a software engineer in San Francisco?\" -- "
@@ -484,14 +484,14 @@ def build():
 
     body(doc,
         "These are structured JSON files containing recruitment intelligence that has been "
-        "researched, validated, and organized for machine consumption. They cover Joveo's own "
+        "researched, validated, and organized for machine consumption. They cover proprietary "
         "benchmarks, industry hiring patterns, platform pricing models, and strategic playbooks."
     )
 
     kb_data = [
         ("Regional Hiring Intelligence", "144 KB", "Labor market data by region"),
         ("Global Supply Data", "107 KB", "Talent supply by country/region"),
-        ("Joveo Publishers", "96 KB", "Publisher network (Indeed, ZipRecruiter, etc.)"),
+        ("Publisher Network", "96 KB", "Publisher network (Indeed, ZipRecruiter, etc.)"),
         ("Supply Ecosystem Intelligence", "90 KB", "Talent pipeline ecosystem mapping"),
         ("Platform Intelligence (Deep)", "84 KB", "CPC/CPA/CTR by platform, detailed"),
         ("Industry White Papers", "75 KB", "Strategic insights from 42 sources"),
@@ -500,7 +500,7 @@ def build():
         ("Recruitment Benchmarks (Deep)", "64 KB", "Conversion rates, funnel metrics"),
         ("Channels Database", "59 KB", "Channel taxonomy, pricing models"),
         ("LinkedIn Guidewire Data", "28 KB", "LinkedIn audience targeting data"),
-        ("Joveo 2026 Benchmarks", "11 KB", "Internal CPA/CPC by occupation"),
+        ("2026 Benchmarks", "11 KB", "Internal CPA/CPC by occupation"),
         ("Recruitment Industry Knowledge", "101 KB", "Industry-specific hiring patterns"),
     ]
 
@@ -906,7 +906,7 @@ def build():
 
     closing3 = doc.add_paragraph()
     closing3.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = closing3.add_run("Chief of Strategic Initiatives & Supply  |  Joveo Inc.")
+    run = closing3.add_run("Creator  |  Nova AI Suite")
     run.font.size = Pt(10)
     run.font.color.rgb = CLR_GREY
 

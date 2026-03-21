@@ -1068,7 +1068,7 @@ def export_scenario_ppt(
     comparison: Dict[str, Any],
     client_name: str = "Client",
 ) -> bytes:
-    """Export scenarios and comparison to a Joveo-branded PowerPoint.
+    """Export scenarios and comparison to a Nova AI Suite branded PowerPoint.
 
     Slides:
         1. Title slide
@@ -1084,7 +1084,7 @@ def export_scenario_ppt(
     from pptx.dml.color import RGBColor
     from pptx.enum.text import PP_ALIGN
 
-    # Joveo brand colors
+    # Brand colors
     NAVY = RGBColor(0x20, 0x20, 0x58)
     BLUE = RGBColor(0x5A, 0x54, 0xBD)
     TEAL = RGBColor(0x6B, 0xB3, 0xCD)
@@ -1127,7 +1127,7 @@ def export_scenario_ppt(
     _add_text_box(slide1, 1, 3, 11, 0.8, f"Multi-Scenario Analysis for {client_name}",
                   font_size=20, color=TEAL, alignment=PP_ALIGN.CENTER)
     _add_text_box(slide1, 1, 4.5, 11, 0.5,
-                  f"Generated {datetime.datetime.now().strftime('%B %d, %Y')} | Powered by Joveo Nova",
+                  f"Generated {datetime.datetime.now().strftime('%B %d, %Y')} | Powered by Nova AI Suite",
                   font_size=12, color=MUTED, alignment=PP_ALIGN.CENTER)
 
     # ── Slides 2-4: Scenario breakdown ──
@@ -1329,7 +1329,7 @@ def export_scenario_ppt(
                       font_size=14, bold=True, color=WHITE_C, alignment=PP_ALIGN.CENTER)
 
     _add_text_box(slide_rec, 1, 6.2, 11, 0.4,
-                  "Powered by Joveo Nova | Budget Simulator",
+                  "Powered by Nova AI Suite | Budget Simulator",
                   font_size=10, color=MUTED, alignment=PP_ALIGN.CENTER)
 
     buf = io.BytesIO()

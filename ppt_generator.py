@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Joveo-branded PowerPoint generator for AI Media Planner.
+Nova AI Suite branded PowerPoint generator for AI Media Planner.
 
 Generates a polished, data-driven 7-slide .pptx presentation using python-pptx.
-Uses Joveo brand identity: Port Gore navy (#202058), Blue Violet purple (#5A54BD),
+Uses brand identity: Port Gore navy (#202058), Blue Violet purple (#5A54BD),
 Downy teal (#6BB3CD), Tapestry pink (#B5669C), Raw Sienna bronze (#CE9047).
 Fonts: Poppins (titles) / Inter (body). Incorporates hero stats, section dividers,
 quality outcomes grids, channel attribution diagrams, and comparison panels.
@@ -50,7 +50,7 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
-# Constants & Color Palette (Joveo brand identity)
+# Constants & Color Palette (Nova AI Suite brand identity)
 # Primary: Port Gore navy #202058  |  Secondary: Blue Violet #5A54BD
 # Accents: Teal #6BB3CD  |  Pink #B5669C  |  Bronze #CE9047
 # ---------------------------------------------------------------------------
@@ -67,7 +67,7 @@ LIGHT_TEAL = RGBColor(0xB3, 0xE0, 0xF0)    # Light blue-teal
 PALE_TEAL = RGBColor(0xDA, 0xF5, 0xFF)     # Pale teal background
 
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-OFF_WHITE = RGBColor(0xFF, 0xFD, 0xF9)     # Floral White (Joveo page bg)
+OFF_WHITE = RGBColor(0xFF, 0xFD, 0xF9)     # Floral White (page bg)
 WARM_WHITE = RGBColor(0xFF, 0xFD, 0xF9)    # Card backgrounds
 WARM_GRAY = RGBColor(0xEB, 0xE6, 0xE0)     # Borders, dividers
 MEDIUM_GRAY = RGBColor(0xD6, 0xCF, 0xC2)   # Subtle separators
@@ -78,16 +78,16 @@ LIGHT_MUTED = RGBColor(0x8C, 0x96, 0xA8)   # Tertiary text
 
 GREEN = RGBColor(0x33, 0x87, 0x21)          # Positive / beating benchmark
 LIGHT_GREEN = RGBColor(0xE6, 0xF2, 0xE0)   # Green background
-AMBER = RGBColor(0xCE, 0x90, 0x47)         # Joveo Bronze -- trailing benchmark
+AMBER = RGBColor(0xCE, 0x90, 0x47)         # Bronze -- trailing benchmark
 LIGHT_AMBER = RGBColor(0xFD, 0xDB, 0xB2)   # Light bronze background
-RED_ACCENT = RGBColor(0xB5, 0x66, 0x9C)     # Joveo Pink -- underperformance accent
+RED_ACCENT = RGBColor(0xB5, 0x66, 0x9C)     # Pink -- underperformance accent
 
-# Joveo extended palette (used in specific places)
+# Extended palette (used in specific places)
 JOVEO_BRONZE = RGBColor(0xCE, 0x90, 0x47)  # Bronze accent / CTAs
 JOVEO_PINK = RGBColor(0xB5, 0x66, 0x9C)    # Pink / magenta accent
 
-FONT_FAMILY = "Poppins"                     # Joveo brand title font
-FONT_BODY = "Inter"                         # Joveo brand body font
+FONT_FAMILY = "Poppins"                     # Brand title font
+FONT_BODY = "Inter"                         # Brand body font
 
 # Slide dimensions (16:9 widescreen)
 SLIDE_WIDTH = Inches(13.333)
@@ -1029,7 +1029,7 @@ def _add_footer(slide, today: str):
     _add_filled_rect(slide, Inches(0), footer_top, SLIDE_WIDTH, Inches(0.03), NAVY)
     _add_textbox(
         slide, Inches(0.55), footer_top + Inches(0.08), Inches(12.2), Inches(0.3),
-        text=f"Powered by Joveo  |  AI Media Planner  |  {today}",
+        text=f"Powered by Nova AI Suite  |  AI Media Planner  |  {today}",
         font_size=7, color=MUTED_TEXT, alignment=PP_ALIGN.CENTER,
     )
 
@@ -1151,7 +1151,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     # Decorative teal accent shapes - left side
     _add_filled_rect(slide, Inches(0.6), Inches(1.8), Inches(1.2), Inches(0.05), TEAL)
 
-    # Joveo logo top-left (PNG, ~0.5" tall)
+    # Logo top-left (PNG, ~0.5" tall)
     _logo_path = os.path.join(os.path.dirname(__file__), "assets", "joveo-logo.png")
     if os.path.exists(_logo_path):
         try:
@@ -1210,7 +1210,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     )
     _add_textbox(
         slide, Inches(0.6), Inches(5.8), Inches(6), Inches(0.4),
-        text="Powered by Joveo Programmatic Technology", font_size=11,
+        text="Powered by Nova AI Suite", font_size=11,
         italic=True, color=LIGHT_MUTED,
     )
 
@@ -1224,10 +1224,10 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         circle_size,
         MEDIUM_BLUE,
     )
-    # Make it semi-transparent via alpha adjustment on fill (Joveo purple tone)
+    # Make it semi-transparent via alpha adjustment on fill (purple tone)
     circle.fill.fore_color.rgb = RGBColor(0x30, 0x2C, 0x78)
 
-    # Smaller overlapping accent circle (Joveo teal tone)
+    # Smaller overlapping accent circle (teal tone)
     _add_oval(
         slide,
         SLIDE_WIDTH - Inches(1.5),
@@ -1313,7 +1313,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         temp_qualifier = f" in a {market_temp_str} talent market"
 
     action_text = (
-        f"Joveo's programmatic strategy targets {role_summary} across "
+        f"Nova AI Suite's programmatic strategy targets {role_summary} across "
         f"{loc_text} to optimize "
         f"{client}'s recruitment spend in {industry_label}{temp_qualifier}"
     )
@@ -1517,7 +1517,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     p0 = tf4.paragraphs[0]
     r0 = p0.add_run()
-    r0.text = "Joveo Programmatic Strategy"
+    r0.text = "Nova AI Suite Programmatic Strategy"
     _set_font(r0, size=10, bold=True, color=NAVY)
     p0.space_after = Pt(6)
 
@@ -1971,7 +1971,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     if job_market:
         source_text += ", Adzuna Job Market API"
     if ad_plat:
-        source_text += ", Joveo Ad Platform Intelligence"
+        source_text += ", Nova AI Suite Ad Platform Intelligence"
     _add_textbox(
         slide, table_left, source_top, table_w, Inches(0.2),
         text=source_text,
@@ -2376,7 +2376,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     # Build insight text using real data when available
     if real_avg_cpa and real_avg_cpa > 0:
         insight_text = (
-            f"Joveo's programmatic approach distributes {client}'s budget across "
+            f"Nova AI Suite's programmatic approach distributes {client}'s budget across "
             f"{n_channels} optimized channels with ML-driven bid management, "
             f"projecting ${real_avg_cpa:,.0f} avg CPA (vs. industry benchmark ${benchmark_avg_cpa:.0f}). "
             f"Quality-focused optimization (CPQA) ensures spend is directed toward "
@@ -2384,7 +2384,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         )
     else:
         insight_text = (
-            f"Joveo's programmatic approach distributes {client}'s budget across "
+            f"Nova AI Suite's programmatic approach distributes {client}'s budget across "
             f"{n_channels} optimized channels with ML-driven bid management, "
             f"projecting {efficiency_improvement}% CPA improvement over manual posting. "
             f"Quality-focused optimization (CPQA) ensures spend is directed toward "
@@ -2650,17 +2650,17 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         insight_text += (
             f". At {int(proj_hires):,} projected hires, "
             f"{client}'s investment yields strong programmatic ROI "
-            f"through Joveo's ML-driven bid optimization."
+            f"through ML-driven bid optimization."
         )
     elif ba_total_budget > 0:
         insight_text = (
             f"{client}'s ${ba_total_budget:,.0f} investment is distributed across "
-            f"{n_channels} channels using Joveo's programmatic optimization engine, "
+            f"{n_channels} channels using Nova AI Suite's programmatic optimization engine, "
             f"maximizing reach and conversion through real-time bid management."
         )
     else:
         insight_text = (
-            f"Joveo's programmatic engine distributes {client}'s budget across "
+            f"Nova AI Suite's programmatic engine distributes {client}'s budget across "
             f"{n_channels} optimized channels with ML-driven bid management, "
             f"ensuring maximum ROI through continuous performance optimization."
         )
@@ -4767,7 +4767,7 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
     _add_rule_line(slide, 0.55, 7.0, 12.2, "D6CFC2")
 
     meth_text = (
-        "Methodology: Data sourced from real-time API integrations, Joveo's proprietary "
+        "Methodology: Data sourced from real-time API integrations, Nova AI Suite's proprietary "
         "job board knowledge base (91+ platforms), trend engine (4-year history), and "
         "curated industry benchmarks. Confidence score reflects the ratio of successful "
         "live API calls to total attempted."
@@ -4869,12 +4869,12 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         client = data.get("client_name", "Client")
         industry_label = data.get("industry_label", data.get("industry", "").replace("_", " ").title())
         core_props.title = f"Recruitment Media Plan - {client}"
-        core_props.author = "Nova AI by Joveo"
+        core_props.author = "Nova AI Suite"
         core_props.subject = f"AI-generated recruitment advertising media plan for {client} in the {industry_label} industry"
         core_props.keywords = f"recruitment media plan, {industry_label}, job advertising, programmatic recruitment, {client}, talent acquisition, hiring strategy"
-        core_props.comments = f"Generated by Nova AI Media Plan Generator (media-plan-generator.onrender.com). Data sourced from 25 real-time APIs, 91+ job board platforms, and Joveo industry knowledge base."
+        core_props.comments = f"Generated by Nova AI Media Plan Generator (media-plan-generator.onrender.com). Data sourced from 25 real-time APIs, 91+ job board platforms, and Nova AI Suite industry knowledge base."
         core_props.category = "Recruitment Advertising"
-        core_props.last_modified_by = "Nova AI by Joveo"
+        core_props.last_modified_by = "Nova AI Suite"
 
         # Set 16:9 widescreen dimensions
         prs.slide_width = SLIDE_WIDTH

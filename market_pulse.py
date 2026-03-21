@@ -978,7 +978,7 @@ def generate_pulse_report(week_date: Optional[str] = None) -> Dict[str, Any]:
 def generate_pulse_html(report_data: Dict[str, Any]) -> str:
     """Generate a beautiful standalone HTML report for print/web viewing.
 
-    Reuses Joveo brand colors and print-optimized patterns from pdf_generator.py.
+    Reuses brand colors and print-optimized patterns from pdf_generator.py.
     """
     # Brand colors
     PORT_GORE = "#202058"
@@ -1205,7 +1205,7 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Market Intelligence Pulse - {report_date} | Joveo</title>
+    <title>Market Intelligence Pulse - {report_date} | Nova AI Suite</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
@@ -1235,7 +1235,7 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
     <div class="container">
         <!-- Header -->
         <div style="text-align:center;margin-bottom:36px;padding-bottom:24px;border-bottom:3px solid {PORT_GORE};">
-            <div style="font-size:12px;text-transform:uppercase;letter-spacing:3px;color:{BLUE_VIOLET};font-weight:700;margin-bottom:8px;">Joveo Intelligence</div>
+            <div style="font-size:12px;text-transform:uppercase;letter-spacing:3px;color:{BLUE_VIOLET};font-weight:700;margin-bottom:8px;">Nova AI Suite</div>
             <h1 style="font-size:32px;color:{PORT_GORE};margin-bottom:8px;font-weight:800;">Market Intelligence Pulse</h1>
             <p style="font-size:15px;color:{TEXT_MUTED};">
                 {period} &middot; Generated {report_date}
@@ -1253,9 +1253,9 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
         <!-- Footer -->
         <div style="text-align:center;margin-top:40px;padding-top:24px;border-top:2px solid {BORDER_LIGHT};">
             <p style="font-size:12px;color:{TEXT_MUTED};">
-                Powered by <strong style="color:{BLUE_VIOLET};">Joveo Intelligence</strong> &middot;
+                Powered by <strong style="color:{BLUE_VIOLET};">Nova AI Suite</strong> &middot;
                 Data from 6 ad platforms across 22 industries &middot;
-                <a href="https://joveo.com" style="color:{BLUE_VIOLET};text-decoration:none;">joveo.com</a>
+                <a href="https://media-plan-generator.onrender.com" style="color:{BLUE_VIOLET};text-decoration:none;">Nova AI Suite</a>
             </p>
             <p style="font-size:11px;color:{TEXT_MUTED};margin-top:4px;">
                 This report is generated from proprietary benchmark data and public economic indicators.
@@ -1352,7 +1352,7 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
                     <!-- Header -->
                     <tr>
                         <td style="background:#202058;padding:28px 24px;text-align:center;">
-                            <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#818CF8;font-weight:700;">Joveo Intelligence</p>
+                            <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#818CF8;font-weight:700;">Nova AI Suite</p>
                             <h1 style="margin:0;font-size:24px;color:#ffffff;font-weight:800;">Market Intelligence Pulse</h1>
                             <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.7);">{period}</p>
                         </td>
@@ -1417,11 +1417,11 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
                     <tr>
                         <td style="background:#f4f4f9;padding:20px 24px;text-align:center;border-top:1px solid #e8e8f0;">
                             <p style="margin:0;font-size:11px;color:#555566;">
-                                Powered by <strong style="color:#5A54BD;">Joveo Intelligence</strong> |
+                                Powered by <strong style="color:#5A54BD;">Nova AI Suite</strong> |
                                 Data from 6 ad platforms across 22 industries
                             </p>
                             <p style="margin:6px 0 0;font-size:10px;color:#888899;">
-                                You are receiving this because you subscribed to Joveo Market Pulse reports.
+                                You are receiving this because you subscribed to Nova AI Suite Market Pulse reports.
                                 <a href="{_BASE_URL}/market-pulse" style="color:#5A54BD;">Manage preferences</a>
                             </p>
                         </td>
@@ -1484,7 +1484,7 @@ def send_pulse_report(
     email_html = generate_pulse_email_html(report_data)
 
     report_date = report_data.get("report_date_display", "Weekly")
-    subject = f"Market Intelligence Pulse - {report_date} | Joveo"
+    subject = f"Market Intelligence Pulse - {report_date} | Nova AI Suite"
 
     for recipient in recipients:
         recipient = recipient.strip()

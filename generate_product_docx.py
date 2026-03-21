@@ -1,5 +1,5 @@
 """
-generate_product_docx.py -- Generate the Joveo Media Plan Generator Product Overview DOCX.
+generate_product_docx.py -- Generate the Nova AI Suite Product Overview DOCX.
 
 Creates a professional 10-page product overview document using python-docx.
 Run directly: python3 generate_product_docx.py
@@ -170,7 +170,7 @@ def build_document():
     # Title
     title_p = doc.add_paragraph()
     title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = title_p.add_run("Joveo Media Plan Generator")
+    run = title_p.add_run("Nova AI Suite")
     run.bold = True
     run.font.size = Pt(32)
     run.font.color.rgb = DARK_BLUE
@@ -214,7 +214,7 @@ def build_document():
     # Company tagline
     tag_p = doc.add_paragraph()
     tag_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = tag_p.add_run("Joveo -- Precision Programmatic for Talent Acquisition")
+    run = tag_p.add_run("Nova AI Suite -- Precision Programmatic for Talent Acquisition")
     run.font.size = Pt(13)
     run.font.color.rgb = JOVEO_BLUE
     run.bold = True
@@ -230,7 +230,7 @@ def build_document():
 
     add_body(
         doc,
-        "The Joveo Media Plan Generator is an AI-powered platform that transforms "
+        "The Nova AI Suite Media Plan Generator is an AI-powered platform that transforms "
         "recruitment advertising planning from a weeks-long manual process into minutes "
         "of automated, data-driven analysis. It ingests client requirements -- industry, "
         "roles, locations, budget, and competitors -- and produces comprehensive media "
@@ -287,7 +287,7 @@ def build_document():
     add_body(
         doc,
         "Nova is an AI-powered recruitment marketing intelligence chatbot embedded "
-        "in the web UI. It provides conversational access to Joveo's proprietary supply "
+        "in the web UI. It provides conversational access to Nova AI Suite's proprietary supply "
         "data (10,238+ publishers across 70+ countries), 30+ live API enrichment sources, "
         "a 42-source recruitment industry knowledge base, the data synthesis engine with "
         "confidence scoring, and the budget allocation engine with dollar projections. "
@@ -890,7 +890,7 @@ def build_document():
                "through conversational interaction.", bold_prefix="Conversational Plan Builder:")
     add_bullet(doc, " Build a real-time dashboard showing plan performance, budget "
                "pacing, and market condition changes.", bold_prefix="Performance Analytics Dashboard:")
-    add_bullet(doc, " Integrate Joveo's real-time bidding data to feed actual campaign "
+    add_bullet(doc, " Integrate real-time bidding data to feed actual campaign "
                "performance back into future plan recommendations.", bold_prefix="Closed-Loop Optimization:")
     add_bullet(doc, " Extend the evaluation framework with automated A/B testing of "
                "budget allocation strategies across historical campaigns.",
@@ -908,7 +908,7 @@ def build_document():
 
     footer_p = doc.add_paragraph()
     footer_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = footer_p.add_run("Confidential -- Joveo, Inc. | March 2026")
+    run = footer_p.add_run("Confidential -- Shubham Singh Chandel | March 2026")
     run.font.size = Pt(9)
     run.font.color.rgb = LIGHT_GRAY
     run.font.name = "Calibri"

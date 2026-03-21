@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Theme Colors (match Nova chat widget)
 # ---------------------------------------------------------------------------
-_BG_DARK = "#08090D"
-_BG_SURFACE = "#0F1424"
+_BG_DARK = "#000000"
+_BG_SURFACE = "#111111"
 _BG_MSG_USER = "#1e2a4a"
 _BG_MSG_ASSISTANT = "#141826"
 _ACCENT = "#6366F1"
@@ -40,7 +40,7 @@ _PRINT_USER_BG = "#e8eaf6"
 _PRINT_ASSISTANT_BG = "#f5f5f5"
 _PRINT_ACCENT = "#5A54BD"
 
-# Joveo brand
+# Brand colors
 _PORT_GORE = "#202058"
 _BLUE_VIOLET = "#5A54BD"
 
@@ -393,7 +393,7 @@ def export_conversation_html(
 
   <div class="export-footer">
     <div class="export-footer-text">
-      Powered by <span class="export-footer-brand">Joveo Nova AI</span>
+      Powered by <span class="export-footer-brand">Nova AI Suite</span>
     </div>
   </div>
 
@@ -456,7 +456,7 @@ def export_conversation_text(
         lines.append("")
 
     lines.append("---")
-    lines.append("Powered by Joveo Nova AI")
+    lines.append("Powered by Nova AI Suite")
     lines.append("")
 
     return "\n".join(lines)

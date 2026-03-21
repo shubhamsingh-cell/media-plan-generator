@@ -1,5 +1,5 @@
 /**
- * ApplyFlow by Joveo -- Conversational Apply Widget
+ * ApplyFlow by Nova AI Suite -- Conversational Apply Widget
  *
  * Self-contained, embeddable candidate-facing chat widget that replaces
  * traditional job application forms with an AI-powered conversation.
@@ -27,7 +27,7 @@
     apiUrl: '/api/applyflow/chat',
     primaryColor: '#6366F1',
     primaryGradient: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #818CF8 100%)',
-    bgColor: '#08090D',
+    bgColor: '#000000',
     bgPanel: 'rgba(15,23,42,0.94)',
     bgMessage: 'rgba(20,30,50,0.6)',
     bgUserMessage: 'rgba(99,102,241,0.15)',
@@ -449,7 +449,7 @@
       + '  </div>'
       + '  <div class="af-progress-wrap" id="af-progress"></div>'
       + '  <div class="af-progress-label" id="af-stage-label">Welcome</div>'
-      + '  <div class="af-powered">Powered by Joveo ApplyFlow</div>'
+      + '  <div class="af-powered">Powered by Nova AI Suite ApplyFlow</div>'
       + '</div>'
       // Messages
       + '<div class="af-messages" id="af-messages" role="log" aria-live="polite" aria-label="Chat messages"></div>'

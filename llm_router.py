@@ -156,7 +156,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "extra_headers": {  # OpenRouter requires/recommends these
             "HTTP-Referer": "https://media-plan-generator.onrender.com",
-            "X-Title": "Joveo Media Plan Generator",
+            "X-Title": "Nova AI Suite",
         },
     },
     XAI: {

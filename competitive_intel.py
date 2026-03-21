@@ -859,7 +859,7 @@ def generate_competitive_excel(
     ws1["B2"].font = title_font
 
     ws1.merge_cells("B3:F3")
-    ws1["B3"] = f"Generated {brief.get('generated_at', '')[:10]} | Powered by Nova AI / Joveo"
+    ws1["B3"] = f"Generated {brief.get('generated_at', '')[:10]} | Powered by Nova AI Suite"
     ws1["B3"].font = subtitle_font
 
     # Company profile table
@@ -1067,14 +1067,14 @@ def generate_competitive_ppt(
     """Generate a competitive intelligence PowerPoint presentation.
 
     Slides:
-      1. Title slide (company name, date, Joveo branding)
+      1. Title slide (company name, date, branding)
       2. Company Overview (profile card)
       3. Competitive Landscape (comparison table)
       4. Market Trends (search interest bars)
       5. Ad Platform Benchmarks (CPC/CPA comparison)
       6. Recommendations (strategic actions)
 
-    Uses Joveo brand identity: Port Gore navy, Blue Violet purple, Downy teal.
+    Uses brand identity: Port Gore navy, Blue Violet purple, Downy teal.
     """
     from pptx import Presentation
     from pptx.util import Inches, Pt, Emu
@@ -1082,7 +1082,7 @@ def generate_competitive_ppt(
     from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
     from pptx.enum.shapes import MSO_SHAPE
 
-    # Joveo brand colors
+    # Brand colors
     PORT_GORE = RGBColor(0x20, 0x20, 0x58)
     BLUE_VIOLET = RGBColor(0x5A, 0x54, 0xBD)
     DOWNY_TEAL = RGBColor(0x6B, 0xB3, 0xCD)
@@ -1147,7 +1147,7 @@ def generate_competitive_ppt(
                   company_name,
                   font_size=24, bold=False, color=DOWNY_TEAL)
     _add_text_box(slide1, 1, 4.5, 11, 0.5,
-                  f"Generated {brief.get('generated_at', '')[:10]} | Powered by Nova AI / Joveo",
+                  f"Generated {brief.get('generated_at', '')[:10]} | Powered by Nova AI Suite",
                   font_size=12, color=MUTED_TEXT)
 
     # ── Slide 2: Company Overview ──
@@ -1359,7 +1359,7 @@ def generate_competitive_ppt(
 
     # Footer
     _add_text_box(slide6, 0.8, 6.8, 11, 0.4,
-                  "Powered by Nova AI | Joveo | https://media-plan-generator.onrender.com",
+                  "Powered by Nova AI Suite | https://media-plan-generator.onrender.com",
                   font_size=8, color=MUTED_TEXT, alignment=PP_ALIGN.CENTER)
 
     buf = io.BytesIO()

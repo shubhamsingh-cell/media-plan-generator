@@ -1249,11 +1249,11 @@ def generate_skill_excel(analysis: Dict[str, Any]) -> bytes:
 
 
 # ===========================================================================
-# 10. PPT EXPORT  (Joveo branding)
+# 10. PPT EXPORT  (Nova AI Suite branding)
 # ===========================================================================
 
 def generate_skill_ppt(analysis: Dict[str, Any]) -> bytes:
-    """Generate branded PPT. Joveo: Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD."""
+    """Generate branded PPT. Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD."""
     try:
         from pptx import Presentation
         from pptx.util import Inches, Pt
@@ -1333,7 +1333,7 @@ def generate_skill_ppt(analysis: Dict[str, Any]) -> bytes:
             meta.append(f"Budget: ${inp['budget']:,.0f}/mo")
         if meta:
             _tb(s1, 1, 4.0, 11, 0.6, "  |  ".join(meta), 14, align=PP_ALIGN.CENTER)
-        _tb(s1, 2, 5.5, 9, 0.5, "Powered by Joveo Skill Targeting Engine", 11, DT, align=PP_ALIGN.CENTER)
+        _tb(s1, 2, 5.5, 9, 0.5, "Powered by Nova AI Suite - SkillTarget", 11, DT, align=PP_ALIGN.CENTER)
 
         # Slide 2: Occupations
         s2 = prs.slides.add_slide(prs.slide_layouts[6])

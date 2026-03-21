@@ -258,7 +258,7 @@ def build_cover_page(doc):
     meta = doc.add_paragraph()
     meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
     meta.paragraph_format.space_after = Pt(2)
-    run = meta.add_run("Joveo Inc. | Confidential")
+    run = meta.add_run("Nova AI Suite | Confidential")
     run.font.size = Pt(12)
     run.font.color.rgb = CLR_GREY
 
@@ -1242,7 +1242,7 @@ def build_recommendations(doc):
     meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = meta.add_run(
         f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  |  "
-        "Joveo Inc.  |  Confidential"
+        "Nova AI Suite  |  Confidential"
     )
     run.font.size = Pt(9)
     run.font.color.rgb = CLR_GREY

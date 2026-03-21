@@ -1,7 +1,7 @@
 /**
- * Nova by Joveo Chat Widget
+ * Nova AI Suite Chat Widget
  *
- * Self-contained chat interface for Nova by Joveo recruitment marketing intelligence.
+ * Self-contained chat interface for Nova AI Suite recruitment marketing intelligence.
  * Drop-in widget that can be embedded in any page.
  *
  * Usage:
@@ -767,7 +767,7 @@
     // Footer
     var footer = document.createElement('div');
     footer.className = 'nova-footer';
-    footer.textContent = 'Powered by Nova \u00b7 Joveo';
+    footer.textContent = 'Powered by Nova \u00b7 Nova AI Suite';
     panel.appendChild(footer);
 
     // Add to container or body
