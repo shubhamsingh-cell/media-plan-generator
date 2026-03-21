@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Multi-Scenario Budget Simulator for recruitment advertising. Adjust channel budgets and see projected outcomes in real-time.">
-    <meta name="theme-color" content="#0a0a0f">
+    <meta name="theme-color" content="#000000">
     <title>Budget Simulator | Nova by Joveo</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='6' y='24' font-size='22'>⚡</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,20 +15,20 @@
            DESIGN SYSTEM: Deep Obsidian + Electric Indigo
            ═══════════════════════════════════════════════════════════════════ */
         :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #0f0f19;
-            --bg-card: rgba(15, 15, 25, 0.8);
-            --bg-card-hover: rgba(20, 20, 35, 0.9);
-            --bg-input: rgba(20, 20, 35, 0.6);
+            --bg-primary: #000000;
+            --bg-secondary: #111111;
+            --bg-card: rgba(17, 17, 17, 0.8);
+            --bg-card-hover: rgba(26, 26, 26, 0.9);
+            --bg-input: rgba(26, 26, 26, 0.6);
             --bg-slider-track: rgba(99, 102, 241, 0.15);
             --accent: #6366f1;
             --accent-light: #818cf8;
             --accent-dim: rgba(99, 102, 241, 0.3);
             --accent-glow: rgba(99, 102, 241, 0.15);
-            --text-primary: #e2e8f0;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            --text-bright: #f8fafc;
+            --text-primary: #ededed;
+            --text-secondary: #a1a1a1;
+            --text-muted: #666666;
+            --text-bright: #ededed;
             --green: #22c55e;
             --green-bg: rgba(34, 197, 94, 0.1);
             --green-border: rgba(34, 197, 94, 0.3);
@@ -37,8 +37,8 @@
             --red-border: rgba(239, 68, 68, 0.3);
             --amber: #f59e0b;
             --amber-bg: rgba(245, 158, 11, 0.1);
-            --border: rgba(99, 102, 241, 0.12);
-            --border-strong: rgba(99, 102, 241, 0.25);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-strong: rgba(255, 255, 255, 0.16);
             --blur: 20px;
             --radius: 12px;
             --radius-sm: 8px;
@@ -81,7 +81,7 @@
             align-items: center;
             justify-content: space-between;
             border-bottom: 1px solid var(--border);
-            background: rgba(10, 10, 15, 0.95);
+            background: rgba(0, 0, 0, 0.95);
             backdrop-filter: blur(var(--blur));
             position: sticky;
             top: 0;
@@ -503,7 +503,7 @@
         /* ── Scenario Comparison Section ── */
         .scenarios-section {
             border-top: 1px solid var(--border);
-            background: rgba(10, 10, 15, 0.6);
+            background: rgba(0, 0, 0, 0.6);
             padding: 20px 24px;
             position: relative;
             z-index: 1;

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
     <title>Market Intelligence Reports | Joveo</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='18' font-weight='bold'>J</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10,10 +11,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0a0a0f; --card: rgba(15,15,25,0.8); --card-hover: rgba(20,20,35,0.9);
+            --bg: #000000; --card: rgba(17,17,17,0.8); --card-hover: rgba(26,26,26,0.9);
             --accent: #6366f1; --accent-light: #818cf8; --accent-pale: rgba(99,102,241,0.1);
-            --accent-glow: rgba(99,102,241,0.2); --text: #e2e8f0; --text-sec: rgba(226,232,240,0.65);
-            --text-muted: rgba(226,232,240,0.35); --border: rgba(255,255,255,0.07);
+            --accent-glow: rgba(99,102,241,0.2); --text: #ededed; --text-sec: #a1a1a1;
+            --text-muted: #666666; --border: rgba(255,255,255,0.08);
             --green: #34d399; --amber: #fbbf24; --red: #f87171; --cyan: #22d3ee;
             --radius: 12px; --radius-sm: 8px;
         }
@@ -22,7 +23,7 @@
         body::before { content: ''; position: fixed; top: -40%; left: -20%; width: 80%; height: 80%; background: radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%); pointer-events: none; z-index: 0; }
 
         /* Nav */
-        nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; gap: 16px; padding: 14px 32px; background: rgba(10,10,15,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
+        nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; gap: 16px; padding: 14px 32px; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
         .nav-logo { font-weight: 800; font-size: 20px; color: var(--accent); letter-spacing: -0.5px; }
         .nav-title { font-size: 14px; color: var(--text-sec); padding-left: 16px; border-left: 1px solid var(--border); }
         .nav-back { margin-left: auto; font-size: 13px; color: var(--text-sec); text-decoration: none; padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; transition: all 0.2s; }
@@ -37,7 +38,7 @@
         .field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-sec); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
         .field input, .field select { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-family: inherit; transition: border-color 0.2s; }
         .field input:focus, .field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-pale); }
-        .field select option { background: #1a1a2e; color: var(--text); }
+        .field select option { background: #111111; color: var(--text); }
         .btn-generate { padding: 10px 28px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; white-space: nowrap; height: 42px; }
         .btn-generate:hover { background: var(--accent-light); box-shadow: 0 0 20px var(--accent-glow); }
         .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -120,7 +121,7 @@
         .trend-flat::before { content: '\25C6 '; font-size: 10px; color: var(--amber); }
 
         /* Download Bar */
-        .download-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(10,10,15,0.92); backdrop-filter: blur(16px); border-top: 1px solid var(--border); padding: 12px 32px; display: none; justify-content: flex-end; gap: 12px; z-index: 100; }
+        .download-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.92); backdrop-filter: blur(16px); border-top: 1px solid var(--border); padding: 12px 32px; display: none; justify-content: flex-end; gap: 12px; z-index: 100; }
         .download-bar.active { display: flex; }
         .btn-dl { padding: 9px 22px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; border: 1px solid var(--border); transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
         .btn-dl-excel { background: rgba(52,211,153,0.1); color: var(--green); border-color: rgba(52,211,153,0.3); }

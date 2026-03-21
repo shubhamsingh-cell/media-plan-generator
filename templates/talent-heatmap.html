@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Talent Supply Heat Map - Visualize talent density, salary benchmarks, hiring difficulty, and optimal locations for recruitment across 100+ metros and 40+ countries.">
-    <meta name="theme-color" content="#08090D">
+    <meta name="theme-color" content="#000000">
     <title>Talent Supply Heat Map | Nova AI by Joveo</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><circle cx='10' cy='20' r='3' fill='%2334D399'/><circle cx='16' cy='12' r='4' fill='%2322D3EE'/><circle cx='24' cy='18' r='2.5' fill='%23F87171'/></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,9 +12,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --obsidian: #08090D;
-            --obsidian-light: #0E1018;
-            --navy: #0F1424;
+            --obsidian: #000000;
+            --obsidian-light: #111111;
+            --navy: #1a1a1a;
             --indigo: #6366F1;
             --indigo-light: #818CF8;
             --indigo-pale: rgba(99,102,241,0.08);
@@ -26,18 +26,18 @@
             --accent-warm: #F87171;
             --warning: #FBBF24;
             --error: #F87171;
-            --bg: #08090D;
-            --surface-1: rgba(15,18,30,0.6);
-            --card: rgba(15,18,30,0.6);
-            --card-hover: rgba(20,24,40,0.7);
+            --bg: #000000;
+            --surface-1: rgba(17,17,17,0.8);
+            --card: rgba(17,17,17,0.8);
+            --card-hover: rgba(26,26,26,0.7);
             --glass-blur-md: blur(24px) saturate(1.3);
-            --glass-border: rgba(255,255,255,0.06);
-            --glass-border-hover: rgba(255,255,255,0.1);
-            --text: #E2E8F0;
-            --text-secondary: rgba(226,232,240,0.7);
-            --text-light: rgba(226,232,240,0.6);
-            --text-muted: rgba(226,232,240,0.35);
-            --border: rgba(255,255,255,0.06);
+            --glass-border: rgba(255,255,255,0.08);
+            --glass-border-hover: rgba(255,255,255,0.16);
+            --text: #ededed;
+            --text-secondary: #a1a1a1;
+            --text-light: #a1a1a1;
+            --text-muted: #666666;
+            --border: rgba(255,255,255,0.08);
             --border-accent: rgba(99,102,241,0.3);
             --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3);
             --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
@@ -110,7 +110,7 @@
         label { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.03em; text-transform: uppercase; }
         input[type="text"], input[type="number"], select {
             width: 100%; padding: 0.75rem 1rem; font-size: 0.9375rem; font-family: inherit;
-            color: var(--text); background: rgba(15,18,30,0.8); border: 1px solid var(--border);
+            color: var(--text); background: rgba(17,17,17,0.8); border: 1px solid var(--border);
             border-radius: var(--radius-sm); outline: none;
             transition: border-color var(--duration-normal), box-shadow var(--duration-normal);
             min-height: 48px; -webkit-appearance: none;
@@ -221,7 +221,7 @@
         /* Comparison cards */
         .comparison-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
         .comparison-card {
-            background: rgba(15,18,30,0.5); border: 1px solid var(--glass-border);
+            background: rgba(17,17,17,0.5); border: 1px solid var(--glass-border);
             border-radius: var(--radius-sm); padding: 1.25rem;
             transition: border-color var(--duration-normal), transform var(--duration-normal);
         }
@@ -237,7 +237,7 @@
         /* Optimal location cards */
         .optimal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
         .optimal-card {
-            background: rgba(15,18,30,0.5); border: 1px solid var(--glass-border);
+            background: rgba(17,17,17,0.5); border: 1px solid var(--glass-border);
             border-radius: var(--radius-sm); padding: 1.25rem;
             transition: border-color var(--duration-normal);
         }
