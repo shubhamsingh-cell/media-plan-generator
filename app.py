@@ -8607,6 +8607,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         if path.startswith("/v1/"):
             path = path[3:]
         if path == "/" or path == "":
+            self._serve_file(os.path.join(TEMPLATES_DIR, "hub.html"), "text/html")
+        elif path in ("/media-plan", "/media-plan/", "/generator", "/generator/"):
             self._serve_file(os.path.join(TEMPLATES_DIR, "index.html"), "text/html")
         elif path in ("/api/health", "/health"):
             # Lightweight liveness probe (fast, for Render.com health checks)
@@ -9568,6 +9570,30 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(html.encode())
             else:
                 self.send_error(404, "ApplyFlow page not found")
+        # ── SkillTarget Page ──
+        elif path in ("/skill-target", "/skill-target/", "/skilltarget", "/skilltarget/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "skill-target.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "SkillTarget page not found")
+        # ── Market Intel Reports Page ──
+        elif path in ("/market-intel", "/market-intel/", "/market-intelligence", "/market-intelligence/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "market-intel.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Market Intel page not found")
         # ── API Portal GET routes ──
         elif path.startswith("/api/portal/"):
             try:
@@ -11247,6 +11273,59 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "PPT export failed"}).encode())
+        # ── SkillTarget: Analyze / Excel / PPT ──
+        elif path.startswith("/api/skill-target/"):
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from skill_target import handle_skill_target_request
+                result = handle_skill_target_request(path, "POST", data)
+                if isinstance(result, bytes):
+                    # Binary file download (Excel or PPT)
+                    if "/excel" in path:
+                        ct = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        fn = "skill_target_report.xlsx"
+                    else:
+                        ct = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                        fn = "skill_target_report.pptx"
+                    self.send_response(200)
+                    self.send_header("Content-Type", ct)
+                    self.send_header("Content-Disposition", f"attachment; filename={fn}")
+                    self.send_header("Content-Length", str(len(result)))
+                    self.end_headers()
+                    self.wfile.write(result)
+                else:
+                    self._send_json(result)
+            except Exception as e:
+                logger.error("SkillTarget error: %s", e, exc_info=True)
+                self._send_json({"error": "Analysis failed. Please try again.", "status": "error"})
+        # ── Market Intel Reports: Generate / Excel / PPT ──
+        elif path.startswith("/api/market-intel/"):
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from market_intel_reports import handle_market_intel_request
+                result = handle_market_intel_request(path, "POST", data)
+                if isinstance(result, bytes):
+                    if "/excel" in path:
+                        ct = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        fn = "market_intel_report.xlsx"
+                    else:
+                        ct = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                        fn = "market_intel_report.pptx"
+                    self.send_response(200)
+                    self.send_header("Content-Type", ct)
+                    self.send_header("Content-Disposition", f"attachment; filename={fn}")
+                    self.send_header("Content-Length", str(len(result)))
+                    self.end_headers()
+                    self.wfile.write(result)
+                else:
+                    self._send_json(result)
+            except Exception as e:
+                logger.error("Market Intel error: %s", e, exc_info=True)
+                self._send_json({"error": "Report generation failed. Please try again.", "status": "error"})
         # ── Quick Plan Builder ──
         elif path == "/api/quick-plan":
             try:

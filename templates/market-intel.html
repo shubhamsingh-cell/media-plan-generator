@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Intelligence Reports | Joveo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='18' font-weight='bold'>J</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f; --card: rgba(15,15,25,0.8); --card-hover: rgba(20,20,35,0.9);
+            --accent: #6366f1; --accent-light: #818cf8; --accent-pale: rgba(99,102,241,0.1);
+            --accent-glow: rgba(99,102,241,0.2); --text: #e2e8f0; --text-sec: rgba(226,232,240,0.65);
+            --text-muted: rgba(226,232,240,0.35); --border: rgba(255,255,255,0.07);
+            --green: #34d399; --amber: #fbbf24; --red: #f87171; --cyan: #22d3ee;
+            --radius: 12px; --radius-sm: 8px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+        body::before { content: ''; position: fixed; top: -40%; left: -20%; width: 80%; height: 80%; background: radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%); pointer-events: none; z-index: 0; }
+
+        /* Nav */
+        nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; gap: 16px; padding: 14px 32px; background: rgba(10,10,15,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
+        .nav-logo { font-weight: 800; font-size: 20px; color: var(--accent); letter-spacing: -0.5px; }
+        .nav-title { font-size: 14px; color: var(--text-sec); padding-left: 16px; border-left: 1px solid var(--border); }
+        .nav-back { margin-left: auto; font-size: 13px; color: var(--text-sec); text-decoration: none; padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; transition: all 0.2s; }
+        .nav-back:hover { color: var(--text); border-color: var(--accent); }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px 24px 80px; position: relative; z-index: 1; }
+
+        /* Input Section */
+        .input-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; margin-bottom: 28px; }
+        .input-panel h2 { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 14px; align-items: end; }
+        .field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-sec); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .field input, .field select { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-family: inherit; transition: border-color 0.2s; }
+        .field input:focus, .field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-pale); }
+        .field select option { background: #1a1a2e; color: var(--text); }
+        .btn-generate { padding: 10px 28px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; white-space: nowrap; height: 42px; }
+        .btn-generate:hover { background: var(--accent-light); box-shadow: 0 0 20px var(--accent-glow); }
+        .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Loading */
+        .loading-overlay { display: none; text-align: center; padding: 60px 20px; }
+        .loading-overlay.active { display: block; }
+        .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Tabs */
+        .results-section { display: none; }
+        .results-section.active { display: block; }
+        .tabs { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+        .tab { padding: 10px 16px; font-size: 13px; font-weight: 500; color: var(--text-sec); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all 0.2s; }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--accent-light); border-bottom-color: var(--accent); }
+        .tab-content { display: none; animation: fadeIn 0.3s; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Metric Cards */
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .metric-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 20px; transition: border-color 0.2s; }
+        .metric-card:hover { border-color: rgba(99,102,241,0.3); }
+        .metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 8px; font-weight: 600; }
+        .metric-value { font-size: 28px; font-weight: 800; color: var(--text); letter-spacing: -1px; }
+        .metric-sub { font-size: 12px; color: var(--text-sec); margin-top: 4px; }
+        .metric-up { color: var(--green); }
+        .metric-down { color: var(--red); }
+
+        /* Narrative */
+        .narrative { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; line-height: 1.7; color: var(--text-sec); font-size: 14px; }
+        .narrative h3 { color: var(--text); font-size: 16px; margin-bottom: 12px; }
+
+        /* Tables */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table thead { position: sticky; top: 0; }
+        .data-table th { text-align: left; padding: 12px 16px; background: rgba(99,102,241,0.08); color: var(--accent-light); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+        .data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-sec); }
+        .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+
+        /* Salary Bar */
+        .salary-visual { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; }
+        .salary-bar-track { height: 32px; background: rgba(255,255,255,0.04); border-radius: 16px; position: relative; margin: 20px 0 12px; overflow: hidden; }
+        .salary-bar-fill { height: 100%; border-radius: 16px; background: linear-gradient(90deg, var(--accent), var(--cyan)); position: absolute; left: 0; transition: width 0.8s ease; }
+        .salary-bar-median { position: absolute; top: -6px; width: 3px; height: 44px; background: var(--amber); border-radius: 2px; transform: translateX(-50%); }
+        .salary-labels { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-sec); }
+        .salary-labels .median-label { color: var(--amber); font-weight: 600; }
+
+        /* Season Grid */
+        .season-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .season-cell { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; text-align: center; transition: all 0.2s; }
+        .season-cell .month { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+        .season-cell .rating { font-size: 11px; color: var(--text-sec); }
+        .season-cell.best { border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.05); }
+        .season-cell.worst { border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.04); }
+        .season-cell.best .month { color: var(--green); }
+        .season-cell.worst .month { color: var(--red); }
+
+        /* Recommendation Cards */
+        .rec-list { display: flex; flex-direction: column; gap: 14px; }
+        .rec-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; display: flex; gap: 16px; align-items: flex-start; transition: border-color 0.2s; }
+        .rec-card:hover { border-color: rgba(99,102,241,0.3); }
+        .rec-rank { width: 36px; height: 36px; border-radius: 50%; background: var(--accent-pale); color: var(--accent-light); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex-shrink: 0; }
+        .rec-body { flex: 1; }
+        .rec-title { font-weight: 600; font-size: 15px; margin-bottom: 6px; }
+        .rec-desc { font-size: 13px; color: var(--text-sec); line-height: 1.6; }
+        .rec-impact { flex-shrink: 0; text-align: center; }
+        .rec-impact-score { font-size: 22px; font-weight: 800; }
+        .rec-impact-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+        .impact-high { color: var(--green); }
+        .impact-med { color: var(--amber); }
+        .impact-low { color: var(--text-sec); }
+
+        /* Trend Indicators */
+        .trend-up::before { content: '\25B2 '; font-size: 10px; color: var(--green); }
+        .trend-down::before { content: '\25BC '; font-size: 10px; color: var(--red); }
+        .trend-flat::before { content: '\25C6 '; font-size: 10px; color: var(--amber); }
+
+        /* Download Bar */
+        .download-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(10,10,15,0.92); backdrop-filter: blur(16px); border-top: 1px solid var(--border); padding: 12px 32px; display: none; justify-content: flex-end; gap: 12px; z-index: 100; }
+        .download-bar.active { display: flex; }
+        .btn-dl { padding: 9px 22px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; border: 1px solid var(--border); transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+        .btn-dl-excel { background: rgba(52,211,153,0.1); color: var(--green); border-color: rgba(52,211,153,0.3); }
+        .btn-dl-excel:hover { background: rgba(52,211,153,0.2); }
+        .btn-dl-ppt { background: var(--accent-pale); color: var(--accent-light); border-color: rgba(99,102,241,0.3); }
+        .btn-dl-ppt:hover { background: var(--accent-glow); }
+
+        /* Error */
+        .error-msg { display: none; padding: 14px 20px; background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.3); border-radius: var(--radius-sm); color: var(--red); font-size: 13px; margin-bottom: 16px; }
+        .error-msg.active { display: block; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .input-grid { grid-template-columns: 1fr; }
+            nav { padding: 12px 16px; }
+            .container { padding: 16px 12px 100px; }
+            .metrics-grid { grid-template-columns: 1fr 1fr; }
+            .season-grid { grid-template-columns: repeat(3, 1fr); }
+            .tabs { gap: 0; }
+            .tab { padding: 8px 12px; font-size: 12px; }
+            .rec-card { flex-direction: column; }
+        }
+        @media (max-width: 480px) {
+            .metrics-grid { grid-template-columns: 1fr; }
+            .season-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-logo">Joveo</div>
+        <div class="nav-title">Market Intelligence</div>
+        <a href="/" class="nav-back">Back to Hub</a>
+    </nav>
+
+    <div class="container">
+        <div class="input-panel">
+            <h2>Generate Market Intelligence Report</h2>
+            <div class="input-grid">
+                <div class="field">
+                    <label>Job Role</label>
+                    <input type="text" id="roleInput" placeholder="e.g. Software Engineer, Nurse, Truck Driver">
+                </div>
+                <div class="field">
+                    <label>Industry</label>
+                    <select id="industryInput">
+                        <option value="">Select Industry</option>
+                        <option value="technology">Technology</option>
+                        <option value="healthcare">Healthcare</option>
+                        <option value="finance">Finance & Banking</option>
+                        <option value="retail">Retail & E-commerce</option>
+                        <option value="manufacturing">Manufacturing</option>
+                        <option value="logistics">Logistics & Transportation</option>
+                        <option value="hospitality">Hospitality & Tourism</option>
+                        <option value="construction">Construction</option>
+                        <option value="education">Education</option>
+                        <option value="energy">Energy & Utilities</option>
+                        <option value="telecommunications">Telecommunications</option>
+                        <option value="pharmaceutical">Pharmaceutical</option>
+                        <option value="automotive">Automotive</option>
+                        <option value="aerospace">Aerospace & Defense</option>
+                        <option value="agriculture">Agriculture</option>
+                        <option value="media">Media & Entertainment</option>
+                        <option value="real_estate">Real Estate</option>
+                        <option value="insurance">Insurance</option>
+                        <option value="government">Government & Public Sector</option>
+                        <option value="nonprofit">Nonprofit</option>
+                        <option value="staffing">Staffing & Recruitment</option>
+                        <option value="professional_services">Professional Services</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Location</label>
+                    <input type="text" id="locationInput" placeholder="e.g. New York, US or London, UK">
+                </div>
+                <button class="btn-generate" id="btnGenerate" onclick="generateReport()">Generate Report</button>
+            </div>
+        </div>
+
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="loading-overlay" id="loading">
+            <div class="spinner"></div>
+            <div style="color:var(--text-sec);font-size:14px;">Analyzing market data...</div>
+        </div>
+
+        <div class="results-section" id="results">
+            <div class="tabs" id="tabBar">
+                <button class="tab active" data-tab="summary">Executive Summary</button>
+                <button class="tab" data-tab="labor">Labor Market</button>
+                <button class="tab" data-tab="comp">Compensation</button>
+                <button class="tab" data-tab="channels">Channels</button>
+                <button class="tab" data-tab="cpc">CPC Trends</button>
+                <button class="tab" data-tab="seasonal">Seasonal</button>
+                <button class="tab" data-tab="recs">Recommendations</button>
+            </div>
+
+            <!-- Executive Summary -->
+            <div class="tab-content active" id="tab-summary">
+                <div class="metrics-grid" id="summaryMetrics"></div>
+                <div class="narrative" id="summaryNarrative"></div>
+            </div>
+
+            <!-- Labor Market -->
+            <div class="tab-content" id="tab-labor">
+                <div class="metrics-grid" id="laborMetrics"></div>
+                <div class="narrative" id="laborNarrative"></div>
+            </div>
+
+            <!-- Compensation -->
+            <div class="tab-content" id="tab-comp">
+                <div class="salary-visual" id="salaryVisual">
+                    <h3 style="font-size:16px;margin-bottom:4px;">Salary Range</h3>
+                    <div id="salaryRole" style="font-size:13px;color:var(--text-sec);"></div>
+                    <div class="salary-bar-track">
+                        <div class="salary-bar-fill" id="salaryFill"></div>
+                        <div class="salary-bar-median" id="salaryMedian"></div>
+                    </div>
+                    <div class="salary-labels" id="salaryLabels"></div>
+                </div>
+                <div class="metrics-grid" id="compMetrics"></div>
+                <div class="narrative" id="compNarrative"></div>
+            </div>
+
+            <!-- Channels -->
+            <div class="tab-content" id="tab-channels">
+                <div class="table-wrap"><table class="data-table" id="channelTable">
+                    <thead><tr><th>Platform</th><th>CPC</th><th>CPA</th><th>CTR</th><th>Quality</th><th>Recommendation</th></tr></thead>
+                    <tbody id="channelBody"></tbody>
+                </table></div>
+            </div>
+
+            <!-- CPC Trends -->
+            <div class="tab-content" id="tab-cpc">
+                <div class="table-wrap"><table class="data-table" id="cpcTable">
+                    <thead><tr><th>Platform</th><th>Current CPC</th><th>30-Day Trend</th><th>90-Day Trend</th><th>YoY Change</th><th>Forecast</th></tr></thead>
+                    <tbody id="cpcBody"></tbody>
+                </table></div>
+            </div>
+
+            <!-- Seasonal -->
+            <div class="tab-content" id="tab-seasonal">
+                <p style="font-size:14px;color:var(--text-sec);margin-bottom:16px;">Hiring activity by month -- green = best months, red = most competitive / worst ROI.</p>
+                <div class="season-grid" id="seasonGrid"></div>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="tab-content" id="tab-recs">
+                <div class="rec-list" id="recList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="download-bar" id="downloadBar">
+        <button class="btn-dl btn-dl-excel" onclick="download('excel')">&#128196; Download Excel</button>
+        <button class="btn-dl btn-dl-ppt" onclick="download('ppt')">&#128202; Download PPT</button>
+    </div>
+
+<script>
+/* ---- State ---- */
+let reportData = null;
+
+/* ---- Tabs ---- */
+document.getElementById('tabBar').addEventListener('click', function(e) {
+    if (!e.target.classList.contains('tab')) return;
+    this.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    e.target.classList.add('active');
+    document.getElementById('tab-' + e.target.dataset.tab).classList.add('active');
+});
+
+/* ---- Generate ---- */
+async function generateReport() {
+    var role = document.getElementById('roleInput').value.trim();
+    var industry = document.getElementById('industryInput').value;
+    var location = document.getElementById('locationInput').value.trim();
+    var errEl = document.getElementById('errorMsg');
+    errEl.classList.remove('active');
+
+    if (!role || !industry || !location) {
+        errEl.textContent = 'Please fill in all fields: role, industry, and location.';
+        errEl.classList.add('active');
+        return;
+    }
+
+    var btn = document.getElementById('btnGenerate');
+    btn.disabled = true; btn.textContent = 'Generating...';
+    document.getElementById('loading').classList.add('active');
+    document.getElementById('results').classList.remove('active');
+    document.getElementById('downloadBar').classList.remove('active');
+
+    try {
+        var res = await fetch('/api/market-intel/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: role, industry: industry, location: location })
+        });
+        if (!res.ok) throw new Error('Server error: ' + res.status);
+        reportData = await res.json();
+        renderReport(reportData);
+        document.getElementById('results').classList.add('active');
+        document.getElementById('downloadBar').classList.add('active');
+        // Reset to first tab
+        document.querySelector('.tab').click();
+    } catch (err) {
+        errEl.textContent = 'Failed to generate report. ' + err.message;
+        errEl.classList.add('active');
+    } finally {
+        btn.disabled = false; btn.textContent = 'Generate Report';
+        document.getElementById('loading').classList.remove('active');
+    }
+}
+
+/* ---- Render ---- */
+function renderReport(d) {
+    renderSummary(d);
+    renderLabor(d);
+    renderComp(d);
+    renderChannels(d);
+    renderCPC(d);
+    renderSeasonal(d);
+    renderRecs(d);
+}
+
+function fmt(n) {
+    if (n == null) return '--';
+    if (typeof n === 'string') return n;
+    if (n >= 1000) return '$' + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'K';
+    return typeof n === 'number' && n < 10 ? '$' + n.toFixed(2) : '$' + n.toLocaleString();
+}
+
+function pct(n) { return n != null ? n.toFixed(1) + '%' : '--'; }
+
+function metricHTML(label, value, sub, cls) {
+    return '<div class="metric-card"><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div>' + (sub ? '<div class="metric-sub ' + (cls || '') + '">' + sub + '</div>' : '') + '</div>';
+}
+
+function renderSummary(d) {
+    var s = d.summary || {};
+    var html = '';
+    html += metricHTML('Market Difficulty', s.difficulty_score || '--', s.difficulty_label || '');
+    html += metricHTML('Avg CPC', fmt(s.avg_cpc), s.cpc_trend || '');
+    html += metricHTML('Avg CPA', fmt(s.avg_cpa), s.cpa_trend || '');
+    html += metricHTML('Talent Supply', s.talent_supply || '--', s.supply_trend || '');
+    document.getElementById('summaryMetrics').innerHTML = html;
+    var n = d.summary_narrative || '';
+    document.getElementById('summaryNarrative').innerHTML = '<h3>Executive Summary</h3><p>' + (n || 'No narrative available.') + '</p>';
+}
+
+function renderLabor(d) {
+    var l = d.labor_market || {};
+    var html = '';
+    html += metricHTML('Total Job Postings', (l.total_postings || 0).toLocaleString(), l.postings_trend || '');
+    html += metricHTML('Active Candidates', (l.active_candidates || 0).toLocaleString(), l.candidates_trend || '');
+    html += metricHTML('Supply/Demand Ratio', l.supply_demand_ratio || '--', l.ratio_label || '');
+    html += metricHTML('Unemployment Rate', pct(l.unemployment_rate), l.unemployment_trend || '');
+    html += metricHTML('Avg Time to Fill', (l.avg_time_to_fill || '--') + ' days', l.ttf_trend || '');
+    html += metricHTML('Competition Index', l.competition_index || '--', l.competition_label || '');
+    document.getElementById('laborMetrics').innerHTML = html;
+    document.getElementById('laborNarrative').innerHTML = '<h3>Labor Market Analysis</h3><p>' + (d.labor_narrative || 'No analysis available.') + '</p>';
+}
+
+function renderComp(d) {
+    var c = d.compensation || {};
+    var min = c.salary_min || 0, max = c.salary_max || 1, med = c.salary_median || 0;
+    var range = max - min || 1;
+    document.getElementById('salaryRole').textContent = d.role || '';
+    document.getElementById('salaryFill').style.width = '100%';
+    var medPos = ((med - min) / range * 100);
+    document.getElementById('salaryMedian').style.left = medPos + '%';
+    document.getElementById('salaryLabels').innerHTML =
+        '<span>' + fmt(min) + ' (P10)</span><span class="median-label">Median: ' + fmt(med) + '</span><span>' + fmt(max) + ' (P90)</span>';
+
+    var html = '';
+    html += metricHTML('P25 Salary', fmt(c.salary_p25));
+    html += metricHTML('P75 Salary', fmt(c.salary_p75));
+    html += metricHTML('YoY Growth', pct(c.yoy_growth), c.yoy_growth > 0 ? 'Increasing' : 'Decreasing', c.yoy_growth > 0 ? 'metric-up' : 'metric-down');
+    html += metricHTML('Benefits Index', c.benefits_index || '--');
+    document.getElementById('compMetrics').innerHTML = html;
+    document.getElementById('compNarrative').innerHTML = '<h3>Compensation Insights</h3><p>' + (d.comp_narrative || 'No insights available.') + '</p>';
+}
+
+function renderChannels(d) {
+    var channels = d.channels || [];
+    var html = '';
+    channels.forEach(function(ch) {
+        html += '<tr><td style="font-weight:600;color:var(--text)">' + (ch.name || '') + '</td><td>' + fmt(ch.cpc) + '</td><td>' + fmt(ch.cpa) + '</td><td>' + pct(ch.ctr) + '</td><td>' + qualityBadge(ch.quality) + '</td><td style="font-size:12px;">' + (ch.recommendation || '') + '</td></tr>';
+    });
+    document.getElementById('channelBody').innerHTML = html || '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">No channel data</td></tr>';
+}
+
+function qualityBadge(q) {
+    if (!q) return '--';
+    var color = q === 'High' ? 'var(--green)' : q === 'Medium' ? 'var(--amber)' : 'var(--red)';
+    return '<span style="color:' + color + ';font-weight:600;font-size:12px;">' + q + '</span>';
+}
+
+function renderCPC(d) {
+    var trends = d.cpc_trends || [];
+    var html = '';
+    trends.forEach(function(t) {
+        html += '<tr><td style="font-weight:600;color:var(--text)">' + (t.platform || '') + '</td>';
+        html += '<td>' + fmt(t.current_cpc) + '</td>';
+        html += '<td class="' + trendCls(t.trend_30d) + '">' + trendLabel(t.trend_30d) + '</td>';
+        html += '<td class="' + trendCls(t.trend_90d) + '">' + trendLabel(t.trend_90d) + '</td>';
+        html += '<td class="' + trendCls(t.yoy_change) + '">' + (t.yoy_change != null ? (t.yoy_change > 0 ? '+' : '') + t.yoy_change.toFixed(1) + '%' : '--') + '</td>';
+        html += '<td style="font-size:12px;color:var(--text-sec)">' + (t.forecast || '--') + '</td></tr>';
+    });
+    document.getElementById('cpcBody').innerHTML = html || '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">No trend data</td></tr>';
+}
+
+function trendCls(v) { return v > 0 ? 'trend-up' : v < 0 ? 'trend-down' : 'trend-flat'; }
+function trendLabel(v) { return v != null ? (v > 0 ? '+' : '') + v.toFixed(1) + '%' : '--'; }
+
+function renderSeasonal(d) {
+    var months = d.seasonal || [];
+    var html = '';
+    months.forEach(function(m) {
+        var cls = m.rank === 'best' ? 'best' : m.rank === 'worst' ? 'worst' : '';
+        html += '<div class="season-cell ' + cls + '"><div class="month">' + (m.month || '') + '</div><div class="rating">' + (m.label || m.score || '') + '</div></div>';
+    });
+    document.getElementById('seasonGrid').innerHTML = html || '<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text-muted)">No seasonal data</div>';
+}
+
+function renderRecs(d) {
+    var recs = d.recommendations || [];
+    var html = '';
+    recs.forEach(function(r, i) {
+        var impCls = r.impact >= 8 ? 'impact-high' : r.impact >= 5 ? 'impact-med' : 'impact-low';
+        html += '<div class="rec-card"><div class="rec-rank">' + (i + 1) + '</div><div class="rec-body"><div class="rec-title">' + (r.title || '') + '</div><div class="rec-desc">' + (r.description || '') + '</div></div><div class="rec-impact"><div class="rec-impact-score ' + impCls + '">' + (r.impact || 0) + '</div><div class="rec-impact-label">Impact</div></div></div>';
+    });
+    document.getElementById('recList').innerHTML = html || '<div style="text-align:center;padding:32px;color:var(--text-muted)">No recommendations</div>';
+}
+
+/* ---- Download ---- */
+async function download(type) {
+    if (!reportData) return;
+    var url = '/api/market-intel/download/' + type;
+    try {
+        var res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reportData)
+        });
+        if (!res.ok) throw new Error('Download failed');
+        var blob = await res.blob();
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'market-intel-report.' + (type === 'excel' ? 'xlsx' : 'pptx');
+        a.click();
+        URL.revokeObjectURL(a.href);
+    } catch (err) {
+        var errEl = document.getElementById('errorMsg');
+        errEl.textContent = 'Download failed: ' + err.message;
+        errEl.classList.add('active');
+        setTimeout(function() { errEl.classList.remove('active'); }, 4000);
+    }
+}
+
+/* ---- Enter key support ---- */
+document.querySelectorAll('.field input').forEach(function(inp) {
+    inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') generateReport(); });
+});
+</script>
+</body>
+</html>

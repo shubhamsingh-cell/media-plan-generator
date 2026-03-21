@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova AI Suite | Joveo — Recruitment Intelligence Platform</title>
+    <meta name="description" content="AI-powered recruitment intelligence suite by Joveo. Media planning, competitive intel, performance tracking, and 12+ tools for talent acquisition.">
+    <meta name="theme-color" content="#08090D">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #06060b;
+            --bg-secondary: #0a0a12;
+            --bg-card: rgba(12, 12, 22, 0.7);
+            --bg-card-hover: rgba(18, 18, 32, 0.85);
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --accent-glow-strong: rgba(99, 102, 241, 0.3);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: rgba(99, 102, 241, 0.1);
+            --border-hover: rgba(99, 102, 241, 0.3);
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --cyan: #06b6d4;
+            --rose: #f43f5e;
+            --radius: 16px;
+            --radius-sm: 10px;
+            --radius-xs: 6px;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Animated background ── */
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(ellipse 80% 60% at 50% -20%, rgba(99, 102, 241, 0.08), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 60%, rgba(6, 182, 212, 0.04), transparent),
+                radial-gradient(ellipse 50% 50% at 20% 80%, rgba(244, 63, 94, 0.03), transparent);
+        }
+
+        .grain {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.025;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        /* ── Navigation ── */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 0 2rem;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(6, 6, 11, 0.8);
+            backdrop-filter: blur(20px) saturate(1.5);
+            border-bottom: 1px solid var(--border);
+            transition: background 0.3s;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+
+        .nav-logo svg {
+            width: 32px;
+            height: 32px;
+        }
+
+        .nav-logo span {
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .nav-logo .suite-badge {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent-light);
+            background: var(--accent-glow);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 6px 14px;
+            border-radius: var(--radius-xs);
+            transition: all 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+            background: var(--accent-glow);
+        }
+
+        .nav-cta {
+            background: var(--accent) !important;
+            color: white !important;
+            font-weight: 600 !important;
+            padding: 8px 18px !important;
+            border-radius: var(--radius-sm) !important;
+        }
+
+        .nav-cta:hover {
+            background: var(--accent-light) !important;
+        }
+
+        /* ── Hero ── */
+        .hero {
+            position: relative;
+            z-index: 1;
+            padding: 140px 2rem 80px;
+            text-align: center;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--accent-glow);
+            border: 1px solid var(--border);
+            color: var(--accent-light);
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 6px 16px;
+            border-radius: 100px;
+            margin-bottom: 24px;
+            letter-spacing: 0.02em;
+        }
+
+        .hero-badge .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4.2rem);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #f1f5f9 0%, #c7d2fe 50%, #818cf8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: clamp(1rem, 2vw, 1.2rem);
+            color: var(--text-secondary);
+            max-width: 640px;
+            margin: 0 auto 36px;
+            line-height: 1.7;
+        }
+
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            margin-top: 48px;
+        }
+
+        .hero-stat {
+            text-align: center;
+        }
+
+        .hero-stat .num {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--accent-light);
+            letter-spacing: -0.02em;
+        }
+
+        .hero-stat .label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        /* ── Section titles ── */
+        .section {
+            position: relative;
+            z-index: 1;
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 60px 2rem;
+        }
+
+        .section-header {
+            margin-bottom: 40px;
+        }
+
+        .section-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+        }
+
+        .section-title span {
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        /* ── Flagship product (full-width card) ── */
+        .flagship {
+            position: relative;
+            z-index: 1;
+            max-width: 1240px;
+            margin: 0 auto 40px;
+            padding: 0 2rem;
+        }
+
+        .flagship-card {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: center;
+            padding: 48px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden;
+            backdrop-filter: blur(20px);
+            transition: border-color 0.3s, box-shadow 0.3s;
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+        }
+
+        .flagship-card:hover {
+            border-color: var(--border-hover);
+            box-shadow: 0 0 60px rgba(99, 102, 241, 0.08);
+        }
+
+        .flagship-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .flagship-card:hover::before { opacity: 1; }
+
+        .flagship-content h3 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: -0.01em;
+        }
+
+        .flagship-content p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.7;
+            margin-bottom: 20px;
+        }
+
+        .flagship-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .flagship-features .tag {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 4px 12px;
+            border-radius: 100px;
+            background: var(--accent-glow);
+            color: var(--accent-light);
+            border: 1px solid rgba(99, 102, 241, 0.1);
+        }
+
+        .flagship-preview {
+            position: relative;
+            background: rgba(15, 15, 25, 0.5);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .flagship-preview .mock-ui {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .mock-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, var(--accent), var(--cyan));
+        }
+
+        .mock-bar.w60 { width: 60%; }
+        .mock-bar.w80 { width: 80%; }
+        .mock-bar.w45 { width: 45%; }
+        .mock-bar.w70 { width: 70%; }
+
+        .mock-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .mock-cell {
+            flex: 1;
+            height: 32px;
+            border-radius: 6px;
+            background: rgba(99, 102, 241, 0.08);
+            border: 1px solid rgba(99, 102, 241, 0.06);
+        }
+
+        /* ── Product grid ── */
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .product-card {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            padding: 28px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            backdrop-filter: blur(16px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            color: inherit;
+            overflow: hidden;
+        }
+
+        .product-card:hover {
+            border-color: var(--border-hover);
+            background: var(--bg-card-hover);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 30px var(--accent-glow);
+        }
+
+        .product-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--card-accent, var(--accent)), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .product-card:hover::after { opacity: 1; }
+
+        .card-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+            background: var(--icon-bg, var(--accent-glow));
+            border: 1px solid var(--icon-border, rgba(99, 102, 241, 0.15));
+        }
+
+        .card-title {
+            font-size: 1.05rem;
+            font-weight: 650;
+            margin-bottom: 8px;
+            letter-spacing: -0.01em;
+        }
+
+        .card-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            flex: 1;
+        }
+
+        .card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .card-category {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+        }
+
+        .card-arrow {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-muted);
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+
+        .product-card:hover .card-arrow {
+            background: var(--accent);
+            color: white;
+            transform: translateX(2px);
+        }
+
+        .card-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 2px 8px;
+            border-radius: 4px;
+            position: absolute;
+            top: 16px;
+            right: 16px;
+        }
+
+        .card-status.live {
+            color: var(--success);
+            background: rgba(34, 197, 94, 0.1);
+        }
+
+        .card-status.beta {
+            color: var(--warning);
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .card-status.new {
+            color: var(--cyan);
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        /* ── Capability bar (marquee) ── */
+        .capabilities {
+            position: relative;
+            z-index: 1;
+            padding: 40px 0;
+            overflow: hidden;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            background: rgba(6, 6, 11, 0.5);
+        }
+
+        .marquee {
+            display: flex;
+            animation: marquee 40s linear infinite;
+            gap: 48px;
+            width: max-content;
+        }
+
+        .marquee-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .marquee-item .mi-icon {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            opacity: 0.5;
+        }
+
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* ── CTA section ── */
+        .cta-section {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 80px 2rem;
+        }
+
+        .cta-card {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 48px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(6, 182, 212, 0.04));
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+        }
+
+        .cta-card h3 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .cta-card p {
+            color: var(--text-secondary);
+            margin-bottom: 28px;
+        }
+
+        .cta-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 28px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .cta-btn:hover {
+            background: var(--accent-light);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25);
+        }
+
+        /* ── Footer ── */
+        .footer {
+            position: relative;
+            z-index: 1;
+            padding: 32px 2rem;
+            text-align: center;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .footer a {
+            color: var(--accent-light);
+            text-decoration: none;
+        }
+
+        .footer a:hover { text-decoration: underline; }
+
+        /* ── Animations ── */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .stagger-1 { transition-delay: 0.05s; }
+        .stagger-2 { transition-delay: 0.1s; }
+        .stagger-3 { transition-delay: 0.15s; }
+        .stagger-4 { transition-delay: 0.2s; }
+        .stagger-5 { transition-delay: 0.25s; }
+        .stagger-6 { transition-delay: 0.3s; }
+        .stagger-7 { transition-delay: 0.35s; }
+        .stagger-8 { transition-delay: 0.4s; }
+        .stagger-9 { transition-delay: 0.45s; }
+        .stagger-10 { transition-delay: 0.5s; }
+        .stagger-11 { transition-delay: 0.55s; }
+        .stagger-12 { transition-delay: 0.6s; }
+
+        /* ── Responsive ── */
+        @media (max-width: 1024px) {
+            .products-grid { grid-template-columns: repeat(2, 1fr); }
+            .flagship-card { grid-template-columns: 1fr; }
+            .flagship-preview { display: none; }
+        }
+
+        @media (max-width: 640px) {
+            .products-grid { grid-template-columns: 1fr; }
+            .hero { padding: 120px 1.5rem 60px; }
+            .hero-stats { gap: 24px; flex-wrap: wrap; }
+            .nav { padding: 0 1rem; }
+            .nav-links { display: none; }
+            .section { padding: 40px 1.5rem; }
+            .flagship-card { padding: 28px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .fade-in { transition: none; opacity: 1; transform: none; }
+            .marquee { animation: none; }
+            .product-card:hover { transform: none; }
+            @keyframes pulse-dot { 0%, 100% { opacity: 1; } }
+        }
+
+        /* ── Search / Filter ── */
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 16px 10px 40px;
+            background: rgba(15, 15, 25, 0.6);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .search-wrap {
+            position: relative;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .search-wrap .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            pointer-events: none;
+        }
+
+        .filter-btn {
+            padding: 10px 18px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            border-color: var(--accent);
+            color: var(--accent-light);
+            background: var(--accent-glow);
+        }
+
+        .no-results {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .no-results h4 { font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+    <div class="bg-mesh"></div>
+    <div class="grain"></div>
+
+    <!-- Navigation -->
+    <nav class="nav">
+        <a href="/" class="nav-logo">
+            <svg viewBox="0 0 32 32" fill="none">
+                <rect width="32" height="32" rx="8" fill="#6366F1"/>
+                <path d="M8 22V14l4-4 4 6 4-8 4 12" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Nova</span>
+            <span class="suite-badge">AI Suite</span>
+        </a>
+        <div class="nav-links">
+            <a href="#products">Products</a>
+            <a href="#analytics">Analytics</a>
+            <a href="#intelligence">Intelligence</a>
+            <a href="/media-plan" class="nav-cta">Generate Plan</a>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-badge fade-in">
+            <span class="dot"></span>
+            All systems operational
+        </div>
+        <h1 class="fade-in stagger-1">The Recruitment Intelligence Platform</h1>
+        <p class="fade-in stagger-2">
+            AI-powered tools for every stage of talent acquisition. From media planning to competitive intelligence, performance tracking to market research.
+        </p>
+        <div class="hero-stats fade-in stagger-3">
+            <div class="hero-stat">
+                <div class="num" id="product-count">14</div>
+                <div class="label">AI Products</div>
+            </div>
+            <div class="hero-stat">
+                <div class="num">91+</div>
+                <div class="label">Job Boards</div>
+            </div>
+            <div class="hero-stat">
+                <div class="num">25</div>
+                <div class="label">Live APIs</div>
+            </div>
+            <div class="hero-stat">
+                <div class="num">50+</div>
+                <div class="label">Industries</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Flagship Product -->
+    <div class="flagship">
+        <a href="/media-plan" class="flagship-card fade-in stagger-4">
+            <div class="flagship-content">
+                <span class="card-status live">Live</span>
+                <h3>Nova AI Media Plan Generator</h3>
+                <p>Our flagship product. Generate data-driven recruitment media plans powered by AI. Analyze 91+ job boards, optimize budgets with 5-tier data cascading, and export to Excel, PPT, or PDF with one click.</p>
+                <div class="flagship-features">
+                    <span class="tag">5-Tier Data Cascade</span>
+                    <span class="tag">25 Real-Time APIs</span>
+                    <span class="tag">Collar Intelligence</span>
+                    <span class="tag">Excel + PPT + PDF</span>
+                    <span class="tag">Budget Optimization</span>
+                    <span class="tag">AI Chat Assistant</span>
+                </div>
+            </div>
+            <div class="flagship-preview">
+                <div class="mock-ui">
+                    <div class="mock-row">
+                        <div class="mock-cell"></div>
+                        <div class="mock-cell"></div>
+                        <div class="mock-cell"></div>
+                    </div>
+                    <div class="mock-bar w80"></div>
+                    <div class="mock-bar w60"></div>
+                    <div class="mock-row">
+                        <div class="mock-cell"></div>
+                        <div class="mock-cell"></div>
+                    </div>
+                    <div class="mock-bar w70"></div>
+                    <div class="mock-bar w45"></div>
+                    <div class="mock-row">
+                        <div class="mock-cell"></div>
+                        <div class="mock-cell"></div>
+                        <div class="mock-cell"></div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Capability Marquee -->
+    <div class="capabilities">
+        <div class="marquee">
+            <div class="marquee-item"><span class="mi-icon"></span>Programmatic Advertising</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Budget Optimization</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Competitive Intelligence</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Performance Tracking</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Market Research</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Social Media Planning</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Talent Supply Analysis</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Skill-Based Targeting</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Quality of Hire Analytics</div>
+            <div class="marquee-item"><span class="mi-icon"></span>ATS Integration</div>
+            <div class="marquee-item"><span class="mi-icon"></span>API Platform</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Media Plan Audit</div>
+            <!-- Duplicate for seamless loop -->
+            <div class="marquee-item"><span class="mi-icon"></span>Programmatic Advertising</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Budget Optimization</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Competitive Intelligence</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Performance Tracking</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Market Research</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Social Media Planning</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Talent Supply Analysis</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Skill-Based Targeting</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Quality of Hire Analytics</div>
+            <div class="marquee-item"><span class="mi-icon"></span>ATS Integration</div>
+            <div class="marquee-item"><span class="mi-icon"></span>API Platform</div>
+            <div class="marquee-item"><span class="mi-icon"></span>Media Plan Audit</div>
+        </div>
+    </div>
+
+    <!-- Products Section -->
+    <section class="section" id="products">
+        <div class="section-header fade-in">
+            <div class="section-label">Product Suite</div>
+            <div class="section-title">Every tool you need <span>for recruitment advertising</span></div>
+        </div>
+
+        <div class="filter-bar fade-in">
+            <div class="search-wrap">
+                <span class="search-icon">&#128269;</span>
+                <input type="text" class="search-input" id="searchInput" placeholder="Search products...">
+            </div>
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="planning">Planning</button>
+            <button class="filter-btn" data-filter="analytics">Analytics</button>
+            <button class="filter-btn" data-filter="intelligence">Intelligence</button>
+            <button class="filter-btn" data-filter="tools">Tools</button>
+        </div>
+
+        <div class="products-grid" id="productsGrid">
+
+            <!-- 1. Budget Simulator -->
+            <a href="/simulator" class="product-card fade-in stagger-1" data-category="planning" data-keywords="budget simulator forecast scenario">
+                <span class="card-status live">Live</span>
+                <div class="card-icon" style="--icon-bg: rgba(34, 197, 94, 0.1); --icon-border: rgba(34, 197, 94, 0.15);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                </div>
+                <div class="card-title">Budget Simulator</div>
+                <div class="card-desc">Model recruitment budget scenarios with AI-driven forecasting. Simulate spend allocation across channels and predict outcomes.</div>
+                <div class="card-footer">
+                    <span class="card-category">Planning</span>
+                    <span class="card-arrow">&rarr;</span>
+                </div>
+            </a>
+
+            <!-- 2. Performance Tracker -->
+            <a href="/tracker" class="product-card fade-in stagger-2" data-category="analytics" data-keywords="performance tracker campaign kpi metrics">
+                <span class="card-status live">Live</span>
+                <div class="card-icon" style="--icon-bg: rgba(6, 182, 212, 0.1); --icon-border: rgba(6, 182, 212, 0.15);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M18 9l-5 5-2-2-4 4"/></svg>
+                </div>
+                <div class="card-title">Performance Tracker</div>
+                <div class="card-desc">Upload campaign data and get AI-powered performance analysis. Track CPA, CPC, conversion rates, and budget utilization across platforms.</div>
+                <div class="card-footer">
+                    <span class="card-category">Analytics</span>
+                    <span class="card-arrow">&rarr;</span>
+                </div>
+            </a>
+
+            <!-- 3. Competitive Intel -->
+            <a href="/competitive" class="product-card fade-in stagger-3" data-category="intelligence" data-keywords="competitive intelligence analysis competitor">
+                <span class="card-status live">Live</span>
+                <div class="card-icon" style="--icon-bg: rgba(244, 63, 94, 0.1); --icon-border: rgba(244, 63, 94, 0.15);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                </div>
+                <div class="card-title">Competitive Intel</div>
+                <div class="card-desc">Deep competitive analysis of hiring strategies, platform presence, and market positioning. Benchmark against your competitors.</div>
+                <div class="card-footer">
+                    <span class="card-category">Intelligence</span>
+                    <span class="card-arrow">&rarr;</span>
+                </div>
+            </a>
+
+            <!-- 4. Quick Plan -->
+            <a href="/quick-plan" class="product-card fade-in stagger-4" data-category="planning" data-keywords="quick plan fast instant media">
+                <span class="card-status live">Live</span>
+                <div class="card-icon" style="--icon-bg: rgba(245, 158, 11, 0.1); --icon-border: rgba(245, 158, 11, 0.15);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
+                <div class="card-title">Quick Plan</div>
+                <div class="card-desc">Generate a recruitment media plan in under 60 seconds. Minimal inputs, maximum intelligence. Perfect for rapid proposals.</div>
+                <div class="card-footer">
+                    <span class="card-category">Planning</span>
+                    <span class="card-arrow">&rarr;</span>
+                </div>
+            </a>
+
+            <!-- 5. Media Plan Audit -->
+            <a href="/audit" class="product-card fade-in stagger-5" data-category="analytics" data-keywords="audit review check existing media plan">
+                <span class="card-status live">Live</span>
+                <div class="card-icon" style="--icon-bg: rgba(168, 85, 247, 0.1); --icon-border: rgba(168, 85, 247, 0.15);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/></svg>
+                </div>
+                <div class="card-title">Media Plan Audit</div>
+                <div class="card-desc">Upload an existing media plan and get AI-powered audit with scoring, gap analysis, and optimization recommendations.</div>
+                <div class="card-footer">
+                    <span class="card-category">Analytics</span>
+                    <span class="card-arrow">&rarr;</span>
+                </div>
+            </a>
+
+            <!-- 6. Market Pulse -->
+            <a href="/market-pulse" class="product-card fade-in stagger-6" data-category="intelligence" data-keywords="market pulse trends real-time hiring">
+                <span class="card-status live">Live</span>
+                <div class="card-icon" style="--icon-bg: rgba(99, 102, 241, 0.1); --icon-border: rgba(99, 102, 241, 0.15);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round"><path d="M2 12h4l3-9 4 18 3-9h4"/></svg>
+                </div>
+                <div class="card-title">Market Pulse</div>
+                <div class="card-desc">Real-time recruitment market monitoring. Track hiring trends, salary movements, and platform performance across industries.</div>
+                <div class="card-footer">
+                    <span class="card-category">Intelligence</span>
+                    <span class="card-arrow">&rarr;</span>
+                </div>
+            </a>
+
+            <!-- 7. Social Plan -->
+            <a href="/social-plan" class="product-card fade-in stagger-7" data-category="planning" data-keywords="social media plan facebook linkedin instagram tiktok">
+                <span class="card-status new">New</span>
+                <div class="card-icon" style="--icon-bg: rgba(59, 130, 246, 0.1); --icon-border: rgba(59, 130, 246, 0.15);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>
+                </div>
+                <div class="card-title">Social Plan Generator</div>
+                <div class="card-desc">Create targeted social media recruitment campaigns across 9 platforms and 3 search engines. Collar-aware budget allocation.</div>
+                <div class="card-footer">
+                    <span class="card-category">Planning</span>
+                    <span class="card-arrow">&rarr;</span>
+                </div>
+            </a>
+
+            <!-- 8. HireSignal -->
+            <a href="/hire-signal" class="product-card fade-in stagger-8" data-category="analytics" data-keywords="hire signal quality source qoh retention">
+                <span class="card-status new">New</span>
+                <div class="card-icon" style="--icon-bg: rgba(16, 185, 129, 0.1); --icon-border: rgba(16, 185, 129, 0.15);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                </div>
+                <div class="card-title">HireSignal</div>
+                <div class="card-desc">Quality of hire analytics by source. Composite QoH scoring, funnel analysis, retention tracking, and cost-per-quality-hire.</div>
+                <div class="card-footer">
+                    <span class="card-category">Analytics</span>
+                    <span class="card-arrow">&rarr;</span>
+                </div>
+            </a>
+
+            <!-- 9. ApplyFlow -->
+            <a href="/applyflow" class="product-card fade-in stagger-9" data-category="tools" data-keywords="applyflow application tracking chatbot conversational">
+                <span class="card-status new">New</span>
+                <div class="card-icon" style="--icon-bg: rgba(236, 72, 153, 0.1); --icon-border: rgba(236, 72, 153, 0.15);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                </div>
+                <div class="card-title">ApplyFlow</div>
+                <div class="card-desc">Conversational application experience. AI-powered chat interface that guides candidates through the apply process seamlessly.</div>
+                <div class="card-footer">
+                    <span class="card-category">Tools</span>
+                    <span class="card-arrow">&rarr;</span>
+                </div>
+            </a>
+
+            <!-- 10. API Portal -->
+            <a href="/api-portal" class="product-card fade-in stagger-10" data-category="tools" data-keywords="api portal developer key management endpoint">
+                <span class="card-status new">New</span>
+                <div class="card-icon" style="--icon-bg: rgba(14, 165, 233, 0.1); --icon-border: rgba(14, 165, 233, 0.15);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg>
+                </div>
+                <div class="card-title">API Portal</div>
+                <div class="card-desc">Developer portal with API key management, usage analytics, and OpenAPI 3.0 documentation. Three-tier access control.</div>
+                <div class="card-footer">
+                    <span class="card-category">Tools</span>
+                    <span class="card-arrow">&rarr;</span>
+                </div>
+            </a>
+
+            <!-- 11. Talent Heat Map -->
+            <a href="/talent-heatmap" class="product-card fade-in stagger-11" data-category="intelligence" data-keywords="talent heatmap geography salary supply heat map">
+                <span class="card-status new">New</span>
+                <div class="card-icon" style="--icon-bg: rgba(239, 68, 68, 0.1); --icon-border: rgba(239, 68, 68, 0.15);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                </div>
+                <div class="card-title">Talent Heat Map</div>
+                <div class="card-desc">Visualize hiring difficulty, salary benchmarks, and talent supply across 60+ metros. Competition index and cost-of-living factors.</div>
+                <div class="card-footer">
+                    <span class="card-category">Intelligence</span>
+                    <span class="card-arrow">&rarr;</span>
+                </div>
+            </a>
+
+            <!-- 12. Market Intel Reports -->
+            <a href="/market-intel" class="product-card fade-in stagger-12" data-category="intelligence" data-keywords="market intelligence reports research industry">
+                <span class="card-status beta">Beta</span>
+                <div class="card-icon" style="--icon-bg: rgba(251, 191, 36, 0.1); --icon-border: rgba(251, 191, 36, 0.15);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+                </div>
+                <div class="card-title">Market Intel Reports</div>
+                <div class="card-desc">Comprehensive market intelligence reports with salary benchmarks, talent supply analysis, and strategic recommendations by industry.</div>
+                <div class="card-footer">
+                    <span class="card-category">Intelligence</span>
+                    <span class="card-arrow">&rarr;</span>
+                </div>
+            </a>
+
+            <!-- 13. SkillTarget -->
+            <a href="/skill-target" class="product-card fade-in stagger-12" data-category="planning" data-keywords="skill target targeting channel recommendation">
+                <span class="card-status beta">Beta</span>
+                <div class="card-icon" style="--icon-bg: rgba(139, 92, 246, 0.1); --icon-border: rgba(139, 92, 246, 0.15);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                </div>
+                <div class="card-title">SkillTarget</div>
+                <div class="card-desc">Skill-based channel targeting engine. Map required skills to optimal recruitment platforms with rarity scoring and budget allocation.</div>
+                <div class="card-footer">
+                    <span class="card-category">Planning</span>
+                    <span class="card-arrow">&rarr;</span>
+                </div>
+            </a>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section">
+        <div class="cta-card fade-in">
+            <h3>Ready to transform your recruitment advertising?</h3>
+            <p>Start with our flagship Media Plan Generator, or explore the full suite of AI-powered tools.</p>
+            <a href="/media-plan" class="cta-btn">
+                Generate Your First Plan
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>Nova AI Suite &mdash; Built by <a href="https://joveo.com" target="_blank" rel="noopener">Joveo</a> &middot; Powered by AI &middot; 2024&ndash;2026</p>
+    </footer>
+
+    <script>
+    (function() {
+        // ── Intersection Observer for fade-in animations ──
+        const observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.fade-in').forEach(function(el) {
+            observer.observe(el);
+        });
+
+        // ── Search ──
+        var searchInput = document.getElementById('searchInput');
+        var grid = document.getElementById('productsGrid');
+        var cards = grid.querySelectorAll('.product-card');
+        var filterBtns = document.querySelectorAll('.filter-btn');
+        var currentFilter = 'all';
+
+        function filterCards() {
+            var query = searchInput.value.toLowerCase().trim();
+            var visibleCount = 0;
+
+            cards.forEach(function(card) {
+                var title = card.querySelector('.card-title').textContent.toLowerCase();
+                var desc = card.querySelector('.card-desc').textContent.toLowerCase();
+                var keywords = (card.dataset.keywords || '').toLowerCase();
+                var category = card.dataset.category || '';
+
+                var matchesSearch = !query || title.includes(query) || desc.includes(query) || keywords.includes(query);
+                var matchesFilter = currentFilter === 'all' || category === currentFilter;
+
+                if (matchesSearch && matchesFilter) {
+                    card.style.display = '';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            // Show/hide no results
+            var existing = grid.querySelector('.no-results');
+            if (visibleCount === 0) {
+                if (!existing) {
+                    var div = document.createElement('div');
+                    div.className = 'no-results';
+                    div.innerHTML = '<h4>No products found</h4><p>Try a different search term or filter.</p>';
+                    grid.appendChild(div);
+                }
+            } else if (existing) {
+                existing.remove();
+            }
+        }
+
+        searchInput.addEventListener('input', filterCards);
+
+        filterBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                filterBtns.forEach(function(b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                filterCards();
+            });
+        });
+
+        // ── Keyboard shortcut: / to focus search ──
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '/' && document.activeElement !== searchInput) {
+                e.preventDefault();
+                searchInput.focus();
+            }
+        });
+    })();
+    </script>
+</body>
+</html>
