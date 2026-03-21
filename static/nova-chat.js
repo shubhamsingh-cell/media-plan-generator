@@ -152,6 +152,7 @@
       + '}'
       + '.nova-close-btn:hover { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.2); }'
       + '.nova-close-btn svg { width: 18px; height: 18px; }'
+      + '.nova-export-btn:hover { background: rgba(255,255,255,0.1) !important; color: #fff !important; border-color: rgba(255,255,255,0.2) !important; }'
 
       // ── Messages area ──
       + '.nova-messages {'
@@ -383,6 +384,10 @@
     iq: '<svg viewBox="0 0 24 24" fill="currentColor">'
       + '<path d="M12 2L14.5 8.5L21 11L14.5 13.5L12 20L9.5 13.5L3 11L9.5 8.5L12 2Z" opacity="0.9"/>'
       + '<path d="M19 2L20 5L23 6L20 7L19 10L18 7L15 6L18 5L19 2Z" opacity="0.6"/>'
+      + '</svg>',
+    export: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+      + '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>'
+      + '<polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'
       + '</svg>',
   };
 
@@ -704,7 +709,19 @@
       + '    <div class="nova-header-subtitle">Your Recruitment Intelligence, Illuminated</div>'
       + '  </div>'
       + '</div>'
-      + '<button class="nova-close-btn" aria-label="Close chat">' + ICONS.close + '</button>';
+      + '<div style="display:flex;align-items:center;gap:6px;">'
+      + '<button class="nova-export-btn" aria-label="Export conversation" title="Export conversation" style="'
+      + 'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);'
+      + 'color:rgba(255,255,255,0.7);cursor:pointer;padding:5px;border-radius:8px;line-height:1;'
+      + 'transition:all 0.2s;">'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+      + 'stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">'
+      + '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>'
+      + '<polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+      + '</button>'
+      + '<button class="nova-close-btn" aria-label="Close chat">' + ICONS.close + '</button>'
+      + '</div>';
+    header.querySelector('.nova-export-btn').addEventListener('click', exportConversation);
     header.querySelector('.nova-close-btn').addEventListener('click', togglePanel);
     panel.appendChild(header);
 
@@ -977,6 +994,68 @@
   function hideTyping() {
     var el = document.getElementById('nova-typing');
     if (el) el.remove();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Export conversation
+  // ---------------------------------------------------------------------------
+  function collectConversationHistory() {
+    var history = [];
+    state.messages.forEach(function (m) {
+      if (m.role === 'user' || m.role === 'assistant') {
+        var entry = { role: m.role, content: m.content };
+        if (m.timestamp) entry.timestamp = m.timestamp;
+        if (m.sources) entry.sources = m.sources;
+        if (m.confidence) entry.confidence = m.confidence;
+        history.push(entry);
+      }
+    });
+    return history;
+  }
+
+  function exportConversation() {
+    var history = collectConversationHistory();
+    if (!history.length) {
+      appendMessage({ role: 'assistant', content: 'No conversation to export yet. Start chatting first!' }, false);
+      return;
+    }
+
+    var payload = {
+      conversation_history: history,
+      metadata: {
+        session_id: state.sessionId || '',
+        export_date: new Date().toISOString(),
+      },
+    };
+
+    fetch('/api/nova/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.blob();
+      })
+      .then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'nova-conversation-export.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch(function (err) {
+        console.error('Nova export error:', err);
+        appendMessage({
+          role: 'assistant',
+          content: 'Failed to export conversation. Please try again.',
+          sources: [],
+          confidence: 0,
+        }, false);
+      });
   }
 
   // ---------------------------------------------------------------------------

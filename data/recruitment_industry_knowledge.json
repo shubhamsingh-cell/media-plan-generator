@@ -2,7 +2,7 @@
   "metadata": {
     "title": "Recruitment Industry Knowledge Base",
     "description": "Comprehensive recruitment industry data compiled from major job boards, recruitment marketing platforms, TA tech products, and industry reports from 2025-2026",
-    "last_updated": "2026-03-08",
+    "last_updated": "2026-03-22",
     "data_period": "2025-2026",
     "version": "2.0",
     "update_notes": "Major update with latest data from Appcast 2026, SHRM 2025, iCIMS 2026, BLS JOLTS Dec 2025, Indeed Hiring Lab Feb 2026, WordStream/LOCALiQ 2025, IMF Jan 2026, Gartner 2026, Deloitte 2026 Global Human Capital Trends, PwC AI Jobs Barometer 2025, McKinsey AI workforce research, and SIA staffing forecasts"
@@ -117,7 +117,11 @@
           "average_ctr": "0.84%",
           "ctr_range": "0.5%-1.5%",
           "best_for_recruitment": "Entry-level, early-career, Gen Z roles, hourly positions",
-          "ad_formats_for_recruitment": ["In-Feed Ads", "Spark Ads", "UGC-style day-in-the-life content"],
+          "ad_formats_for_recruitment": [
+            "In-Feed Ads",
+            "Spark Ads",
+            "UGC-style day-in-the-life content"
+          ],
           "vs_other_platforms": "42% cheaper CPC than Facebook ($1.72) and 65% cheaper than Instagram ($3.56)",
           "notes": "TikTok does not publish recruitment-specific CPC benchmarks. Estimated range based on general benchmarks and niche/moderate competition category. Strong for Gen Z candidate attraction with authentic employer branding content.",
           "_source": "Varos, Lebesgue, WebFX, AdBacklog, Quimby Digital (aggregated 2025-2026)",
@@ -148,7 +152,11 @@
           "minimum_daily_budget": "$5.00",
           "vs_meta_ads": "42% cheaper per click than Facebook, 69% more clicks at lower CPMs",
           "best_for_recruitment": "Tech roles, niche communities, passive candidate engagement, subreddit-targeted hiring",
-          "ad_formats_for_recruitment": ["Promoted Posts", "Conversation Ads", "Subreddit-targeted campaigns"],
+          "ad_formats_for_recruitment": [
+            "Promoted Posts",
+            "Conversation Ads",
+            "Subreddit-targeted campaigns"
+          ],
           "notes": "Reddit remains one of the most affordable social ad platforms. Best for tech/startup hiring campaigns targeting specific subreddit communities (r/cscareerquestions, r/jobs, r/recruiting). CPC trending upward as platform ad revenue grows 39% YoY.",
           "_source": "Varos, WordStream, AdBacklog, Marketing LTB, Aimers (aggregated 2025-2026)",
           "year": "2025-2026"
@@ -659,7 +667,12 @@
         "mckinsey_productivity_gain": "Employees hired based on skills are 30% more productive in first 6 months vs degree-based hires",
         "_source": "TestGorilla, McKinsey"
       },
-      "leaders": ["IBM", "Google", "Delta Air Lines", "Bank of America"],
+      "leaders": [
+        "IBM",
+        "Google",
+        "Delta Air Lines",
+        "Bank of America"
+      ],
       "workday_study": {
         "moved_to_skills_model": "55% of employers",
         "plan_to_within_year": "23%"
@@ -685,12 +698,28 @@
         "new_postings_remote_q4_2025": "11%"
       },
       "by_industry": {
-        "marketing_creative": {"hybrid": "30%", "remote": "14%"},
-        "technology": {"hybrid": "29%", "remote": "13%"},
-        "legal": {"hybrid": "32%", "remote": "9%"},
-        "finance_accounting": {"hybrid": "27%", "remote": "9%"},
-        "healthcare": {"fully_onsite": "80%"},
-        "admin_customer_support": {"fully_onsite": "80%"}
+        "marketing_creative": {
+          "hybrid": "30%",
+          "remote": "14%"
+        },
+        "technology": {
+          "hybrid": "29%",
+          "remote": "13%"
+        },
+        "legal": {
+          "hybrid": "32%",
+          "remote": "9%"
+        },
+        "finance_accounting": {
+          "hybrid": "27%",
+          "remote": "9%"
+        },
+        "healthcare": {
+          "fully_onsite": "80%"
+        },
+        "admin_customer_support": {
+          "fully_onsite": "80%"
+        }
       },
       "employee_preferences": {
         "prefer_hybrid": "83% globally",
@@ -1002,16 +1031,23 @@
     },
     "greenhouse": {
       "name": "Greenhouse",
-      "type": "TA Tech / ATS Platform",
-      "key_data": {
-        "applications_per_role_vs_2021": "Nearly 3x",
-        "ai_in_hiring_survey_2025": "1,200 job seekers, 219 recruiters, 446 hiring managers",
-        "ai_screening_as_first_filter": "Common practice",
-        "hiring_managers_using_ai_screening": "25%",
-        "unsure_what_ai_prioritizes": "8%"
+      "type": "applicant_tracking_system",
+      "hq": "New York, NY",
+      "founded": 2012,
+      "funding": "$110M + $497M from TPG",
+      "valuation": "$820M (2021)",
+      "employees": 931,
+      "product": "#1 rated ATS on G2 (Winter 2026)",
+      "key_innovation": {
+        "real_talent": "Real Talent anti-fraud system -- candidate fraud detection with CLEAR identity verification",
+        "context": "AI-generated resumes and fake interview candidates are a growing epidemic; Greenhouse is first ATS to address this"
       },
-      "source": "Greenhouse 2025 Workforce & Hiring Report, AI in Hiring Report",
-      "year": "2025-2026"
+      "other_products": [
+        "Greenhouse Analytics",
+        "Greenhouse Scheduling"
+      ],
+      "competitive_advantage": "Most trusted ATS brand; first to market with anti-fraud for recruitment",
+      "source": "Market Research 2026"
     },
     "smartrecruiters": {
       "name": "SmartRecruiters",
@@ -1026,41 +1062,79 @@
     },
     "phenom": {
       "name": "Phenom",
-      "type": "TA Tech / Intelligent Talent Experience Platform",
-      "key_data": {
-        "average_interview_duration": "23 days with 4 rounds",
-        "key_focus": "AI-powered screening, scheduling, interviewing, evaluation",
-        "employer_brand": "Strong employer brand is non-negotiable in 2025-2026"
-      },
-      "source": "Phenom Recruiting Trends Analysis 2025",
-      "year": "2025"
+      "type": "intelligent_talent_experience_platform",
+      "hq": "Ambler, PA",
+      "founded": 2010,
+      "funding": "$169M total",
+      "valuation": "$1.3B",
+      "revenue": "$232.2M (2024), up from $143.2M (2023) and $85M (2021)",
+      "employees": 2040,
+      "customers": 1500,
+      "product": "Full intelligent talent experience platform",
+      "offerings": [
+        "Career site",
+        "Chatbot",
+        "CRM",
+        "AI scheduling",
+        "Video assessments",
+        "Talent marketplace",
+        "Career pathing"
+      ],
+      "key_innovation": "X+ Agents -- multi-model agentic AI working in parallel",
+      "ai_features": [
+        "AI Interviewer",
+        "Advanced Screening",
+        "Performance Intelligence"
+      ],
+      "recognition": "Deloitte Fast 500",
+      "competitive_advantage": "Revenue machine with full talent lifecycle coverage; X+ Agents is differentiated multi-model agentic AI",
+      "source": "Market Research 2026"
     },
     "eightfold_ai": {
       "name": "Eightfold AI",
-      "type": "Talent Intelligence Platform",
-      "key_data": {
-        "career_profiles": "1.6+ billion",
-        "skills_mapped": "1.6+ million",
-        "valuation": "$2.1 billion (June 2021)",
-        "employees": 281,
-        "internal_fill_rate_increase": "15-25%",
-        "key_partnership": "S&P Global (October 2025)",
-        "products": "AI Recruiting, Talent Intelligence, Workforce Transformation, AI Interviewer"
-      },
-      "source": "Eightfold AI Company Data, Gartner/Eightfold Reports",
-      "year": "2025-2026"
+      "type": "talent_intelligence_platform",
+      "hq": "Santa Clara, CA",
+      "founded": 2016,
+      "funding": "$410M total",
+      "valuation": "$2.1B (2021); projected $3-4B (2025), potentially $5B+ (2026)",
+      "profiles": "1.6B+",
+      "skills_tracked": "1.6M+",
+      "technology": "Deep learning (not keyword matching)",
+      "key_features": [
+        "Agentic AI screening 24/7",
+        "Generative Copilots",
+        "AI Interviewer",
+        "Digital Twins for institutional knowledge preservation"
+      ],
+      "clients": [
+        "Bayer",
+        "Vodafone",
+        "Micron",
+        "US Air Force"
+      ],
+      "reach": "155 countries, 24 languages",
+      "certifications": "FedRAMP Moderate authorized",
+      "competitive_advantage": "Most comprehensive talent intelligence platform; deep learning across 1.6B+ profiles; Digital Twins concept is unique",
+      "source": "Market Research 2026"
     },
     "beamery": {
       "name": "Beamery",
-      "type": "Talent Lifecycle Management Platform",
-      "key_data": {
-        "forrester_roi": "467% return on investment",
-        "pipeline_quality_assurance": "Flags 10-20% duplicate/stale candidates",
-        "user_sentiment_rating": "83/100 (171 reviews)",
-        "focus": "AI-powered sourcing, hiring, upskilling, internal mobility"
-      },
-      "source": "Beamery Forrester ROI Study, SelectHub Reviews",
-      "year": "2024-2025"
+      "type": "talent_lifecycle_management",
+      "hq": "London, UK",
+      "founded": 2014,
+      "funding": "$228M total",
+      "valuation": "$1B+ (2022)",
+      "product": "Talent lifecycle management platform; workforce intelligence; CRM",
+      "key_feature": "Ray -- agentic AI consultant for workforce planning",
+      "clients": [
+        "GM",
+        "J&J",
+        "Salesforce",
+        "Wells Fargo"
+      ],
+      "differentiator": "European AI Pact signatory; independent bias audit; Workday integration",
+      "competitive_advantage": "Strongest workforce intelligence and planning capabilities; responsible AI leadership in Europe",
+      "source": "Market Research 2026"
     },
     "hirevue": {
       "name": "HireVue",
@@ -1144,6 +1218,51 @@
       },
       "source": "Totaljobs Hiring Trends 2026, StepStone Salary Report 2026",
       "year": "2025-2026"
+    },
+    "gem": {
+      "name": "Gem",
+      "type": "ai_first_ats_crm_sourcing",
+      "hq": "Rancho Santa Margarita, CA",
+      "founded": 2017,
+      "funding": "$148M total",
+      "valuation": "$1.2B",
+      "employees": 503,
+      "customers": "1,200+",
+      "product": "AI-first all-in-one recruiting platform (ATS + CRM + sourcing + scheduling + analytics + 800M+ profiles)",
+      "rating": "4.8/5 on G2 (industry's most-loved)",
+      "clients": [
+        "Airbnb",
+        "Wayfair",
+        "DoorDash",
+        "Zillow"
+      ],
+      "pricing": "From $270/month; free for teams <30",
+      "growth": "70% increase in enterprise deal sizes",
+      "competitive_advantage": "Recruiter's favorite tool; pioneered recruiting CRM category; strong product-led growth",
+      "source": "Market Research 2026"
+    },
+    "ashby": {
+      "name": "Ashby",
+      "type": "all_in_one_recruiting_software",
+      "hq": "San Francisco, CA",
+      "founded": 2018,
+      "funding": "$128M total ($50M Series D, July 2025)",
+      "employees": 401,
+      "customers": "2,700+",
+      "product": "All-in-one recruiting software (ATS + CRM + sourcing + scheduling + analytics)",
+      "growth": "135% ARR growth; customer base doubled in one year",
+      "clients": [
+        "OpenAI",
+        "Shopify",
+        "Notion",
+        "Cursor",
+        "Ramp",
+        "Harvey.ai",
+        "Snowflake"
+      ],
+      "financial_discipline": "Sub-1.0 burn multiple; majority of Series C still in bank",
+      "competitive_advantage": "Fastest growing ATS; capturing share from Greenhouse and Lever; strong product-market fit with modern tech companies",
+      "source": "Market Research 2026"
     }
   },
   "regional_data": {
@@ -2158,6 +2277,117 @@
       "data_period": "2025-2026",
       "type": "Market Index",
       "methodology": "15 million data points per day across hundreds of customers and publishers"
+    },
+    "Recruitment Technology Landscape Report 2025-2026 (Joveo Strategic Research)"
+  ],
+  "competitive_landscape_2026": {
+    "last_updated": "2026-03-22",
+    "source": "Recruitment Technology Landscape Report 2025-2026",
+    "market_dynamics": {
+      "consolidation_accelerating": [
+        "Workday acquired HiredScore (Q1 FY2025) and Paradox (October 2025) -- building most complete enterprise hiring stack",
+        "Salesforce acquired Moonhub (June 2025) -- AI recruiting agents for Agentforce",
+        "Meta invested $14.3B for 49% stake in Scale AI",
+        "Bullhorn acquired TargetRecruit (August 2025) -- Salesforce ecosystem expansion to 150K users",
+        "Radancy acquired myInterview (September 2025) -- AI video interviewing",
+        "Findem acquired Getro (December 2025) -- Intelligent Job Posts",
+        "Shaker acquired JobAdX (2025) -- programmatic exchange",
+        "Recruitics acquired Change State (August 2025) -- recruitment marketing consulting",
+        "Mercor acquired Sepal AI (February 2026)",
+        "Humanly acquired Sprockets + Qualifi + HourWork (March 2026) -- end-to-end conversational hiring",
+        "Appcast absorbed Bayard Advertising (2023)"
+      ],
+      "pattern": "Large platform companies (Workday, Salesforce, Meta) are acquiring specialized AI recruiting tools. Mid-market consolidation is creating full-stack platforms. Pure-play point solutions are being absorbed into larger ecosystems.",
+      "bifurcation": "Programmatic space splitting into pure tech platforms and full-stack recruitment marketing clouds"
+    },
+    "hottest_companies_2026": [
+      {
+        "rank": 1,
+        "company": "Mercor",
+        "valuation": "$10B",
+        "funding": "$519M",
+        "hot_because": "Fastest-growing company in rec-tech history. From $0 to $10B in ~2 years. 30K+ contractors paid $1.5M/day. Capturing data labeling demand."
+      },
+      {
+        "rank": 2,
+        "company": "Paradox (Olivia)",
+        "status": "Acquired by Workday",
+        "hot_because": "Schedules 1 in 10 US job interviews (32M/year). 99.78% candidate satisfaction. Dominant in high-volume hourly hiring."
+      },
+      {
+        "rank": 3,
+        "company": "Juicebox (PeopleGPT)",
+        "funding": "$36M (Sequoia-backed)",
+        "hot_because": "800M+ profiles searchable in natural language. 25K+ recruiters. 20%+ monthly growth. No sales team -- pure product-led growth."
+      },
+      {
+        "rank": 4,
+        "company": "Ashby",
+        "funding": "$128M",
+        "hot_because": "135% ARR growth. Customer base doubled to 2,700+. Clients include OpenAI, Shopify, Notion, Cursor."
+      },
+      {
+        "rank": 5,
+        "company": "Paraform",
+        "funding": "$65.6M",
+        "valuation": "$185M+",
+        "hot_because": "40x revenue growth since 2024 seed. Reinventing recruiter marketplace. Recruiters earn 3-5x traditional pay."
+      },
+      {
+        "rank": 6,
+        "company": "Findem",
+        "funding": "$105M",
+        "hot_because": "Expert-labeled data approach is differentiated. 'Success Signals' predict who will thrive. 3x YoY growth."
+      },
+      {
+        "rank": 7,
+        "company": "Eightfold AI",
+        "valuation": "$2.1B+ (projected $3-5B)",
+        "funding": "$410M",
+        "hot_because": "Most comprehensive talent intelligence platform. 1.6B+ profiles. FedRAMP authorized. Serving US Air Force."
+      },
+      {
+        "rank": 8,
+        "company": "Phenom",
+        "funding": "$169M",
+        "revenue": "$232M",
+        "hot_because": "Revenue machine -- $85M (2021) to $232M (2024). 1,500 customers. X+ Agents multi-model agentic AI."
+      },
+      {
+        "rank": 9,
+        "company": "Micro1",
+        "funding": "$41.6M",
+        "valuation": "$500M",
+        "hot_because": "$7M to $50M ARR in one year. AI recruiter 'Zara' conducted 400K+ interviews."
+      },
+      {
+        "rank": 10,
+        "company": "Gem",
+        "funding": "$148M",
+        "valuation": "$1.2B",
+        "hot_because": "Recruiter's favorite tool (4.8/5 on G2). 1,200+ companies. 70% increase in enterprise deals."
+      }
+    ],
+    "honorable_mentions": [
+      {
+        "company": "HiredScore (Workday)",
+        "note": "First major AI-for-recruiting acquisition by an HCM giant; setting standard for responsible AI in hiring"
+      },
+      {
+        "company": "Radancy",
+        "note": "Quietly building most complete talent acquisition cloud with agentic AI; 4,600+ customers"
+      },
+      {
+        "company": "Talroo",
+        "note": "Dominating frontline hiring with SmartQualify; 1B+ monthly job searches; multiple 2025 awards"
+      }
+    ],
+    "key_trends": {
+      "agentic_ai_era": "2026 marks the shift from conversational AI to autonomous agentic AI in recruitment",
+      "data_labeling_convergence": "AI data labeling and recruitment are converging (Mercor, Micro1, Scale AI)",
+      "platform_wars": "Workday vs Salesforce vs independent platforms for the future of enterprise recruiting",
+      "mid_market_opportunity": "Enterprise solutions are complex and expensive; mid-market programmatic gap is massive",
+      "fraud_detection_emerging": "AI-generated fake candidates becoming epidemic; fraud detection becoming table-stakes"
     }
-  ]
+  }
 }

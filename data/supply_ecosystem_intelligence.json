@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-08",
+  "last_updated": "2026-03-22",
   "version": "1.0",
   "description": "Comprehensive supply ecosystem intelligence for Joveo's programmatic job advertising platform. Covers the full programmatic recruitment advertising supply chain, publisher tiers, performance benchmarks, competitive landscape, advertising economics, and emerging trends.",
   "sources": [
@@ -21,9 +21,9 @@
     "Joveo Internal Publisher Network Data (10,238 active Supply Partners)",
     "Global Supply Database (20+ countries)",
     "Broadbean Programmatic Recruitment Guide",
-    "SelectSoftware Programmatic Advertising Platforms Comparison 2026"
+    "SelectSoftware Programmatic Advertising Platforms Comparison 2026",
+    "Recruitment Technology Landscape Report 2025-2026 (Joveo Strategic Research)"
   ],
-
   "programmatic_ecosystem": {
     "how_it_works": {
       "overview": "Programmatic job advertising uses technology to automate the buying, placement, distribution, and optimization of job ads across the internet. It applies machine-driven, rules-based approaches to buying recruitment media, ensuring the most relevant and effective use of budget. Unlike traditional job posting where recruiters manually select boards and negotiate rates, programmatic platforms automate the entire process using AI and real-time data.",
@@ -39,10 +39,31 @@
       ],
       "xml_feed_mechanics": {
         "description": "XML feeds are the primary mechanism for transferring job data between systems in programmatic recruitment. They contain structured job listing data in a standardized format.",
-        "typical_fields": ["job_title", "company_name", "location_city", "location_state", "location_country", "job_description", "requirements", "salary_range", "apply_url", "job_reference_id", "category", "job_type", "date_posted", "date_expires"],
+        "typical_fields": [
+          "job_title",
+          "company_name",
+          "location_city",
+          "location_state",
+          "location_country",
+          "job_description",
+          "requirements",
+          "salary_range",
+          "apply_url",
+          "job_reference_id",
+          "category",
+          "job_type",
+          "date_posted",
+          "date_expires"
+        ],
         "feed_frequency": "Most feeds update every 1-6 hours. High-volume employers may have real-time API connections.",
         "feed_flow": "ATS/Employer --> Programmatic Platform (e.g., Joveo MOJO) --> Publisher XML Feeds --> Publisher Websites",
-        "common_formats": ["Indeed XML", "Appcast XML", "Custom XML schemas", "JSON feeds via API", "JobPosting structured data (Schema.org)"]
+        "common_formats": [
+          "Indeed XML",
+          "Appcast XML",
+          "Custom XML schemas",
+          "JSON feeds via API",
+          "JobPosting structured data (Schema.org)"
+        ]
       },
       "bidding_models": {
         "cpc": {
@@ -63,7 +84,13 @@
           "name": "Cost Per Qualified Application (Joveo's signature metric)",
           "description": "Advertiser pays based on the cost of acquiring applications that meet predefined quality criteria (skills match, location fit, likelihood of hire and retention). Goes beyond CPA by filtering for genuine candidate-job fit.",
           "calculation": "Total Spend / Number of Qualified Applications",
-          "quality_criteria": ["Skills and competency match for the role", "Geographic fit (location/willingness to relocate)", "Likelihood of hire based on profile alignment", "Likelihood of retention (not just quick churn)", "Intent signals (genuine interest vs. spray-and-pray applying)"],
+          "quality_criteria": [
+            "Skills and competency match for the role",
+            "Geographic fit (location/willingness to relocate)",
+            "Likelihood of hire based on profile alignment",
+            "Likelihood of retention (not just quick churn)",
+            "Intent signals (genuine interest vs. spray-and-pray applying)"
+          ],
           "typical_range": "$10.00 - $100.00+",
           "joveo_differentiation": "Joveo argues that most CPQA implementations use superficial criteria (like zip code proximity). True CPQA requires deeper analysis of candidate-job fit, intent, and predicted retention. Joveo's CPQA model uses hyper-personalized filtering that goes beyond keyword matching.",
           "why_it_matters_in_2025_2026": "With AI-generated resumes flooding applications (53% of job seekers use GenAI), surface-level matching is insufficient. CPQA ensures advertising spend drives actual hiring outcomes, not just application volume."
@@ -267,7 +294,6 @@
       }
     }
   },
-
   "publisher_tiers": {
     "tier_1_premium": {
       "description": "Major job boards with the highest traffic, brand recognition, and candidate trust. These publishers command premium CPCs but deliver the largest volume of applications. Essential for any recruitment advertising campaign.",
@@ -280,11 +306,25 @@
           "click_to_apply_rate": "5-8% (varies by industry and apply flow)",
           "application_response_rate": "20-25% (highest among major boards)",
           "mobile_traffic_split": "~70% mobile, ~30% desktop",
-          "best_for": ["Volume hiring", "Blue-collar/hourly roles", "General positions", "Geographic targeting"],
+          "best_for": [
+            "Volume hiring",
+            "Blue-collar/hourly roles",
+            "General positions",
+            "Geographic targeting"
+          ],
           "geographic_coverage": "60+ countries",
           "programmatic_integration": "Full XML feed integration, Sponsored Jobs API, Publisher Program",
-          "key_strengths": ["Massive traffic volume", "Strong apply rates", "SEO dominance", "Broad industry coverage"],
-          "key_weaknesses": ["Rising CPCs (+27% in 2024)", "Quality variability with high volume", "Shift to PPSA model increases costs for some"],
+          "key_strengths": [
+            "Massive traffic volume",
+            "Strong apply rates",
+            "SEO dominance",
+            "Broad industry coverage"
+          ],
+          "key_weaknesses": [
+            "Rising CPCs (+27% in 2024)",
+            "Quality variability with high volume",
+            "Shift to PPSA model increases costs for some"
+          ],
           "recent_changes_2025_2026": [
             "Indeed Connect premium tier launched Jan 2026",
             "1,300 layoffs July 2025",
@@ -308,11 +348,27 @@
             "healthcare_b2b": "$3.00-$5.00"
           },
           "mobile_traffic_split": "~60% mobile, ~40% desktop",
-          "best_for": ["White-collar/professional roles", "Executive/senior positions", "Tech/engineering", "Passive candidate reach", "Employer branding"],
+          "best_for": [
+            "White-collar/professional roles",
+            "Executive/senior positions",
+            "Tech/engineering",
+            "Passive candidate reach",
+            "Employer branding"
+          ],
           "geographic_coverage": "200+ countries, strongest in US, UK, India, Europe",
           "programmatic_integration": "LinkedIn Ads API, limited programmatic feed support, primarily slot/subscription model",
-          "key_strengths": ["Highest quality professional audience", "Rich targeting options (skills, title, company, seniority)", "Passive candidate reach", "Employer branding tools"],
-          "key_weaknesses": ["Highest CPC among major boards", "Limited programmatic integration", "Not ideal for hourly/blue-collar roles", "Complex pricing structure"],
+          "key_strengths": [
+            "Highest quality professional audience",
+            "Rich targeting options (skills, title, company, seniority)",
+            "Passive candidate reach",
+            "Employer branding tools"
+          ],
+          "key_weaknesses": [
+            "Highest CPC among major boards",
+            "Limited programmatic integration",
+            "Not ideal for hourly/blue-collar roles",
+            "Complex pricing structure"
+          ],
           "recent_changes_2025_2026": [
             "Major AI-powered features: AI Job Search, Career Coach, Predictive Career Path",
             "Ad revenue $8.2B in 2025, projected $9.7B in 2026",
@@ -325,11 +381,23 @@
           "overview": "Employer review and job board platform. Owned by Recruit Holdings (same parent as Indeed). Being merged into Indeed operations.",
           "billing_model": "CPC + employer branding subscriptions",
           "avg_cpc_range": "$0.50-$2.00",
-          "best_for": ["Employer branding aware candidates", "Research-phase job seekers", "Company culture-focused roles"],
+          "best_for": [
+            "Employer branding aware candidates",
+            "Research-phase job seekers",
+            "Company culture-focused roles"
+          ],
           "geographic_coverage": "US, UK, Canada, key European markets",
           "programmatic_integration": "Through Indeed's programmatic infrastructure",
-          "key_strengths": ["Employer review data influences candidate decisions", "High-intent candidates who research companies", "Brand-aware audience"],
-          "key_weaknesses": ["Declining independent traffic as merged into Indeed", "CEO stepped down Oct 2025", "Full integration with Indeed expected March 31, 2026"],
+          "key_strengths": [
+            "Employer review data influences candidate decisions",
+            "High-intent candidates who research companies",
+            "Brand-aware audience"
+          ],
+          "key_weaknesses": [
+            "Declining independent traffic as merged into Indeed",
+            "CEO stepped down Oct 2025",
+            "Full integration with Indeed expected March 31, 2026"
+          ],
           "recent_changes_2025_2026": [
             "Glassdoor CEO stepped down October 2025",
             "Full merger into Indeed operations by March 31, 2026",
@@ -340,11 +408,24 @@
           "overview": "AI-powered job marketplace connecting employers and candidates. Publicly traded (NYSE: ZIP).",
           "billing_model": "Subscription-based ($299/month per slot) + sponsored posts ($400-$500/month)",
           "estimated_cpc_equivalent": "$0.80-$1.00",
-          "best_for": ["SMB hiring", "AI-matched candidate delivery", "US-focused general hiring"],
+          "best_for": [
+            "SMB hiring",
+            "AI-matched candidate delivery",
+            "US-focused general hiring"
+          ],
           "geographic_coverage": "US, UK, Canada, Israel",
           "programmatic_integration": "API integration available, primarily subscription model",
-          "key_strengths": ["AI-powered candidate matching", "Strong SMB market penetration", "Simple pricing model"],
-          "key_weaknesses": ["Revenue declining (-5% YoY to $449M)", "Stock near 52-week low ($1.81)", "CFO departing Feb 2026", "Less programmatic-friendly model"],
+          "key_strengths": [
+            "AI-powered candidate matching",
+            "Strong SMB market penetration",
+            "Simple pricing model"
+          ],
+          "key_weaknesses": [
+            "Revenue declining (-5% YoY to $449M)",
+            "Stock near 52-week low ($1.81)",
+            "CFO departing Feb 2026",
+            "Less programmatic-friendly model"
+          ],
           "recent_changes_2025_2026": [
             "FY2025 revenue $449M (-5% YoY)",
             "Q4 2025 revenue $111.7M (+1% YoY)",
@@ -367,7 +448,6 @@
         "share_of_total_recruitment_spend": "40-60%"
       }
     },
-
     "tier_2_aggregators": {
       "description": "Job aggregators that collect job listings from multiple sources (employer sites, other job boards, feeds) and present them in a unified search experience. Typically offer lower CPCs than Tier 1 but with more variable quality. Important for reach expansion.",
       "publishers": {
@@ -375,7 +455,11 @@
           "overview": "UK-based job search engine operating in 20 countries. Acquired Getwork (US) in 2022. UK government contract for Find a Job service.",
           "billing_model": "CPC",
           "avg_cpc_range": "$0.10-$0.50",
-          "best_for": ["UK, Australia, Canada reach extension", "Cost-effective volume", "Government sector (UK)"],
+          "best_for": [
+            "UK, Australia, Canada reach extension",
+            "Cost-effective volume",
+            "Government sector (UK)"
+          ],
           "geographic_strength": "UK (primary), Australia, Canada, Germany, France, India, Brazil",
           "recent_developments": "Launched ApplyIQ AI agent April 2025",
           "programmatic_integration": "Full XML feed support, CPC-based programmatic"
@@ -384,7 +468,11 @@
           "overview": "Global job aggregator (formerly Neuvoo). Operates in 78+ countries with 30M+ job listings.",
           "billing_model": "CPC",
           "avg_cpc_range": "$0.08-$0.40",
-          "best_for": ["Global reach", "Multi-language campaigns", "Cost-effective volume generation"],
+          "best_for": [
+            "Global reach",
+            "Multi-language campaigns",
+            "Cost-effective volume generation"
+          ],
           "geographic_strength": "Strong across North America, Europe, LATAM, APAC",
           "programmatic_integration": "Full XML feed integration"
         },
@@ -392,7 +480,11 @@
           "overview": "International job search engine aggregating from 71,000+ websites across 71 countries.",
           "billing_model": "CPC",
           "avg_cpc_range": "$0.05-$0.30",
-          "best_for": ["Eastern European markets", "Ultra-low CPC volume", "Broad geographic coverage"],
+          "best_for": [
+            "Eastern European markets",
+            "Ultra-low CPC volume",
+            "Broad geographic coverage"
+          ],
           "geographic_strength": "Strong in Eastern Europe, growing globally",
           "programmatic_integration": "XML feed integration"
         },
@@ -400,7 +492,11 @@
           "overview": "Italian-origin job aggregator operating in 58 countries. Part of Symphony Technology Group.",
           "billing_model": "CPC",
           "avg_cpc_range": "$0.05-$0.25",
-          "best_for": ["European markets", "Cost-effective reach", "LATAM expansion"],
+          "best_for": [
+            "European markets",
+            "Cost-effective reach",
+            "LATAM expansion"
+          ],
           "geographic_strength": "Italy, Spain, France, LATAM, APAC",
           "programmatic_integration": "XML feed integration"
         },
@@ -408,21 +504,30 @@
           "overview": "Classified search engine (jobs, real estate, cars) operating in 47 countries. Part of Lifull Connect.",
           "billing_model": "CPC",
           "avg_cpc_range": "$0.05-$0.20",
-          "best_for": ["European classified audience", "Low-cost volume"],
+          "best_for": [
+            "European classified audience",
+            "Low-cost volume"
+          ],
           "programmatic_integration": "XML feed integration"
         },
         "jobtome": {
           "overview": "Swiss-based job aggregator operating in 35+ countries.",
           "billing_model": "CPC",
           "avg_cpc_range": "$0.05-$0.25",
-          "best_for": ["European reach", "Cost-effective distribution"],
+          "best_for": [
+            "European reach",
+            "Cost-effective distribution"
+          ],
           "programmatic_integration": "XML feed integration"
         },
         "whatjobs": {
           "overview": "Job search aggregator with global coverage.",
           "billing_model": "CPC",
           "avg_cpc_range": "$0.05-$0.20",
-          "best_for": ["Volume generation", "Multi-country reach"],
+          "best_for": [
+            "Volume generation",
+            "Multi-country reach"
+          ],
           "programmatic_integration": "XML feed integration"
         }
       },
@@ -435,19 +540,49 @@
         "key_consideration": "Important for reach extension and cost efficiency, but require quality monitoring"
       }
     },
-
     "tier_3_niche_industry": {
       "description": "Specialized job boards serving specific industries, professions, or candidate demographics. Deliver highly targeted audiences with strong relevance, though lower volume than general boards. Essential for hard-to-fill specialized roles.",
       "categories": {
         "healthcare": {
           "top_publishers": [
-            {"name": "Health eCareers", "billing": "CPC/Posting", "strength": "Nurses, allied health, physicians", "cpc_range": "$0.50-$2.00"},
-            {"name": "Doximity", "billing": "Posting/Subscription", "strength": "Physicians, medical professionals", "cpc_range": "Subscription-based"},
-            {"name": "IntelyCare", "billing": "CPC", "strength": "Nursing and per diem healthcare", "cpc_range": "$0.30-$1.50"},
-            {"name": "American Nurses Association", "billing": "Posting", "strength": "RNs, nursing professionals"},
-            {"name": "PharmiWeb.com", "billing": "Posting", "strength": "Pharmaceutical industry across Europe"},
-            {"name": "Nurse Recruiter", "billing": "CPC", "strength": "Travel and staff nursing"},
-            {"name": "MedJobCafe", "billing": "CPC", "strength": "Healthcare generalist"}
+            {
+              "name": "Health eCareers",
+              "billing": "CPC/Posting",
+              "strength": "Nurses, allied health, physicians",
+              "cpc_range": "$0.50-$2.00"
+            },
+            {
+              "name": "Doximity",
+              "billing": "Posting/Subscription",
+              "strength": "Physicians, medical professionals",
+              "cpc_range": "Subscription-based"
+            },
+            {
+              "name": "IntelyCare",
+              "billing": "CPC",
+              "strength": "Nursing and per diem healthcare",
+              "cpc_range": "$0.30-$1.50"
+            },
+            {
+              "name": "American Nurses Association",
+              "billing": "Posting",
+              "strength": "RNs, nursing professionals"
+            },
+            {
+              "name": "PharmiWeb.com",
+              "billing": "Posting",
+              "strength": "Pharmaceutical industry across Europe"
+            },
+            {
+              "name": "Nurse Recruiter",
+              "billing": "CPC",
+              "strength": "Travel and staff nursing"
+            },
+            {
+              "name": "MedJobCafe",
+              "billing": "CPC",
+              "strength": "Healthcare generalist"
+            }
           ],
           "sector_performance": {
             "recruitment_difficulty": "Highest CPA among all sectors",
@@ -458,13 +593,44 @@
         },
         "technology": {
           "top_publishers": [
-            {"name": "Dice", "billing": "CPC/Slot", "strength": "Software engineers, IT professionals", "cpc_range": "$0.50-$2.00", "note": "Parent DHI Group cut 33% workforce 2025, revenue declining 15% YoY"},
-            {"name": "Built In", "billing": "Slot/Posting", "strength": "Tech companies, startup culture focus"},
-            {"name": "Stack Overflow", "billing": "Posting/Slot", "strength": "Developer community", "note": "Jobs section reduced after LayOffs"},
-            {"name": "No Fluff Jobs", "billing": "Posting", "strength": "Tech jobs in Poland/Eastern Europe"},
-            {"name": "Just Join IT", "billing": "Posting", "strength": "IT jobs in Poland"},
-            {"name": "Turing", "billing": "CPC", "strength": "Remote developer talent, global"},
-            {"name": "GermanTechJobs", "billing": "Posting", "strength": "Tech roles in Germany/DACH"}
+            {
+              "name": "Dice",
+              "billing": "CPC/Slot",
+              "strength": "Software engineers, IT professionals",
+              "cpc_range": "$0.50-$2.00",
+              "note": "Parent DHI Group cut 33% workforce 2025, revenue declining 15% YoY"
+            },
+            {
+              "name": "Built In",
+              "billing": "Slot/Posting",
+              "strength": "Tech companies, startup culture focus"
+            },
+            {
+              "name": "Stack Overflow",
+              "billing": "Posting/Slot",
+              "strength": "Developer community",
+              "note": "Jobs section reduced after LayOffs"
+            },
+            {
+              "name": "No Fluff Jobs",
+              "billing": "Posting",
+              "strength": "Tech jobs in Poland/Eastern Europe"
+            },
+            {
+              "name": "Just Join IT",
+              "billing": "Posting",
+              "strength": "IT jobs in Poland"
+            },
+            {
+              "name": "Turing",
+              "billing": "CPC",
+              "strength": "Remote developer talent, global"
+            },
+            {
+              "name": "GermanTechJobs",
+              "billing": "Posting",
+              "strength": "Tech roles in Germany/DACH"
+            }
           ],
           "sector_performance": {
             "apply_rate": "6.41% (highest of all sectors in 2024, Appcast)",
@@ -475,13 +641,44 @@
         },
         "blue_collar_hourly": {
           "top_publishers": [
-            {"name": "Snagajob (JobGet)", "billing": "CPC", "strength": "Hourly/shift workers, restaurant, retail", "cpc_range": "$0.15-$0.75", "note": "Acquired by JobGet Nov 2024, combined 100M+ hourly workers"},
-            {"name": "Jobcase", "billing": "CPC", "strength": "Blue-collar, hourly, 110M+ members", "cpc_range": "$0.10-$0.50"},
-            {"name": "Instawork", "billing": "CPC", "strength": "Gig/shift workers, hospitality"},
-            {"name": "Apna", "billing": "CPC", "strength": "Blue-collar/gig workers in India"},
-            {"name": "Hunar.ai", "billing": "CPC", "strength": "Blue-collar hiring in India"},
-            {"name": "HeyJobs", "billing": "CPC", "strength": "Blue-collar focus in Germany"},
-            {"name": "CornerJob", "billing": "CPC", "strength": "Blue-collar hiring in Southern Europe"}
+            {
+              "name": "Snagajob (JobGet)",
+              "billing": "CPC",
+              "strength": "Hourly/shift workers, restaurant, retail",
+              "cpc_range": "$0.15-$0.75",
+              "note": "Acquired by JobGet Nov 2024, combined 100M+ hourly workers"
+            },
+            {
+              "name": "Jobcase",
+              "billing": "CPC",
+              "strength": "Blue-collar, hourly, 110M+ members",
+              "cpc_range": "$0.10-$0.50"
+            },
+            {
+              "name": "Instawork",
+              "billing": "CPC",
+              "strength": "Gig/shift workers, hospitality"
+            },
+            {
+              "name": "Apna",
+              "billing": "CPC",
+              "strength": "Blue-collar/gig workers in India"
+            },
+            {
+              "name": "Hunar.ai",
+              "billing": "CPC",
+              "strength": "Blue-collar hiring in India"
+            },
+            {
+              "name": "HeyJobs",
+              "billing": "CPC",
+              "strength": "Blue-collar focus in Germany"
+            },
+            {
+              "name": "CornerJob",
+              "billing": "CPC",
+              "strength": "Blue-collar hiring in Southern Europe"
+            }
           ],
           "sector_performance": {
             "cpa_category": "Standing-up jobs (harder to fill, costlier)",
@@ -492,36 +689,93 @@
         },
         "finance": {
           "top_publishers": [
-            {"name": "eFinancialCareers", "billing": "CPC/Posting", "strength": "Banking, finance, fintech professionals"},
-            {"name": "Rigzone", "billing": "Posting", "strength": "Oil/gas/energy finance"},
-            {"name": "Society of Actuaries", "billing": "Posting", "strength": "Actuarial positions"}
+            {
+              "name": "eFinancialCareers",
+              "billing": "CPC/Posting",
+              "strength": "Banking, finance, fintech professionals"
+            },
+            {
+              "name": "Rigzone",
+              "billing": "Posting",
+              "strength": "Oil/gas/energy finance"
+            },
+            {
+              "name": "Society of Actuaries",
+              "billing": "Posting",
+              "strength": "Actuarial positions"
+            }
           ]
         },
         "early_career_university": {
           "top_publishers": [
-            {"name": "Handshake", "billing": "Slot", "strength": "University recruiting, 1,600+ universities, ~$300M ARR", "note": "Acquired Cleanlab Jan 2026, expanding in Europe"},
-            {"name": "RippleMatch", "billing": "Slot", "strength": "Campus/early career recruiting"},
-            {"name": "College Recruiter", "billing": "CPC", "strength": "Entry-level/internship positions"},
-            {"name": "Prosple", "billing": "Posting", "strength": "Graduate jobs in Australia"},
-            {"name": "WayUp/Yello", "billing": "Subscription", "strength": "Diverse early career talent"}
+            {
+              "name": "Handshake",
+              "billing": "Slot",
+              "strength": "University recruiting, 1,600+ universities, ~$300M ARR",
+              "note": "Acquired Cleanlab Jan 2026, expanding in Europe"
+            },
+            {
+              "name": "RippleMatch",
+              "billing": "Slot",
+              "strength": "Campus/early career recruiting"
+            },
+            {
+              "name": "College Recruiter",
+              "billing": "CPC",
+              "strength": "Entry-level/internship positions"
+            },
+            {
+              "name": "Prosple",
+              "billing": "Posting",
+              "strength": "Graduate jobs in Australia"
+            },
+            {
+              "name": "WayUp/Yello",
+              "billing": "Subscription",
+              "strength": "Diverse early career talent"
+            }
           ]
         },
         "dei_diversity": {
           "top_publishers_in_joveo_network": [
-            "Diversity Jobs", "BlackJobCenter", "Workability", "HireVeterans",
-            "She Can Code", "VetJobs", "Fairy God Boss", "RecruitMilitary",
-            "Professional Diversity Network", "iHispano", "LGBTConnect",
-            "OurMob (Indigenous/Australia)", "Women in Technology",
-            "Blacks in Technology", "EvenBreak", "Circa Works", "RallyPoint"
+            "Diversity Jobs",
+            "BlackJobCenter",
+            "Workability",
+            "HireVeterans",
+            "She Can Code",
+            "VetJobs",
+            "Fairy God Boss",
+            "RecruitMilitary",
+            "Professional Diversity Network",
+            "iHispano",
+            "LGBTConnect",
+            "OurMob (Indigenous/Australia)",
+            "Women in Technology",
+            "Blacks in Technology",
+            "EvenBreak",
+            "Circa Works",
+            "RallyPoint"
           ],
           "note": "Joveo has 50+ DEI publishers in its network, one of the most comprehensive DEI publisher ecosystems in programmatic recruitment",
           "sector_importance": "70% of candidates consider DEI crucial; 89% of Gen Z prioritize inclusive employers"
         },
         "remote_work": {
           "top_publishers": [
-            {"name": "We Work Remotely", "billing": "Posting", "strength": "Remote-first tech jobs"},
-            {"name": "Remote.io", "billing": "Posting", "strength": "Remote jobs globally"},
-            {"name": "AngelList (Wellfound)", "billing": "Posting", "strength": "Startup and remote tech roles"}
+            {
+              "name": "We Work Remotely",
+              "billing": "Posting",
+              "strength": "Remote-first tech jobs"
+            },
+            {
+              "name": "Remote.io",
+              "billing": "Posting",
+              "strength": "Remote jobs globally"
+            },
+            {
+              "name": "AngelList (Wellfound)",
+              "billing": "Posting",
+              "strength": "Startup and remote tech roles"
+            }
           ]
         }
       },
@@ -533,7 +787,6 @@
         "share_of_total_recruitment_spend": "10-20%"
       }
     },
-
     "tier_4_social_display": {
       "description": "Social media platforms and display advertising networks used for recruitment. Excel at reaching passive candidates and building employer brand awareness. Higher CPCs but access to candidates not actively searching job boards.",
       "publishers": {
@@ -542,20 +795,35 @@
           "billing_model": "CPC/CPM",
           "median_cpc_jan_2026": "$0.85 (down 24% YoY)",
           "peak_cpc_nov_2025": "$1.32",
-          "best_for": ["Hourly/frontline workers", "Local hiring", "Blue-collar roles", "Brand awareness"],
+          "best_for": [
+            "Hourly/frontline workers",
+            "Local hiring",
+            "Blue-collar roles",
+            "Brand awareness"
+          ],
           "programmatic_integration": "Through DSPs and Meta Business API",
           "recruitment_note": "Facebook Jobs being phased out in many markets; paid ads still effective for volume hiring"
         },
         "instagram": {
           "overview": "Visual social platform. Growing as recruitment channel especially for younger demographics and employer branding.",
           "billing_model": "CPC/CPM (through Meta Ads Manager)",
-          "best_for": ["Employer branding", "Gen Z/millennial reach", "Creative/design roles", "Hospitality/retail"],
+          "best_for": [
+            "Employer branding",
+            "Gen Z/millennial reach",
+            "Creative/design roles",
+            "Hospitality/retail"
+          ],
           "typical_cpc": "$0.50-$2.00"
         },
         "tiktok": {
           "overview": "Short-form video platform. Emerging recruitment channel for Gen Z and frontline workers.",
           "billing_model": "CPM/CPC",
-          "best_for": ["Gen Z candidates", "Employer branding", "Frontline/hourly roles", "Creative employer content"],
+          "best_for": [
+            "Gen Z candidates",
+            "Employer branding",
+            "Frontline/hourly roles",
+            "Creative employer content"
+          ],
           "programmatic_integration": "Through TikTok Ads API; Wonderkind offers integrated TikTok recruitment advertising",
           "note": "Discovery-based content format; candidates discover jobs through engaging video content rather than search"
         },
@@ -564,7 +832,11 @@
           "billing_model": "CPC (Search), CPM (Display)",
           "search_cpc_employment": "$2.04-$2.69",
           "display_cpc": "$0.63",
-          "best_for": ["High-intent candidates searching for specific roles", "Hard-to-fill positions", "Brand defense keywords"],
+          "best_for": [
+            "High-intent candidates searching for specific roles",
+            "Hard-to-fill positions",
+            "Brand defense keywords"
+          ],
           "google_for_jobs_impact": {
             "description": "Google for Jobs aggregates job listings directly in search results, significantly impacting traditional job board traffic.",
             "traffic_impact_on_boards": "30-50% traffic drops for small/medium job boards after 2025 API restriction changes",
@@ -576,13 +848,32 @@
           "overview": "Microsoft's search advertising platform. Lower CPCs than Google with access to professionals using Edge/Bing.",
           "billing_model": "CPC",
           "avg_cpc": "$1.54 (approximately 40% lower than Google)",
-          "best_for": ["Cost-effective search advertising", "Professional/enterprise audience", "Supplementing Google campaigns"]
+          "best_for": [
+            "Cost-effective search advertising",
+            "Professional/enterprise audience",
+            "Supplementing Google campaigns"
+          ]
         },
         "display_native_networks": {
-          "taboola": {"type": "Native advertising", "best_for": "Content discovery, employer branding articles", "cpc_range": "$0.10-$0.50"},
-          "outbrain": {"type": "Native advertising", "best_for": "Content recommendations, career content promotion"},
-          "stackadapt": {"type": "Programmatic DSP", "best_for": "Multi-channel programmatic (display, native, CTV, audio)", "note": "In Joveo publisher network"},
-          "inmobi": {"type": "Mobile advertising", "best_for": "Mobile-first candidate reach in emerging markets", "note": "In Joveo publisher network"}
+          "taboola": {
+            "type": "Native advertising",
+            "best_for": "Content discovery, employer branding articles",
+            "cpc_range": "$0.10-$0.50"
+          },
+          "outbrain": {
+            "type": "Native advertising",
+            "best_for": "Content recommendations, career content promotion"
+          },
+          "stackadapt": {
+            "type": "Programmatic DSP",
+            "best_for": "Multi-channel programmatic (display, native, CTV, audio)",
+            "note": "In Joveo publisher network"
+          },
+          "inmobi": {
+            "type": "Mobile advertising",
+            "best_for": "Mobile-first candidate reach in emerging markets",
+            "note": "In Joveo publisher network"
+          }
         }
       },
       "tier_4_benchmarks_summary": {
@@ -594,7 +885,6 @@
         "wonderkind_insight": "Companies spend 95% of recruitment budget on job boards to reach only 20% of the talent pool. Social channels access the other 80%."
       }
     },
-
     "tier_5_long_tail_network": {
       "description": "Hundreds of smaller websites that aggregate job listings from other aggregators or receive feeds from programmatic platforms. Provide incremental volume at low CPCs but require careful quality monitoring.",
       "characteristics": {
@@ -603,7 +893,20 @@
         "traffic_quality": "Highly variable. Some deliver legitimate local traffic; others are thin-content sites with minimal organic audience.",
         "click_to_apply_rate": "1-3% (lower than established boards)",
         "bot_fraud_risk": "Higher than Tier 1-3. Requires active monitoring for click fraud, bot traffic, and fake applications.",
-        "examples_in_joveo_network": ["QuickToJobs.com", "Results Generations", "Sercanto", "Vindazo", "Resumico", "Classifiedads", "BuscoJobs", "Jobsora", "MyJobScanner", "StellenSMS", "ClickaJobs", "Jobted"],
+        "examples_in_joveo_network": [
+          "QuickToJobs.com",
+          "Results Generations",
+          "Sercanto",
+          "Vindazo",
+          "Resumico",
+          "Classifiedads",
+          "BuscoJobs",
+          "Jobsora",
+          "MyJobScanner",
+          "StellenSMS",
+          "ClickaJobs",
+          "Jobted"
+        ],
         "when_to_include": [
           "High-volume campaigns where cost efficiency is priority",
           "Roles with broad candidate pools (entry-level, hourly)",
@@ -627,17 +930,36 @@
         ]
       }
     },
-
     "tier_6_regional_international": {
       "description": "Country-specific job boards and regional platforms that dominate local markets. Essential for international recruitment campaigns.",
       "regions": {
         "united_kingdom": {
           "dominant_boards": [
-            {"name": "Reed.co.uk", "tier": "Tier 1 (UK)", "note": "UK #1 job site, 200K+ jobs, 8.8M monthly visits"},
-            {"name": "Totaljobs", "tier": "Tier 1 (UK)", "note": "Part of StepStone Group, now independent JV with KKR"},
-            {"name": "CV Library", "tier": "Tier 1 (UK)", "note": "20.7M CVs, 4.3M monthly users"},
-            {"name": "CWJobs", "tier": "Tier 2 (UK)", "note": "Tech-focused UK board"},
-            {"name": "Guardian Jobs", "tier": "Tier 2 (UK)", "note": "Professional/public sector"}
+            {
+              "name": "Reed.co.uk",
+              "tier": "Tier 1 (UK)",
+              "note": "UK #1 job site, 200K+ jobs, 8.8M monthly visits"
+            },
+            {
+              "name": "Totaljobs",
+              "tier": "Tier 1 (UK)",
+              "note": "Part of StepStone Group, now independent JV with KKR"
+            },
+            {
+              "name": "CV Library",
+              "tier": "Tier 1 (UK)",
+              "note": "20.7M CVs, 4.3M monthly users"
+            },
+            {
+              "name": "CWJobs",
+              "tier": "Tier 2 (UK)",
+              "note": "Tech-focused UK board"
+            },
+            {
+              "name": "Guardian Jobs",
+              "tier": "Tier 2 (UK)",
+              "note": "Professional/public sector"
+            }
           ],
           "monthly_spend_estimate": "$1,200,000+",
           "currency": "GBP",
@@ -645,11 +967,30 @@
         },
         "germany_dach": {
           "dominant_boards": [
-            {"name": "StepStone Germany", "tier": "Tier 1", "note": "Spun off from Axel Springer Apr 2025, now independent JV majority-owned by KKR + CPP Investments"},
-            {"name": "Xing", "tier": "Tier 1", "note": "21M users in DACH. Acquired by Burda Digital SE June 2025. Repositioned as job board"},
-            {"name": "Kimeta", "tier": "Tier 2", "note": "German job aggregator"},
-            {"name": "HeyJobs", "tier": "Tier 2", "note": "Blue-collar focus"},
-            {"name": "Stellenanzeigen.de", "tier": "Tier 2"}
+            {
+              "name": "StepStone Germany",
+              "tier": "Tier 1",
+              "note": "Spun off from Axel Springer Apr 2025, now independent JV majority-owned by KKR + CPP Investments"
+            },
+            {
+              "name": "Xing",
+              "tier": "Tier 1",
+              "note": "21M users in DACH. Acquired by Burda Digital SE June 2025. Repositioned as job board"
+            },
+            {
+              "name": "Kimeta",
+              "tier": "Tier 2",
+              "note": "German job aggregator"
+            },
+            {
+              "name": "HeyJobs",
+              "tier": "Tier 2",
+              "note": "Blue-collar focus"
+            },
+            {
+              "name": "Stellenanzeigen.de",
+              "tier": "Tier 2"
+            }
           ],
           "monthly_spend_estimate": "$1,500,000+",
           "currency": "EUR",
@@ -658,10 +999,26 @@
         },
         "france": {
           "dominant_boards": [
-            {"name": "HelloWork (formerly RegionsJob)", "tier": "Tier 1", "note": "5.7M visits/month, EUR 109M orders"},
-            {"name": "Welcome to the Jungle", "tier": "Tier 2", "note": "Tech/startup focus, 5.3M monthly visitors, acquired Otta (UK)"},
-            {"name": "APEC", "tier": "Tier 1", "note": "Professional/executive roles"},
-            {"name": "Optioncarriere", "tier": "Tier 2", "note": "Job aggregator"}
+            {
+              "name": "HelloWork (formerly RegionsJob)",
+              "tier": "Tier 1",
+              "note": "5.7M visits/month, EUR 109M orders"
+            },
+            {
+              "name": "Welcome to the Jungle",
+              "tier": "Tier 2",
+              "note": "Tech/startup focus, 5.3M monthly visitors, acquired Otta (UK)"
+            },
+            {
+              "name": "APEC",
+              "tier": "Tier 1",
+              "note": "Professional/executive roles"
+            },
+            {
+              "name": "Optioncarriere",
+              "tier": "Tier 2",
+              "note": "Job aggregator"
+            }
           ],
           "monthly_spend_estimate": "$800,000+",
           "currency": "EUR",
@@ -670,11 +1027,28 @@
         },
         "india": {
           "dominant_boards": [
-            {"name": "Naukri.com", "tier": "Tier 1", "note": "200M+ users, parent Info Edge Q2 FY26 revenue +14.9% YoY"},
-            {"name": "Foundit (formerly Monster India)", "tier": "Tier 2"},
-            {"name": "Shine", "tier": "Tier 2"},
-            {"name": "Apna", "tier": "Tier 2", "note": "Blue-collar/gig workers"},
-            {"name": "TimesJobs", "tier": "Tier 2"}
+            {
+              "name": "Naukri.com",
+              "tier": "Tier 1",
+              "note": "200M+ users, parent Info Edge Q2 FY26 revenue +14.9% YoY"
+            },
+            {
+              "name": "Foundit (formerly Monster India)",
+              "tier": "Tier 2"
+            },
+            {
+              "name": "Shine",
+              "tier": "Tier 2"
+            },
+            {
+              "name": "Apna",
+              "tier": "Tier 2",
+              "note": "Blue-collar/gig workers"
+            },
+            {
+              "name": "TimesJobs",
+              "tier": "Tier 2"
+            }
           ],
           "monthly_spend_estimate": "$350,000+",
           "currency": "INR",
@@ -682,9 +1056,20 @@
         },
         "australia_nz": {
           "dominant_boards": [
-            {"name": "SEEK", "tier": "Tier 1", "note": "Unified SEEK/Jobsdb/Jobstreet platforms. 40M+ talent pool across 8 APAC markets"},
-            {"name": "Jora Australia", "tier": "Tier 2", "note": "Part of SEEK family"},
-            {"name": "Adzuna Australia", "tier": "Tier 2"}
+            {
+              "name": "SEEK",
+              "tier": "Tier 1",
+              "note": "Unified SEEK/Jobsdb/Jobstreet platforms. 40M+ talent pool across 8 APAC markets"
+            },
+            {
+              "name": "Jora Australia",
+              "tier": "Tier 2",
+              "note": "Part of SEEK family"
+            },
+            {
+              "name": "Adzuna Australia",
+              "tier": "Tier 2"
+            }
           ],
           "monthly_spend_estimate": "$450,000+",
           "currency": "AUD",
@@ -692,11 +1077,29 @@
         },
         "japan": {
           "dominant_boards": [
-            {"name": "Mynavi", "tier": "Tier 1"},
-            {"name": "DODA (doda.jp)", "tier": "Tier 1"},
-            {"name": "Baitoru", "tier": "Tier 1", "note": "Part-time/hourly"},
-            {"name": "Wantedly", "tier": "Tier 2", "note": "Tech/startup"},
-            {"name": "CareerCross", "tier": "Tier 2", "note": "Bilingual/international"}
+            {
+              "name": "Mynavi",
+              "tier": "Tier 1"
+            },
+            {
+              "name": "DODA (doda.jp)",
+              "tier": "Tier 1"
+            },
+            {
+              "name": "Baitoru",
+              "tier": "Tier 1",
+              "note": "Part-time/hourly"
+            },
+            {
+              "name": "Wantedly",
+              "tier": "Tier 2",
+              "note": "Tech/startup"
+            },
+            {
+              "name": "CareerCross",
+              "tier": "Tier 2",
+              "note": "Bilingual/international"
+            }
           ],
           "monthly_spend_estimate": "$500,000+",
           "currency": "JPY",
@@ -705,21 +1108,39 @@
         },
         "middle_east_gcc": {
           "dominant_boards": [
-            {"name": "Bayt", "billing": "Posting/CPC", "strength": "GCC region leader"},
-            {"name": "GulfTalent", "billing": "Posting", "strength": "Premium professional roles in Gulf"},
-            {"name": "dubizzle", "billing": "CPC", "strength": "UAE classifieds with jobs section"},
-            {"name": "Opensooq", "billing": "CPC", "strength": "Arabic classifieds"},
-            {"name": "Naukrigulf", "billing": "CPC", "strength": "South Asian diaspora in Gulf"}
+            {
+              "name": "Bayt",
+              "billing": "Posting/CPC",
+              "strength": "GCC region leader"
+            },
+            {
+              "name": "GulfTalent",
+              "billing": "Posting",
+              "strength": "Premium professional roles in Gulf"
+            },
+            {
+              "name": "dubizzle",
+              "billing": "CPC",
+              "strength": "UAE classifieds with jobs section"
+            },
+            {
+              "name": "Opensooq",
+              "billing": "CPC",
+              "strength": "Arabic classifieds"
+            },
+            {
+              "name": "Naukrigulf",
+              "billing": "CPC",
+              "strength": "South Asian diaspora in Gulf"
+            }
           ],
           "key_insight": "UAE net employment outlook +48% (global leader). Vision 2030 megaprojects driving Saudi hiring."
         }
       }
     }
   },
-
   "publisher_performance": {
     "methodology_note": "Performance data compiled from Appcast 2025-2026 Benchmark Reports, Joveo platform data, Recruitics Talent Market Index, and industry reports. Ranges reflect variation across industries, geographies, and role types. All figures are approximations based on available data.",
-
     "indeed": {
       "avg_cpc": "$0.25-$1.50",
       "high_end_cpc": "$5.00+",
@@ -730,12 +1151,17 @@
       "peak_traffic_hours": "7-9 AM, 12-1 PM, 5-8 PM (local time)",
       "peak_traffic_days": "Monday-Wednesday (highest), Sunday evening (second highest)",
       "geographic_coverage": "60+ countries",
-      "industry_strengths": ["Healthcare", "Retail", "Logistics", "General blue-collar", "Hourly/shift work"],
+      "industry_strengths": [
+        "Healthcare",
+        "Retail",
+        "Logistics",
+        "General blue-collar",
+        "Hourly/shift work"
+      ],
       "candidate_demographics": "Broad, skews slightly toward active job seekers, blue-collar and hourly workers",
       "fraud_risk": "Low-moderate (large platform with anti-fraud measures)",
       "quality_score": "7/10"
     },
-
     "linkedin": {
       "avg_cpc": "$1.50-$4.50 (job ads), $2.00-$8.00 (general ads)",
       "cost_per_applicant": "$2.83 (US average)",
@@ -745,24 +1171,32 @@
       "peak_traffic_hours": "8-10 AM, 5-6 PM (business hours)",
       "peak_traffic_days": "Tuesday-Thursday (professional engagement peaks)",
       "geographic_coverage": "200+ countries",
-      "industry_strengths": ["Technology", "Financial Services", "Professional Services", "Executive/Leadership", "B2B"],
+      "industry_strengths": [
+        "Technology",
+        "Financial Services",
+        "Professional Services",
+        "Executive/Leadership",
+        "B2B"
+      ],
       "candidate_demographics": "Professional, white-collar, higher education levels, passive job seekers",
       "fraud_risk": "Very low (verified professional profiles)",
       "quality_score": "9/10"
     },
-
     "glassdoor": {
       "avg_cpc": "$0.50-$2.00",
       "avg_cpa": "$12-$40",
       "click_to_apply_rate": "3-5%",
       "mobile_traffic_pct": "55%",
       "geographic_coverage": "US, UK, Canada, key European markets",
-      "industry_strengths": ["Tech", "Professional Services", "Employer brand-conscious candidates"],
+      "industry_strengths": [
+        "Tech",
+        "Professional Services",
+        "Employer brand-conscious candidates"
+      ],
       "candidate_demographics": "Research-oriented, brand-aware, higher standards for employer culture",
       "quality_score": "7/10",
       "status_note": "Being merged into Indeed by March 2026"
     },
-
     "ziprecruiter": {
       "avg_cpc_equivalent": "$0.80-$1.00",
       "subscription_cost": "$299/month per slot",
@@ -770,130 +1204,178 @@
       "click_to_apply_rate": "4-7%",
       "mobile_traffic_pct": "65%",
       "geographic_coverage": "US (primary), UK, Canada",
-      "industry_strengths": ["SMB hiring", "General professional roles", "Customer service", "Sales"],
+      "industry_strengths": [
+        "SMB hiring",
+        "General professional roles",
+        "Customer service",
+        "Sales"
+      ],
       "candidate_demographics": "Active job seekers, SMB-oriented, US-focused",
       "quality_score": "7/10"
     },
-
     "adzuna": {
       "avg_cpc": "$0.10-$0.50",
       "avg_cpa": "$5-$18",
       "click_to_apply_rate": "2-4%",
       "mobile_traffic_pct": "60%",
       "geographic_coverage": "20 countries (UK strongest)",
-      "industry_strengths": ["General positions", "UK government sector", "Entry-level"],
+      "industry_strengths": [
+        "General positions",
+        "UK government sector",
+        "Entry-level"
+      ],
       "quality_score": "6/10"
     },
-
     "talent_com": {
       "avg_cpc": "$0.08-$0.40",
       "avg_cpa": "$4-$15",
       "click_to_apply_rate": "2-4%",
       "mobile_traffic_pct": "65%",
       "geographic_coverage": "78+ countries",
-      "industry_strengths": ["General positions", "Multi-language campaigns", "Global reach"],
+      "industry_strengths": [
+        "General positions",
+        "Multi-language campaigns",
+        "Global reach"
+      ],
       "quality_score": "5/10"
     },
-
     "jooble": {
       "avg_cpc": "$0.05-$0.30",
       "avg_cpa": "$3-$12",
       "click_to_apply_rate": "2-3%",
       "geographic_coverage": "71 countries",
-      "industry_strengths": ["Eastern European markets", "Volume hiring"],
+      "industry_strengths": [
+        "Eastern European markets",
+        "Volume hiring"
+      ],
       "quality_score": "5/10"
     },
-
     "dice": {
       "avg_cpc": "$0.50-$2.00",
       "avg_cpa": "$15-$45",
       "click_to_apply_rate": "3-5%",
       "geographic_coverage": "US (primary)",
-      "industry_strengths": ["Software Engineering", "IT Infrastructure", "Cybersecurity", "Data Science"],
+      "industry_strengths": [
+        "Software Engineering",
+        "IT Infrastructure",
+        "Cybersecurity",
+        "Data Science"
+      ],
       "quality_score": "7/10",
       "note": "Parent DHI Group struggling financially; revenue declining 15% YoY"
     },
-
     "snagajob": {
       "avg_cpc": "$0.15-$0.75",
       "avg_cpa": "$5-$18",
       "click_to_apply_rate": "4-7%",
       "geographic_coverage": "US",
-      "industry_strengths": ["Hourly workers", "Restaurant/Food Service", "Retail", "Hospitality"],
+      "industry_strengths": [
+        "Hourly workers",
+        "Restaurant/Food Service",
+        "Retail",
+        "Hospitality"
+      ],
       "candidate_demographics": "Hourly, part-time, shift workers",
       "quality_score": "6/10",
       "note": "Now part of JobGet (acquired Nov 2024), combined 100M+ hourly workers"
     },
-
     "facebook_meta_ads": {
       "avg_cpc": "$0.85-$1.32",
       "click_to_apply_rate": "1-3%",
       "geographic_coverage": "Global (3B+ users)",
-      "industry_strengths": ["Hourly/frontline", "Local businesses", "Retail", "Restaurant"],
+      "industry_strengths": [
+        "Hourly/frontline",
+        "Local businesses",
+        "Retail",
+        "Restaurant"
+      ],
       "candidate_demographics": "Broad, passive job seekers, local community members",
       "quality_score": "5/10"
     },
-
     "google_ads_search": {
       "avg_cpc": "$2.04-$2.69",
       "click_to_apply_rate": "4-6%",
       "geographic_coverage": "Global",
-      "industry_strengths": ["All industries", "High-intent candidates", "Hard-to-fill roles"],
+      "industry_strengths": [
+        "All industries",
+        "High-intent candidates",
+        "Hard-to-fill roles"
+      ],
       "quality_score": "8/10",
       "note": "Highest intent traffic (candidates actively searching for specific roles)"
     },
-
     "google_display_network": {
       "avg_cpc": "$0.63",
       "click_to_apply_rate": "0.5-2%",
       "geographic_coverage": "Global",
-      "industry_strengths": ["Brand awareness", "Retargeting", "Passive candidate reach"],
+      "industry_strengths": [
+        "Brand awareness",
+        "Retargeting",
+        "Passive candidate reach"
+      ],
       "quality_score": "4/10"
     },
-
     "naukri": {
       "avg_cpc": "INR 8-25 ($0.10-$0.30)",
       "geographic_coverage": "India (dominant)",
-      "industry_strengths": ["IT/Tech", "BPO", "Engineering", "Finance in India"],
+      "industry_strengths": [
+        "IT/Tech",
+        "BPO",
+        "Engineering",
+        "Finance in India"
+      ],
       "quality_score": "8/10 (for India market)",
       "key_metric": "JobSpeak Index Feb 2026: 3,233 points (+12% YoY)"
     },
-
     "seek": {
       "avg_cpc": "AUD 0.50-2.00 ($0.30-$1.30)",
       "geographic_coverage": "Australia, NZ, 8 APAC markets",
-      "industry_strengths": ["All industries in Australia", "Healthcare", "Mining", "Construction"],
+      "industry_strengths": [
+        "All industries in Australia",
+        "Healthcare",
+        "Mining",
+        "Construction"
+      ],
       "quality_score": "8/10 (for APAC market)",
       "key_metric": "Applications per ad up 16.4% YoY"
     },
-
     "reed_co_uk": {
       "avg_cpc": "GBP 0.20-1.00 ($0.25-$1.25)",
       "geographic_coverage": "UK",
-      "industry_strengths": ["General UK hiring", "Professional services", "Education", "NHS/Healthcare"],
+      "industry_strengths": [
+        "General UK hiring",
+        "Professional services",
+        "Education",
+        "NHS/Healthcare"
+      ],
       "quality_score": "8/10 (for UK market)"
     },
-
     "stepstone_germany": {
       "billing_model": "Posting/Slot (not CPC)",
       "geographic_coverage": "Germany, Austria, Belgium, Netherlands",
-      "industry_strengths": ["Professional roles in DACH", "Engineering", "IT", "Finance"],
+      "industry_strengths": [
+        "Professional roles in DACH",
+        "Engineering",
+        "IT",
+        "Finance"
+      ],
       "quality_score": "8/10 (for German market)",
       "note": "Spun off from Axel Springer, now independent JV. Appcast is a subsidiary."
     },
-
     "handshake": {
       "billing_model": "Slot/Subscription",
       "geographic_coverage": "US (1,600+ universities), expanding to Germany, France, UK",
-      "industry_strengths": ["Campus/entry-level hiring", "Internships", "Early career"],
+      "industry_strengths": [
+        "Campus/entry-level hiring",
+        "Internships",
+        "Early career"
+      ],
       "quality_score": "8/10 (for early career)",
       "note": "~$300M ARR end of 2025, acquired Cleanlab Jan 2026"
     }
   },
-
   "competitive_landscape": {
     "overview": "The programmatic recruitment advertising market is a $7+ billion industry growing at 8.1% CAGR. Despite widespread adoption of programmatic in display marketing (92% of digital display), programmatic adoption in job advertising is only ~15%, representing massive growth potential. The market is consolidating, with larger players acquiring complementary capabilities.",
-
     "competitors": {
       "appcast": {
         "parent_company": "The Stepstone Group (independent JV, majority-owned by KKR + CPP Investments after April 2025 spin-off from Axel Springer)",
@@ -926,9 +1408,19 @@
           "Less transparency in optimization decisions",
           "Primarily US-focused (growing internationally through StepStone)",
           "No integrated career site CMS or CRM"
+        ],
+        "benchmark_data_2026": {
+          "clicks_analyzed": "302M",
+          "applications_analyzed": "27M",
+          "employers_in_dataset": 1200,
+          "key_insight": "First click-to-hire attribution data; rising CPA/CPH despite softer labor",
+          "publisher_network": "30K sites"
+        },
+        "acquisitions_2023_2026": [
+          "Bayard Advertising (2023)",
+          "Clickcast (merged)"
         ]
       },
-
       "pandologic": {
         "parent_company": "Veritone, Inc. (acquired PandoLogic in 2021)",
         "market_position": "Leading programmatic job advertising platform, especially strong in enterprise",
@@ -955,134 +1447,83 @@
           "Weaker international publisher network",
           "No career site CMS or CRM offering",
           "Less focus on staffing agency use case"
-        ]
+        ],
+        "data_scale": "200B+ historical data points; 7,000 micro-decisions/minute",
+        "brand_evolution": "Now 'Veritone Hire' (merged with Broadbean Technology)"
       },
-
       "recruitics": {
-        "parent_company": "Independent (privately held)",
-        "market_position": "First-mover in programmatic recruitment advertising; evolved into full recruitment marketing platform",
-        "estimated_market_share": "10-15% of programmatic recruitment ad spend",
-        "products": {
-          "programmatic_platform": "AI-powered programmatic job advertising with real-time analytics",
-          "ai_analyst": "AI-powered analytics providing real-time insights and recommended actions",
-          "apply_anywhere": "Conversion optimization tool simplifying the apply process",
-          "career_site_cms": "Modular CMS for recruitment websites optimized for SEO and conversion",
-          "jamyr": "End-to-end employer brand video platform (acquired 2023)",
-          "voice_by_change_state": "Candidate survey tool for measuring candidate experience (acquired Aug 2025)",
-          "talent_market_index": "Real-time market intelligence dashboard"
-        },
-        "pricing_model": "Custom enterprise pricing, managed services",
-        "key_acquisitions": "KRT Marketing (2019), Jamyr (2023), Change State (Aug 2025)",
-        "strengths_vs_joveo": [
-          "First-mover advantage in programmatic recruitment",
-          "Strongest analytics/intelligence capabilities (AI Analyst, Talent Market Index)",
-          "Career site optimization with AI-ready structured data (ChatGPT, Gemini)",
-          "Full creative/branding services (Jamyr video platform)",
-          "CTV advertising capabilities",
-          "Candidate experience measurement (Voice tool)"
+        "name": "Recruitics",
+        "type": "Analytics-first recruitment marketing",
+        "hq": "Norwalk, CT",
+        "revenue_estimate": "$100-250M",
+        "employees": 203,
+        "key_products": [
+          "BriON AI analyst",
+          "ApplyAnywhere",
+          "Brand Navigator",
+          "Social at Scale",
+          "Vision analytics"
         ],
-        "weaknesses_vs_joveo": [
-          "More expensive (enterprise-focused managed services)",
-          "Less self-serve platform capability",
-          "Smaller publisher network than Appcast",
-          "Less focus on staffing agency market",
-          "No CPQA-specific quality metric"
-        ]
+        "recent_acquisition": "Change State (August 2025)",
+        "results_claimed": "33% reduction in CPA; 50% increase in conversion rate",
+        "positioning": "Analytics-first; strongest recruitment marketing analytics product"
       },
-
       "radancy": {
-        "parent_company": "Independent (formerly TMP Worldwide)",
-        "market_position": "Enterprise talent acquisition cloud with integrated programmatic capabilities",
-        "estimated_market_share": "8-12% of recruitment marketing spend (includes non-programmatic)",
-        "products": {
-          "talent_acquisition_cloud": "Unified platform combining 5 components: Programmatic AdTech, Career Sites (CMS), Employee Referral Tech, Hiring Events, CRM",
-          "programmatic_adtech": "AI-powered job ad optimization across job boards, social, and display (integrated Perengo's technology)",
-          "ai_search_ads": "Automated Google Search Ads using historical network data for keyword and copy optimization",
-          "agentic_ai": "Next-gen AI capabilities for context-aware decision-making across the recruitment funnel"
-        },
-        "pricing_model": "Enterprise contracts, platform licensing",
-        "strengths_vs_joveo": [
-          "Most comprehensive unified platform (5 integrated components)",
-          "Strong employer branding integration",
-          "Enterprise-grade career sites with AI personalization",
-          "Employee referral technology",
-          "Agentic AI capabilities (2025-2026)",
-          "Strong in healthcare and enterprise verticals"
-        ],
-        "weaknesses_vs_joveo": [
-          "Higher cost and complexity (enterprise-only)",
-          "Less focused on programmatic job advertising specifically",
-          "Smaller programmatic publisher network",
-          "Slower to adopt cutting-edge programmatic optimization",
-          "Less transparent pricing",
-          "Complex implementation process (noted in user reviews)"
-        ]
+        "name": "Radancy",
+        "type": "Talent acquisition cloud",
+        "hq": "New York, NY",
+        "customers": "4,600+",
+        "key_asset": "World's largest talent dataset",
+        "ai_capabilities": "Agentic AI platform (July 2025); AI Career Discovery Agent; acquired myInterview (Sep 2025)",
+        "positioning": "Most complete talent acquisition cloud with agentic AI"
       },
-
       "talroo": {
-        "parent_company": "Independent (formerly Jobs2Careers)",
-        "market_position": "Specialized in frontline and skilled trades talent sourcing",
-        "estimated_market_share": "5-8% of programmatic recruitment ad spend (strong in frontline)",
-        "products": {
-          "talroo_ad_platform_tap": "Self-serve campaign management platform with real-time dashboards",
-          "apply_intelligence": "AI-powered candidate matching and engagement across non-job-board channels",
-          "publisher_network": "First-party sourcing using consumer advertising technology (similar to Google/Facebook targeting)"
-        },
-        "scale": "1B+ job matches per month",
-        "owned_properties": ["Jobs2Careers", "ReadySetHire", "EssentialWorkerJobs"],
-        "partner_integrations": "PandoLogic, Recruitics, RedDot Media, Symphony Talent, AcquireROI",
-        "strengths_vs_joveo": [
-          "First-party data (unique candidates not available on traditional job boards)",
-          "Strong in frontline/skilled trades (trucking, warehouse, healthcare, food service)",
-          "Consumer advertising technology adapted for recruitment",
-          "Owned publisher properties provide unique traffic",
-          "No integration fees"
+        "name": "Talroo",
+        "type": "Frontline job advertising",
+        "hq": "Austin, TX",
+        "scale": "1B+ monthly job searches; 65M+ worker profiles",
+        "key_innovation": "SmartQualify -- pre-apply screening",
+        "clients": [
+          "Target",
+          "Uber",
+          "Amazon"
         ],
-        "weaknesses_vs_joveo": [
-          "Narrower focus (primarily frontline/hourly)",
-          "Less international coverage",
-          "Smaller overall publisher network",
-          "Not suitable for white-collar/professional roles",
-          "No career site CMS or CRM"
-        ]
+        "positioning": "Dominant in frontline/hourly hiring niche"
       },
-
       "wonderkind": {
-        "parent_company": "Independent (Netherlands-based)",
-        "market_position": "Social media recruitment advertising specialist",
-        "estimated_market_share": "2-5% of recruitment media spend (growing in social)",
-        "products": {
-          "talent_attraction_platform": "Automated social media job advertising across Facebook, Instagram, Google, LinkedIn, TikTok",
-          "smart_profile_recognition": "AI that matches jobs to profiles, templates, and creatives automatically",
-          "dynamic_ads": "Visually appealing job ads generated from XML feed data"
-        },
-        "supported_channels": ["Facebook", "Instagram", "Google", "LinkedIn", "TikTok"],
-        "key_results": "45% reduction in sourcing costs, 5x more eyes on job ads, 70% time reduction in sourcing",
-        "strengths_vs_joveo": [
-          "Best-in-class social media recruitment advertising",
-          "TikTok integration (first to launch as recruitment channel)",
-          "Dynamic creative optimization for job ads",
-          "Reaches passive candidates not on job boards",
-          "Strong visual/creative capabilities"
+        "name": "Wonderkind",
+        "type": "Social media job advertising",
+        "hq": "Amsterdam, Netherlands",
+        "channels": [
+          "Meta",
+          "TikTok",
+          "Google"
         ],
-        "weaknesses_vs_joveo": [
-          "Social-only (no job board programmatic)",
-          "Smaller publisher network",
-          "Less sophisticated bid optimization for CPC job boards",
-          "No career site CMS or CRM",
-          "Limited enterprise market penetration"
-        ]
+        "features": "Hyper-personalized dynamic ads; one-click apply",
+        "claims": "5x more visibility; 70% reduction in sourcing time",
+        "positioning": "Unique social-first approach for Gen Z recruitment"
       },
-
       "bayard_advertising": {
         "parent_company": "Appcast (acquired July 2023)",
         "market_position": "Full-service recruitment marketing agency with enterprise focus",
         "note": "Now integrated into Appcast's operations. Combined capabilities offer both technology platform and full-service agency.",
         "strengths": "Deep recruitment marketing strategy expertise, enterprise relationships, creative services",
         "weaknesses": "Merged into Appcast; no longer independent offering"
+      },
+      "symphony_talent": {
+        "name": "Symphony Talent",
+        "type": "Recruitment marketing platform",
+        "hq": "New York, NY",
+        "customers": "4,600+",
+        "key_products": [
+          "Tala AI assistant",
+          "GenAI Email Builder",
+          "Self-optimizing campaigns"
+        ],
+        "recognition": "IDC MarketScape Leader (2025)",
+        "positioning": "Self-optimizing campaigns; strong EVP strategy practice"
       }
     },
-
     "market_share_estimate_2026": {
       "appcast_stepstone": "35-40%",
       "pandologic_veritone": "20-25%",
@@ -1094,17 +1535,87 @@
       "others": "10-15%",
       "note": "These are estimated market shares for programmatic recruitment ad spend specifically. Shares vary significantly by geography and customer segment."
     },
-
     "competitive_dynamics": {
       "consolidation_trend": "Market is consolidating through acquisitions (StepStone/Appcast/Bayard, Veritone/PandoLogic, Recruitics/Change State, KKR/StepStone spin-off)",
       "platform_vs_agency": "Shift from agency-managed to self-serve platform models, but many enterprises still want managed services",
       "ai_arms_race": "All competitors investing heavily in AI/ML for optimization, with Agentic AI emerging as the next differentiator",
       "quality_vs_volume": "Industry shifting from volume metrics (CPC, CPA) to quality metrics (CPQA, cost-per-hire). Joveo is leading this shift.",
       "international_expansion": "US market mature; growth coming from international expansion (Europe, APAC, Middle East)",
-      "social_integration": "Growing importance of social media channels (Meta, TikTok, Instagram) alongside traditional job boards"
+      "social_integration": "Growing importance of social media channels (Meta, TikTok, Instagram) alongside traditional job boards",
+      "market_consolidation_2024_2026": {
+        "major_acquisitions": [
+          {
+            "acquirer": "Workday",
+            "target": "HiredScore",
+            "date": "Q1 FY2025",
+            "rationale": "AI talent orchestration for HCM platform"
+          },
+          {
+            "acquirer": "Workday",
+            "target": "Paradox",
+            "date": "October 2025",
+            "rationale": "Conversational AI for recruiting"
+          },
+          {
+            "acquirer": "Salesforce",
+            "target": "Moonhub",
+            "date": "June 2025",
+            "rationale": "AI recruiting agents for Agentforce"
+          },
+          {
+            "acquirer": "Meta",
+            "target": "Scale AI (49%)",
+            "date": "June 2025",
+            "rationale": "Data labeling/RLHF for AI training"
+          },
+          {
+            "acquirer": "Bullhorn",
+            "target": "TargetRecruit",
+            "date": "August 2025",
+            "rationale": "Salesforce ecosystem expansion"
+          },
+          {
+            "acquirer": "Radancy",
+            "target": "myInterview",
+            "date": "September 2025",
+            "rationale": "AI video interviewing"
+          },
+          {
+            "acquirer": "Findem",
+            "target": "Getro",
+            "date": "December 2025",
+            "rationale": "Intelligent Job Posts"
+          },
+          {
+            "acquirer": "Shaker",
+            "target": "JobAdX",
+            "date": "2025",
+            "rationale": "Programmatic exchange"
+          },
+          {
+            "acquirer": "Recruitics",
+            "target": "Change State",
+            "date": "August 2025",
+            "rationale": "Recruitment marketing consulting"
+          },
+          {
+            "acquirer": "Mercor",
+            "target": "Sepal AI",
+            "date": "February 2026",
+            "rationale": "AI capabilities expansion"
+          },
+          {
+            "acquirer": "Humanly",
+            "target": "Sprockets + Qualifi + HourWork",
+            "date": "March 2026",
+            "rationale": "End-to-end conversational hiring"
+          }
+        ],
+        "pattern": "Large platform companies (Workday, Salesforce, Meta) acquiring specialized AI tools. Mid-market consolidating into full-stack platforms. Point solutions being absorbed.",
+        "source": "Market Research 2026"
+      }
     }
   },
-
   "advertising_economics": {
     "market_size": {
       "recruitment_ad_agency_market_2025": "$6.88 billion",
@@ -1115,7 +1626,6 @@
       "programmatic_adoption_in_recruitment": "15% (vs 92% in display marketing)",
       "growth_opportunity": "Massive potential for programmatic adoption in recruitment to catch up with display marketing levels"
     },
-
     "spend_by_company_size": {
       "enterprise_1000_plus_employees": {
         "annual_recruitment_ad_spend": "$500,000 - $50,000,000+",
@@ -1133,7 +1643,6 @@
         "budget_trend": "Slowly adopting programmatic through accessible platforms"
       }
     },
-
     "budget_allocation_best_practice": {
       "programmatic_job_boards": "40-55% of recruitment media budget",
       "direct_job_board_postings": "15-25% (for premium/niche boards with slot-based pricing)",
@@ -1143,7 +1652,6 @@
       "emerging_channels_ctv_audio": "2-5% (growing from near zero)",
       "recruitment_marketing_agency_fees": "5-15%"
     },
-
     "roi_benchmarks": {
       "programmatic_cost_reduction": "30-70% reduction in cost-per-qualified-applicant vs manual job posting",
       "appcast_client_results": "Up to 50% reduction in cost-per-hire with transparent ROI measurement",
@@ -1153,7 +1661,6 @@
       "roas_general_benchmark": "2:1 to 4:1 (200%-400%) is considered good ROAS",
       "recruitment_roas_challenge": "ROAS in recruitment is harder to calculate than e-commerce because the 'revenue' from a hire is delayed and varies significantly by role"
     },
-
     "cost_trends": {
       "cpc_trend_2024": "+27% year-over-year increase (Appcast)",
       "cpa_trend_2024": "+4.8% year-over-year increase (Appcast, relatively stable)",
@@ -1169,7 +1676,6 @@
       ],
       "ai_impact_on_costs": "Companies report 30% reduction in cost-per-hire with AI tools, but AI is also creating new costs (screening AI-generated applications)"
     },
-
     "seasonality": {
       "january": "Budget reset, new year hiring surge. CPCs rise. Highest candidate activity.",
       "february_march": "Strong hiring season continues. Competitive CPCs.",
@@ -1180,7 +1686,6 @@
       "december": "Slowdown. Budget wrap-up. Lower CPCs. Candidates browsing but not applying.",
       "key_insight": "Apply rates rose +35% from January to December 2024 (Appcast), suggesting seasonal patterns are shifting as job seeker behavior evolves."
     },
-
     "budget_pacing_strategies": {
       "front_loaded": {
         "when_to_use": "Urgent hiring needs, seasonal roles, time-sensitive campaigns",
@@ -1201,7 +1706,6 @@
       }
     }
   },
-
   "emerging_trends": {
     "ai_powered_job_matching": {
       "description": "Publishers and platforms increasingly use AI to match candidates to jobs, moving beyond keyword matching to skills-based, behavioral, and predictive matching.",
@@ -1215,7 +1719,6 @@
       "impact_on_programmatic": "Better matching = higher apply rates = lower effective CPA. Programmatic platforms must integrate with publisher AI to optimize effectively.",
       "joveo_opportunity": "CPQA becomes more valuable as AI matching improves, because quality differentiation becomes the key metric"
     },
-
     "ctv_connected_tv_job_advertising": {
       "description": "Connected TV (streaming) is emerging as a new channel for recruitment advertising, reaching candidates in a lean-back viewing environment.",
       "market_context": {
@@ -1234,10 +1737,14 @@
       "maturity": "Early stage for recruitment; 2-5% of recruitment budgets allocated currently",
       "forecast": "Expected to grow to 5-10% of enterprise recruitment budgets by 2028"
     },
-
     "programmatic_audio_podcast_advertising": {
       "description": "Audio platforms (Spotify, Audacy, SiriusXM) offering programmatic ad buying for recruitment campaigns.",
-      "platforms_in_joveo_network": ["Spotify", "Audacy", "AdsWizz", "SiriusXM"],
+      "platforms_in_joveo_network": [
+        "Spotify",
+        "Audacy",
+        "AdsWizz",
+        "SiriusXM"
+      ],
       "use_cases": [
         "Targeted recruitment ads during commute-time podcasts",
         "Employer branding audio spots",
@@ -1247,7 +1754,6 @@
       "maturity": "Early stage; 1-3% of recruitment budgets",
       "best_for": "Employer branding, hard-to-reach passive candidates, frontline worker outreach"
     },
-
     "google_for_jobs_disruption": {
       "description": "Google for Jobs continues to reshape the recruitment advertising landscape, with major changes in 2025 shifting toward paid placement.",
       "key_developments_2025_2026": [
@@ -1260,7 +1766,6 @@
       "impact_on_joveo": "Programmatic platforms like Joveo must optimize for Google's structured data requirements (Schema.org JobPosting) and consider Google Job Ads as a new publisher channel",
       "strategic_recommendation": "Diversify traffic sources away from Google dependency; invest in direct traffic, email, and social channels"
     },
-
     "ai_assistants_in_job_search": {
       "description": "ChatGPT, Gemini, and other AI assistants are becoming job search tools, impacting how candidates discover job listings.",
       "impact_areas": [
@@ -1273,7 +1778,6 @@
       "candidate_behavior": "81% of job seekers plan to use AI in their job search in 2026",
       "openai_linkedin_competitor": "OpenAI building professional networking platform for mid-2026 launch - could disrupt LinkedIn"
     },
-
     "privacy_cookie_deprecation": {
       "description": "Chrome cookie deprecation and privacy regulations impacting recruitment advertising targeting and tracking.",
       "impact_on_recruitment_ads": [
@@ -1291,7 +1795,6 @@
       ],
       "industry_response": "Private marketplace (PMP) deals now account for 91%+ of US programmatic spending, reflecting shift toward direct publisher relationships"
     },
-
     "first_party_data_strategies": {
       "description": "Publishers and employers increasingly relying on first-party data (data collected directly from users) for targeting and optimization.",
       "for_publishers": [
@@ -1308,7 +1811,6 @@
       ],
       "joveo_relevance": "Joveo's CRM and career site products directly support first-party data strategies, creating a competitive moat as third-party cookies disappear"
     },
-
     "quality_signals_evolution": {
       "description": "What defines a 'quality' application is evolving rapidly, driven by AI-generated applications and changing hiring standards.",
       "current_challenges": [
@@ -1328,7 +1830,6 @@
       ],
       "joveo_position": "CPQA directly addresses this challenge by defining quality beyond surface-level matching. As AI-generated applications increase, CPQA becomes more important than ever."
     },
-
     "agentic_ai_in_recruitment_marketing": {
       "description": "The shift from rule-based automation to context-aware AI agents that can make decisions, learn from outcomes, and execute multi-step workflows autonomously.",
       "current_state": "Radancy has launched Agentic AI in its Talent Acquisition Cloud. Other platforms are developing similar capabilities.",
@@ -1341,7 +1842,6 @@
       "timeline": "2026-2028 for widespread adoption",
       "joveo_opportunity": "MOJO platform can integrate agentic AI to further differentiate from competitors still using rule-based optimization"
     },
-
     "social_media_recruitment_evolution": {
       "description": "Social platforms are evolving as recruitment channels, with TikTok, Instagram Reels, and YouTube Shorts becoming discovery channels for jobs.",
       "key_developments": [
@@ -1353,9 +1853,160 @@
       ],
       "budget_shift": "Companies moving 5-15% of recruitment budgets from job boards to social channels",
       "effectiveness": "Social channels reach 80% of talent pool that job boards miss (Wonderkind data)"
+    },
+    "ai_sourcing_platform_ecosystem": {
+      "description": "AI-powered candidate sourcing platforms that search across massive profile databases using natural language and AI matching. These platforms complement programmatic job advertising by finding passive candidates rather than waiting for applications.",
+      "market_context": "The market is bifurcated: programmatic platforms handle job distribution but NOT candidate intelligence. AI sourcing platforms find candidates but do NOT handle media buying. No single platform bridges both.",
+      "platforms": {
+        "juicebox_peoplegpt": {
+          "name": "Juicebox (PeopleGPT)",
+          "profiles": "800M+",
+          "funding": "$36M (Sequoia-backed, $30M Series A)",
+          "users": "25,000+ recruiters; 2,500+ paying customers",
+          "differentiator": "Natural language search -- search for candidates in plain English, no boolean required",
+          "growth": "20%+ monthly growth; no sales team -- pure product-led growth",
+          "clients": [
+            "Cognition",
+            "Ramp",
+            "Perplexity"
+          ],
+          "note": "Sequoia's own recruiter uses it"
+        },
+        "seekout": {
+          "name": "SeekOut",
+          "profiles": "1B+",
+          "funding": "$188.6M total",
+          "valuation": "$1.2B (2021)",
+          "products": [
+            "AI-powered sourcing",
+            "AI Screener for video interviews",
+            "ATS Rediscovery",
+            "Managed Recruiting (Spot)"
+          ],
+          "challenges": "Laid off 30% in May 2024; refocused strategy",
+          "clients": "1,000+ enterprises, including 6 of top 10 most valued US companies"
+        },
+        "hireez": {
+          "name": "HireEZ (formerly Hiretual)",
+          "profiles": "750M+ profiles across 45+ platforms",
+          "funding": "$45.5M total",
+          "product": "Agentic AI recruiting platform",
+          "features": [
+            "AI sourcing",
+            "Matching",
+            "Candidate rediscovery",
+            "Internal mobility",
+            "Automated outreach (email, SMS, InMail)"
+          ],
+          "pricing": "~$169-250+/user/month",
+          "integrations": "50+ ATS partners"
+        },
+        "findem": {
+          "name": "Findem",
+          "funding": "$105M total ($51M Series C, October 2025)",
+          "product": "AI talent acquisition with expert-labeled '3D data' and 'Success Signals'",
+          "differentiator": "Expert-labeled data approach -- 'Success Signals' predict who will thrive, not just who can do the job",
+          "growth": "3x YoY; Inc. 5000 top 10%; Fortune/Fast Company recognition",
+          "acquisition": "Acquired Getro for Intelligent Job Posts",
+          "clients": [
+            "RingCentral",
+            "Nutanix"
+          ]
+        },
+        "fetcher": {
+          "name": "Fetcher",
+          "profiles": "800M+",
+          "funding": "$40.3M total",
+          "employees": "145-300+",
+          "product": "AI + human hybrid sourcing; automated outreach",
+          "features": [
+            "Natural language search",
+            "Smart suggestions",
+            "Diversity filters"
+          ],
+          "pricing": "$379-649+/month",
+          "best_for": "Mid-market teams wanting quality-first AI sourcing"
+        }
+      },
+      "strategic_implication": "The company that combines programmatic job advertising with AI sourcing intelligence will own the next generation of recruitment marketing",
+      "source": "Market Research 2026"
+    },
+    "recruiter_marketplace_ecosystem": {
+      "description": "On-demand recruiter marketplaces that connect companies with independent/fractional recruiters, often enhanced with AI tools",
+      "platforms": {
+        "paraform": {
+          "name": "Paraform",
+          "funding": "$65.6M total ($40M Series B, March 2026, led by Scale VP)",
+          "valuation": "$185M+ (pre-Series B)",
+          "employees": 181,
+          "growth": "40x revenue growth since 2024 seed round",
+          "model": "Recruiter marketplace connecting independent recruiters with companies; AI assists with sourcing, evaluation, matching",
+          "recruiter_benefit": "Recruiters earn 3-5x traditional pay",
+          "clients": [
+            "Palantir",
+            "Cursor",
+            "Windsurf",
+            "Decagon",
+            "Hightouch"
+          ],
+          "note": "Reinventing how recruiting is done"
+        },
+        "dover": {
+          "name": "Dover",
+          "funding": "$23.1M total",
+          "employees": 16,
+          "model": "Free ATS + on-demand fractional recruiter marketplace",
+          "scale": "2,000+ companies",
+          "differentiator": "Free software + paid recruiting services (no placement fees)",
+          "backing": "Y Combinator"
+        }
+      },
+      "market_dynamics": "Recruiter marketplaces are disrupting traditional staffing agencies by enabling companies to access on-demand recruiting talent at lower costs with pay-per-outcome models",
+      "source": "Market Research 2026"
+    },
+    "data_labeling_recruitment_convergence": {
+      "description": "AI data labeling and recruitment are converging -- the same platforms that vet and hire AI training contractors are building general-purpose hiring technology",
+      "market_context": "This convergence is creating a new category of AI-native recruitment that bypasses traditional recruiting infrastructure",
+      "platforms": {
+        "scale_ai": {
+          "name": "Scale AI",
+          "valuation": "$29B",
+          "funding": "$1.6B+ (including Meta's $14.3B for 49% stake)",
+          "revenue": "$870M (2024); $2B+ projected (2026)",
+          "product": "Data labeling, RLHF, AI training data platform",
+          "key_event": "Founder Alexandr Wang left to become Meta's Chief AI Officer -- triggered competitor growth",
+          "defense_contracts": "$300M+ in DoD contracts; prime contractor for Thunderforge AI program"
+        },
+        "mercor": {
+          "name": "Mercor",
+          "valuation": "$10B (October 2025)",
+          "funding": "$519M total",
+          "employees": 300,
+          "product": "AI hiring platform; AI interviews; semantic search; performance prediction models",
+          "scale": "30,000+ contractors; $1.5M paid daily; targeting $500M ARR",
+          "growth_trajectory": "$250M val (2024) -> $2B (Feb 2025) -> $10B (Oct 2025)",
+          "recent": "Acquired Sepal AI (February 2026)",
+          "note": "Fastest-growing company in rec-tech history"
+        },
+        "micro1": {
+          "name": "Micro1",
+          "valuation": "$500M",
+          "funding": "$41.6M total ($35M Series A)",
+          "revenue": "$50M ARR (up from $7M at start of 2025)",
+          "product": "AI recruiter 'Zara' -- conducts 20-40 min adaptive interviews; also provides data labeling services",
+          "scale": "1M+ applicants processed; 400K+ AI interviews conducted",
+          "clients": [
+            "Microsoft",
+            "Fortune 100 companies",
+            "Leading AI labs"
+          ],
+          "note": "Positioned at intersection of AI talent vetting and data labeling; benefiting from Scale AI market disruption"
+        }
+      },
+      "strategic_implication": "Data labeling companies are building the most advanced AI hiring technology because they need to evaluate talent at massive scale for AI training projects. This technology will eventually expand to general hiring.",
+      "source": "Market Research 2026"
     }
   },
-
   "key_metrics_glossary": {
     "CPC": "Cost Per Click - Amount paid each time a candidate clicks on a job listing",
     "CPA": "Cost Per Application - Amount paid for each completed job application",
@@ -1378,24 +2029,15 @@
     "ROAS": "Return on Ad Spend - Revenue generated per dollar of advertising spend",
     "QoH": "Quality of Hire - Metric measuring the value new hires bring, typically assessed 6-12 months post-hire"
   },
-
   "frequently_asked_questions": {
     "what_is_joveos_main_differentiator": "Joveo's independence (not owned by a job board or agency), CPQA quality-first approach, transparency in optimization, and comprehensive MOJO platform that combines programmatic advertising, career site CMS, CRM, and analytics in a single solution.",
-
     "how_does_joveo_compare_to_appcast": "Appcast has a larger publisher network (30K+ vs 10,238) and deeper benchmark data, but Joveo offers independence from job board ownership, CPQA quality metrics, and a more unified platform (with CMS, CRM). Appcast is owned by StepStone Group (a job board company), creating potential conflicts of interest.",
-
     "what_is_the_typical_cpc_for_recruitment": "Ranges widely: $0.05-$0.30 for aggregators, $0.25-$1.50 for Indeed, $1.50-$4.50 for LinkedIn, $0.80-$2.69 for Google Ads. Industry, role seniority, and geography are the biggest variables.",
-
     "what_publishers_should_be_in_every_campaign": "Indeed (volume), LinkedIn (quality professionals), career site (owned channel), and 2-3 aggregators for reach. Add niche boards based on industry. Include DEI publishers for diversity goals.",
-
     "how_much_should_a_company_spend_on_recruitment_advertising": "Benchmarks: SHRM says $4,800 average cost-per-hire in 2026. Recruitment advertising is typically 30-50% of total hiring costs. Enterprise companies spend $500K-$50M+ annually on recruitment advertising.",
-
     "what_is_a_good_apply_rate": "Industry average is 6.1% (Appcast 2024). Technology roles see 6.41%, healthcare lower. Above 5% is generally considered good; above 8% is excellent.",
-
     "how_does_programmatic_save_money": "Automated optimization reduces waste by shifting budget from underperforming publishers to high-converting ones in real-time. Clients typically see 30-70% reduction in cost-per-qualified-applicant versus manual job posting.",
-
     "what_is_the_impact_of_ai_on_recruitment_advertising": "Dual impact: AI helps optimize ad spend (30% cost-per-hire reduction), but AI-generated applications are flooding pipelines (53% of seekers use AI), making quality filtering (CPQA) more important than ever.",
-
     "what_emerging_channels_should_we_watch": "CTV (streaming ads), programmatic audio (Spotify/podcasts), TikTok recruitment, and AI assistant optimization (ensuring jobs surface in ChatGPT/Gemini). Also watch Google Job Ads as Google monetizes its free job search product."
   }
 }

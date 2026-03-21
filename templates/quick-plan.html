@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Quick Plan Builder - Get instant recruitment channel recommendations for any role and location. Powered by Nova AI by Joveo.">
+    <meta name="theme-color" content="#08090D">
+    <title>Quick Plan Builder | Nova AI by Joveo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ================================================================
+           CSS CUSTOM PROPERTIES -- Deep Obsidian + Electric Indigo
+           ================================================================ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --obsidian: #08090D;
+            --obsidian-light: #0E1018;
+            --obsidian-card: #111320;
+            --surface: #151726;
+            --surface-hover: #1A1D30;
+            --indigo: #6366F1;
+            --indigo-light: #818CF8;
+            --indigo-pale: rgba(99,102,241,0.08);
+            --indigo-glow: rgba(99,102,241,0.15);
+            --indigo-border: rgba(99,102,241,0.25);
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-tertiary: #64748B;
+            --border: rgba(255,255,255,0.06);
+            --border-hover: rgba(255,255,255,0.10);
+            --green: #22C55E;
+            --green-bg: rgba(34,197,94,0.10);
+            --yellow: #EAB308;
+            --yellow-bg: rgba(234,179,8,0.10);
+            --red: #EF4444;
+            --red-bg: rgba(239,68,68,0.10);
+            --blue: #3B82F6;
+            --blue-bg: rgba(59,130,246,0.10);
+            --pink: #EC4899;
+            --grey-collar: #94A3B8;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.5);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
+            --glass-blur: blur(40px) saturate(1.5);
+            --glass-inset: 0 0 0 1px rgba(255,255,255,0.04) inset;
+            --focus-ring: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--indigo);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        html {
+            font-size: 16px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--obsidian);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* ================================================================
+           FOCUS & ACCESSIBILITY
+           ================================================================ */
+        :focus-visible {
+            outline: none;
+            box-shadow: var(--focus-ring);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px; height: 1px;
+            padding: 0; margin: -1px;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* ================================================================
+           LAYOUT
+           ================================================================ */
+        .qp-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ================================================================
+           HEADER
+           ================================================================ */
+        .qp-header {
+            padding: 24px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 32px;
+        }
+        .qp-header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .qp-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+        .qp-brand-icon {
+            width: 36px; height: 36px;
+            background: var(--indigo);
+            border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .qp-brand-icon svg { width: 20px; height: 20px; }
+        .qp-brand-text {
+            font-size: 1.125rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        .qp-brand-tag {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--indigo-light);
+            background: var(--indigo-pale);
+            padding: 2px 8px;
+            border-radius: 999px;
+            margin-left: 4px;
+        }
+        .qp-nav-link {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color var(--transition);
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+        }
+        .qp-nav-link:hover { color: var(--text-primary); }
+
+        /* ================================================================
+           HERO
+           ================================================================ */
+        .qp-hero {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .qp-hero h1 {
+            font-size: clamp(1.5rem, 4vw, 2.25rem);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--indigo-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .qp-hero p {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            max-width: 540px;
+            margin: 0 auto;
+        }
+
+        /* ================================================================
+           INPUT BAR
+           ================================================================ */
+        .qp-input-bar {
+            background: var(--obsidian-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px 24px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            box-shadow: var(--shadow-md), var(--glass-inset);
+            margin-bottom: 40px;
+        }
+        .qp-field {
+            flex: 1 1 200px;
+            min-width: 0;
+        }
+        .qp-field label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 6px;
+        }
+        .qp-field input {
+            width: 100%;
+            height: 48px;
+            min-height: 44px;
+            padding: 0 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.9375rem;
+            transition: border-color var(--transition), box-shadow var(--transition);
+        }
+        .qp-field input::placeholder {
+            color: var(--text-tertiary);
+        }
+        .qp-field input:hover {
+            border-color: var(--border-hover);
+        }
+        .qp-field input:focus {
+            outline: none;
+            border-color: var(--indigo);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+        }
+        .qp-submit-wrap {
+            flex: 0 0 auto;
+        }
+        .qp-submit {
+            height: 48px;
+            min-height: 44px;
+            min-width: 140px;
+            padding: 0 28px;
+            background: var(--indigo);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background var(--transition), transform 150ms ease, box-shadow var(--transition);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .qp-submit:hover:not(:disabled) {
+            background: #5558E6;
+            box-shadow: 0 4px 20px rgba(99,102,241,0.35);
+        }
+        .qp-submit:active:not(:disabled) {
+            transform: scale(0.97);
+        }
+        .qp-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .qp-submit .spinner {
+            display: none;
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        .qp-submit.loading .spinner { display: inline-block; }
+        .qp-submit.loading .btn-text { display: none; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 768px) {
+            .qp-input-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .qp-field { flex: 1 1 auto; }
+            .qp-submit { width: 100%; }
+        }
+
+        /* ================================================================
+           RESULTS SECTION
+           ================================================================ */
+        .qp-results {
+            display: none;
+            animation: slideUp 300ms cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .qp-results.visible { display: block; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ================================================================
+           ERROR BANNER
+           ================================================================ */
+        .qp-error {
+            display: none;
+            background: var(--red-bg);
+            border: 1px solid rgba(239,68,68,0.25);
+            color: var(--red);
+            border-radius: var(--radius-md);
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .qp-error.visible { display: block; }
+
+        /* ================================================================
+           INSIGHT CARDS ROW
+           ================================================================ */
+        .qp-insights {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        @media (max-width: 640px) {
+            .qp-insights { grid-template-columns: 1fr; }
+        }
+
+        .qp-card {
+            background: var(--obsidian-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 20px 24px;
+            box-shadow: var(--shadow-sm), var(--glass-inset);
+            transition: border-color var(--transition);
+        }
+        .qp-card:hover {
+            border-color: var(--border-hover);
+        }
+        .qp-card-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 12px;
+        }
+
+        /* Role Insight */
+        .qp-role-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .qp-collar-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+        }
+        .qp-collar-badge.blue_collar { background: rgba(59,130,246,0.15); color: #60A5FA; }
+        .qp-collar-badge.white_collar { background: rgba(241,245,249,0.10); color: #E2E8F0; }
+        .qp-collar-badge.grey_collar { background: rgba(148,163,184,0.15); color: #94A3B8; }
+        .qp-collar-badge.pink_collar { background: rgba(236,72,153,0.15); color: #F472B6; }
+
+        .qp-salary {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        /* Difficulty meter */
+        .qp-meter {
+            margin-bottom: 4px;
+        }
+        .qp-meter-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8125rem;
+            margin-bottom: 6px;
+        }
+        .qp-meter-label span:first-child { color: var(--text-secondary); }
+        .qp-meter-label span:last-child { font-weight: 600; }
+        .qp-meter-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--surface);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .qp-meter-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 500ms cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Location Insight */
+        .qp-loc-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .qp-loc-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            margin-bottom: 2px;
+        }
+        .qp-loc-stat-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .qp-tightness-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .qp-tightness-badge.loose { background: var(--green-bg); color: var(--green); }
+        .qp-tightness-badge.balanced { background: var(--blue-bg); color: var(--blue); }
+        .qp-tightness-badge.tight { background: var(--yellow-bg); color: var(--yellow); }
+        .qp-tightness-badge.very_tight { background: var(--red-bg); color: var(--red); }
+
+        /* ================================================================
+           TOTALS STRIP
+           ================================================================ */
+        .qp-totals {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+        .qp-total-item {
+            background: var(--obsidian-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 16px 20px;
+            text-align: center;
+            box-shadow: var(--shadow-sm), var(--glass-inset);
+        }
+        .qp-total-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+        .qp-total-label {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            margin-top: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        /* ================================================================
+           SECTION HEADINGS
+           ================================================================ */
+        .qp-section-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            letter-spacing: -0.01em;
+        }
+
+        /* ================================================================
+           CHANNEL CARDS GRID
+           ================================================================ */
+        .qp-channels {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        @media (max-width: 480px) {
+            .qp-channels { grid-template-columns: 1fr; }
+        }
+
+        .qp-channel {
+            background: var(--obsidian-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            display: flex;
+            gap: 16px;
+            box-shadow: var(--shadow-sm), var(--glass-inset);
+            transition: border-color var(--transition), transform 150ms ease;
+        }
+        .qp-channel:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-1px);
+        }
+
+        /* Fit score circle */
+        .qp-fit-wrap {
+            flex: 0 0 56px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .qp-fit-circle {
+            position: relative;
+            width: 56px; height: 56px;
+        }
+        .qp-fit-circle svg {
+            width: 56px; height: 56px;
+            transform: rotate(-90deg);
+        }
+        .qp-fit-circle .track {
+            fill: none;
+            stroke: var(--surface);
+            stroke-width: 5;
+        }
+        .qp-fit-circle .progress {
+            fill: none;
+            stroke-width: 5;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 600ms cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .qp-fit-value {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8125rem;
+            font-weight: 700;
+        }
+        .qp-fit-label {
+            font-size: 0.625rem;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        /* Channel content */
+        .qp-channel-body {
+            flex: 1;
+            min-width: 0;
+        }
+        .qp-channel-name {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .qp-channel-icon {
+            width: 20px; height: 20px;
+            color: var(--indigo-light);
+            flex-shrink: 0;
+        }
+        .qp-channel-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .qp-ch-metric-val {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .qp-ch-metric-lbl {
+            font-size: 0.6875rem;
+            color: var(--text-tertiary);
+        }
+        .qp-channel-reasoning {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* ================================================================
+           BUDGET ASSESSMENT BANNER
+           ================================================================ */
+        .qp-budget-banner {
+            border-radius: var(--radius-md);
+            padding: 20px 24px;
+            margin-bottom: 28px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            box-shadow: var(--shadow-sm);
+        }
+        .qp-budget-banner.sufficient {
+            background: var(--green-bg);
+            border: 1px solid rgba(34,197,94,0.20);
+        }
+        .qp-budget-banner.tight {
+            background: var(--yellow-bg);
+            border: 1px solid rgba(234,179,8,0.20);
+        }
+        .qp-budget-banner.insufficient {
+            background: var(--red-bg);
+            border: 1px solid rgba(239,68,68,0.20);
+        }
+        .qp-budget-icon {
+            flex: 0 0 32px;
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.125rem;
+        }
+        .qp-budget-banner.sufficient .qp-budget-icon { background: rgba(34,197,94,0.20); }
+        .qp-budget-banner.tight .qp-budget-icon { background: rgba(234,179,8,0.20); }
+        .qp-budget-banner.insufficient .qp-budget-icon { background: rgba(239,68,68,0.20); }
+        .qp-budget-status {
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .qp-budget-banner.sufficient .qp-budget-status { color: var(--green); }
+        .qp-budget-banner.tight .qp-budget-status { color: var(--yellow); }
+        .qp-budget-banner.insufficient .qp-budget-status { color: var(--red); }
+        .qp-budget-text {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* ================================================================
+           SEASONAL TIP CARD
+           ================================================================ */
+        .qp-seasonal {
+            background: var(--obsidian-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 20px 24px;
+            margin-bottom: 32px;
+            box-shadow: var(--shadow-sm), var(--glass-inset);
+        }
+        .qp-seasonal-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .qp-seasonal-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 2px 10px;
+            border-radius: 999px;
+        }
+        .qp-seasonal-badge.peak { background: var(--green-bg); color: var(--green); }
+        .qp-seasonal-badge.good { background: var(--blue-bg); color: var(--blue); }
+        .qp-seasonal-badge.offpeak { background: var(--yellow-bg); color: var(--yellow); }
+        .qp-seasonal-badge.low { background: var(--red-bg); color: var(--red); }
+        .qp-seasonal-text {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+        .qp-seasonal-months {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .qp-month-chip {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: var(--surface);
+            color: var(--text-secondary);
+        }
+        .qp-month-chip.best { background: var(--green-bg); color: var(--green); }
+
+        /* ================================================================
+           CTA
+           ================================================================ */
+        .qp-cta {
+            text-align: center;
+            padding: 32px 0 48px;
+        }
+        .qp-cta-text {
+            font-size: 0.9375rem;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+        .qp-cta-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            height: 48px;
+            min-height: 44px;
+            padding: 0 32px;
+            background: transparent;
+            color: var(--indigo-light);
+            border: 1px solid var(--indigo-border);
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background var(--transition), border-color var(--transition);
+        }
+        .qp-cta-btn:hover {
+            background: var(--indigo-pale);
+            border-color: var(--indigo);
+        }
+
+        /* ================================================================
+           FOOTER
+           ================================================================ */
+        .qp-footer {
+            text-align: center;
+            padding: 24px 0;
+            border-top: 1px solid var(--border);
+            margin-top: 16px;
+        }
+        .qp-footer-text {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+        }
+        .qp-footer a {
+            color: var(--indigo-light);
+            text-decoration: none;
+        }
+        .qp-footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================================
+         HEADER
+         ============================================================ -->
+    <header class="qp-header" role="banner">
+        <div class="qp-container qp-header-inner">
+            <a href="/" class="qp-brand" aria-label="Nova AI Home">
+                <span class="qp-brand-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 18V12l3-3 3 5 3-7 3 9"/>
+                    </svg>
+                </span>
+                <span class="qp-brand-text">Nova AI</span>
+                <span class="qp-brand-tag">Quick Plan</span>
+            </a>
+            <a href="/" class="qp-nav-link" aria-label="Go to full media plan generator">Full Media Plan Generator</a>
+        </div>
+    </header>
+
+    <main class="qp-container" role="main">
+        <!-- ============================================================
+             HERO
+             ============================================================ -->
+        <section class="qp-hero" aria-label="Page introduction">
+            <h1>Instant Channel Recommendations</h1>
+            <p>Enter a role, location, and budget to get data-driven channel recommendations in under a second.</p>
+        </section>
+
+        <!-- ============================================================
+             INPUT BAR
+             ============================================================ -->
+        <form class="qp-input-bar" id="qpForm" role="search" aria-label="Quick plan inputs">
+            <div class="qp-field">
+                <label for="qpRole">Role</label>
+                <input type="text" id="qpRole" name="role" placeholder="e.g. Software Engineer, Nurse, Truck Driver" required autocomplete="off" aria-required="true">
+            </div>
+            <div class="qp-field">
+                <label for="qpLocation">Location</label>
+                <input type="text" id="qpLocation" name="location" placeholder="e.g. San Francisco, London, Remote" required autocomplete="off" aria-required="true">
+            </div>
+            <div class="qp-field">
+                <label for="qpBudget">Budget</label>
+                <input type="text" id="qpBudget" name="budget" placeholder="$50,000" inputmode="numeric" required aria-required="true">
+            </div>
+            <div class="qp-submit-wrap">
+                <button type="submit" class="qp-submit" id="qpSubmit" aria-label="Generate quick plan">
+                    <span class="btn-text">Get Plan</span>
+                    <span class="spinner" aria-hidden="true"></span>
+                </button>
+            </div>
+        </form>
+
+        <!-- ============================================================
+             ERROR
+             ============================================================ -->
+        <div class="qp-error" id="qpError" role="alert" aria-live="assertive"></div>
+
+        <!-- ============================================================
+             RESULTS
+             ============================================================ -->
+        <div class="qp-results" id="qpResults" aria-live="polite">
+
+            <!-- Insight Cards -->
+            <div class="qp-insights">
+                <div class="qp-card" id="qpRoleCard" aria-label="Role analysis">
+                    <div class="qp-card-title">Role Insight</div>
+                    <div id="qpRoleContent"></div>
+                </div>
+                <div class="qp-card" id="qpLocCard" aria-label="Location analysis">
+                    <div class="qp-card-title">Location Insight</div>
+                    <div id="qpLocContent"></div>
+                </div>
+            </div>
+
+            <!-- Totals -->
+            <div class="qp-totals" id="qpTotals" aria-label="Projected totals"></div>
+
+            <!-- Channels -->
+            <h2 class="qp-section-title">Channel Recommendations</h2>
+            <div class="qp-channels" id="qpChannels" aria-label="Channel recommendations"></div>
+
+            <!-- Budget Assessment -->
+            <div id="qpBudgetBanner" aria-label="Budget assessment"></div>
+
+            <!-- Seasonal Advice -->
+            <div id="qpSeasonal" aria-label="Seasonal hiring advice"></div>
+
+            <!-- CTA -->
+            <div class="qp-cta">
+                <p class="qp-cta-text">Need a comprehensive multi-role media plan with Excel and PowerPoint exports?</p>
+                <a href="/" class="qp-cta-btn" aria-label="Generate full media plan">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                    Generate Full Media Plan
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- ============================================================
+         FOOTER
+         ============================================================ -->
+    <footer class="qp-footer" role="contentinfo">
+        <div class="qp-container">
+            <p class="qp-footer-text">Powered by <a href="https://joveo.com" target="_blank" rel="noopener">Joveo</a> | Data from embedded benchmarks. No external API calls.</p>
+        </div>
+    </footer>
+
+    <!-- ============================================================
+         ICONS (inline SVG templates)
+         ============================================================ -->
+    <template id="iconTemplates">
+        <svg id="icon-briefcase" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        <svg id="icon-linkedin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+        <svg id="icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <svg id="icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <svg id="icon-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <svg id="icon-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        <svg id="icon-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg id="icon-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+    </template>
+
+    <script>
+    (function() {
+        'use strict';
+
+        /* ──────────────────────────────────────────────────────
+           DOM REFERENCES
+           ────────────────────────────────────────────────────── */
+        var form = document.getElementById('qpForm');
+        var roleInput = document.getElementById('qpRole');
+        var locationInput = document.getElementById('qpLocation');
+        var budgetInput = document.getElementById('qpBudget');
+        var submitBtn = document.getElementById('qpSubmit');
+        var resultsEl = document.getElementById('qpResults');
+        var errorEl = document.getElementById('qpError');
+
+        /* ──────────────────────────────────────────────────────
+           BUDGET FORMATTING
+           ────────────────────────────────────────────────────── */
+        budgetInput.addEventListener('input', function() {
+            var raw = this.value.replace(/[^0-9.]/g, '');
+            if (!raw) { this.value = ''; return; }
+            var num = parseFloat(raw);
+            if (!isNaN(num)) {
+                this.value = '$' + num.toLocaleString('en-US', {maximumFractionDigits: 0});
+            }
+        });
+
+        /* ──────────────────────────────────────────────────────
+           FORM SUBMIT
+           ────────────────────────────────────────────────────── */
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var role = roleInput.value.trim();
+            var location = locationInput.value.trim();
+            var budget = budgetInput.value.trim();
+
+            if (!role || !location || !budget) {
+                showError('Please fill in all three fields.');
+                return;
+            }
+
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+            hideError();
+            resultsEl.classList.remove('visible');
+
+            fetch('/api/quick-plan', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({role: role, location: location, budget: budget})
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+                if (data.success) {
+                    renderResults(data);
+                } else {
+                    showError(data.error || 'Something went wrong. Please try again.');
+                }
+            })
+            .catch(function(err) {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+                showError('Network error. Please check your connection and try again.');
+            });
+        });
+
+        /* ──────────────────────────────────────────────────────
+           ERROR HELPERS
+           ────────────────────────────────────────────────────── */
+        function showError(msg) {
+            errorEl.textContent = msg;
+            errorEl.classList.add('visible');
+        }
+        function hideError() {
+            errorEl.classList.remove('visible');
+            errorEl.textContent = '';
+        }
+
+        /* ──────────────────────────────────────────────────────
+           NUMBER FORMATTING
+           ────────────────────────────────────────────────────── */
+        function fmtNum(n) {
+            if (n === undefined || n === null) return '0';
+            if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+            if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'K';
+            return n.toLocaleString('en-US');
+        }
+        function fmtDollar(n) {
+            if (n === undefined || n === null) return '$0';
+            if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
+            if (n >= 1000) return '$' + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'K';
+            return '$' + n.toLocaleString('en-US', {maximumFractionDigits: 2});
+        }
+
+        /* ──────────────────────────────────────────────────────
+           SVG ICON HELPER
+           ────────────────────────────────────────────────────── */
+        function getIcon(name) {
+            var tmpl = document.getElementById('icon-' + name);
+            if (tmpl) return tmpl.outerHTML.replace(/ id="[^"]*"/, '');
+            // Fallback: generic circle
+            return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>';
+        }
+
+        /* ──────────────────────────────────────────────────────
+           FIT SCORE COLOR
+           ────────────────────────────────────────────────────── */
+        function fitColor(score) {
+            if (score >= 70) return 'var(--green)';
+            if (score >= 40) return 'var(--yellow)';
+            return 'var(--red)';
+        }
+
+        /* ──────────────────────────────────────────────────────
+           RENDER FIT CIRCLE SVG
+           ────────────────────────────────────────────────────── */
+        function fitCircle(score) {
+            var r = 23;
+            var circumference = 2 * Math.PI * r;
+            var offset = circumference * (1 - score / 100);
+            var color = fitColor(score);
+            return '<div class="qp-fit-circle">' +
+                '<svg viewBox="0 0 56 56">' +
+                '<circle class="track" cx="28" cy="28" r="' + r + '"/>' +
+                '<circle class="progress" cx="28" cy="28" r="' + r + '" ' +
+                'stroke="' + color + '" ' +
+                'stroke-dasharray="' + circumference.toFixed(1) + '" ' +
+                'stroke-dashoffset="' + offset.toFixed(1) + '"/>' +
+                '</svg>' +
+                '<span class="qp-fit-value" style="color:' + color + '">' + score + '</span>' +
+                '</div>';
+        }
+
+        /* ──────────────────────────────────────────────────────
+           DIFFICULTY METER COLOR
+           ────────────────────────────────────────────────────── */
+        function difficultyColor(val) {
+            if (val <= 30) return 'var(--green)';
+            if (val <= 55) return 'var(--yellow)';
+            if (val <= 75) return '#F97316';
+            return 'var(--red)';
+        }
+
+        /* ──────────────────────────────────────────────────────
+           MAIN RENDER
+           ────────────────────────────────────────────────────── */
+        function renderResults(data) {
+            renderRoleInsight(data.role_analysis);
+            renderLocationInsight(data.location_analysis);
+            renderTotals(data.total_projected);
+            renderChannels(data.channel_recommendations);
+            renderBudgetBanner(data.budget_assessment);
+            renderSeasonal(data.seasonal_advice);
+            resultsEl.classList.add('visible');
+            // Scroll into view smoothly
+            resultsEl.scrollIntoView({behavior: 'smooth', block: 'start'});
+        }
+
+        /* ──────────────────────────────────────────────────────
+           ROLE INSIGHT
+           ────────────────────────────────────────────────────── */
+        function renderRoleInsight(r) {
+            var html = '<div class="qp-role-header">' +
+                '<span class="qp-collar-badge ' + esc(r.collar_type) + '">' +
+                collarDot(r.collar_type) + ' ' + esc(r.collar_label) +
+                '</span></div>' +
+                '<div class="qp-salary">' + esc(r.salary_range) + '</div>' +
+                '<div class="qp-meter">' +
+                '<div class="qp-meter-label"><span>Hiring Difficulty</span><span style="color:' + difficultyColor(r.hiring_difficulty) + '">' + esc(r.hiring_difficulty_label) + '</span></div>' +
+                '<div class="qp-meter-bar"><div class="qp-meter-fill" style="width:' + r.hiring_difficulty + '%;background:' + difficultyColor(r.hiring_difficulty) + '"></div></div>' +
+                '</div>';
+            if (r.key_insight) {
+                html += '<p style="font-size:0.8125rem;color:var(--text-secondary);margin-top:12px;line-height:1.5">' + esc(r.key_insight) + '</p>';
+            }
+            document.getElementById('qpRoleContent').innerHTML = html;
+        }
+
+        function collarDot(type) {
+            var colors = {
+                blue_collar: '#3B82F6',
+                white_collar: '#E2E8F0',
+                grey_collar: '#94A3B8',
+                pink_collar: '#EC4899'
+            };
+            var c = colors[type] || '#94A3B8';
+            return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + c + '"></span>';
+        }
+
+        /* ──────────────────────────────────────────────────────
+           LOCATION INSIGHT
+           ────────────────────────────────────────────────────── */
+        function renderLocationInsight(loc) {
+            var tightLabels = {loose:'Loose',balanced:'Balanced',tight:'Tight',very_tight:'Very Tight'};
+            var html = '<div style="font-size:1.125rem;font-weight:600;margin-bottom:12px">' + esc(loc.metro_name || loc.display_location) + '</div>' +
+                '<div class="qp-loc-stats">' +
+                '<div><div class="qp-loc-stat-label">Cost of Living</div>' +
+                '<div class="qp-loc-stat-value">' + loc.coli + '</div></div>' +
+                '<div><div class="qp-loc-stat-label">Market</div>' +
+                '<span class="qp-tightness-badge ' + esc(loc.market_tightness) + '">' + (tightLabels[loc.market_tightness] || 'Balanced') + '</span></div>' +
+                '<div><div class="qp-loc-stat-label">CPC Multiplier</div>' +
+                '<div class="qp-loc-stat-value">' + loc.cpc_multiplier.toFixed(2) + 'x</div></div>' +
+                '<div><div class="qp-loc-stat-label">Population</div>' +
+                '<div class="qp-loc-stat-value">' + esc(loc.population) + '</div></div>' +
+                '</div>';
+            document.getElementById('qpLocContent').innerHTML = html;
+        }
+
+        /* ──────────────────────────────────────────────────────
+           TOTALS
+           ────────────────────────────────────────────────────── */
+        function renderTotals(t) {
+            var items = [
+                {val: fmtDollar(t.total_budget), label: 'Total Budget'},
+                {val: fmtNum(t.total_clicks), label: 'Est. Clicks'},
+                {val: fmtNum(t.total_applies), label: 'Est. Applies'},
+                {val: fmtNum(t.total_hires), label: 'Est. Hires'},
+                {val: fmtDollar(t.blended_cpa), label: 'Blended CPA'},
+                {val: fmtDollar(t.blended_cph), label: 'Cost per Hire'},
+            ];
+            var html = '';
+            for (var i = 0; i < items.length; i++) {
+                html += '<div class="qp-total-item"><div class="qp-total-value">' + items[i].val + '</div><div class="qp-total-label">' + items[i].label + '</div></div>';
+            }
+            document.getElementById('qpTotals').innerHTML = html;
+        }
+
+        /* ──────────────────────────────────────────────────────
+           CHANNELS
+           ────────────────────────────────────────────────────── */
+        function renderChannels(channels) {
+            var html = '';
+            for (var i = 0; i < channels.length; i++) {
+                var ch = channels[i];
+                html += '<div class="qp-channel">' +
+                    '<div class="qp-fit-wrap">' +
+                    fitCircle(ch.fit_score) +
+                    '<span class="qp-fit-label">Fit</span>' +
+                    '</div>' +
+                    '<div class="qp-channel-body">' +
+                    '<div class="qp-channel-name">' +
+                    '<span class="qp-channel-icon">' + getIcon(ch.icon) + '</span>' +
+                    esc(ch.channel_name) +
+                    '</div>' +
+                    '<div class="qp-channel-metrics">' +
+                    metricCell(fmtDollar(ch.spend), 'Spend') +
+                    metricCell(fmtNum(ch.projected_applies), 'Applies') +
+                    metricCell(fmtDollar(ch.cpa), 'CPA') +
+                    '</div>' +
+                    '<p class="qp-channel-reasoning">' + esc(ch.reasoning) + '</p>' +
+                    '</div></div>';
+            }
+            document.getElementById('qpChannels').innerHTML = html;
+        }
+
+        function metricCell(val, label) {
+            return '<div><div class="qp-ch-metric-val">' + val + '</div><div class="qp-ch-metric-lbl">' + label + '</div></div>';
+        }
+
+        /* ──────────────────────────────────────────────────────
+           BUDGET BANNER
+           ────────────────────────────────────────────────────── */
+        function renderBudgetBanner(b) {
+            var icons = {sufficient: '&#10003;', tight: '&#9888;', insufficient: '&#10007;'};
+            var labels = {sufficient: 'Budget Sufficient', tight: 'Budget Tight', insufficient: 'Budget Insufficient'};
+            var html = '<div class="qp-budget-banner ' + esc(b.status) + '">' +
+                '<div class="qp-budget-icon" aria-hidden="true">' + (icons[b.status] || '&#9888;') + '</div>' +
+                '<div><div class="qp-budget-status">' + (labels[b.status] || 'Budget Assessment') + '</div>' +
+                '<p class="qp-budget-text">' + esc(b.explanation) + '</p></div></div>';
+            document.getElementById('qpBudgetBanner').innerHTML = html;
+        }
+
+        /* ──────────────────────────────────────────────────────
+           SEASONAL
+           ────────────────────────────────────────────────────── */
+        function renderSeasonal(s) {
+            var badgeClass = 'good';
+            if (s.current_label === 'Peak Season') badgeClass = 'peak';
+            else if (s.current_label === 'Off-Peak') badgeClass = 'offpeak';
+            else if (s.current_label === 'Low Season') badgeClass = 'low';
+
+            var html = '<div class="qp-seasonal">' +
+                '<div class="qp-card-title">Seasonal Insight</div>' +
+                '<div class="qp-seasonal-header">' +
+                '<span style="font-weight:600">' + esc(s.current_month) + '</span>' +
+                '<span class="qp-seasonal-badge ' + badgeClass + '">' + esc(s.current_label) + ' (' + s.current_multiplier.toFixed(2) + 'x)</span>' +
+                '</div>' +
+                '<p class="qp-seasonal-text">' + esc(s.advice) + '</p>';
+
+            if (s.best_months && s.best_months.length > 0) {
+                html += '<div style="font-size:0.75rem;color:var(--text-tertiary);margin-bottom:6px">Best months to hire</div>' +
+                    '<div class="qp-seasonal-months">';
+                for (var i = 0; i < s.best_months.length; i++) {
+                    html += '<span class="qp-month-chip best">' + esc(s.best_months[i].month) + ' (' + s.best_months[i].multiplier.toFixed(2) + 'x)</span>';
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+            document.getElementById('qpSeasonal').innerHTML = html;
+        }
+
+        /* ──────────────────────────────────────────────────────
+           ESCAPE HTML
+           ────────────────────────────────────────────────────── */
+        function esc(s) {
+            if (s === undefined || s === null) return '';
+            var d = document.createElement('div');
+            d.appendChild(document.createTextNode(String(s)));
+            return d.innerHTML;
+        }
+
+    })();
+    </script>
+</body>
+</html>

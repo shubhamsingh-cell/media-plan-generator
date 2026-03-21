@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-08",
+  "last_updated": "2026-03-22",
   "data_period": "2024-2026",
   "sources": [
     {
@@ -108,9 +108,13 @@
       "name": "CareerPlug Recruiting Metrics & KPIs (2025)",
       "url": "https://www.careerplug.com/recruiting-metrics-and-kpis/",
       "data_scope": "Applicant-to-hire ratios, funnel benchmarks by industry"
+    },
+    {
+      "name": "Recruitment Technology Landscape Report 2025-2026 (Joveo Strategic Research)",
+      "data_scope": "Comprehensive market research covering 38+ companies, M&A activity, benchmark data, and competitive intelligence",
+      "release_date": "2026-03-22"
     }
   ],
-
   "industry_benchmarks": {
     "healthcare_medical": {
       "cpa": {
@@ -175,12 +179,18 @@
         "notes": "Heavy reliance on staffing agencies for specialized roles"
       },
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "September"],
-        "trough_months": ["June", "July"],
+        "peak_months": [
+          "January",
+          "February",
+          "September"
+        ],
+        "trough_months": [
+          "June",
+          "July"
+        ],
         "notes": "Year-round demand with surges in Q1 and September. Vacation season causes summer dip. Healthcare accounted for 75% of net job growth in 2025."
       }
     },
-
     "technology_engineering": {
       "cpa": {
         "range": "$14.78-$89",
@@ -192,7 +202,7 @@
         "trend_yoy": "+8-12%",
         "2024": "$40 median (total cost)",
         "2025": "$14.78 (Appcast recruitment media CPA), $45-$89 (total cost including agency/ATS)",
-        "notes": "Technology had highest apply rate (7.14%) in 2025 but CPH doubled to $2,795 — volume masks quality problem"
+        "notes": "Technology had highest apply rate (7.14%) in 2025 but CPH doubled to $2,795 \u2014 volume masks quality problem"
       },
       "cpc": {
         "range": "$0.75-$3.50",
@@ -241,12 +251,20 @@
         "notes": "Direct sourcing and referrals dominate quality hires in tech"
       },
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "September"],
-        "trough_months": ["June", "July", "August", "December"],
+        "peak_months": [
+          "January",
+          "February",
+          "September"
+        ],
+        "trough_months": [
+          "June",
+          "July",
+          "August",
+          "December"
+        ],
         "notes": "AI/ML demand surged 25% in 2025 (CompTIA). Tech postings remain 30% below pre-pandemic despite stabilization."
       }
     },
-
     "finance_banking": {
       "cpa": {
         "range": "$11-$25",
@@ -283,13 +301,23 @@
       },
       "offer_acceptance_rate": "82-88%",
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "March", "September", "October"],
-        "trough_months": ["June", "July", "August", "December"],
+        "peak_months": [
+          "January",
+          "February",
+          "March",
+          "September",
+          "October"
+        ],
+        "trough_months": [
+          "June",
+          "July",
+          "August",
+          "December"
+        ],
         "cpa_seasonal_note": "Tax season prep (Q4-Q1) creates biggest demand spike for accounting/finance roles",
         "notes": "Budget cycles drive Q1 hiring. Tariff-driven volatility affecting 2025-2026 hiring patterns."
       }
     },
-
     "retail_consumer": {
       "cpa": {
         "range": "$8-$25",
@@ -327,13 +355,21 @@
       "offer_acceptance_rate": "75-82%",
       "applicants_per_hire": 57,
       "seasonal_patterns": {
-        "peak_months": ["March", "April", "May", "October", "November"],
+        "peak_months": [
+          "March",
+          "April",
+          "May",
+          "October",
+          "November"
+        ],
         "holiday_seasonal_hiring": "October-December",
-        "trough_months": ["January", "February"],
+        "trough_months": [
+          "January",
+          "February"
+        ],
         "notes": "2025 seasonal retail postings were flat YoY (+1%), seasonal sales roles down 10% YoY. E-commerce shifting seasonal demand to logistics."
       }
     },
-
     "hospitality_travel": {
       "cpa": {
         "range": "$10-$30",
@@ -365,13 +401,20 @@
       },
       "offer_acceptance_rate": "70-78%",
       "seasonal_patterns": {
-        "peak_months": ["March", "April", "May", "September"],
+        "peak_months": [
+          "March",
+          "April",
+          "May",
+          "September"
+        ],
         "operational_peak": "April-September",
-        "trough_months": ["November", "January"],
+        "trough_months": [
+          "November",
+          "January"
+        ],
         "notes": "Hospitality attraction prices dropped 39% MoM in March 2025 but were 41% higher YoY (Recruitics May 2025)."
       }
     },
-
     "logistics_supply_chain": {
       "cpa": {
         "range": "$12-$35",
@@ -403,13 +446,21 @@
       },
       "offer_acceptance_rate": "75-82%",
       "seasonal_patterns": {
-        "peak_months": ["August", "September", "October", "November"],
+        "peak_months": [
+          "August",
+          "September",
+          "October",
+          "November"
+        ],
         "holiday_logistics_surge": "Driving jobs up 153% from mid-Nov levels; loading/stocking up 49%",
-        "trough_months": ["January", "February", "March"],
+        "trough_months": [
+          "January",
+          "February",
+          "March"
+        ],
         "notes": "E-commerce growth shifting seasonal demand from retail to logistics. 31% of companies paused hiring in 2025 but key logistics roles remain in demand."
       }
     },
-
     "blue_collar_skilled_trades": {
       "cpa": {
         "range": "$15-$50",
@@ -449,12 +500,21 @@
         "apprentice_pipeline": "680,000 active registered apprentices in FY2024, up from 562K in 2020"
       },
       "seasonal_patterns": {
-        "peak_months": ["March", "April", "May", "September", "October"],
-        "trough_months": ["December", "January", "February"],
+        "peak_months": [
+          "March",
+          "April",
+          "May",
+          "September",
+          "October"
+        ],
+        "trough_months": [
+          "December",
+          "January",
+          "February"
+        ],
         "notes": "Construction and outdoor trades peak in spring/summer. Infrastructure spending driving year-round demand."
       }
     },
-
     "pharma_biotech": {
       "cpa": {
         "range": "$35-$90",
@@ -491,12 +551,21 @@
       },
       "offer_acceptance_rate": "82-88%",
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "March", "September", "October"],
-        "trough_months": ["June", "July", "December"],
+        "peak_months": [
+          "January",
+          "February",
+          "March",
+          "September",
+          "October"
+        ],
+        "trough_months": [
+          "June",
+          "July",
+          "December"
+        ],
         "notes": "Budget cycles and clinical trial timelines drive hiring patterns. Q1 and Q3 are strongest."
       }
     },
-
     "aerospace_defense": {
       "cpa": {
         "range": "$40-$100",
@@ -529,12 +598,20 @@
       },
       "offer_acceptance_rate": "85-90%",
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "March", "October"],
-        "trough_months": ["July", "August", "December"],
+        "peak_months": [
+          "January",
+          "February",
+          "March",
+          "October"
+        ],
+        "trough_months": [
+          "July",
+          "August",
+          "December"
+        ],
         "notes": "Government fiscal year (Oct-Sep) and defense budget cycles drive hiring. Q4 government fiscal year-end creates urgency."
       }
     },
-
     "energy_utilities": {
       "cpa": {
         "range": "$25-$65",
@@ -566,12 +643,21 @@
       },
       "offer_acceptance_rate": "82-88%",
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "March", "September", "October"],
-        "trough_months": ["June", "July", "December"],
+        "peak_months": [
+          "January",
+          "February",
+          "March",
+          "September",
+          "October"
+        ],
+        "trough_months": [
+          "June",
+          "July",
+          "December"
+        ],
         "notes": "Utility maintenance cycles and energy demand patterns influence hiring. Renewable energy sector growing rapidly."
       }
     },
-
     "construction_real_estate": {
       "cpa": {
         "range": "$18-$50",
@@ -604,12 +690,20 @@
       },
       "offer_acceptance_rate": "80-86%",
       "seasonal_patterns": {
-        "peak_months": ["February", "March", "April", "May"],
-        "trough_months": ["November", "December", "January"],
+        "peak_months": [
+          "February",
+          "March",
+          "April",
+          "May"
+        ],
+        "trough_months": [
+          "November",
+          "December",
+          "January"
+        ],
         "notes": "Spring ramp-up for construction season. Weather-dependent markets have more pronounced seasonality."
       }
     },
-
     "education": {
       "cpa": {
         "range": "$10-$30",
@@ -643,12 +737,21 @@
       },
       "offer_acceptance_rate": "80-87%",
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "March", "April", "May"],
-        "trough_months": ["September", "October", "November"],
+        "peak_months": [
+          "January",
+          "February",
+          "March",
+          "April",
+          "May"
+        ],
+        "trough_months": [
+          "September",
+          "October",
+          "November"
+        ],
         "notes": "Academic calendar drives hiring. Spring semester hiring for next academic year. Mid-year replacements are urgent fills."
       }
     },
-
     "government": {
       "cpa": {
         "range": "$12-$35",
@@ -681,12 +784,20 @@
       "offer_acceptance_rate": "85-92%",
       "turnover_rate": "0.8% quit rate (lowest of any sector)",
       "seasonal_patterns": {
-        "peak_months": ["July", "August", "September", "October"],
-        "trough_months": ["November", "December", "January"],
+        "peak_months": [
+          "July",
+          "August",
+          "September",
+          "October"
+        ],
+        "trough_months": [
+          "November",
+          "December",
+          "January"
+        ],
         "notes": "Federal fiscal year (Oct 1) drives hiring. End-of-fiscal-year budget spending creates Q4 surge. Hiring freezes common at administration changes."
       }
     },
-
     "insurance": {
       "cpa": {
         "range": "$13-$25",
@@ -718,12 +829,20 @@
       },
       "offer_acceptance_rate": "82-88%",
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "March", "September"],
-        "trough_months": ["June", "July", "December"],
+        "peak_months": [
+          "January",
+          "February",
+          "March",
+          "September"
+        ],
+        "trough_months": [
+          "June",
+          "July",
+          "December"
+        ],
         "notes": "Open enrollment periods and regulatory changes drive hiring cycles"
       }
     },
-
     "telecommunications": {
       "cpa": {
         "range": "$20-$55",
@@ -754,12 +873,20 @@
       },
       "offer_acceptance_rate": "80-86%",
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "September", "October"],
-        "trough_months": ["June", "July", "December"],
+        "peak_months": [
+          "January",
+          "February",
+          "September",
+          "October"
+        ],
+        "trough_months": [
+          "June",
+          "July",
+          "December"
+        ],
         "notes": "5G rollout and infrastructure investment driving demand. Technology overlap means competition with pure tech companies for talent."
       }
     },
-
     "automotive_manufacturing": {
       "cpa": {
         "range": "$12-$40",
@@ -793,12 +920,22 @@
       },
       "offer_acceptance_rate": "80-85%",
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "March", "September", "October", "November"],
-        "trough_months": ["June", "July", "August"],
+        "peak_months": [
+          "January",
+          "February",
+          "March",
+          "September",
+          "October",
+          "November"
+        ],
+        "trough_months": [
+          "June",
+          "July",
+          "August"
+        ],
         "notes": "Model year changeovers and production ramp-ups drive seasonal patterns. EV transition creating new talent needs."
       }
     },
-
     "food_beverage": {
       "cpa": {
         "range": "$8-$25",
@@ -829,12 +966,20 @@
       },
       "offer_acceptance_rate": "72-80%",
       "seasonal_patterns": {
-        "peak_months": ["March", "April", "May", "September", "October"],
-        "trough_months": ["January", "February"],
+        "peak_months": [
+          "March",
+          "April",
+          "May",
+          "September",
+          "October"
+        ],
+        "trough_months": [
+          "January",
+          "February"
+        ],
         "notes": "Seasonal food production cycles and holiday preparation drive patterns. Food service wage growth (2.9% YoY to Dec 2025) lagging retail."
       }
     },
-
     "media_entertainment": {
       "cpa": {
         "range": "$20-$55",
@@ -865,12 +1010,20 @@
       },
       "offer_acceptance_rate": "78-84%",
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "September", "October"],
-        "trough_months": ["June", "July", "December"],
+        "peak_months": [
+          "January",
+          "February",
+          "September",
+          "October"
+        ],
+        "trough_months": [
+          "June",
+          "July",
+          "December"
+        ],
         "notes": "Media sector remains significantly weaker than pre-pandemic per Indeed. Content production cycles drive hiring."
       }
     },
-
     "legal_services": {
       "cpa": {
         "range": "$25-$65",
@@ -905,12 +1058,20 @@
       },
       "offer_acceptance_rate": "82-88%",
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "September", "October"],
-        "trough_months": ["June", "July", "December"],
+        "peak_months": [
+          "January",
+          "February",
+          "September",
+          "October"
+        ],
+        "trough_months": [
+          "June",
+          "July",
+          "December"
+        ],
         "notes": "Law firm budget cycles and associate class hiring timelines drive patterns. Summer associate programs are separate pipeline."
       }
     },
-
     "professional_services_consulting": {
       "cpa": {
         "range": "$20-$55",
@@ -949,12 +1110,22 @@
         "notes": "Gem data: only 2-3% of applicants invited to interview for consultant/analyst roles"
       },
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "March", "September", "October"],
-        "trough_months": ["June", "July", "August", "December"],
+        "peak_months": [
+          "January",
+          "February",
+          "March",
+          "September",
+          "October"
+        ],
+        "trough_months": [
+          "June",
+          "July",
+          "August",
+          "December"
+        ],
         "notes": "Campus recruiting cycles (fall) and project-driven hiring create bimodal pattern."
       }
     },
-
     "nonprofit": {
       "cpa": {
         "range": "$10-$30",
@@ -985,12 +1156,21 @@
       },
       "offer_acceptance_rate": "80-86%",
       "seasonal_patterns": {
-        "peak_months": ["January", "February", "March", "September"],
-        "trough_months": ["June", "July", "November", "December"],
+        "peak_months": [
+          "January",
+          "February",
+          "March",
+          "September"
+        ],
+        "trough_months": [
+          "June",
+          "July",
+          "November",
+          "December"
+        ],
         "notes": "Grant cycles and fiscal year budgets drive hiring. Year-end fundraising season limits bandwidth for hiring."
       }
     },
-
     "agriculture": {
       "cpa": {
         "range": "$10-$35",
@@ -1021,14 +1201,26 @@
       },
       "offer_acceptance_rate": "75-82%",
       "seasonal_patterns": {
-        "peak_months": ["February", "March", "April", "May"],
-        "harvest_season_hiring": ["August", "September", "October"],
-        "trough_months": ["November", "December", "January"],
+        "peak_months": [
+          "February",
+          "March",
+          "April",
+          "May"
+        ],
+        "harvest_season_hiring": [
+          "August",
+          "September",
+          "October"
+        ],
+        "trough_months": [
+          "November",
+          "December",
+          "January"
+        ],
         "notes": "Strongly seasonal. Planting and harvest seasons drive bulk of hiring. H-2A visa program critical for seasonal labor."
       }
     }
   },
-
   "funnel_conversion_rates": {
     "overall_benchmarks": {
       "job_ad_impression_to_click": {
@@ -1095,7 +1287,6 @@
         "gem_2026_report": "0.5% receive offers; 0.3-0.7% hired depending on company size"
       }
     },
-
     "by_candidate_source": {
       "inbound_job_board": {
         "pct_of_applications": "49%",
@@ -1143,7 +1334,6 @@
         "notes": "Growing channel, especially for reaching younger generations"
       }
     },
-
     "by_company_size": {
       "small_companies": {
         "application_to_pre_onsite": "25% advance",
@@ -1156,7 +1346,6 @@
         "notes": "Fewer advance early but stronger later-stage conversion. Double the hire rate of smaller companies."
       }
     },
-
     "remote_vs_onsite_vs_hybrid": {
       "remote": {
         "application_volume_vs_onsite": "+340% more applications",
@@ -1183,7 +1372,6 @@
         "notes": "Salary disclosure significantly improves apply rates regardless of work model"
       }
     },
-
     "dei_passthrough_rates": {
       "women": {
         "end_to_end_passthrough": "0.8% (vs 0.7% for men)",
@@ -1194,7 +1382,6 @@
       }
     }
   },
-
   "programmatic_benchmarks": {
     "market_overview": {
       "global_market_size_2025": "$1.08 billion",
@@ -1272,9 +1459,34 @@
       "Source Channel ROI",
       "Budget Utilization Rate",
       "Candidate Quality Score"
-    ]
+    ],
+    "appcast_2026_competitive_benchmarks": {
+      "source": "Appcast 2026 Recruitment Marketing Benchmark Report + Market Research 2026",
+      "data_scope": {
+        "clicks_analyzed": "302M",
+        "applications_analyzed": "27M",
+        "employers_in_dataset": 1200,
+        "note": "10th annual benchmark report with first-ever click-to-hire candidate disposition data"
+      },
+      "key_insights": [
+        "Rising CPA and CPH despite softer labor market conditions -- efficiency is now the primary battleground",
+        "First benchmark report to include click-to-hire attribution data, proving post-apply tracking is valuable and commercially viable",
+        "Cost trends suggest that even in buyer's markets, recruitment advertising costs continue to rise due to platform pricing model shifts",
+        "Programmatic optimization is more critical than ever as costs rise even in softer labor markets"
+      ],
+      "competitive_context": {
+        "appcast_scale": "30K site network; 1,000+ clients",
+        "pandologic_scale": "200B+ historical data points; 7,000 micro-decisions/minute",
+        "recruitics_results": "33% reduction in CPA; 50% increase in conversion rate",
+        "joveo_advantage": "1,238+ publishers; 40+ countries; CPQA focus; source-neutral optimization"
+      },
+      "market_dynamics": {
+        "programmatic_adoption": "Only ~15% of employers use programmatic job advertising",
+        "programmatic_total_market": "$97-105B in 2025 (all industries); $200B+ projected by 2026",
+        "recruitment_programmatic_share": "Small niche within total programmatic -- massive headroom for growth"
+      }
+    }
   },
-
   "seasonal_patterns": {
     "general_patterns": {
       "january_february": {
@@ -1305,54 +1517,141 @@
     },
     "industry_specific_seasonality": {
       "healthcare": {
-        "peak_months": ["January", "February", "September"],
-        "trough_months": ["June", "July"],
+        "peak_months": [
+          "January",
+          "February",
+          "September"
+        ],
+        "trough_months": [
+          "June",
+          "July"
+        ],
         "cpa_variance": "+20% above average in peak; -10% in trough",
         "notes": "Year-round demand with predictable surges"
       },
       "technology": {
-        "peak_months": ["January", "February", "September"],
-        "trough_months": ["June", "July", "August"],
+        "peak_months": [
+          "January",
+          "February",
+          "September"
+        ],
+        "trough_months": [
+          "June",
+          "July",
+          "August"
+        ],
         "cpa_variance": "+15% in Q1 peak; stable in Q3",
         "notes": "Less seasonal than other industries but follows budget cycles"
       },
       "retail": {
-        "peak_months": ["March", "April", "May", "October", "November"],
-        "trough_months": ["January", "February"],
+        "peak_months": [
+          "March",
+          "April",
+          "May",
+          "October",
+          "November"
+        ],
+        "trough_months": [
+          "January",
+          "February"
+        ],
         "cpa_variance": "+25-30% during holiday seasonal hiring",
         "notes": "2025 seasonal retail flat (+1% YoY); demand shifting to logistics"
       },
       "hospitality": {
-        "peak_hiring": ["March", "April", "May"],
-        "operational_peak": ["April", "May", "June", "July", "August", "September"],
-        "trough_months": ["November", "January"],
+        "peak_hiring": [
+          "March",
+          "April",
+          "May"
+        ],
+        "operational_peak": [
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September"
+        ],
+        "trough_months": [
+          "November",
+          "January"
+        ],
         "cpa_variance": "+50% variance between peak and trough (Recruitics data)"
       },
       "construction": {
-        "peak_months": ["February", "March", "April", "May"],
-        "trough_months": ["November", "December", "January"],
+        "peak_months": [
+          "February",
+          "March",
+          "April",
+          "May"
+        ],
+        "trough_months": [
+          "November",
+          "December",
+          "January"
+        ],
         "cpa_variance": "+30% in spring ramp-up",
         "notes": "Strongly weather-dependent; Sun Belt less seasonal"
       },
       "logistics": {
-        "peak_months": ["August", "September", "October", "November"],
-        "trough_months": ["January", "February", "March"],
+        "peak_months": [
+          "August",
+          "September",
+          "October",
+          "November"
+        ],
+        "trough_months": [
+          "January",
+          "February",
+          "March"
+        ],
         "cpa_variance": "+40% during holiday logistics surge",
         "notes": "E-commerce driving logistics demand; seasonal driving jobs up 153%"
       },
       "education": {
-        "peak_months": ["January", "February", "March", "April", "May"],
-        "trough_months": ["September", "October", "November"],
+        "peak_months": [
+          "January",
+          "February",
+          "March",
+          "April",
+          "May"
+        ],
+        "trough_months": [
+          "September",
+          "October",
+          "November"
+        ],
         "notes": "Academic calendar driven. Spring hiring for next academic year."
       },
       "government": {
-        "peak_months": ["July", "August", "September", "October"],
-        "trough_months": ["November", "December", "January"],
+        "peak_months": [
+          "July",
+          "August",
+          "September",
+          "October"
+        ],
+        "trough_months": [
+          "November",
+          "December",
+          "January"
+        ],
         "notes": "Federal fiscal year (Oct 1) drives end-of-year spending and hiring urgency"
       },
       "agriculture": {
-        "peak_months": ["February", "March", "April", "May", "August", "September", "October"],
-        "trough_months": ["November", "December", "January"],
+        "peak_months": [
+          "February",
+          "March",
+          "April",
+          "May",
+          "August",
+          "September",
+          "October"
+        ],
+        "trough_months": [
+          "November",
+          "December",
+          "January"
+        ],
         "notes": "Strongly seasonal: planting (spring) and harvest (fall) create bimodal peaks"
       }
     },
@@ -1379,7 +1678,6 @@
       }
     }
   },
-
   "platform_cpc_benchmarks": {
     "indeed": {
       "cpc_range": "$0.10-$5.00",
@@ -1448,10 +1746,21 @@
       "recruitics": {
         "model": "Programmatic + analytics",
         "notes": "Talent Market Index provides monthly pricing benchmarks across 9 sectors"
+      },
+      "appcast_2026_data": {
+        "benchmark_report_scope": "302M clicks, 27M applications, 1,200 employers",
+        "trend": "Rising CPA/CPH despite softer labor conditions",
+        "first_click_to_hire_data": true,
+        "source": "Appcast 2026 Benchmark Report"
+      },
+      "pandologic_2026_data": {
+        "data_points": "200B+ historical data points",
+        "optimization_speed": "7,000 micro-decisions per minute",
+        "brand": "Now operating as Veritone Hire (merged with Broadbean)",
+        "source": "Market Research 2026"
       }
     }
   },
-
   "application_experience_benchmarks": {
     "mobile_vs_desktop": {
       "mobile_pct_of_all_applications_2025": "67%",
@@ -1489,7 +1798,6 @@
       }
     }
   },
-
   "recruiter_efficiency_benchmarks": {
     "workload_trends": {
       "open_reqs_per_recruiter_2024": 14,
@@ -1526,7 +1834,6 @@
       "skills_based_hiring_adoption": "38% of employers using skills assessments"
     }
   },
-
   "labor_market_context_2025_2026": {
     "macro_trends": {
       "the_great_stay": "Quits, hires, and layoffs all declining. Employees staying put.",
@@ -1557,21 +1864,23 @@
       "offer_rejection_rate_decline": "12% less likely to reject in 2025 vs 2023"
     },
     "quality_of_hire_benchmarks": {
-      "pct_organizations_tracking_qoh": "20%",
-      "pct_recognizing_importance": "89%",
-      "pct_confident_measuring": "25%",
-      "performance_lift_from_mastering_qoh": "+30% better business performance",
-      "new_hire_90_day_retention_target": "85%+",
-      "first_year_retention_target": "80%+",
-      "pct_new_hires_quit_within_90_days": "33%",
-      "pct_turnover_in_first_45_days": "20%",
-      "onboarding_impact_on_retention": "+82% retention with structured onboarding (Glassdoor/SHRM)",
-      "overall_voluntary_turnover_2025": "13.5% (Mercer, down from 17.3% in 2023)",
-      "retail_voluntary_turnover": "24.9%",
-      "government_quit_rate": "0.8% (lowest)"
+      "top_metric_status": "Quality of hire is now the top success metric for 31% of hiring leaders (surpassing cost-per-hire and time-to-fill)",
+      "post_hire_attribution_gap": "Nobody currently tracks quality-of-hire by advertising source (which programmatic channel produces candidates who stay 12+ months and perform well)",
+      "staffing_ai_impact": {
+        "placements_increase": "24% more placements for staffing firms using AI",
+        "jobs_filled_increase": "28% more jobs filled for AI-using staffing firms",
+        "revenue_growth": "60% revenue growth for AI-adopting staffing agencies"
+      },
+      "application_abandonment": "Over 50% of candidates abandon applications before completion (iCIMS data)",
+      "conversational_apply_improvement": "Conversational apply increases conversion 5x (Paradox data)",
+      "paradox_results": {
+        "chipotle": "75% faster hiring",
+        "gm": "$2M saved annually",
+        "seven_eleven": "40K hours saved weekly"
+      },
+      "source": "Market Research 2026"
     }
   },
-
   "recruitics_talent_market_index_monthly": {
     "description": "Monthly talent attraction pricing data across 9 job sectors from Recruitics",
     "july_2025": {

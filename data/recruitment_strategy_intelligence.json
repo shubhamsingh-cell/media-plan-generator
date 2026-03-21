@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-08",
+  "last_updated": "2026-03-22",
   "version": "1.0",
   "description": "Comprehensive recruitment strategy intelligence covering employer branding, DEI recruitment, technology landscape, budget frameworks, content marketing, and creative best practices. Powers strategic recommendations in media plans and chatbot responses.",
   "sources": [
@@ -31,7 +31,8 @@
     "PMC Journal - Debiasing Job Ads Research",
     "Work Institute Retention Report",
     "Omnisend SMS Marketing Statistics 2025",
-    "Sakari SMS Benchmarks 2025"
+    "Sakari SMS Benchmarks 2025",
+    "Recruitment Technology Landscape Report 2025-2026 (Joveo Strategic Research)"
   ],
   "employer_branding": {
     "roi_data": {
@@ -347,7 +348,11 @@
           "best_for": "Military veteran hiring"
         },
         "disability_boards": {
-          "examples": ["DisabilityJobs", "AbilityJobs", "GettingHired"],
+          "examples": [
+            "DisabilityJobs",
+            "AbilityJobs",
+            "GettingHired"
+          ],
           "best_for": "Disability-inclusive hiring and ADA compliance"
         },
         "HBCU_resources": {
@@ -368,7 +373,13 @@
         "effectiveness": "Word of mouth through trusted communities often highlights genuine DEI employers"
       },
       "ai_sourcing_for_dei": {
-        "tools": ["HireVue", "Pymetrics", "Eightfold.ai", "SeekOut", "HireEZ"],
+        "tools": [
+          "HireVue",
+          "Pymetrics",
+          "Eightfold.ai",
+          "SeekOut",
+          "HireEZ"
+        ],
         "approach": "Assess candidates based on skills and potential rather than traditional markers",
         "benefit": "Algorithms reduce bias in screening process; DEI-specific filters available"
       }
@@ -378,7 +389,11 @@
         "strategy": "Inclusive job descriptions",
         "details": "Remove gendered language, limit requirements lists, use skill-based language, avoid jargon",
         "impact": "29% increase in applications when gender-coded words removed",
-        "tools": ["Textio", "Ongig", "Gender Decoder"],
+        "tools": [
+          "Textio",
+          "Ongig",
+          "Gender Decoder"
+        ],
         "key_stats": [
           "Women apply only when meeting 100% of requirements; men apply at 60%",
           "Buffer found <2% female developer applicants due to 'hacker' terminology",
@@ -552,29 +567,59 @@
     },
     "ats": {
       "market_leader": "iCIMS (10.7% market share in 2024)",
-      "top_vendors_by_share": ["Oracle", "iCIMS", "SAP", "Workday", "Bullhorn", "Greenhouse"],
+      "top_vendors_by_share": [
+        "Oracle",
+        "iCIMS",
+        "SAP",
+        "Workday",
+        "Bullhorn",
+        "Greenhouse"
+      ],
       "vendor_concentration": "Top 10 vendors hold 51.1% of market",
       "platforms": {
         "greenhouse": {
           "pricing": "$6,000-$70,000+/year (tiered: Essential/Advanced/Expert, quote-based)",
           "target_size": "500-2,000 employees",
-          "key_features": ["Structured hiring workflows", "DEI tools", "Powerful analytics", "450+ integrations"],
-          "ratings": {"g2": "4.4/5 (3,000+ reviews, #1 ATS in 2025)", "capterra": "4.5/5", "trustradius": "8.5/10"},
+          "key_features": [
+            "Structured hiring workflows",
+            "DEI tools",
+            "Powerful analytics",
+            "450+ integrations"
+          ],
+          "ratings": {
+            "g2": "4.4/5 (3,000+ reviews, #1 ATS in 2025)",
+            "capterra": "4.5/5",
+            "trustradius": "8.5/10"
+          },
           "differentiator": "Real Talent AI (launched June 2025) for fraud detection and skill-based filtering",
           "best_for": "Mid-to-large companies needing structured hiring, analytics, and strong integrations"
         },
         "lever": {
           "pricing": "Quote-based (ATS + CRM bundled as TRM)",
           "target_size": "50-500 employees",
-          "key_features": ["Combined ATS + CRM", "Talent pooling", "Automated nurture campaigns", "Pipeline health reporting", "300+ integrations"],
+          "key_features": [
+            "Combined ATS + CRM",
+            "Talent pooling",
+            "Automated nurture campaigns",
+            "Pipeline health reporting",
+            "300+ integrations"
+          ],
           "differentiator": "First ATS to natively include CRM functionality (LeverTRM)",
           "best_for": "Growing companies wanting combined ATS+CRM with room to scale"
         },
         "icims": {
           "pricing": "$15,000-$100,000+/year (per-module, per-user, quote-based)",
           "target_size": "1,000+ employees",
-          "key_features": ["Full Talent Cloud (ATS, CRM, career sites, offer management, onboarding)", "AI Sourcing Agent (early access)", "Multi-region workflows"],
-          "ratings": {"g2": "4.1/5 (700+ reviews)", "capterra": "4.3/5", "trustradius": "7/10"},
+          "key_features": [
+            "Full Talent Cloud (ATS, CRM, career sites, offer management, onboarding)",
+            "AI Sourcing Agent (early access)",
+            "Multi-region workflows"
+          ],
+          "ratings": {
+            "g2": "4.1/5 (700+ reviews)",
+            "capterra": "4.3/5",
+            "trustradius": "7/10"
+          },
           "market_share": "10.7% (largest ATS vendor)",
           "differentiator": "Agentic AI capabilities; comprehensive enterprise talent acquisition suite",
           "best_for": "Large enterprises hiring at scale with complex multi-region needs"
@@ -582,84 +627,156 @@
         "workday_recruiting": {
           "pricing": "Part of Workday HCM suite (enterprise, custom pricing)",
           "target_size": "Enterprise (1,000+ employees)",
-          "key_features": ["Integrated with full HCM suite", "Financial and HR data unified", "AI-powered candidate matching"],
+          "key_features": [
+            "Integrated with full HCM suite",
+            "Financial and HR data unified",
+            "AI-powered candidate matching"
+          ],
           "best_for": "Large enterprises already on Workday HCM"
         },
         "sap_successfactors": {
           "pricing": "Part of SAP HCM suite (enterprise, custom pricing)",
           "target_size": "Enterprise (1,000+ employees)",
-          "key_features": ["Global HR suite integration", "Compliance for multinational operations", "Workforce analytics"],
+          "key_features": [
+            "Global HR suite integration",
+            "Compliance for multinational operations",
+            "Workforce analytics"
+          ],
           "best_for": "Global enterprises with SAP infrastructure"
         },
         "smartrecruiters": {
           "pricing": "Quote-based (mid-market to enterprise)",
           "target_size": "500+ employees",
-          "key_features": ["SmartAssistant AI", "Marketplace of integrations", "Global hiring support"],
+          "key_features": [
+            "SmartAssistant AI",
+            "Marketplace of integrations",
+            "Global hiring support"
+          ],
           "best_for": "Mid-market to enterprise companies seeking modern UX"
         },
         "jazzhr": {
           "pricing": "Starting ~$75/month",
           "target_size": "10-500 employees (SMB)",
-          "key_features": ["Affordable ATS", "Job posting syndication", "Workflow automation"],
+          "key_features": [
+            "Affordable ATS",
+            "Job posting syndication",
+            "Workflow automation"
+          ],
           "best_for": "Small businesses needing affordable ATS"
         },
         "breezy_hr": {
           "pricing": "Free tier available; paid plans from ~$189/month",
           "target_size": "10-500 employees (SMB)",
-          "key_features": ["Visual pipeline management", "Automated scheduling", "Career site builder"],
+          "key_features": [
+            "Visual pipeline management",
+            "Automated scheduling",
+            "Career site builder"
+          ],
           "best_for": "Small to mid-size companies wanting visual, intuitive ATS"
         },
         "pinpoint": {
           "pricing": "Quote-based (starting ~$600/month)",
           "target_size": "50-1,000 employees",
-          "key_features": ["Employer branding tools", "Blind hiring", "Employee referrals", "Advanced analytics"],
+          "key_features": [
+            "Employer branding tools",
+            "Blind hiring",
+            "Employee referrals",
+            "Advanced analytics"
+          ],
           "best_for": "Mid-market companies focused on employer branding and DEI"
         }
       }
     },
     "crm": {
       "market_leader_by_share": "Microsoft (27.7% in 2024)",
-      "top_10_vendors": ["Microsoft", "Bullhorn", "Avature", "Phenom", "Beamery", "Radancy", "Symphony Talent", "iCIMS", "Appcast", "Employ"],
+      "top_10_vendors": [
+        "Microsoft",
+        "Bullhorn",
+        "Avature",
+        "Phenom",
+        "Beamery",
+        "Radancy",
+        "Symphony Talent",
+        "iCIMS",
+        "Appcast",
+        "Employ"
+      ],
       "vendor_concentration": "Top 10 hold 65.1% of market",
       "platforms": {
         "beamery": {
           "pricing": "Enterprise custom pricing",
           "target_size": "Enterprise (1,000+ employees)",
-          "key_features": ["Data enrichment with external signals", "Talent mapping", "Intelligent segmentation", "DEI dashboards", "Dynamic career sites"],
+          "key_features": [
+            "Data enrichment with external signals",
+            "Talent mapping",
+            "Intelligent segmentation",
+            "DEI dashboards",
+            "Dynamic career sites"
+          ],
           "differentiator": "Best for augmenting existing ATS with talent marketing; deployed in 120+ countries",
           "best_for": "Enterprise teams focused on strategic sourcing and long-term pipeline development"
         },
         "phenom": {
           "pricing": "Custom enterprise pricing (undisclosed)",
           "target_size": "Enterprise (1,000+ employees)",
-          "key_features": ["AI-powered fit-scoring", "Candidate rediscovery", "Conversational CRM", "Automated workflows", "Personalized career sites and chatbots"],
+          "key_features": [
+            "AI-powered fit-scoring",
+            "Candidate rediscovery",
+            "Conversational CRM",
+            "Automated workflows",
+            "Personalized career sites and chatbots"
+          ],
           "differentiator": "700+ organizations adopted Phenom X+ GenAI features; 120+ use cases",
-          "notable_clients": ["Microsoft", "Southwest Airlines", "Honeywell"],
+          "notable_clients": [
+            "Microsoft",
+            "Southwest Airlines",
+            "Honeywell"
+          ],
           "best_for": "Large enterprises seeking white-glove candidate experience with cutting-edge AI"
         },
         "avature": {
           "pricing": "Custom enterprise pricing",
           "target_size": "Enterprise (1,000+ employees)",
-          "key_features": ["Highly configurable ATS + CRM", "Explainable AI with semantic search", "Custom workflows", "Multi-language support", "Recruitment events tools"],
+          "key_features": [
+            "Highly configurable ATS + CRM",
+            "Explainable AI with semantic search",
+            "Custom workflows",
+            "Multi-language support",
+            "Recruitment events tools"
+          ],
           "differentiator": "Deepest customization among CRM vendors; tailored workflows per region/business unit",
           "best_for": "Global TA teams requiring deep customization and multi-language support"
         },
         "gem": {
           "pricing": "$200+/month",
           "target_size": "100-5,000 employees",
-          "key_features": ["Sourcing automation", "Email sequencing", "Pipeline analytics", "Talent pooling"],
+          "key_features": [
+            "Sourcing automation",
+            "Email sequencing",
+            "Pipeline analytics",
+            "Talent pooling"
+          ],
           "best_for": "Mid-market companies seeking combined sourcing and CRM"
         },
         "symphony_talent": {
           "pricing": "Custom enterprise pricing",
           "target_size": "Enterprise",
-          "key_features": ["Talent marketing platform", "Career sites", "CRM", "Programmatic advertising"],
+          "key_features": [
+            "Talent marketing platform",
+            "Career sites",
+            "CRM",
+            "Programmatic advertising"
+          ],
           "best_for": "Enterprise recruitment marketing with end-to-end candidate journey"
         },
         "yello": {
           "pricing": "Custom pricing",
           "target_size": "Mid-market to enterprise",
-          "key_features": ["Campus and event recruiting", "CRM", "Interview scheduling"],
+          "key_features": [
+            "Campus and event recruiting",
+            "CRM",
+            "Interview scheduling"
+          ],
           "best_for": "Campus recruiting and early career programs"
         }
       }
@@ -670,29 +787,55 @@
       "platforms": {
         "joveo": {
           "pricing": "Performance-based, modular (pay for ad spend + platform fee)",
-          "key_features": ["MOJO Pro (job advertising)", "MOJO Social (passive candidate targeting)", "MOJO Career Sites", "MOJO Apply (application optimization)", "MOJO Engage (CRM)", "Transparent ad exchange"],
-          "ratings": {"g2": "4.8/5 (114 reviews, highest rated)"},
+          "key_features": [
+            "MOJO Pro (job advertising)",
+            "MOJO Social (passive candidate targeting)",
+            "MOJO Career Sites",
+            "MOJO Apply (application optimization)",
+            "MOJO Engage (CRM)",
+            "Transparent ad exchange"
+          ],
+          "ratings": {
+            "g2": "4.8/5 (114 reviews, highest rated)"
+          },
           "differentiator": "End-to-end suite with transparent spending insights; performance-based pricing",
           "best_for": "TA teams wanting comprehensive, customizable multi-channel campaigns"
         },
         "appcast": {
           "pricing": "Pay-per-applicant (CPA/CPC) model; media spend + margin/fee",
-          "key_features": ["Appcast Exchange (vast job site network)", "Clickcast SaaS (job distribution)", "Real-time bidding", "Machine learning optimization"],
+          "key_features": [
+            "Appcast Exchange (vast job site network)",
+            "Clickcast SaaS (job distribution)",
+            "Real-time bidding",
+            "Machine learning optimization"
+          ],
           "ownership": "Owned by Stepstone (Germany)",
           "differentiator": "Largest exchange network; strong iCIMS integration; quick volume of applicants",
           "best_for": "High-volume, frontline/hourly hiring at scale"
         },
         "pandologic": {
           "pricing": "Predictive spend by role (AI-driven budget recommendation)",
-          "key_features": ["pandoIQ AI platform", "Predictive analytics", "Automated job ad distribution (1000s of sites)", "Self-learning algorithms"],
+          "key_features": [
+            "pandoIQ AI platform",
+            "Predictive analytics",
+            "Automated job ad distribution (1000s of sites)",
+            "Self-learning algorithms"
+          ],
           "ownership": "Owned by Veritone (Israel-based AI company); combined with Broadbean",
-          "ratings": {"g2": "4.2/5 (63 reviews)"},
+          "ratings": {
+            "g2": "4.2/5 (63 reviews)"
+          },
           "differentiator": "Fully autonomous engine; predictive spending recommendations by job title",
           "best_for": "Companies needing rapid applicant flow with automated spend optimization"
         },
         "recruitics": {
           "pricing": "Media spend + agency fees (negotiated)",
-          "key_features": ["Predictive analytics", "Programmatic advertising", "Candidate engagement tools", "Agency services available"],
+          "key_features": [
+            "Predictive analytics",
+            "Programmatic advertising",
+            "Candidate engagement tools",
+            "Agency services available"
+          ],
           "differentiator": "First-to-market programmatic job platform (2012); combines tech + agency model",
           "best_for": "Companies wanting managed services alongside programmatic technology"
         }
@@ -703,27 +846,49 @@
         "hireez": {
           "pricing": "$169-$250+/user/month (annual)",
           "database": "800M+ profiles across 30+ platforms",
-          "key_features": ["AI-powered search", "Automated outreach sequences", "Diversity sourcing", "Chrome extension", "Drip campaigns", "DEI filters"],
+          "key_features": [
+            "AI-powered search",
+            "Automated outreach sequences",
+            "Diversity sourcing",
+            "Chrome extension",
+            "Drip campaigns",
+            "DEI filters"
+          ],
           "differentiator": "Broad data coverage with agentic AI; veteran candidate sourcing",
           "best_for": "Enterprise teams sourcing hard-to-fill technical roles and DEI hiring"
         },
         "seekout": {
           "pricing": "Enterprise custom pricing ($500+/month, 3-seat minimum)",
           "database": "800M+ profiles (LinkedIn, GitHub, patents, academic publications, ATS)",
-          "key_features": ["Deep diversity search", "Talent Insights analytics", "AI-powered sourcing service", "Chrome extension"],
+          "key_features": [
+            "Deep diversity search",
+            "Talent Insights analytics",
+            "AI-powered sourcing service",
+            "Chrome extension"
+          ],
           "differentiator": "Industry-leading diversity filters; deep technical sourcing (patents, papers)",
           "best_for": "Companies prioritizing diversity hiring and strategic workforce planning"
         },
         "entelo_rival_recruit": {
           "pricing": "$149-$499+/month",
           "database": "700M+ candidate profiles",
-          "key_features": ["Predictive Fit algorithm", "Likelihood-to-move scoring", "Diversity sourcing", "Automated email sequencing", "Pipeline analytics"],
+          "key_features": [
+            "Predictive Fit algorithm",
+            "Likelihood-to-move scoring",
+            "Diversity sourcing",
+            "Automated email sequencing",
+            "Pipeline analytics"
+          ],
           "differentiator": "Predictive signals identify candidates before they actively job search",
           "best_for": "Enterprise recruiters focused on proactive, long-term hiring"
         },
         "fetcher": {
           "pricing": "Starting $149/user/month",
-          "key_features": ["Hybrid AI + human model", "Pre-vetted candidate slates delivered to inbox", "Automated sourcing + outreach"],
+          "key_features": [
+            "Hybrid AI + human model",
+            "Pre-vetted candidate slates delivered to inbox",
+            "Automated sourcing + outreach"
+          ],
           "differentiator": "Most automated/hands-off among AI sourcing tools",
           "best_for": "Small teams wanting sourcing and outreach handled together with minimal effort"
         }
@@ -734,37 +899,79 @@
       "platforms": {
         "hirevue": {
           "pricing": "Custom enterprise pricing",
-          "key_features": ["AI-driven video interviewing", "200+ coding challenges", "Virtual Job Tryout", "Game-based cognitive assessments", "Plagiarism detection"],
+          "key_features": [
+            "AI-driven video interviewing",
+            "200+ coding challenges",
+            "Virtual Job Tryout",
+            "Game-based cognitive assessments",
+            "Plagiarism detection"
+          ],
           "impact": "Reduces time-to-hire by up to 70%",
           "best_for": "Large enterprises combining video interviewing with technical assessment"
         },
         "pymetrics_harver": {
           "pricing": "Starting $10,000/year (enterprise)",
-          "key_features": ["Neuroscience-based gamified assessments", "Cognitive and emotional trait evaluation", "AI matching to roles", "Bias-reducing design"],
-          "notable_clients": ["Unilever", "LinkedIn (over 1M candidates evaluated)"],
+          "key_features": [
+            "Neuroscience-based gamified assessments",
+            "Cognitive and emotional trait evaluation",
+            "AI matching to roles",
+            "Bias-reducing design"
+          ],
+          "notable_clients": [
+            "Unilever",
+            "LinkedIn (over 1M candidates evaluated)"
+          ],
           "best_for": "Assessing potential over experience; promoting inclusive hiring"
         },
         "testgorilla": {
           "pricing": "Starting $75/month (billed annually)",
-          "key_features": ["400+ ready-made tests (tech and non-tech)", "Combine up to 5 tests per assessment", "Custom questions", "AI scoring for video", "Anti-cheating measures"],
+          "key_features": [
+            "400+ ready-made tests (tech and non-tech)",
+            "Combine up to 5 tests per assessment",
+            "Custom questions",
+            "AI scoring for video",
+            "Anti-cheating measures"
+          ],
           "best_for": "Broad role screening across tech and non-tech positions"
         },
         "codility": {
           "pricing": "Starting $100/month; ~$500/month for 25 invites",
-          "key_features": ["Automated code reviews", "Pair programming simulations", "40+ languages", "Code quality evaluation", "Strong proctoring"],
-          "ratings": {"g2": "4.6/5"},
+          "key_features": [
+            "Automated code reviews",
+            "Pair programming simulations",
+            "40+ languages",
+            "Code quality evaluation",
+            "Strong proctoring"
+          ],
+          "ratings": {
+            "g2": "4.6/5"
+          },
           "impact": "60% reduction in technical screening time",
           "best_for": "Engineering talent assessment focused on code quality"
         },
         "hackerrank": {
           "pricing": "Starting $100/month; $10-$20 per test attempt",
-          "key_features": ["2,500+ coding challenges", "45+ languages", "AI Interviewer (12,000+ interviews conducted)", "Multi-file project questions", "Advanced anti-cheating"],
-          "notable_clients": ["VMware", "Cisco"],
+          "key_features": [
+            "2,500+ coding challenges",
+            "45+ languages",
+            "AI Interviewer (12,000+ interviews conducted)",
+            "Multi-file project questions",
+            "Advanced anti-cheating"
+          ],
+          "notable_clients": [
+            "VMware",
+            "Cisco"
+          ],
           "best_for": "Technical hiring at scale with comprehensive coding assessment"
         },
         "criteria_corp": {
           "pricing": "Custom pricing",
-          "key_features": ["Pre-employment testing", "Cognitive aptitude assessment", "Personality assessment", "Skills testing"],
+          "key_features": [
+            "Pre-employment testing",
+            "Cognitive aptitude assessment",
+            "Personality assessment",
+            "Skills testing"
+          ],
           "best_for": "Measuring cognitive aptitude and personality fit"
         }
       }
@@ -773,20 +980,45 @@
       "platforms": {
         "goodtime": {
           "pricing": "~$60,000/year for enterprise; Growth plan ~$1,250/month",
-          "key_features": ["AI-driven interviewer selection", "Load balancing", "Bulk scheduling", "Self-rescheduling for candidates", "Deep calendar integration", "Automated video conferencing links"],
+          "key_features": [
+            "AI-driven interviewer selection",
+            "Load balancing",
+            "Bulk scheduling",
+            "Self-rescheduling for candidates",
+            "Deep calendar integration",
+            "Automated video conferencing links"
+          ],
           "differentiator": "Most sophisticated AI-driven scheduling with interviewer load balancing",
           "best_for": "Large enterprises with complex, high-volume interview processes"
         },
         "modernloop": {
           "pricing": "~$30,000/year for enterprise (roughly half of GoodTime)",
-          "key_features": ["Zero-click scheduling", "Candidate portal", "Interviewer training support", "ATS integrations (Greenhouse, Workday, Lever)", "Analytics dashboard"],
-          "notable_clients": ["Instacart", "Dropbox", "Figma", "Carta", "Brex", "Ramp"],
+          "key_features": [
+            "Zero-click scheduling",
+            "Candidate portal",
+            "Interviewer training support",
+            "ATS integrations (Greenhouse, Workday, Lever)",
+            "Analytics dashboard"
+          ],
+          "notable_clients": [
+            "Instacart",
+            "Dropbox",
+            "Figma",
+            "Carta",
+            "Brex",
+            "Ramp"
+          ],
           "impact": "Instacart scheduled 3x more interviews without additional headcount",
           "best_for": "Mid-to-large teams scaling fast with modern ATS"
         },
         "calendly": {
           "pricing": "Free tier available; paid plans scale with team size",
-          "key_features": ["Simple and intuitive", "Google/Outlook integration", "ATS extension", "Real-time next-step booking"],
+          "key_features": [
+            "Simple and intuitive",
+            "Google/Outlook integration",
+            "ATS extension",
+            "Real-time next-step booking"
+          ],
           "best_for": "Small teams and solo recruiters needing basic scheduling"
         }
       }
@@ -798,27 +1030,50 @@
       "providers": {
         "checkr": {
           "pricing": "$29.99-$79.99 per check",
-          "key_features": ["AI-powered technology", "API-first platform", "Candidate Portal (real-time status)", "Fast turnaround"],
+          "key_features": [
+            "AI-powered technology",
+            "API-first platform",
+            "Candidate Portal (real-time status)",
+            "Fast turnaround"
+          ],
           "ownership": "Independent (owns GoodHire)",
           "best_for": "Tech companies, gig economy, high-volume hiring"
         },
         "goodhire": {
           "pricing": "$29.99-$79.99 per check (no subscription/minimums)",
-          "key_features": ["100+ screening types", "International checks", "Industry-specific options", "<0.1% error rate"],
+          "key_features": [
+            "100+ screening types",
+            "International checks",
+            "Industry-specific options",
+            "<0.1% error rate"
+          ],
           "ownership": "Owned by Checkr",
           "best_for": "Small businesses with simple background check needs"
         },
         "sterling": {
           "pricing": "$50-several hundred per check",
-          "key_features": ["Full-service screening", "Global reach", "Fortune 500 clientele", "Founded 1975"],
+          "key_features": [
+            "Full-service screening",
+            "Global reach",
+            "Fortune 500 clientele",
+            "Founded 1975"
+          ],
           "ownership": "Being acquired by First Advantage",
           "best_for": "Large enterprises and multinational companies"
         },
         "hireright": {
           "pricing": "$39.95-$79.95 per check",
-          "key_features": ["70+ ATS integrations", "Drug testing", "DOT verification", "Healthcare sanctions", "Global checks"],
+          "key_features": [
+            "70+ ATS integrations",
+            "Drug testing",
+            "DOT verification",
+            "Healthcare sanctions",
+            "Global checks"
+          ],
           "turnaround": "2-4 business days",
-          "notable_clients": ["Amazon"],
+          "notable_clients": [
+            "Amazon"
+          ],
           "best_for": "Large enterprises with complex compliance needs"
         }
       }
@@ -828,19 +1083,36 @@
         "bamboohr": {
           "pricing": "$12-$22 per employee/month + implementation fee (5-15% of annual)",
           "target_size": "Under 350 employees (SMB)",
-          "key_features": ["Full HRIS (ATS, onboarding, payroll, performance management)", "E-signatures", "150+ integrations", "7-day free trial"],
+          "key_features": [
+            "Full HRIS (ATS, onboarding, payroll, performance management)",
+            "E-signatures",
+            "150+ integrations",
+            "7-day free trial"
+          ],
           "best_for": "SMBs wanting comprehensive HR platform with onboarding"
         },
         "workbright": {
           "pricing": "$158-$3,609/month (by onboard volume: 100 to 5,000+)",
-          "key_features": ["Mobile-first onboarding", "Smart I-9 with geo-validation", "Remote document signing", "Automated reminders", "60-day money-back guarantee"],
+          "key_features": [
+            "Mobile-first onboarding",
+            "Smart I-9 with geo-validation",
+            "Remote document signing",
+            "Automated reminders",
+            "60-day money-back guarantee"
+          ],
           "differentiator": "8x faster onboarding; best mobile experience and I-9 compliance",
           "best_for": "High-volume, seasonal, healthcare, staffing companies"
         },
         "sapling_kallidus": {
           "pricing": "Custom quote-based",
           "target_size": "50-2,000 employees",
-          "key_features": ["Automated workflows", "Smart Assignment", "Bulk onboarding", "40+ integrations", "Learning platform integration via Kallidus"],
+          "key_features": [
+            "Automated workflows",
+            "Smart Assignment",
+            "Bulk onboarding",
+            "40+ integrations",
+            "Learning platform integration via Kallidus"
+          ],
           "best_for": "Mid-sized companies wanting onboarding + L&D integration"
         }
       }
@@ -849,16 +1121,42 @@
       "platforms": {
         "visier": {
           "pricing": "Custom premium pricing; 30-day free trial; typically 1-3 year contracts",
-          "key_features": ["50+ pre-built metrics", "AI assistant Vee", "Predictive modeling", "Workforce planning", "Real-time dashboards", "Security and compliance"],
-          "integrations": ["ADP", "Greenhouse", "iCIMS", "Oracle", "SAP", "Workday", "Jira", "ServiceNow", "BambooHR", "Tableau"],
+          "key_features": [
+            "50+ pre-built metrics",
+            "AI assistant Vee",
+            "Predictive modeling",
+            "Workforce planning",
+            "Real-time dashboards",
+            "Security and compliance"
+          ],
+          "integrations": [
+            "ADP",
+            "Greenhouse",
+            "iCIMS",
+            "Oracle",
+            "SAP",
+            "Workday",
+            "Jira",
+            "ServiceNow",
+            "BambooHR",
+            "Tableau"
+          ],
           "target_size": "1,000-300,000+ employees",
-          "notable_clients": ["Ford", "Panasonic"],
+          "notable_clients": [
+            "Ford",
+            "Panasonic"
+          ],
           "differentiator": "Strongest workforce context engine with 2M+ users; #1 in vendor satisfaction",
           "best_for": "Enterprise workforce and recruitment analytics"
         },
         "one_model": {
           "pricing": "Enterprise custom pricing",
-          "key_features": ["Data integration from any HR source", "Advanced analytics", "Machine learning models", "Custom dashboards"],
+          "key_features": [
+            "Data integration from any HR source",
+            "Advanced analytics",
+            "Machine learning models",
+            "Custom dashboards"
+          ],
           "best_for": "Enterprise people analytics with custom data models"
         },
         "competitors": {
@@ -867,6 +1165,139 @@
           "charthop": "Org chart + people analytics for mid-market"
         }
       }
+    },
+    "agentic_ai_2026": {
+      "description": "Agentic AI represents the next evolution beyond conversational AI in recruiting -- autonomous AI agents that take action, not just respond",
+      "market_shift": "2026 marks the transition from chatbots and copilots to fully autonomous agentic AI in recruitment",
+      "key_implementations": [
+        {
+          "company": "Phenom",
+          "product": "X+ Agents",
+          "approach": "Multi-model agentic AI working in parallel; AI Interviewer; Advanced Screening; Performance Intelligence"
+        },
+        {
+          "company": "Bullhorn",
+          "product": "Amplify",
+          "approach": "AI for staffing agencies; 24% more placements, 28% more jobs filled for AI users"
+        },
+        {
+          "company": "Radancy",
+          "product": "Agentic AI Platform",
+          "approach": "AI Career Discovery Agent; world's largest talent dataset powering autonomous recommendations"
+        },
+        {
+          "company": "Lever/Employ",
+          "product": "AI Companions",
+          "approach": "IBM watsonx.governance integration for compliant AI; Talent Fit matching"
+        },
+        {
+          "company": "Eightfold AI",
+          "product": "Agentic AI Screening",
+          "approach": "24/7 autonomous screening across 1.6B+ profiles; Digital Twins for institutional knowledge"
+        },
+        {
+          "company": "Mercor",
+          "product": "AI Hiring Platform",
+          "approach": "AI interviews + semantic search + performance prediction; $10B valuation; targeting $500M ARR"
+        }
+      ],
+      "strategic_implications": [
+        "Recruiters shift from executing tasks to supervising AI agents",
+        "Quality of hire improves as AI can evaluate candidates 24/7 with consistency",
+        "Cost per hire decreases as autonomous agents handle high-volume screening",
+        "Bias risk requires responsible AI frameworks and human oversight",
+        "Companies without agentic AI will fall behind in speed and quality"
+      ],
+      "source": "Market Research 2026"
+    },
+    "skills_based_hiring_strategy": {
+      "description": "Skills-based hiring is becoming the dominant paradigm, but no programmatic platform supports skills-based targeting yet",
+      "adoption_data": {
+        "current_adoption": "70% of employers now use skills-based hiring (up from 65% last year)",
+        "moving_to_model": "55% of employers have begun moving to a skills-based model",
+        "performance_prediction": "Skills-based assessment is 5x more predictive of job performance than resume review",
+        "degree_requirement_removal": "1 in 4 companies have removed degree requirements for some roles"
+      },
+      "leading_platforms": {
+        "eightfold_ai": "Deep learning skills inference across 1.6B+ profiles and 1.6M+ skills",
+        "beamery": "Skills intelligence + workforce planning with agentic AI (Ray)",
+        "phenom": "Skills-based talent marketplace + career pathing",
+        "findem": "Expert-labeled 'Success Signals' predict role fit beyond keywords",
+        "hiredscore_workday": "AI-powered skills matching with explainable scoring",
+        "talroo": "SmartQualify -- skills/qualifications surfaced before apply"
+      },
+      "strategic_opportunity": {
+        "gap": "No programmatic platform currently supports skills-based targeting despite 70% employer adoption",
+        "concept": "Skills-graph-powered job advertising that targets candidates based on skill adjacencies and career trajectories",
+        "taxonomies": [
+          "O*NET",
+          "ESCO",
+          "Lightcast"
+        ],
+        "example": "Target 'registered nurses with ICU experience who have recently obtained CCRN certification' rather than just 'nurse + Dallas'"
+      },
+      "source": "Market Research 2026"
+    },
+    "full_funnel_attribution_strategy": {
+      "description": "Full-funnel attribution from impression to hire (and post-hire retention) is the holy grail of recruitment marketing",
+      "current_state": {
+        "most_companies_limited_to": "Cost-per-click, cost-per-apply, cost-per-hire",
+        "missing_metric": "Quality-of-hire by advertising source -- which channel produces candidates who stay 12+ months and perform well",
+        "appcast_first_mover": "Appcast released first click-to-hire benchmark report in 2026 -- proving this data is valuable and previously unavailable",
+        "quality_of_hire_top_metric": "Quality of hire is now the top success metric for 31% of hiring leaders"
+      },
+      "recommended_approach": [
+        "Track from impression through hire across ALL channels (programmatic, social, search, career sites, CRM, referrals, organic)",
+        "Integrate with ATS, HRIS, and payroll systems to close the attribution loop",
+        "Measure post-hire retention and performance by source",
+        "Use data-driven attribution models instead of last-click",
+        "Build real-time dashboards with automated attribution"
+      ],
+      "competitive_products": {
+        "joveo": "Unified Analytics (launched July 2024) -- extends to include post-apply tracking",
+        "appcast": "2026 Benchmark Report with first click-to-hire data",
+        "recruitics": "Vision analytics platform",
+        "radancy": "Talent acquisition cloud analytics"
+      },
+      "source": "Market Research 2026"
+    },
+    "fraud_detection_recruitment": {
+      "description": "AI-generated fraud in recruitment is becoming epidemic -- fake resumes, fake interview candidates, bot applications",
+      "scale_of_problem": {
+        "ai_generated_resumes": "53% of job seekers use GenAI for resumes",
+        "programmatic_ad_fraud": "40-50% fraud rate without verification tools",
+        "emerging_threats": [
+          "AI-generated fake candidate profiles",
+          "Deepfake video interviews",
+          "Bot-generated mass applications",
+          "AI-written resumes that game ATS keyword matching"
+        ]
+      },
+      "solutions_emerging": {
+        "greenhouse_real_talent": "Anti-fraud system with CLEAR identity verification -- first ATS to address this",
+        "programmatic_gap": "No programmatic job advertising platform currently offers built-in fraud detection",
+        "joveo_cpqa": "CPQA model includes quality filtering that helps detect low-quality/fraudulent applications"
+      },
+      "strategic_recommendation": "Fraud detection will become table-stakes within 2 years. Early movers in programmatic fraud detection will build trust and competitive advantage.",
+      "source": "Market Research 2026"
+    },
+    "ai_compliance_2026": {
+      "description": "AI compliance infrastructure for recruitment is becoming critical as regulations proliferate",
+      "regulatory_landscape": {
+        "ca_co_2026": "California and Colorado passing AI hiring regulations in 2026",
+        "eeoc_ofccp": "EEOC and OFCCP scrutiny of AI in hiring increasing",
+        "eu_ai_act": "General purpose AI obligations began August 2026",
+        "nyc_local_law_144": "Annual bias audit and candidate notices required",
+        "hiredscore_legal": "HiredScore (now Workday) under legal scrutiny -- ordered to provide customer list"
+      },
+      "compliance_gap": "Most AI recruiting tools lack proper bias auditing, explainability, and compliance reporting",
+      "leading_approaches": {
+        "hiredscore_workday": "Explainable AI scoring with responsible AI framework; live in 150 countries, 70 languages",
+        "beamery": "European AI Pact signatory; independent bias audit",
+        "lever": "IBM watsonx.governance integration for AI compliance"
+      },
+      "strategic_opportunity": "Compliance layer that integrates with programmatic advertising -- currently no one offers this",
+      "source": "Market Research 2026"
     }
   },
   "budget_frameworks": {
@@ -932,27 +1363,53 @@
       "technology": {
         "avg_cost_per_hire": "$8,000-$20,000",
         "emphasis": "Technical assessments, employer branding, competitive compensation positioning",
-        "top_channels": ["LinkedIn", "GitHub/Stack Overflow", "Technical communities", "Employee referrals"]
+        "top_channels": [
+          "LinkedIn",
+          "GitHub/Stack Overflow",
+          "Technical communities",
+          "Employee referrals"
+        ]
       },
       "healthcare": {
         "avg_cost_per_hire": "$5,000-$12,000",
         "emphasis": "Credential verification, compliance, high-volume hourly + specialized roles",
-        "top_channels": ["Indeed", "Specialty job boards", "Local/regional advertising", "Travel nursing platforms"]
+        "top_channels": [
+          "Indeed",
+          "Specialty job boards",
+          "Local/regional advertising",
+          "Travel nursing platforms"
+        ]
       },
       "financial_services": {
         "avg_cost_per_hire": "$6,000-$15,000",
         "emphasis": "Compliance, employer branding, campus recruiting",
-        "top_channels": ["LinkedIn", "Campus recruiting", "Industry-specific boards", "Executive search firms"]
+        "top_channels": [
+          "LinkedIn",
+          "Campus recruiting",
+          "Industry-specific boards",
+          "Executive search firms"
+        ]
       },
       "retail_hospitality": {
         "avg_cost_per_hire": "$2,000-$5,000",
         "emphasis": "Speed, volume, mobile-first applications, seasonal hiring",
-        "top_channels": ["Indeed", "Snagajob", "Social media", "Text-to-apply", "Walk-in events"]
+        "top_channels": [
+          "Indeed",
+          "Snagajob",
+          "Social media",
+          "Text-to-apply",
+          "Walk-in events"
+        ]
       },
       "manufacturing": {
         "avg_cost_per_hire": "$3,000-$7,000",
         "emphasis": "Volume hiring, skills-based assessment, geographic targeting",
-        "top_channels": ["Indeed", "Local job boards", "Community partnerships", "Employee referrals"]
+        "top_channels": [
+          "Indeed",
+          "Local job boards",
+          "Community partnerships",
+          "Employee referrals"
+        ]
       }
     },
     "by_hiring_volume": {
@@ -1048,7 +1505,14 @@
       },
       "description_best_practices": {
         "optimal_length": "700-2,000 characters (30% more applies in this range)",
-        "structure": ["Brief intro/elevator pitch", "Key responsibilities", "Required qualifications (keep minimal)", "Benefits and perks", "Company culture highlights", "Clear CTA"],
+        "structure": [
+          "Brief intro/elevator pitch",
+          "Key responsibilities",
+          "Required qualifications (keep minimal)",
+          "Benefits and perks",
+          "Company culture highlights",
+          "Clear CTA"
+        ],
         "guidelines": [
           "Lead with most attractive aspects (pay, benefits, projects)",
           "Use gender-neutral, bias-free language",
@@ -1092,7 +1556,13 @@
       ],
       "application_dropout": {
         "stat": "40% average drop-off rate for started applications",
-        "causes": ["Long forms", "Poor mobile UX", "Unclear steps", "Technical issues", "Registration walls"],
+        "causes": [
+          "Long forms",
+          "Poor mobile UX",
+          "Unclear steps",
+          "Technical issues",
+          "Registration walls"
+        ],
         "fix": "Even small UX improvements yield big gains without needing more traffic"
       },
       "sourcing_channel_data": {
@@ -1105,19 +1575,43 @@
       "platform_strategies": {
         "linkedin": {
           "reach": "1.15 billion monthly active users",
-          "content_types": ["Employee spotlights", "Company culture posts", "Leadership thought pieces", "Job announcements", "Industry insights"],
+          "content_types": [
+            "Employee spotlights",
+            "Company culture posts",
+            "Leadership thought pieces",
+            "Job announcements",
+            "Industry insights"
+          ],
           "best_practices": "Professional tone; mix of career content and company news"
         },
         "instagram": {
-          "content_types": ["Behind-the-scenes stories", "Employee takeovers", "Office culture photos", "Event highlights", "Reels and short videos"],
+          "content_types": [
+            "Behind-the-scenes stories",
+            "Employee takeovers",
+            "Office culture photos",
+            "Event highlights",
+            "Reels and short videos"
+          ],
           "best_practices": "Visual-first; authentic and relatable; use Stories and Reels"
         },
         "tiktok": {
-          "content_types": ["Day-in-life videos", "Office tours", "Fun workplace moments", "Career tips", "Employee Q&A"],
+          "content_types": [
+            "Day-in-life videos",
+            "Office tours",
+            "Fun workplace moments",
+            "Career tips",
+            "Employee Q&A"
+          ],
           "best_practices": "Short, engaging videos matching platform style; Gen Z targeting"
         },
         "youtube": {
-          "content_types": ["Recruitment videos", "Employee testimonials", "Culture showcases", "Virtual office tours", "Interview tips"],
+          "content_types": [
+            "Recruitment videos",
+            "Employee testimonials",
+            "Culture showcases",
+            "Virtual office tours",
+            "Interview tips"
+          ],
           "best_practices": "SEO-optimize titles and descriptions; professional quality; longer format OK"
         }
       },
@@ -1228,7 +1722,49 @@
         "Reduced recruiter workload on repetitive questions",
         "Improved candidate experience through instant responses"
       ],
-      "leading_platforms": ["iCIMS Digital Assistant", "Phenom chatbot", "Paradox Olivia", "XOR", "Emissary.ai"]
+      "leading_platforms": [
+        "iCIMS Digital Assistant",
+        "Phenom chatbot",
+        "Paradox Olivia",
+        "XOR",
+        "Emissary.ai"
+      ]
+    },
+    "conversational_apply_best_practices": {
+      "description": "Conversational apply replaces traditional application forms with AI-powered chat experiences, dramatically improving conversion",
+      "key_data_points": {
+        "conversion_improvement": "5x improvement in application completion (Paradox data)",
+        "abandonment_rate": "Over 50% of candidates abandon traditional applications before completion",
+        "paradox_scale": "32M interviews/year; 1.89B interactions; 100+ languages",
+        "candidate_satisfaction": "99.78% candidate satisfaction rate (Paradox/Olivia)"
+      },
+      "results_by_employer": {
+        "chipotle": "75% faster hiring through conversational apply",
+        "gm": "$2M saved annually",
+        "seven_eleven": "40K hours saved weekly"
+      },
+      "best_practices": [
+        "Integrate conversational apply directly into programmatic ad campaigns -- capture intent at the moment of highest engagement",
+        "Mobile-first design -- majority of clicks come from mobile devices",
+        "Support 100+ languages for global campaigns",
+        "Include screening questions within the conversation to pre-qualify candidates",
+        "Offer interview scheduling within the same conversation",
+        "Ensure ATS integration so data flows seamlessly"
+      ],
+      "market_context": {
+        "chatbot_market_2025": "$2.03B",
+        "chatbot_market_projected_2030": "$5.41B (21.6% CAGR)",
+        "paradox_acquisition": "Acquired by Workday (October 2025) -- now locked inside Workday ecosystem",
+        "opportunity": "Non-Workday customers need conversational apply alternatives"
+      },
+      "competitive_products": {
+        "paradox_workday": "Olivia -- market leader but now Workday-exclusive",
+        "recruitics": "ApplyAnywhere -- makes every channel a conversion point",
+        "wonderkind": "One-Click Apply -- minimal friction social media apply",
+        "humanly": "End-to-end conversational hiring (acquired Sprockets, Qualifi, HourWork)",
+        "joveo": "Conversational AI Recruiting Assistant (launched September 2024) -- foundation for expanded conversational apply"
+      },
+      "source": "Market Research 2026"
     }
   },
   "creative_best_practices": {
@@ -1257,9 +1793,25 @@
       },
       "call_to_action": {
         "placement": "Above the fold (visible without scrolling)",
-        "effective_phrases": ["Apply Now", "Start Your Career With Us", "Join Our Team", "Explore This Opportunity"],
-        "action_verbs": ["Join", "Begin", "Explore", "Build", "Create", "Discover"],
-        "alternative_ctas": ["Sign up for job alerts", "Join our talent community", "Share with a friend"],
+        "effective_phrases": [
+          "Apply Now",
+          "Start Your Career With Us",
+          "Join Our Team",
+          "Explore This Opportunity"
+        ],
+        "action_verbs": [
+          "Join",
+          "Begin",
+          "Explore",
+          "Build",
+          "Create",
+          "Discover"
+        ],
+        "alternative_ctas": [
+          "Sign up for job alerts",
+          "Join our talent community",
+          "Share with a friend"
+        ],
         "stat": "Only 11% apply; alternative CTAs capture the other 89%"
       }
     },

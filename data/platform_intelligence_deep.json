@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-08",
+  "last_updated": "2026-03-22",
   "sources": [
     "SimilarWeb traffic analytics (Jan 2026)",
     "SEMrush website analytics (Dec 2025)",
@@ -17,7 +17,8 @@
     "StepStone/Appcast benchmark data",
     "PPC Chief CPC benchmarks by platform (2026)",
     "Postiv.ai LinkedIn cost analysis",
-    "CareerCloud platform reviews (2026)"
+    "CareerCloud platform reviews (2026)",
+    "Recruitment Technology Landscape Report 2025-2026 (Joveo Strategic Research)"
   ],
   "industry_benchmarks": {
     "overall_apply_rate_2024": "6.1%",
@@ -25,12 +26,34 @@
     "avg_cost_per_hire_2024": "$851",
     "cpa_trend_2024": "+4.8% YoY",
     "cpa_trend_2025": "sharp increase due to job board pricing model shifts",
-    "hardest_to_fill_industries": ["healthcare", "construction", "skilled_trades"],
+    "hardest_to_fill_industries": [
+      "healthcare",
+      "construction",
+      "skilled_trades"
+    ],
     "best_performing_regions": "Sun Belt states (higher apply rates, lower CPAs)",
     "sitting_vs_standing_roles": "Office roles have higher apply rates but higher CPAs vs frontline",
     "remote_job_trend": "Remote roles losing apply rate advantage in 2025",
     "social_media_recruitment_adoption": "91% of US employers use social media for hiring (2026)",
-    "social_cpc_advantage": "68.2% lower CPC than traditional recruitment marketing"
+    "social_cpc_advantage": "68.2% lower CPC than traditional recruitment marketing",
+    "appcast_2026_benchmark_insights": {
+      "data_scope": "302M clicks, 27M applications, 1,200 employers",
+      "key_finding": "Rising CPA/CPH despite softer labor conditions -- efficiency is now the battleground",
+      "first_click_to_hire_data": true,
+      "implication": "Programmatic optimization is more critical than ever as costs rise even in softer labor markets",
+      "source": "Appcast 2026 Recruitment Marketing Benchmark Report"
+    },
+    "programmatic_market_dynamics_2026": {
+      "employer_adoption": "Only ~15% of employers use programmatic job advertising",
+      "consolidation": [
+        "Appcast absorbed Bayard Advertising and Clickcast",
+        "PandoLogic merged into Veritone Hire with Broadbean",
+        "JobAdX acquired by Shaker Recruitment Marketing"
+      ],
+      "bifurcation": "Space is splitting into (a) pure programmatic tech platforms and (b) full-stack recruitment marketing clouds",
+      "growth_runway": "Massive -- only 15% adoption among employers signals enormous headroom",
+      "source": "Market Research 2026"
+    }
   },
   "platforms": {
     "indeed": {
@@ -41,8 +64,39 @@
       "monthly_visitors": "360M+",
       "us_traffic_rank": 52,
       "traffic_trend": "+24% month-over-month (Dec 2025)",
-      "countries": ["US", "UK", "CA", "AU", "IN", "DE", "FR", "JP", "BR", "MX", "NL", "IT", "ES", "SG", "IE", "ZA", "NZ", "BE", "AT", "CH", "SE", "PL", "AR", "CL", "CO", "PH", "HK", "AE"],
-      "industries": ["all"],
+      "countries": [
+        "US",
+        "UK",
+        "CA",
+        "AU",
+        "IN",
+        "DE",
+        "FR",
+        "JP",
+        "BR",
+        "MX",
+        "NL",
+        "IT",
+        "ES",
+        "SG",
+        "IE",
+        "ZA",
+        "NZ",
+        "BE",
+        "AT",
+        "CH",
+        "SE",
+        "PL",
+        "AR",
+        "CL",
+        "CO",
+        "PH",
+        "HK",
+        "AE"
+      ],
+      "industries": [
+        "all"
+      ],
       "pricing_model": {
         "primary": "CPA (Cost Per Application) since 2022",
         "secondary": "CPC (applied automatically when insufficient data)",
@@ -70,7 +124,14 @@
         "blue_collar_and_white_collar"
       ],
       "programmatic_compatible": true,
-      "programmatic_partners": ["Appcast", "Joveo", "PandoLogic", "Recruitics", "Talroo", "Clickcast"],
+      "programmatic_partners": [
+        "Appcast",
+        "Joveo",
+        "PandoLogic",
+        "Recruitics",
+        "Talroo",
+        "Clickcast"
+      ],
       "apply_rate": "4.5-6.1%",
       "mobile_traffic_pct": 72,
       "employer_branding_features": [
@@ -80,7 +141,18 @@
         "photo_gallery",
         "benefits_display"
       ],
-      "ats_integrations": ["SAP SuccessFactors", "Workday", "iCIMS", "Greenhouse", "Lever", "ADP", "Oracle Taleo", "SmartRecruiters", "BambooHR", "JazzHR"],
+      "ats_integrations": [
+        "SAP SuccessFactors",
+        "Workday",
+        "iCIMS",
+        "Greenhouse",
+        "Lever",
+        "ADP",
+        "Oracle Taleo",
+        "SmartRecruiters",
+        "BambooHR",
+        "JazzHR"
+      ],
       "dei_features": [
         "fair_chance_employer_badge",
         "inclusive_job_description_tools",
@@ -127,8 +199,13 @@
       "projected_members_2026": "1.3B",
       "daily_active_users": "~130M+",
       "new_signups_per_month": "5.18-7.78M",
-      "countries": ["200+ countries and territories"],
-      "industries": ["all", "especially_professional_and_white_collar"],
+      "countries": [
+        "200+ countries and territories"
+      ],
+      "industries": [
+        "all",
+        "especially_professional_and_white_collar"
+      ],
       "pricing_model": {
         "free_basic_posting": true,
         "promoted_jobs": "CPC model starting at $7-$10/day",
@@ -169,7 +246,11 @@
         "campus_and_early_career"
       ],
       "programmatic_compatible": true,
-      "programmatic_partners": ["Appcast", "Joveo", "Radancy"],
+      "programmatic_partners": [
+        "Appcast",
+        "Joveo",
+        "Radancy"
+      ],
       "apply_rate": "varies, ~57 applicants per hire",
       "mobile_traffic_pct": 57,
       "employer_branding_features": [
@@ -180,7 +261,16 @@
         "follower_analytics",
         "career_pages"
       ],
-      "ats_integrations": ["Workday", "SAP SuccessFactors", "iCIMS", "Greenhouse", "Lever", "Oracle Taleo", "SmartRecruiters", "Jobvite"],
+      "ats_integrations": [
+        "Workday",
+        "SAP SuccessFactors",
+        "iCIMS",
+        "Greenhouse",
+        "Lever",
+        "Oracle Taleo",
+        "SmartRecruiters",
+        "Jobvite"
+      ],
       "dei_features": [
         "diversity_insights_for_recruiters",
         "inclusive_language_suggestions",
@@ -226,8 +316,12 @@
       "monthly_visitors": "~55M+",
       "global_rank_jobs_category": 4,
       "global_rank": 1438,
-      "countries": ["45+ localized versions"],
-      "industries": ["all"],
+      "countries": [
+        "45+ localized versions"
+      ],
+      "industries": [
+        "all"
+      ],
       "pricing_model": {
         "primary": "Employer branding subscription",
         "job_posting": "Now through Indeed integration only",
@@ -298,8 +392,15 @@
       "parent_company": "ZipRecruiter Inc (NYSE: ZIP)",
       "monthly_visitors": "40.3M",
       "traffic_trend": "+16.34% month-over-month",
-      "countries": ["US", "UK", "CA", "IL"],
-      "industries": ["all"],
+      "countries": [
+        "US",
+        "UK",
+        "CA",
+        "IL"
+      ],
+      "industries": [
+        "all"
+      ],
       "pricing_model": {
         "standard": "~$399/job/month",
         "premium": "~$519/job/month (6x more candidates)",
@@ -313,7 +414,10 @@
         "businesses_served": "3.8M+",
         "age_distribution": {
           "largest_group": "25-34",
-          "gender": {"male": "46.54%", "female": "53.46%"}
+          "gender": {
+            "male": "46.54%",
+            "female": "53.46%"
+          }
         }
       },
       "best_for": [
@@ -330,8 +434,12 @@
         "company_profiles",
         "job_distribution_to_100_plus_boards"
       ],
-      "ats_integrations": ["multiple external ATS via API"],
-      "dei_features": ["inclusive_job_posting_tools"],
+      "ats_integrations": [
+        "multiple external ATS via API"
+      ],
+      "dei_features": [
+        "inclusive_job_posting_tools"
+      ],
       "ai_features": [
         "ai_candidate_matching",
         "phil_ai_assistant",
@@ -365,8 +473,12 @@
       "url": "https://www.monster.com",
       "parent_company": "Bold Holdings (acquired Jul 2025 for $28M)",
       "monthly_visitors": "~15M (estimated post-bankruptcy)",
-      "countries": ["US (Monster Europe shut down)"],
-      "industries": ["all"],
+      "countries": [
+        "US (Monster Europe shut down)"
+      ],
+      "industries": [
+        "all"
+      ],
       "pricing_model": {
         "primary": "CPC/Posting",
         "details": "pricing being restructured under new ownership"
@@ -412,8 +524,12 @@
       "url": "https://www.careerbuilder.com",
       "parent_company": "Bold Holdings (acquired Jul 2025 for $28M)",
       "monthly_visitors": "~20M (estimated post-bankruptcy)",
-      "countries": ["US"],
-      "industries": ["all"],
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "all"
+      ],
       "pricing_model": {
         "primary": "CPC/Posting",
         "details": "pricing being restructured under new ownership"
@@ -453,8 +569,16 @@
       "url": "https://www.simplyhired.com",
       "parent_company": "Indeed/Recruit Holdings (acquired ~2016)",
       "monthly_visitors": "~10M",
-      "countries": ["US", "CA", "UK", "AU", "IN"],
-      "industries": ["all"],
+      "countries": [
+        "US",
+        "CA",
+        "UK",
+        "AU",
+        "IN"
+      ],
+      "industries": [
+        "all"
+      ],
       "pricing_model": {
         "primary": "pay-per-action (via Indeed)",
         "free_posting": true,
@@ -468,8 +592,16 @@
         "salary_research"
       ],
       "programmatic_compatible": true,
-      "pros": ["free posting option", "salary estimator tool", "dual reach with Indeed"],
-      "cons": ["limited standalone features", "not transparent pricing", "requires candidates to self-filter"]
+      "pros": [
+        "free posting option",
+        "salary estimator tool",
+        "dual reach with Indeed"
+      ],
+      "cons": [
+        "limited standalone features",
+        "not transparent pricing",
+        "requires candidates to self-filter"
+      ]
     },
     "dice": {
       "name": "Dice",
@@ -478,8 +610,17 @@
       "parent_company": "DHI Group Inc (NYSE: DHX)",
       "monthly_visitors": "~2.4M unique visitors",
       "registered_members": "7.5M",
-      "countries": ["US"],
-      "industries": ["technology", "IT", "engineering", "cybersecurity", "AI_ML", "cloud_computing"],
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "technology",
+        "IT",
+        "engineering",
+        "cybersecurity",
+        "AI_ML",
+        "cloud_computing"
+      ],
       "pricing_model": {
         "primary": "subscription-based",
         "single_job_post": "from $495/month",
@@ -535,8 +676,12 @@
       "type": "niche_executive_job_board",
       "url": "https://www.theladders.com",
       "monthly_visitors": "~3M",
-      "countries": ["US"],
-      "industries": ["all_professional_100k_plus"],
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "all_professional_100k_plus"
+      ],
       "pricing_model": {
         "job_seeker_premium": "$25/month (annual billing)",
         "employer_posting": "free basic, premium options available"
@@ -553,9 +698,20 @@
         "six_figure_roles",
         "senior_professional_recruitment"
       ],
-      "unique_features": ["apply4me_service", "professional_resume_reviews"],
-      "pros": ["highly targeted high-income audience", "quality over quantity", "curated job feed"],
-      "cons": ["small job pool", "premium paywall limits engagement", "limited to US"]
+      "unique_features": [
+        "apply4me_service",
+        "professional_resume_reviews"
+      ],
+      "pros": [
+        "highly targeted high-income audience",
+        "quality over quantity",
+        "curated job feed"
+      ],
+      "cons": [
+        "small job pool",
+        "premium paywall limits engagement",
+        "limited to US"
+      ]
     },
     "snagajob": {
       "name": "Snagajob",
@@ -564,8 +720,16 @@
       "parent_company": "JobGet (acquired Nov 2024)",
       "monthly_visitors": "~15M",
       "registered_workers": "100M+ shift workers",
-      "countries": ["US"],
-      "industries": ["retail", "food_service", "hospitality", "warehouse", "healthcare_hourly"],
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "retail",
+        "food_service",
+        "hospitality",
+        "warehouse",
+        "healthcare_hourly"
+      ],
       "pricing_model": {
         "primary": "CPC",
         "subscription": "$89-$249/month"
@@ -590,8 +754,17 @@
         "Combined platform reaches 100M+ hourly workers",
         "JobGet also acquired Seasoned (restaurant hiring) March 2025"
       ],
-      "pros": ["largest hourly worker network", "mobile-first design", "real-time applicant matching", "affordable pricing"],
-      "cons": ["US only", "only for hourly/shift roles", "limited employer branding"]
+      "pros": [
+        "largest hourly worker network",
+        "mobile-first design",
+        "real-time applicant matching",
+        "affordable pricing"
+      ],
+      "cons": [
+        "US only",
+        "only for hourly/shift roles",
+        "limited employer branding"
+      ]
     },
     "lensa": {
       "name": "Lensa",
@@ -599,8 +772,12 @@
       "url": "https://lensa.com",
       "monthly_visitors": "~12M",
       "registered_users": "18M",
-      "countries": ["US"],
-      "industries": ["all"],
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "all"
+      ],
       "pricing_model": {
         "primary": "recruitment advertising and data services",
         "details": "not publicly disclosed"
@@ -612,9 +789,20 @@
         "active_job_seeker_engagement",
         "career_intelligence"
       ],
-      "ai_features": ["advanced_matching_technology", "career_intelligence_platform"],
-      "pros": ["large US user base", "AI-driven matching", "career intelligence tools"],
-      "cons": ["US only", "pricing not transparent", "less brand recognition than Indeed/LinkedIn"]
+      "ai_features": [
+        "advanced_matching_technology",
+        "career_intelligence_platform"
+      ],
+      "pros": [
+        "large US user base",
+        "AI-driven matching",
+        "career intelligence tools"
+      ],
+      "cons": [
+        "US only",
+        "pricing not transparent",
+        "less brand recognition than Indeed/LinkedIn"
+      ]
     },
     "talent_com": {
       "name": "Talent.com",
@@ -625,9 +813,13 @@
       "monthly_visitors": "28-70M unique visitors",
       "total_jobs": "35M+",
       "candidate_reach": "250M+",
-      "countries": ["78+ countries"],
+      "countries": [
+        "78+ countries"
+      ],
       "headquarters": "Montreal, Canada",
-      "industries": ["all"],
+      "industries": [
+        "all"
+      ],
       "pricing_model": {
         "free_posting": true,
         "sponsored_jobs": "CPC-based",
@@ -642,11 +834,24 @@
         "multi_country_campaigns"
       ],
       "programmatic_compatible": true,
-      "distribution_partners": ["Google for Jobs", "LinkedIn", "local recruitment websites"],
+      "distribution_partners": [
+        "Google for Jobs",
+        "LinkedIn",
+        "local recruitment websites"
+      ],
       "funding": "$150M+ total (Series B $120M from Inovia Capital)",
       "revenue_2021": "$120M+",
-      "pros": ["massive global reach (78 countries)", "free posting option", "cost-effective CPC", "shifting to CPA model"],
-      "cons": ["traffic numbers vary by source", "less employer branding", "brand less known than Indeed"]
+      "pros": [
+        "massive global reach (78 countries)",
+        "free posting option",
+        "cost-effective CPC",
+        "shifting to CPA model"
+      ],
+      "cons": [
+        "traffic numbers vary by source",
+        "less employer branding",
+        "brand less known than Indeed"
+      ]
     },
     "jooble": {
       "name": "Jooble",
@@ -654,8 +859,12 @@
       "url": "https://jooble.org",
       "headquarters": "Ukraine",
       "monthly_visitors": "~90M (estimated)",
-      "countries": ["67-70 countries"],
-      "industries": ["all"],
+      "countries": [
+        "67-70 countries"
+      ],
+      "industries": [
+        "all"
+      ],
       "pricing_model": {
         "primary": "CPC",
         "details": "negotiated rates"
@@ -669,8 +878,17 @@
         "latin_america_and_asia_expansion"
       ],
       "programmatic_compatible": true,
-      "pros": ["massive global reach", "very low CPC", "100% focused on jobs", "expanding to LatAm and Asia"],
-      "cons": ["traffic quality varies by country", "limited employer features", "negotiated pricing not transparent"]
+      "pros": [
+        "massive global reach",
+        "very low CPC",
+        "100% focused on jobs",
+        "expanding to LatAm and Asia"
+      ],
+      "cons": [
+        "traffic quality varies by country",
+        "limited employer features",
+        "negotiated pricing not transparent"
+      ]
     },
     "adzuna": {
       "name": "Adzuna",
@@ -678,8 +896,12 @@
       "url": "https://www.adzuna.com",
       "headquarters": "London, UK",
       "monthly_visitors": "~7M",
-      "countries": ["19-20 countries"],
-      "industries": ["all"],
+      "countries": [
+        "19-20 countries"
+      ],
+      "industries": [
+        "all"
+      ],
       "pricing_model": {
         "primary": "Programmatic PPC/CPC",
         "revenue_fy2022": "$31.3M (+37% YoY)"
@@ -704,8 +926,17 @@
         "UK government contract for Find a Job service",
         "Expanding M&A globally"
       ],
-      "pros": ["strong UK presence", "government data credibility", "AI features growing", "profitable business"],
-      "cons": ["smaller traffic vs major boards", "PPC costs unpredictable in competitive sectors", "limited employer branding"]
+      "pros": [
+        "strong UK presence",
+        "government data credibility",
+        "AI features growing",
+        "profitable business"
+      ],
+      "cons": [
+        "smaller traffic vs major boards",
+        "PPC costs unpredictable in competitive sectors",
+        "limited employer branding"
+      ]
     },
     "jobrapido": {
       "name": "Jobrapido",
@@ -714,8 +945,12 @@
       "headquarters": "Milan, Italy",
       "monthly_visitors": "6-55M (varies by source)",
       "registered_users": "100M+",
-      "countries": ["58 countries"],
-      "industries": ["all"],
+      "countries": [
+        "58 countries"
+      ],
+      "industries": [
+        "all"
+      ],
       "pricing_model": {
         "free_posting": true,
         "paid": "CPC-based"
@@ -728,8 +963,17 @@
         "cost_effective_reach"
       ],
       "programmatic_compatible": true,
-      "pros": ["100M+ registered users", "58 countries", "free posting option", "low CPC"],
-      "cons": ["traffic discrepancy between own and third-party data", "limited features", "core audience in Brazil/Europe"]
+      "pros": [
+        "100M+ registered users",
+        "58 countries",
+        "free posting option",
+        "low CPC"
+      ],
+      "cons": [
+        "traffic discrepancy between own and third-party data",
+        "limited features",
+        "core audience in Brazil/Europe"
+      ]
     },
     "trovit": {
       "name": "Trovit",
@@ -737,8 +981,12 @@
       "url": "https://www.trovit.com",
       "parent_company": "Lifull (Japan, acquired 2014)",
       "monthly_visitors": "~10M visits (90M active users claimed)",
-      "countries": ["50-58 countries"],
-      "industries": ["all"],
+      "countries": [
+        "50-58 countries"
+      ],
+      "industries": [
+        "all"
+      ],
       "pricing_model": {
         "primary": "Programmatic CPC",
         "details": "not publicly disclosed"
@@ -752,37 +1000,80 @@
         "supplementary_traffic"
       ],
       "programmatic_compatible": true,
-      "pros": ["very low CPC", "50+ countries", "good for supplementary traffic"],
-      "cons": ["lower traffic quality", "metasearch model means less engagement", "not primarily a jobs platform"]
+      "pros": [
+        "very low CPC",
+        "50+ countries",
+        "good for supplementary traffic"
+      ],
+      "cons": [
+        "lower traffic quality",
+        "metasearch model means less engagement",
+        "not primarily a jobs platform"
+      ]
     },
     "postjobfree": {
       "name": "PostJobFree",
       "type": "free_job_board",
       "url": "https://www.postjobfree.com",
       "monthly_visitors": "~5M",
-      "countries": ["US"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "free posting"},
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "free posting"
+      },
       "avg_cpc": "N/A (free)",
       "avg_cpa": "$0 (organic)",
-      "best_for": ["budget_conscious_employers", "supplementary_posting"],
-      "pros": ["completely free", "no cost barrier"],
-      "cons": ["limited features", "lower quality traffic", "no employer branding"]
+      "best_for": [
+        "budget_conscious_employers",
+        "supplementary_posting"
+      ],
+      "pros": [
+        "completely free",
+        "no cost barrier"
+      ],
+      "cons": [
+        "limited features",
+        "lower quality traffic",
+        "no employer branding"
+      ]
     },
     "learn4good": {
       "name": "Learn4Good",
       "type": "student_and_general_job_board",
       "url": "https://www.learn4good.com",
       "monthly_visitors": "~3M",
-      "countries": ["US", "UK", "multiple"],
-      "industries": ["education", "student_jobs", "general"],
+      "countries": [
+        "US",
+        "UK",
+        "multiple"
+      ],
+      "industries": [
+        "education",
+        "student_jobs",
+        "general"
+      ],
       "pricing_model": {
         "free_credits": "20 free job credits every 6 months",
         "paid": "$29/month for promoted listings"
       },
-      "best_for": ["student_hiring", "part_time_roles", "budget_employers"],
-      "pros": ["free credits available", "student-focused niche"],
-      "cons": ["basic ATS", "limited reach", "primarily educational focus"]
+      "best_for": [
+        "student_hiring",
+        "part_time_roles",
+        "budget_employers"
+      ],
+      "pros": [
+        "free credits available",
+        "student-focused niche"
+      ],
+      "cons": [
+        "basic ATS",
+        "limited reach",
+        "primarily educational focus"
+      ]
     },
     "mitula": {
       "name": "Mitula",
@@ -790,11 +1081,20 @@
       "url": "https://www.mitula.com",
       "parent_company": "Lifull (same as Trovit)",
       "monthly_visitors": "~3M",
-      "countries": ["30+ countries"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "CPC"},
+      "countries": [
+        "30+ countries"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "CPC"
+      },
       "avg_cpc": "$0.03-$0.25",
-      "best_for": ["supplementary_global_reach", "low_cost_traffic"],
+      "best_for": [
+        "supplementary_global_reach",
+        "low_cost_traffic"
+      ],
       "programmatic_compatible": true
     },
     "jobisjob": {
@@ -802,11 +1102,25 @@
       "type": "job_aggregator",
       "url": "https://www.jobisjob.com",
       "monthly_visitors": "~2M",
-      "countries": ["US", "UK", "ES", "IT", "DE", "BR"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "CPC"},
+      "countries": [
+        "US",
+        "UK",
+        "ES",
+        "IT",
+        "DE",
+        "BR"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "CPC"
+      },
       "avg_cpc": "$0.05-$0.30",
-      "best_for": ["supplementary_aggregation", "european_markets"]
+      "best_for": [
+        "supplementary_aggregation",
+        "european_markets"
+      ]
     },
     "health_ecareers": {
       "name": "Health eCareers",
@@ -814,8 +1128,16 @@
       "url": "https://www.healthecareers.com",
       "monthly_visitors": "2M",
       "monthly_applicants": "~150,000",
-      "countries": ["US"],
-      "industries": ["healthcare", "nursing", "allied_health", "physician", "pharmacy"],
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "healthcare",
+        "nursing",
+        "allied_health",
+        "physician",
+        "pharmacy"
+      ],
       "pricing_model": {
         "standard_posting": "$449.95/month",
         "enhanced_posting": "premium pricing",
@@ -829,8 +1151,17 @@
         "allied_health",
         "physician_hiring"
       ],
-      "pros": ["targeted healthcare audience", "150K monthly applicants", "comprehensive services", "multiple specialty coverage"],
-      "cons": ["expensive", "US only", "competitive in nursing specialties"]
+      "pros": [
+        "targeted healthcare audience",
+        "150K monthly applicants",
+        "comprehensive services",
+        "multiple specialty coverage"
+      ],
+      "cons": [
+        "expensive",
+        "US only",
+        "competitive in nursing specialties"
+      ]
     },
     "practicelink": {
       "name": "PracticeLink",
@@ -838,16 +1169,39 @@
       "url": "https://www.practicelink.com",
       "monthly_visitors": "300,000",
       "monthly_applicants": "~20,000",
-      "countries": ["US"],
-      "industries": ["physician", "advanced_practice_providers", "healthcare"],
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "physician",
+        "advanced_practice_providers",
+        "healthcare"
+      ],
       "pricing_model": {
         "primary": "contact for quote",
         "free_trial": "72-hour trial available"
       },
-      "best_for": ["physician_recruitment", "hospital_systems", "large_healthcare_organizations"],
-      "unique_features": ["built_in_ATS", "candidate_management_system", "dedicated_account_manager", "digital_magazine"],
-      "pros": ["dedicated physician platform", "built-in CRM and ATS", "dedicated sales rep"],
-      "cons": ["pricing not transparent", "smaller audience", "physician-focused only"]
+      "best_for": [
+        "physician_recruitment",
+        "hospital_systems",
+        "large_healthcare_organizations"
+      ],
+      "unique_features": [
+        "built_in_ATS",
+        "candidate_management_system",
+        "dedicated_account_manager",
+        "digital_magazine"
+      ],
+      "pros": [
+        "dedicated physician platform",
+        "built-in CRM and ATS",
+        "dedicated sales rep"
+      ],
+      "cons": [
+        "pricing not transparent",
+        "smaller audience",
+        "physician-focused only"
+      ]
     },
     "jama_career_center": {
       "name": "JAMA Career Center",
@@ -856,26 +1210,59 @@
       "parent_company": "American Medical Association",
       "monthly_visitors": "70,000",
       "monthly_applicants": "~4,000",
-      "countries": ["US"],
-      "industries": ["physician", "medical_specialties"],
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "physician",
+        "medical_specialties"
+      ],
       "pricing_model": {
         "per_post": "$508.00+",
         "print_journal_ads": "additional"
       },
-      "best_for": ["physician_recruitment", "academic_medical_centers", "specialty_physician_hiring"],
-      "pros": ["AMA credibility", "passive candidate reach via print journals", "highly targeted"],
-      "cons": ["expensive per post", "small audience", "physician-only"]
+      "best_for": [
+        "physician_recruitment",
+        "academic_medical_centers",
+        "specialty_physician_hiring"
+      ],
+      "pros": [
+        "AMA credibility",
+        "passive candidate reach via print journals",
+        "highly targeted"
+      ],
+      "cons": [
+        "expensive per post",
+        "small audience",
+        "physician-only"
+      ]
     },
     "nurse_com": {
       "name": "Nurse.com",
       "type": "niche_healthcare_job_board",
       "url": "https://www.nurse.com",
-      "countries": ["US"],
-      "industries": ["nursing"],
-      "pricing_model": {"primary": "posting/subscription"},
-      "best_for": ["nursing_recruitment", "travel_nursing", "nurse_continuing_education"],
-      "pros": ["highly targeted nursing audience", "CE credits drive traffic"],
-      "cons": ["narrow focus", "limited to nursing"]
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "nursing"
+      ],
+      "pricing_model": {
+        "primary": "posting/subscription"
+      },
+      "best_for": [
+        "nursing_recruitment",
+        "travel_nursing",
+        "nurse_continuing_education"
+      ],
+      "pros": [
+        "highly targeted nursing audience",
+        "CE credits drive traffic"
+      ],
+      "cons": [
+        "narrow focus",
+        "limited to nursing"
+      ]
     },
     "wellfound": {
       "name": "Wellfound (formerly AngelList Talent)",
@@ -883,8 +1270,14 @@
       "url": "https://wellfound.com",
       "monthly_visitors": "~8M profiles",
       "companies_served": "130,000+ startups",
-      "countries": ["global"],
-      "industries": ["technology", "startups", "venture_backed"],
+      "countries": [
+        "global"
+      ],
+      "industries": [
+        "technology",
+        "startups",
+        "venture_backed"
+      ],
       "pricing_model": {
         "access_free": "post jobs, review applicants, branded profiles, ATS",
         "essentials": "$149/month (advanced tools, screening questions)",
@@ -901,37 +1294,89 @@
         "remote_roles",
         "early_stage_companies"
       ],
-      "pros": ["free tier available", "strong startup ecosystem", "salary transparency culture", "8M+ profiles"],
-      "cons": ["startup-focused may not suit enterprise", "no candidate matching in free tier", "competitive with other startup boards"]
+      "pros": [
+        "free tier available",
+        "strong startup ecosystem",
+        "salary transparency culture",
+        "8M+ profiles"
+      ],
+      "cons": [
+        "startup-focused may not suit enterprise",
+        "no candidate matching in free tier",
+        "competitive with other startup boards"
+      ]
     },
     "builtin": {
       "name": "Built In",
       "type": "tech_community_job_board",
       "url": "https://builtin.com",
       "monthly_visitors": "~5M",
-      "countries": ["US (city-specific)"],
-      "industries": ["technology", "startups"],
-      "pricing_model": {"primary": "slot/posting subscription"},
-      "best_for": ["local_tech_hiring", "employer_branding_in_tech", "city_specific_tech_roles"],
-      "unique_features": ["city_specific_sites", "best_places_to_work_lists", "salary_insights"],
-      "pros": ["strong local tech communities", "employer branding", "best places to work recognition"],
-      "cons": ["US only", "city-specific fragmentation", "limited for non-tech roles"]
+      "countries": [
+        "US (city-specific)"
+      ],
+      "industries": [
+        "technology",
+        "startups"
+      ],
+      "pricing_model": {
+        "primary": "slot/posting subscription"
+      },
+      "best_for": [
+        "local_tech_hiring",
+        "employer_branding_in_tech",
+        "city_specific_tech_roles"
+      ],
+      "unique_features": [
+        "city_specific_sites",
+        "best_places_to_work_lists",
+        "salary_insights"
+      ],
+      "pros": [
+        "strong local tech communities",
+        "employer branding",
+        "best places to work recognition"
+      ],
+      "cons": [
+        "US only",
+        "city-specific fragmentation",
+        "limited for non-tech roles"
+      ]
     },
     "weworkremotely": {
       "name": "We Work Remotely",
       "type": "remote_job_board",
       "url": "https://weworkremotely.com",
       "monthly_visitors": "~4M",
-      "countries": ["global (remote-first)"],
-      "industries": ["technology", "marketing", "customer_support", "design", "management"],
+      "countries": [
+        "global (remote-first)"
+      ],
+      "industries": [
+        "technology",
+        "marketing",
+        "customer_support",
+        "design",
+        "management"
+      ],
       "pricing_model": {
         "per_post": "~$299 per listing",
         "bundles": "available at discount"
       },
-      "best_for": ["remote_hiring", "distributed_teams", "tech_and_marketing_roles"],
+      "best_for": [
+        "remote_hiring",
+        "distributed_teams",
+        "tech_and_marketing_roles"
+      ],
       "key_stat": "RTO firms take 23% longer to fill vacancies and hiring costs skyrocket",
-      "pros": ["largest remote-only job board", "high quality remote candidates", "good for global hiring"],
-      "cons": ["remote-only limits scope", "per-post pricing adds up", "competitive listings"]
+      "pros": [
+        "largest remote-only job board",
+        "high quality remote candidates",
+        "good for global hiring"
+      ],
+      "cons": [
+        "remote-only limits scope",
+        "per-post pricing adds up",
+        "competitive listings"
+      ]
     },
     "remoteok": {
       "name": "RemoteOK",
@@ -939,42 +1384,107 @@
       "url": "https://remoteok.com",
       "monthly_visitors": "~3M",
       "total_jobs_listed": "1.13M+",
-      "countries": ["global (remote-first)"],
-      "industries": ["technology", "design", "copywriting", "customer_support", "sales", "project_management"],
+      "countries": [
+        "global (remote-first)"
+      ],
+      "industries": [
+        "technology",
+        "design",
+        "copywriting",
+        "customer_support",
+        "sales",
+        "project_management"
+      ],
       "pricing_model": {
         "per_post": "varies (bundles available)",
         "details": "hire remotely page for pricing"
       },
-      "best_for": ["remote_tech_hiring", "startup_remote_roles", "global_talent_access"],
-      "unique_features": ["open_salaries", "salary_transparency", "remote_work_statistics"],
-      "pros": ["salary transparency", "large remote job database", "global reach"],
-      "cons": ["tech-heavy focus", "high competition for listings", "no employer branding tools"]
+      "best_for": [
+        "remote_tech_hiring",
+        "startup_remote_roles",
+        "global_talent_access"
+      ],
+      "unique_features": [
+        "open_salaries",
+        "salary_transparency",
+        "remote_work_statistics"
+      ],
+      "pros": [
+        "salary transparency",
+        "large remote job database",
+        "global reach"
+      ],
+      "cons": [
+        "tech-heavy focus",
+        "high competition for listings",
+        "no employer branding tools"
+      ]
     },
     "hired": {
       "name": "Hired",
       "type": "tech_talent_marketplace",
       "url": "https://hired.com",
-      "countries": ["US", "UK", "CA"],
-      "industries": ["technology", "engineering", "data_science"],
+      "countries": [
+        "US",
+        "UK",
+        "CA"
+      ],
+      "industries": [
+        "technology",
+        "engineering",
+        "data_science"
+      ],
       "pricing_model": {
         "primary": "success-fee based (% of first-year salary)",
         "details": "~15% of first-year salary"
       },
-      "best_for": ["tech_hiring", "pre_vetted_candidates", "reducing_time_to_hire"],
-      "pros": ["pre-vetted candidates", "salary data upfront", "reduces sourcing time"],
-      "cons": ["expensive success fee", "limited to tech", "smaller candidate pool"]
+      "best_for": [
+        "tech_hiring",
+        "pre_vetted_candidates",
+        "reducing_time_to_hire"
+      ],
+      "pros": [
+        "pre-vetted candidates",
+        "salary data upfront",
+        "reduces sourcing time"
+      ],
+      "cons": [
+        "expensive success fee",
+        "limited to tech",
+        "smaller candidate pool"
+      ]
     },
     "stackoverflow_jobs": {
       "name": "Stack Overflow Jobs",
       "type": "developer_community_job_board",
       "url": "https://stackoverflow.com/jobs",
       "monthly_visitors": "~100M (Stack Overflow total, jobs subset)",
-      "countries": ["global"],
-      "industries": ["software_development", "devops", "data_engineering"],
-      "pricing_model": {"primary": "posting fee"},
-      "best_for": ["developer_hiring", "technical_roles", "open_source_community"],
-      "pros": ["massive developer audience", "high-quality technical candidates", "community credibility"],
-      "cons": ["jobs section reduced in recent years", "developer-only focus", "competitive market"]
+      "countries": [
+        "global"
+      ],
+      "industries": [
+        "software_development",
+        "devops",
+        "data_engineering"
+      ],
+      "pricing_model": {
+        "primary": "posting fee"
+      },
+      "best_for": [
+        "developer_hiring",
+        "technical_roles",
+        "open_source_community"
+      ],
+      "pros": [
+        "massive developer audience",
+        "high-quality technical candidates",
+        "community credibility"
+      ],
+      "cons": [
+        "jobs section reduced in recent years",
+        "developer-only focus",
+        "competitive market"
+      ]
     },
     "efinancialcareers": {
       "name": "eFinancialCareers",
@@ -982,12 +1492,35 @@
       "url": "https://www.efinancialcareers.com",
       "monthly_visitors": "~5M",
       "active_jobs": "~70,000",
-      "countries": ["19 markets (US, UK, APAC, Europe, Middle East)"],
-      "industries": ["finance", "banking", "fintech", "insurance", "asset_management"],
-      "pricing_model": {"primary": "posting/subscription (contact sales)"},
-      "best_for": ["finance_recruitment", "banking_roles", "fintech_hiring", "global_finance_markets"],
-      "pros": ["world's leading finance careers platform", "19 markets", "highly targeted finance audience"],
-      "cons": ["pricing not transparent", "finance-only niche", "competitive for top roles"]
+      "countries": [
+        "19 markets (US, UK, APAC, Europe, Middle East)"
+      ],
+      "industries": [
+        "finance",
+        "banking",
+        "fintech",
+        "insurance",
+        "asset_management"
+      ],
+      "pricing_model": {
+        "primary": "posting/subscription (contact sales)"
+      },
+      "best_for": [
+        "finance_recruitment",
+        "banking_roles",
+        "fintech_hiring",
+        "global_finance_markets"
+      ],
+      "pros": [
+        "world's leading finance careers platform",
+        "19 markets",
+        "highly targeted finance audience"
+      ],
+      "cons": [
+        "pricing not transparent",
+        "finance-only niche",
+        "competitive for top roles"
+      ]
     },
     "wallstreetoasis": {
       "name": "Wall Street Oasis",
@@ -995,11 +1528,30 @@
       "url": "https://www.wallstreetoasis.com",
       "monthly_visitors": "~3M",
       "members": "1M+",
-      "countries": ["US", "global"],
-      "industries": ["investment_banking", "private_equity", "hedge_funds", "finance"],
-      "best_for": ["junior_finance_recruitment", "campus_hiring_finance", "passive_candidate_engagement"],
-      "pros": ["strong community engagement", "career advice content", "networking opportunities"],
-      "cons": ["smaller job board", "community-focused rather than job-board-first"]
+      "countries": [
+        "US",
+        "global"
+      ],
+      "industries": [
+        "investment_banking",
+        "private_equity",
+        "hedge_funds",
+        "finance"
+      ],
+      "best_for": [
+        "junior_finance_recruitment",
+        "campus_hiring_finance",
+        "passive_candidate_engagement"
+      ],
+      "pros": [
+        "strong community engagement",
+        "career advice content",
+        "networking opportunities"
+      ],
+      "cons": [
+        "smaller job board",
+        "community-focused rather than job-board-first"
+      ]
     },
     "usajobs": {
       "name": "USAJOBS",
@@ -1007,18 +1559,39 @@
       "url": "https://www.usajobs.gov",
       "parent_company": "US Office of Personnel Management",
       "monthly_visitors": "2M+",
-      "countries": ["US (federal)"],
-      "industries": ["government", "federal_agencies", "military", "public_service"],
-      "pricing_model": {"primary": "free (government funded)"},
-      "best_for": ["federal_employment", "government_roles", "military_transitions"],
+      "countries": [
+        "US (federal)"
+      ],
+      "industries": [
+        "government",
+        "federal_agencies",
+        "military",
+        "public_service"
+      ],
+      "pricing_model": {
+        "primary": "free (government funded)"
+      },
+      "best_for": [
+        "federal_employment",
+        "government_roles",
+        "military_transitions"
+      ],
       "unique_features": [
         "every_job_funded_by_congress",
         "no_ghost_jobs",
         "two_page_resume_limit_2025",
         "safest_job_board"
       ],
-      "pros": ["no scams", "all jobs are real and funded", "comprehensive federal listings"],
-      "cons": ["slow hiring process (60+ days)", "complex application requirements", "federal roles only"]
+      "pros": [
+        "no scams",
+        "all jobs are real and funded",
+        "comprehensive federal listings"
+      ],
+      "cons": [
+        "slow hiring process (60+ days)",
+        "complex application requirements",
+        "federal roles only"
+      ]
     },
     "clearancejobs": {
       "name": "ClearanceJobs",
@@ -1027,36 +1600,95 @@
       "parent_company": "DHI Group Inc",
       "monthly_visitors": "~1.5M",
       "traffic_trend": "+25% YoY",
-      "countries": ["US"],
-      "industries": ["defense", "aerospace", "intelligence", "government_contracting"],
-      "pricing_model": {"primary": "subscription/slot-based"},
-      "best_for": ["security_cleared_professionals", "defense_contractors", "intelligence_community"],
-      "unique_features": ["requires_active_security_clearance_to_register", "walled_garden_model"],
-      "pros": ["exclusive cleared talent pool", "active recruiter engagement", "growing traffic", "no tire-kickers"],
-      "cons": ["very narrow niche", "US only", "requires clearance verification"]
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "defense",
+        "aerospace",
+        "intelligence",
+        "government_contracting"
+      ],
+      "pricing_model": {
+        "primary": "subscription/slot-based"
+      },
+      "best_for": [
+        "security_cleared_professionals",
+        "defense_contractors",
+        "intelligence_community"
+      ],
+      "unique_features": [
+        "requires_active_security_clearance_to_register",
+        "walled_garden_model"
+      ],
+      "pros": [
+        "exclusive cleared talent pool",
+        "active recruiter engagement",
+        "growing traffic",
+        "no tire-kickers"
+      ],
+      "cons": [
+        "very narrow niche",
+        "US only",
+        "requires clearance verification"
+      ]
     },
     "governmentjobs": {
       "name": "GovernmentJobs.com",
       "type": "government_job_board",
       "url": "https://www.governmentjobs.com",
       "parent_company": "NEOGOV",
-      "countries": ["US"],
-      "industries": ["state_and_local_government"],
-      "pricing_model": {"primary": "SaaS subscription for agencies"},
-      "best_for": ["state_and_local_government_hiring", "public_sector"],
-      "pros": ["comprehensive state/local listings", "integrated with NEOGOV ATS"],
-      "cons": ["government-only", "slow hiring processes"]
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "state_and_local_government"
+      ],
+      "pricing_model": {
+        "primary": "SaaS subscription for agencies"
+      },
+      "best_for": [
+        "state_and_local_government_hiring",
+        "public_sector"
+      ],
+      "pros": [
+        "comprehensive state/local listings",
+        "integrated with NEOGOV ATS"
+      ],
+      "cons": [
+        "government-only",
+        "slow hiring processes"
+      ]
     },
     "higheredjobs": {
       "name": "HigherEdJobs",
       "type": "niche_education_job_board",
       "url": "https://www.higheredjobs.com",
-      "countries": ["US"],
-      "industries": ["higher_education", "academia", "university_administration"],
-      "pricing_model": {"primary": "posting fee"},
-      "best_for": ["university_hiring", "academic_positions", "administrative_higher_ed_roles"],
-      "pros": ["leading academic job board", "trusted in higher education", "faculty and staff"],
-      "cons": ["narrow niche", "academia-only"]
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "higher_education",
+        "academia",
+        "university_administration"
+      ],
+      "pricing_model": {
+        "primary": "posting fee"
+      },
+      "best_for": [
+        "university_hiring",
+        "academic_positions",
+        "administrative_higher_ed_roles"
+      ],
+      "pros": [
+        "leading academic job board",
+        "trusted in higher education",
+        "faculty and staff"
+      ],
+      "cons": [
+        "narrow niche",
+        "academia-only"
+      ]
     },
     "idealist": {
       "name": "Idealist",
@@ -1064,18 +1696,39 @@
       "url": "https://www.idealist.org",
       "monthly_visitors": "1.4M",
       "organizations": "100,000+",
-      "countries": ["US", "global (English, Spanish, French)"],
-      "industries": ["nonprofit", "social_impact", "education", "environment", "public_health"],
-      "pricing_model": {"primary": "posting fee (contact for pricing)"},
+      "countries": [
+        "US",
+        "global (English, Spanish, French)"
+      ],
+      "industries": [
+        "nonprofit",
+        "social_impact",
+        "education",
+        "environment",
+        "public_health"
+      ],
+      "pricing_model": {
+        "primary": "posting fee (contact for pricing)"
+      },
       "best_for": [
         "nonprofit_hiring",
         "social_impact_roles",
         "volunteer_management",
         "mission_driven_organizations"
       ],
-      "recent_changes": ["Merged with VolunteerMatch in 2025"],
-      "pros": ["largest nonprofit job platform", "100K+ organizations", "multilingual", "volunteer opportunities too"],
-      "cons": ["nonprofit-only niche", "smaller audience than generalist boards"]
+      "recent_changes": [
+        "Merged with VolunteerMatch in 2025"
+      ],
+      "pros": [
+        "largest nonprofit job platform",
+        "100K+ organizations",
+        "multilingual",
+        "volunteer opportunities too"
+      ],
+      "cons": [
+        "nonprofit-only niche",
+        "smaller audience than generalist boards"
+      ]
     },
     "hcareers": {
       "name": "Hcareers",
@@ -1083,74 +1736,213 @@
       "url": "https://www.hcareers.com",
       "monthly_visitors": "~2M",
       "active_jobs": "20,000+",
-      "countries": ["US", "CA"],
-      "industries": ["hospitality", "hotels", "resorts", "food_and_beverage", "corporate_travel"],
-      "pricing_model": {"primary": "posting/subscription"},
-      "best_for": ["hotel_hiring", "resort_staffing", "hospitality_management"],
-      "unique_features": ["ai_candidate_matching", "resume_database", "company_profiles"],
-      "pros": ["20+ years in hospitality", "targeted audience", "AI matching"],
-      "cons": ["hospitality-only", "limited to US/Canada"]
+      "countries": [
+        "US",
+        "CA"
+      ],
+      "industries": [
+        "hospitality",
+        "hotels",
+        "resorts",
+        "food_and_beverage",
+        "corporate_travel"
+      ],
+      "pricing_model": {
+        "primary": "posting/subscription"
+      },
+      "best_for": [
+        "hotel_hiring",
+        "resort_staffing",
+        "hospitality_management"
+      ],
+      "unique_features": [
+        "ai_candidate_matching",
+        "resume_database",
+        "company_profiles"
+      ],
+      "pros": [
+        "20+ years in hospitality",
+        "targeted audience",
+        "AI matching"
+      ],
+      "cons": [
+        "hospitality-only",
+        "limited to US/Canada"
+      ]
     },
     "poached": {
       "name": "Poached Jobs",
       "type": "niche_hospitality_job_board",
       "url": "https://poachedjobs.com",
-      "countries": ["US"],
-      "industries": ["restaurants", "bars", "food_service"],
-      "best_for": ["restaurant_hiring", "bar_staffing", "culinary_roles"],
-      "pros": ["targeted food service audience", "local networking"],
-      "cons": ["very narrow niche", "limited geographic reach"]
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "restaurants",
+        "bars",
+        "food_service"
+      ],
+      "best_for": [
+        "restaurant_hiring",
+        "bar_staffing",
+        "culinary_roles"
+      ],
+      "pros": [
+        "targeted food service audience",
+        "local networking"
+      ],
+      "cons": [
+        "very narrow niche",
+        "limited geographic reach"
+      ]
     },
     "coolworks": {
       "name": "CoolWorks",
       "type": "niche_seasonal_job_board",
       "url": "https://www.coolworks.com",
-      "countries": ["US"],
-      "industries": ["seasonal_hospitality", "national_parks", "ski_resorts", "ranches", "retreats"],
-      "best_for": ["seasonal_hiring", "destination_based_roles", "adventure_seekers"],
-      "unique_features": ["filter_by_season_location_category", "adventure_focused"],
-      "pros": ["unique niche for seasonal work", "attracts willing-to-relocate candidates"],
-      "cons": ["seasonal only", "limited to specific industries"]
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "seasonal_hospitality",
+        "national_parks",
+        "ski_resorts",
+        "ranches",
+        "retreats"
+      ],
+      "best_for": [
+        "seasonal_hiring",
+        "destination_based_roles",
+        "adventure_seekers"
+      ],
+      "unique_features": [
+        "filter_by_season_location_category",
+        "adventure_focused"
+      ],
+      "pros": [
+        "unique niche for seasonal work",
+        "attracts willing-to-relocate candidates"
+      ],
+      "cons": [
+        "seasonal only",
+        "limited to specific industries"
+      ]
     },
     "bluecrew": {
       "name": "BlueCrew",
       "type": "on_demand_staffing_platform",
       "url": "https://www.bluecrewjobs.com",
-      "countries": ["US"],
-      "industries": ["warehouse", "logistics", "hospitality", "light_industrial"],
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "warehouse",
+        "logistics",
+        "hospitality",
+        "light_industrial"
+      ],
       "pricing_model": {
         "primary": "markup on worker pay (~40%)",
         "model": "W-2 workforce-as-a-service"
       },
-      "best_for": ["on_demand_hourly_staffing", "W2_temp_workers", "warehouse_logistics"],
-      "unique_features": ["W2_employment_model", "health_insurance", "sick_leave", "overtime_pay"],
-      "pros": ["W-2 model provides worker protections", "flexible staffing", "analytics platform"],
-      "cons": ["40% markup is expensive", "limited to certain industries/geographies"]
+      "best_for": [
+        "on_demand_hourly_staffing",
+        "W2_temp_workers",
+        "warehouse_logistics"
+      ],
+      "unique_features": [
+        "W2_employment_model",
+        "health_insurance",
+        "sick_leave",
+        "overtime_pay"
+      ],
+      "pros": [
+        "W-2 model provides worker protections",
+        "flexible staffing",
+        "analytics platform"
+      ],
+      "cons": [
+        "40% markup is expensive",
+        "limited to certain industries/geographies"
+      ]
     },
     "wonolo": {
       "name": "Wonolo",
       "type": "on_demand_staffing_platform",
       "url": "https://www.wonolo.com",
       "headquarters": "Beaverton, Oregon",
-      "countries": ["US"],
-      "industries": ["warehousing", "delivery", "merchandising", "event_staffing", "administrative"],
-      "pricing_model": {"primary": "markup on worker pay (~45%)"},
-      "best_for": ["temporary_staffing", "on_demand_labor", "flex_workforce"],
-      "ai_features": ["ai_job_posting_assistance", "job_management", "analytics"],
-      "pros": ["AI-assisted hiring", "broad role categories", "on-demand flexibility"],
-      "cons": ["45% markup is expensive", "gig model", "US only"]
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "warehousing",
+        "delivery",
+        "merchandising",
+        "event_staffing",
+        "administrative"
+      ],
+      "pricing_model": {
+        "primary": "markup on worker pay (~45%)"
+      },
+      "best_for": [
+        "temporary_staffing",
+        "on_demand_labor",
+        "flex_workforce"
+      ],
+      "ai_features": [
+        "ai_job_posting_assistance",
+        "job_management",
+        "analytics"
+      ],
+      "pros": [
+        "AI-assisted hiring",
+        "broad role categories",
+        "on-demand flexibility"
+      ],
+      "cons": [
+        "45% markup is expensive",
+        "gig model",
+        "US only"
+      ]
     },
     "instawork": {
       "name": "Instawork",
       "type": "on_demand_staffing_platform",
       "url": "https://www.instawork.com",
-      "countries": ["US", "CA"],
-      "industries": ["hospitality", "food_service", "events", "catering", "warehouse"],
-      "pricing_model": {"primary": "markup/commission on worker pay"},
-      "best_for": ["hospitality_temp_staffing", "event_staffing", "kitchen_teams"],
-      "unique_features": ["worker_ratings_and_reviews", "gps_attendance_tracking", "skills_verification"],
-      "pros": ["ratings system ensures quality", "GPS tracking", "large worker network"],
-      "cons": ["temp staffing focus", "food service heavy", "markup costs"]
+      "countries": [
+        "US",
+        "CA"
+      ],
+      "industries": [
+        "hospitality",
+        "food_service",
+        "events",
+        "catering",
+        "warehouse"
+      ],
+      "pricing_model": {
+        "primary": "markup/commission on worker pay"
+      },
+      "best_for": [
+        "hospitality_temp_staffing",
+        "event_staffing",
+        "kitchen_teams"
+      ],
+      "unique_features": [
+        "worker_ratings_and_reviews",
+        "gps_attendance_tracking",
+        "skills_verification"
+      ],
+      "pros": [
+        "ratings system ensures quality",
+        "GPS tracking",
+        "large worker network"
+      ],
+      "cons": [
+        "temp staffing focus",
+        "food service heavy",
+        "markup costs"
+      ]
     },
     "facebook_jobs": {
       "name": "Facebook/Meta Jobs",
@@ -1158,8 +1950,13 @@
       "url": "https://www.facebook.com/jobs",
       "parent_company": "Meta Platforms",
       "monthly_visitors": "2.9B+ (Facebook total)",
-      "countries": ["global"],
-      "industries": ["all", "especially_local_and_hourly"],
+      "countries": [
+        "global"
+      ],
+      "industries": [
+        "all",
+        "especially_local_and_hourly"
+      ],
       "pricing_model": {
         "organic_job_posting": "free on business pages",
         "paid_promotion": "Meta Ads CPC model",
@@ -1173,8 +1970,18 @@
         "community_based_recruitment",
         "reaching_passive_candidates"
       ],
-      "pros": ["massive audience", "free organic posting", "local targeting", "65% recruiter adoption"],
-      "cons": ["not a dedicated job platform", "declining organic reach", "privacy concerns", "ad fatigue"]
+      "pros": [
+        "massive audience",
+        "free organic posting",
+        "local targeting",
+        "65% recruiter adoption"
+      ],
+      "cons": [
+        "not a dedicated job platform",
+        "declining organic reach",
+        "privacy concerns",
+        "ad fatigue"
+      ]
     },
     "tiktok_recruiting": {
       "name": "TikTok Recruiting",
@@ -1182,8 +1989,13 @@
       "url": "https://www.tiktok.com",
       "parent_company": "ByteDance",
       "monthly_visitors": "1.5B+ (TikTok total)",
-      "countries": ["global"],
-      "industries": ["all", "especially_gen_z_appealing"],
+      "countries": [
+        "global"
+      ],
+      "industries": [
+        "all",
+        "especially_gen_z_appealing"
+      ],
       "pricing_model": {
         "organic": "free employer branding content",
         "paid": "TikTok Ads for recruitment"
@@ -1199,8 +2011,17 @@
         "reaching_younger_audiences",
         "culture_showcase"
       ],
-      "pros": ["fastest growing platform for young audiences", "authentic content resonates", "creative employer branding"],
-      "cons": ["low direct hiring adoption", "not a job board", "content creation effort", "regulatory uncertainty"]
+      "pros": [
+        "fastest growing platform for young audiences",
+        "authentic content resonates",
+        "creative employer branding"
+      ],
+      "cons": [
+        "low direct hiring adoption",
+        "not a job board",
+        "content creation effort",
+        "regulatory uncertainty"
+      ]
     },
     "instagram_recruiting": {
       "name": "Instagram (Employer Branding)",
@@ -1208,27 +2029,62 @@
       "url": "https://www.instagram.com",
       "parent_company": "Meta Platforms",
       "recruiter_usage": "58% of recruiters",
-      "best_for": ["employer_branding", "culture_showcase", "visual_recruitment_marketing"],
-      "pros": ["visual storytelling", "strong for employer brand", "58% recruiter usage"],
-      "cons": ["no native job features", "requires content investment", "low direct conversion"]
+      "best_for": [
+        "employer_branding",
+        "culture_showcase",
+        "visual_recruitment_marketing"
+      ],
+      "pros": [
+        "visual storytelling",
+        "strong for employer brand",
+        "58% recruiter usage"
+      ],
+      "cons": [
+        "no native job features",
+        "requires content investment",
+        "low direct conversion"
+      ]
     },
     "twitter_x_jobs": {
       "name": "Twitter/X Jobs",
       "type": "social_media_recruitment",
       "url": "https://www.x.com",
       "recruiter_usage": "10-52% (varies by survey)",
-      "best_for": ["tech_hiring", "thought_leadership", "community_engagement"],
-      "pros": ["real-time engagement", "tech community presence"],
-      "cons": ["platform instability", "limited job features", "declining recruiter trust"]
+      "best_for": [
+        "tech_hiring",
+        "thought_leadership",
+        "community_engagement"
+      ],
+      "pros": [
+        "real-time engagement",
+        "tech community presence"
+      ],
+      "cons": [
+        "platform instability",
+        "limited job features",
+        "declining recruiter trust"
+      ]
     },
     "reddit_jobs": {
       "name": "Reddit (r/jobs, r/forhire)",
       "type": "community_recruitment",
       "url": "https://www.reddit.com",
       "monthly_visitors": "1.7B+ (Reddit total)",
-      "best_for": ["community_based_hiring", "tech_and_creative_roles", "authentic_employer_engagement"],
-      "pros": ["authentic community", "niche subreddits", "free posting"],
-      "cons": ["no formal job features", "moderation rules vary", "anti-corporate sentiment"]
+      "best_for": [
+        "community_based_hiring",
+        "tech_and_creative_roles",
+        "authentic_employer_engagement"
+      ],
+      "pros": [
+        "authentic community",
+        "niche subreddits",
+        "free posting"
+      ],
+      "cons": [
+        "no formal job features",
+        "moderation rules vary",
+        "anti-corporate sentiment"
+      ]
     },
     "appcast": {
       "name": "Appcast",
@@ -1236,7 +2092,11 @@
       "url": "https://www.appcast.io",
       "parent_company": "The StepStone Group (acquired 2019 for EUR 70M)",
       "headquarters": "Lebanon, NH",
-      "countries": ["US", "UK", "Europe"],
+      "countries": [
+        "US",
+        "UK",
+        "Europe"
+      ],
       "pricing_model": {
         "primary": "CPC and CPA performance-based",
         "product": "AppcastOne (omni-channel enterprise solution)",
@@ -1260,9 +2120,19 @@
         "multi_channel_campaigns",
         "data_driven_hiring"
       ],
-      "products": ["AppcastOne", "AppcastEngage", "Clickcast (SaaS)"],
-      "acquisitions": ["Bayard Advertising (Jul 2023)"],
-      "ai_features": ["smart_bidding", "real_time_optimization", "impression_to_hire_tracking"],
+      "products": [
+        "AppcastOne",
+        "AppcastEngage",
+        "Clickcast (SaaS)"
+      ],
+      "acquisitions": [
+        "Bayard Advertising (Jul 2023)"
+      ],
+      "ai_features": [
+        "smart_bidding",
+        "real_time_optimization",
+        "impression_to_hire_tracking"
+      ],
       "pros": [
         "largest programmatic platform by data volume",
         "up to 50% reduction in cost-per-hire",
@@ -1281,12 +2151,19 @@
       "type": "programmatic_job_advertising",
       "url": "https://www.pandologic.com",
       "parent_company": "Veritone",
-      "countries": ["US", "global"],
+      "countries": [
+        "US",
+        "global"
+      ],
       "pricing_model": {
         "primary": "custom/ad-spend based",
         "model": "fully autonomous programmatic"
       },
-      "notable_clients": ["Amazon", "HCA/HealthTrust", "Walmart"],
+      "notable_clients": [
+        "Amazon",
+        "HCA/HealthTrust",
+        "Walmart"
+      ],
       "best_for": [
         "high_volume_hiring",
         "hands_off_optimization",
@@ -1297,15 +2174,28 @@
         "machine_learning_optimization",
         "automated_job_distribution"
       ],
-      "ats_integrations": ["iCIMS", "multiple ATS platforms"],
-      "pros": ["fully autonomous (minimal manual intervention)", "proven with largest employers", "self-learning AI"],
-      "cons": ["custom pricing only", "less transparency than some competitors", "enterprise-only focus"]
+      "ats_integrations": [
+        "iCIMS",
+        "multiple ATS platforms"
+      ],
+      "pros": [
+        "fully autonomous (minimal manual intervention)",
+        "proven with largest employers",
+        "self-learning AI"
+      ],
+      "cons": [
+        "custom pricing only",
+        "less transparency than some competitors",
+        "enterprise-only focus"
+      ]
     },
     "joveo": {
       "name": "Joveo",
       "type": "programmatic_job_advertising",
       "url": "https://www.joveo.com",
-      "countries": ["global"],
+      "countries": [
+        "global"
+      ],
       "total_active_publishers": 1238,
       "pricing_model": {
         "primary": "performance-based (CPC/CPA)",
@@ -1322,7 +2212,11 @@
         "global_recruitment_marketing",
         "career_site_optimization"
       ],
-      "products": ["MOJO Pro (programmatic)", "Career Sites CMS", "Candidate CRM"],
+      "products": [
+        "MOJO Pro (programmatic)",
+        "Career Sites CMS",
+        "Candidate CRM"
+      ],
       "publisher_categories": [
         "Job Boards",
         "Aggregators",
@@ -1337,7 +2231,11 @@
         "DSP",
         "Influencer Marketing"
       ],
-      "ai_features": ["transparent_job_ad_exchange", "real_time_optimization", "multi_channel_delivery"],
+      "ai_features": [
+        "transparent_job_ad_exchange",
+        "real_time_optimization",
+        "multi_channel_delivery"
+      ],
       "pros": [
         "most transparent programmatic platform",
         "1238 active publishers",
@@ -1356,7 +2254,10 @@
       "type": "programmatic_job_advertising",
       "url": "https://www.recruitics.com",
       "headquarters": "New York City",
-      "countries": ["US", "UK"],
+      "countries": [
+        "US",
+        "UK"
+      ],
       "pricing_model": {
         "primary": "custom/managed services",
         "self_service": "available",
@@ -1367,44 +2268,100 @@
         "predictive_analytics",
         "managed_programmatic_services"
       ],
-      "ai_features": ["predictive_analytics", "programmatic_optimization", "candidate_engagement_tools"],
-      "pros": ["holistic approach", "agency services option", "predictive analytics", "ATS integrations"],
-      "cons": ["custom pricing", "less autonomous than PandoLogic", "requires managed service for best results"]
+      "ai_features": [
+        "predictive_analytics",
+        "programmatic_optimization",
+        "candidate_engagement_tools"
+      ],
+      "pros": [
+        "holistic approach",
+        "agency services option",
+        "predictive analytics",
+        "ATS integrations"
+      ],
+      "cons": [
+        "custom pricing",
+        "less autonomous than PandoLogic",
+        "requires managed service for best results"
+      ]
     },
     "radancy": {
       "name": "Radancy (formerly TMP Worldwide/TalentBrew)",
       "type": "recruitment_marketing_platform",
       "url": "https://www.radancy.com",
-      "countries": ["global"],
-      "pricing_model": {"primary": "enterprise subscription"},
+      "countries": [
+        "global"
+      ],
+      "pricing_model": {
+        "primary": "enterprise subscription"
+      },
       "best_for": [
         "global_enterprise_recruitment",
         "employer_branding",
         "career_site_management",
         "unified_talent_acquisition"
       ],
-      "products": ["Talent Acquisition Cloud", "Career Sites", "CRM", "Job Advertising"],
-      "ai_features": ["agentic_ai", "personalized_candidate_experiences"],
+      "products": [
+        "Talent Acquisition Cloud",
+        "Career Sites",
+        "CRM",
+        "Job Advertising"
+      ],
+      "ai_features": [
+        "agentic_ai",
+        "personalized_candidate_experiences"
+      ],
       "integrations": "60+ platform integrations across ATS/HCM (including iCIMS)",
-      "pros": ["comprehensive enterprise solution", "career site + CRM + job ads unified", "60+ integrations", "global capability"],
-      "cons": ["enterprise pricing", "complexity", "requires implementation support"]
+      "pros": [
+        "comprehensive enterprise solution",
+        "career site + CRM + job ads unified",
+        "60+ integrations",
+        "global capability"
+      ],
+      "cons": [
+        "enterprise pricing",
+        "complexity",
+        "requires implementation support"
+      ]
     },
     "talroo": {
       "name": "Talroo",
       "type": "programmatic_job_advertising",
       "url": "https://www.talroo.com",
-      "countries": ["US"],
-      "industries": ["hourly", "essential_workers", "blue_collar", "healthcare", "logistics"],
-      "pricing_model": {"primary": "CPC/CPA performance-based"},
-      "products": ["Talroo Pro (targeted job ads)", "Talroo Insights (analytics)", "Hiring Events"],
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "hourly",
+        "essential_workers",
+        "blue_collar",
+        "healthcare",
+        "logistics"
+      ],
+      "pricing_model": {
+        "primary": "CPC/CPA performance-based"
+      },
+      "products": [
+        "Talroo Pro (targeted job ads)",
+        "Talroo Insights (analytics)",
+        "Hiring Events"
+      ],
       "best_for": [
         "essential_worker_hiring",
         "hourly_recruitment",
         "high_volume_blue_collar",
         "finding_candidates_not_on_other_sites"
       ],
-      "pros": ["specialized for essential/hourly workers", "finds candidates not on other boards", "data insights"],
-      "cons": ["US focus", "limited for white-collar hiring", "requires programmatic knowledge"]
+      "pros": [
+        "specialized for essential/hourly workers",
+        "finds candidates not on other boards",
+        "data insights"
+      ],
+      "cons": [
+        "US focus",
+        "limited for white-collar hiring",
+        "requires programmatic knowledge"
+      ]
     },
     "clickcast": {
       "name": "Clickcast",
@@ -1413,55 +2370,128 @@
       "parent_company": "Appcast/StepStone Group",
       "customers": "2,000+",
       "job_ad_clicks": "17.6B+",
-      "pricing_model": {"primary": "CPC or CPA SaaS"},
-      "best_for": ["job_distribution_at_scale", "job_board_operators", "employment_advertising_organizations"],
-      "pros": ["massive scale", "CPC and CPA options", "integrates with hundreds of boards"],
-      "cons": ["part of Appcast ecosystem", "enterprise focus"]
+      "pricing_model": {
+        "primary": "CPC or CPA SaaS"
+      },
+      "best_for": [
+        "job_distribution_at_scale",
+        "job_board_operators",
+        "employment_advertising_organizations"
+      ],
+      "pros": [
+        "massive scale",
+        "CPC and CPA options",
+        "integrates with hundreds of boards"
+      ],
+      "cons": [
+        "part of Appcast ecosystem",
+        "enterprise focus"
+      ]
     },
     "jobadx": {
       "name": "JobAdX",
       "type": "programmatic_job_advertising_network",
       "url": "https://www.jobadx.com",
-      "pricing_model": {"primary": "real-time bidding (RTB)"},
-      "best_for": ["dynamic_job_advertising", "real_time_bidding", "budget_optimization"],
-      "ai_features": ["machine_learning_optimization", "dynamic_bidding", "location_title_targeting"],
-      "pros": ["real-time bidding for job ads", "machine learning optimization", "flexible targeting"],
-      "cons": ["smaller network than Appcast/PandoLogic", "requires programmatic expertise"]
+      "pricing_model": {
+        "primary": "real-time bidding (RTB)"
+      },
+      "best_for": [
+        "dynamic_job_advertising",
+        "real_time_bidding",
+        "budget_optimization"
+      ],
+      "ai_features": [
+        "machine_learning_optimization",
+        "dynamic_bidding",
+        "location_title_targeting"
+      ],
+      "pros": [
+        "real-time bidding for job ads",
+        "machine learning optimization",
+        "flexible targeting"
+      ],
+      "cons": [
+        "smaller network than Appcast/PandoLogic",
+        "requires programmatic expertise"
+      ]
     },
     "wonderkind": {
       "name": "Wonderkind",
       "type": "talent_attraction_technology",
       "url": "https://www.wonderkind.com",
-      "countries": ["global"],
-      "pricing_model": {"primary": "performance-based"},
-      "channels": ["Facebook", "Instagram", "Google Ads"],
+      "countries": [
+        "global"
+      ],
+      "pricing_model": {
+        "primary": "performance-based"
+      },
+      "channels": [
+        "Facebook",
+        "Instagram",
+        "Google Ads"
+      ],
       "best_for": [
         "social_media_job_advertising",
         "reaching_passive_candidates",
         "automated_social_campaigns"
       ],
       "performance_claim": "5x more candidates through automated social advertising",
-      "pros": ["automated social advertising", "reaches passive candidates", "Facebook/Instagram/Google integration"],
-      "cons": ["social-only focus", "requires creative assets", "newer platform"]
+      "pros": [
+        "automated social advertising",
+        "reaches passive candidates",
+        "Facebook/Instagram/Google integration"
+      ],
+      "cons": [
+        "social-only focus",
+        "requires creative assets",
+        "newer platform"
+      ]
     },
     "stepstone": {
       "name": "StepStone",
       "type": "international_job_board_network",
       "url": "https://www.stepstone.de",
       "parent_company": "Independent JV (KKR + CPP Investments majority; Axel Springer 10%)",
-      "countries": ["DE", "UK", "AT", "NL", "BE", "DK", "PL", "60+ via THE NETWORK"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "posting/slot subscription"},
-      "best_for": ["european_recruitment", "german_market", "global_hiring_via_network"],
-      "subsidiaries": ["Appcast", "Totaljobs (UK)"],
+      "countries": [
+        "DE",
+        "UK",
+        "AT",
+        "NL",
+        "BE",
+        "DK",
+        "PL",
+        "60+ via THE NETWORK"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "posting/slot subscription"
+      },
+      "best_for": [
+        "european_recruitment",
+        "german_market",
+        "global_hiring_via_network"
+      ],
+      "subsidiaries": [
+        "Appcast",
+        "Totaljobs (UK)"
+      ],
       "recent_changes": [
         "Spun off from Axel Springer Apr 2025",
         "Now independent JV with KKR + CPP Investments",
         "Axel Springer retains 10%",
         "Appcast is subsidiary"
       ],
-      "pros": ["dominant in Germany", "Appcast subsidiary", "access to 60+ boards via THE NETWORK"],
-      "cons": ["primarily European focus", "subscription model can be expensive"]
+      "pros": [
+        "dominant in Germany",
+        "Appcast subsidiary",
+        "access to 60+ boards via THE NETWORK"
+      ],
+      "cons": [
+        "primarily European focus",
+        "subscription model can be expensive"
+      ]
     },
     "xing": {
       "name": "XING (onlyfy by XING)",
@@ -1469,17 +2499,36 @@
       "url": "https://www.xing.com",
       "parent_company": "Burda Digital SE (acquired June 2025)",
       "members": "21M (DACH region)",
-      "countries": ["DE", "AT", "CH"],
-      "industries": ["all_professional"],
-      "pricing_model": {"primary": "slot/posting subscription"},
-      "best_for": ["dach_region_hiring", "german_speaking_professionals"],
+      "countries": [
+        "DE",
+        "AT",
+        "CH"
+      ],
+      "industries": [
+        "all_professional"
+      ],
+      "pricing_model": {
+        "primary": "slot/posting subscription"
+      },
+      "best_for": [
+        "dach_region_hiring",
+        "german_speaking_professionals"
+      ],
       "recent_changes": [
         "Parent New Work SE acquired by Burda Digital SE June 2025",
         "Repositioned as job board (no longer social media)",
         "New CEO Maximilian Preisser"
       ],
-      "pros": ["dominant DACH professional network", "21M users", "strong local brand"],
-      "cons": ["DACH only", "repositioning may cause confusion", "smaller than LinkedIn globally"]
+      "pros": [
+        "dominant DACH professional network",
+        "21M users",
+        "strong local brand"
+      ],
+      "cons": [
+        "DACH only",
+        "repositioning may cause confusion",
+        "smaller than LinkedIn globally"
+      ]
     },
     "seek": {
       "name": "SEEK",
@@ -1488,31 +2537,83 @@
       "parent_company": "SEEK Limited (ASX listed)",
       "monthly_visitors": "~40M+ (across all platforms)",
       "talent_pool": "40M+",
-      "countries": ["AU", "NZ", "MY", "SG", "PH", "ID", "VN", "HK", "TH", "BD"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "posting/slot-based"},
+      "countries": [
+        "AU",
+        "NZ",
+        "MY",
+        "SG",
+        "PH",
+        "ID",
+        "VN",
+        "HK",
+        "TH",
+        "BD"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "posting/slot-based"
+      },
       "revenue_target": "AUD 2B by FY2028",
-      "brands": ["SEEK (AU/NZ)", "JobStreet (SE Asia)", "Jobsdb (SE Asia)", "Jora (global)", "Workana (LatAm)"],
-      "best_for": ["australia_new_zealand", "southeast_asia", "apac_hiring"],
+      "brands": [
+        "SEEK (AU/NZ)",
+        "JobStreet (SE Asia)",
+        "Jobsdb (SE Asia)",
+        "Jora (global)",
+        "Workana (LatAm)"
+      ],
+      "best_for": [
+        "australia_new_zealand",
+        "southeast_asia",
+        "apac_hiring"
+      ],
       "recent_changes": [
         "Unified SEEK/Jobsdb/Jobstreet platforms Feb 2024",
         "Sold Latin American businesses",
         "AI-powered advancements across platforms"
       ],
-      "pros": ["dominant in ANZ and SE Asia", "40M+ talent pool", "unified AI platform", "multiple brands"],
-      "cons": ["primarily APAC focus", "expensive in ANZ market"]
+      "pros": [
+        "dominant in ANZ and SE Asia",
+        "40M+ talent pool",
+        "unified AI platform",
+        "multiple brands"
+      ],
+      "cons": [
+        "primarily APAC focus",
+        "expensive in ANZ market"
+      ]
     },
     "jobstreet": {
       "name": "JobStreet (by SEEK)",
       "type": "southeast_asia_job_board",
       "url": "https://www.jobstreet.com",
       "parent_company": "SEEK Limited",
-      "countries": ["MY", "SG", "PH", "ID"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "posting/slot (competitive pricing)"},
-      "best_for": ["southeast_asian_recruitment", "malaysia_singapore_philippines"],
-      "pros": ["leading SE Asian job board", "SEEK technology platform", "AI-powered matching"],
-      "cons": ["SE Asia only", "competitive market with local players"]
+      "countries": [
+        "MY",
+        "SG",
+        "PH",
+        "ID"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "posting/slot (competitive pricing)"
+      },
+      "best_for": [
+        "southeast_asian_recruitment",
+        "malaysia_singapore_philippines"
+      ],
+      "pros": [
+        "leading SE Asian job board",
+        "SEEK technology platform",
+        "AI-powered matching"
+      ],
+      "cons": [
+        "SE Asia only",
+        "competitive market with local players"
+      ]
     },
     "naukri": {
       "name": "Naukri.com",
@@ -1522,17 +2623,40 @@
       "monthly_visitors": "14M+",
       "registered_users": "200M+",
       "market_share_india": "~55%",
-      "countries": ["IN", "ME", "EU", "US", "AF"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "posting/slot subscription"},
-      "best_for": ["india_recruitment", "it_engineering_hiring", "mass_recruitment"],
+      "countries": [
+        "IN",
+        "ME",
+        "EU",
+        "US",
+        "AF"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "posting/slot subscription"
+      },
+      "best_for": [
+        "india_recruitment",
+        "it_engineering_hiring",
+        "mass_recruitment"
+      ],
       "recent_changes": [
         "Parent Info Edge Q2 FY26 revenue up 14.9% YoY",
         "IT hiring slump (-24% early 2026) but AI/ML roles growing +41%",
         "10%+ clients located outside India"
       ],
-      "pros": ["55% India market share", "200M+ users", "comprehensive platform", "growing AI/ML demand"],
-      "cons": ["India-centric", "IT hiring declining", "high competition in tech roles"]
+      "pros": [
+        "55% India market share",
+        "200M+ users",
+        "comprehensive platform",
+        "growing AI/ML demand"
+      ],
+      "cons": [
+        "India-centric",
+        "IT hiring declining",
+        "high competition in tech roles"
+      ]
     },
     "bayt": {
       "name": "Bayt.com",
@@ -1540,49 +2664,132 @@
       "url": "https://www.bayt.com",
       "monthly_visitors": "~5M",
       "registered_users": "40M+",
-      "countries": ["AE", "SA", "QA", "KW", "BH", "OM", "EG", "JO", "LB", "MA"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "posting/subscription"},
-      "best_for": ["middle_east_hiring", "gulf_region_recruitment", "expat_hiring"],
-      "pros": ["dominant Middle East platform", "40M+ CVs", "multi-country coverage"],
-      "cons": ["Middle East focus only", "pricing not transparent"]
+      "countries": [
+        "AE",
+        "SA",
+        "QA",
+        "KW",
+        "BH",
+        "OM",
+        "EG",
+        "JO",
+        "LB",
+        "MA"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "posting/subscription"
+      },
+      "best_for": [
+        "middle_east_hiring",
+        "gulf_region_recruitment",
+        "expat_hiring"
+      ],
+      "pros": [
+        "dominant Middle East platform",
+        "40M+ CVs",
+        "multi-country coverage"
+      ],
+      "cons": [
+        "Middle East focus only",
+        "pricing not transparent"
+      ]
     },
     "jobberman": {
       "name": "Jobberman",
       "type": "african_job_board",
       "url": "https://www.jobberman.com",
       "monthly_visitors": "400,000+",
-      "countries": ["NG", "GH"],
-      "industries": ["all"],
+      "countries": [
+        "NG",
+        "GH"
+      ],
+      "industries": [
+        "all"
+      ],
       "pricing_model": {
         "free_posting": "entry-level only",
         "paid_tiers": "pre-hire skill assessments and admin tools"
       },
-      "best_for": ["nigeria_recruitment", "ghana_hiring", "west_african_talent"],
-      "pros": ["most visited Nigerian job board", "free entry-level posting", "skill assessments"],
-      "cons": ["limited to Nigeria/Ghana", "small traffic", "developing market"]
+      "best_for": [
+        "nigeria_recruitment",
+        "ghana_hiring",
+        "west_african_talent"
+      ],
+      "pros": [
+        "most visited Nigerian job board",
+        "free entry-level posting",
+        "skill assessments"
+      ],
+      "cons": [
+        "limited to Nigeria/Ghana",
+        "small traffic",
+        "developing market"
+      ]
     },
     "brightermonday": {
       "name": "BrighterMonday",
       "type": "african_job_board",
       "url": "https://www.brightermonday.com",
-      "countries": ["KE", "UG", "TZ", "NG"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "posting/subscription"},
-      "best_for": ["east_african_recruitment", "kenya_hiring"],
-      "pros": ["leading East African job board", "multi-country", "growing market"],
-      "cons": ["small market", "limited features", "developing infrastructure"]
+      "countries": [
+        "KE",
+        "UG",
+        "TZ",
+        "NG"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "posting/subscription"
+      },
+      "best_for": [
+        "east_african_recruitment",
+        "kenya_hiring"
+      ],
+      "pros": [
+        "leading East African job board",
+        "multi-country",
+        "growing market"
+      ],
+      "cons": [
+        "small market",
+        "limited features",
+        "developing infrastructure"
+      ]
     },
     "gulftalent": {
       "name": "GulfTalent",
       "type": "middle_east_job_board",
       "url": "https://www.gulftalent.com",
-      "countries": ["AE", "SA", "QA", "KW", "BH", "OM"],
-      "industries": ["all_professional"],
-      "pricing_model": {"primary": "posting/subscription"},
-      "best_for": ["gulf_region_professional_hiring", "expat_recruitment"],
-      "pros": ["focused on Gulf states", "professional talent pool"],
-      "cons": ["Gulf region only", "smaller than Bayt"]
+      "countries": [
+        "AE",
+        "SA",
+        "QA",
+        "KW",
+        "BH",
+        "OM"
+      ],
+      "industries": [
+        "all_professional"
+      ],
+      "pricing_model": {
+        "primary": "posting/subscription"
+      },
+      "best_for": [
+        "gulf_region_professional_hiring",
+        "expat_recruitment"
+      ],
+      "pros": [
+        "focused on Gulf states",
+        "professional talent pool"
+      ],
+      "cons": [
+        "Gulf region only",
+        "smaller than Bayt"
+      ]
     },
     "computrabajo": {
       "name": "Computrabajo",
@@ -1591,12 +2798,48 @@
       "parent_company": "RedArbor (Barcelona)",
       "monthly_visitors": "26M (base site), 6M (Mexico)",
       "resume_database": "44M+",
-      "countries": ["MX", "CO", "PE", "AR", "CL", "EC", "GT", "PA", "VE", "CR", "BO", "PY", "UY", "SV", "HN", "NI", "DO", "CU", "PR"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "posting/subscription"},
-      "best_for": ["latin_american_recruitment", "spanish_speaking_markets", "high_volume_hiring"],
-      "pros": ["largest LatAm job board", "19 countries", "44M+ resumes", "26M monthly views"],
-      "cons": ["Spanish-speaking markets only", "basic platform features"]
+      "countries": [
+        "MX",
+        "CO",
+        "PE",
+        "AR",
+        "CL",
+        "EC",
+        "GT",
+        "PA",
+        "VE",
+        "CR",
+        "BO",
+        "PY",
+        "UY",
+        "SV",
+        "HN",
+        "NI",
+        "DO",
+        "CU",
+        "PR"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "posting/subscription"
+      },
+      "best_for": [
+        "latin_american_recruitment",
+        "spanish_speaking_markets",
+        "high_volume_hiring"
+      ],
+      "pros": [
+        "largest LatAm job board",
+        "19 countries",
+        "44M+ resumes",
+        "26M monthly views"
+      ],
+      "cons": [
+        "Spanish-speaking markets only",
+        "basic platform features"
+      ]
     },
     "infojobs": {
       "name": "InfoJobs",
@@ -1605,37 +2848,82 @@
       "parent_company": "RedArbor/Adevinta",
       "monthly_visitors_brazil": "12M unique monthly users",
       "registered_users": "44M",
-      "countries": ["BR", "ES"],
-      "industries": ["all"],
-      "best_for": ["brazil_recruitment", "spain_recruitment"],
+      "countries": [
+        "BR",
+        "ES"
+      ],
+      "industries": [
+        "all"
+      ],
+      "best_for": [
+        "brazil_recruitment",
+        "spain_recruitment"
+      ],
       "recent_changes": [
         "InfoJobs Italy shut down Oct 2025",
         "Brazil operations part of RedArbor",
         "Spain operations being sold to EQT for ~EUR 2B"
       ],
-      "pros": ["market leader in Brazil", "44M registered users"],
-      "cons": ["Italy operations discontinued", "Spain being sold", "regional focus"]
+      "pros": [
+        "market leader in Brazil",
+        "44M registered users"
+      ],
+      "cons": [
+        "Italy operations discontinued",
+        "Spain being sold",
+        "regional focus"
+      ]
     },
     "occ_mundial": {
       "name": "OCC Mundial",
       "type": "mexico_job_board",
       "url": "https://www.occ.com.mx",
       "parent_company": "RedArbor (acquired for $85M)",
-      "countries": ["MX"],
-      "industries": ["all"],
-      "best_for": ["mexico_recruitment", "professional_hiring_mexico"],
-      "pros": ["top Mexico job board alongside Computrabajo", "professional focus"],
-      "cons": ["Mexico only"]
+      "countries": [
+        "MX"
+      ],
+      "industries": [
+        "all"
+      ],
+      "best_for": [
+        "mexico_recruitment",
+        "professional_hiring_mexico"
+      ],
+      "pros": [
+        "top Mexico job board alongside Computrabajo",
+        "professional focus"
+      ],
+      "cons": [
+        "Mexico only"
+      ]
     },
     "bumeran": {
       "name": "Bumeran",
       "type": "latin_america_job_board",
       "url": "https://www.bumeran.com",
-      "countries": ["AR", "MX", "PE", "EC", "PA", "VE"],
-      "industries": ["all"],
-      "best_for": ["argentina_recruitment", "latam_professional_hiring"],
-      "pros": ["strong in Argentina", "multi-country LatAm presence"],
-      "cons": ["smaller than Computrabajo", "limited features"]
+      "countries": [
+        "AR",
+        "MX",
+        "PE",
+        "EC",
+        "PA",
+        "VE"
+      ],
+      "industries": [
+        "all"
+      ],
+      "best_for": [
+        "argentina_recruitment",
+        "latam_professional_hiring"
+      ],
+      "pros": [
+        "strong in Argentina",
+        "multi-country LatAm presence"
+      ],
+      "cons": [
+        "smaller than Computrabajo",
+        "limited features"
+      ]
     },
     "reed": {
       "name": "Reed.co.uk",
@@ -1643,24 +2931,54 @@
       "url": "https://www.reed.co.uk",
       "monthly_visitors": "8.8M",
       "active_jobs": "200,000+",
-      "countries": ["UK"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "CPC/posting"},
-      "best_for": ["uk_recruitment", "broad_industry_coverage"],
-      "pros": ["UK #1 job site", "200K+ jobs", "comprehensive UK coverage"],
-      "cons": ["UK only", "founder passed away Dec 2025"]
+      "countries": [
+        "UK"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "CPC/posting"
+      },
+      "best_for": [
+        "uk_recruitment",
+        "broad_industry_coverage"
+      ],
+      "pros": [
+        "UK #1 job site",
+        "200K+ jobs",
+        "comprehensive UK coverage"
+      ],
+      "cons": [
+        "UK only",
+        "founder passed away Dec 2025"
+      ]
     },
     "totaljobs": {
       "name": "Totaljobs",
       "type": "uk_job_board",
       "url": "https://www.totaljobs.com",
       "parent_company": "StepStone Group",
-      "countries": ["UK"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "CPC/posting"},
-      "best_for": ["uk_recruitment"],
-      "pros": ["StepStone backing", "strong UK presence"],
-      "cons": ["UK only", "competitive with Reed and Indeed UK"]
+      "countries": [
+        "UK"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "CPC/posting"
+      },
+      "best_for": [
+        "uk_recruitment"
+      ],
+      "pros": [
+        "StepStone backing",
+        "strong UK presence"
+      ],
+      "cons": [
+        "UK only",
+        "competitive with Reed and Indeed UK"
+      ]
     },
     "cv_library": {
       "name": "CV-Library",
@@ -1668,288 +2986,770 @@
       "url": "https://www.cv-library.co.uk",
       "monthly_visitors": "4.3M",
       "cv_database": "20.7M CVs",
-      "countries": ["UK"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "CPC"},
-      "best_for": ["uk_recruitment", "cv_database_search"],
-      "pros": ["20.7M CVs", "4.3M monthly users", "Resume-Library is US sister brand"],
-      "cons": ["UK only"]
+      "countries": [
+        "UK"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "CPC"
+      },
+      "best_for": [
+        "uk_recruitment",
+        "cv_database_search"
+      ],
+      "pros": [
+        "20.7M CVs",
+        "4.3M monthly users",
+        "Resume-Library is US sister brand"
+      ],
+      "cons": [
+        "UK only"
+      ]
     },
     "cwjobs": {
       "name": "CWJobs",
       "type": "uk_tech_job_board",
       "url": "https://www.cwjobs.co.uk",
-      "countries": ["UK"],
-      "industries": ["technology", "IT"],
-      "pricing_model": {"primary": "CPC/posting"},
-      "best_for": ["uk_tech_hiring"],
-      "pros": ["dedicated UK tech board"],
-      "cons": ["UK only", "tech niche"]
+      "countries": [
+        "UK"
+      ],
+      "industries": [
+        "technology",
+        "IT"
+      ],
+      "pricing_model": {
+        "primary": "CPC/posting"
+      },
+      "best_for": [
+        "uk_tech_hiring"
+      ],
+      "pros": [
+        "dedicated UK tech board"
+      ],
+      "cons": [
+        "UK only",
+        "tech niche"
+      ]
     },
     "rikunabi": {
       "name": "Rikunabi",
       "type": "japan_job_board",
       "url": "https://next.rikunabi.com",
       "parent_company": "Recruit Holdings",
-      "countries": ["JP"],
-      "industries": ["all"],
-      "best_for": ["japan_new_graduate_hiring", "japanese_domestic_recruitment"],
-      "pros": ["major Japanese recruitment brand", "strong for new graduates"],
-      "cons": ["Japan only", "Japanese language only"]
+      "countries": [
+        "JP"
+      ],
+      "industries": [
+        "all"
+      ],
+      "best_for": [
+        "japan_new_graduate_hiring",
+        "japanese_domestic_recruitment"
+      ],
+      "pros": [
+        "major Japanese recruitment brand",
+        "strong for new graduates"
+      ],
+      "cons": [
+        "Japan only",
+        "Japanese language only"
+      ]
     },
     "mynavi": {
       "name": "MyNavi",
       "type": "japan_job_board",
       "url": "https://mynavi.jp",
-      "countries": ["JP"],
-      "industries": ["all"],
-      "pricing_model": {"primary": "posting/slot"},
-      "best_for": ["japan_recruitment", "new_graduate_hiring"],
-      "pros": ["leading Japanese job board", "comprehensive services"],
-      "cons": ["Japan only", "Japanese language only"]
+      "countries": [
+        "JP"
+      ],
+      "industries": [
+        "all"
+      ],
+      "pricing_model": {
+        "primary": "posting/slot"
+      },
+      "best_for": [
+        "japan_recruitment",
+        "new_graduate_hiring"
+      ],
+      "pros": [
+        "leading Japanese job board",
+        "comprehensive services"
+      ],
+      "cons": [
+        "Japan only",
+        "Japanese language only"
+      ]
     },
     "zhaopin": {
       "name": "Zhaopin",
       "type": "china_job_board",
       "url": "https://www.zhaopin.com",
-      "countries": ["CN"],
-      "industries": ["all"],
-      "best_for": ["china_recruitment", "white_collar_china"],
-      "pros": ["major Chinese job board", "large user base"],
-      "cons": ["China only", "Chinese language only", "regulatory complexity"]
+      "countries": [
+        "CN"
+      ],
+      "industries": [
+        "all"
+      ],
+      "best_for": [
+        "china_recruitment",
+        "white_collar_china"
+      ],
+      "pros": [
+        "major Chinese job board",
+        "large user base"
+      ],
+      "cons": [
+        "China only",
+        "Chinese language only",
+        "regulatory complexity"
+      ]
     },
     "51job": {
       "name": "51job",
       "type": "china_job_board",
       "url": "https://www.51job.com",
-      "countries": ["CN"],
-      "industries": ["all"],
-      "best_for": ["china_mass_recruitment"],
-      "pros": ["established Chinese platform"],
-      "cons": ["China only", "went private"]
+      "countries": [
+        "CN"
+      ],
+      "industries": [
+        "all"
+      ],
+      "best_for": [
+        "china_mass_recruitment"
+      ],
+      "pros": [
+        "established Chinese platform"
+      ],
+      "cons": [
+        "China only",
+        "went private"
+      ]
     },
     "boss_zhipin": {
       "name": "Boss Zhipin (BOSS Direct Hire)",
       "type": "china_job_board",
       "url": "https://www.zhipin.com",
-      "countries": ["CN"],
-      "industries": ["all"],
-      "best_for": ["china_mobile_first_recruitment", "direct_chat_with_bosses"],
-      "pros": ["fastest growing Chinese job app", "direct messaging model"],
-      "cons": ["China only"]
+      "countries": [
+        "CN"
+      ],
+      "industries": [
+        "all"
+      ],
+      "best_for": [
+        "china_mobile_first_recruitment",
+        "direct_chat_with_bosses"
+      ],
+      "pros": [
+        "fastest growing Chinese job app",
+        "direct messaging model"
+      ],
+      "cons": [
+        "China only"
+      ]
     },
     "saramin": {
       "name": "Saramin",
       "type": "korea_job_board",
       "url": "https://www.saramin.co.kr",
-      "countries": ["KR"],
-      "industries": ["all"],
-      "best_for": ["south_korea_recruitment"],
-      "pros": ["leading Korean job board"],
-      "cons": ["Korea only"]
+      "countries": [
+        "KR"
+      ],
+      "industries": [
+        "all"
+      ],
+      "best_for": [
+        "south_korea_recruitment"
+      ],
+      "pros": [
+        "leading Korean job board"
+      ],
+      "cons": [
+        "Korea only"
+      ]
     },
     "jobkorea": {
       "name": "JobKorea",
       "type": "korea_job_board",
       "url": "https://www.jobkorea.co.kr",
-      "countries": ["KR"],
-      "industries": ["all"],
-      "best_for": ["south_korea_recruitment"],
-      "pros": ["major Korean job board alongside Saramin"],
-      "cons": ["Korea only"]
+      "countries": [
+        "KR"
+      ],
+      "industries": [
+        "all"
+      ],
+      "best_for": [
+        "south_korea_recruitment"
+      ],
+      "pros": [
+        "major Korean job board alongside Saramin"
+      ],
+      "cons": [
+        "Korea only"
+      ]
     },
     "104_com_tw": {
       "name": "104.com.tw",
       "type": "taiwan_job_board",
       "url": "https://www.104.com.tw",
-      "countries": ["TW"],
-      "industries": ["all"],
-      "best_for": ["taiwan_recruitment"],
-      "pros": ["dominant Taiwan job board"],
-      "cons": ["Taiwan only"]
+      "countries": [
+        "TW"
+      ],
+      "industries": [
+        "all"
+      ],
+      "best_for": [
+        "taiwan_recruitment"
+      ],
+      "pros": [
+        "dominant Taiwan job board"
+      ],
+      "cons": [
+        "Taiwan only"
+      ]
     },
     "constructionjobs": {
       "name": "ConstructionJobs",
       "type": "niche_blue_collar_job_board",
       "url": "https://www.constructionjobs.com",
-      "countries": ["US"],
-      "industries": ["construction", "engineering", "skilled_trades"],
-      "best_for": ["construction_hiring", "skilled_trades"],
-      "pros": ["targeted construction audience"],
-      "cons": ["narrow niche", "US only"]
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "construction",
+        "engineering",
+        "skilled_trades"
+      ],
+      "best_for": [
+        "construction_hiring",
+        "skilled_trades"
+      ],
+      "pros": [
+        "targeted construction audience"
+      ],
+      "cons": [
+        "narrow niche",
+        "US only"
+      ]
     },
     "rigzone": {
       "name": "Rigzone",
       "type": "niche_energy_job_board",
       "url": "https://www.rigzone.com",
-      "countries": ["global"],
-      "industries": ["oil_gas", "energy", "offshore"],
-      "best_for": ["oil_and_gas_recruitment", "energy_sector"],
-      "pros": ["global energy focus", "well-known in industry"],
-      "cons": ["energy sector only", "cyclical with oil prices"]
+      "countries": [
+        "global"
+      ],
+      "industries": [
+        "oil_gas",
+        "energy",
+        "offshore"
+      ],
+      "best_for": [
+        "oil_and_gas_recruitment",
+        "energy_sector"
+      ],
+      "pros": [
+        "global energy focus",
+        "well-known in industry"
+      ],
+      "cons": [
+        "energy sector only",
+        "cyclical with oil prices"
+      ]
     },
     "alltrucking": {
       "name": "AllTrucking",
       "type": "niche_transportation_job_board",
       "url": "https://www.alltrucking.com",
-      "countries": ["US"],
-      "industries": ["trucking", "transportation", "logistics"],
-      "best_for": ["truck_driver_recruitment", "cdl_jobs"],
-      "pros": ["targeted trucking audience", "CDL-specific"],
-      "cons": ["very narrow niche"]
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "trucking",
+        "transportation",
+        "logistics"
+      ],
+      "best_for": [
+        "truck_driver_recruitment",
+        "cdl_jobs"
+      ],
+      "pros": [
+        "targeted trucking audience",
+        "CDL-specific"
+      ],
+      "cons": [
+        "very narrow niche"
+      ]
     },
     "truckersreport": {
       "name": "TruckersReport",
       "type": "niche_trucking_community_job_board",
       "url": "https://www.thetruckersreport.com",
-      "countries": ["US"],
-      "industries": ["trucking"],
-      "best_for": ["truck_driver_recruitment", "community_engagement"],
-      "pros": ["active trucker community", "reviews and forums"],
-      "cons": ["trucking only"]
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "trucking"
+      ],
+      "best_for": [
+        "truck_driver_recruitment",
+        "community_engagement"
+      ],
+      "pros": [
+        "active trucker community",
+        "reviews and forums"
+      ],
+      "cons": [
+        "trucking only"
+      ]
     },
     "schoolspring": {
       "name": "SchoolSpring",
       "type": "niche_education_job_board",
       "url": "https://www.schoolspring.com",
-      "countries": ["US"],
-      "industries": ["k12_education", "teaching"],
-      "best_for": ["k12_teacher_hiring", "school_district_recruitment"],
-      "pros": ["dedicated K-12 platform"],
-      "cons": ["education only", "US only"]
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "k12_education",
+        "teaching"
+      ],
+      "best_for": [
+        "k12_teacher_hiring",
+        "school_district_recruitment"
+      ],
+      "pros": [
+        "dedicated K-12 platform"
+      ],
+      "cons": [
+        "education only",
+        "US only"
+      ]
     },
     "teachaway": {
       "name": "Teach Away",
       "type": "international_education_job_board",
       "url": "https://www.teachaway.com",
-      "countries": ["global"],
-      "industries": ["international_education", "teaching_abroad", "ESL"],
-      "best_for": ["international_school_hiring", "teaching_abroad", "esl_recruitment"],
-      "pros": ["global education focus", "international schools"],
-      "cons": ["education niche", "international teaching focus"]
+      "countries": [
+        "global"
+      ],
+      "industries": [
+        "international_education",
+        "teaching_abroad",
+        "ESL"
+      ],
+      "best_for": [
+        "international_school_hiring",
+        "teaching_abroad",
+        "esl_recruitment"
+      ],
+      "pros": [
+        "global education focus",
+        "international schools"
+      ],
+      "cons": [
+        "education niche",
+        "international teaching focus"
+      ]
     },
     "lawjobs": {
       "name": "LawJobs",
       "type": "niche_legal_job_board",
       "url": "https://www.lawjobs.com",
-      "countries": ["US"],
-      "industries": ["legal", "law_firms", "corporate_counsel"],
-      "best_for": ["legal_recruitment", "attorney_hiring"],
-      "pros": ["targeted legal audience"],
-      "cons": ["legal only", "competitive niche"]
+      "countries": [
+        "US"
+      ],
+      "industries": [
+        "legal",
+        "law_firms",
+        "corporate_counsel"
+      ],
+      "best_for": [
+        "legal_recruitment",
+        "attorney_hiring"
+      ],
+      "pros": [
+        "targeted legal audience"
+      ],
+      "cons": [
+        "legal only",
+        "competitive niche"
+      ]
     },
     "recruitology": {
       "name": "Recruitology",
       "type": "programmatic_job_advertising",
       "url": "https://www.recruitology.com",
       "parent_company": "Jobcase (acquired)",
-      "countries": ["US"],
-      "best_for": ["local_media_job_advertising", "newspaper_digital_job_ads"],
-      "pros": ["connects to local media networks", "community-based hiring"],
-      "cons": ["smaller platform", "local media focus"]
+      "countries": [
+        "US"
+      ],
+      "best_for": [
+        "local_media_job_advertising",
+        "newspaper_digital_job_ads"
+      ],
+      "pros": [
+        "connects to local media networks",
+        "community-based hiring"
+      ],
+      "cons": [
+        "smaller platform",
+        "local media focus"
+      ]
     },
     "perengo": {
       "name": "Perengo",
       "type": "programmatic_job_advertising",
       "url": "https://www.perengo.com",
-      "countries": ["US"],
-      "best_for": ["programmatic_job_distribution", "recruitment_marketing_optimization"],
-      "pros": ["programmatic optimization", "performance-based"],
-      "cons": ["smaller market presence", "limited public information"]
+      "countries": [
+        "US"
+      ],
+      "best_for": [
+        "programmatic_job_distribution",
+        "recruitment_marketing_optimization"
+      ],
+      "pros": [
+        "programmatic optimization",
+        "performance-based"
+      ],
+      "cons": [
+        "smaller market presence",
+        "limited public information"
+      ]
     }
   },
   "platform_comparisons": {
     "global_boards_ranked_by_traffic": [
-      {"rank": 1, "platform": "indeed", "monthly_visitors": "360M+"},
-      {"rank": 2, "platform": "linkedin", "monthly_active_users": "310M"},
-      {"rank": 3, "platform": "jooble", "monthly_visitors": "~90M"},
-      {"rank": 4, "platform": "talent_com", "monthly_visitors": "28-70M"},
-      {"rank": 5, "platform": "glassdoor", "monthly_visitors": "~55M"},
-      {"rank": 6, "platform": "ziprecruiter", "monthly_visitors": "40.3M"},
-      {"rank": 7, "platform": "seek", "monthly_visitors": "~40M"},
-      {"rank": 8, "platform": "computrabajo", "monthly_visitors": "26M"},
-      {"rank": 9, "platform": "monster", "monthly_visitors": "~15M (post-bankruptcy)"},
-      {"rank": 10, "platform": "snagajob", "monthly_visitors": "~15M"}
+      {
+        "rank": 1,
+        "platform": "indeed",
+        "monthly_visitors": "360M+"
+      },
+      {
+        "rank": 2,
+        "platform": "linkedin",
+        "monthly_active_users": "310M"
+      },
+      {
+        "rank": 3,
+        "platform": "jooble",
+        "monthly_visitors": "~90M"
+      },
+      {
+        "rank": 4,
+        "platform": "talent_com",
+        "monthly_visitors": "28-70M"
+      },
+      {
+        "rank": 5,
+        "platform": "glassdoor",
+        "monthly_visitors": "~55M"
+      },
+      {
+        "rank": 6,
+        "platform": "ziprecruiter",
+        "monthly_visitors": "40.3M"
+      },
+      {
+        "rank": 7,
+        "platform": "seek",
+        "monthly_visitors": "~40M"
+      },
+      {
+        "rank": 8,
+        "platform": "computrabajo",
+        "monthly_visitors": "26M"
+      },
+      {
+        "rank": 9,
+        "platform": "monster",
+        "monthly_visitors": "~15M (post-bankruptcy)"
+      },
+      {
+        "rank": 10,
+        "platform": "snagajob",
+        "monthly_visitors": "~15M"
+      }
     ],
     "best_for_healthcare": [
-      {"platform": "health_ecareers", "reason": "2M monthly visitors, 150K applicants, multi-specialty"},
-      {"platform": "practicelink", "reason": "300K monthly, physician-focused with ATS"},
-      {"platform": "jama_career_center", "reason": "AMA-backed, academic medical centers"},
-      {"platform": "nurse_com", "reason": "nursing-specific with CE credits"},
-      {"platform": "indeed", "reason": "largest volume for all healthcare roles"},
-      {"platform": "linkedin", "reason": "best for healthcare executives and leadership"}
+      {
+        "platform": "health_ecareers",
+        "reason": "2M monthly visitors, 150K applicants, multi-specialty"
+      },
+      {
+        "platform": "practicelink",
+        "reason": "300K monthly, physician-focused with ATS"
+      },
+      {
+        "platform": "jama_career_center",
+        "reason": "AMA-backed, academic medical centers"
+      },
+      {
+        "platform": "nurse_com",
+        "reason": "nursing-specific with CE credits"
+      },
+      {
+        "platform": "indeed",
+        "reason": "largest volume for all healthcare roles"
+      },
+      {
+        "platform": "linkedin",
+        "reason": "best for healthcare executives and leadership"
+      }
     ],
     "best_for_tech": [
-      {"platform": "linkedin", "reason": "89% recruiter usage, highest quality"},
-      {"platform": "dice", "reason": "7.5M tech members, 75% with bachelor's+"},
-      {"platform": "wellfound", "reason": "130K startups, free posting, salary transparency"},
-      {"platform": "builtin", "reason": "city-specific tech communities, employer branding"},
-      {"platform": "stackoverflow_jobs", "reason": "100M developer audience"},
-      {"platform": "hired", "reason": "pre-vetted tech talent marketplace"},
-      {"platform": "weworkremotely", "reason": "top remote tech hiring board"},
-      {"platform": "github_jobs", "reason": "developer community hiring (via contributions)"}
+      {
+        "platform": "linkedin",
+        "reason": "89% recruiter usage, highest quality"
+      },
+      {
+        "platform": "dice",
+        "reason": "7.5M tech members, 75% with bachelor's+"
+      },
+      {
+        "platform": "wellfound",
+        "reason": "130K startups, free posting, salary transparency"
+      },
+      {
+        "platform": "builtin",
+        "reason": "city-specific tech communities, employer branding"
+      },
+      {
+        "platform": "stackoverflow_jobs",
+        "reason": "100M developer audience"
+      },
+      {
+        "platform": "hired",
+        "reason": "pre-vetted tech talent marketplace"
+      },
+      {
+        "platform": "weworkremotely",
+        "reason": "top remote tech hiring board"
+      },
+      {
+        "platform": "github_jobs",
+        "reason": "developer community hiring (via contributions)"
+      }
     ],
     "best_for_hourly_blue_collar": [
-      {"platform": "snagajob", "reason": "100M+ shift workers, #1 hourly platform"},
-      {"platform": "indeed", "reason": "largest volume for hourly roles"},
-      {"platform": "talroo", "reason": "programmatic for essential workers"},
-      {"platform": "facebook_jobs", "reason": "local hourly hiring, free organic"},
-      {"platform": "bluecrew", "reason": "W-2 on-demand staffing"},
-      {"platform": "wonolo", "reason": "on-demand gig platform"},
-      {"platform": "instawork", "reason": "hospitality and food service on-demand"}
+      {
+        "platform": "snagajob",
+        "reason": "100M+ shift workers, #1 hourly platform"
+      },
+      {
+        "platform": "indeed",
+        "reason": "largest volume for hourly roles"
+      },
+      {
+        "platform": "talroo",
+        "reason": "programmatic for essential workers"
+      },
+      {
+        "platform": "facebook_jobs",
+        "reason": "local hourly hiring, free organic"
+      },
+      {
+        "platform": "bluecrew",
+        "reason": "W-2 on-demand staffing"
+      },
+      {
+        "platform": "wonolo",
+        "reason": "on-demand gig platform"
+      },
+      {
+        "platform": "instawork",
+        "reason": "hospitality and food service on-demand"
+      }
     ],
     "best_for_executive": [
-      {"platform": "linkedin", "reason": "strongest for $100K+ passive candidates"},
-      {"platform": "ladders", "reason": "exclusively $100K+ positions"},
-      {"platform": "indeed", "reason": "volume even at senior levels"}
+      {
+        "platform": "linkedin",
+        "reason": "strongest for $100K+ passive candidates"
+      },
+      {
+        "platform": "ladders",
+        "reason": "exclusively $100K+ positions"
+      },
+      {
+        "platform": "indeed",
+        "reason": "volume even at senior levels"
+      }
     ],
     "best_for_finance": [
-      {"platform": "efinancialcareers", "reason": "19 markets, 70K+ finance/tech jobs"},
-      {"platform": "wallstreetoasis", "reason": "1M+ finance community members"},
-      {"platform": "linkedin", "reason": "dominant for finance professionals"}
+      {
+        "platform": "efinancialcareers",
+        "reason": "19 markets, 70K+ finance/tech jobs"
+      },
+      {
+        "platform": "wallstreetoasis",
+        "reason": "1M+ finance community members"
+      },
+      {
+        "platform": "linkedin",
+        "reason": "dominant for finance professionals"
+      }
     ],
     "best_for_government": [
-      {"platform": "usajobs", "reason": "only US federal job board, 2M+ monthly visits"},
-      {"platform": "clearancejobs", "reason": "exclusive cleared professional network, +25% YoY traffic"},
-      {"platform": "governmentjobs", "reason": "state and local government (NEOGOV)"}
+      {
+        "platform": "usajobs",
+        "reason": "only US federal job board, 2M+ monthly visits"
+      },
+      {
+        "platform": "clearancejobs",
+        "reason": "exclusive cleared professional network, +25% YoY traffic"
+      },
+      {
+        "platform": "governmentjobs",
+        "reason": "state and local government (NEOGOV)"
+      }
     ],
     "best_for_nonprofit": [
-      {"platform": "idealist", "reason": "100K+ organizations, 1.4M monthly visitors"},
-      {"platform": "linkedin", "reason": "professional nonprofit hiring"}
+      {
+        "platform": "idealist",
+        "reason": "100K+ organizations, 1.4M monthly visitors"
+      },
+      {
+        "platform": "linkedin",
+        "reason": "professional nonprofit hiring"
+      }
     ],
     "best_for_education": [
-      {"platform": "higheredjobs", "reason": "leading academic job board"},
-      {"platform": "schoolspring", "reason": "K-12 specific"},
-      {"platform": "teachaway", "reason": "international teaching"}
+      {
+        "platform": "higheredjobs",
+        "reason": "leading academic job board"
+      },
+      {
+        "platform": "schoolspring",
+        "reason": "K-12 specific"
+      },
+      {
+        "platform": "teachaway",
+        "reason": "international teaching"
+      }
     ],
     "best_for_hospitality": [
-      {"platform": "hcareers", "reason": "20+ years, 20K+ hospitality jobs"},
-      {"platform": "poached", "reason": "restaurants and bars"},
-      {"platform": "coolworks", "reason": "seasonal and destination hospitality"}
+      {
+        "platform": "hcareers",
+        "reason": "20+ years, 20K+ hospitality jobs"
+      },
+      {
+        "platform": "poached",
+        "reason": "restaurants and bars"
+      },
+      {
+        "platform": "coolworks",
+        "reason": "seasonal and destination hospitality"
+      }
     ],
     "best_for_international": {
-      "europe": ["stepstone", "totaljobs", "reed", "xing", "adzuna"],
-      "asia_pacific": ["seek", "jobstreet", "naukri", "mynavi", "saramin", "boss_zhipin"],
-      "middle_east": ["bayt", "gulftalent"],
-      "africa": ["jobberman", "brightermonday"],
-      "latin_america": ["computrabajo", "infojobs", "occ_mundial", "bumeran"]
+      "europe": [
+        "stepstone",
+        "totaljobs",
+        "reed",
+        "xing",
+        "adzuna"
+      ],
+      "asia_pacific": [
+        "seek",
+        "jobstreet",
+        "naukri",
+        "mynavi",
+        "saramin",
+        "boss_zhipin"
+      ],
+      "middle_east": [
+        "bayt",
+        "gulftalent"
+      ],
+      "africa": [
+        "jobberman",
+        "brightermonday"
+      ],
+      "latin_america": [
+        "computrabajo",
+        "infojobs",
+        "occ_mundial",
+        "bumeran"
+      ]
     },
     "best_programmatic_platforms": [
-      {"platform": "appcast", "strength": "largest data volume (17.6B clicks), benchmark reports"},
-      {"platform": "pandologic", "strength": "fully autonomous AI, enterprise clients like Amazon/Walmart"},
-      {"platform": "joveo", "strength": "most transparent, 1238 publishers, ATS-agnostic"},
-      {"platform": "recruitics", "strength": "holistic approach with agency services"},
-      {"platform": "radancy", "strength": "comprehensive enterprise suite (career sites + CRM + ads)"},
-      {"platform": "talroo", "strength": "essential worker specialization"},
-      {"platform": "wonderkind", "strength": "automated social media job advertising"}
+      {
+        "platform": "appcast",
+        "strength": "largest data volume (17.6B clicks), benchmark reports"
+      },
+      {
+        "platform": "pandologic",
+        "strength": "fully autonomous AI, enterprise clients like Amazon/Walmart"
+      },
+      {
+        "platform": "joveo",
+        "strength": "most transparent, 1238 publishers, ATS-agnostic"
+      },
+      {
+        "platform": "recruitics",
+        "strength": "holistic approach with agency services"
+      },
+      {
+        "platform": "radancy",
+        "strength": "comprehensive enterprise suite (career sites + CRM + ads)"
+      },
+      {
+        "platform": "talroo",
+        "strength": "essential worker specialization"
+      },
+      {
+        "platform": "wonderkind",
+        "strength": "automated social media job advertising"
+      }
     ],
     "pricing_model_comparison": {
-      "cpc_platforms": ["indeed", "linkedin", "ziprecruiter", "adzuna", "jooble", "talent_com", "jobrapido", "trovit", "snagajob", "lensa"],
-      "cpa_platforms": ["indeed", "appcast", "joveo", "pandologic"],
-      "subscription_slot": ["linkedin", "dice", "xing", "stepstone", "seek", "naukri"],
-      "free_posting": ["indeed", "linkedin", "glassdoor", "talent_com", "wellfound", "postjobfree", "learn4good", "simplyhired", "facebook_jobs"],
-      "markup_model": ["bluecrew", "wonolo", "instawork"],
-      "success_fee": ["hired"]
+      "cpc_platforms": [
+        "indeed",
+        "linkedin",
+        "ziprecruiter",
+        "adzuna",
+        "jooble",
+        "talent_com",
+        "jobrapido",
+        "trovit",
+        "snagajob",
+        "lensa"
+      ],
+      "cpa_platforms": [
+        "indeed",
+        "appcast",
+        "joveo",
+        "pandologic"
+      ],
+      "subscription_slot": [
+        "linkedin",
+        "dice",
+        "xing",
+        "stepstone",
+        "seek",
+        "naukri"
+      ],
+      "free_posting": [
+        "indeed",
+        "linkedin",
+        "glassdoor",
+        "talent_com",
+        "wellfound",
+        "postjobfree",
+        "learn4good",
+        "simplyhired",
+        "facebook_jobs"
+      ],
+      "markup_model": [
+        "bluecrew",
+        "wonolo",
+        "instawork"
+      ],
+      "success_fee": [
+        "hired"
+      ]
     },
     "cpc_ranges_by_platform_type": {
       "global_generalist": "$0.25-$4.50",
@@ -1961,47 +3761,299 @@
   },
   "recruitment_channel_strategy_guide": {
     "high_volume_hourly": {
-      "primary": ["indeed", "snagajob", "facebook_jobs"],
-      "programmatic": ["talroo", "appcast", "joveo"],
-      "on_demand": ["instawork", "wonolo", "bluecrew"],
+      "primary": [
+        "indeed",
+        "snagajob",
+        "facebook_jobs"
+      ],
+      "programmatic": [
+        "talroo",
+        "appcast",
+        "joveo"
+      ],
+      "on_demand": [
+        "instawork",
+        "wonolo",
+        "bluecrew"
+      ],
       "budget_range": "CPC $0.15-$0.75, CPA $5-$15"
     },
     "professional_white_collar": {
-      "primary": ["linkedin", "indeed", "ziprecruiter"],
-      "programmatic": ["appcast", "pandologic", "joveo"],
-      "supplementary": ["glassdoor", "talent_com"],
+      "primary": [
+        "linkedin",
+        "indeed",
+        "ziprecruiter"
+      ],
+      "programmatic": [
+        "appcast",
+        "pandologic",
+        "joveo"
+      ],
+      "supplementary": [
+        "glassdoor",
+        "talent_com"
+      ],
       "budget_range": "CPC $1.50-$4.50, CPA $15-$40"
     },
     "tech_engineering": {
-      "primary": ["linkedin", "dice", "wellfound"],
-      "community": ["stackoverflow_jobs", "builtin", "weworkremotely"],
-      "programmatic": ["joveo", "appcast"],
+      "primary": [
+        "linkedin",
+        "dice",
+        "wellfound"
+      ],
+      "community": [
+        "stackoverflow_jobs",
+        "builtin",
+        "weworkremotely"
+      ],
+      "programmatic": [
+        "joveo",
+        "appcast"
+      ],
       "budget_range": "CPC $0.80-$3.00, CPA $20-$50"
     },
     "healthcare": {
-      "primary": ["indeed", "health_ecareers", "linkedin"],
-      "niche": ["practicelink", "jama_career_center", "nurse_com"],
-      "programmatic": ["appcast", "joveo"],
+      "primary": [
+        "indeed",
+        "health_ecareers",
+        "linkedin"
+      ],
+      "niche": [
+        "practicelink",
+        "jama_career_center",
+        "nurse_com"
+      ],
+      "programmatic": [
+        "appcast",
+        "joveo"
+      ],
       "budget_range": "CPC $0.50-$1.44+, CPA $15-$40, hardest to fill"
     },
     "executive_leadership": {
-      "primary": ["linkedin", "ladders"],
-      "supplementary": ["indeed"],
+      "primary": [
+        "linkedin",
+        "ladders"
+      ],
+      "supplementary": [
+        "indeed"
+      ],
       "budget_range": "CPC $3.00-$12.00, CPA $50-$150"
     },
     "international_multi_market": {
-      "global": ["indeed", "linkedin", "talent_com", "jooble"],
-      "europe": ["stepstone", "totaljobs", "xing", "adzuna"],
-      "apac": ["seek", "jobstreet", "naukri"],
-      "latam": ["computrabajo", "infojobs", "occ_mundial"],
-      "middle_east": ["bayt", "gulftalent"],
-      "africa": ["jobberman", "brightermonday"],
-      "programmatic": ["joveo", "appcast"]
+      "global": [
+        "indeed",
+        "linkedin",
+        "talent_com",
+        "jooble"
+      ],
+      "europe": [
+        "stepstone",
+        "totaljobs",
+        "xing",
+        "adzuna"
+      ],
+      "apac": [
+        "seek",
+        "jobstreet",
+        "naukri"
+      ],
+      "latam": [
+        "computrabajo",
+        "infojobs",
+        "occ_mundial"
+      ],
+      "middle_east": [
+        "bayt",
+        "gulftalent"
+      ],
+      "africa": [
+        "jobberman",
+        "brightermonday"
+      ],
+      "programmatic": [
+        "joveo",
+        "appcast"
+      ]
     },
     "employer_branding": {
-      "primary": ["glassdoor", "linkedin", "builtin"],
-      "social": ["instagram_recruiting", "tiktok_recruiting"],
-      "career_sites": ["radancy"]
+      "primary": [
+        "glassdoor",
+        "linkedin",
+        "builtin"
+      ],
+      "social": [
+        "instagram_recruiting",
+        "tiktok_recruiting"
+      ],
+      "career_sites": [
+        "radancy"
+      ]
+    }
+  },
+  "programmatic_competitors": {
+    "appcast": {
+      "name": "Appcast (StepStone Group)",
+      "type": "programmatic_job_advertising",
+      "hq": "Lebanon, NH",
+      "parent_company": "StepStone Group (Axel Springer)",
+      "funding": "$10.5M (pre-acquisition)",
+      "product": "AppcastOne omni-channel recruitment marketing",
+      "publisher_network": "30K site network",
+      "benchmark_data_2026": {
+        "clicks_analyzed": "302M",
+        "applications_analyzed": "27M",
+        "employers_in_dataset": 1200,
+        "key_insight": "Rising CPA/CPH despite softer labor conditions -- efficiency is the battleground",
+        "first_click_to_hire_data": "First benchmark report to include click-to-hire attribution data (2026)",
+        "source": "Appcast 2026 Recruitment Marketing Benchmark Report"
+      },
+      "acquisitions": [
+        "Bayard Advertising (2023)",
+        "Clickcast (merged)"
+      ],
+      "key_products": [
+        "AppcastOne (omni-channel)",
+        "AppcastEngage",
+        "Search Ads",
+        "Clickcast programmatic"
+      ],
+      "clients": "1,000+",
+      "competitive_positioning": "Enterprise-focused omni-channel recruitment marketing; strongest benchmark data in industry",
+      "source": "Market Research 2026"
+    },
+    "pandologic": {
+      "name": "PandoLogic (Veritone Hire)",
+      "type": "programmatic_job_advertising",
+      "hq": "New York, NY",
+      "parent_company": "Veritone, Inc. (NASDAQ: VERI)",
+      "product": "pandoIQ programmatic job advertising",
+      "data_points": "200B+ historical data points",
+      "optimization_speed": "7,000 micro-decisions/minute",
+      "brand_evolution": "Now 'Veritone Hire' (merged with Broadbean Technology)",
+      "best_for": "Large, high-volume employers with significant media budgets",
+      "competitive_positioning": "Massive historical data advantage; merged with Broadbean for broader distribution",
+      "source": "Market Research 2026"
+    },
+    "recruitics": {
+      "name": "Recruitics",
+      "type": "analytics_first_recruitment_marketing",
+      "hq": "Norwalk, CT",
+      "revenue_estimate": "$100-250M",
+      "employees": 203,
+      "products": {
+        "brion": "BriON AI analyst -- AI-powered recruitment marketing intelligence",
+        "apply_anywhere": "ApplyAnywhere -- makes every channel a conversion point; reduces application abandonment",
+        "brand_navigator": "Brand Navigator for employer branding",
+        "social_at_scale": "Social at Scale for social media recruitment advertising",
+        "vision": "Vision analytics platform for recruitment marketing ROI"
+      },
+      "recent_acquisition": "Change State (August 2025) -- recruitment marketing consulting",
+      "results": "33% reduction in CPA; 50% increase in conversion rate",
+      "competitive_positioning": "Analytics-first approach; strongest recruitment marketing analytics product",
+      "source": "Market Research 2026"
+    },
+    "radancy": {
+      "name": "Radancy",
+      "type": "talent_acquisition_cloud",
+      "hq": "New York, NY",
+      "product": "Full talent acquisition cloud with agentic AI",
+      "key_asset": "World's largest talent dataset",
+      "customers": "4,600+ globally",
+      "ai_capabilities": {
+        "agentic_ai_agents": "Launched agentic AI platform (July 2025)",
+        "ai_career_discovery_agent": "AI Career Discovery Agent for candidate engagement",
+        "myinterview_acquisition": "Acquired myInterview (September 2025) for AI video interviewing"
+      },
+      "offerings": [
+        "Career sites",
+        "CRM",
+        "Programmatic campaigns",
+        "Employer branding"
+      ],
+      "recognition": [
+        "IDC MarketScape leader",
+        "Multiple RMA and EBMA awards"
+      ],
+      "competitive_positioning": "Most complete talent acquisition cloud with agentic AI; massive enterprise customer base; world's largest talent dataset",
+      "source": "Market Research 2026"
+    },
+    "wonderkind": {
+      "name": "Wonderkind",
+      "type": "social_media_job_advertising",
+      "hq": "Amsterdam, Netherlands",
+      "product": "Automated social media job advertising",
+      "channels": [
+        "Meta (Facebook/Instagram)",
+        "TikTok",
+        "Google"
+      ],
+      "key_features": {
+        "dynamic_ads": "Hyper-personalized dynamic ad creation for each job",
+        "one_click_apply": "One-click apply reducing friction",
+        "social_first": "Consumer-grade social media advertising for recruitment"
+      },
+      "claims": {
+        "visibility": "5x more job ad visibility",
+        "sourcing_time_reduction": "70% reduction in sourcing time"
+      },
+      "competitive_positioning": "Unique social-first approach; TikTok integration for Gen Z recruitment; hyper-personalized dynamic ads",
+      "source": "Market Research 2026"
+    },
+    "symphony_talent": {
+      "name": "Symphony Talent",
+      "type": "recruitment_marketing_platform",
+      "hq": "New York, NY",
+      "founded": 2007,
+      "customers": "4,600+",
+      "products": {
+        "tala": "Tala AI assistant for recruitment marketing",
+        "genai_email_builder": "GenAI Email Builder for automated outreach",
+        "explain_this_chart": "'Explain This Chart' AI analytics for non-technical users",
+        "multi_language_interviews": "Multi-language interview capabilities"
+      },
+      "offerings": [
+        "Self-optimizing campaign management",
+        "EVP strategy",
+        "Career sites",
+        "CRM",
+        "Assessments"
+      ],
+      "recognition": [
+        "IDC MarketScape Leader (2025)",
+        "Multiple RMA and EBMA awards"
+      ],
+      "competitive_positioning": "Self-optimizing campaigns; strong EVP strategy practice; IDC MarketScape Leader alongside Radancy",
+      "source": "Market Research 2026"
+    },
+    "talroo": {
+      "name": "Talroo",
+      "type": "frontline_job_advertising",
+      "hq": "Austin, TX",
+      "product": "Data-driven job advertising for frontline/skilled trades",
+      "scale": {
+        "monthly_job_searches": "1B+",
+        "worker_profiles": "65M+",
+        "clients": [
+          "Target",
+          "Uber",
+          "Amazon"
+        ]
+      },
+      "key_innovations": {
+        "smart_qualify": "SmartQualify -- screens skills/qualifications before apply, reducing unqualified applications",
+        "talent_sync": "TalentSync -- first-party profile data",
+        "tap": "Talroo Ad Platform (TAP) for self-serve job advertising"
+      },
+      "partnerships": [
+        "UKG",
+        "Phenom",
+        "Mitratech TalentReef",
+        "hireEZ",
+        "Zenople"
+      ],
+      "recognition": "Multiple 2025 awards: Stevie Gold, HR Tech Awards, Netty Awards",
+      "competitive_positioning": "Dominant in frontline/hourly hiring niche; strongest pre-apply screening with SmartQualify",
+      "source": "Market Research 2026"
     }
   }
 }

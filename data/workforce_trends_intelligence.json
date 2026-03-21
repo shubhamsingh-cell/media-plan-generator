@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-08",
+  "last_updated": "2026-03-22",
   "sources": [
     "Bureau of Labor Statistics (BLS) - Employment Cost Index, Occupational Outlook Handbook",
     "Indeed Hiring Lab - 2026 US Jobs & Hiring Trends Report",
@@ -40,7 +40,10 @@
     "Deloitte & Manufacturing Institute - Manufacturing Workforce Studies",
     "NACE - Skills-Based Hiring Survey",
     "Checkr - Future of Work 2025 Report",
-    "Placer.ai - Domestic Migration Reports"
+    "Placer.ai - Domestic Migration Reports",
+    "Recruitment Technology Landscape Report 2025-2026 (Joveo Strategic Research)",
+    "DemandSage - AI Recruitment Statistics 2026",
+    "Growth Market Reports - Talent Intelligence Market 2024-2033"
   ],
   "generational_trends": {
     "gen_z": {
@@ -138,7 +141,7 @@
         "job_change_plans": "1 in 3 Gen Z workers plans to change jobs within next year",
         "industries_explored": "Already moved through 2.1 industries and 2.2 roles in first 3 career years",
         "career_goals_consideration": "40% always consider long-term career goals when making job changes",
-        "compensation_edge_faded": "Job-switching salary premium now only 0.2% (4.8% vs 4.6% for stayers) — lowest gap in 10 years",
+        "compensation_edge_faded": "Job-switching salary premium now only 0.2% (4.8% vs 4.6% for stayers) \u2014 lowest gap in 10 years",
         "burnout_risk": "Job-hoppers are 65% more likely to report burnout (38% vs 23%)",
         "counterpoint": "Workers aged 25-34 in 2024 had median tenure of 2.7 years, only slightly lower than Boomers at same age in 1983"
       },
@@ -161,7 +164,7 @@
           "paperwork_but_no_show_day_one": "26%",
           "show_up_then_disappear": "29%"
         },
-        "quit_without_notice": "30% have 'ghosted' an employer — quitting without notice",
+        "quit_without_notice": "30% have 'ghosted' an employer \u2014 quitting without notice",
         "interview_ghosting_uk": "93% of Gen Zers flaked on an interview (Indeed UK survey)",
         "salary_transparency_trigger": "44% would ghost if salary range not disclosed during interview",
         "employer_impact": {
@@ -375,10 +378,10 @@
       "linkedin": {
         "member_base": "1.2 billion members globally",
         "recruiter_activity": "89% of recruiters active on the platform",
-        "ai_job_match_feature": "Launched January 2025 — provides instant profile-to-job match analysis",
+        "ai_job_match_feature": "Launched January 2025 \u2014 provides instant profile-to-job match analysis",
         "ai_impact_on_applications": "AI optimizations drove 40% year-over-year job application growth",
         "personalized_recommendations": "30% boost from personalized recommendations",
-        "skills_validation": "Now looks for 'Entity Associations' — posts, endorsements, projects corroborating claimed skills",
+        "skills_validation": "Now looks for 'Entity Associations' \u2014 posts, endorsements, projects corroborating claimed skills",
         "ai_roles_growth": "70% year-over-year increase in US roles requiring AI literacy",
         "recruiter_ai_plans": "93% of recruiters plan to increase AI usage in 2026",
         "hidden_gem_finding": "60% of recruiters say AI helps find talent they would have overlooked",
@@ -386,7 +389,7 @@
         "ai_jobs_created": "1.3 million new AI-related jobs added in two years globally"
       },
       "ziprecruiter": {
-        "ai_career_advisor": "Phil — AI-powered career advisor using conversational questions",
+        "ai_career_advisor": "Phil \u2014 AI-powered career advisor using conversational questions",
         "matching_approach": "Analyzes skills, certifications, experience, salary desires, career objectives",
         "one_tap_apply": "Quick-apply feature, but criticized for favoring volume over quality",
         "criticism": "Algorithm seems to favor application volume over candidate quality",
@@ -499,6 +502,21 @@
         "volume_vs_quality": "Increases application volume but can reduce quality",
         "ziprecruiter_criticism": "1-Tap Apply opens floodgates to mismatched applications",
         "employer_challenge": "Need to balance ease of apply with qualified candidate filtering"
+      },
+      "skills_based_hiring_2026": {
+        "adoption_rate": "70% of employers now use skills-based hiring (up from 65% last year)",
+        "moving_to_model": "55% of employers have begun moving to a skills-based model",
+        "no_programmatic_platform_supports": "No programmatic platform currently supports skills-based targeting, despite 70% employer adoption",
+        "source": "NACE / Market Research 2026"
+      },
+      "programmatic_adoption_2026": {
+        "employer_adoption_rate": "Only ~15% of employers use programmatic job advertising",
+        "total_programmatic_market_2025": "$97-105B across all industries",
+        "total_programmatic_market_projected_2026": "$200B+ projected",
+        "recruitment_programmatic_niche": "Recruitment advertising remains a niche within programmatic -- massive headroom for growth",
+        "consolidation_trend": "Appcast absorbed Bayard and Clickcast; PandoLogic merged into Veritone Hire (with Broadbean); JobAdX acquired by Shaker",
+        "bifurcation": "Space is bifurcating into (a) pure programmatic tech platforms and (b) full-stack recruitment marketing clouds",
+        "source": "Market Research 2026"
       }
     },
     "social_recruiting": {
@@ -824,8 +842,16 @@
     "us_domestic_migration": {
       "sun_belt_dominance": {
         "top_growth_states_2025": [
-          "Texas", "Florida", "North Carolina", "Tennessee", "South Carolina",
-          "Washington", "Arizona", "Idaho", "Alabama", "Georgia"
+          "Texas",
+          "Florida",
+          "North Carolina",
+          "Tennessee",
+          "South Carolina",
+          "Washington",
+          "Arizona",
+          "Idaho",
+          "Alabama",
+          "Georgia"
         ],
         "stability": "8 of top 10 states were also in top 10 in 2024",
         "outmigration_states": "California, New York, Illinois continue largest net domestic outflows"
@@ -997,13 +1023,24 @@
         },
         "2026_projection": "80%+ of enterprises expected to use AI for significant hiring parts",
         "voice_screening": "80% of high-volume recruiting expected to begin with AI voice screening by Q2 2026",
-        "autonomous_agents": "50%+ of talent leaders planning autonomous AI agents in 2026"
+        "autonomous_agents": "50%+ of talent leaders planning autonomous AI agents in 2026",
+        "companies_using_ai_2026": "87% of companies now use AI in recruitment (2026)",
+        "plan_to_increase_ai_2026": "93% of recruiters plan to increase AI usage in 2026",
+        "staffing_agencies_ai_impact": "Staffing agencies using AI see 24% more placements and 60% revenue growth",
+        "quality_of_hire_top_metric": "Quality of hire is now the top success metric for 31% of hiring leaders, surpassing cost-per-hire and time-to-fill"
       },
       "market_size": {
         "current_2026": "$660M-$754M",
         "projected_2030": "$1.1B+",
         "cagr": "6.8-7.6%",
-        "total_ai_investment_2026": "$2 trillion expected by end of 2026"
+        "total_ai_investment_2026": "$2 trillion expected by end of 2026",
+        "ai_recruitment_market_2025": "~$700M",
+        "ai_recruitment_market_projected_2033": "$1.2-1.4B (7-8% CAGR)",
+        "broader_estimate_2030": "$5.4B by 2030 at 17.9% CAGR (broader estimates)",
+        "talent_intelligence_market_2024": "$9.2B",
+        "talent_intelligence_market_projected_2033": "$29.2B (14.8% CAGR)",
+        "hr_tech_total_market_2025": "$94B",
+        "source": "Market Research 2026"
       },
       "efficiency_gains": {
         "cost_per_hire_reduction": "30%",
@@ -1035,7 +1072,11 @@
       "regulatory_landscape": {
         "eu_ai_act": "General purpose AI obligations began August 2026",
         "nyc_local_law_144": "Annual bias audit and candidate notices required",
-        "trend": "Increasing regulation of AI in hiring globally"
+        "trend": "Increasing regulation of AI in hiring globally",
+        "ca_co_ai_hiring_regulations_2026": "California and Colorado passing AI hiring regulations in 2026",
+        "eeoc_ofccp_scrutiny": "EEOC and OFCCP scrutiny of AI in hiring increasing",
+        "hiredscore_legal_scrutiny": "HiredScore (now Workday) under legal scrutiny -- Workday ordered to provide customer list who enabled HiredScore AI features",
+        "compliance_gap": "Most AI recruiting tools lack proper bias auditing, explainability, and compliance reporting"
       },
       "seniority_bias": {
         "finding": "GenAI adoption causes sharp junior employment decline while senior unchanged",
@@ -1084,13 +1125,110 @@
         "paradox_olivia": "Market leader, acquired by Workday for $4.5B",
         "market_size": "$2.03B (2025) to $5.41B (2030)",
         "adoption": "83% of hiring managers using AI for resume screening",
-        "key_players": "Paradox, Mya (now Fountain), Ideal, XOR"
+        "key_players": "Paradox, Mya (now Fountain), Ideal, XOR",
+        "chatbot_market_2025": "$2.03B",
+        "chatbot_market_projected_2030": "$5.41B (21.6% CAGR)",
+        "paradox_acquisition": "Paradox (Olivia) acquired by Workday for conversational AI; schedules 32M interviews/year; 1.89B interactions; 100+ languages",
+        "conversion_improvement": "Conversational apply increases conversion 5x (Paradox data)",
+        "application_abandonment": "Over 50% of candidates abandon applications before completion"
       },
       "predictive_analytics": {
         "application": "Talent pipeline forecasting and demand planning",
         "quality_prediction": "AI predicting candidate success and retention likelihood",
         "workforce_planning": "Data-driven workforce planning and succession"
+      },
+      "ai_recruiting_agents": {
+        "description": "Fully autonomous AI agents that can source, screen, schedule, and outreach without human intervention",
+        "market_dynamics": "AI agent market is exploding -- Mercor reached $10B valuation in 2 years",
+        "key_players": {
+          "mercor": {
+            "valuation": "$10B (October 2025)",
+            "funding": "$519M total",
+            "scale": "30,000+ contractors; $1.5M paid daily; targeting $500M ARR",
+            "growth": "$250M val (2024) -> $2B (Feb 2025) -> $10B (Oct 2025)",
+            "note": "Fastest-growing company in rec-tech history; youngest self-made billionaire founders"
+          },
+          "micro1": {
+            "valuation": "$500M",
+            "funding": "$41.6M",
+            "product": "AI recruiter 'Zara' -- conducts 20-40 min adaptive interviews",
+            "scale": "1M+ applicants processed, 400K+ AI interviews conducted, $50M ARR"
+          },
+          "moonhub": {
+            "status": "Acquired by Salesforce (June 2025); team joined Agentforce",
+            "results": "50% reduction in time-to-hire; 80% of presented candidates interviewed"
+          }
+        },
+        "source": "Market Research 2026"
       }
+    },
+    "must_have_feature_stack_2026": {
+      "description": "Based on market research, the winning recruitment technology platform in 2026 must have these capabilities",
+      "features": [
+        {
+          "feature": "Agentic AI",
+          "description": "Not just chatbots, but AI that takes autonomous action (source, screen, schedule, outreach). Multiple AI models working in parallel; proactive task completion.",
+          "companies_leading": [
+            "Phenom (X+ Agents)",
+            "Bullhorn (Amplify)",
+            "Radancy (Agentic Platform)",
+            "Lever (AI Companions)"
+          ]
+        },
+        {
+          "feature": "Natural Language Interface",
+          "description": "Plain English search replacing boolean complexity. Eliminates boolean queries; 800M+ profiles searchable in plain English; dramatically lowers recruiter skill barrier.",
+          "companies_leading": [
+            "Juicebox (PeopleGPT)",
+            "SeekOut (Intelligent Search)",
+            "Findem (Talent Data Cloud)"
+          ]
+        },
+        {
+          "feature": "Full-Funnel Analytics",
+          "description": "Click/impression to hire tracking with attribution. Full-funnel visibility from impression to hire; enables ROI optimization.",
+          "companies_leading": [
+            "Joveo (Unified Analytics)",
+            "Appcast (Benchmark Report)",
+            "Recruitics (Vision)"
+          ]
+        },
+        {
+          "feature": "Skills-Based Everything",
+          "description": "Matching, assessment, and career pathing based on skills, not titles. 5x more predictive of performance than resumes.",
+          "companies_leading": [
+            "Lever (Talent Fit)",
+            "Eightfold (AI Matching)",
+            "Talroo (SmartQualify)"
+          ]
+        },
+        {
+          "feature": "Conversational Apply",
+          "description": "Mobile-first, chat-based application process. Reduces >50% application abandonment rate.",
+          "companies_leading": [
+            "Paradox/Workday (Olivia)",
+            "Recruitics (ApplyAnywhere)",
+            "Wonderkind (One-Click Apply)"
+          ]
+        },
+        {
+          "feature": "Fraud Detection",
+          "description": "Identity verification and AI-generated content detection. Critical new need -- AI-generated resumes/interviews creating fake candidate epidemic.",
+          "companies_leading": [
+            "Greenhouse (Real Talent + CLEAR integration)"
+          ]
+        },
+        {
+          "feature": "Responsible AI",
+          "description": "Bias auditing, explainability, compliance with emerging regulations (EEOC, OFCCP, CA/CO AI hiring laws 2026).",
+          "companies_leading": [
+            "HiredScore/Workday",
+            "Beamery (European AI Pact)",
+            "Lever (IBM watsonx.governance)"
+          ]
+        }
+      ],
+      "source": "Market Research 2026"
     }
   },
   "compensation_trends": {
@@ -1208,7 +1346,7 @@
   },
   "key_statistics_summary": {
     "labor_market_overview_2026": {
-      "environment": "Low hire, low fire — cautious, selective, uneven",
+      "environment": "Low hire, low fire \u2014 cautious, selective, uneven",
       "employer_leverage": "Job openings per unemployed below 1.0",
       "healthcare_dominance": "63-95% of recent job growth from healthcare sector",
       "white_collar_weakness": "Tech, media, professional services well below pre-pandemic levels",
@@ -1224,7 +1362,14 @@
       "ai_in_hiring": "43-67% of organizations using AI (rapidly rising toward 80%+)",
       "skills_based_hiring": "55-65% of employers adopting",
       "genai_at_work": "56-57% of Millennials/Gen Z using GenAI daily",
-      "formal_ai_training_gap": "Only 25% of workers receive employer AI training"
+      "formal_ai_training_gap": "Only 25% of workers receive employer AI training",
+      "ai_in_hiring_2026": "87% of companies now use AI in recruitment",
+      "skills_based_hiring_2026": "70% of employers now use skills-based hiring (up from 65%)",
+      "programmatic_adoption": "Only 15% of employers use programmatic job advertising",
+      "ai_recruitment_market": "~$700M in 2025, projected $1.2-1.4B by 2033",
+      "talent_intelligence_market": "$9.2B in 2024, projected $29.2B by 2033",
+      "hr_tech_total_market": "$94B in 2025",
+      "conversational_ai_market": "Chatbot market $2.03B in 2025, growing to $5.41B by 2030"
     },
     "cost_benchmarks": {
       "cpc_inflation": "12.88% average increase 2024-2025",

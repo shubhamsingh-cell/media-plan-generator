@@ -1,0 +1,1782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Competitive Intelligence Dashboard - Compare your company against competitors with hiring activity, ad benchmarks, and market trends analysis.">
+    <meta name="theme-color" content="#08090D">
+    <title>Competitive Intelligence Dashboard | Nova AI by Joveo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ============================================
+           Design System: Deep Obsidian + Electric Indigo
+           Glassmorphism 2.0 -- consistent with index.html
+           ============================================ */
+        :root {
+            --obsidian: #08090D;
+            --obsidian-light: #0E1018;
+            --navy: #0F1424;
+            --indigo: #6366F1;
+            --indigo-light: #818CF8;
+            --indigo-pale: rgba(99,102,241,0.08);
+            --indigo-glow: rgba(99,102,241,0.15);
+            --cyan-accent: #22D3EE;
+            --green-success: #34D399;
+            --accent: #6366F1;
+            --accent-light: #818CF8;
+            --accent-warm: #F87171;
+            --warning: #FBBF24;
+            --error: #F87171;
+
+            --bg: #08090D;
+            --surface-1: rgba(15,18,30,0.6);
+            --surface-2: rgba(20,24,40,0.5);
+            --card: rgba(15,18,30,0.6);
+            --card-solid: #0F121E;
+            --card-hover: rgba(20,24,40,0.7);
+
+            --glass-blur: blur(40px) saturate(1.5);
+            --glass-blur-md: blur(24px) saturate(1.3);
+            --glass-blur-sm: blur(16px) saturate(1.2);
+            --glass-border: rgba(255,255,255,0.06);
+            --glass-border-hover: rgba(255,255,255,0.1);
+
+            --text: #E2E8F0;
+            --text-secondary: rgba(226,232,240,0.7);
+            --text-light: rgba(226,232,240,0.6);
+            --text-muted: rgba(226,232,240,0.35);
+
+            --border: rgba(255,255,255,0.06);
+            --border-subtle: rgba(255,255,255,0.03);
+            --border-accent: rgba(99,102,241,0.3);
+
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+            --shadow-glow: 0 0 20px rgba(99,102,241,0.15);
+
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+
+            --gradient-primary: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);
+            --gradient-accent: linear-gradient(135deg, #6366F1 0%, #22D3EE 100%);
+            --gradient-mesh: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.08) 0%, transparent 50%),
+                             radial-gradient(ellipse at 80% 20%, rgba(34,211,238,0.06) 0%, transparent 50%),
+                             radial-gradient(ellipse at 40% 80%, rgba(99,102,241,0.04) 0%, transparent 50%);
+
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --duration-fast: 100ms;
+            --duration-normal: 200ms;
+            --duration-slow: 300ms;
+            --focus-ring: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        ::selection { background: var(--accent); color: white; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            font-size: 16px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: var(--gradient-mesh);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── Layout ── */
+        .page-wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        /* ── Header ── */
+        .page-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .page-header h1 {
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            font-weight: 800;
+            background: var(--gradient-accent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-header p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-light);
+            text-decoration: none;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem 0;
+            transition: color var(--duration-normal) var(--ease-standard);
+            min-height: 44px;
+        }
+
+        .back-link:hover { color: var(--accent-light); }
+        .back-link:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
+
+        /* ── Glass Card ── */
+        .glass-card {
+            background: var(--card);
+            backdrop-filter: var(--glass-blur-md);
+            -webkit-backdrop-filter: var(--glass-blur-md);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            box-shadow: var(--shadow-md);
+            transition: border-color var(--duration-normal) var(--ease-standard),
+                        box-shadow var(--duration-normal) var(--ease-standard);
+        }
+
+        .glass-card:hover {
+            border-color: var(--glass-border-hover);
+        }
+
+        .glass-card--accent {
+            border-color: var(--border-accent);
+            box-shadow: var(--shadow-md), var(--shadow-glow);
+        }
+
+        /* ── Form Elements ── */
+        .form-section {
+            margin-bottom: 2rem;
+        }
+
+        .form-section h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .form-section h2 .icon {
+            width: 36px;
+            height: 36px;
+            background: var(--gradient-primary);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.25rem;
+        }
+
+        @media (min-width: 640px) {
+            .form-grid { grid-template-columns: 1fr 1fr; }
+            .form-grid--full { grid-template-columns: 1fr; }
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group--full {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 0.9375rem;
+            font-family: inherit;
+            color: var(--text);
+            background: rgba(15,18,30,0.8);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            outline: none;
+            transition: border-color var(--duration-normal) var(--ease-standard),
+                        box-shadow var(--duration-normal) var(--ease-standard);
+            min-height: 48px;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--text-muted);
+        }
+
+        input[type="text"]:focus,
+        select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+        }
+
+        select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23818CF8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            padding-right: 2.5rem;
+            cursor: pointer;
+        }
+
+        /* ── Competitors List ── */
+        .competitors-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .competitor-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: fadeSlideIn 250ms var(--ease-out);
+        }
+
+        .competitor-row input {
+            flex: 1;
+        }
+
+        .btn-remove {
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(248,113,113,0.1);
+            border: 1px solid rgba(248,113,113,0.2);
+            border-radius: var(--radius-sm);
+            color: var(--accent-warm);
+            cursor: pointer;
+            font-size: 1.25rem;
+            line-height: 1;
+            transition: all var(--duration-normal) var(--ease-standard);
+        }
+
+        .btn-remove:hover {
+            background: rgba(248,113,113,0.2);
+            border-color: rgba(248,113,113,0.4);
+        }
+
+        .btn-remove:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent-warm);
+        }
+
+        .btn-add-competitor {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            font-family: inherit;
+            color: var(--accent-light);
+            background: var(--indigo-pale);
+            border: 1px dashed var(--border-accent);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--duration-normal) var(--ease-standard);
+            min-height: 44px;
+        }
+
+        .btn-add-competitor:hover {
+            background: rgba(99,102,241,0.15);
+            border-color: var(--accent);
+        }
+
+        .btn-add-competitor:focus-visible {
+            outline: none;
+            box-shadow: var(--focus-ring);
+        }
+
+        .btn-add-competitor:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* ── Primary Button ── */
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 0.875rem 2rem;
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: inherit;
+            color: white;
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            min-height: 52px;
+            min-width: 200px;
+            letter-spacing: 0.01em;
+            transition: all var(--duration-normal) var(--ease-standard);
+            box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            box-shadow: 0 6px 24px rgba(99,102,241,0.45);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-primary:focus-visible {
+            outline: none;
+            box-shadow: var(--focus-ring), 0 4px 16px rgba(99,102,241,0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── Download Buttons ── */
+        .download-bar {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        .btn-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            font-family: inherit;
+            border: 1px solid var(--border-accent);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            min-height: 44px;
+            transition: all var(--duration-normal) var(--ease-standard);
+            text-decoration: none;
+        }
+
+        .btn-download:focus-visible {
+            outline: none;
+            box-shadow: var(--focus-ring);
+        }
+
+        .btn-download--excel {
+            color: var(--green-success);
+            background: rgba(52,211,153,0.08);
+            border-color: rgba(52,211,153,0.3);
+        }
+
+        .btn-download--excel:hover {
+            background: rgba(52,211,153,0.15);
+        }
+
+        .btn-download--ppt {
+            color: var(--warning);
+            background: rgba(251,191,36,0.08);
+            border-color: rgba(251,191,36,0.3);
+        }
+
+        .btn-download--ppt:hover {
+            background: rgba(251,191,36,0.15);
+        }
+
+        .btn-download:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* ── Loading Spinner ── */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2.5px solid rgba(255,255,255,0.2);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+
+        .btn-primary.loading .spinner { display: block; }
+        .btn-primary.loading .btn-label { display: none; }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ── Skeleton Shimmer ── */
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, rgba(99,102,241,0.05) 25%, rgba(99,102,241,0.12) 50%, rgba(99,102,241,0.05) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.8s ease-in-out infinite;
+            border-radius: var(--radius-sm);
+        }
+
+        .skeleton-line {
+            height: 1rem;
+            margin-bottom: 0.75rem;
+            border-radius: 6px;
+        }
+
+        .skeleton-line--short { width: 60%; }
+        .skeleton-line--medium { width: 80%; }
+        .skeleton-line--long { width: 95%; }
+
+        .skeleton-block {
+            height: 120px;
+            margin-bottom: 1rem;
+        }
+
+        /* ── Results Section ── */
+        .results-section {
+            display: none;
+            margin-top: 2.5rem;
+        }
+
+        .results-section.visible {
+            display: block;
+            animation: fadeSlideIn 400ms var(--ease-out);
+        }
+
+        .results-section.loading-state .results-content { display: none; }
+        .results-section.loading-state .results-skeleton { display: block; }
+        .results-section:not(.loading-state) .results-skeleton { display: none; }
+
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 1.25rem;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 1.125rem;
+            background: var(--gradient-primary);
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        /* ── Company Profile Card ── */
+        .profile-card {
+            display: flex;
+            gap: 1.5rem;
+            align-items: flex-start;
+        }
+
+        @media (max-width: 640px) {
+            .profile-card { flex-direction: column; }
+        }
+
+        .profile-logo {
+            width: 72px;
+            height: 72px;
+            border-radius: var(--radius);
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .profile-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 8px;
+        }
+
+        .profile-logo .initials {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-light);
+        }
+
+        .profile-info h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .profile-info .industry-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--accent-light);
+            background: var(--indigo-pale);
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 100px;
+            margin-bottom: 0.75rem;
+        }
+
+        .profile-info .description {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            max-width: 600px;
+        }
+
+        .profile-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .meta-item {
+            padding: 0.625rem 0.75rem;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+        }
+
+        .meta-item .meta-label {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .meta-item .meta-value {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        /* ── Comparison Table ── */
+        .comparison-table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 0 -0.5rem;
+            padding: 0 0.5rem;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+            min-width: 700px;
+        }
+
+        .comparison-table th {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border-accent);
+            white-space: nowrap;
+        }
+
+        .comparison-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+            vertical-align: middle;
+        }
+
+        .comparison-table tr:hover td {
+            background: rgba(99,102,241,0.04);
+        }
+
+        .comparison-table tr.primary-row td {
+            color: var(--text);
+            font-weight: 600;
+            background: rgba(99,102,241,0.06);
+        }
+
+        .comparison-table .company-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .company-cell .mini-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .company-cell .mini-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 4px;
+        }
+
+        .company-cell .mini-logo .mini-initials {
+            font-size: 0.6875rem;
+            font-weight: 700;
+            color: var(--accent-light);
+        }
+
+        .badge-public, .badge-private {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            border-radius: 100px;
+        }
+
+        .badge-public {
+            color: var(--green-success);
+            background: rgba(52,211,153,0.1);
+            border: 1px solid rgba(52,211,153,0.2);
+        }
+
+        .badge-private {
+            color: var(--text-light);
+            background: rgba(226,232,240,0.05);
+            border: 1px solid var(--border);
+        }
+
+        /* ── Horizontal Bar Charts (Hiring Activity) ── */
+        .bar-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .bar-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .bar-item .bar-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            font-size: 0.8125rem;
+        }
+
+        .bar-item .bar-label .name {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .bar-item .bar-label .value {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .bar-track {
+            height: 28px;
+            background: var(--surface-2);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            background: var(--gradient-primary);
+            transition: width 800ms var(--ease-out);
+            min-width: 4px;
+        }
+
+        .bar-fill.primary {
+            background: var(--gradient-accent);
+        }
+
+        .bar-fill.threat-high {
+            background: linear-gradient(135deg, #F87171 0%, #EF4444 100%);
+        }
+
+        .bar-fill.threat-moderate {
+            background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%);
+        }
+
+        .bar-fill.threat-low {
+            background: linear-gradient(135deg, #34D399 0%, #10B981 100%);
+        }
+
+        /* ── Benchmark Table ── */
+        .benchmark-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        .benchmark-table th {
+            padding: 0.625rem 0.75rem;
+            text-align: left;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border-accent);
+        }
+
+        .benchmark-table td {
+            padding: 0.625rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .benchmark-table tr:hover td {
+            background: rgba(99,102,241,0.04);
+        }
+
+        .cpc-low { color: var(--green-success); }
+        .cpc-mid { color: var(--warning); }
+        .cpc-high { color: var(--accent-warm); }
+
+        .trend-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.125rem 0.5rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            border-radius: 100px;
+        }
+
+        .trend-rising {
+            color: var(--accent-warm);
+            background: rgba(248,113,113,0.1);
+        }
+
+        .trend-stable {
+            color: var(--text-light);
+            background: rgba(226,232,240,0.05);
+        }
+
+        .trend-declining {
+            color: var(--green-success);
+            background: rgba(52,211,153,0.1);
+        }
+
+        /* ── Sparklines (CSS mini-charts) ── */
+        .sparkline-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sparkline-row:last-child { border-bottom: none; }
+
+        .sparkline-name {
+            width: 140px;
+            flex-shrink: 0;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sparkline-name.primary-name { color: var(--cyan-accent); }
+
+        .sparkline-bar-wrapper {
+            flex: 1;
+            height: 24px;
+            background: var(--surface-2);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .sparkline-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 600ms var(--ease-out);
+        }
+
+        .sparkline-fill.fill-primary {
+            background: linear-gradient(90deg, var(--accent) 0%, var(--cyan-accent) 100%);
+        }
+
+        .sparkline-fill.fill-secondary {
+            background: var(--gradient-primary);
+            opacity: 0.7;
+        }
+
+        .sparkline-value {
+            width: 80px;
+            flex-shrink: 0;
+            text-align: right;
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+        }
+
+        .sparkline-trend {
+            width: 70px;
+            flex-shrink: 0;
+            text-align: right;
+        }
+
+        /* ── Recommendations Cards ── */
+        .recs-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .recs-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        .rec-card {
+            background: var(--card);
+            backdrop-filter: var(--glass-blur-sm);
+            -webkit-backdrop-filter: var(--glass-blur-sm);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            transition: border-color var(--duration-normal) var(--ease-standard),
+                        transform var(--duration-normal) var(--ease-standard);
+        }
+
+        .rec-card:hover {
+            border-color: var(--glass-border-hover);
+            transform: translateY(-2px);
+        }
+
+        .rec-card .rec-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .rec-card .priority-badge {
+            padding: 0.1875rem 0.5rem;
+            font-size: 0.625rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            border-radius: 100px;
+        }
+
+        .priority-high {
+            color: #FEE2E2;
+            background: rgba(239,68,68,0.25);
+            border: 1px solid rgba(239,68,68,0.3);
+        }
+
+        .priority-medium {
+            color: #FEF3C7;
+            background: rgba(245,158,11,0.2);
+            border: 1px solid rgba(245,158,11,0.3);
+        }
+
+        .priority-low {
+            color: #D1FAE5;
+            background: rgba(16,185,129,0.2);
+            border: 1px solid rgba(16,185,129,0.3);
+        }
+
+        .rec-card .rec-title {
+            font-size: 0.9375rem;
+            font-weight: 700;
+            color: var(--text);
+            flex: 1;
+        }
+
+        .rec-card .rec-desc {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* ── Analysis Time Badge ── */
+        .analysis-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            padding: 0.75rem 1rem;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+        }
+
+        .analysis-meta .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.375rem;
+        }
+
+        .status-dot.success { background: var(--green-success); }
+        .status-dot.partial { background: var(--warning); }
+        .status-dot.error { background: var(--accent-warm); }
+
+        /* ── Error State ── */
+        .error-banner {
+            padding: 1rem 1.25rem;
+            background: rgba(248,113,113,0.08);
+            border: 1px solid rgba(248,113,113,0.2);
+            border-radius: var(--radius-sm);
+            color: var(--accent-warm);
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+
+        .error-banner.visible { display: block; }
+
+        /* ── Spacing between result cards ── */
+        .result-block {
+            margin-bottom: 2rem;
+        }
+
+        /* ── Hiring Difficulty Badge ── */
+        .difficulty-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.375rem 0.875rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            border-radius: 100px;
+            margin-left: 0.5rem;
+        }
+
+        .difficulty-high {
+            color: #FCA5A5;
+            background: rgba(239,68,68,0.12);
+            border: 1px solid rgba(239,68,68,0.25);
+        }
+
+        .difficulty-moderate {
+            color: #FDE68A;
+            background: rgba(245,158,11,0.12);
+            border: 1px solid rgba(245,158,11,0.25);
+        }
+
+        .difficulty-low {
+            color: #A7F3D0;
+            background: rgba(16,185,129,0.12);
+            border: 1px solid rgba(16,185,129,0.25);
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 480px) {
+            .page-wrapper { padding: 1rem 1rem 3rem; }
+            .glass-card { padding: 1.25rem; }
+            .download-bar { flex-direction: column; }
+            .btn-download { width: 100%; justify-content: center; }
+            .btn-primary { width: 100%; }
+            .sparkline-name { width: 100px; }
+            .sparkline-value { width: 60px; }
+            .sparkline-trend { width: 60px; }
+        }
+
+        /* ── Footer ── */
+        .page-footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+        }
+
+        .page-footer a {
+            color: var(--accent-light);
+            text-decoration: none;
+        }
+
+        .page-footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Header -->
+        <header class="page-header">
+            <a href="/" class="back-link" aria-label="Back to Media Plan Generator">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Back to Media Plan Generator
+            </a>
+            <h1>Competitive Intelligence Dashboard</h1>
+            <p>Analyze your company against competitors. Get hiring activity, ad benchmarks, market trends, and strategic recommendations.</p>
+        </header>
+
+        <!-- Input Form -->
+        <div class="glass-card glass-card--accent form-section" id="inputSection">
+            <h2>
+                <span class="icon" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                </span>
+                Analysis Setup
+            </h2>
+
+            <form id="analysisForm" novalidate>
+                <div class="form-grid" style="margin-bottom: 1.5rem;">
+                    <div class="form-group">
+                        <label for="companyName">Company Name *</label>
+                        <input type="text" id="companyName" name="company_name"
+                               placeholder="e.g. Amazon, Google, JPMorgan Chase"
+                               required autocomplete="organization"
+                               aria-required="true">
+                    </div>
+                    <div class="form-group">
+                        <label for="industry">Industry *</label>
+                        <select id="industry" name="industry" required aria-required="true" aria-label="Select industry">
+                            <option value="">-- Select Industry --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group form-group--full" style="margin-bottom: 1.25rem;">
+                    <label>Competitors (1-5) *</label>
+                    <div class="competitors-list" id="competitorsList">
+                        <div class="competitor-row" data-index="0">
+                            <input type="text" name="competitor_0" placeholder="Competitor 1" required aria-label="Competitor 1 name" autocomplete="organization">
+                        </div>
+                    </div>
+                    <button type="button" class="btn-add-competitor" id="addCompetitorBtn" aria-label="Add another competitor">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                        Add Competitor
+                    </button>
+                </div>
+
+                <div class="form-grid" style="margin-bottom: 1.5rem;">
+                    <div class="form-group">
+                        <label for="targetRoles">Target Roles (optional)</label>
+                        <input type="text" id="targetRoles" name="target_roles"
+                               placeholder="e.g. Software Engineer, Data Analyst"
+                               aria-label="Target roles, comma-separated">
+                    </div>
+                </div>
+
+                <div style="text-align: center;">
+                    <button type="submit" class="btn-primary" id="analyzeBtn" aria-label="Run competitive analysis">
+                        <span class="btn-label">Run Analysis</span>
+                        <div class="spinner" role="status" aria-label="Loading"><span class="sr-only"></span></div>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Error Banner -->
+        <div class="error-banner" id="errorBanner" role="alert"></div>
+
+        <!-- Results Section -->
+        <section class="results-section" id="resultsSection" aria-label="Analysis Results">
+            <!-- Skeleton Loading -->
+            <div class="results-skeleton">
+                <div class="glass-card result-block">
+                    <div class="skeleton skeleton-line skeleton-line--short"></div>
+                    <div class="skeleton skeleton-block"></div>
+                </div>
+                <div class="glass-card result-block">
+                    <div class="skeleton skeleton-line skeleton-line--short"></div>
+                    <div class="skeleton skeleton-block"></div>
+                    <div class="skeleton skeleton-line skeleton-line--long"></div>
+                    <div class="skeleton skeleton-line skeleton-line--medium"></div>
+                </div>
+                <div class="glass-card result-block">
+                    <div class="skeleton skeleton-line skeleton-line--short"></div>
+                    <div class="skeleton skeleton-block"></div>
+                </div>
+            </div>
+
+            <!-- Actual Results Content -->
+            <div class="results-content" id="resultsContent">
+                <!-- Analysis Meta -->
+                <div class="analysis-meta" id="analysisMeta"></div>
+
+                <!-- Download Bar -->
+                <div class="download-bar" id="downloadBar">
+                    <button class="btn-download btn-download--excel" id="downloadExcel" disabled aria-label="Download Excel report">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        Download Excel
+                    </button>
+                    <button class="btn-download btn-download--ppt" id="downloadPpt" disabled aria-label="Download PowerPoint report">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        Download PowerPoint
+                    </button>
+                </div>
+
+                <!-- Company Profile -->
+                <div class="glass-card result-block" id="profileCard">
+                    <h3 class="section-title">Company Profile</h3>
+                    <div id="profileContent"></div>
+                </div>
+
+                <!-- Competitor Comparison Table -->
+                <div class="glass-card result-block" id="comparisonCard">
+                    <h3 class="section-title">Competitor Comparison</h3>
+                    <div class="comparison-table-wrapper" id="comparisonContent"></div>
+                </div>
+
+                <!-- Hiring Activity -->
+                <div class="glass-card result-block" id="hiringCard">
+                    <h3 class="section-title" id="hiringTitle">Hiring Activity</h3>
+                    <div id="hiringContent"></div>
+                </div>
+
+                <!-- Ad Benchmarks -->
+                <div class="glass-card result-block" id="benchmarkCard">
+                    <h3 class="section-title">Ad Platform Benchmarks</h3>
+                    <div class="comparison-table-wrapper" id="benchmarkContent"></div>
+                </div>
+
+                <!-- Market Trends -->
+                <div class="glass-card result-block" id="trendsCard">
+                    <h3 class="section-title">Market Trends (Search Interest)</h3>
+                    <div id="trendsContent"></div>
+                </div>
+
+                <!-- Recommendations -->
+                <div class="glass-card result-block" id="recsCard">
+                    <h3 class="section-title">Strategic Recommendations</h3>
+                    <div class="recs-grid" id="recsContent"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="page-footer">
+            Powered by <a href="https://media-plan-generator.onrender.com/">Nova AI</a> &middot; <a href="https://joveo.com" target="_blank" rel="noopener">Joveo</a>
+        </footer>
+    </div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        // ── Industry options (populated from shared_utils.INDUSTRY_LABEL_MAP) ──
+        const INDUSTRIES = [
+            { value: "healthcare_medical", label: "Healthcare & Medical" },
+            { value: "blue_collar_trades", label: "Blue Collar / Skilled Trades" },
+            { value: "maritime_marine", label: "Maritime & Marine" },
+            { value: "military_recruitment", label: "Military Recruitment" },
+            { value: "tech_engineering", label: "Technology & Engineering" },
+            { value: "general_entry_level", label: "General / Entry-Level" },
+            { value: "legal_services", label: "Legal Services" },
+            { value: "finance_banking", label: "Finance & Banking" },
+            { value: "mental_health", label: "Mental Health & Behavioral" },
+            { value: "retail_consumer", label: "Retail & Consumer" },
+            { value: "aerospace_defense", label: "Aerospace & Defense" },
+            { value: "pharma_biotech", label: "Pharma & Biotech" },
+            { value: "energy_utilities", label: "Energy & Utilities" },
+            { value: "insurance", label: "Insurance" },
+            { value: "telecommunications", label: "Telecommunications" },
+            { value: "automotive", label: "Automotive & Manufacturing" },
+            { value: "food_beverage", label: "Food & Beverage" },
+            { value: "logistics_supply_chain", label: "Logistics & Supply Chain" },
+            { value: "hospitality_travel", label: "Hospitality & Travel" },
+            { value: "media_entertainment", label: "Media & Entertainment" },
+            { value: "construction_real_estate", label: "Construction & Real Estate" },
+            { value: "education", label: "Education" },
+        ];
+
+        const MAX_COMPETITORS = 5;
+        let competitorCount = 1;
+        let analysisData = null;
+
+        // ── DOM refs ──
+        const form = document.getElementById('analysisForm');
+        const industrySelect = document.getElementById('industry');
+        const competitorsList = document.getElementById('competitorsList');
+        const addBtn = document.getElementById('addCompetitorBtn');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsContent = document.getElementById('resultsContent');
+        const errorBanner = document.getElementById('errorBanner');
+        const downloadExcel = document.getElementById('downloadExcel');
+        const downloadPpt = document.getElementById('downloadPpt');
+
+        // ── Populate industry dropdown ──
+        INDUSTRIES.forEach(function(ind) {
+            var opt = document.createElement('option');
+            opt.value = ind.value;
+            opt.textContent = ind.label;
+            industrySelect.appendChild(opt);
+        });
+
+        // ── Add/Remove Competitors ──
+        addBtn.addEventListener('click', function() {
+            if (competitorCount >= MAX_COMPETITORS) return;
+            competitorCount++;
+            var row = document.createElement('div');
+            row.className = 'competitor-row';
+            row.dataset.index = competitorCount - 1;
+            row.innerHTML =
+                '<input type="text" name="competitor_' + (competitorCount - 1) + '" placeholder="Competitor ' + competitorCount + '" aria-label="Competitor ' + competitorCount + ' name" autocomplete="organization">' +
+                '<button type="button" class="btn-remove" aria-label="Remove competitor ' + competitorCount + '" title="Remove">&times;</button>';
+            competitorsList.appendChild(row);
+
+            row.querySelector('.btn-remove').addEventListener('click', function() {
+                row.remove();
+                competitorCount--;
+                updateAddBtn();
+                renumberCompetitors();
+            });
+
+            updateAddBtn();
+        });
+
+        function updateAddBtn() {
+            addBtn.disabled = competitorCount >= MAX_COMPETITORS;
+        }
+
+        function renumberCompetitors() {
+            var rows = competitorsList.querySelectorAll('.competitor-row');
+            rows.forEach(function(r, i) {
+                r.dataset.index = i;
+                var input = r.querySelector('input');
+                input.name = 'competitor_' + i;
+                input.placeholder = 'Competitor ' + (i + 1);
+                input.setAttribute('aria-label', 'Competitor ' + (i + 1) + ' name');
+            });
+        }
+
+        // ── Form Submit ──
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            runAnalysis();
+        });
+
+        async function runAnalysis() {
+            var companyName = document.getElementById('companyName').value.trim();
+            var industry = industrySelect.value;
+
+            if (!companyName) {
+                showError('Please enter a company name.');
+                document.getElementById('companyName').focus();
+                return;
+            }
+            if (!industry) {
+                showError('Please select an industry.');
+                industrySelect.focus();
+                return;
+            }
+
+            // Collect competitors
+            var competitorInputs = competitorsList.querySelectorAll('input[type="text"]');
+            var competitors = [];
+            competitorInputs.forEach(function(inp) {
+                var val = inp.value.trim();
+                if (val) competitors.push(val);
+            });
+
+            if (competitors.length === 0) {
+                showError('Please enter at least one competitor.');
+                competitorInputs[0].focus();
+                return;
+            }
+
+            // Collect roles
+            var rolesInput = document.getElementById('targetRoles').value.trim();
+            var roles = rolesInput ? rolesInput.split(',').map(function(r) { return r.trim(); }).filter(Boolean) : [];
+
+            // Show loading
+            hideError();
+            analyzeBtn.classList.add('loading');
+            analyzeBtn.disabled = true;
+            resultsSection.classList.add('visible', 'loading-state');
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            try {
+                var response = await fetch('/api/competitive/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        company_name: companyName,
+                        competitors: competitors,
+                        industry: industry,
+                        roles: roles,
+                    }),
+                });
+
+                if (!response.ok) {
+                    var errData = {};
+                    try { errData = await response.json(); } catch(e) {}
+                    throw new Error(errData.error || 'Analysis failed (HTTP ' + response.status + ')');
+                }
+
+                analysisData = await response.json();
+                renderResults(analysisData);
+            } catch (err) {
+                showError('Analysis failed: ' + err.message);
+                resultsSection.classList.remove('visible');
+            } finally {
+                analyzeBtn.classList.remove('loading');
+                analyzeBtn.disabled = false;
+                resultsSection.classList.remove('loading-state');
+            }
+        }
+
+        // ── Render Results ──
+        function renderResults(data) {
+            var brief = data.brief || {};
+            var status = data.status || 'success';
+
+            // Analysis meta
+            var metaEl = document.getElementById('analysisMeta');
+            var dotClass = status === 'success' ? 'success' : (status === 'partial' ? 'partial' : 'error');
+            var statusLabel = status === 'success' ? 'Complete' : (status === 'partial' ? 'Partial (some APIs unavailable)' : 'Error');
+            metaEl.innerHTML =
+                '<span><span class="status-dot ' + dotClass + '"></span>' + statusLabel + '</span>' +
+                '<span>Analysis time: ' + (data.analysis_time_ms || 0) + 'ms</span>' +
+                '<span>Industry: ' + escapeHtml(data.industry_label || data.industry || '') + '</span>';
+
+            // Enable download buttons
+            downloadExcel.disabled = false;
+            downloadPpt.disabled = false;
+
+            // Company Profile
+            renderProfile(brief.company || {});
+
+            // Comparison Matrix
+            renderComparison(brief.comparison_matrix || []);
+
+            // Hiring Activity
+            renderHiring(data.hiring_activity || brief.hiring_activity || {});
+
+            // Benchmarks
+            renderBenchmarks(brief.ad_benchmarks || data.ad_benchmarks || {});
+
+            // Market Trends
+            renderTrends(brief.market_trends || data.market_trends || {});
+
+            // Recommendations
+            renderRecommendations(brief.recommendations || []);
+
+            // Scroll to results
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function renderProfile(company) {
+            var el = document.getElementById('profileContent');
+            var logoHtml = '';
+            if (company.logo_url) {
+                logoHtml = '<img src="' + escapeHtml(company.logo_url) + '" alt="' + escapeHtml(company.name || '') + ' logo" onerror="this.style.display=\'none\';this.parentElement.querySelector(\'.initials\').style.display=\'block\'">';
+            }
+            var initials = getInitials(company.name || '');
+            var industryBadge = company.industry ? '<span class="industry-badge">' + escapeHtml(company.industry) + '</span>' : '';
+            var desc = company.description || 'No description available.';
+
+            el.innerHTML =
+                '<div class="profile-card">' +
+                    '<div class="profile-logo">' +
+                        logoHtml +
+                        '<span class="initials" style="' + (company.logo_url ? 'display:none' : '') + '">' + escapeHtml(initials) + '</span>' +
+                    '</div>' +
+                    '<div class="profile-info">' +
+                        '<h3>' + escapeHtml(company.name || 'Unknown') + '</h3>' +
+                        industryBadge +
+                        '<p class="description">' + escapeHtml(desc.substring(0, 300)) + (desc.length > 300 ? '...' : '') + '</p>' +
+                        '<div class="profile-meta">' +
+                            metaItem('Employees', formatEmployees(company.employee_count)) +
+                            metaItem('Founded', company.founded || 'N/A') +
+                            metaItem('Headquarters', company.headquarters || 'N/A') +
+                            metaItem('Status', company.is_public ? 'Public (' + (company.stock_ticker || '?') + ')' : 'Private') +
+                            (company.glassdoor_rating ? metaItem('Glassdoor', company.glassdoor_rating + '/5.0') : '') +
+                            (company.domain ? metaItem('Domain', company.domain) : '') +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        }
+
+        function metaItem(label, value) {
+            return '<div class="meta-item"><div class="meta-label">' + escapeHtml(label) + '</div><div class="meta-value">' + escapeHtml(String(value)) + '</div></div>';
+        }
+
+        function renderComparison(matrix) {
+            var el = document.getElementById('comparisonContent');
+            if (!matrix || matrix.length === 0) {
+                el.innerHTML = '<p style="color:var(--text-muted);font-size:0.875rem;">No comparison data available.</p>';
+                return;
+            }
+
+            var html = '<table class="comparison-table" role="table" aria-label="Competitor comparison">' +
+                '<thead><tr>' +
+                '<th scope="col">Company</th>' +
+                '<th scope="col">Industry</th>' +
+                '<th scope="col">Employees</th>' +
+                '<th scope="col">Status</th>' +
+                '<th scope="col">Headquarters</th>' +
+                '<th scope="col">Glassdoor</th>' +
+                '</tr></thead><tbody>';
+
+            matrix.forEach(function(row) {
+                var isPrimary = row.is_primary;
+                var rowClass = isPrimary ? ' class="primary-row"' : '';
+                var logoHtml = '';
+                if (row.logo_url) {
+                    logoHtml = '<img src="' + escapeHtml(row.logo_url) + '" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'block\'">';
+                }
+                var initials = getInitials(row.name || '');
+                var statusBadge = row.is_public
+                    ? '<span class="badge-public">Public' + (row.stock_ticker ? ' (' + escapeHtml(row.stock_ticker) + ')' : '') + '</span>'
+                    : '<span class="badge-private">Private</span>';
+
+                html += '<tr' + rowClass + '>' +
+                    '<td><div class="company-cell"><div class="mini-logo">' +
+                    logoHtml +
+                    '<span class="mini-initials" style="' + (row.logo_url ? 'display:none' : '') + '">' + escapeHtml(initials) + '</span>' +
+                    '</div><span>' + escapeHtml(row.name || '') + '</span></div></td>' +
+                    '<td>' + escapeHtml(row.industry || 'N/A') + '</td>' +
+                    '<td>' + escapeHtml(row.employee_count || 'N/A') + '</td>' +
+                    '<td>' + statusBadge + '</td>' +
+                    '<td>' + escapeHtml(row.headquarters || 'N/A') + '</td>' +
+                    '<td>' + escapeHtml(String(row.glassdoor_rating || '-')) + '</td>' +
+                    '</tr>';
+            });
+
+            html += '</tbody></table>';
+            el.innerHTML = html;
+        }
+
+        function renderHiring(hiring) {
+            var el = document.getElementById('hiringContent');
+            var titleEl = document.getElementById('hiringTitle');
+
+            var difficulty = hiring.hiring_difficulty || 'moderate';
+            var diffClass = 'difficulty-' + difficulty;
+            titleEl.innerHTML = 'Hiring Activity <span class="difficulty-badge ' + diffClass + '">' +
+                escapeHtml(difficulty.charAt(0).toUpperCase() + difficulty.slice(1)) + ' Competition</span>';
+
+            var html = '';
+
+            // Show competitor hiring intelligence if available
+            var compHiring = hiring.competitors_hiring || [];
+            if (compHiring.length > 0) {
+                html += '<div class="bar-chart">';
+                compHiring.forEach(function(comp) {
+                    var name = comp.competitor || comp.name || 'Unknown';
+                    var strength = comp.employer_brand_strength || comp.brand_strength || 'moderate';
+                    var channels = comp.hiring_channels || comp.channels || 'N/A';
+                    var threat = comp.threat_level || 'moderate';
+                    var barWidth = threat === 'high' ? 85 : (threat === 'moderate' ? 55 : 30);
+                    var fillClass = 'threat-' + threat;
+
+                    html += '<div class="bar-item">' +
+                        '<div class="bar-label"><span class="name">' + escapeHtml(name) + '</span>' +
+                        '<span class="value">' + escapeHtml(strength) + ' brand</span></div>' +
+                        '<div class="bar-track"><div class="bar-fill ' + fillClass + '" style="width:' + barWidth + '%"></div></div>' +
+                        '</div>';
+                });
+                html += '</div>';
+            }
+
+            // Show industry competitors
+            var indComps = hiring.industry_competitors || [];
+            if (indComps.length > 0) {
+                html += '<div style="margin-top:1.5rem;"><h4 style="font-size:0.9375rem;font-weight:600;color:var(--text);margin-bottom:0.75rem;">Industry Competitors</h4>';
+                html += '<div class="bar-chart">';
+                indComps.forEach(function(cat) {
+                    if (!cat.competitors || !Array.isArray(cat.competitors)) return;
+                    var threat = cat.threat || 'moderate';
+                    var barWidth = threat === 'high' ? 85 : (threat === 'critical' ? 95 : (threat === 'moderate' ? 55 : 30));
+                    var fillClass = threat === 'critical' ? 'threat-high' : ('threat-' + threat);
+
+                    html += '<div class="bar-item">' +
+                        '<div class="bar-label"><span class="name">' + escapeHtml(cat.category || '') + '</span>' +
+                        '<span class="value">' + escapeHtml(threat) + ' threat</span></div>' +
+                        '<div class="bar-track"><div class="bar-fill ' + fillClass + '" style="width:' + barWidth + '%"></div></div>' +
+                        '</div>';
+                });
+                html += '</div></div>';
+            }
+
+            if (!html) {
+                html = '<p style="color:var(--text-muted);font-size:0.875rem;">No hiring activity data available.</p>';
+            }
+
+            el.innerHTML = html;
+        }
+
+        function renderBenchmarks(benchmarks) {
+            var el = document.getElementById('benchmarkContent');
+            var platforms = benchmarks.platforms || {};
+            var keys = Object.keys(platforms);
+
+            if (keys.length === 0) {
+                el.innerHTML = '<p style="color:var(--text-muted);font-size:0.875rem;">No benchmark data available.</p>';
+                return;
+            }
+
+            var html = '<table class="benchmark-table" role="table" aria-label="Ad platform benchmarks">' +
+                '<thead><tr>' +
+                '<th scope="col">Platform</th>' +
+                '<th scope="col">CPC</th>' +
+                '<th scope="col">CPA</th>' +
+                '<th scope="col">CTR</th>' +
+                '<th scope="col">Trend</th>' +
+                '</tr></thead><tbody>';
+
+            keys.forEach(function(key) {
+                var p = platforms[key];
+                var cpc = p.cpc || 0;
+                var cpcClass = cpc < 1.5 ? 'cpc-low' : (cpc < 4 ? 'cpc-mid' : 'cpc-high');
+                var trendDir = (p.trend_direction || 'stable').toLowerCase();
+                var trendClass = trendDir === 'rising' ? 'trend-rising' : (trendDir === 'declining' ? 'trend-declining' : 'trend-stable');
+                var trendArrow = trendDir === 'rising' ? '&#9650;' : (trendDir === 'declining' ? '&#9660;' : '&#8212;');
+
+                html += '<tr>' +
+                    '<td><strong>' + escapeHtml(p.name || key) + '</strong></td>' +
+                    '<td class="' + cpcClass + '">$' + cpc.toFixed(2) + '</td>' +
+                    '<td>$' + (p.cpa || 0).toFixed(2) + '</td>' +
+                    '<td>' + (p.ctr != null ? p.ctr.toFixed(1) + '%' : 'N/A') + '</td>' +
+                    '<td><span class="trend-badge ' + trendClass + '">' + trendArrow + ' ' + escapeHtml(trendDir) + '</span></td>' +
+                    '</tr>';
+            });
+
+            html += '</tbody></table>';
+
+            if (benchmarks.industry_label) {
+                html += '<p style="margin-top:0.75rem;font-size:0.75rem;color:var(--text-muted);">Industry: ' + escapeHtml(benchmarks.industry_label) + '</p>';
+            }
+
+            el.innerHTML = html;
+        }
+
+        function renderTrends(trends) {
+            var el = document.getElementById('trendsContent');
+            var companies = trends.companies || {};
+            var keys = Object.keys(companies);
+
+            if (keys.length === 0) {
+                el.innerHTML = '<p style="color:var(--text-muted);font-size:0.875rem;">No trend data available.</p>';
+                return;
+            }
+
+            var maxInterest = trends.max_interest || 100;
+            var html = '';
+
+            keys.forEach(function(name) {
+                var data = companies[name];
+                var avg = data.avg_interest || 0;
+                var latest = data.latest_interest || avg;
+                var trend = (data.trend || 'stable').toLowerCase();
+                var isPrimary = data.is_primary;
+                var fillPct = Math.max(3, (avg / maxInterest) * 100);
+                var nameClass = isPrimary ? 'sparkline-name primary-name' : 'sparkline-name';
+                var fillClass = isPrimary ? 'sparkline-fill fill-primary' : 'sparkline-fill fill-secondary';
+                var trendClass = trend === 'rising' ? 'trend-rising' : (trend === 'declining' ? 'trend-declining' : 'trend-stable');
+                var trendArrow = trend === 'rising' ? '&#9650;' : (trend === 'declining' ? '&#9660;' : '&#8212;');
+
+                html += '<div class="sparkline-row">' +
+                    '<span class="' + nameClass + '" title="' + escapeHtml(name) + '">' + escapeHtml(name) + '</span>' +
+                    '<div class="sparkline-bar-wrapper"><div class="' + fillClass + '" style="width:' + fillPct + '%"></div></div>' +
+                    '<span class="sparkline-value">' + avg + '</span>' +
+                    '<span class="sparkline-trend"><span class="trend-badge ' + trendClass + '">' + trendArrow + '</span></span>' +
+                    '</div>';
+            });
+
+            if (trends.source) {
+                html += '<p style="margin-top:0.75rem;font-size:0.75rem;color:var(--text-muted);">Source: ' + escapeHtml(trends.source) + '</p>';
+            }
+
+            el.innerHTML = html;
+        }
+
+        function renderRecommendations(recs) {
+            var el = document.getElementById('recsContent');
+            if (!recs || recs.length === 0) {
+                el.innerHTML = '<p style="color:var(--text-muted);font-size:0.875rem;">No recommendations generated.</p>';
+                return;
+            }
+
+            var html = '';
+            recs.forEach(function(rec) {
+                var priority = rec.priority || 'medium';
+                var priClass = 'priority-' + priority;
+
+                html += '<div class="rec-card">' +
+                    '<div class="rec-header">' +
+                    '<span class="priority-badge ' + priClass + '">' + escapeHtml(priority) + '</span>' +
+                    '<span class="rec-title">' + escapeHtml(rec.title || '') + '</span>' +
+                    '</div>' +
+                    '<p class="rec-desc">' + escapeHtml(rec.description || '') + '</p>' +
+                    '</div>';
+            });
+
+            el.innerHTML = html;
+        }
+
+        // ── Download Handlers ──
+        downloadExcel.addEventListener('click', function() {
+            if (!analysisData) return;
+            downloadReport('excel');
+        });
+
+        downloadPpt.addEventListener('click', function() {
+            if (!analysisData) return;
+            downloadReport('ppt');
+        });
+
+        async function downloadReport(format) {
+            var btn = format === 'excel' ? downloadExcel : downloadPpt;
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+
+            try {
+                var response = await fetch('/api/competitive/download/' + format, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(analysisData),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Download failed (HTTP ' + response.status + ')');
+                }
+
+                var blob = await response.blob();
+                var companyName = (analysisData.company_name || 'company').replace(/[^a-zA-Z0-9]/g, '_');
+                var ext = format === 'excel' ? '.xlsx' : '.pptx';
+                var filename = 'Competitive_Intel_' + companyName + ext;
+
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(function() {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+            } catch (err) {
+                showError('Download failed: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = format === 'excel'
+                    ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>Download Excel'
+                    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>Download PowerPoint';
+            }
+        }
+
+        // ── Helpers ──
+        function showError(msg) {
+            errorBanner.textContent = msg;
+            errorBanner.classList.add('visible');
+        }
+
+        function hideError() {
+            errorBanner.textContent = '';
+            errorBanner.classList.remove('visible');
+        }
+
+        function escapeHtml(str) {
+            if (typeof str !== 'string') return String(str);
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function getInitials(name) {
+            if (!name) return '?';
+            var words = name.trim().split(/\s+/);
+            return (words[0][0] + (words.length > 1 ? words[words.length - 1][0] : '')).toUpperCase();
+        }
+
+        function formatEmployees(count) {
+            if (count == null) return 'N/A';
+            if (typeof count === 'string') return count;
+            var n = parseInt(count);
+            if (isNaN(n)) return String(count);
+            if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+            if (n >= 1000) return Math.round(n / 1000) + 'K+';
+            return String(n);
+        }
+
+    })();
+    </script>
+</body>
+</html>

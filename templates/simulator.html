@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Multi-Scenario Budget Simulator for recruitment advertising. Adjust channel budgets and see projected outcomes in real-time.">
+    <meta name="theme-color" content="#0a0a0f">
+    <title>Budget Simulator | Nova by Joveo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='6' y='24' font-size='22'>⚡</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ═══════════════════════════════════════════════════════════════════
+           DESIGN SYSTEM: Deep Obsidian + Electric Indigo
+           ═══════════════════════════════════════════════════════════════════ */
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #0f0f19;
+            --bg-card: rgba(15, 15, 25, 0.8);
+            --bg-card-hover: rgba(20, 20, 35, 0.9);
+            --bg-input: rgba(20, 20, 35, 0.6);
+            --bg-slider-track: rgba(99, 102, 241, 0.15);
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --accent-dim: rgba(99, 102, 241, 0.3);
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --text-bright: #f8fafc;
+            --green: #22c55e;
+            --green-bg: rgba(34, 197, 94, 0.1);
+            --green-border: rgba(34, 197, 94, 0.3);
+            --red: #ef4444;
+            --red-bg: rgba(239, 68, 68, 0.1);
+            --red-border: rgba(239, 68, 68, 0.3);
+            --amber: #f59e0b;
+            --amber-bg: rgba(245, 158, 11, 0.1);
+            --border: rgba(99, 102, 241, 0.12);
+            --border-strong: rgba(99, 102, 241, 0.25);
+            --blur: 20px;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.1);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Background gradient mesh */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse 600px 400px at 20% 10%, rgba(99, 102, 241, 0.06), transparent),
+                radial-gradient(ellipse 500px 300px at 80% 80%, rgba(99, 102, 241, 0.04), transparent);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── Typography ── */
+        h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; }
+        h2 { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; }
+        h3 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
+
+        /* ── Layout ── */
+        .simulator-header {
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            background: rgba(10, 10, 15, 0.95);
+            backdrop-filter: blur(var(--blur));
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-left .logo {
+            width: 32px; height: 32px;
+            background: var(--accent);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+        }
+
+        .header-right a {
+            color: var(--accent-light);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            opacity: 0.8;
+            transition: var(--transition);
+        }
+        .header-right a:hover { opacity: 1; }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr 340px;
+            gap: 0;
+            min-height: calc(100vh - 57px);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── Panels ── */
+        .panel {
+            padding: 20px;
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            max-height: calc(100vh - 57px);
+        }
+        .panel:last-child { border-right: none; }
+
+        .panel-section {
+            margin-bottom: 20px;
+        }
+
+        .panel-section h3 {
+            margin-bottom: 10px;
+            font-size: 0.7rem;
+        }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            backdrop-filter: blur(var(--blur));
+            padding: 16px;
+            transition: var(--transition);
+        }
+        .card:hover {
+            border-color: var(--border-strong);
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* ── Form Inputs ── */
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            outline: none;
+        }
+        .form-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-dim);
+        }
+        .form-input::placeholder { color: var(--text-muted); }
+
+        select.form-input {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 30px;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 16px;
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--accent-light);
+            box-shadow: 0 0 20px var(--accent-dim);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--accent-light);
+            border: 1px solid var(--border-strong);
+        }
+        .btn-secondary:hover {
+            background: var(--accent-glow);
+            border-color: var(--accent);
+        }
+
+        .btn-success {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--green);
+            border: 1px solid var(--green-border);
+        }
+        .btn-success:hover {
+            background: rgba(34, 197, 94, 0.25);
+        }
+
+        .btn-block { width: 100%; }
+
+        .btn-sm {
+            padding: 6px 10px;
+            font-size: 0.7rem;
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* ── Channel Sliders ── */
+        .slider-sum-indicator {
+            text-align: center;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            transition: var(--transition);
+        }
+        .slider-sum-indicator.valid {
+            background: var(--green-bg);
+            border: 1px solid var(--green-border);
+            color: var(--green);
+        }
+        .slider-sum-indicator.invalid {
+            background: var(--red-bg);
+            border: 1px solid var(--red-border);
+            color: var(--red);
+        }
+
+        .channel-slider {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 4px;
+            transition: var(--transition);
+            background: transparent;
+        }
+        .channel-slider:hover {
+            background: var(--bg-card);
+        }
+
+        .channel-icon {
+            font-size: 1rem;
+            width: 24px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .channel-name {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 0 0 80px;
+        }
+
+        .slider-track-wrap {
+            flex: 1;
+            min-width: 0;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--bg-slider-track);
+            outline: none;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 2px solid var(--bg-primary);
+            box-shadow: 0 0 8px var(--accent-dim);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 14px var(--accent-dim);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 2px solid var(--bg-primary);
+            cursor: pointer;
+        }
+
+        .slider-pct {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--accent-light);
+            min-width: 38px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .lock-toggle {
+            width: 18px; height: 18px;
+            flex-shrink: 0;
+            cursor: pointer;
+            opacity: 0.4;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+        }
+        .lock-toggle.locked {
+            opacity: 1;
+            color: var(--amber);
+        }
+        .lock-toggle input { display: none; }
+
+        /* ── Metric Cards ── */
+        .metric-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+            text-align: center;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: var(--transition);
+        }
+        .metric-card:hover::before { opacity: 1; }
+
+        .metric-value {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--text-bright);
+            font-variant-numeric: tabular-nums;
+            transition: var(--transition);
+            min-height: 1.6em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .metric-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-top: 4px;
+        }
+
+        .metric-card.loading .metric-value {
+            color: transparent;
+        }
+        .metric-card.loading .metric-value::after {
+            content: '';
+            position: absolute;
+            width: 20px; height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ── Per-Channel Table ── */
+        .channel-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.72rem;
+        }
+        .channel-table th {
+            text-align: left;
+            padding: 6px 8px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-size: 0.65rem;
+            border-bottom: 1px solid var(--border-strong);
+        }
+        .channel-table td {
+            padding: 5px 8px;
+            border-bottom: 1px solid var(--border);
+            font-variant-numeric: tabular-nums;
+            transition: var(--transition);
+        }
+        .channel-table tr:hover td {
+            background: var(--bg-card);
+        }
+
+        /* ── Spend Distribution Bar Chart (CSS-only) ── */
+        .spend-bars {
+            margin-top: 12px;
+        }
+        .spend-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .spend-bar-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            min-width: 70px;
+            text-align: right;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .spend-bar-track {
+            flex: 1;
+            height: 14px;
+            background: var(--bg-slider-track);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .spend-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-light));
+            border-radius: 3px;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 2px;
+        }
+        .spend-bar-value {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            min-width: 48px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ── Scenario Comparison Section ── */
+        .scenarios-section {
+            border-top: 1px solid var(--border);
+            background: rgba(10, 10, 15, 0.6);
+            padding: 20px 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .scenarios-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .scenarios-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .scenario-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            transition: var(--transition);
+        }
+        .scenario-card:hover {
+            border-color: var(--accent);
+        }
+        .scenario-card.best {
+            border-color: var(--green-border);
+            background: rgba(34, 197, 94, 0.03);
+        }
+        .scenario-card.worst {
+            border-color: var(--red-border);
+        }
+
+        .scenario-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .scenario-card-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .scenario-badge {
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        .scenario-badge.best-badge {
+            background: var(--green-bg);
+            color: var(--green);
+            border: 1px solid var(--green-border);
+        }
+
+        .scenario-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .scenario-metric {
+            text-align: center;
+            padding: 6px 4px;
+        }
+        .scenario-metric-value {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-bright);
+        }
+        .scenario-metric-value.is-best {
+            color: var(--green);
+        }
+        .scenario-metric-value.is-worst {
+            color: var(--red);
+        }
+        .scenario-metric-label {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .scenario-delete {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.8rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: var(--transition);
+        }
+        .scenario-delete:hover {
+            color: var(--red);
+            background: var(--red-bg);
+        }
+
+        .export-section {
+            margin-top: 16px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* ── Empty state ── */
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 250px 1fr 300px;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            .panel {
+                max-height: none;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+            .metric-grid {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .simulator-header { padding: 12px 16px; }
+            .panel { padding: 16px; }
+            .metric-grid { grid-template-columns: 1fr 1fr; }
+            h1 { font-size: 1.1rem; }
+        }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        /* ── Animation classes ── */
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .value-changed {
+            animation: valuePulse 0.4s ease-out;
+        }
+        @keyframes valuePulse {
+            0% { color: var(--accent); transform: scale(1.1); }
+            100% { color: var(--text-bright); transform: scale(1); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        :focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+        }
+        button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ═══ HEADER ═══ -->
+    <header class="simulator-header">
+        <div class="header-left">
+            <div class="logo">&#9889;</div>
+            <h1>Budget Simulator</h1>
+        </div>
+        <div class="header-right">
+            <a href="/">Back to Media Planner</a>
+        </div>
+    </header>
+
+    <!-- ═══ MAIN 3-COLUMN GRID ═══ -->
+    <div class="main-grid">
+
+        <!-- ── LEFT PANEL: Configuration ── -->
+        <div class="panel" id="config-panel">
+            <div class="panel-section">
+                <h3>Configuration</h3>
+
+                <div class="form-group">
+                    <label for="total-budget">Total Budget</label>
+                    <input type="text" id="total-budget" class="form-input" placeholder="$100,000" value="$100,000">
+                </div>
+
+                <div class="form-group">
+                    <label for="industry">Industry</label>
+                    <select id="industry" class="form-input">
+                        <option value="Technology">Technology</option>
+                        <option value="Healthcare">Healthcare</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Manufacturing">Manufacturing</option>
+                        <option value="Retail">Retail</option>
+                        <option value="Transportation">Transportation</option>
+                        <option value="Hospitality">Hospitality</option>
+                        <option value="Construction">Construction</option>
+                        <option value="Government">Government</option>
+                        <option value="Education">Education</option>
+                        <option value="Energy">Energy</option>
+                        <option value="Agriculture">Agriculture</option>
+                        <option value="Telecommunications">Telecommunications</option>
+                        <option value="Media">Media</option>
+                        <option value="Real Estate">Real Estate</option>
+                        <option value="Logistics">Logistics</option>
+                        <option value="Nonprofit">Nonprofit</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="roles">Roles</label>
+                    <input type="text" id="roles" class="form-input" placeholder="e.g., Software Engineer">
+                </div>
+
+                <div class="form-group">
+                    <label for="locations">Location</label>
+                    <input type="text" id="locations" class="form-input" placeholder="e.g., San Francisco, CA">
+                </div>
+
+                <div class="form-group">
+                    <label for="opt-goal">Optimization Goal</label>
+                    <select id="opt-goal" class="form-input">
+                        <option value="balanced">Balanced</option>
+                        <option value="minimize_cpa">Minimize CPA</option>
+                        <option value="maximize_hires">Maximize Hires</option>
+                        <option value="maximize_applies">Maximize Applies</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-primary btn-block" id="btn-load-defaults" style="margin-top:10px;">
+                    Load Defaults
+                </button>
+            </div>
+        </div>
+
+        <!-- ── CENTER PANEL: Channel Sliders ── -->
+        <div class="panel" id="sliders-panel">
+            <div class="panel-section">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <h3>Channel Allocation</h3>
+                    <div style="display:flex;gap:6px;">
+                        <button class="btn btn-primary btn-sm" id="btn-auto-optimize">Auto-Optimize</button>
+                        <button class="btn btn-secondary btn-sm" id="btn-reset-defaults">Reset</button>
+                    </div>
+                </div>
+
+                <div class="slider-sum-indicator valid" id="slider-sum">
+                    Total: 100.0%
+                </div>
+
+                <div id="channel-sliders-container">
+                    <!-- Dynamically generated -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ── RIGHT PANEL: Projected Outcomes ── -->
+        <div class="panel" id="outcomes-panel">
+            <div class="panel-section">
+                <h3>Projected Outcomes</h3>
+
+                <div class="metric-grid" id="metric-cards">
+                    <div class="metric-card" id="mc-clicks">
+                        <div class="metric-value" id="mv-clicks">0</div>
+                        <div class="metric-label">Total Clicks</div>
+                    </div>
+                    <div class="metric-card" id="mc-applies">
+                        <div class="metric-value" id="mv-applies">0</div>
+                        <div class="metric-label">Total Applies</div>
+                    </div>
+                    <div class="metric-card" id="mc-hires">
+                        <div class="metric-value" id="mv-hires">0</div>
+                        <div class="metric-label">Total Hires</div>
+                    </div>
+                    <div class="metric-card" id="mc-cpa">
+                        <div class="metric-value" id="mv-cpa">$0</div>
+                        <div class="metric-label">Blended CPA</div>
+                    </div>
+                    <div class="metric-card" id="mc-cpc">
+                        <div class="metric-value" id="mv-cpc">$0</div>
+                        <div class="metric-label">Blended CPC</div>
+                    </div>
+                    <div class="metric-card" id="mc-roi">
+                        <div class="metric-value" id="mv-roi">0/10</div>
+                        <div class="metric-label">ROI Score</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>Channel Breakdown</h3>
+                <div style="overflow-x:auto;">
+                    <table class="channel-table" id="channel-table">
+                        <thead>
+                            <tr>
+                                <th>Channel</th>
+                                <th>Spend</th>
+                                <th>Clicks</th>
+                                <th>Applies</th>
+                                <th>Hires</th>
+                                <th>CPA</th>
+                            </tr>
+                        </thead>
+                        <tbody id="channel-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>Spend Distribution</h3>
+                <div class="spend-bars" id="spend-bars-container">
+                    <!-- Dynamically generated -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ SCENARIO COMPARISON SECTION ═══ -->
+    <div class="scenarios-section" id="scenarios-section">
+        <div class="scenarios-header">
+            <h2>Scenario Comparison</h2>
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-success btn-sm" id="btn-save-scenario">
+                    Save as Scenario (0/3)
+                </button>
+                <button class="btn btn-secondary btn-sm" id="btn-export-winner" disabled>
+                    Export Winner
+                </button>
+            </div>
+        </div>
+        <div class="scenarios-grid" id="scenarios-grid">
+            <div class="empty-state">
+                No scenarios saved yet. Adjust sliders above and click "Save as Scenario" to compare up to 3 configurations side-by-side.
+            </div>
+        </div>
+        <div class="export-section" id="export-section" style="display:none;">
+        </div>
+    </div>
+
+<script>
+(function() {
+    'use strict';
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CHANNEL DEFINITIONS
+    // ═══════════════════════════════════════════════════════════════════
+    const CHANNELS = [
+        { key: 'programmatic_dsp', label: 'Programmatic & DSP', icon: '\uD83D\uDCE1' },
+        { key: 'job_boards', label: 'Job Boards', icon: '\uD83D\uDCCB' },
+        { key: 'paid_search', label: 'Paid Search / SEM', icon: '\uD83D\uDD0D' },
+        { key: 'paid_social', label: 'Paid Social', icon: '\uD83D\uDCF1' },
+        { key: 'linkedin', label: 'LinkedIn', icon: '\uD83D\uDCBC' },
+        { key: 'career_site_seo', label: 'Career Site & SEO', icon: '\uD83C\uDF10' },
+        { key: 'employee_referrals', label: 'Employee Referrals', icon: '\uD83E\uDD1D' },
+        { key: 'staffing_agency', label: 'Staffing Agency', icon: '\uD83C\uDFE2' },
+        { key: 'events_career_fairs', label: 'Events & Fairs', icon: '\uD83C\uDFAA' },
+        { key: 'niche_diversity_boards', label: 'Niche & Diversity', icon: '\uD83C\uDF08' },
+    ];
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════════
+    let allocations = {};    // { channel_key: pct }
+    let lockedChannels = {}; // { channel_key: bool }
+    let currentScenario = null;
+    let savedScenarios = []; // max 3
+    let debounceTimer = null;
+    let isSimulating = false;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // DOM REFS
+    // ═══════════════════════════════════════════════════════════════════
+    const $budgetInput = document.getElementById('total-budget');
+    const $industry = document.getElementById('industry');
+    const $roles = document.getElementById('roles');
+    const $locations = document.getElementById('locations');
+    const $optGoal = document.getElementById('opt-goal');
+    const $sliderSum = document.getElementById('slider-sum');
+    const $slidersContainer = document.getElementById('channel-sliders-container');
+    const $channelTableBody = document.getElementById('channel-table-body');
+    const $spendBars = document.getElementById('spend-bars-container');
+    const $scenariosGrid = document.getElementById('scenarios-grid');
+    const $btnSave = document.getElementById('btn-save-scenario');
+    const $btnExport = document.getElementById('btn-export-winner');
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BUDGET FORMATTING
+    // ═══════════════════════════════════════════════════════════════════
+    function parseBudgetString(str) {
+        if (!str) return 100000;
+        let clean = str.replace(/[^0-9.kmb]/gi, '');
+        let match = clean.match(/^([\d.]+)\s*([kmb])?$/i);
+        if (match) {
+            let num = parseFloat(match[1]);
+            let suffix = (match[2] || '').toLowerCase();
+            if (suffix === 'k') num *= 1000;
+            else if (suffix === 'm') num *= 1000000;
+            else if (suffix === 'b') num *= 1000000000;
+            return num;
+        }
+        let nums = str.replace(/[^0-9.]/g, '');
+        return parseFloat(nums) || 100000;
+    }
+
+    function formatBudgetDisplay(num) {
+        return '$' + Math.round(num).toLocaleString('en-US');
+    }
+
+    $budgetInput.addEventListener('focus', function() {
+        let val = parseBudgetString(this.value);
+        this.value = val;
+        this.select();
+    });
+
+    $budgetInput.addEventListener('blur', function() {
+        let val = parseBudgetString(this.value);
+        this.value = formatBudgetDisplay(val);
+        debouncedSimulate();
+    });
+
+    $budgetInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            this.blur();
+        }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BUILD SLIDERS
+    // ═══════════════════════════════════════════════════════════════════
+    function buildSliders() {
+        $slidersContainer.innerHTML = '';
+
+        CHANNELS.forEach(ch => {
+            let pct = allocations[ch.key] || 10;
+
+            let row = document.createElement('div');
+            row.className = 'channel-slider';
+            row.innerHTML =
+                '<span class="channel-icon">' + ch.icon + '</span>' +
+                '<span class="channel-name" title="' + ch.label + '">' + ch.label + '</span>' +
+                '<div class="slider-track-wrap">' +
+                    '<input type="range" min="0" max="60" step="0.5" value="' + pct + '" ' +
+                    'data-channel="' + ch.key + '" class="channel-range">' +
+                '</div>' +
+                '<span class="slider-pct" id="pct-' + ch.key + '">' + pct.toFixed(1) + '%</span>' +
+                '<label class="lock-toggle" title="Lock this channel">' +
+                    '<input type="checkbox" data-channel="' + ch.key + '" class="lock-checkbox">' +
+                    '<span class="lock-icon">\uD83D\uDD13</span>' +
+                '</label>';
+
+            $slidersContainer.appendChild(row);
+
+            // Slider input event
+            let slider = row.querySelector('.channel-range');
+            slider.addEventListener('input', function() {
+                let newVal = parseFloat(this.value);
+                handleSliderChange(ch.key, newVal);
+            });
+
+            // Lock toggle
+            let lockCb = row.querySelector('.lock-checkbox');
+            lockCb.checked = !!lockedChannels[ch.key];
+            if (lockCb.checked) {
+                row.querySelector('.lock-toggle').classList.add('locked');
+                row.querySelector('.lock-icon').textContent = '\uD83D\uDD12';
+            }
+
+            lockCb.addEventListener('change', function() {
+                lockedChannels[ch.key] = this.checked;
+                let toggle = this.closest('.lock-toggle');
+                let icon = toggle.querySelector('.lock-icon');
+                if (this.checked) {
+                    toggle.classList.add('locked');
+                    icon.textContent = '\uD83D\uDD12';
+                } else {
+                    toggle.classList.remove('locked');
+                    icon.textContent = '\uD83D\uDD13';
+                }
+            });
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SLIDER REDISTRIBUTION LOGIC
+    // ═══════════════════════════════════════════════════════════════════
+    function handleSliderChange(changedKey, newVal) {
+        let oldVal = allocations[changedKey] || 0;
+        let delta = newVal - oldVal;
+        allocations[changedKey] = newVal;
+
+        // Redistribute delta among unlocked channels (excluding the changed one)
+        let unlocked = CHANNELS.filter(c => c.key !== changedKey && !lockedChannels[c.key]);
+        if (unlocked.length > 0 && Math.abs(delta) > 0.01) {
+            let totalUnlocked = unlocked.reduce((s, c) => s + (allocations[c.key] || 0), 0);
+
+            if (totalUnlocked > 0) {
+                // Proportional redistribution
+                unlocked.forEach(c => {
+                    let share = (allocations[c.key] || 0) / totalUnlocked;
+                    let adjustment = -delta * share;
+                    allocations[c.key] = Math.max(0, Math.min(60, (allocations[c.key] || 0) + adjustment));
+                });
+            } else {
+                // Equal redistribution if all unlocked are 0
+                let each = -delta / unlocked.length;
+                unlocked.forEach(c => {
+                    allocations[c.key] = Math.max(0, Math.min(60, (allocations[c.key] || 0) + each));
+                });
+            }
+        }
+
+        updateSliderUI();
+        debouncedSimulate();
+    }
+
+    function updateSliderUI() {
+        let sum = 0;
+        CHANNELS.forEach(ch => {
+            let val = allocations[ch.key] || 0;
+            sum += val;
+            let pctEl = document.getElementById('pct-' + ch.key);
+            if (pctEl) pctEl.textContent = val.toFixed(1) + '%';
+            let slider = document.querySelector('input.channel-range[data-channel="' + ch.key + '"]');
+            if (slider) slider.value = val;
+        });
+
+        $sliderSum.textContent = 'Total: ' + sum.toFixed(1) + '%';
+        if (Math.abs(sum - 100) < 0.5) {
+            $sliderSum.className = 'slider-sum-indicator valid';
+        } else {
+            $sliderSum.className = 'slider-sum-indicator invalid';
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // API CALLS
+    // ═══════════════════════════════════════════════════════════════════
+    function getConfig() {
+        return {
+            total_budget: parseBudgetString($budgetInput.value),
+            industry: $industry.value,
+            roles: $roles.value,
+            locations: $locations.value,
+        };
+    }
+
+    async function apiCall(endpoint, body) {
+        try {
+            let resp = await fetch('/api/simulator/' + endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (!resp.ok) {
+                console.error('API error:', resp.status);
+                return null;
+            }
+            return await resp.json();
+        } catch (err) {
+            console.error('API call failed:', err);
+            return null;
+        }
+    }
+
+    function debouncedSimulate() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => runSimulation(), 300);
+    }
+
+    async function runSimulation() {
+        if (isSimulating) return;
+        isSimulating = true;
+
+        // Show loading state
+        setMetricsLoading(true);
+
+        let config = getConfig();
+        let body = {
+            channel_allocations: { ...allocations },
+            total_budget: config.total_budget,
+            industry: config.industry,
+            roles: config.roles,
+            locations: config.locations,
+        };
+
+        let result = await apiCall('simulate', body);
+
+        if (result && result.summary) {
+            currentScenario = result;
+            updateMetrics(result.summary);
+            updateChannelTable(result.channels);
+            updateSpendBars(result.channels);
+        }
+
+        setMetricsLoading(false);
+        isSimulating = false;
+    }
+
+    async function loadDefaults() {
+        let config = getConfig();
+        let result = await apiCall('defaults', config);
+
+        if (result && result.channel_allocations) {
+            allocations = result.channel_allocations;
+            updateSliderUI();
+            runSimulation();
+        }
+    }
+
+    async function autoOptimize() {
+        let config = getConfig();
+        let body = {
+            total_budget: config.total_budget,
+            goal: $optGoal.value,
+            industry: config.industry,
+            roles: config.roles,
+            locations: config.locations,
+        };
+
+        let result = await apiCall('optimize', body);
+
+        if (result && result.channel_allocations) {
+            // Animate sliders to new values
+            let targetAllocs = result.channel_allocations;
+            animateSliders(targetAllocs);
+        }
+    }
+
+    function animateSliders(targetAllocs) {
+        let startAllocs = { ...allocations };
+        let startTime = performance.now();
+        let duration = 600;
+
+        function step(now) {
+            let progress = Math.min((now - startTime) / duration, 1);
+            let eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+
+            CHANNELS.forEach(ch => {
+                let start = startAllocs[ch.key] || 0;
+                let target = targetAllocs[ch.key] || 0;
+                allocations[ch.key] = start + (target - start) * eased;
+            });
+
+            updateSliderUI();
+
+            if (progress < 1) {
+                requestAnimationFrame(step);
+            } else {
+                // Snap to exact values
+                CHANNELS.forEach(ch => {
+                    allocations[ch.key] = targetAllocs[ch.key] || 0;
+                });
+                updateSliderUI();
+                debouncedSimulate();
+            }
+        }
+
+        requestAnimationFrame(step);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // UI UPDATES
+    // ═══════════════════════════════════════════════════════════════════
+    function setMetricsLoading(loading) {
+        let cards = document.querySelectorAll('.metric-card');
+        cards.forEach(c => {
+            if (loading) c.classList.add('loading');
+            else c.classList.remove('loading');
+        });
+    }
+
+    function updateMetricValue(id, value) {
+        let el = document.getElementById(id);
+        if (!el) return;
+        if (el.textContent !== value) {
+            el.textContent = value;
+            el.classList.remove('value-changed');
+            void el.offsetWidth; // force reflow
+            el.classList.add('value-changed');
+        }
+    }
+
+    function updateMetrics(summary) {
+        updateMetricValue('mv-clicks', (summary.total_clicks || 0).toLocaleString());
+        updateMetricValue('mv-applies', (summary.total_applies || 0).toLocaleString());
+        updateMetricValue('mv-hires', (summary.total_hires || 0).toLocaleString());
+        updateMetricValue('mv-cpa', '$' + (summary.blended_cpa || 0).toFixed(2));
+        updateMetricValue('mv-cpc', '$' + (summary.blended_cpc || 0).toFixed(2));
+        updateMetricValue('mv-roi', (summary.roi_score || 0) + '/10');
+    }
+
+    function updateChannelTable(channels) {
+        let html = '';
+        CHANNELS.forEach(ch => {
+            let d = channels[ch.key] || {};
+            html +=
+                '<tr>' +
+                '<td>' + (d.label || ch.label) + '</td>' +
+                '<td>$' + ((d.dollar_amount || 0)).toLocaleString('en-US', {maximumFractionDigits:0}) + '</td>' +
+                '<td>' + (d.projected_clicks || 0).toLocaleString() + '</td>' +
+                '<td>' + (d.projected_applies || 0).toLocaleString() + '</td>' +
+                '<td>' + (d.projected_hires || 0).toLocaleString() + '</td>' +
+                '<td>$' + (d.cpa || 0).toFixed(2) + '</td>' +
+                '</tr>';
+        });
+        $channelTableBody.innerHTML = html;
+    }
+
+    function updateSpendBars(channels) {
+        let maxDollars = 0;
+        CHANNELS.forEach(ch => {
+            let d = channels[ch.key] || {};
+            maxDollars = Math.max(maxDollars, d.dollar_amount || 0);
+        });
+
+        let html = '';
+        CHANNELS.forEach(ch => {
+            let d = channels[ch.key] || {};
+            let dollars = d.dollar_amount || 0;
+            let pct = maxDollars > 0 ? (dollars / maxDollars * 100) : 0;
+            html +=
+                '<div class="spend-bar-row">' +
+                '<span class="spend-bar-label">' + ch.label + '</span>' +
+                '<div class="spend-bar-track">' +
+                    '<div class="spend-bar-fill" style="width:' + pct + '%"></div>' +
+                '</div>' +
+                '<span class="spend-bar-value">$' + dollars.toLocaleString('en-US', {maximumFractionDigits:0}) + '</span>' +
+                '</div>';
+        });
+        $spendBars.innerHTML = html;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SCENARIO MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════
+    function saveScenario() {
+        if (savedScenarios.length >= 3) {
+            alert('Maximum 3 scenarios. Delete one to save a new one.');
+            return;
+        }
+        if (!currentScenario) {
+            alert('Run a simulation first.');
+            return;
+        }
+
+        // Deep copy
+        let sc = JSON.parse(JSON.stringify(currentScenario));
+        sc._allocations = { ...allocations };
+        sc._label = 'Scenario ' + (savedScenarios.length + 1);
+        sc._config = getConfig();
+        savedScenarios.push(sc);
+
+        updateScenarioCards();
+    }
+
+    function deleteScenario(idx) {
+        savedScenarios.splice(idx, 1);
+        // Re-label
+        savedScenarios.forEach((sc, i) => { sc._label = 'Scenario ' + (i + 1); });
+        updateScenarioCards();
+    }
+
+    function loadScenarioIntoSliders(idx) {
+        let sc = savedScenarios[idx];
+        if (!sc || !sc._allocations) return;
+        allocations = { ...sc._allocations };
+        if (sc._config) {
+            $budgetInput.value = formatBudgetDisplay(sc._config.total_budget);
+            $industry.value = sc._config.industry || 'Technology';
+            $roles.value = sc._config.roles || '';
+            $locations.value = sc._config.locations || '';
+        }
+        updateSliderUI();
+        runSimulation();
+    }
+
+    function updateScenarioCards() {
+        $btnSave.textContent = 'Save as Scenario (' + savedScenarios.length + '/3)';
+        $btnSave.disabled = savedScenarios.length >= 3;
+        $btnExport.disabled = savedScenarios.length === 0;
+
+        if (savedScenarios.length === 0) {
+            $scenariosGrid.innerHTML =
+                '<div class="empty-state">' +
+                'No scenarios saved yet. Adjust sliders above and click "Save as Scenario" to compare up to 3 configurations side-by-side.' +
+                '</div>';
+            document.getElementById('export-section').style.display = 'none';
+            return;
+        }
+
+        // Find best scenario (max hires, then min CPA)
+        let bestIdx = 0;
+        let bestScore = -Infinity;
+        savedScenarios.forEach((sc, i) => {
+            let s = sc.summary || {};
+            let score = (s.total_hires || 0) * 100 - (s.blended_cpa || 0);
+            if (score > bestScore) { bestScore = score; bestIdx = i; }
+        });
+
+        // Find best/worst per metric
+        let metricsBW = {};
+        ['total_hires', 'total_applies', 'blended_cpa', 'blended_cpc', 'roi_score'].forEach(key => {
+            let vals = savedScenarios.map(sc => (sc.summary || {})[key] || 0);
+            let lowerBetter = (key === 'blended_cpa' || key === 'blended_cpc');
+            let nonZero = vals.filter(v => v > 0);
+            if (nonZero.length === 0) nonZero = vals;
+            metricsBW[key] = {
+                best: lowerBetter ? vals.indexOf(Math.min(...nonZero)) : vals.indexOf(Math.max(...vals)),
+                worst: lowerBetter ? vals.indexOf(Math.max(...vals)) : vals.indexOf(Math.min(...nonZero)),
+            };
+        });
+
+        let html = '';
+        savedScenarios.forEach((sc, i) => {
+            let s = sc.summary || {};
+            let isBest = (i === bestIdx) && savedScenarios.length > 1;
+            let cardClass = 'scenario-card fade-in' + (isBest ? ' best' : '');
+
+            html += '<div class="' + cardClass + '">';
+            html += '<div class="scenario-card-header">';
+            html += '<span class="scenario-card-title">' + sc._label + '</span>';
+            html += '<div style="display:flex;gap:4px;align-items:center;">';
+            if (isBest) {
+                html += '<span class="scenario-badge best-badge">BEST</span>';
+            }
+            html += '<button class="scenario-delete" onclick="window._deleteScenario(' + i + ')" title="Delete">x</button>';
+            html += '</div></div>';
+
+            let metricItems = [
+                { key: 'total_hires', label: 'Hires', fmt: function(v) { return v.toLocaleString(); } },
+                { key: 'total_applies', label: 'Applies', fmt: function(v) { return v.toLocaleString(); } },
+                { key: 'blended_cpa', label: 'CPA', fmt: function(v) { return '$' + v.toFixed(2); } },
+                { key: 'roi_score', label: 'ROI', fmt: function(v) { return v + '/10'; } },
+            ];
+
+            html += '<div class="scenario-metrics">';
+            metricItems.forEach(m => {
+                let val = s[m.key] || 0;
+                let bw = metricsBW[m.key] || {};
+                let cls = '';
+                if (savedScenarios.length > 1) {
+                    if (bw.best === i) cls = ' is-best';
+                    else if (bw.worst === i) cls = ' is-worst';
+                }
+                html += '<div class="scenario-metric">';
+                html += '<div class="scenario-metric-value' + cls + '">' + m.fmt(val) + '</div>';
+                html += '<div class="scenario-metric-label">' + m.label + '</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+
+            html += '<button class="btn btn-secondary btn-sm btn-block" style="margin-top:10px;" ' +
+                    'onclick="window._loadScenario(' + i + ')">Load into Sliders</button>';
+
+            html += '</div>';
+        });
+
+        $scenariosGrid.innerHTML = html;
+
+        // Show export section
+        if (savedScenarios.length >= 2) {
+            document.getElementById('export-section').style.display = 'flex';
+        }
+    }
+
+    // Expose to global for onclick handlers
+    window._deleteScenario = deleteScenario;
+    window._loadScenario = loadScenarioIntoSliders;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // EXPORT
+    // ═══════════════════════════════════════════════════════════════════
+    async function exportWinner() {
+        if (savedScenarios.length === 0) return;
+
+        let body = {
+            scenarios: savedScenarios.map(sc => ({
+                channels: sc.channels,
+                summary: sc.summary,
+                metadata: sc.metadata,
+            })),
+            client_name: 'Budget Simulator',
+        };
+
+        // Excel export
+        try {
+            let resp = await fetch('/api/simulator/export/excel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (resp.ok) {
+                let blob = await resp.blob();
+                let url = URL.createObjectURL(blob);
+                let a = document.createElement('a');
+                a.href = url;
+                a.download = 'budget_simulator_scenarios.xlsx';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        } catch (err) {
+            console.error('Excel export failed:', err);
+        }
+
+        // PPT export
+        try {
+            let resp = await fetch('/api/simulator/export/ppt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (resp.ok) {
+                let blob = await resp.blob();
+                let url = URL.createObjectURL(blob);
+                let a = document.createElement('a');
+                a.href = url;
+                a.download = 'budget_simulator_scenarios.pptx';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        } catch (err) {
+            console.error('PPT export failed:', err);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // EVENT BINDINGS
+    // ═══════════════════════════════════════════════════════════════════
+    document.getElementById('btn-load-defaults').addEventListener('click', loadDefaults);
+    document.getElementById('btn-auto-optimize').addEventListener('click', autoOptimize);
+    document.getElementById('btn-reset-defaults').addEventListener('click', loadDefaults);
+    $btnSave.addEventListener('click', saveScenario);
+    $btnExport.addEventListener('click', exportWinner);
+
+    // Re-simulate on config changes
+    $industry.addEventListener('change', debouncedSimulate);
+    $roles.addEventListener('blur', debouncedSimulate);
+    $locations.addEventListener('blur', debouncedSimulate);
+
+    // ═══════════════════════════════════════════════════════════════════
+    // INITIALIZATION
+    // ═══════════════════════════════════════════════════════════════════
+    function init() {
+        // Set default allocations (balanced)
+        CHANNELS.forEach(ch => {
+            allocations[ch.key] = 10;
+            lockedChannels[ch.key] = false;
+        });
+
+        buildSliders();
+        updateSliderUI();
+
+        // Load smart defaults on startup
+        loadDefaults();
+    }
+
+    init();
+
+})();
+</script>
+<footer style="text-align:center; padding:2rem 1rem; color:#64748B; font-size:0.8rem; border-top:1px solid rgba(99,102,241,0.1); margin-top:3rem;">
+    Powered by Joveo Nova AI &middot; Media Plan Generator
+</footer>
+</body>
+</html>

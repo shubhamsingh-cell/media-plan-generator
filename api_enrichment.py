@@ -129,11 +129,23 @@ CACHE_DIR = Path(__file__).resolve().parent / "data" / "api_cache"
 # Ensure cache directory exists at import time
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-# Create a permissive SSL context for API calls (some free APIs have
-# certificate issues on certain platforms). We still verify by default
-# but fall back to unverified if the first attempt fails.
+# SSL context for API calls. Verified by default; unverified context is
+# created lazily only when explicitly opted in via ALLOW_UNVERIFIED_SSL=1.
 _DEFAULT_SSL_CTX = ssl.create_default_context()
-_UNVERIFIED_SSL_CTX = ssl._create_unverified_context()
+_UNVERIFIED_SSL_CTX: Optional[ssl.SSLContext] = None  # lazily created
+
+
+def _get_unverified_ssl_ctx() -> ssl.SSLContext:
+    """Return (and lazily create) the unverified SSL context with a warning."""
+    global _UNVERIFIED_SSL_CTX
+    if _UNVERIFIED_SSL_CTX is None:
+        logger.warning(
+            "Creating unverified SSL context — SSL certificate verification "
+            "will be skipped for failing endpoints. This is a security risk; "
+            "set ALLOW_UNVERIFIED_SSL=0 or unset it to disable."
+        )
+        _UNVERIFIED_SSL_CTX = ssl._create_unverified_context()
+    return _UNVERIFIED_SSL_CTX
 
 # ---------------------------------------------------------------------------
 # SOC code mapping — BLS Standard Occupational Classification
@@ -885,7 +897,7 @@ def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None,
     _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
     ssl_contexts = [_DEFAULT_SSL_CTX]
     if _allow_unverified:
-        ssl_contexts.append(_UNVERIFIED_SSL_CTX)
+        ssl_contexts.append(_get_unverified_ssl_ctx())
 
     max_retries = 3
     for attempt in range(max_retries + 1):
@@ -941,7 +953,7 @@ def _http_post_json(url: str, payload: Any,
         _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
         ssl_contexts = [_DEFAULT_SSL_CTX]
         if _allow_unverified:
-            ssl_contexts.append(_UNVERIFIED_SSL_CTX)
+            ssl_contexts.append(_get_unverified_ssl_ctx())
 
         for ctx_idx, ctx in enumerate(ssl_contexts):
             try:
@@ -1032,7 +1044,7 @@ def _http_get_json_with_retry(
         _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
         _ssl_ctxs = [_DEFAULT_SSL_CTX]
         if _allow_unverified:
-            _ssl_ctxs.append(_UNVERIFIED_SSL_CTX)
+            _ssl_ctxs.append(_get_unverified_ssl_ctx())
         for _ctx_idx, ctx in enumerate(_ssl_ctxs):
             try:
                 with urllib.request.urlopen(req, timeout=timeout,
@@ -1370,7 +1382,7 @@ def _http_get_text(url: str, timeout: int = API_TIMEOUT) -> Optional[str]:
     _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
     _ssl_ctxs = [_DEFAULT_SSL_CTX]
     if _allow_unverified:
-        _ssl_ctxs.append(_UNVERIFIED_SSL_CTX)
+        _ssl_ctxs.append(_get_unverified_ssl_ctx())
     for _ctx_idx, ctx in enumerate(_ssl_ctxs):
         try:
             with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
@@ -1698,7 +1710,7 @@ def fetch_company_logo(domain: str) -> Optional[str]:
     _allow_unverified_logo = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
     _logo_ctxs = [_DEFAULT_SSL_CTX]
     if _allow_unverified_logo:
-        _logo_ctxs.append(_UNVERIFIED_SSL_CTX)
+        _logo_ctxs.append(_get_unverified_ssl_ctx())
     for _ctx_idx, _ctx in enumerate(_logo_ctxs):
         try:
             req = urllib.request.Request(clearbit_url, method="HEAD")

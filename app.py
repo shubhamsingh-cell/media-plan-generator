@@ -9422,6 +9422,158 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         "limit_rpd": tier_limits["rpd"],
                     }
             self._send_json({"keys": usage_data, "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+        # ── Campaign Performance Tracker Page ──
+        elif path in ("/tracker", "/tracker/"):
+            tracker_html = os.path.join(BASE_DIR, "templates", "tracker.html")
+            if os.path.exists(tracker_html):
+                with open(tracker_html, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Tracker page not found")
+        # ── Budget Simulator Page ──
+        elif path in ("/simulator", "/simulator/"):
+            sim_html = os.path.join(BASE_DIR, "templates", "simulator.html")
+            if os.path.exists(sim_html):
+                with open(sim_html, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Simulator page not found")
+        # ── Budget Simulator GET APIs ──
+        elif path == "/api/simulator/defaults":
+            try:
+                qs = urllib.parse.parse_qs(parsed.query)
+                total_budget = float(qs.get("budget", ["100000"])[0])
+                industry = qs.get("industry", ["Technology"])[0]
+                roles = qs.get("roles", ["Software Engineer"])[0]
+                locations = qs.get("locations", ["United States"])[0]
+                from budget_simulator import get_default_allocation
+                result = get_default_allocation(total_budget, industry, roles, locations)
+                self._send_json(result)
+            except Exception as e:
+                logger.error("Simulator defaults error: %s", e, exc_info=True)
+                self._send_json({"error": str(e)})
+        # ── Competitive Intelligence Dashboard Page ──
+        elif path in ("/competitive", "/competitive/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "competitive.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Competitive Intelligence page not found")
+        # ── Quick Plan Builder Page ──
+        elif path in ("/quick-plan", "/quick-plan/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "quick-plan.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Quick Plan page not found")
+        # ── Recruitment Advertising Audit Page ──
+        elif path in ("/audit", "/audit/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "audit.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Audit page not found")
+        # ── Market Pulse Dashboard Page ──
+        elif path in ("/market-pulse", "/market-pulse/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "market-pulse.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Market Pulse page not found")
+        # ── API Portal Page ──
+        elif path in ("/api-portal", "/api-portal/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "api-portal.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "API Portal page not found")
+        # ── Talent Supply Heat Map Page ──
+        elif path in ("/talent-heatmap", "/talent-heatmap/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "talent-heatmap.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Talent Heatmap page not found")
+        # ── ApplyFlow Demo Page ──
+        elif path in ("/applyflow", "/applyflow/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "applyflow-demo.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "ApplyFlow page not found")
+        # ── API Portal GET routes ──
+        elif path.startswith("/api/portal/"):
+            try:
+                from api_portal import handle_portal_api
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(content_len)) if content_len > 0 else {}
+                headers = {k: v for k, v in self.headers.items()}
+                status_code, result = handle_portal_api(path.replace("/api/", ""), "GET", body, headers)
+                self.send_response(status_code)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(result, default=str).encode())
+            except Exception as e:
+                logger.error("API Portal GET error: %s", e, exc_info=True)
+                self._send_json({"error": str(e)})
+        # ── Market Pulse GET APIs ──
+        elif path.startswith("/api/pulse/") and not path.startswith("/api/pulse/generate") and not path.startswith("/api/pulse/send") and not path.startswith("/api/pulse/scheduler"):
+            try:
+                from market_pulse import handle_pulse_api
+                status_code, result = handle_pulse_api(path, method="GET")
+                if status_code == 200:
+                    self._send_json(result)
+                else:
+                    self.send_response(status_code)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps(result).encode())
+            except Exception as e:
+                logger.error("Market Pulse GET error: %s", e, exc_info=True)
+                self._send_json({"ok": False, "error": str(e)})
         else:
             self.send_error(404)
 
@@ -9487,7 +9639,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Empty request body"}).encode())
                 return
-            if content_len > 50 * 1024 * 1024:  # 50MB limit (supports file uploads)
+            if content_len > 10 * 1024 * 1024:  # 10MB limit for JSON API requests
                 self.send_response(413)
                 self.send_header("Content-Type", "application/json")
                 cors_origin = self._get_cors_origin()
@@ -10631,6 +10783,549 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self._send_json({"keys": keys_list, "total": len(keys_list)})
             else:
                 self._send_json({"error": f"Unknown action '{action}'. Use: create, list, revoke"})
+        # ── Campaign Performance Tracker APIs ──
+        elif path == "/api/tracker/analyze":
+            if not self._check_rate_limit():
+                self.send_response(429)
+                self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Rate limit exceeded"}).encode())
+                return
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                content_len = 0
+            if content_len <= 0 or content_len > 50 * 1024 * 1024:
+                self.send_response(400 if content_len <= 0 else 413)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid request size"}).encode())
+                return
+            body = self.rfile.read(content_len)
+            try:
+                content_type = self.headers.get("Content-Type", "")
+                if "multipart/form-data" in content_type:
+                    import cgi
+                    import io
+                    environ = {
+                        "REQUEST_METHOD": "POST",
+                        "CONTENT_TYPE": content_type,
+                        "CONTENT_LENGTH": str(content_len),
+                    }
+                    fs = cgi.FieldStorage(fp=io.BytesIO(body), environ=environ, keep_blank_values=True)
+                    file_item = fs["file"] if "file" in fs else None
+                    file_bytes = file_item.file.read() if file_item else b""
+                    filename = file_item.filename if file_item else "upload.csv"
+                    campaign_name = fs.getfirst("campaign_name", "Campaign")
+                    industry = fs.getfirst("industry", "Technology")
+                    roles = fs.getfirst("roles", "")
+                    locations = fs.getfirst("locations", "")
+                else:
+                    data = json.loads(body)
+                    file_bytes = None
+                    filename = ""
+                    campaign_name = data.get("campaign_name", "Campaign")
+                    industry = data.get("industry", "Technology")
+                    roles = data.get("roles", "")
+                    locations = data.get("locations", "")
+                from performance_tracker import analyze_campaign
+                result = analyze_campaign(
+                    file_bytes=file_bytes,
+                    filename=filename,
+                    campaign_name=campaign_name,
+                    industry=industry,
+                    roles=[r.strip() for r in roles.split(",") if r.strip()] if isinstance(roles, str) else roles,
+                    locations=[l.strip() for l in locations.split(",") if l.strip()] if isinstance(locations, str) else locations,
+                )
+                resp_body = json.dumps(result).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.send_header("Content-Length", str(len(resp_body)))
+                self.end_headers()
+                self.wfile.write(resp_body)
+            except Exception as e:
+                logger.error("Tracker analyze error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Analysis failed"}).encode())
+        elif path == "/api/tracker/download/excel":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from performance_tracker import generate_performance_excel
+                excel_bytes = generate_performance_excel(data.get("report_data", data), data.get("client_name", "Campaign"))
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                self.send_header("Content-Disposition", "attachment; filename=performance_report.xlsx")
+                self.send_header("Content-Length", str(len(excel_bytes)))
+                self.end_headers()
+                self.wfile.write(excel_bytes)
+            except Exception as e:
+                logger.error("Tracker Excel download error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Excel generation failed"}).encode())
+        elif path == "/api/tracker/download/ppt":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from performance_tracker import generate_performance_ppt
+                ppt_bytes = generate_performance_ppt(data.get("report_data", data), data.get("client_name", "Campaign"))
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+                self.send_header("Content-Disposition", "attachment; filename=performance_report.pptx")
+                self.send_header("Content-Length", str(len(ppt_bytes)))
+                self.end_headers()
+                self.wfile.write(ppt_bytes)
+            except Exception as e:
+                logger.error("Tracker PPT download error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "PPT generation failed"}).encode())
+        # ── Budget Simulator APIs ──
+        elif path == "/api/simulator/simulate":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from budget_simulator import simulate_scenario
+                _sim_roles = data.get("roles", ["Software Engineer"])
+                _sim_locs = data.get("locations", ["United States"])
+                result = simulate_scenario(
+                    channel_allocations=data.get("allocations", {}),
+                    total_budget=float(data.get("total_budget", 100000)),
+                    industry=data.get("industry", "Technology"),
+                    roles=", ".join(_sim_roles) if isinstance(_sim_roles, list) else str(_sim_roles),
+                    locations=", ".join(_sim_locs) if isinstance(_sim_locs, list) else str(_sim_locs),
+                )
+                self._send_json(result)
+            except Exception as e:
+                logger.error("Simulator simulate error: %s", e, exc_info=True)
+                self._send_json({"error": str(e)})
+        elif path == "/api/simulator/optimize":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from budget_simulator import optimize_for_goal
+                _opt_roles = data.get("roles", ["Software Engineer"])
+                _opt_locs = data.get("locations", ["United States"])
+                result = optimize_for_goal(
+                    total_budget=float(data.get("total_budget", 100000)),
+                    goal=data.get("goal", "balanced"),
+                    industry=data.get("industry", "Technology"),
+                    roles=", ".join(_opt_roles) if isinstance(_opt_roles, list) else str(_opt_roles),
+                    locations=", ".join(_opt_locs) if isinstance(_opt_locs, list) else str(_opt_locs),
+                )
+                self._send_json(result)
+            except Exception as e:
+                logger.error("Simulator optimize error: %s", e, exc_info=True)
+                self._send_json({"error": str(e)})
+        elif path == "/api/simulator/compare":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from budget_simulator import compare_scenarios
+                result = compare_scenarios(data.get("scenarios", []))
+                self._send_json(result)
+            except Exception as e:
+                logger.error("Simulator compare error: %s", e, exc_info=True)
+                self._send_json({"error": str(e)})
+        elif path == "/api/simulator/export/excel":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from budget_simulator import export_scenario_excel
+                excel_bytes = export_scenario_excel(data.get("scenarios", []), data.get("comparison", {}), data.get("client_name", "Simulation"))
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                self.send_header("Content-Disposition", "attachment; filename=budget_simulation.xlsx")
+                self.send_header("Content-Length", str(len(excel_bytes)))
+                self.end_headers()
+                self.wfile.write(excel_bytes)
+            except Exception as e:
+                logger.error("Simulator Excel export error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Excel export failed"}).encode())
+        elif path == "/api/simulator/export/ppt":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from budget_simulator import export_scenario_ppt
+                ppt_bytes = export_scenario_ppt(data.get("scenarios", []), data.get("comparison", {}), data.get("client_name", "Simulation"))
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+                self.send_header("Content-Disposition", "attachment; filename=budget_simulation.pptx")
+                self.send_header("Content-Length", str(len(ppt_bytes)))
+                self.end_headers()
+                self.wfile.write(ppt_bytes)
+            except Exception as e:
+                logger.error("Simulator PPT export error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "PPT export failed"}).encode())
+        # ── Quick Wins: Nova Export ──
+        elif path == "/api/nova/export":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from nova_export import export_conversation_html
+                html_content = export_conversation_html(
+                    data.get("conversation_history", []),
+                    data.get("metadata", {}),
+                )
+                html_bytes = html_content.encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Disposition", "attachment; filename=nova-conversation-export.html")
+                self.send_header("Content-Length", str(len(html_bytes)))
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.end_headers()
+                self.wfile.write(html_bytes)
+            except Exception as e:
+                logger.error("Nova export error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Export failed"}).encode())
+        # ── Quick Wins: Email Delivery ──
+        elif path == "/api/deliver":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from plan_delivery import send_plan_email
+                client_ip = self.headers.get("X-Forwarded-For", self.client_address[0]).split(",")[0].strip()
+                result = send_plan_email(
+                    recipient_email=data.get("email", ""),
+                    client_name=data.get("client_name", ""),
+                    plan_summary=data.get("plan_summary", {}),
+                    zip_file_path=data.get("zip_file_path"),
+                    sender_ip=client_ip,
+                )
+                self._send_json(result)
+            except Exception as e:
+                logger.error("Plan delivery error: %s", e, exc_info=True)
+                self._send_json({"success": False, "message": "Delivery failed"})
+        # ── Competitive Intelligence: Full Analysis ──
+        elif path == "/api/competitive/analyze":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from competitive_intel import run_full_analysis
+                result = run_full_analysis(
+                    company_name=data.get("company_name", ""),
+                    competitors=data.get("competitors", []),
+                    industry=data.get("industry", "general_entry_level"),
+                    roles=data.get("roles"),
+                )
+                self._send_json(result)
+            except Exception as e:
+                logger.error("Competitive analysis error: %s", e, exc_info=True)
+                self._send_json({"error": str(e), "status": "error"})
+        # ── Competitive Intelligence: Excel Download ──
+        elif path == "/api/competitive/download/excel":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from competitive_intel import generate_competitive_excel
+                excel_bytes = generate_competitive_excel(
+                    brief=data.get("brief", data),
+                    company_name=data.get("company_name", "Company"),
+                )
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                self.send_header("Content-Disposition", "attachment; filename=competitive_intelligence.xlsx")
+                self.send_header("Content-Length", str(len(excel_bytes)))
+                self.end_headers()
+                self.wfile.write(excel_bytes)
+            except Exception as e:
+                logger.error("Competitive Excel error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Excel export failed"}).encode())
+        # ── Competitive Intelligence: PPT Download ──
+        elif path == "/api/competitive/download/ppt":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from competitive_intel import generate_competitive_ppt
+                ppt_bytes = generate_competitive_ppt(
+                    brief=data.get("brief", data),
+                    company_name=data.get("company_name", "Company"),
+                )
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+                self.send_header("Content-Disposition", "attachment; filename=competitive_intelligence.pptx")
+                self.send_header("Content-Length", str(len(ppt_bytes)))
+                self.end_headers()
+                self.wfile.write(ppt_bytes)
+            except Exception as e:
+                logger.error("Competitive PPT error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "PPT export failed"}).encode())
+        # ── API Portal: All POST routes ──
+        elif path.startswith("/api/portal/"):
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from api_portal import handle_portal_api
+                headers = {k: v for k, v in self.headers.items()}
+                status_code, result = handle_portal_api(path.replace("/api/", ""), "POST", data, headers)
+                self.send_response(status_code)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(result, default=str).encode())
+            except Exception as e:
+                logger.error("API Portal POST error: %s", e, exc_info=True)
+                self._send_json({"error": str(e), "status": "error"})
+        # ── Talent Heatmap: Analyze ──
+        elif path == "/api/talent-heatmap/analyze":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from talent_heatmap import run_heatmap_analysis
+                result = run_heatmap_analysis(
+                    role=data.get("role", ""),
+                    industry=data.get("industry", "general_entry_level"),
+                    locations=data.get("locations"),
+                    budget=data.get("budget", 0),
+                    num_hires=data.get("num_hires", 5),
+                )
+                self._send_json(result)
+            except Exception as e:
+                logger.error("Talent heatmap analysis error: %s", e, exc_info=True)
+                self._send_json({"error": str(e), "status": "error"})
+        # ── Talent Heatmap: Excel Download ──
+        elif path == "/api/talent-heatmap/download/excel":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from talent_heatmap import generate_heatmap_excel
+                excel_bytes = generate_heatmap_excel(analysis=data)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                self.send_header("Content-Disposition", "attachment; filename=talent_heatmap.xlsx")
+                self.send_header("Content-Length", str(len(excel_bytes)))
+                self.end_headers()
+                self.wfile.write(excel_bytes)
+            except Exception as e:
+                logger.error("Talent heatmap Excel error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Excel export failed"}).encode())
+        # ── Talent Heatmap: PPT Download ──
+        elif path == "/api/talent-heatmap/download/ppt":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from talent_heatmap import generate_heatmap_ppt
+                ppt_bytes = generate_heatmap_ppt(analysis=data)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+                self.send_header("Content-Disposition", "attachment; filename=talent_heatmap.pptx")
+                self.send_header("Content-Length", str(len(ppt_bytes)))
+                self.end_headers()
+                self.wfile.write(ppt_bytes)
+            except Exception as e:
+                logger.error("Talent heatmap PPT error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "PPT export failed"}).encode())
+        # ── Quick Plan Builder ──
+        elif path == "/api/quick-plan":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from quick_plan import generate_quick_plan
+                result = generate_quick_plan(
+                    role=data.get("role", ""),
+                    location=data.get("location", ""),
+                    budget=data.get("budget", 50000),
+                    industry=data.get("industry", ""),
+                )
+                self._send_json(result)
+            except Exception as e:
+                logger.error("Quick plan error: %s", e, exc_info=True)
+                self._send_json({"success": False, "error": str(e)})
+        # ── Recruitment Advertising Audit: Full Audit ──
+        elif path == "/api/audit/analyze":
+            try:
+                content_type = self.headers.get("Content-Type", "")
+                if "multipart/form-data" in content_type:
+                    import cgi
+                    form = cgi.FieldStorage(
+                        fp=self.rfile,
+                        headers=self.headers,
+                        environ={"REQUEST_METHOD": "POST", "CONTENT_TYPE": content_type},
+                    )
+                    file_item = form["file"]
+                    file_bytes = file_item.file.read()
+                    filename = file_item.filename
+                    industry = form.getvalue("industry", "general_entry_level")
+                    _roles = form.getvalue("roles", "")
+                    _locations = form.getvalue("locations", "")
+                    client_name = form.getvalue("client_name", "Client")
+                    roles = [r.strip() for r in _roles.split(",") if r.strip()] if _roles else None
+                    locations = [l.strip() for l in _locations.split(",") if l.strip()] if _locations else None
+                else:
+                    content_len = int(self.headers.get("Content-Length", 0))
+                    body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                    data = json.loads(body)
+                    import base64
+                    file_bytes = base64.b64decode(data.get("file_base64", ""))
+                    filename = data.get("filename", "plan.xlsx")
+                    industry = data.get("industry", "general_entry_level")
+                    roles = data.get("roles")
+                    locations = data.get("locations")
+                    client_name = data.get("client_name", "Client")
+                from audit_tool import run_full_audit
+                result = run_full_audit(
+                    file_bytes=file_bytes,
+                    filename=filename,
+                    industry=industry,
+                    roles=roles,
+                    locations=locations,
+                    client_name=client_name,
+                )
+                self._send_json(result)
+            except Exception as e:
+                logger.error("Audit analysis error: %s", e, exc_info=True)
+                self._send_json({"error": str(e), "success": False})
+        # ── Audit: Excel Download ──
+        elif path == "/api/audit/download/excel":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from audit_tool import generate_audit_excel
+                excel_bytes = generate_audit_excel(
+                    report_data=data.get("report_data", data),
+                    client_name=data.get("client_name", "Client"),
+                )
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                self.send_header("Content-Disposition", "attachment; filename=recruitment_audit.xlsx")
+                self.send_header("Content-Length", str(len(excel_bytes)))
+                self.end_headers()
+                self.wfile.write(excel_bytes)
+            except Exception as e:
+                logger.error("Audit Excel error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Excel export failed"}).encode())
+        # ── Audit: PPT Download ──
+        elif path == "/api/audit/download/ppt":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from audit_tool import generate_audit_ppt
+                ppt_bytes = generate_audit_ppt(
+                    report_data=data.get("report_data", data),
+                    client_name=data.get("client_name", "Client"),
+                )
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+                self.send_header("Content-Disposition", "attachment; filename=recruitment_audit.pptx")
+                self.send_header("Content-Length", str(len(ppt_bytes)))
+                self.end_headers()
+                self.wfile.write(ppt_bytes)
+            except Exception as e:
+                logger.error("Audit PPT error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "PPT export failed"}).encode())
+        # ── Market Pulse POST APIs ──
+        elif path.startswith("/api/pulse/"):
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                body_data = json.loads(body_raw)
+                from market_pulse import handle_pulse_api
+                status_code, result = handle_pulse_api(path, method="POST", body=body_data)
+                if status_code == 200:
+                    self._send_json(result)
+                else:
+                    self.send_response(status_code)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps(result).encode())
+            except Exception as e:
+                logger.error("Market Pulse POST error: %s", e, exc_info=True)
+                self._send_json({"ok": False, "error": str(e)})
+        # ── ApplyFlow API ──
+        elif path == "/api/applyflow":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                from applyflow import handle_applyflow_request
+                result = handle_applyflow_request(data)
+                self._send_json(result)
+            except Exception as e:
+                logger.error("ApplyFlow error: %s", e, exc_info=True)
+                self._send_json({"error": str(e), "response": "Something went wrong. Please try again."})
+        # ── Quick Wins: PDF/HTML Report ──
+        elif path == "/api/report/html":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from pdf_generator import generate_plan_html_report
+                html_content = generate_plan_html_report(
+                    plan_data=data.get("plan_data", data),
+                    client_name=data.get("client_name", "Client"),
+                    industry=data.get("industry", "Technology"),
+                )
+                html_bytes = html_content.encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Disposition", "attachment; filename=media_plan_report.html")
+                self.send_header("Content-Length", str(len(html_bytes)))
+                self.end_headers()
+                self.wfile.write(html_bytes)
+            except Exception as e:
+                logger.error("HTML report error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Report generation failed"}).encode())
         else:
             self.send_error(404)
 

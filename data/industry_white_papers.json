@@ -1,6 +1,6 @@
 {
-  "last_updated": "2026-03-08",
-  "total_sources": 76,
+  "last_updated": "2026-03-22",
+  "total_sources": 106,
   "data_period": "2022-2026",
   "description": "Comprehensive recruitment industry intelligence compiled from white papers, benchmark reports, and studies across 74 publishers in talent acquisition, recruitment marketing, and hiring",
   "reports": {
@@ -11,15 +11,15 @@
       "data_year": 2022,
       "key_findings": [
         "Labor supply rebounded in 2022: labor force expanded by 2.5 million from Dec 2021 to Dec 2022",
-        "CPA declined ~22% YoY despite tumultuous labor market — Dec 2022 CPA was $25.14 vs ~$32 prior year",
+        "CPA declined ~22% YoY despite tumultuous labor market \u2014 Dec 2022 CPA was $25.14 vs ~$32 prior year",
         "CPC stabilized near $1.05 after dramatic 2021 increases; Q4 2022 averaged $1.07 vs $1.10 in Q4 2021",
-        "Apply rates trended strongly upward in 2022, reaching 4.41% (3-month moving average) — highest of the 2020s",
+        "Apply rates trended strongly upward in 2022, reaching 4.41% (3-month moving average) \u2014 highest of the 2020s",
         "Rising inflation (peak 9.1% YoY) and wage growth (4.2% annualized Q4 2022) pulled sidelined workers back",
         "Prime-age labor force participation reached 82.4% by end of 2022",
         "Pay transparency reduces CPC: jobs with pay info had $1.49 CPC vs $2.30 for those without",
         "Mobile continues growing: 69.41% of clicks and 66.99% of applies came from mobile devices",
         "Apply volume peaks midweek (Wednesday 18.17%, Tuesday 17.98%) while apply rates hold steady ~5.9% Mon-Fri",
-        "No single candidate source performs best for every job — diversification is critical",
+        "No single candidate source performs best for every job \u2014 diversification is critical",
         "CPA is now driven by consistently high-demand occupations (Healthcare, Transportation, Education) rather than just skill/wage level",
         "Insurance saw the largest apply rate increase (+1.84 percentage points YoY), while Manufacturing saw the largest decline (-3.84pp)",
         "37% of workers not actively looking could be wooed away; 72% are approached with offers multiple times per year",
@@ -48,113 +48,431 @@
         "prime_age_lfpr_end_2022": "82.4%",
         "labor_force_expansion_2022": "+2.5 million",
         "cpc_by_job_function_2022": {
-          "gig": {"high_75th": "$2.81", "low_25th": "$0.74"},
-          "transportation": {"high_75th": "$1.72", "low_25th": "$0.73"},
-          "healthcare": {"high_75th": "$1.57", "low_25th": "$0.70"},
-          "warehousing_logistics": {"high_75th": "$1.52", "low_25th": "$0.64"},
-          "food_service": {"high_75th": "$1.48", "low_25th": "$0.64"},
-          "manufacturing": {"high_75th": "$1.48", "low_25th": "$0.69"},
-          "construction_skilled_trades": {"high_75th": "$1.45", "low_25th": "$0.72"},
-          "education": {"high_75th": "$1.45", "low_25th": "$0.68"},
-          "science_engineering": {"high_75th": "$1.43", "low_25th": "$0.70"},
-          "security": {"high_75th": "$1.42", "low_25th": "$0.70"},
-          "customer_service": {"high_75th": "$1.42", "low_25th": "$0.63"},
-          "retail": {"high_75th": "$1.41", "low_25th": "$0.69"},
-          "hospitality": {"high_75th": "$1.50", "low_25th": "$0.64"},
-          "finance": {"high_75th": "$1.48", "low_25th": "$0.68"},
-          "legal": {"high_75th": "$1.39", "low_25th": "$0.60"},
-          "insurance": {"high_75th": "$1.39", "low_25th": "$0.65"},
-          "sales": {"high_75th": "$1.35", "low_25th": "$0.68"},
-          "real_estate": {"high_75th": "$1.34", "low_25th": "$0.64"},
-          "management": {"high_75th": "$1.32", "low_25th": "$0.67"},
-          "administration": {"high_75th": "$1.31", "low_25th": "$0.63"},
-          "business_consumer_services": {"high_75th": "$1.29", "low_25th": "$0.65"},
-          "hr_staffing": {"high_75th": "$1.25", "low_25th": "$0.51"},
-          "technology": {"high_75th": "$1.17", "low_25th": "$0.52"},
-          "marketing_advertising": {"high_75th": "$1.30", "low_25th": "$0.64"}
+          "gig": {
+            "high_75th": "$2.81",
+            "low_25th": "$0.74"
+          },
+          "transportation": {
+            "high_75th": "$1.72",
+            "low_25th": "$0.73"
+          },
+          "healthcare": {
+            "high_75th": "$1.57",
+            "low_25th": "$0.70"
+          },
+          "warehousing_logistics": {
+            "high_75th": "$1.52",
+            "low_25th": "$0.64"
+          },
+          "food_service": {
+            "high_75th": "$1.48",
+            "low_25th": "$0.64"
+          },
+          "manufacturing": {
+            "high_75th": "$1.48",
+            "low_25th": "$0.69"
+          },
+          "construction_skilled_trades": {
+            "high_75th": "$1.45",
+            "low_25th": "$0.72"
+          },
+          "education": {
+            "high_75th": "$1.45",
+            "low_25th": "$0.68"
+          },
+          "science_engineering": {
+            "high_75th": "$1.43",
+            "low_25th": "$0.70"
+          },
+          "security": {
+            "high_75th": "$1.42",
+            "low_25th": "$0.70"
+          },
+          "customer_service": {
+            "high_75th": "$1.42",
+            "low_25th": "$0.63"
+          },
+          "retail": {
+            "high_75th": "$1.41",
+            "low_25th": "$0.69"
+          },
+          "hospitality": {
+            "high_75th": "$1.50",
+            "low_25th": "$0.64"
+          },
+          "finance": {
+            "high_75th": "$1.48",
+            "low_25th": "$0.68"
+          },
+          "legal": {
+            "high_75th": "$1.39",
+            "low_25th": "$0.60"
+          },
+          "insurance": {
+            "high_75th": "$1.39",
+            "low_25th": "$0.65"
+          },
+          "sales": {
+            "high_75th": "$1.35",
+            "low_25th": "$0.68"
+          },
+          "real_estate": {
+            "high_75th": "$1.34",
+            "low_25th": "$0.64"
+          },
+          "management": {
+            "high_75th": "$1.32",
+            "low_25th": "$0.67"
+          },
+          "administration": {
+            "high_75th": "$1.31",
+            "low_25th": "$0.63"
+          },
+          "business_consumer_services": {
+            "high_75th": "$1.29",
+            "low_25th": "$0.65"
+          },
+          "hr_staffing": {
+            "high_75th": "$1.25",
+            "low_25th": "$0.51"
+          },
+          "technology": {
+            "high_75th": "$1.17",
+            "low_25th": "$0.52"
+          },
+          "marketing_advertising": {
+            "high_75th": "$1.30",
+            "low_25th": "$0.64"
+          }
         },
         "cpa_by_job_function_2022": {
-          "healthcare": {"high_75th": "$67.51", "low_25th": "$22.36"},
-          "transportation": {"high_75th": "$61.11", "low_25th": "$20.91"},
-          "legal": {"high_75th": "$58.62", "low_25th": "$16.44"},
-          "education": {"high_75th": "$55.00", "low_25th": "$15.81"},
-          "gig": {"high_75th": "$47.79", "low_25th": "$15.40"},
-          "science_engineering": {"high_75th": "$46.68", "low_25th": "$14.75"},
-          "construction_skilled_trades": {"high_75th": "$44.83", "low_25th": "$15.36"},
-          "hospitality": {"high_75th": "$43.45", "low_25th": "$12.25"},
-          "food_service": {"high_75th": "$42.66", "low_25th": "$13.04"},
-          "insurance": {"high_75th": "$42.57", "low_25th": "$13.77"},
-          "manufacturing": {"high_75th": "$41.84", "low_25th": "$13.82"},
-          "warehousing_logistics": {"high_75th": "$41.63", "low_25th": "$14.44"},
-          "security": {"high_75th": "$41.35", "low_25th": "$13.33"},
-          "finance": {"high_75th": "$41.10", "low_25th": "$14.92"},
-          "customer_service": {"high_75th": "$40.65", "low_25th": "$12.80"},
-          "real_estate": {"high_75th": "$40.26", "low_25th": "$13.18"},
-          "management": {"high_75th": "$38.44", "low_25th": "$12.83"},
-          "retail": {"high_75th": "$37.61", "low_25th": "$13.22"},
-          "sales": {"high_75th": "$36.54", "low_25th": "$12.02"},
-          "hr_staffing": {"high_75th": "$35.84", "low_25th": "$8.81"},
-          "technology": {"high_75th": "$34.22", "low_25th": "$9.45"},
-          "business_consumer_services": {"high_75th": "$33.41", "low_25th": "$11.43"},
-          "administration": {"high_75th": "$49.10", "low_25th": "$17.23"},
-          "marketing_advertising": {"high_75th": "$38.44", "low_25th": "$13.33"}
+          "healthcare": {
+            "high_75th": "$67.51",
+            "low_25th": "$22.36"
+          },
+          "transportation": {
+            "high_75th": "$61.11",
+            "low_25th": "$20.91"
+          },
+          "legal": {
+            "high_75th": "$58.62",
+            "low_25th": "$16.44"
+          },
+          "education": {
+            "high_75th": "$55.00",
+            "low_25th": "$15.81"
+          },
+          "gig": {
+            "high_75th": "$47.79",
+            "low_25th": "$15.40"
+          },
+          "science_engineering": {
+            "high_75th": "$46.68",
+            "low_25th": "$14.75"
+          },
+          "construction_skilled_trades": {
+            "high_75th": "$44.83",
+            "low_25th": "$15.36"
+          },
+          "hospitality": {
+            "high_75th": "$43.45",
+            "low_25th": "$12.25"
+          },
+          "food_service": {
+            "high_75th": "$42.66",
+            "low_25th": "$13.04"
+          },
+          "insurance": {
+            "high_75th": "$42.57",
+            "low_25th": "$13.77"
+          },
+          "manufacturing": {
+            "high_75th": "$41.84",
+            "low_25th": "$13.82"
+          },
+          "warehousing_logistics": {
+            "high_75th": "$41.63",
+            "low_25th": "$14.44"
+          },
+          "security": {
+            "high_75th": "$41.35",
+            "low_25th": "$13.33"
+          },
+          "finance": {
+            "high_75th": "$41.10",
+            "low_25th": "$14.92"
+          },
+          "customer_service": {
+            "high_75th": "$40.65",
+            "low_25th": "$12.80"
+          },
+          "real_estate": {
+            "high_75th": "$40.26",
+            "low_25th": "$13.18"
+          },
+          "management": {
+            "high_75th": "$38.44",
+            "low_25th": "$12.83"
+          },
+          "retail": {
+            "high_75th": "$37.61",
+            "low_25th": "$13.22"
+          },
+          "sales": {
+            "high_75th": "$36.54",
+            "low_25th": "$12.02"
+          },
+          "hr_staffing": {
+            "high_75th": "$35.84",
+            "low_25th": "$8.81"
+          },
+          "technology": {
+            "high_75th": "$34.22",
+            "low_25th": "$9.45"
+          },
+          "business_consumer_services": {
+            "high_75th": "$33.41",
+            "low_25th": "$11.43"
+          },
+          "administration": {
+            "high_75th": "$49.10",
+            "low_25th": "$17.23"
+          },
+          "marketing_advertising": {
+            "high_75th": "$38.44",
+            "low_25th": "$13.33"
+          }
         },
         "apply_rate_by_job_function_2022": {
-          "insurance": {"rate_2022": "3.53%", "rate_2021": "1.69%", "change": "+1.84pp"},
-          "transportation": {"rate_2022": "3.39%", "rate_2021": "2.68%", "change": "+0.71pp"},
-          "science_engineering": {"rate_2022": "4.76%", "rate_2021": "4.11%", "change": "+0.65pp"},
-          "business_consumer_services": {"rate_2022": "5.60%", "rate_2021": "5.21%", "change": "+0.40pp"},
-          "construction_skilled_trades": {"rate_2022": "5.21%", "rate_2021": "4.83%", "change": "+0.38pp"},
-          "security": {"rate_2022": "6.31%", "rate_2021": "5.96%", "change": "+0.36pp"},
-          "sales": {"rate_2022": "5.97%", "rate_2021": "5.64%", "change": "+0.33pp"},
-          "gig": {"rate_2022": "3.49%", "rate_2021": "3.16%", "change": "+0.32pp"},
-          "technology": {"rate_2022": "5.62%", "rate_2021": "5.58%", "change": "+0.03pp"},
-          "healthcare": {"rate_2022": "4.50%", "rate_2021": "4.46%", "change": "+0.03pp"},
-          "customer_service": {"rate_2022": "4.01%", "rate_2021": "3.99%", "change": "+0.02pp"},
-          "education": {"rate_2022": "4.14%", "rate_2021": "4.17%", "change": "-0.02pp"},
-          "warehousing_logistics": {"rate_2022": "5.47%", "rate_2021": "5.54%", "change": "-0.06pp"},
-          "legal": {"rate_2022": "4.24%", "rate_2021": "4.33%", "change": "-0.09pp"},
-          "real_estate": {"rate_2022": "4.96%", "rate_2021": "5.12%", "change": "-0.17pp"},
-          "management": {"rate_2022": "4.43%", "rate_2021": "4.84%", "change": "-0.42pp"},
-          "finance": {"rate_2022": "5.87%", "rate_2021": "6.30%", "change": "-0.42pp"},
-          "retail": {"rate_2022": "4.73%", "rate_2021": "5.34%", "change": "-0.61pp"},
-          "hr_staffing": {"rate_2022": "3.86%", "rate_2021": "4.98%", "change": "-1.12pp"},
-          "food_service": {"rate_2022": "5.41%", "rate_2021": "6.71%", "change": "-1.30pp"},
-          "administration": {"rate_2022": "6.31%", "rate_2021": "7.61%", "change": "-1.30pp"},
-          "hospitality": {"rate_2022": "4.81%", "rate_2021": "6.59%", "change": "-1.78pp"},
-          "marketing_advertising": {"rate_2022": "5.46%", "rate_2021": "7.32%", "change": "-1.86pp"},
-          "manufacturing": {"rate_2022": "4.80%", "rate_2021": "6.79%", "change": "-1.99pp"},
-          "farming_agriculture": {"rate_2022": "4.64%", "rate_2021": "8.48%", "change": "-3.84pp"}
+          "insurance": {
+            "rate_2022": "3.53%",
+            "rate_2021": "1.69%",
+            "change": "+1.84pp"
+          },
+          "transportation": {
+            "rate_2022": "3.39%",
+            "rate_2021": "2.68%",
+            "change": "+0.71pp"
+          },
+          "science_engineering": {
+            "rate_2022": "4.76%",
+            "rate_2021": "4.11%",
+            "change": "+0.65pp"
+          },
+          "business_consumer_services": {
+            "rate_2022": "5.60%",
+            "rate_2021": "5.21%",
+            "change": "+0.40pp"
+          },
+          "construction_skilled_trades": {
+            "rate_2022": "5.21%",
+            "rate_2021": "4.83%",
+            "change": "+0.38pp"
+          },
+          "security": {
+            "rate_2022": "6.31%",
+            "rate_2021": "5.96%",
+            "change": "+0.36pp"
+          },
+          "sales": {
+            "rate_2022": "5.97%",
+            "rate_2021": "5.64%",
+            "change": "+0.33pp"
+          },
+          "gig": {
+            "rate_2022": "3.49%",
+            "rate_2021": "3.16%",
+            "change": "+0.32pp"
+          },
+          "technology": {
+            "rate_2022": "5.62%",
+            "rate_2021": "5.58%",
+            "change": "+0.03pp"
+          },
+          "healthcare": {
+            "rate_2022": "4.50%",
+            "rate_2021": "4.46%",
+            "change": "+0.03pp"
+          },
+          "customer_service": {
+            "rate_2022": "4.01%",
+            "rate_2021": "3.99%",
+            "change": "+0.02pp"
+          },
+          "education": {
+            "rate_2022": "4.14%",
+            "rate_2021": "4.17%",
+            "change": "-0.02pp"
+          },
+          "warehousing_logistics": {
+            "rate_2022": "5.47%",
+            "rate_2021": "5.54%",
+            "change": "-0.06pp"
+          },
+          "legal": {
+            "rate_2022": "4.24%",
+            "rate_2021": "4.33%",
+            "change": "-0.09pp"
+          },
+          "real_estate": {
+            "rate_2022": "4.96%",
+            "rate_2021": "5.12%",
+            "change": "-0.17pp"
+          },
+          "management": {
+            "rate_2022": "4.43%",
+            "rate_2021": "4.84%",
+            "change": "-0.42pp"
+          },
+          "finance": {
+            "rate_2022": "5.87%",
+            "rate_2021": "6.30%",
+            "change": "-0.42pp"
+          },
+          "retail": {
+            "rate_2022": "4.73%",
+            "rate_2021": "5.34%",
+            "change": "-0.61pp"
+          },
+          "hr_staffing": {
+            "rate_2022": "3.86%",
+            "rate_2021": "4.98%",
+            "change": "-1.12pp"
+          },
+          "food_service": {
+            "rate_2022": "5.41%",
+            "rate_2021": "6.71%",
+            "change": "-1.30pp"
+          },
+          "administration": {
+            "rate_2022": "6.31%",
+            "rate_2021": "7.61%",
+            "change": "-1.30pp"
+          },
+          "hospitality": {
+            "rate_2022": "4.81%",
+            "rate_2021": "6.59%",
+            "change": "-1.78pp"
+          },
+          "marketing_advertising": {
+            "rate_2022": "5.46%",
+            "rate_2021": "7.32%",
+            "change": "-1.86pp"
+          },
+          "manufacturing": {
+            "rate_2022": "4.80%",
+            "rate_2021": "6.79%",
+            "change": "-1.99pp"
+          },
+          "farming_agriculture": {
+            "rate_2022": "4.64%",
+            "rate_2021": "8.48%",
+            "change": "-3.84pp"
+          }
         },
         "apply_rate_by_state_2022": {
-          "GA": "4.47%", "FL": "4.07%", "TX": "4.05%", "SC": "3.97%",
-          "AZ": "3.97%", "CT": "4.00%", "NV": "4.11%", "NC": "3.97%",
-          "DE": "3.97%", "AL": "3.93%", "NM": "3.93%", "NJ": "3.93%",
-          "LA": "3.90%", "TN": "3.84%", "CO": "3.83%", "WI": "3.81%",
-          "NY": "3.79%", "CA": "3.78%", "MO": "3.78%", "IN": "3.73%",
-          "OH": "3.68%", "PA": "3.65%", "VA": "3.54%", "KY": "3.53%",
-          "AR": "3.52%", "WA": "3.51%", "KS": "3.50%", "RI": "3.50%",
-          "IL": "3.46%", "MI": "3.45%", "IA": "3.44%", "MD": "3.42%",
-          "HI": "3.33%", "NE": "3.28%", "ID": "3.23%", "OK": "3.18%",
-          "AK": "3.13%", "NH": "3.05%", "OR": "3.03%", "SD": "2.97%",
-          "MN": "2.95%", "MA": "2.95%", "MS": "2.92%", "WV": "2.87%",
-          "ND": "2.80%", "ME": "2.76%", "VT": "2.74%", "WY": "2.95%",
-          "MT": "2.80%", "UT": "3.45%"
+          "GA": "4.47%",
+          "FL": "4.07%",
+          "TX": "4.05%",
+          "SC": "3.97%",
+          "AZ": "3.97%",
+          "CT": "4.00%",
+          "NV": "4.11%",
+          "NC": "3.97%",
+          "DE": "3.97%",
+          "AL": "3.93%",
+          "NM": "3.93%",
+          "NJ": "3.93%",
+          "LA": "3.90%",
+          "TN": "3.84%",
+          "CO": "3.83%",
+          "WI": "3.81%",
+          "NY": "3.79%",
+          "CA": "3.78%",
+          "MO": "3.78%",
+          "IN": "3.73%",
+          "OH": "3.68%",
+          "PA": "3.65%",
+          "VA": "3.54%",
+          "KY": "3.53%",
+          "AR": "3.52%",
+          "WA": "3.51%",
+          "KS": "3.50%",
+          "RI": "3.50%",
+          "IL": "3.46%",
+          "MI": "3.45%",
+          "IA": "3.44%",
+          "MD": "3.42%",
+          "HI": "3.33%",
+          "NE": "3.28%",
+          "ID": "3.23%",
+          "OK": "3.18%",
+          "AK": "3.13%",
+          "NH": "3.05%",
+          "OR": "3.03%",
+          "SD": "2.97%",
+          "MN": "2.95%",
+          "MA": "2.95%",
+          "MS": "2.92%",
+          "WV": "2.87%",
+          "ND": "2.80%",
+          "ME": "2.76%",
+          "VT": "2.74%",
+          "WY": "2.95%",
+          "MT": "2.80%",
+          "UT": "3.45%"
         },
         "cpa_by_state_2022": {
-          "NV": "$24.57", "GA": "$24.54", "FL": "$24.96", "TX": "$27.14",
-          "SC": "$25.88", "AZ": "$25.39", "AL": "$25.42", "NC": "$25.88",
-          "DE": "$27.34", "CT": "$27.90", "NM": "$25.10", "NJ": "$27.71",
-          "LA": "$25.62", "TN": "$26.81", "CO": "$28.29", "WI": "$29.58",
-          "NY": "$27.71", "CA": "$27.56", "MO": "$28.32", "IN": "$26.25",
-          "OH": "$28.79", "PA": "$29.85", "VA": "$29.34", "KY": "$28.93",
-          "AR": "$28.15", "WA": "$29.55", "KS": "$30.00", "RI": "$28.91",
-          "IL": "$27.24", "MI": "$29.13", "IA": "$30.24", "MD": "$30.21",
-          "HI": "$31.49", "NE": "$31.40", "ID": "$28.41", "OK": "$31.96",
-          "AK": "$28.55", "NH": "$30.00", "OR": "$32.78", "SD": "$29.11",
-          "MN": "$29.82", "MA": "$32.99", "MS": "$33.59", "WV": "$31.10",
-          "ND": "$32.50", "ME": "$32.58", "VT": "$32.99", "WY": "$29.82",
-          "MT": "$30.18", "UT": "$29.13"
+          "NV": "$24.57",
+          "GA": "$24.54",
+          "FL": "$24.96",
+          "TX": "$27.14",
+          "SC": "$25.88",
+          "AZ": "$25.39",
+          "AL": "$25.42",
+          "NC": "$25.88",
+          "DE": "$27.34",
+          "CT": "$27.90",
+          "NM": "$25.10",
+          "NJ": "$27.71",
+          "LA": "$25.62",
+          "TN": "$26.81",
+          "CO": "$28.29",
+          "WI": "$29.58",
+          "NY": "$27.71",
+          "CA": "$27.56",
+          "MO": "$28.32",
+          "IN": "$26.25",
+          "OH": "$28.79",
+          "PA": "$29.85",
+          "VA": "$29.34",
+          "KY": "$28.93",
+          "AR": "$28.15",
+          "WA": "$29.55",
+          "KS": "$30.00",
+          "RI": "$28.91",
+          "IL": "$27.24",
+          "MI": "$29.13",
+          "IA": "$30.24",
+          "MD": "$30.21",
+          "HI": "$31.49",
+          "NE": "$31.40",
+          "ID": "$28.41",
+          "OK": "$31.96",
+          "AK": "$28.55",
+          "NH": "$30.00",
+          "OR": "$32.78",
+          "SD": "$29.11",
+          "MN": "$29.82",
+          "MA": "$32.99",
+          "MS": "$33.59",
+          "WV": "$31.10",
+          "ND": "$32.50",
+          "ME": "$32.58",
+          "VT": "$32.99",
+          "WY": "$29.82",
+          "MT": "$30.18",
+          "UT": "$29.13"
         },
         "mobile_apply_pct_by_job_function_2022": {
           "gig": "85.66%",
@@ -184,16 +502,40 @@
           "marketing_advertising": "32.92%"
         },
         "apply_rate_by_device_3yr_trend": {
-          "desktop": {"2020": "5.52%", "2021": "5.16%", "2022": "5.38%"},
-          "mobile": {"2020": "4.64%", "2021": "4.70%", "2022": "4.77%"}
+          "desktop": {
+            "2020": "5.52%",
+            "2021": "5.16%",
+            "2022": "5.38%"
+          },
+          "mobile": {
+            "2020": "4.64%",
+            "2021": "4.70%",
+            "2022": "4.77%"
+          }
         },
         "clicks_by_device_3yr_trend": {
-          "desktop_pct": {"2020": "33.14%", "2021": "31.52%", "2022": "30.59%"},
-          "mobile_pct": {"2020": "66.85%", "2021": "68.47%", "2022": "69.41%"}
+          "desktop_pct": {
+            "2020": "33.14%",
+            "2021": "31.52%",
+            "2022": "30.59%"
+          },
+          "mobile_pct": {
+            "2020": "66.85%",
+            "2021": "68.47%",
+            "2022": "69.41%"
+          }
         },
         "applies_by_device_3yr_trend": {
-          "desktop_pct": {"2020": "35.94%", "2021": "33.04%", "2022": "33.01%"},
-          "mobile_pct": {"2020": "64.06%", "2021": "66.96%", "2022": "66.99%"}
+          "desktop_pct": {
+            "2020": "35.94%",
+            "2021": "33.04%",
+            "2022": "33.01%"
+          },
+          "mobile_pct": {
+            "2020": "64.06%",
+            "2021": "66.96%",
+            "2022": "66.99%"
+          }
         },
         "apply_volume_by_day_of_week_2022": {
           "sunday": "9.16%",
@@ -217,18 +559,50 @@
           "1_3_words": 3.41,
           "4_6_words": 3.13,
           "7_9_words": 2.99,
-          "10_12_words": 3.00,
+          "10_12_words": 3.0,
           "13_plus_words": 2.75
         },
         "cost_per_hire_by_function_and_source_2022": {
-          "business_consumer_services": {"source_1": "$155", "source_2": "$213", "source_3": "$527"},
-          "construction_skilled_trades": {"source_1": "$368", "source_2": "$552", "source_3": "$1025"},
-          "science_engineering": {"source_1": "$235", "source_2": "$231", "source_3": "$286"},
-          "customer_service": {"source_1": "$213", "source_2": "$183", "source_3": "$254"},
-          "finance": {"source_1": "$132", "source_2": "$169", "source_3": "$334"},
-          "healthcare": {"source_1": "$212", "source_2": "$191", "source_3": "$397"},
-          "management": {"source_1": "$455", "source_2": "$208", "source_3": "$172"},
-          "sales": {"source_1": "$35", "source_2": "$78", "source_3": "$65"}
+          "business_consumer_services": {
+            "source_1": "$155",
+            "source_2": "$213",
+            "source_3": "$527"
+          },
+          "construction_skilled_trades": {
+            "source_1": "$368",
+            "source_2": "$552",
+            "source_3": "$1025"
+          },
+          "science_engineering": {
+            "source_1": "$235",
+            "source_2": "$231",
+            "source_3": "$286"
+          },
+          "customer_service": {
+            "source_1": "$213",
+            "source_2": "$183",
+            "source_3": "$254"
+          },
+          "finance": {
+            "source_1": "$132",
+            "source_2": "$169",
+            "source_3": "$334"
+          },
+          "healthcare": {
+            "source_1": "$212",
+            "source_2": "$191",
+            "source_3": "$397"
+          },
+          "management": {
+            "source_1": "$455",
+            "source_2": "$208",
+            "source_3": "$172"
+          },
+          "sales": {
+            "source_1": "$35",
+            "source_2": "$78",
+            "source_3": "$65"
+          }
         },
         "job_seeker_preferences_2022": {
           "passive_candidates_pct": "37% not actively looking but could be wooed",
@@ -310,19 +684,19 @@
       "year": 2026,
       "data_year": 2025,
       "key_findings": [
-        "CPA and CPH rose sharply in 2025 despite a softer labor market — recruiting isn't getting cheaper",
+        "CPA and CPH rose sharply in 2025 despite a softer labor market \u2014 recruiting isn't getting cheaper",
         "Cost drivers shifted beyond labor supply to job board pricing and programmatic media models",
         "Apply rates improved to 5.19% in 2025, partly due to increased job-seeker volume",
         "White-collar recession deepened: Tech apply rate hit 7.14% (highest), yet CPH doubled to $2,795",
         "Frontline 'standing-up' roles, especially healthcare (3.22% apply rate), remained costly and hard to fill",
         "Sun Belt states delivered stronger apply rates but Southeast CPA is rapidly rising (no longer a bargain)",
         "First time tracking full candidate journey from click-to-hire with disposition data",
-        "Full funnel median costs: CPC $0.83 → CPA $19.20 → Screen $131 → Interview $275 → Offer $758 → Hire $1,053",
+        "Full funnel median costs: CPC $0.83 \u2192 CPA $19.20 \u2192 Screen $131 \u2192 Interview $275 \u2192 Offer $758 \u2192 Hire $1,053",
         "International benchmarks added: Austria ($46.15 CPA) most expensive, India ($7.93) cheapest, UK $15.43",
         "Salary transparency lifts apply rate: 5.03% vs 4.51% for non-transparent postings",
-        "Remote has lost its shine as a hiring differentiator — advantage has narrowed significantly",
+        "Remote has lost its shine as a hiring differentiator \u2014 advantage has narrowed significantly",
         "53% of applications arrive in first 10 days of posting; job ads have a limited shelf life",
-        "1-5 minute apply time yields 5.37% rate vs 3.09% for 16+ minutes — keep initial apply short",
+        "1-5 minute apply time yields 5.37% rate vs 3.09% for 16+ minutes \u2014 keep initial apply short",
         "Monday has highest apply rate (5.01%); post early in the week for maximum impact",
         "Mobile drives 63% of clicks and 71% of applies; standing-up roles are 69%+ mobile",
         "Job titles of 4-6 words get highest apply rate (4.80%); 13+ words drops to 3.83%"
@@ -1119,7 +1493,11 @@
         "Significant shifts toward well-being and equity among younger generations"
       ],
       "benchmarks": {
-        "top_3_employer_drivers": ["Salary & benefits", "Work-life balance", "Job security"],
+        "top_3_employer_drivers": [
+          "Salary & benefits",
+          "Work-life balance",
+          "Job security"
+        ],
         "markets_surveyed": 34,
         "economy_coverage": "75%+"
       },
@@ -1677,6 +2055,128 @@
       },
       "methodology": "Rally Awards submissions from 50,000+ professional community, BLS data, LinkedIn data, Glassdoor Employee Confidence Index",
       "url": "https://rallyrecruitmentmarketing.com/"
+    },
+    "market_research_mercor_growth_2026": {
+      "publisher": "Joveo Strategic Research",
+      "title": "Mercor Growth Trajectory and Market Implications for Recruitment Technology",
+      "year": 2026,
+      "data_year": "2024-2026",
+      "key_findings": [
+        "Mercor reached $10B valuation in approximately 2 years -- fastest-growing company in rec-tech history",
+        "Growth trajectory: $250M valuation (2024) -> $2B (February 2025) -> $10B (October 2025)",
+        "$519M total funding; 30,000+ contractors paid $1.5M/day; targeting $500M ARR",
+        "Three 21-year-old founders became youngest self-made billionaires",
+        "Positioned at intersection of two massive markets: AI talent hiring and data labeling",
+        "Captured data labeling demand fleeing Scale AI after Meta's $14.3B investment (49% stake) and CEO departure",
+        "Expanding beyond tech into healthcare and legal -- potential disruption to traditional staffing",
+        "Acquired Sepal AI (February 2026) to expand AI capabilities",
+        "Market implication: AI-native recruiting companies can scale faster than traditional platforms"
+      ],
+      "source": "Market Research 2026"
+    },
+    "market_research_programmatic_ai_sourcing_gap_2026": {
+      "publisher": "Joveo Strategic Research",
+      "title": "The Programmatic + AI Sourcing Integration Gap: The Largest White Space in Recruitment Technology",
+      "year": 2026,
+      "data_year": "2025-2026",
+      "key_findings": [
+        "Market is bifurcated: programmatic platforms (Joveo, Appcast, PandoLogic) handle job distribution but NOT candidate intelligence",
+        "AI sourcing platforms (Juicebox, SeekOut, HireEZ) find candidates but do NOT handle media buying",
+        "NO single platform combines programmatic job advertising with AI-powered candidate sourcing/matching",
+        "This is identified as the #1 whitespace in the market",
+        "Juicebox has 800M+ profiles searchable in natural language; SeekOut has 1B+ profiles; HireEZ has 750M+ profiles",
+        "Joveo's distribution infrastructure (1,238+ publishers, 40+ countries) + candidate intelligence layer would be uniquely positioned",
+        "The company that bridges this gap will define the next generation of recruitment marketing",
+        "Skills-based matching combined with programmatic distribution could reduce wasted ad spend by 30-50%"
+      ],
+      "source": "Market Research 2026"
+    },
+    "market_research_post_hire_attribution_2026": {
+      "publisher": "Joveo Strategic Research",
+      "title": "Post-Hire Attribution: The Holy Grail Metric in Recruitment Marketing",
+      "year": 2026,
+      "data_year": "2025-2026",
+      "key_findings": [
+        "Quality of hire is now the top success metric for 31% of hiring leaders, surpassing cost-per-hire and time-to-fill",
+        "Everyone tracks cost-per-click, cost-per-apply, cost-per-hire -- but nobody tracks quality-of-hire by advertising source",
+        "The missing question: which programmatic channel produces candidates who stay 12+ months and perform well?",
+        "Appcast released the first click-to-hire benchmark report in 2026 (302M clicks, 27M applications, 1,200 employers)",
+        "This data was previously unavailable at industry scale -- proving post-apply tracking is commercially viable",
+        "Solving this requires integration with ATS, HRIS, and payroll systems to close the attribution loop",
+        "Joveo's 30+ API integrations position it to pull data from multiple systems",
+        "Companies that can demonstrate quality-of-hire by channel will command premium pricing"
+      ],
+      "source": "Market Research 2026"
+    },
+    "market_research_mid_market_programmatic_gap_2026": {
+      "publisher": "Joveo Strategic Research",
+      "title": "The Mid-Market Programmatic Gap: An Untapped Opportunity",
+      "year": 2026,
+      "data_year": "2025-2026",
+      "key_findings": [
+        "Current programmatic solutions (Appcast, PandoLogic, Recruitics) are enterprise-heavy and complex",
+        "SMBs and mid-market companies (500-5,000 employees) lack accessible, affordable programmatic job advertising",
+        "Only ~15% of employers use programmatic job advertising today -- massive growth runway",
+        "Manatal proved self-serve AI recruiting at $15-55/user/month is viable -- same could apply to programmatic",
+        "Mid-market companies represent a large addressable market with simpler needs but significant spend",
+        "Self-serve programmatic with transparent pricing could unlock the next wave of adoption",
+        "Key barriers: complexity of current platforms, opaque pricing, minimum spend requirements, long sales cycles"
+      ],
+      "source": "Market Research 2026"
+    },
+    "market_research_global_programmatic_non_english_2026": {
+      "publisher": "Joveo Strategic Research",
+      "title": "Global Programmatic for Non-English Markets: The Untapped Frontier",
+      "year": 2026,
+      "data_year": "2025-2026",
+      "key_findings": [
+        "Most programmatic platforms are US/English-centric",
+        "Asia-Pacific is the fastest-growing recruitment technology market at 25% CAGR",
+        "India alone has the world's largest working-age population and massive recruitment advertising demand",
+        "Joveo already operates in 40+ countries -- most competitors cannot match this global footprint",
+        "Local publisher relationships and regulatory knowledge create defensible competitive moats",
+        "Multinational employers need a single platform for global job advertising -- few solutions exist",
+        "Huge untapped opportunity in APAC, LATAM, MEA, and Eastern Europe",
+        "Appcast newly launched in UK; StepStone focused on Europe; local players dominate individual markets",
+        "First-mover advantage in non-English programmatic recruitment is still available"
+      ],
+      "source": "Market Research 2026"
+    },
+    "market_research_staffing_agency_programmatic_2026": {
+      "publisher": "Joveo Strategic Research",
+      "title": "Staffing Agency Programmatic: A $200B+ Industry Awaiting Automation",
+      "year": 2026,
+      "data_year": "2025-2026",
+      "key_findings": [
+        "US staffing industry is worth $200B+ -- staffing firms are among the highest-volume job advertisers",
+        "10,000+ staffing agencies use Bullhorn alone",
+        "Staffing firms using AI see 24% more placements, 28% more jobs filled, and 60% revenue growth (Bullhorn 2026 GRID Report)",
+        "Bullhorn acquired TargetRecruit (August 2025) expanding Salesforce ecosystem to 150,000 users",
+        "Staffing agencies manage hundreds of clients with thousands of open positions -- they need multi-tenant programmatic",
+        "Most current programmatic platforms are designed for direct employers, not staffing agencies",
+        "White-label programmatic platform for staffing agencies/RPOs is a high-demand opportunity",
+        "Revenue model: SaaS + percentage of media spend = highly scalable",
+        "Joveo's existing platform architecture supports multi-tenant use cases"
+      ],
+      "source": "Market Research 2026"
+    },
+    "market_research_skills_graph_job_advertising_2026": {
+      "publisher": "Joveo Strategic Research",
+      "title": "Skills-Graph-Powered Job Advertising: The Future of Targeted Recruitment",
+      "year": 2026,
+      "data_year": "2025-2026",
+      "key_findings": [
+        "70% of employers use skills-based hiring, but job advertising still targets by job title, keyword, and location",
+        "No programmatic platform targets candidates by verified skills, certifications, or demonstrated abilities",
+        "Skills-based assessment is 5x more predictive of job performance than resume review",
+        "Available skills taxonomies include O*NET, ESCO, and Lightcast",
+        "Leading skills intelligence platforms: Eightfold (1.6B+ profiles, 1.6M+ skills), Phenom (talent marketplace), Findem (Success Signals)",
+        "Concept: target 'registered nurses with ICU experience who have recently obtained CCRN certification' rather than just 'nurse + Dallas'",
+        "Skills-graph targeting could reduce wasted programmatic spend by targeting only qualified candidates",
+        "Integration with existing skills ontology platforms (Eightfold, Phenom, Findem) is more practical than building from scratch",
+        "Early mover advantage available -- no direct competitor exists in this space"
+      ],
+      "source": "Market Research 2026"
     }
   },
   "aggregated_benchmarks": {
@@ -1728,7 +2228,7 @@
     },
     "apply_rate": {
       "description": "Apply rate benchmarks by occupation and platform",
-      "appcast_overall_2022": "4.41% (3-month moving average, end of 2022 — highest of the 2020s at that time)",
+      "appcast_overall_2022": "4.41% (3-month moving average, end of 2022 \u2014 highest of the 2020s at that time)",
       "appcast_overall_2024": "6.1%",
       "appcast_overall_2025": "5.19%",
       "appcast_technology": "6.41%",
@@ -1767,7 +2267,15 @@
       "gartner_prediction": "By 2027, nearly all vendors will embed AI",
       "dice_ai_in_postings": "58% of U.S. tech postings mention AI (Jan 2026)",
       "randstad_ai_agent_demand": "+1,587% growth in AI Agent skill postings",
-      "josh_bersin_impact": "2-3x faster hiring, 60% application abandonment for slow processes"
+      "josh_bersin_impact": "2-3x faster hiring, 60% application abandonment for slow processes",
+      "2026_update": {
+        "companies_using_ai": "87% of companies now use AI in recruitment",
+        "plan_to_increase": "93% of recruiters plan to increase AI usage in 2026",
+        "staffing_ai_impact": "24% more placements for staffing firms using AI (Bullhorn 2026 GRID Report)",
+        "quality_of_hire_metric": "Now top success metric for 31% of hiring leaders",
+        "agentic_ai_shift": "50%+ of talent leaders planning autonomous AI agents in 2026",
+        "source": "Market Research 2026"
+      }
     },
     "salary_benchmarks_2025_2026": {
       "description": "Salary trends and benchmarks",
@@ -1815,7 +2323,11 @@
       "description": "Employer brand impact benchmarks",
       "strong_brand_cph_reduction": "50% lower (Universum/Radancy)",
       "strong_brand_turnover_reduction": "28% lower",
-      "top_employer_drivers": ["Salary & benefits", "Work-life balance", "Job security"],
+      "top_employer_drivers": [
+        "Salary & benefits",
+        "Work-life balance",
+        "Job security"
+      ],
       "dei_importance_decline_us": "77% to 54% (Universum)",
       "career_advancement_motivation": "52% (Rally)",
       "culture_research_channel": "33% use social media (Jobvite)",
@@ -1866,8 +2378,15 @@
       "recruiting_tech_cagr": "16.7% (Gartner)",
       "recruitment_chatbot_market_2025": "$2.03 billion (projected to $5.41B by 2030)",
       "video_interviewing_market_2030": "$3.5 billion projected",
-      "gartner_leaders": ["SmartRecruiters", "Oracle", "Workday"],
-      "gartner_visionaries": ["Phenom", "Darwinbox"]
+      "gartner_leaders": [
+        "SmartRecruiters",
+        "Oracle",
+        "Workday"
+      ],
+      "gartner_visionaries": [
+        "Phenom",
+        "Darwinbox"
+      ]
     }
   }
 }

@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Talent Supply Heat Map - Visualize talent density, salary benchmarks, hiring difficulty, and optimal locations for recruitment across 100+ metros and 40+ countries.">
+    <meta name="theme-color" content="#08090D">
+    <title>Talent Supply Heat Map | Nova AI by Joveo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><circle cx='10' cy='20' r='3' fill='%2334D399'/><circle cx='16' cy='12' r='4' fill='%2322D3EE'/><circle cx='24' cy='18' r='2.5' fill='%23F87171'/></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --obsidian: #08090D;
+            --obsidian-light: #0E1018;
+            --navy: #0F1424;
+            --indigo: #6366F1;
+            --indigo-light: #818CF8;
+            --indigo-pale: rgba(99,102,241,0.08);
+            --indigo-glow: rgba(99,102,241,0.15);
+            --cyan-accent: #22D3EE;
+            --green-success: #34D399;
+            --accent: #6366F1;
+            --accent-light: #818CF8;
+            --accent-warm: #F87171;
+            --warning: #FBBF24;
+            --error: #F87171;
+            --bg: #08090D;
+            --surface-1: rgba(15,18,30,0.6);
+            --card: rgba(15,18,30,0.6);
+            --card-hover: rgba(20,24,40,0.7);
+            --glass-blur-md: blur(24px) saturate(1.3);
+            --glass-border: rgba(255,255,255,0.06);
+            --glass-border-hover: rgba(255,255,255,0.1);
+            --text: #E2E8F0;
+            --text-secondary: rgba(226,232,240,0.7);
+            --text-light: rgba(226,232,240,0.6);
+            --text-muted: rgba(226,232,240,0.35);
+            --border: rgba(255,255,255,0.06);
+            --border-accent: rgba(99,102,241,0.3);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+            --shadow-glow: 0 0 20px rgba(99,102,241,0.15);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-lg: 16px;
+            --gradient-primary: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);
+            --gradient-accent: linear-gradient(135deg, #6366F1 0%, #22D3EE 100%);
+            --gradient-mesh: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.08) 0%, transparent 50%),
+                             radial-gradient(ellipse at 80% 20%, rgba(34,211,238,0.06) 0%, transparent 50%),
+                             radial-gradient(ellipse at 40% 80%, rgba(99,102,241,0.04) 0%, transparent 50%);
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+            --duration-normal: 200ms;
+            --duration-slow: 300ms;
+            --focus-ring: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        ::selection { background: var(--accent); color: white; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg); color: var(--text); min-height: 100vh;
+            font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+        }
+        body::before { content: ''; position: fixed; inset: 0; background: var(--gradient-mesh); pointer-events: none; z-index: 0; }
+        .page-wrapper { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+        .page-header { text-align: center; margin-bottom: 2.5rem; }
+        .page-header h1 {
+            font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 800;
+            background: var(--gradient-accent); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; background-clip: text;
+            letter-spacing: -0.02em; margin-bottom: 0.5rem;
+        }
+        .page-header p { color: var(--text-secondary); font-size: 1rem; max-width: 640px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            color: var(--text-light); text-decoration: none; font-size: 0.875rem;
+            margin-bottom: 1rem; padding: 0.5rem 0; min-height: 44px;
+            transition: color var(--duration-normal);
+        }
+        .back-link:hover { color: var(--accent-light); }
+        .back-link:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
+
+        .glass-card {
+            background: var(--card); backdrop-filter: var(--glass-blur-md);
+            border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+            padding: 2rem; box-shadow: var(--shadow-md); margin-bottom: 1.5rem;
+            transition: border-color var(--duration-normal);
+        }
+        .glass-card:hover { border-color: var(--glass-border-hover); }
+        .glass-card h2 {
+            font-size: 1.25rem; font-weight: 700; margin-bottom: 1.5rem;
+            display: flex; align-items: center; gap: 0.75rem;
+        }
+        .glass-card h2 .icon {
+            width: 36px; height: 36px; background: var(--gradient-primary);
+            border-radius: var(--radius-sm); display: flex; align-items: center;
+            justify-content: center; font-size: 1rem; flex-shrink: 0;
+        }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+        @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+        .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        .form-group--full { grid-column: 1 / -1; }
+        label { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.03em; text-transform: uppercase; }
+        input[type="text"], input[type="number"], select {
+            width: 100%; padding: 0.75rem 1rem; font-size: 0.9375rem; font-family: inherit;
+            color: var(--text); background: rgba(15,18,30,0.8); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); outline: none;
+            transition: border-color var(--duration-normal), box-shadow var(--duration-normal);
+            min-height: 48px; -webkit-appearance: none;
+        }
+        input::placeholder { color: var(--text-muted); }
+        input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+        select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23818CF8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 0.75rem center;
+            padding-right: 2.5rem; cursor: pointer;
+        }
+
+        .btn-primary {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 0.75rem; padding: 0.875rem 2rem; font-size: 1rem; font-weight: 700;
+            font-family: inherit; color: white; background: var(--gradient-primary);
+            border: none; border-radius: var(--radius); cursor: pointer; min-height: 52px;
+            min-width: 200px; transition: all var(--duration-normal);
+            box-shadow: 0 4px 16px rgba(99,102,241,0.3); position: relative; overflow: hidden;
+        }
+        .btn-primary:hover:not(:disabled) { box-shadow: 0 6px 24px rgba(99,102,241,0.45); transform: translateY(-1px); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+        .download-bar { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1.5rem; }
+        .btn-download {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.75rem 1.25rem; font-size: 0.875rem; font-weight: 600;
+            font-family: inherit; border-radius: var(--radius-sm); cursor: pointer;
+            min-height: 44px; transition: all var(--duration-normal); text-decoration: none;
+        }
+        .btn-download--excel { color: var(--green-success); background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.3); }
+        .btn-download--excel:hover { background: rgba(52,211,153,0.15); }
+        .btn-download--ppt { color: var(--warning); background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.3); }
+        .btn-download--ppt:hover { background: rgba(251,191,36,0.15); }
+        .btn-download:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-download:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+        /* Results */
+        .results-section { display: none; }
+        .results-section.visible { display: block; animation: fadeSlideIn 400ms var(--ease-out); }
+        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+        .analysis-meta {
+            display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;
+            font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1.5rem;
+        }
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.4rem; }
+        .status-dot.success { background: var(--green-success); }
+        .status-dot.partial { background: var(--warning); }
+        .status-dot.error { background: var(--error); }
+
+        /* Heatmap Grid */
+        .heatmap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; }
+        .heatmap-cell {
+            border-radius: var(--radius-sm); padding: 1rem; text-align: center;
+            transition: transform var(--duration-normal), box-shadow var(--duration-normal);
+            cursor: default; border: 1px solid transparent;
+        }
+        .heatmap-cell:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: rgba(255,255,255,0.08); }
+        .heatmap-cell .cell-name { font-size: 0.75rem; font-weight: 600; color: white; margin-bottom: 0.25rem; word-break: break-word; }
+        .heatmap-cell .cell-score { font-size: 1.5rem; font-weight: 800; color: white; }
+        .heatmap-cell .cell-label { font-size: 0.625rem; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.05em; }
+
+        /* Difficulty colors */
+        .diff-very-easy { background: rgba(22,163,74,0.3); }
+        .diff-easy { background: rgba(34,197,94,0.25); }
+        .diff-moderate { background: rgba(234,179,8,0.25); }
+        .diff-hard { background: rgba(249,115,22,0.25); }
+        .diff-very-hard { background: rgba(220,38,38,0.3); }
+
+        /* Rankings Table */
+        .rankings-table {
+            width: 100%; border-collapse: collapse; margin-top: 1rem;
+        }
+        .rankings-table th, .rankings-table td {
+            padding: 0.75rem 1rem; text-align: left; font-size: 0.875rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .rankings-table th {
+            font-weight: 600; color: var(--text-secondary);
+            text-transform: uppercase; font-size: 0.6875rem; letter-spacing: 0.05em;
+            cursor: pointer; user-select: none;
+            transition: color var(--duration-normal);
+        }
+        .rankings-table th:hover { color: var(--accent-light); }
+        .rankings-table td { color: var(--text); }
+        .rankings-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .score-badge {
+            display: inline-block; padding: 0.2rem 0.6rem; font-size: 0.75rem;
+            font-weight: 700; border-radius: 4px;
+        }
+        .score-green { color: #16A34A; background: rgba(22,163,74,0.1); }
+        .score-yellow { color: #EAB308; background: rgba(234,179,8,0.1); }
+        .score-orange { color: #F97316; background: rgba(249,115,22,0.1); }
+        .score-red { color: #DC2626; background: rgba(220,38,38,0.1); }
+
+        /* Salary bars */
+        .salary-bar-container { display: flex; flex-direction: column; gap: 0.625rem; }
+        .salary-bar-item { display: flex; align-items: center; gap: 0.75rem; }
+        .salary-bar-name { width: 180px; font-size: 0.8125rem; color: var(--text-light); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .salary-bar-track { flex: 1; height: 28px; background: rgba(255,255,255,0.04); border-radius: 4px; overflow: hidden; }
+        .salary-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #2563EB, #6366F1); transition: width 600ms var(--ease-out); display: flex; align-items: center; padding-left: 0.5rem; }
+        .salary-bar-value { font-size: 0.75rem; font-weight: 700; color: white; white-space: nowrap; }
+        .salary-bar-adjusted { width: 100px; font-size: 0.75rem; color: var(--text-muted); text-align: right; }
+
+        /* Comparison cards */
+        .comparison-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+        .comparison-card {
+            background: rgba(15,18,30,0.5); border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm); padding: 1.25rem;
+            transition: border-color var(--duration-normal), transform var(--duration-normal);
+        }
+        .comparison-card:hover { border-color: var(--glass-border-hover); transform: translateY(-2px); }
+        .comparison-card.best { border-color: rgba(34,211,153,0.4); box-shadow: 0 0 16px rgba(34,211,153,0.1); }
+        .comparison-card .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .comparison-card .card-name { font-size: 1rem; font-weight: 700; }
+        .comparison-card .card-badge { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; padding: 0.2rem 0.5rem; border-radius: 4px; }
+        .comparison-card .metric-row { display: flex; justify-content: space-between; padding: 0.35rem 0; font-size: 0.8125rem; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .comparison-card .metric-label { color: var(--text-light); }
+        .comparison-card .metric-value { font-weight: 600; color: var(--text); }
+
+        /* Optimal location cards */
+        .optimal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+        .optimal-card {
+            background: rgba(15,18,30,0.5); border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm); padding: 1.25rem;
+            transition: border-color var(--duration-normal);
+        }
+        .optimal-card:hover { border-color: var(--glass-border-hover); }
+        .optimal-card .rank {
+            width: 32px; height: 32px; background: var(--gradient-primary); border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 0.875rem; color: white; margin-right: 0.75rem;
+        }
+        .optimal-card .opt-name { font-size: 1rem; font-weight: 700; }
+        .optimal-card .opt-score { font-size: 0.8125rem; color: var(--accent-light); font-weight: 600; }
+        .optimal-card .opt-details { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.6; }
+        .optimal-card .opt-reasoning { font-size: 0.8125rem; color: var(--cyan-accent); margin-top: 0.5rem; font-style: italic; }
+
+        /* Loading spinner */
+        .loading-state { opacity: 0.6; pointer-events: none; }
+        .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Error banner */
+        .error-banner {
+            background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3);
+            border-radius: var(--radius-sm); padding: 0.75rem 1.25rem; color: var(--error);
+            font-size: 0.875rem; margin-bottom: 1rem; display: none;
+        }
+        .error-banner.visible { display: block; }
+
+        /* Helper label */
+        .helper-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+        /* Responsive table wrapper */
+        .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    </style>
+</head>
+<body>
+    <div class="page-wrapper">
+        <a href="/" class="back-link" aria-label="Back to home">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Back to Nova AI
+        </a>
+
+        <header class="page-header">
+            <h1>Talent Supply Heat Map</h1>
+            <p>Visualize talent density, salary benchmarks, hiring difficulty, and discover optimal locations for your next hires across 100+ metros and 40+ countries.</p>
+        </header>
+
+        <div class="error-banner" id="errorBanner"></div>
+
+        <!-- ═══ Input Form ═══ -->
+        <section class="glass-card glass-card--accent">
+            <h2><span class="icon">&#127758;</span> Configure Analysis</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="roleInput">Target Role</label>
+                    <input type="text" id="roleInput" placeholder="e.g. Software Engineer, Registered Nurse">
+                </div>
+                <div class="form-group">
+                    <label for="industryInput">Industry</label>
+                    <select id="industryInput">
+                        <option value="tech_engineering">Technology &amp; Engineering</option>
+                        <option value="healthcare_medical">Healthcare &amp; Medical</option>
+                        <option value="finance_banking">Finance &amp; Banking</option>
+                        <option value="retail_consumer">Retail &amp; Consumer</option>
+                        <option value="logistics_supply_chain">Logistics &amp; Supply Chain</option>
+                        <option value="hospitality_travel">Hospitality &amp; Travel</option>
+                        <option value="construction_real_estate">Construction &amp; Real Estate</option>
+                        <option value="aerospace_defense">Aerospace &amp; Defense</option>
+                        <option value="pharma_biotech">Pharma &amp; Biotech</option>
+                        <option value="energy_utilities">Energy &amp; Utilities</option>
+                        <option value="education">Education</option>
+                        <option value="automotive">Automotive &amp; Manufacturing</option>
+                        <option value="insurance">Insurance</option>
+                        <option value="food_beverage">Food &amp; Beverage</option>
+                        <option value="media_entertainment">Media &amp; Entertainment</option>
+                        <option value="legal_services">Legal Services</option>
+                        <option value="telecommunications">Telecommunications</option>
+                        <option value="blue_collar_trades">Blue Collar / Skilled Trades</option>
+                        <option value="general_entry_level">General / Entry-Level</option>
+                        <option value="mental_health">Mental Health &amp; Behavioral</option>
+                        <option value="maritime_marine">Maritime &amp; Marine</option>
+                        <option value="military_recruitment">Military Recruitment</option>
+                    </select>
+                </div>
+                <div class="form-group form-group--full">
+                    <label for="locationsInput">Locations (comma-separated, or leave empty for auto-suggestions)</label>
+                    <input type="text" id="locationsInput" placeholder="e.g. San Francisco, Austin, New York, Denver, Seattle">
+                    <span class="helper-text">Supports US metros (100+), states (50), and international locations (40+ countries). Leave blank to auto-suggest top locations.</span>
+                </div>
+                <div class="form-group">
+                    <label for="budgetInput">Total Hiring Budget (USD)</label>
+                    <input type="number" id="budgetInput" value="100000" min="0" step="5000">
+                </div>
+                <div class="form-group">
+                    <label for="numHiresInput">Number of Hires</label>
+                    <input type="number" id="numHiresInput" value="5" min="1" max="500">
+                </div>
+            </div>
+            <div style="margin-top:1.5rem;display:flex;flex-wrap:wrap;gap:1rem;align-items:center;">
+                <button class="btn-primary" id="analyzeBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    Analyze Talent Supply
+                </button>
+            </div>
+        </section>
+
+        <!-- ═══ Results ═══ -->
+        <section class="results-section" id="resultsSection">
+            <div class="analysis-meta" id="analysisMeta"></div>
+
+            <!-- Heat Map Visualization -->
+            <div class="glass-card">
+                <h2><span class="icon">&#128293;</span> Hiring Difficulty Heat Map</h2>
+                <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:1rem;">Green = easier to hire, Red = harder to hire. Score reflects talent scarcity, competition, salary pressure, and cost of living.</p>
+                <div class="heatmap-grid" id="heatmapGrid"></div>
+            </div>
+
+            <!-- Location Rankings -->
+            <div class="glass-card">
+                <h2><span class="icon">&#127942;</span> Location Rankings</h2>
+                <div class="table-wrap">
+                    <table class="rankings-table" id="rankingsTable">
+                        <thead>
+                            <tr>
+                                <th onclick="sortTable(0)">Location</th>
+                                <th onclick="sortTable(1)">Talent Density</th>
+                                <th onclick="sortTable(2)">Competition</th>
+                                <th onclick="sortTable(3)">Avg Salary</th>
+                                <th onclick="sortTable(4)">CoL Index</th>
+                                <th onclick="sortTable(5)">Difficulty</th>
+                                <th onclick="sortTable(6)">Recommendation</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rankingsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Salary Comparison -->
+            <div class="glass-card">
+                <h2><span class="icon">&#128176;</span> Salary Comparison</h2>
+                <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:1rem;">Estimated role-specific salary across locations. CoL-adjusted column shows purchasing power.</p>
+                <div class="salary-bar-container" id="salaryBars"></div>
+            </div>
+
+            <!-- Location Comparison Cards -->
+            <div class="glass-card">
+                <h2><span class="icon">&#128202;</span> Location Comparison</h2>
+                <div class="comparison-grid" id="comparisonGrid"></div>
+            </div>
+
+            <!-- Optimal Locations -->
+            <div class="glass-card">
+                <h2><span class="icon">&#127775;</span> Optimal Hiring Locations</h2>
+                <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:1rem;">Top recommended locations ranked across all 100+ US metros, combining talent availability, cost efficiency, and budget fit.</p>
+                <div class="optimal-grid" id="optimalGrid"></div>
+            </div>
+
+            <!-- Downloads -->
+            <div class="glass-card">
+                <h2><span class="icon">&#128229;</span> Download Reports</h2>
+                <div class="download-bar">
+                    <button class="btn-download btn-download--excel" id="downloadExcel" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        Download Excel
+                    </button>
+                    <button class="btn-download btn-download--ppt" id="downloadPpt" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        Download PowerPoint
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        var analyzeBtn = document.getElementById('analyzeBtn');
+        var roleInput = document.getElementById('roleInput');
+        var industryInput = document.getElementById('industryInput');
+        var locationsInput = document.getElementById('locationsInput');
+        var budgetInput = document.getElementById('budgetInput');
+        var numHiresInput = document.getElementById('numHiresInput');
+        var resultsSection = document.getElementById('resultsSection');
+        var errorBanner = document.getElementById('errorBanner');
+        var downloadExcel = document.getElementById('downloadExcel');
+        var downloadPpt = document.getElementById('downloadPpt');
+        var analysisData = null;
+
+        // ── Analyze ──
+        analyzeBtn.addEventListener('click', async function() {
+            var role = roleInput.value.trim();
+            if (!role) { showError('Please enter a target role.'); roleInput.focus(); return; }
+            hideError();
+
+            var locations = locationsInput.value.trim()
+                ? locationsInput.value.split(',').map(function(s) { return s.trim(); }).filter(Boolean)
+                : [];
+
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<span class="spinner"></span> Analyzing...';
+            resultsSection.classList.add('loading-state');
+
+            try {
+                var response = await fetch('/api/talent-heatmap/analyze', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        role: role,
+                        industry: industryInput.value,
+                        locations: locations,
+                        budget: parseInt(budgetInput.value) || 0,
+                        num_hires: parseInt(numHiresInput.value) || 5
+                    })
+                });
+
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                var data = await response.json();
+
+                if (data.status === 'error' && data.errors && data.errors.length) {
+                    showError(data.errors.join('; '));
+                } else {
+                    analysisData = data;
+                    renderResults(data);
+                    resultsSection.classList.add('visible');
+                }
+            } catch (err) {
+                showError('Analysis failed: ' + err.message);
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> Analyze Talent Supply';
+                resultsSection.classList.remove('loading-state');
+            }
+        });
+
+        // ── Render Results ──
+        function renderResults(data) {
+            var status = data.status || 'success';
+            var metaEl = document.getElementById('analysisMeta');
+            var dotClass = status === 'success' ? 'success' : (status === 'partial' ? 'partial' : 'error');
+            var statusLabel = status === 'success' ? 'Complete' : (status === 'partial' ? 'Partial' : 'Error');
+            metaEl.innerHTML =
+                '<span><span class="status-dot ' + dotClass + '"></span>' + statusLabel + '</span>' +
+                '<span>Analysis time: ' + (data.analysis_time_ms || 0) + 'ms</span>' +
+                '<span>Role: ' + escapeHtml(data.role || '') + '</span>' +
+                '<span>Industry: ' + escapeHtml(data.industry_label || '') + '</span>' +
+                (data.auto_suggested ? '<span style="color:var(--cyan-accent);">Locations auto-suggested</span>' : '');
+
+            downloadExcel.disabled = false;
+            downloadPpt.disabled = false;
+
+            renderHeatmap(data.difficulties || []);
+            renderRankings(data);
+            renderSalaryBars(data.salary_map || []);
+            renderComparison(data.comparison || {});
+            renderOptimal(data.optimal_locations || []);
+
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // ── Heatmap Grid ──
+        function renderHeatmap(difficulties) {
+            var grid = document.getElementById('heatmapGrid');
+            if (!difficulties.length) { grid.innerHTML = '<p style="color:var(--text-muted);font-size:0.875rem;">No data available.</p>'; return; }
+
+            var html = '';
+            difficulties.forEach(function(d) {
+                var score = d.difficulty_score || 0;
+                var diffClass = score >= 75 ? 'diff-very-hard' : (score >= 55 ? 'diff-hard' : (score >= 40 ? 'diff-moderate' : (score >= 25 ? 'diff-easy' : 'diff-very-easy')));
+                var name = d.display_name || d.location || '';
+                // Shorten long names
+                if (name.length > 25) name = name.substring(0, 22) + '...';
+                html += '<div class="heatmap-cell ' + diffClass + '" title="' + escapeHtml(d.display_name || '') + ': ' + score + '/100 (' + escapeHtml(d.difficulty_rating || '') + ')">' +
+                    '<div class="cell-name">' + escapeHtml(name) + '</div>' +
+                    '<div class="cell-score">' + Math.round(score) + '</div>' +
+                    '<div class="cell-label">' + escapeHtml(d.difficulty_rating || '') + '</div>' +
+                    '</div>';
+            });
+            grid.innerHTML = html;
+        }
+
+        // ── Rankings Table ──
+        function renderRankings(data) {
+            var body = document.getElementById('rankingsBody');
+            var comparison = data.comparison || {};
+            var locations = comparison.locations || [];
+            var difficulties = data.difficulties || [];
+
+            if (!locations.length) { body.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);">No data.</td></tr>'; return; }
+
+            // Map difficulties by location
+            var diffMap = {};
+            difficulties.forEach(function(d) { diffMap[d.location] = d; });
+
+            var html = '';
+            locations.forEach(function(loc) {
+                var td = loc.talent_density || {};
+                var comp = loc.competition || {};
+                var sal = loc.salary || {};
+                var col = loc.cost_of_living || {};
+                var diff = diffMap[loc.location] || {};
+                var rec = loc.recommendation_score || 0;
+
+                var densityBadge = scoreBadge(td.score || 0);
+                var compBadge = scoreBadge(comp.score || 0, true);
+                var diffBadge = scoreBadge(diff.difficulty_score || 0, true);
+                var recBadge = scoreBadge(rec);
+
+                html += '<tr>' +
+                    '<td><strong>' + escapeHtml(loc.display_name || loc.location || '') + '</strong></td>' +
+                    '<td>' + densityBadge + ' <span style="color:var(--text-muted);font-size:0.75rem;">' + escapeHtml(td.rating || '') + '</span></td>' +
+                    '<td>' + compBadge + ' <span style="color:var(--text-muted);font-size:0.75rem;">' + escapeHtml(comp.rating || '') + '</span></td>' +
+                    '<td>$' + numberWithCommas(sal.estimated || 0) + '</td>' +
+                    '<td>' + (col.index || 100) + ' <span style="color:var(--text-muted);font-size:0.75rem;">' + escapeHtml(col.vs_national || '') + '</span></td>' +
+                    '<td>' + diffBadge + '</td>' +
+                    '<td>' + recBadge + '</td>' +
+                    '</tr>';
+            });
+            body.innerHTML = html;
+        }
+
+        // ── Salary Bars ──
+        function renderSalaryBars(salaryData) {
+            var container = document.getElementById('salaryBars');
+            if (!salaryData.length) { container.innerHTML = '<p style="color:var(--text-muted);font-size:0.875rem;">No salary data.</p>'; return; }
+
+            var maxSalary = Math.max.apply(null, salaryData.map(function(s) { return s.estimated_salary || 1; }));
+            var html = '';
+            salaryData.forEach(function(s) {
+                var est = s.estimated_salary || 0;
+                var adj = s.adjusted_salary || 0;
+                var pctW = Math.max(3, (est / maxSalary) * 100);
+                var name = s.display_name || s.location || '';
+                if (name.length > 28) name = name.substring(0, 25) + '...';
+
+                html += '<div class="salary-bar-item">' +
+                    '<span class="salary-bar-name" title="' + escapeHtml(s.display_name || '') + '">' + escapeHtml(name) + '</span>' +
+                    '<div class="salary-bar-track"><div class="salary-bar-fill" style="width:' + pctW + '%;"><span class="salary-bar-value">$' + numberWithCommas(est) + '</span></div></div>' +
+                    '<span class="salary-bar-adjusted" title="CoL-adjusted salary">adj: $' + numberWithCommas(adj) + '</span>' +
+                    '</div>';
+            });
+            container.innerHTML = html;
+        }
+
+        // ── Comparison Cards ──
+        function renderComparison(comparison) {
+            var grid = document.getElementById('comparisonGrid');
+            var locations = comparison.locations || [];
+            if (!locations.length) { grid.innerHTML = '<p style="color:var(--text-muted);font-size:0.875rem;">No comparison data.</p>'; return; }
+
+            var html = '';
+            locations.forEach(function(loc) {
+                var isBest = loc.is_best || false;
+                var td = loc.talent_density || {};
+                var comp = loc.competition || {};
+                var sal = loc.salary || {};
+                var col = loc.cost_of_living || {};
+                var rec = loc.recommendation_score || 0;
+
+                var badgeColor = rec >= 60 ? 'color:#16A34A;background:rgba(22,163,74,0.1);' : (rec >= 40 ? 'color:#EAB308;background:rgba(234,179,8,0.1);' : 'color:#F97316;background:rgba(249,115,22,0.1);');
+
+                html += '<div class="comparison-card' + (isBest ? ' best' : '') + '">' +
+                    '<div class="card-header">' +
+                    '<span class="card-name">' + escapeHtml(loc.display_name || loc.location || '') + '</span>' +
+                    '<span class="card-badge" style="' + badgeColor + '">' + rec + '/100</span>' +
+                    '</div>' +
+                    (isBest ? '<div style="font-size:0.6875rem;color:var(--green-success);font-weight:700;text-transform:uppercase;margin-bottom:0.75rem;">Best Match</div>' : '') +
+                    '<div class="metric-row"><span class="metric-label">Talent Density</span><span class="metric-value">' + (td.score || 0) + '/100 (' + escapeHtml(td.rating || '') + ')</span></div>' +
+                    '<div class="metric-row"><span class="metric-label">Talent Pool</span><span class="metric-value">' + escapeHtml(td.pool || 'N/A') + '</span></div>' +
+                    '<div class="metric-row"><span class="metric-label">Competition</span><span class="metric-value">' + (comp.score || 0) + '/100</span></div>' +
+                    '<div class="metric-row"><span class="metric-label">Est. Salary</span><span class="metric-value">$' + numberWithCommas(sal.estimated || 0) + '</span></div>' +
+                    '<div class="metric-row"><span class="metric-label">Salary Range</span><span class="metric-value">$' + numberWithCommas(sal.range_low || 0) + ' - $' + numberWithCommas(sal.range_high || 0) + '</span></div>' +
+                    '<div class="metric-row"><span class="metric-label">CoL-Adjusted</span><span class="metric-value">$' + numberWithCommas(sal.adjusted || 0) + '</span></div>' +
+                    '<div class="metric-row"><span class="metric-label">Cost of Living</span><span class="metric-value">' + (col.index || 100) + ' (' + escapeHtml(col.rating || '') + ')</span></div>' +
+                    '<div class="metric-row"><span class="metric-label">Population</span><span class="metric-value">' + escapeHtml(loc.population || 'N/A') + '</span></div>' +
+                    '</div>';
+            });
+            grid.innerHTML = html;
+        }
+
+        // ── Optimal Locations ──
+        function renderOptimal(optimal) {
+            var grid = document.getElementById('optimalGrid');
+            if (!optimal.length) { grid.innerHTML = '<p style="color:var(--text-muted);font-size:0.875rem;">No optimal location data.</p>'; return; }
+
+            var html = '';
+            optimal.slice(0, 10).forEach(function(loc) {
+                html += '<div class="optimal-card">' +
+                    '<div style="display:flex;align-items:center;margin-bottom:0.5rem;">' +
+                    '<span class="rank">' + (loc.rank || '') + '</span>' +
+                    '<div><div class="opt-name">' + escapeHtml(loc.location || '') + '</div>' +
+                    '<div class="opt-score">Score: ' + (loc.composite_score || 0) + '/100</div></div>' +
+                    '</div>' +
+                    '<div class="opt-details">' +
+                    'Salary: $' + numberWithCommas(loc.estimated_salary || 0) +
+                    ' | CoL: ' + (loc.coli || 100) +
+                    ' | Pop: ' + escapeHtml(loc.population || 'N/A') +
+                    ' | Unemp: ' + escapeHtml(loc.unemployment || 'N/A') +
+                    '</div>' +
+                    '<div class="opt-reasoning">' + escapeHtml(loc.reasoning || '') + '</div>' +
+                    '</div>';
+            });
+            grid.innerHTML = html;
+        }
+
+        // ── Table Sorting ──
+        var sortDir = {};
+        window.sortTable = function(colIdx) {
+            sortDir[colIdx] = !(sortDir[colIdx] || false);
+            var table = document.getElementById('rankingsTable');
+            var tbody = document.getElementById('rankingsBody');
+            var rows = Array.from(tbody.querySelectorAll('tr'));
+
+            rows.sort(function(a, b) {
+                var aText = a.cells[colIdx].textContent.trim();
+                var bText = b.cells[colIdx].textContent.trim();
+                var aNum = parseFloat(aText.replace(/[^0-9.\-]/g, ''));
+                var bNum = parseFloat(bText.replace(/[^0-9.\-]/g, ''));
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return sortDir[colIdx] ? aNum - bNum : bNum - aNum;
+                }
+                return sortDir[colIdx] ? aText.localeCompare(bText) : bText.localeCompare(aText);
+            });
+
+            rows.forEach(function(row) { tbody.appendChild(row); });
+        };
+
+        // ── Downloads ──
+        downloadExcel.addEventListener('click', function() { if (analysisData) downloadReport('excel'); });
+        downloadPpt.addEventListener('click', function() { if (analysisData) downloadReport('ppt'); });
+
+        async function downloadReport(format) {
+            var btn = format === 'excel' ? downloadExcel : downloadPpt;
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+
+            try {
+                var response = await fetch('/api/talent-heatmap/download/' + format, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(analysisData)
+                });
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+
+                var blob = await response.blob();
+                var role = (analysisData.role || 'talent').replace(/[^a-zA-Z0-9]/g, '_');
+                var ext = format === 'excel' ? '.xlsx' : '.pptx';
+                var filename = 'Talent_Heatmap_' + role + ext;
+
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url; a.download = filename;
+                document.body.appendChild(a); a.click();
+                setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+            } catch (err) {
+                showError('Download failed: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = format === 'excel'
+                    ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>Download Excel'
+                    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>Download PowerPoint';
+            }
+        }
+
+        // ── Helpers ──
+        function showError(msg) { errorBanner.textContent = msg; errorBanner.classList.add('visible'); }
+        function hideError() { errorBanner.textContent = ''; errorBanner.classList.remove('visible'); }
+        function escapeHtml(s) {
+            if (typeof s !== 'string') return String(s);
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+        function numberWithCommas(n) {
+            return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+        function scoreBadge(score, inverted) {
+            var cls;
+            if (inverted) {
+                cls = score >= 75 ? 'score-red' : (score >= 55 ? 'score-orange' : (score >= 40 ? 'score-yellow' : 'score-green'));
+            } else {
+                cls = score >= 60 ? 'score-green' : (score >= 40 ? 'score-yellow' : (score >= 25 ? 'score-orange' : 'score-red'));
+            }
+            return '<span class="score-badge ' + cls + '">' + Math.round(score) + '</span>';
+        }
+    })();
+    </script>
+</body>
+</html>
