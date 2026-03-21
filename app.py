@@ -9484,6 +9484,18 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(html.encode())
             else:
                 self.send_error(404, "Quick Plan page not found")
+        # ── Social & Search Media Planner Page ──
+        elif path in ("/social-plan", "/social-plan/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "social-plan.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Social Plan page not found")
         # ── Recruitment Advertising Audit Page ──
         elif path in ("/audit", "/audit/"):
             _html_path = os.path.join(BASE_DIR, "templates", "audit.html")
@@ -9496,6 +9508,18 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(html.encode())
             else:
                 self.send_error(404, "Audit page not found")
+        # ── HireSignal Quality of Hire Page ──
+        elif path in ("/hire-signal", "/hire-signal/", "/hiresignal", "/hiresignal/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "hire-signal.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "HireSignal page not found")
         # ── Market Pulse Dashboard Page ──
         elif path in ("/market-pulse", "/market-pulse/"):
             _html_path = os.path.join(BASE_DIR, "templates", "market-pulse.html")
@@ -11106,6 +11130,65 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 logger.error("API Portal POST error: %s", e, exc_info=True)
                 self._send_json({"error": str(e), "status": "error"})
+        # ── Social & Search Media Plan: Generate ──
+        elif path == "/api/social-plan/generate":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from social_plan import generate_social_media_plan
+                result = generate_social_media_plan(
+                    role=data.get("role", ""),
+                    location=data.get("location", ""),
+                    industry=data.get("industry", "general_entry_level"),
+                    budget=data.get("budget", 50000),
+                    goals=data.get("goals", ["job_applications"]),
+                    duration_weeks=data.get("duration_weeks", 4),
+                )
+                self._send_json(result)
+            except Exception as e:
+                logger.error("Social plan generation error: %s", e, exc_info=True)
+                self._send_json({"success": False, "error": str(e)})
+        # ── Social & Search Media Plan: Excel Download ──
+        elif path == "/api/social-plan/download/excel":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from social_plan import generate_social_plan_excel
+                excel_bytes = generate_social_plan_excel(plan=data)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                self.send_header("Content-Disposition", "attachment; filename=social_media_plan.xlsx")
+                self.send_header("Content-Length", str(len(excel_bytes)))
+                self.end_headers()
+                self.wfile.write(excel_bytes)
+            except Exception as e:
+                logger.error("Social plan Excel error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Excel export failed"}).encode())
+        # ── Social & Search Media Plan: PPT Download ──
+        elif path == "/api/social-plan/download/ppt":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from social_plan import generate_social_plan_ppt
+                ppt_bytes = generate_social_plan_ppt(plan=data)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+                self.send_header("Content-Disposition", "attachment; filename=social_media_plan.pptx")
+                self.send_header("Content-Length", str(len(ppt_bytes)))
+                self.end_headers()
+                self.wfile.write(ppt_bytes)
+            except Exception as e:
+                logger.error("Social plan PPT error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "PPT export failed"}).encode())
         # ── Talent Heatmap: Analyze ──
         elif path == "/api/talent-heatmap/analyze":
             try:
@@ -11267,6 +11350,109 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(ppt_bytes)
             except Exception as e:
                 logger.error("Audit PPT error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "PPT export failed"}).encode())
+        # ── HireSignal: Analyze ──
+        elif path == "/api/hire-signal/analyze":
+            try:
+                content_type = self.headers.get("Content-Type", "")
+                if "multipart/form-data" in content_type:
+                    import cgi
+                    form = cgi.FieldStorage(
+                        fp=self.rfile,
+                        headers=self.headers,
+                        environ={"REQUEST_METHOD": "POST", "CONTENT_TYPE": content_type},
+                    )
+                    file_item = form["file"]
+                    file_bytes = file_item.file.read()
+                    filename = file_item.filename
+                    industry = form.getvalue("industry", "general_entry_level")
+                    client_name = form.getvalue("client_name", "Client")
+                    from hire_signal import run_full_signal_analysis
+                    result = run_full_signal_analysis(
+                        file_bytes=file_bytes,
+                        filename=filename,
+                        industry=industry,
+                        client_name=client_name,
+                    )
+                else:
+                    content_len = int(self.headers.get("Content-Length", 0))
+                    body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                    data = json.loads(body)
+                    from hire_signal import run_full_signal_analysis
+                    result = run_full_signal_analysis(
+                        manual_data=data.get("manual_data"),
+                        industry=data.get("industry", "general_entry_level"),
+                        client_name=data.get("client_name", "Client"),
+                    )
+                self._send_json(result)
+            except Exception as e:
+                logger.error("HireSignal analyze error: %s", e, exc_info=True)
+                self._send_json({"error": str(e), "success": False})
+        # ── HireSignal: Sample Data ──
+        elif path == "/api/hire-signal/sample-data":
+            try:
+                from hire_signal import generate_sample_data, run_full_signal_analysis
+                sample = generate_sample_data()
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                try:
+                    data = json.loads(body)
+                except Exception:
+                    data = {}
+                result = run_full_signal_analysis(
+                    manual_data=sample,
+                    industry=data.get("industry", "tech_engineering"),
+                    client_name=data.get("client_name", "Demo Company"),
+                )
+                self._send_json(result)
+            except Exception as e:
+                logger.error("HireSignal sample data error: %s", e, exc_info=True)
+                self._send_json({"error": str(e), "success": False})
+        # ── HireSignal: Excel Download ──
+        elif path == "/api/hire-signal/download/excel":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from hire_signal import generate_signal_excel
+                excel_bytes = generate_signal_excel(
+                    report=data.get("report_data", data),
+                    client_name=data.get("client_name", "Client"),
+                )
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                self.send_header("Content-Disposition", "attachment; filename=hire_signal_report.xlsx")
+                self.send_header("Content-Length", str(len(excel_bytes)))
+                self.end_headers()
+                self.wfile.write(excel_bytes)
+            except Exception as e:
+                logger.error("HireSignal Excel error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Excel export failed"}).encode())
+        # ── HireSignal: PPT Download ──
+        elif path == "/api/hire-signal/download/ppt":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from hire_signal import generate_signal_ppt
+                ppt_bytes = generate_signal_ppt(
+                    report=data.get("report_data", data),
+                    client_name=data.get("client_name", "Client"),
+                )
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+                self.send_header("Content-Disposition", "attachment; filename=hire_signal_report.pptx")
+                self.send_header("Content-Length", str(len(ppt_bytes)))
+                self.end_headers()
+                self.wfile.write(ppt_bytes)
+            except Exception as e:
+                logger.error("HireSignal PPT error: %s", e, exc_info=True)
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
