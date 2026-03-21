@@ -9733,6 +9733,30 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(html.encode())
             else:
                 self.send_error(404, "ROI Calculator page not found")
+        # ── A/B Testing Page ──
+        elif path in ("/ab-testing", "/ab-testing/", "/abtesting", "/abtesting/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "ab-testing.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "A/B Testing page not found")
+        # ── Post-Campaign Analysis Page ──
+        elif path in ("/post-campaign", "/post-campaign/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "post-campaign.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Post-Campaign Analysis page not found")
         # ── Market Intel Reports Page ──
         elif path in ("/market-intel", "/market-intel/", "/market-intelligence", "/market-intelligence/"):
             _html_path = os.path.join(BASE_DIR, "templates", "market-intel.html")
@@ -9745,6 +9769,18 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(html.encode())
             else:
                 self.send_error(404, "Market Intel page not found")
+        # ── Quick Brief (NL Plan Generation) Page ──
+        elif path in ("/quick-brief", "/quick-brief/", "/quickbrief", "/quickbrief/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "quick-brief.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Quick Brief page not found")
         # ── API Portal GET routes ──
         elif path.startswith("/api/portal/"):
             if not self._check_admin_auth():
@@ -11830,6 +11866,121 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 logger.error("ApplyFlow error: %s", e, exc_info=True)
                 self._send_json({"error": str(e), "response": "Something went wrong. Please try again."})
+        # ── Post-Campaign Analysis: Excel Download ──
+        elif path == "/api/post-campaign/download/excel":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+
+                wb = Workbook()
+
+                # -- Sheet 1: Campaign Summary --
+                ws_summary = wb.active
+                ws_summary.title = "Campaign Summary"
+                header_font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+                header_fill = PatternFill(start_color="6366F1", end_color="6366F1", fill_type="solid")
+                subheader_font = Font(name="Calibri", bold=True, size=10)
+                normal_font = Font(name="Calibri", size=10)
+                border_thin = Border(
+                    left=Side(style="thin", color="D9D9D9"),
+                    right=Side(style="thin", color="D9D9D9"),
+                    top=Side(style="thin", color="D9D9D9"),
+                    bottom=Side(style="thin", color="D9D9D9"),
+                )
+
+                # Title row
+                ws_summary.merge_cells("A1:B1")
+                ws_summary["A1"] = "Post-Campaign Analysis"
+                ws_summary["A1"].font = Font(name="Calibri", bold=True, size=16, color="6366F1")
+
+                summary_fields = [
+                    ("Campaign Name", data.get("campaign_name", "")),
+                    ("Client Name", data.get("client_name", "")),
+                    ("Start Date", data.get("start_date", "")),
+                    ("End Date", data.get("end_date", "")),
+                    ("Total Budget", data.get("total_budget", 0)),
+                    ("Industry", data.get("industry", "")),
+                    ("Benchmark CPA", data.get("benchmark_cpa", 0)),
+                ]
+                for i, (label, val) in enumerate(summary_fields, start=3):
+                    ws_summary.cell(row=i, column=1, value=label).font = subheader_font
+                    ws_summary.cell(row=i, column=2, value=val).font = normal_font
+
+                ws_summary.column_dimensions["A"].width = 22
+                ws_summary.column_dimensions["B"].width = 35
+
+                # -- Sheet 2: Channel Performance --
+                ws_perf = wb.create_sheet("Channel Performance")
+                perf_headers = ["Channel", "Spend ($)", "Impressions", "Clicks", "Applications", "Hires", "CTR (%)", "Apply Rate (%)", "CPA ($)", "CPH ($)", "Grade"]
+                for col_idx, hdr in enumerate(perf_headers, start=1):
+                    cell = ws_perf.cell(row=1, column=col_idx, value=hdr)
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.alignment = Alignment(horizontal="center")
+                    cell.border = border_thin
+
+                channels = data.get("channels", [])
+                total_spend = 0
+                total_apps = 0
+                total_hires = 0
+                for row_idx, ch in enumerate(channels, start=2):
+                    spend = ch.get("spend", 0)
+                    impressions = ch.get("impressions", 0)
+                    clicks = ch.get("clicks", 0)
+                    applications = ch.get("applications", 0)
+                    hires = ch.get("hires", 0)
+                    ctr = ch.get("ctr", 0)
+                    apply_rate = ch.get("applyRate", 0)
+                    cpa = ch.get("cpa", 0)
+                    cph = ch.get("cph", 0)
+                    grade = ch.get("grade", "--")
+                    total_spend += spend
+                    total_apps += applications
+                    total_hires += hires
+
+                    vals = [ch.get("channel", ""), spend, impressions, clicks, applications, hires,
+                            round(ctr, 2), round(apply_rate, 2), round(cpa, 2), round(cph, 2), grade]
+                    for col_idx, val in enumerate(vals, start=1):
+                        cell = ws_perf.cell(row=row_idx, column=col_idx, value=val)
+                        cell.font = normal_font
+                        cell.border = border_thin
+                        cell.alignment = Alignment(horizontal="center")
+
+                # Totals row
+                tot_row = len(channels) + 2
+                ws_perf.cell(row=tot_row, column=1, value="TOTAL").font = Font(name="Calibri", bold=True, size=10)
+                ws_perf.cell(row=tot_row, column=2, value=total_spend).font = Font(name="Calibri", bold=True, size=10)
+                ws_perf.cell(row=tot_row, column=5, value=total_apps).font = Font(name="Calibri", bold=True, size=10)
+                ws_perf.cell(row=tot_row, column=6, value=total_hires).font = Font(name="Calibri", bold=True, size=10)
+                overall_cpa = total_spend / total_apps if total_apps > 0 else 0
+                overall_cph = total_spend / total_hires if total_hires > 0 else 0
+                ws_perf.cell(row=tot_row, column=9, value=round(overall_cpa, 2)).font = Font(name="Calibri", bold=True, size=10)
+                ws_perf.cell(row=tot_row, column=10, value=round(overall_cph, 2)).font = Font(name="Calibri", bold=True, size=10)
+                for col_idx in range(1, 12):
+                    ws_perf.cell(row=tot_row, column=col_idx).border = border_thin
+
+                # Auto-width columns
+                for col_idx in range(1, 12):
+                    ws_perf.column_dimensions[get_column_letter(col_idx)].width = 16
+
+                # Save to buffer
+                buf = io.BytesIO()
+                wb.save(buf)
+                excel_bytes = buf.getvalue()
+
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                self.send_header("Content-Disposition", "attachment; filename=post_campaign_analysis.xlsx")
+                self.send_header("Content-Length", str(len(excel_bytes)))
+                self.end_headers()
+                self.wfile.write(excel_bytes)
+            except Exception as e:
+                logger.error("Post-campaign Excel error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Excel generation failed: " + str(e)}).encode())
         # ── Quick Wins: PDF/HTML Report ──
         elif path == "/api/report/html":
             try:

@@ -1064,6 +1064,12 @@
             <span class="nav-icon">&#x1f4ca;</span> Admin Dashboard
         </a>
         <div class="sidebar-nav-label">Sections</div>
+        <a href="#kpi-summary" onclick="scrollToSection('kpi-summary')">
+            <span class="nav-icon">&#x1f4ca;</span> KPI Summary
+        </a>
+        <a href="#analytics-charts" onclick="scrollToSection('analytics-charts')">
+            <span class="nav-icon">&#x1f4c8;</span> Analytics Charts
+        </a>
         <a href="#product-status" onclick="scrollToSection('product-status')">
             <span class="nav-icon">&#x1f680;</span> Product Suite Status
         </a>
@@ -1570,8 +1576,8 @@ const PRODUCTS = [
     { name: 'Market Pulse', path: '/market-pulse', category: 'Intelligence', status: 'live' },
     { name: 'SkillTarget', path: '/skill-target', category: 'Planning', status: 'beta' },
     { name: 'Market Intel Reports', path: '/market-intel', category: 'Intelligence', status: 'beta' },
-    { name: 'ApplyFlow Demo', path: '/applyflow-demo', category: 'Tools', status: 'live' },
-    { name: 'N.O.V.A. Jarvis', path: '/nova-jarvis', category: 'Intelligence', status: 'live' },
+    { name: 'ApplyFlow Demo', path: '/applyflow', category: 'Tools', status: 'live' },
+    { name: 'N.O.V.A. Jarvis', path: '/nova', category: 'Intelligence', status: 'live' },
 ];
 
 async function checkProductStatus() {
@@ -2139,6 +2145,9 @@ function updateStats() {
 
     document.getElementById('statSize').textContent = formatFileSize(totalSize);
     document.getElementById('statSizeSub').textContent = `Across ${successes} generated files`;
+
+    // Update KPI cards and charts with fresh request data
+    updateKpiFromRequests();
 }
 
 // ===== TABLE RENDERING =====
@@ -2423,11 +2432,334 @@ function startCountdown() {
     }, 1000);
 }
 
+// ===== KPI CARDS AND ANALYTICS CHARTS =====
+let kpiData = null;
+let chartIndustryInstance = null;
+let chartVolumeInstance = null;
+let chartBudgetInstance = null;
+
+function setKpiCard(valueId, deltaId, value, deltaText, deltaDirection) {
+    const valEl = document.getElementById(valueId);
+    const deltaEl = document.getElementById(deltaId);
+    if (valEl) valEl.textContent = value;
+    if (deltaEl) {
+        let arrow = '';
+        let cls = 'kpi-card-delta ';
+        if (deltaDirection === 'up') {
+            arrow = '&#x25B2;';
+            cls += 'up';
+        } else if (deltaDirection === 'down') {
+            arrow = '&#x25BC;';
+            cls += 'down';
+        } else {
+            arrow = '&#x2014;';
+            cls += 'neutral';
+        }
+        deltaEl.className = cls;
+        deltaEl.innerHTML = '<span class="delta-arrow">' + arrow + '</span> <span>' + escapeHtml(deltaText) + '</span>';
+    }
+}
+
+function updateKpiFromRequests() {
+    const total = allRequests.length;
+    const successful = allRequests.filter(r => r.status === 'success').length;
+
+    setKpiCard('kpiTotalPlans', 'kpiTotalPlansDelta',
+        successful.toLocaleString(),
+        successful > 0 ? (((successful / Math.max(total, 1)) * 100).toFixed(0) + '% success rate') : 'No data',
+        successful > 0 ? 'up' : 'neutral'
+    );
+
+    const times = allRequests.filter(r => r.generation_time_seconds > 0).map(r => r.generation_time_seconds);
+    const avgTime = times.length > 0 ? (times.reduce((a, b) => a + b, 0) / times.length) : 0;
+    setKpiCard('kpiAvgTime', 'kpiAvgTimeDelta',
+        avgTime > 0 ? avgTime.toFixed(1) + 's' : '--',
+        times.length > 0 ? ('Range: ' + Math.min(...times).toFixed(1) + 's - ' + Math.max(...times).toFixed(1) + 's') : 'No data',
+        avgTime > 0 && avgTime < 30 ? 'up' : avgTime >= 30 ? 'down' : 'neutral'
+    );
+
+    let totalBudget = 0;
+    allRequests.forEach(r => {
+        if (r.budget) {
+            const parsed = parseFloat(String(r.budget).replace(/[^0-9.]/g, ''));
+            if (!isNaN(parsed)) totalBudget += parsed;
+        }
+    });
+    const budgetDisplay = totalBudget >= 1000000
+        ? '$' + (totalBudget / 1000000).toFixed(1) + 'M'
+        : totalBudget >= 1000
+        ? '$' + (totalBudget / 1000).toFixed(0) + 'K'
+        : '$' + totalBudget.toLocaleString();
+    setKpiCard('kpiTotalBudget', 'kpiTotalBudgetDelta',
+        totalBudget > 0 ? budgetDisplay : '--',
+        totalBudget > 0 ? ('Across ' + successful + ' plans') : 'No budget data',
+        totalBudget > 0 ? 'up' : 'neutral'
+    );
+
+    updateKpiActiveProducts();
+    renderAnalyticsCharts();
+}
+
+function updateKpiActiveProducts() {
+    const grid = document.getElementById('productStatusGrid');
+    if (!grid) return;
+    const dots = grid.querySelectorAll('span[style*="border-radius:50%"]');
+    let onlineCount = 0;
+    let totalCount = PRODUCTS.length;
+    dots.forEach(dot => {
+        if (dot.style.background && dot.style.background.includes('var(--green)')) onlineCount++;
+    });
+    if (dots.length === 0) {
+        setKpiCard('kpiActiveProducts', 'kpiActiveProductsDelta', '--', 'Checking...', 'neutral');
+        return;
+    }
+    setKpiCard('kpiActiveProducts', 'kpiActiveProductsDelta',
+        onlineCount + '/' + totalCount,
+        onlineCount === totalCount ? 'All systems operational' : (totalCount - onlineCount) + ' offline',
+        onlineCount === totalCount ? 'up' : 'down'
+    );
+}
+
+function renderAnalyticsCharts() {
+    renderIndustryChart();
+    renderVolumeChart();
+    renderBudgetChart();
+}
+
+function renderIndustryChart() {
+    const container = document.getElementById('chartIndustry');
+    if (!container || typeof echarts === 'undefined') return;
+    if (!chartIndustryInstance) {
+        chartIndustryInstance = echarts.init(container, null, { renderer: 'canvas' });
+    }
+
+    const industryCounts = {};
+    allRequests.forEach(r => {
+        const ind = formatIndustryName(r.industry || 'Unknown');
+        industryCounts[ind] = (industryCounts[ind] || 0) + 1;
+    });
+
+    const sorted = Object.entries(industryCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const categories = sorted.map(e => e[0]);
+    const values = sorted.map(e => e[1]);
+
+    if (categories.length === 0) {
+        chartIndustryInstance.setOption({
+            backgroundColor: 'transparent',
+            title: { text: 'No data available', left: 'center', top: 'center', textStyle: { color: '#666666', fontSize: 14 } }
+        });
+        return;
+    }
+
+    chartIndustryInstance.setOption({
+        backgroundColor: 'transparent',
+        tooltip: {
+            trigger: 'axis', axisPointer: { type: 'shadow' },
+            backgroundColor: '#1a1a1a', borderColor: 'rgba(255,255,255,0.08)',
+            textStyle: { color: '#ededed', fontSize: 12 }
+        },
+        grid: { left: '3%', right: '4%', bottom: '8%', top: '6%', containLabel: true },
+        xAxis: {
+            type: 'category', data: categories,
+            axisLabel: { color: '#a1a1a1', fontSize: 11, rotate: categories.length > 5 ? 30 : 0, interval: 0 },
+            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            axisTick: { show: false }
+        },
+        yAxis: {
+            type: 'value',
+            axisLabel: { color: '#a1a1a1', fontSize: 11 },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+            axisLine: { show: false }, axisTick: { show: false }
+        },
+        series: [{
+            type: 'bar', data: values, barWidth: '50%',
+            itemStyle: {
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: '#6366f1' }, { offset: 1, color: '#4F46E5' }
+                ]),
+                borderRadius: [4, 4, 0, 0]
+            },
+            emphasis: { itemStyle: { color: '#818CF8' } }
+        }]
+    });
+}
+
+function renderVolumeChart() {
+    const container = document.getElementById('chartVolume');
+    if (!container || typeof echarts === 'undefined') return;
+    if (!chartVolumeInstance) {
+        chartVolumeInstance = echarts.init(container, null, { renderer: 'canvas' });
+    }
+
+    const now = new Date();
+    const days = [];
+    const dayCounts = {};
+    for (let i = 29; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0, 10);
+        days.push(key);
+        dayCounts[key] = 0;
+    }
+    allRequests.forEach(r => {
+        if (r.timestamp) {
+            const dayKey = r.timestamp.slice(0, 10);
+            if (dayCounts.hasOwnProperty(dayKey)) dayCounts[dayKey]++;
+        }
+    });
+
+    const values = days.map(d => dayCounts[d]);
+    const labels = days.map(d => {
+        const dt = new Date(d + 'T00:00:00');
+        return (dt.getMonth() + 1) + '/' + dt.getDate();
+    });
+
+    if (!values.some(v => v > 0)) {
+        chartVolumeInstance.setOption({
+            backgroundColor: 'transparent',
+            title: { text: 'No data in the last 30 days', left: 'center', top: 'center', textStyle: { color: '#666666', fontSize: 14 } }
+        });
+        return;
+    }
+
+    chartVolumeInstance.setOption({
+        backgroundColor: 'transparent',
+        tooltip: {
+            trigger: 'axis', backgroundColor: '#1a1a1a',
+            borderColor: 'rgba(255,255,255,0.08)', textStyle: { color: '#ededed', fontSize: 12 }
+        },
+        grid: { left: '3%', right: '4%', bottom: '8%', top: '6%', containLabel: true },
+        xAxis: {
+            type: 'category', data: labels, boundaryGap: false,
+            axisLabel: { color: '#a1a1a1', fontSize: 11, interval: Math.floor(labels.length / 8) },
+            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            axisTick: { show: false }
+        },
+        yAxis: {
+            type: 'value', minInterval: 1,
+            axisLabel: { color: '#a1a1a1', fontSize: 11 },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+            axisLine: { show: false }, axisTick: { show: false }
+        },
+        series: [{
+            type: 'line', data: values, smooth: true, symbol: 'circle', symbolSize: 6,
+            lineStyle: { color: '#FBBF24', width: 2.5 },
+            itemStyle: { color: '#FBBF24', borderColor: '#111111', borderWidth: 2 },
+            areaStyle: {
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: 'rgba(251,191,36,0.25)' },
+                    { offset: 1, color: 'rgba(251,191,36,0.02)' }
+                ])
+            }
+        }]
+    });
+}
+
+function renderBudgetChart() {
+    const container = document.getElementById('chartBudget');
+    if (!container || typeof echarts === 'undefined') return;
+    if (!chartBudgetInstance) {
+        chartBudgetInstance = echarts.init(container, null, { renderer: 'canvas' });
+    }
+
+    const channelData = {};
+    allRequests.forEach(r => {
+        if (r.budget) {
+            const parsed = parseFloat(String(r.budget).replace(/[^0-9.]/g, ''));
+            if (!isNaN(parsed) && parsed > 0) {
+                channelData['Job Boards'] = (channelData['Job Boards'] || 0) + parsed * 0.35;
+                channelData['Social Media'] = (channelData['Social Media'] || 0) + parsed * 0.25;
+                channelData['Programmatic'] = (channelData['Programmatic'] || 0) + parsed * 0.20;
+                channelData['Search/PPC'] = (channelData['Search/PPC'] || 0) + parsed * 0.12;
+                channelData['Other'] = (channelData['Other'] || 0) + parsed * 0.08;
+            }
+        }
+    });
+
+    const entries = Object.entries(channelData);
+    if (entries.length === 0) {
+        chartBudgetInstance.setOption({
+            backgroundColor: 'transparent',
+            title: { text: 'No budget data available', left: 'center', top: 'center', textStyle: { color: '#666666', fontSize: 14 } }
+        });
+        return;
+    }
+
+    const colors = ['#6366f1', '#34D399', '#FBBF24', '#F87171', '#22D3EE'];
+    chartBudgetInstance.setOption({
+        backgroundColor: 'transparent',
+        tooltip: {
+            trigger: 'item', backgroundColor: '#1a1a1a',
+            borderColor: 'rgba(255,255,255,0.08)', textStyle: { color: '#ededed', fontSize: 12 },
+            formatter: function(params) {
+                const val = params.value >= 1000 ? '$' + (params.value / 1000).toFixed(0) + 'K' : '$' + params.value.toFixed(0);
+                return params.name + ': ' + val + ' (' + params.percent.toFixed(1) + '%)';
+            }
+        },
+        legend: {
+            orient: 'vertical', right: '5%', top: 'center',
+            textStyle: { color: '#a1a1a1', fontSize: 12 },
+            itemWidth: 12, itemHeight: 12, itemGap: 12
+        },
+        color: colors,
+        series: [{
+            type: 'pie', radius: ['45%', '72%'], center: ['40%', '50%'],
+            avoidLabelOverlap: true, label: { show: false },
+            emphasis: {
+                label: { show: true, fontSize: 14, fontWeight: 600, color: '#ededed' },
+                itemStyle: { shadowBlur: 20, shadowColor: 'rgba(0,0,0,0.4)' }
+            },
+            labelLine: { show: false },
+            itemStyle: { borderColor: '#111111', borderWidth: 3, borderRadius: 4 },
+            data: entries.map(([name, value]) => ({ name, value: Math.round(value) }))
+        }]
+    });
+}
+
+window.addEventListener('resize', function() {
+    if (chartIndustryInstance) chartIndustryInstance.resize();
+    if (chartVolumeInstance) chartVolumeInstance.resize();
+    if (chartBudgetInstance) chartBudgetInstance.resize();
+});
+
+async function fetchAdminStats() {
+    try {
+        const res = await fetch('/api/admin/stats?key=Chandel13', { signal: AbortSignal.timeout(10000) });
+        if (!res.ok) throw new Error('Stats endpoint returned ' + res.status);
+        const data = await res.json();
+        kpiData = data;
+        if (data.total_plans !== undefined) {
+            setKpiCard('kpiTotalPlans', 'kpiTotalPlansDelta',
+                data.total_plans.toLocaleString(),
+                data.plans_delta ? (data.plans_delta > 0 ? '+' + data.plans_delta + ' this week' : data.plans_delta + ' this week') : 'From server stats',
+                data.plans_delta > 0 ? 'up' : data.plans_delta < 0 ? 'down' : 'neutral'
+            );
+        }
+        if (data.avg_generation_time !== undefined) {
+            setKpiCard('kpiAvgTime', 'kpiAvgTimeDelta',
+                data.avg_generation_time.toFixed(1) + 's',
+                data.time_delta ? (data.time_delta + '% vs last week') : 'Server-side avg',
+                data.avg_generation_time < 30 ? 'up' : 'down'
+            );
+        }
+        if (data.total_budget !== undefined) {
+            const b = data.total_budget;
+            const bd = b >= 1000000 ? '$' + (b / 1000000).toFixed(1) + 'M' : b >= 1000 ? '$' + (b / 1000).toFixed(0) + 'K' : '$' + b.toLocaleString();
+            setKpiCard('kpiTotalBudget', 'kpiTotalBudgetDelta', bd,
+                data.budget_delta ? (data.budget_delta + ' this week') : 'Total managed', 'up'
+            );
+        }
+    } catch (err) {
+        console.log('Admin stats endpoint not available, using client-side data');
+    }
+}
+
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
     refreshData();
     startCountdown();
-    checkProductStatus();
+    checkProductStatus().then(() => updateKpiActiveProducts());
+    fetchAdminStats();
 });
 </script>
 

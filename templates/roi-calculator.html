@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Estimate recruitment advertising ROI with industry benchmarks. Calculate cost-per-hire savings, time-to-fill improvements, and annual ROI projections.">
+    <meta name="theme-color" content="#000000">
+    <title>ROI Projection Calculator | Nova AI Suite</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #000000;
+            --bg-card: #111111;
+            --bg-card-hover: #1a1a1a;
+            --text: #ededed;
+            --text-secondary: #a1a1a1;
+            --text-muted: #666666;
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.12);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.16);
+            --green: #34d399;
+            --green-bg: rgba(52, 211, 153, 0.1);
+            --red: #f87171;
+            --red-bg: rgba(248, 113, 113, 0.1);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Nav ── */
+        .nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            height: 56px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-brand {
+            font-weight: 800;
+            font-size: 1rem;
+            color: var(--text);
+            text-decoration: none;
+            letter-spacing: -0.02em;
+        }
+        .nav-brand span { color: var(--accent); }
+        .nav-links { display: flex; gap: 1.5rem; }
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--text); }
+
+        /* ── Main ── */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 3rem 1.5rem;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        .page-header h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            margin-bottom: 0.5rem;
+        }
+        .page-header h1 span { color: var(--accent); }
+        .page-header p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            max-width: 540px;
+            margin: 0 auto;
+        }
+
+        /* ── Form ── */
+        .form-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            margin-bottom: 2.5rem;
+        }
+        .form-card h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.02em;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        .form-group label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .form-group input,
+        .form-group select {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.7rem 0.9rem;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .form-group input::placeholder { color: var(--text-muted); }
+
+        .form-group select option {
+            background: #111;
+            color: var(--text);
+        }
+
+        .btn-calculate {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            padding: 0.8rem 2rem;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.15s;
+        }
+        .btn-calculate:hover {
+            background: var(--accent-light);
+            transform: translateY(-1px);
+        }
+        .btn-calculate:active { transform: translateY(0); }
+
+        /* ── Results ── */
+        .results-section {
+            display: none;
+        }
+        .results-section.visible { display: block; }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2.5rem;
+        }
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            text-align: center;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .kpi-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+        .kpi-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.2;
+        }
+        .kpi-sub {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.3rem;
+        }
+        .kpi-positive { color: var(--green); }
+        .kpi-accent { color: var(--accent-light); }
+
+        /* ── Comparison Table ── */
+        .comparison-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            margin-bottom: 2.5rem;
+            overflow-x: auto;
+        }
+        .comparison-card h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 1.25rem;
+            letter-spacing: -0.01em;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .comparison-table th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .comparison-table tr:last-child td { border-bottom: none; }
+        .comparison-table .metric-name { font-weight: 600; }
+        .comparison-table .value-current { color: var(--text-secondary); }
+        .comparison-table .value-projected { color: var(--accent-light); font-weight: 600; }
+        .comparison-table .value-change { font-weight: 600; }
+        .change-positive { color: var(--green); }
+        .change-negative { color: var(--red); }
+
+        /* ── Bar Chart ── */
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            margin-bottom: 2.5rem;
+        }
+        .chart-card h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+        .chart-container {
+            display: flex;
+            justify-content: center;
+        }
+
+        /* ── Footer ── */
+        .footer {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+        }
+        .footer a {
+            color: var(--accent-light);
+            text-decoration: none;
+        }
+        .footer a:hover { text-decoration: underline; }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .nav { padding: 0 1rem; }
+            .container { padding: 2rem 1rem; }
+            .page-header h1 { font-size: 1.6rem; }
+            .form-grid { grid-template-columns: 1fr; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .kpi-value { font-size: 1.5rem; }
+            .form-card, .comparison-card, .chart-card { padding: 1.25rem; }
+        }
+        @media (max-width: 480px) {
+            .kpi-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ── Animation ── */
+        .fade-up {
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .fade-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+    <a href="/" class="nav-brand">Nova <span>AI</span></a>
+    <div class="nav-links">
+        <a href="/">Hub</a>
+        <a href="/media-plan">Media Plan</a>
+    </div>
+</nav>
+
+<div class="container">
+    <!-- Header -->
+    <div class="page-header">
+        <h1>ROI Projection <span>Calculator</span></h1>
+        <p>Estimate recruitment advertising ROI with industry-specific benchmarks for cost-per-apply, conversion rates, and time-to-fill improvements.</p>
+    </div>
+
+    <!-- Input Form -->
+    <div class="form-card">
+        <h2>Input Parameters</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="currentCPH">Current Cost-Per-Hire ($)</label>
+                <input type="number" id="currentCPH" placeholder="e.g. 4500" min="0" step="1">
+            </div>
+            <div class="form-group">
+                <label for="monthlyVolume">Monthly Hiring Volume</label>
+                <input type="number" id="monthlyVolume" placeholder="e.g. 20" min="1" step="1">
+            </div>
+            <div class="form-group">
+                <label for="currentTTF">Current Time-to-Fill (days)</label>
+                <input type="number" id="currentTTF" placeholder="e.g. 45" min="1" step="1">
+            </div>
+            <div class="form-group">
+                <label for="adSpend">Proposed Monthly Ad Spend ($)</label>
+                <input type="number" id="adSpend" placeholder="e.g. 10000" min="0" step="1">
+            </div>
+            <div class="form-group">
+                <label for="industry">Industry</label>
+                <select id="industry">
+                    <option value="Technology">Technology</option>
+                    <option value="Healthcare">Healthcare</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Retail">Retail</option>
+                    <option value="Manufacturing">Manufacturing</option>
+                    <option value="Logistics">Logistics</option>
+                    <option value="Hospitality">Hospitality</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn-calculate" id="btnCalculate" type="button">
+            Calculate ROI
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+        </button>
+    </div>
+
+    <!-- Results -->
+    <div class="results-section" id="resultsSection">
+
+        <!-- KPI Cards -->
+        <div class="kpi-grid" id="kpiGrid">
+            <div class="kpi-card fade-up">
+                <div class="kpi-label">Projected Annual Savings</div>
+                <div class="kpi-value kpi-positive" id="kpiAnnualSavings">--</div>
+                <div class="kpi-sub" id="kpiMonthlySavings">--</div>
+            </div>
+            <div class="kpi-card fade-up">
+                <div class="kpi-label">ROI</div>
+                <div class="kpi-value kpi-positive" id="kpiROI">--</div>
+                <div class="kpi-sub">Return on ad spend</div>
+            </div>
+            <div class="kpi-card fade-up">
+                <div class="kpi-label">New Cost-Per-Hire</div>
+                <div class="kpi-value kpi-accent" id="kpiNewCPH">--</div>
+                <div class="kpi-sub" id="kpiCPHReduction">--</div>
+            </div>
+            <div class="kpi-card fade-up">
+                <div class="kpi-label">Projected Time-to-Fill</div>
+                <div class="kpi-value kpi-accent" id="kpiTTF">--</div>
+                <div class="kpi-sub">30% improvement estimate</div>
+            </div>
+        </div>
+
+        <!-- Comparison Table -->
+        <div class="comparison-card fade-up">
+            <h3>Current vs. Projected Metrics</h3>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Current</th>
+                        <th>Projected</th>
+                        <th>Change</th>
+                    </tr>
+                </thead>
+                <tbody id="comparisonBody"></tbody>
+            </table>
+        </div>
+
+        <!-- Bar Chart -->
+        <div class="chart-card fade-up">
+            <h3>Cost-Per-Hire Comparison</h3>
+            <div class="chart-container" id="chartContainer"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+    Nova AI Suite &mdash; Built by <a href="https://www.linkedin.com/in/shubhamsinghchandel/" target="_blank" rel="noopener">Shubham Singh Chandel</a>
+</footer>
+
+<script>
+(function() {
+    'use strict';
+
+    var benchmarks = {
+        Technology:     { cpa: 25, convRate: 0.03 },
+        Healthcare:     { cpa: 18, convRate: 0.04 },
+        Finance:        { cpa: 30, convRate: 0.025 },
+        Retail:         { cpa:  8, convRate: 0.08 },
+        Manufacturing:  { cpa: 12, convRate: 0.06 },
+        Logistics:      { cpa: 10, convRate: 0.07 },
+        Hospitality:    { cpa:  7, convRate: 0.09 },
+        Other:          { cpa: 15, convRate: 0.05 }
+    };
+
+    var TTF_IMPROVEMENT = 0.7; // 30% improvement
+
+    function formatCurrency(n) {
+        if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+        if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+        return '$' + n.toFixed(0);
+    }
+
+    function formatPct(n) {
+        return n.toFixed(1) + '%';
+    }
+
+    function calculate() {
+        var currentCPH = parseFloat(document.getElementById('currentCPH').value);
+        var monthlyVolume = parseInt(document.getElementById('monthlyVolume').value, 10);
+        var currentTTF = parseFloat(document.getElementById('currentTTF').value);
+        var adSpend = parseFloat(document.getElementById('adSpend').value);
+        var industry = document.getElementById('industry').value;
+
+        // Validate
+        if (!currentCPH || !monthlyVolume || !currentTTF || !adSpend) {
+            alert('Please fill in all fields with valid numbers.');
+            return;
+        }
+        if (currentCPH <= 0 || monthlyVolume <= 0 || currentTTF <= 0 || adSpend <= 0) {
+            alert('All values must be greater than zero.');
+            return;
+        }
+
+        var b = benchmarks[industry];
+        var cpa = b.cpa;
+        var convRate = b.convRate;
+
+        // Calculations
+        var estimatedApplications = adSpend / cpa;
+        var estimatedHires = estimatedApplications * convRate;
+        var newCPH = estimatedHires > 0 ? adSpend / estimatedHires : 0;
+        var monthlySavings = (currentCPH * monthlyVolume) - (newCPH * monthlyVolume);
+        var annualSavings = monthlySavings * 12;
+        var annualAdSpend = adSpend * 12;
+        var roiPct = annualAdSpend > 0 ? (annualSavings / annualAdSpend) * 100 : 0;
+        var newTTF = currentTTF * TTF_IMPROVEMENT;
+
+        // Show results
+        var resultsSection = document.getElementById('resultsSection');
+        resultsSection.classList.add('visible');
+
+        // KPI cards
+        document.getElementById('kpiAnnualSavings').textContent = formatCurrency(annualSavings);
+        document.getElementById('kpiMonthlySavings').textContent = formatCurrency(monthlySavings) + '/month';
+        document.getElementById('kpiROI').textContent = formatPct(roiPct);
+        document.getElementById('kpiNewCPH').textContent = formatCurrency(newCPH);
+        var cphReduction = currentCPH > 0 ? ((currentCPH - newCPH) / currentCPH * 100) : 0;
+        document.getElementById('kpiCPHReduction').textContent = formatPct(Math.abs(cphReduction)) + (cphReduction >= 0 ? ' reduction' : ' increase');
+        document.getElementById('kpiTTF').textContent = newTTF.toFixed(0) + ' days';
+
+        // Comparison table
+        var rows = [
+            { metric: 'Cost-Per-Hire',          current: formatCurrency(currentCPH),       projected: formatCurrency(newCPH),           change: cphReduction,         suffix: '', invert: true },
+            { metric: 'Monthly Hiring Cost',    current: formatCurrency(currentCPH * monthlyVolume), projected: formatCurrency(newCPH * monthlyVolume), change: cphReduction, suffix: '', invert: true },
+            { metric: 'Annual Hiring Cost',     current: formatCurrency(currentCPH * monthlyVolume * 12), projected: formatCurrency(newCPH * monthlyVolume * 12), change: cphReduction, suffix: '', invert: true },
+            { metric: 'Time-to-Fill (days)',    current: currentTTF.toFixed(0),             projected: newTTF.toFixed(0),                change: 30,                   suffix: '', invert: true },
+            { metric: 'Est. Applications/mo',   current: '--',                              projected: estimatedApplications.toFixed(0), change: null,                 suffix: '' },
+            { metric: 'Est. Hires/mo',          current: monthlyVolume.toString(),           projected: estimatedHires.toFixed(1),        change: null,                 suffix: '' },
+            { metric: 'Cost-Per-Apply',         current: '--',                              projected: formatCurrency(cpa),              change: null,                 suffix: '' }
+        ];
+
+        var tbody = document.getElementById('comparisonBody');
+        tbody.innerHTML = '';
+        rows.forEach(function(r) {
+            var tr = document.createElement('tr');
+            var changeHtml = '';
+            if (r.change !== null) {
+                var cls = r.invert ? (r.change >= 0 ? 'change-positive' : 'change-negative') : (r.change >= 0 ? 'change-positive' : 'change-negative');
+                var arrow = r.invert ? (r.change >= 0 ? 'v ' : '^ ') : (r.change >= 0 ? '^ ' : 'v ');
+                changeHtml = '<span class="' + cls + '">' + arrow + Math.abs(r.change).toFixed(1) + '%</span>';
+            } else {
+                changeHtml = '<span style="color:var(--text-muted)">--</span>';
+            }
+            tr.innerHTML = '<td class="metric-name">' + r.metric + '</td>' +
+                           '<td class="value-current">' + r.current + '</td>' +
+                           '<td class="value-projected">' + r.projected + '</td>' +
+                           '<td class="value-change">' + changeHtml + '</td>';
+            tbody.appendChild(tr);
+        });
+
+        // Bar chart (SVG)
+        renderChart(currentCPH, newCPH);
+
+        // Trigger fade-up animations
+        setTimeout(function() {
+            var fadeEls = resultsSection.querySelectorAll('.fade-up');
+            fadeEls.forEach(function(el, i) {
+                setTimeout(function() {
+                    el.classList.add('visible');
+                }, i * 100);
+            });
+        }, 50);
+
+        // Scroll to results
+        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function renderChart(currentCPH, newCPH) {
+        var container = document.getElementById('chartContainer');
+        var maxVal = Math.max(currentCPH, newCPH) * 1.15;
+        var chartW = 400;
+        var chartH = 200;
+        var barW = 80;
+        var gap = 60;
+        var baseline = chartH - 30;
+        var maxBarH = baseline - 20;
+
+        var currentBarH = (currentCPH / maxVal) * maxBarH;
+        var newBarH = (newCPH / maxVal) * maxBarH;
+
+        var currentX = (chartW / 2) - barW - (gap / 2);
+        var newX = (chartW / 2) + (gap / 2);
+
+        var svg = '<svg width="' + chartW + '" height="' + chartH + '" viewBox="0 0 ' + chartW + ' ' + chartH + '" xmlns="http://www.w3.org/2000/svg">';
+
+        // Baseline
+        svg += '<line x1="40" y1="' + baseline + '" x2="' + (chartW - 40) + '" y2="' + baseline + '" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>';
+
+        // Current bar
+        svg += '<rect x="' + currentX + '" y="' + (baseline - currentBarH) + '" width="' + barW + '" height="' + currentBarH + '" rx="6" fill="#a1a1a1" opacity="0.7"/>';
+        // Current label
+        svg += '<text x="' + (currentX + barW / 2) + '" y="' + (baseline - currentBarH - 10) + '" text-anchor="middle" fill="#a1a1a1" font-family="Inter,sans-serif" font-size="13" font-weight="700">' + formatCurrency(currentCPH) + '</text>';
+        svg += '<text x="' + (currentX + barW / 2) + '" y="' + (baseline + 18) + '" text-anchor="middle" fill="#666" font-family="Inter,sans-serif" font-size="11" font-weight="500">Current</text>';
+
+        // New bar
+        svg += '<rect x="' + newX + '" y="' + (baseline - newBarH) + '" width="' + barW + '" height="' + newBarH + '" rx="6" fill="#6366f1"/>';
+        // New label
+        svg += '<text x="' + (newX + barW / 2) + '" y="' + (baseline - newBarH - 10) + '" text-anchor="middle" fill="#818cf8" font-family="Inter,sans-serif" font-size="13" font-weight="700">' + formatCurrency(newCPH) + '</text>';
+        svg += '<text x="' + (newX + barW / 2) + '" y="' + (baseline + 18) + '" text-anchor="middle" fill="#666" font-family="Inter,sans-serif" font-size="11" font-weight="500">Projected</text>';
+
+        svg += '</svg>';
+        container.innerHTML = svg;
+    }
+
+    document.getElementById('btnCalculate').addEventListener('click', calculate);
+
+    // Allow Enter key to trigger calculation
+    document.querySelectorAll('.form-card input, .form-card select').forEach(function(el) {
+        el.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') calculate();
+        });
+    });
+})();
+</script>
+</body>
+</html>
