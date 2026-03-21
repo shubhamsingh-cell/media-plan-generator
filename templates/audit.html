@@ -1555,12 +1555,11 @@
             }
 
             try {
-                const response = await fetch('/api/audit/download', {
+                const response = await fetch('/api/audit/download/' + format, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         report_data: lastReportData,
-                        format: format,
                         client_name: document.getElementById('clientName').value || 'Client',
                     }),
                 });

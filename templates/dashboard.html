@@ -889,6 +889,156 @@
                 transition-duration: 0.01ms !important;
             }
         }
+
+        /* ===== KPI SUMMARY CARDS ===== */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .kpi-card {
+            background: #111111;
+            border-radius: var(--radius);
+            padding: 24px;
+            border: 1px solid rgba(255,255,255,0.08);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .kpi-card:hover {
+            border-color: rgba(99,102,241,0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            transform: translateY(-2px);
+        }
+
+        .kpi-card-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #a1a1a1;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .kpi-card-value {
+            font-size: 36px;
+            font-weight: 800;
+            color: #ededed;
+            line-height: 1.1;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -1px;
+        }
+
+        .kpi-card-delta {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+
+        .kpi-card-delta.up {
+            color: #34D399;
+            background: rgba(52,211,153,0.12);
+        }
+
+        .kpi-card-delta.down {
+            color: #F87171;
+            background: rgba(248,113,113,0.12);
+        }
+
+        .kpi-card-delta.neutral {
+            color: #666666;
+            background: rgba(255,255,255,0.06);
+        }
+
+        .kpi-card-delta .delta-arrow {
+            font-size: 10px;
+        }
+
+        .kpi-card-icon-bg {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            background: rgba(99,102,241,0.12);
+        }
+
+        .kpi-no-data {
+            font-size: 11px;
+            color: #666666;
+            margin-top: 6px;
+            font-style: italic;
+        }
+
+        /* ===== ANALYTICS CHARTS SECTION ===== */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .chart-panel {
+            background: #111111;
+            border-radius: var(--radius);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 20px 24px;
+            overflow: hidden;
+        }
+
+        .chart-panel.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .chart-panel-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ededed;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chart-panel-title .chart-accent-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #6366f1;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 300px;
+        }
+
+        @media (max-width: 1024px) {
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -925,6 +1075,9 @@
         </a>
         <a href="#documents" onclick="scrollToSection('documents')">
             <span class="nav-icon">&#x1f4c2;</span> Document Repository
+        </a>
+        <a href="#plan-archive" onclick="scrollToSection('plan-archive')">
+            <span class="nav-icon">&#x1f5c4;</span> Plan Archive
         </a>
         <div class="sidebar-nav-label">Monitoring</div>
         <a href="#performance" onclick="scrollToSection('performance')">
@@ -964,6 +1117,71 @@
     </header>
 
     <div class="page-content">
+        <!-- KPI Summary Cards -->
+        <section class="section-anchor" id="kpi-summary">
+            <div class="kpi-grid">
+                <div class="kpi-card animate-in">
+                    <div class="kpi-card-icon-bg" style="background:rgba(99,102,241,0.12);">&#x1f4cb;</div>
+                    <div class="kpi-card-label">Total Plans Generated</div>
+                    <div class="kpi-card-value" id="kpiTotalPlans">--</div>
+                    <div class="kpi-card-delta neutral" id="kpiTotalPlansDelta">
+                        <span class="delta-arrow">--</span> <span>loading</span>
+                    </div>
+                </div>
+                <div class="kpi-card animate-in">
+                    <div class="kpi-card-icon-bg" style="background:rgba(251,191,36,0.12);">&#x23f1;</div>
+                    <div class="kpi-card-label">Avg Generation Time</div>
+                    <div class="kpi-card-value" id="kpiAvgTime">--</div>
+                    <div class="kpi-card-delta neutral" id="kpiAvgTimeDelta">
+                        <span class="delta-arrow">--</span> <span>loading</span>
+                    </div>
+                </div>
+                <div class="kpi-card animate-in">
+                    <div class="kpi-card-icon-bg" style="background:rgba(52,211,153,0.12);">&#x1f4b0;</div>
+                    <div class="kpi-card-label">Total Budget Managed</div>
+                    <div class="kpi-card-value" id="kpiTotalBudget">--</div>
+                    <div class="kpi-card-delta neutral" id="kpiTotalBudgetDelta">
+                        <span class="delta-arrow">--</span> <span>loading</span>
+                    </div>
+                </div>
+                <div class="kpi-card animate-in">
+                    <div class="kpi-card-icon-bg" style="background:rgba(34,211,238,0.12);">&#x1f680;</div>
+                    <div class="kpi-card-label">Active Products</div>
+                    <div class="kpi-card-value" id="kpiActiveProducts">--</div>
+                    <div class="kpi-card-delta neutral" id="kpiActiveProductsDelta">
+                        <span class="delta-arrow">--</span> <span>loading</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Analytics Charts Section -->
+        <section class="section-anchor" id="analytics-charts">
+            <div class="charts-grid">
+                <div class="chart-panel">
+                    <div class="chart-panel-title">
+                        <span class="chart-accent-dot"></span>
+                        Plans Generated by Industry
+                    </div>
+                    <div class="chart-container" id="chartIndustry"></div>
+                </div>
+                <div class="chart-panel">
+                    <div class="chart-panel-title">
+                        <span class="chart-accent-dot" style="background:#34D399;"></span>
+                        Budget Distribution by Channel
+                    </div>
+                    <div class="chart-container" id="chartBudget"></div>
+                </div>
+                <div class="chart-panel full-width">
+                    <div class="chart-panel-title">
+                        <span class="chart-accent-dot" style="background:#FBBF24;"></span>
+                        Generation Volume Over Time (Last 30 Days)
+                    </div>
+                    <div class="chart-container" id="chartVolume"></div>
+                </div>
+            </div>
+        </section>
+
         <!-- Section 0: Product Suite Status -->
         <section class="section-anchor" id="product-status">
             <div class="panel">
@@ -1169,9 +1387,144 @@
                 </div>
             </div>
         </section>
+
+        <!-- Section: Plan Archive -->
+        <section class="section-anchor" id="plan-archive">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>&#x1f5c4; Plan Archive</h3>
+                    <div class="panel-header-actions">
+                        <span id="archiveTotalBadge" style="font-size:12px;color:var(--text-muted);">Loading...</span>
+                    </div>
+                </div>
+                <div style="padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.08);">
+                    <div class="archive-filters">
+                        <input type="text" id="archiveSearch" class="archive-input" placeholder="Search client name or industry..." oninput="filterArchive()">
+                        <select id="archiveIndustry" class="archive-select" onchange="filterArchive()">
+                            <option value="">All Industries</option>
+                        </select>
+                        <select id="archiveDateRange" class="archive-select" onchange="filterArchive()">
+                            <option value="all">All Time</option>
+                            <option value="7">Last 7 Days</option>
+                            <option value="30">Last 30 Days</option>
+                            <option value="90">Last 90 Days</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table class="archive-table">
+                        <thead>
+                            <tr>
+                                <th>Date / Time</th>
+                                <th>Client Name</th>
+                                <th>Industry</th>
+                                <th>Budget</th>
+                                <th>Roles</th>
+                                <th>Gen. Time</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="archiveTableBody">
+                            <tr><td colspan="7"><div class="table-empty">Loading plan archive...</div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
     </div>
 </div>
 
+<style>
+/* ===== PLAN ARCHIVE ===== */
+.archive-filters {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.archive-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 9px 14px;
+    background: #111111;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-xs);
+    color: #ededed;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.archive-input:focus {
+    border-color: #6366f1;
+}
+.archive-input::placeholder {
+    color: rgba(255,255,255,0.3);
+}
+.archive-select {
+    padding: 9px 14px;
+    background: #111111;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-xs);
+    color: #ededed;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    min-width: 150px;
+}
+.archive-select:focus {
+    border-color: #6366f1;
+}
+.archive-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.archive-table thead th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    white-space: nowrap;
+}
+.archive-table tbody tr {
+    transition: background 0.15s;
+}
+.archive-table tbody tr:nth-child(even) {
+    background: rgba(255,255,255,0.02);
+}
+.archive-table tbody tr:hover {
+    background: rgba(255,255,255,0.04);
+}
+.archive-table tbody td {
+    padding: 11px 16px;
+    color: #ededed;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: middle;
+}
+.archive-status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #34D399;
+    box-shadow: 0 0 6px rgba(52,211,153,0.5);
+}
+.archive-roles-cell {
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 <script>
 // ===== STATE =====
 let allRequests = [];
@@ -1622,10 +1975,122 @@ async function fetchDocuments() {
     }
 }
 
+// ===== PLAN ARCHIVE =====
+let archivePlans = [];
+
+async function fetchArchivePlans() {
+    try {
+        const res = await authFetch('/api/admin/stats?key=' + encodeURIComponent(_adminKey));
+        if (!res.ok) throw new Error('Failed to fetch archive');
+        const data = await res.json();
+        archivePlans = data.recent_plans || [];
+        populateIndustryFilter();
+        renderArchive();
+    } catch (err) {
+        console.error('Error fetching plan archive:', err);
+        document.getElementById('archiveTableBody').innerHTML =
+            '<tr><td colspan="7"><div class="table-empty">Failed to load plan archive</div></td></tr>';
+        document.getElementById('archiveTotalBadge').textContent = 'Error loading';
+    }
+}
+
+function populateIndustryFilter() {
+    const select = document.getElementById('archiveIndustry');
+    const industries = [...new Set(archivePlans.map(p => p.industry || '').filter(Boolean))].sort();
+    // Keep the "All Industries" option, clear the rest
+    select.innerHTML = '<option value="">All Industries</option>';
+    industries.forEach(ind => {
+        const opt = document.createElement('option');
+        opt.value = ind;
+        opt.textContent = formatIndustryName(ind);
+        select.appendChild(opt);
+    });
+}
+
+function filterArchive() {
+    renderArchive();
+}
+
+function getFilteredArchivePlans() {
+    const searchText = (document.getElementById('archiveSearch').value || '').toLowerCase().trim();
+    const industryFilter = document.getElementById('archiveIndustry').value;
+    const dateRange = document.getElementById('archiveDateRange').value;
+
+    let filtered = archivePlans.slice();
+
+    // Text search on client name and industry
+    if (searchText) {
+        filtered = filtered.filter(p => {
+            const client = (p.client_name || p.company_name || '').toLowerCase();
+            const industry = (p.industry || '').toLowerCase();
+            return client.includes(searchText) || industry.includes(searchText);
+        });
+    }
+
+    // Industry filter
+    if (industryFilter) {
+        filtered = filtered.filter(p => (p.industry || '') === industryFilter);
+    }
+
+    // Date range filter
+    if (dateRange && dateRange !== 'all') {
+        const days = parseInt(dateRange, 10);
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
+        filtered = filtered.filter(p => {
+            if (!p.timestamp) return false;
+            return new Date(p.timestamp) >= cutoff;
+        });
+    }
+
+    return filtered;
+}
+
+function renderArchive() {
+    const tbody = document.getElementById('archiveTableBody');
+    const badge = document.getElementById('archiveTotalBadge');
+    const filtered = getFilteredArchivePlans();
+
+    badge.textContent = filtered.length + ' of ' + archivePlans.length + ' plans';
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="table-empty">No plans generated yet</div></td></tr>';
+        return;
+    }
+
+    // Sort by timestamp descending (newest first)
+    filtered.sort((a, b) => {
+        const da = a.timestamp ? new Date(a.timestamp) : 0;
+        const db = b.timestamp ? new Date(b.timestamp) : 0;
+        return db - da;
+    });
+
+    tbody.innerHTML = filtered.map(p => {
+        const ts = p.timestamp ? formatTimestamp(p.timestamp) : '--';
+        const client = escapeHtml(p.client_name || p.company_name || '--');
+        const industry = escapeHtml(formatIndustryName(p.industry || '--'));
+        const budget = p.budget ? '$' + Number(p.budget).toLocaleString() : '--';
+        const roles = escapeHtml(p.roles || p.job_titles || '--');
+        const genTime = p.generation_time_seconds
+            ? formatDuration(p.generation_time_seconds)
+            : (p.generation_time ? formatDuration(p.generation_time) : '--');
+        return '<tr>' +
+            '<td style="white-space:nowrap;color:var(--text-secondary);font-size:12px;">' + ts + '</td>' +
+            '<td style="font-weight:500;">' + client + '</td>' +
+            '<td>' + industry + '</td>' +
+            '<td style="font-variant-numeric:tabular-nums;">' + budget + '</td>' +
+            '<td class="archive-roles-cell" title="' + roles + '">' + roles + '</td>' +
+            '<td style="font-variant-numeric:tabular-nums;">' + genTime + '</td>' +
+            '<td style="text-align:center;"><span class="archive-status-dot" title="Success"></span></td>' +
+            '</tr>';
+    }).join('');
+}
+
 function refreshData() {
     fetchRequests();
     fetchDocuments();
     fetchPerfData();
+    fetchArchivePlans();
     resetCountdown();
 }
 

@@ -472,6 +472,9 @@ def classify_industry(raw_industry: str, company_name: str = "", roles: list = N
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
+
+# Server start time for uptime tracking (used by /health endpoint)
+_SERVER_START_TIME = time.time()
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 
 # --- Request logging helpers ---
@@ -8340,6 +8343,22 @@ except ImportError as _mon_err:
     def health_check_liveness():
         return {"status": "ok", "version": "3.5.0", "timestamp": datetime.datetime.now().isoformat()}
 
+    def health_check_detailed():
+        """Detailed health check with uptime, version, and subsystem checks."""
+        kb_loaded = _knowledge_base is not None and len(_knowledge_base) > 0
+        data_dir_exists = os.path.isdir(DATA_DIR)
+        is_healthy = kb_loaded and data_dir_exists
+        return {
+            "status": "healthy" if is_healthy else "unhealthy",
+            "uptime_seconds": round(time.time() - _SERVER_START_TIME, 2),
+            "version": "2.0.0",
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "checks": {
+                "knowledge_base": kb_loaded,
+                "data_dir": data_dir_exists,
+            },
+        }
+
     def health_check_readiness():
         return {"status": "healthy", "version": "3.5.0"}
 
@@ -8408,6 +8427,67 @@ _RATE_LIMIT_MAX = 10       # requests per window per IP
 _GLOBAL_CHAT_RATE_LIMIT_MAX = int(os.environ.get("GLOBAL_CHAT_RATE_LIMIT", "120"))  # per minute across all IPs
 _global_chat_timestamps: list = []
 _global_chat_lock = threading.Lock()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ROUTE-AWARE SLIDING WINDOW RATE LIMITER
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class RateLimiter:
+    """Thread-safe sliding window rate limiter with per-route limits."""
+
+    def __init__(self):
+        self._requests = {}  # ip -> list of timestamps
+        self._lock = threading.Lock()
+
+    def is_allowed(self, ip, max_requests=30, window_seconds=60):
+        """Return True if request is allowed, False if rate limited."""
+        now = time.time()
+        with self._lock:
+            if ip not in self._requests:
+                self._requests[ip] = []
+            # Remove expired timestamps
+            self._requests[ip] = [t for t in self._requests[ip] if now - t < window_seconds]
+            if len(self._requests[ip]) >= max_requests:
+                return False
+            self._requests[ip].append(now)
+            return True
+
+    def cleanup(self):
+        """Remove stale entries older than 5 minutes."""
+        now = time.time()
+        with self._lock:
+            stale = [ip for ip, times in self._requests.items()
+                     if not times or now - max(times) > 300]
+            for ip in stale:
+                del self._requests[ip]
+        if stale:
+            logger.debug("RateLimiter cleanup: removed %d stale IP entries", len(stale))
+
+
+# Separate rate limiter instances for different route groups so that
+# hitting the limit on /api/generate does not consume quota for other routes.
+_rl_generate = RateLimiter()   # /api/generate -- 10 req/min (expensive)
+_rl_portal = RateLimiter()     # /api/portal/* -- 20 req/min
+_rl_general = RateLimiter()    # all other /api/* POST routes -- 30 req/min
+
+
+def _rate_limiter_cleanup_loop():
+    """Background thread: run cleanup on all rate limiter instances every 5 minutes."""
+    while True:
+        time.sleep(300)
+        try:
+            _rl_generate.cleanup()
+            _rl_portal.cleanup()
+            _rl_general.cleanup()
+        except Exception as exc:
+            logger.warning("Rate limiter cleanup error: %s", exc)
+
+
+_rl_cleanup_thread = threading.Thread(
+    target=_rate_limiter_cleanup_loop, daemon=True, name="rate-limiter-cleanup"
+)
+_rl_cleanup_thread.start()
 
 _ALLOWED_ORIGINS = {
     "http://localhost:10000", "http://localhost:5001", "http://127.0.0.1:10000",
@@ -8611,13 +8691,19 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         elif path in ("/media-plan", "/media-plan/", "/generator", "/generator/"):
             self._serve_file(os.path.join(TEMPLATES_DIR, "index.html"), "text/html")
         elif path in ("/api/health", "/health"):
-            # Lightweight liveness probe (fast, for Render.com health checks)
-            _health = health_check_liveness()
+            # Detailed health check for Render.com monitoring
+            _health = health_check_detailed()
             # Expose PostHog key for frontend JS (public key, safe to expose)
             _ph_key = os.environ.get("POSTHOG_API_KEY", "").strip()
             if _ph_key:
                 _health["posthog_key"] = _ph_key
-            self._send_json(_health)
+            status_code = 200 if _health.get("status") == "healthy" else 503
+            body = json.dumps(_health).encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
         elif path in ("/api/health/ready", "/ready"):
             # Deep readiness probe (checks KB, disk, memory, modules)
             result = health_check_readiness()
@@ -9424,6 +9510,59 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         "limit_rpd": tier_limits["rpd"],
                     }
             self._send_json({"keys": usage_data, "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+        # ── Admin Statistics Endpoint ──
+        elif path == "/api/admin/stats":
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            log_entries = load_request_log()
+            total_plans = len(log_entries)
+            gen_times = [
+                e["generation_time_seconds"]
+                for e in log_entries
+                if isinstance(e.get("generation_time_seconds"), (int, float)) and e["generation_time_seconds"] > 0
+            ]
+            avg_generation_time = round(sum(gen_times) / len(gen_times), 2) if gen_times else 0.0
+            total_budget = 0.0
+            for e in log_entries:
+                raw_budget = e.get("budget", 0)
+                if isinstance(raw_budget, (int, float)):
+                    total_budget += float(raw_budget)
+                elif isinstance(raw_budget, str):
+                    try:
+                        total_budget += float(raw_budget.replace(",", "").replace("$", "").strip())
+                    except (ValueError, AttributeError):
+                        pass
+            plans_by_industry = {}
+            for e in log_entries:
+                ind = e.get("industry", "Unknown") or "Unknown"
+                plans_by_industry[ind] = plans_by_industry.get(ind, 0) + 1
+            plans_by_day_map = {}
+            for e in log_entries:
+                ts = e.get("timestamp", "")
+                if ts:
+                    day = ts[:10]  # YYYY-MM-DD
+                    plans_by_day_map[day] = plans_by_day_map.get(day, 0) + 1
+            plans_by_day = sorted(
+                [{"date": d, "count": c} for d, c in plans_by_day_map.items()],
+                key=lambda x: x["date"],
+            )
+            recent_plans = []
+            for e in log_entries[-10:]:
+                recent_plans.append({
+                    "client_name": e.get("client_name", "Unknown"),
+                    "industry": e.get("industry", "Unknown"),
+                    "budget": e.get("budget", 0),
+                    "timestamp": e.get("timestamp", ""),
+                })
+            self._send_json({
+                "total_plans": total_plans,
+                "avg_generation_time": avg_generation_time,
+                "total_budget_managed": round(total_budget, 2),
+                "plans_by_industry": plans_by_industry,
+                "plans_by_day": plans_by_day,
+                "recent_plans": recent_plans,
+            })
         # ── Campaign Performance Tracker Page ──
         elif path in ("/tracker", "/tracker/"):
             tracker_html = os.path.join(BASE_DIR, "templates", "tracker.html")
@@ -9582,6 +9721,18 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(html.encode())
             else:
                 self.send_error(404, "SkillTarget page not found")
+        # ── ROI Projection Calculator Page ──
+        elif path in ("/roi-calculator", "/roi-calculator/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "roi-calculator.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "ROI Calculator page not found")
         # ── Market Intel Reports Page ──
         elif path in ("/market-intel", "/market-intel/", "/market-intelligence", "/market-intelligence/"):
             _html_path = os.path.join(BASE_DIR, "templates", "market-intel.html")
@@ -9677,7 +9828,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         MAX_API_BODY_SIZE = 1048576    # 1 MB for non-file-upload routes
 
         # File-upload routes that may need the larger 10 MB limit
-        _file_upload_routes = ("/api/generate", "/api/social-plan/download")
+        _file_upload_routes = ("/api/generate", "/api/social-plan/download", "/api/audit/analyze", "/api/tracker/analyze", "/api/hire-signal/analyze")
 
         if content_length > MAX_BODY_SIZE:
             self.send_response(413)
@@ -9696,6 +9847,29 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         # ── API Versioning: strip /v1 prefix (Feature 4) ──
         if path.startswith("/v1/"):
             path = path[3:]
+
+        # ── Centralized route-aware rate limiting ──
+        # Skip rate limiting for admin routes when valid auth is provided.
+        _is_admin = self._check_admin_auth()
+        if not _is_admin and path.startswith("/api/"):
+            client_ip = self.client_address[0]
+            if path == "/api/generate":
+                _rl_allowed = _rl_generate.is_allowed(client_ip, max_requests=10, window_seconds=60)
+            elif path.startswith("/api/portal/"):
+                _rl_allowed = _rl_portal.is_allowed(client_ip, max_requests=20, window_seconds=60)
+            else:
+                _rl_allowed = _rl_general.is_allowed(client_ip, max_requests=30, window_seconds=60)
+            if not _rl_allowed:
+                self.send_response(429)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Retry-After", "60")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Too many requests. Please try again later."}).encode())
+                return
+
         if path == "/api/generate":
             if not self._check_rate_limit():
                 self.send_response(429)
@@ -10042,7 +10216,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 from file_processor import extract_all_texts, parse_historical_data, summarize_transcript_context
 
                 # 1. Brief file uploads -> append extracted text to use_case
+                _upload_counts = {}  # Track counts before popping for PostHog
                 uploaded_briefs = data.pop("uploaded_briefs", []) or []
+                _upload_counts["briefs"] = len(uploaded_briefs)
                 if uploaded_briefs:
                     brief_text = extract_all_texts(uploaded_briefs)
                     if brief_text:
@@ -10053,6 +10229,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 # 2. Call transcript -> extract context and append to use_case
                 call_transcript = data.pop("call_transcript", "") or ""
                 uploaded_transcripts = data.pop("uploaded_transcripts", []) or []
+                _upload_counts["transcripts"] = len(uploaded_transcripts)
                 transcript_text = call_transcript
                 if uploaded_transcripts:
                     file_transcript = extract_all_texts(uploaded_transcripts)
@@ -10066,6 +10243,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
                 # 3. Historical performance data -> parse and store for downstream use
                 uploaded_historical = data.pop("uploaded_historical", []) or []
+                _upload_counts["historical"] = len(uploaded_historical)
                 if uploaded_historical:
                     historical_data = parse_historical_data(uploaded_historical)
                     if historical_data:
@@ -10498,16 +10676,14 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         gen_time=generation_time,
                         file_size=len(zip_bytes),
                     )
-                    # Track file uploads if any
-                    _briefs = data.get("uploaded_briefs") or []
-                    _transcripts = data.get("uploaded_transcripts") or []
-                    _historical = data.get("uploaded_historical") or []
-                    if _briefs:
-                        track_file_upload(data.get("requester_email", "anonymous"), "brief", len(_briefs))
-                    if _transcripts:
-                        track_file_upload(data.get("requester_email", "anonymous"), "transcript", len(_transcripts))
-                    if _historical:
-                        track_file_upload(data.get("requester_email", "anonymous"), "historical", len(_historical))
+                    # Track file uploads if any (use _upload_counts since fields were popped earlier)
+                    _email = data.get("requester_email", "anonymous")
+                    if _upload_counts.get("briefs", 0):
+                        track_file_upload(_email, "brief", _upload_counts["briefs"])
+                    if _upload_counts.get("transcripts", 0):
+                        track_file_upload(_email, "transcript", _upload_counts["transcripts"])
+                    if _upload_counts.get("historical", 0):
+                        track_file_upload(_email, "historical", _upload_counts["historical"])
                 except Exception:
                     pass
             else:

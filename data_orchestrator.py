@@ -2016,7 +2016,7 @@ def enrich_ad_benchmarks(
     # data points beyond trend_engine and static benchmarks.
     try:
         # Lazy import to avoid circular dependency
-        from app import load_knowledge_base as _load_kb
+        from kb_loader import load_knowledge_base as _load_kb
         _kb = _load_kb()
         if _kb:
             # Google Ads 2025 first-party benchmark data

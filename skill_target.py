@@ -1246,3 +1246,201 @@ def generate_skill_excel(analysis: Dict[str, Any]) -> bytes:
     except Exception as e:
         logger.error("generate_skill_excel error: %s", e)
         return b""
+
+
+# ===========================================================================
+# 10. PPT EXPORT  (Joveo branding)
+# ===========================================================================
+
+def generate_skill_ppt(analysis: Dict[str, Any]) -> bytes:
+    """Generate branded PPT. Joveo: Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD."""
+    try:
+        from pptx import Presentation
+        from pptx.util import Inches, Pt
+        from pptx.dml.color import RGBColor
+        from pptx.enum.text import PP_ALIGN
+    except ImportError:
+        logger.error("python-pptx not installed")
+        return b""
+    try:
+        PG = RGBColor(0x20, 0x20, 0x58)
+        BV = RGBColor(0x5A, 0x54, 0xBD)
+        DT = RGBColor(0x6B, 0xB3, 0xCD)
+        WH = RGBColor(0xFF, 0xFF, 0xFF)
+        LG = RGBColor(0xF1, 0xF5, 0xF9)
+        prs = Presentation()
+        prs.slide_width = Inches(13.333)
+        prs.slide_height = Inches(7.5)
+
+        def _bg(slide, color=PG):
+            slide.background.fill.solid()
+            slide.background.fill.fore_color.rgb = color
+
+        def _tb(slide, l, t, w, h, txt, sz=14, col=WH, bold=False, align=PP_ALIGN.LEFT):
+            tx = slide.shapes.add_textbox(Inches(l), Inches(t), Inches(w), Inches(h))
+            tx.text_frame.word_wrap = True
+            p = tx.text_frame.paragraphs[0]
+            p.text = txt
+            p.font.size = Pt(sz)
+            p.font.color.rgb = col
+            p.font.bold = bold
+            p.alignment = align
+            return tx
+
+        def _tbl(slide, l, t, w, h, rows, cols):
+            return slide.shapes.add_table(rows, cols, Inches(l), Inches(t), Inches(w), Inches(h)).table
+
+        def _thdr(table, headers, bg=BV):
+            for i, h in enumerate(headers):
+                c = table.cell(0, i)
+                c.text = h
+                for p in c.text_frame.paragraphs:
+                    p.font.size = Pt(11)
+                    p.font.bold = True
+                    p.font.color.rgb = WH
+                    p.alignment = PP_ALIGN.CENTER
+                c.fill.solid()
+                c.fill.fore_color.rgb = bg
+
+        def _tc(cell, text, alt=False):
+            cell.text = str(text)
+            for p in cell.text_frame.paragraphs:
+                p.font.size = Pt(10)
+                p.font.color.rgb = PG
+            if alt:
+                cell.fill.solid()
+                cell.fill.fore_color.rgb = LG
+
+        inp = analysis.get("input", {})
+        skills = inp.get("skills", [])
+        summary = analysis.get("summary", "")
+
+        # Slide 1: Title
+        s1 = prs.slides.add_slide(prs.slide_layouts[6])
+        _bg(s1)
+        _tb(s1, 1, 1.5, 11, 1, "Skill-Based Targeting Analysis", 36, bold=True, align=PP_ALIGN.CENTER)
+        sk_txt = ", ".join(skills[:8])
+        if len(skills) > 8:
+            sk_txt += f" (+{len(skills) - 8} more)"
+        _tb(s1, 1, 3.0, 11, 0.8, f"Skills: {sk_txt}", 18, DT, align=PP_ALIGN.CENTER)
+        meta = []
+        if inp.get("industry"):
+            lbl = INDUSTRY_LABEL_MAP.get(inp["industry"], inp["industry"]) if _HAS_UTILS else inp["industry"]
+            meta.append(f"Industry: {lbl}")
+        if inp.get("location"):
+            meta.append(f"Location: {inp['location']}")
+        if inp.get("budget"):
+            meta.append(f"Budget: ${inp['budget']:,.0f}/mo")
+        if meta:
+            _tb(s1, 1, 4.0, 11, 0.6, "  |  ".join(meta), 14, align=PP_ALIGN.CENTER)
+        _tb(s1, 2, 5.5, 9, 0.5, "Powered by Joveo Skill Targeting Engine", 11, DT, align=PP_ALIGN.CENTER)
+
+        # Slide 2: Occupations
+        s2 = prs.slides.add_slide(prs.slide_layouts[6])
+        _bg(s2, WH)
+        _tb(s2, 0.5, 0.3, 12, 0.6, "Matching Occupations & Summary", 24, PG, True)
+        if summary:
+            _tb(s2, 0.5, 1.0, 12, 0.8, summary, 12, BV)
+        occs = analysis.get("occupations", [])[:8]
+        if occs:
+            t = _tbl(s2, 0.5, 2.0, 12, min((len(occs) + 1) * 0.4, 4.5), len(occs) + 1, 4)
+            _thdr(t, ["SOC", "Occupation", "Zone", "Matched Skills"])
+            for ci, w in enumerate([Inches(1.5), Inches(4.5), Inches(1.2), Inches(4.8)]):
+                t.columns[ci].width = w
+            for i, o in enumerate(occs):
+                _tc(t.cell(i + 1, 0), o.get("soc", ""), i % 2 == 0)
+                _tc(t.cell(i + 1, 1), o.get("title", ""), i % 2 == 0)
+                _tc(t.cell(i + 1, 2), o.get("zone", ""), i % 2 == 0)
+                _tc(t.cell(i + 1, 3), ", ".join(o.get("matched_skills", [])), i % 2 == 0)
+
+        # Slide 3: Demand
+        s3 = prs.slides.add_slide(prs.slide_layouts[6])
+        _bg(s3, WH)
+        _tb(s3, 0.5, 0.3, 12, 0.6, "Skill Demand Trends", 24, PG, True)
+        ds = analysis.get("demand_trends", {}).get("summary", {})
+        if ds:
+            _tb(s3, 0.5, 1.0, 12, 0.5,
+                f"Overall: {ds.get('overall_demand', 'N/A').replace('_', ' ').title()}  |  "
+                f"{ds.get('skills_in_shortage', 0)} in shortage  |  "
+                f"{ds.get('high_growth_skills', 0)} high-growth", 12, BV)
+        items = list(analysis.get("demand_trends", {}).get("skills", {}).items())[:10]
+        if items:
+            t = _tbl(s3, 0.5, 1.8, 12, min((len(items) + 1) * 0.4, 4.5), len(items) + 1, 4)
+            _thdr(t, ["Skill", "Growth", "YoY Change", "Shortage"])
+            for ci, w in enumerate([Inches(4), Inches(3), Inches(2.5), Inches(2.5)]):
+                t.columns[ci].width = w
+            for i, (sk, info) in enumerate(items):
+                _tc(t.cell(i + 1, 0), sk, i % 2 == 0)
+                _tc(t.cell(i + 1, 1), info.get("growth", "").replace("_", " ").title(), i % 2 == 0)
+                _tc(t.cell(i + 1, 2), f"+{info.get('yoy_pct', 0)}%", i % 2 == 0)
+                _tc(t.cell(i + 1, 3), "YES" if info.get("shortage") else "No", i % 2 == 0)
+
+        # Slide 4: Channels
+        s4 = prs.slides.add_slide(prs.slide_layouts[6])
+        _bg(s4, WH)
+        _tb(s4, 0.5, 0.3, 12, 0.6, "Recommended Recruiting Channels", 24, PG, True)
+        chs = analysis.get("channels", [])[:8]
+        if chs:
+            t = _tbl(s4, 0.5, 1.2, 12, min((len(chs) + 1) * 0.45, 5), len(chs) + 1, 3)
+            _thdr(t, ["Channel", "Weight", "Rationale"])
+            for ci, w in enumerate([Inches(3.5), Inches(1.5), Inches(7)]):
+                t.columns[ci].width = w
+            for i, ch in enumerate(chs):
+                _tc(t.cell(i + 1, 0), ch.get("name", ""), i % 2 == 0)
+                _tc(t.cell(i + 1, 1), f"{ch.get('weight', 0):.1%}", i % 2 == 0)
+                _tc(t.cell(i + 1, 2), "; ".join(ch.get("reasons", [])), i % 2 == 0)
+
+        # Slide 5: Salary + Hotspots
+        s5 = prs.slides.add_slide(prs.slide_layouts[6])
+        _bg(s5, WH)
+        _tb(s5, 0.5, 0.3, 12, 0.6, "Salary Benchmarks & Geographic Hotspots", 24, PG, True)
+        si = list(analysis.get("salary_benchmarks", {}).get("occupations", {}).items())[:5]
+        if si:
+            t = _tbl(s5, 0.5, 1.0, 6, min((len(si) + 1) * 0.4, 2.5), len(si) + 1, 4)
+            _thdr(t, ["Occupation", "P25", "Median", "P75"])
+            for ci, w in enumerate([Inches(2.5), Inches(1.1), Inches(1.2), Inches(1.2)]):
+                t.columns[ci].width = w
+            for i, (occ, info) in enumerate(si):
+                _tc(t.cell(i + 1, 0), occ, i % 2 == 0)
+                _tc(t.cell(i + 1, 1), f"${info.get('p25', 0):,}", i % 2 == 0)
+                _tc(t.cell(i + 1, 2), f"${info.get('median', 0):,}", i % 2 == 0)
+                _tc(t.cell(i + 1, 3), f"${info.get('p75', 0):,}", i % 2 == 0)
+        hss = analysis.get("hotspots", [])[:5]
+        if hss:
+            ht = 1.0 + (len(si) + 1) * 0.4 + 0.5 if si else 1.5
+            t = _tbl(s5, 0.5, min(ht, 4.0), 12, min((len(hss) + 1) * 0.4, 2.5), len(hss) + 1, 4)
+            _thdr(t, ["Metro", "Concentration", "Coverage", "Top Employers"], DT)
+            for ci, w in enumerate([Inches(4), Inches(2), Inches(2), Inches(4)]):
+                t.columns[ci].width = w
+            for i, hs in enumerate(hss):
+                _tc(t.cell(i + 1, 0), hs.get("metro", ""), i % 2 == 0)
+                _tc(t.cell(i + 1, 1), f"{hs.get('avg_concentration', 0):.0%}", i % 2 == 0)
+                _tc(t.cell(i + 1, 2), f"{hs.get('skill_coverage', 0):.0%}", i % 2 == 0)
+                _tc(t.cell(i + 1, 3), ", ".join(hs.get("top_employers", [])[:4]), i % 2 == 0)
+
+        # Slide 6: Adjacent + Titles
+        s6 = prs.slides.add_slide(prs.slide_layouts[6])
+        _bg(s6, WH)
+        _tb(s6, 0.5, 0.3, 12, 0.6, "Adjacent Skills & Suggested Job Titles", 24, PG, True)
+        adj = analysis.get("adjacent_skills", [])[:8]
+        if adj:
+            t = _tbl(s6, 0.5, 1.0, 6.5, min((len(adj) + 1) * 0.4, 4), len(adj) + 1, 3)
+            _thdr(t, ["Related Skill", "Relevance", "Connected To"])
+            for ci, w in enumerate([Inches(2.2), Inches(1.3), Inches(3.0)]):
+                t.columns[ci].width = w
+            for i, a in enumerate(adj):
+                _tc(t.cell(i + 1, 0), a.get("skill", ""), i % 2 == 0)
+                _tc(t.cell(i + 1, 1), f"{a.get('max_relevance', 0):.0%}", i % 2 == 0)
+                _tc(t.cell(i + 1, 2), ", ".join(a.get("connected_to", [])), i % 2 == 0)
+        titles = analysis.get("suggested_titles", [])[:10]
+        if titles:
+            _tb(s6, 7.5, 1.0, 5, 0.5, "Suggested Job Titles", 16, PG, True)
+            _tb(s6, 7.5, 1.6, 5, 4.5,
+                "\n".join(f"  {i + 1}. {t}" for i, t in enumerate(titles)), 11, PG)
+
+        buf = io.BytesIO()
+        prs.save(buf)
+        return buf.getvalue()
+    except Exception as e:
+        logger.error("generate_skill_ppt error: %s", e)
+        return b""

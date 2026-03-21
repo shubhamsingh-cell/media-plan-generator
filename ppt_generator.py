@@ -863,7 +863,7 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                 _kb = data.get("_knowledge_base", {})
                 if not _kb:
                     try:
-                        from app import load_knowledge_base
+                        from kb_loader import load_knowledge_base
                         _kb = load_knowledge_base()
                     except Exception:
                         _kb = {}

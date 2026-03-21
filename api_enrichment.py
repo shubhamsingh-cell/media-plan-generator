@@ -139,7 +139,7 @@ def _get_unverified_ssl_ctx() -> ssl.SSLContext:
     """Return (and lazily create) the unverified SSL context with a warning."""
     global _UNVERIFIED_SSL_CTX
     if _UNVERIFIED_SSL_CTX is None:
-        logger.warning(
+        _log_warn(
             "Creating unverified SSL context — SSL certificate verification "
             "will be skipped for failing endpoints. This is a security risk; "
             "set ALLOW_UNVERIFIED_SSL=0 or unset it to disable."
@@ -10354,7 +10354,7 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     # Each enrich_data() creates a ThreadPoolExecutor(max_workers=15);
     # the semaphore caps total concurrent enrichments at 10 (= 150 threads).
     if not _enrichment_semaphore.acquire(timeout=120):  # 2-minute wait max
-        logger.warning("enrich_data: too many concurrent enrichments, returning partial data")
+        _log_warn("enrich_data: too many concurrent enrichments, returning partial data")
         return enriched  # Return what we have so far
 
     try:

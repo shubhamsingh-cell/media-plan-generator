@@ -765,11 +765,7 @@ print(response.json())</pre>
         // ── Load Keys ──
         async function loadKeys() {
             try {
-                var resp = await fetch('/api/portal/keys', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({admin: false})
-                });
+                var resp = await fetch('/api/portal/keys');
                 var data = await resp.json();
                 renderKeysTable(data.keys || []);
             } catch (err) {
