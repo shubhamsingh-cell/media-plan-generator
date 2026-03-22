@@ -3401,6 +3401,76 @@
         cursor: not-allowed;
         transform: none;
       }
+
+      /* ── Recommended Strategy Decision Card ── */
+      .plan-decision-card {
+        background: rgba(99, 102, 241, 0.08);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 24px;
+      }
+      .plan-decision-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6366f1;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+      .plan-decision-text {
+        font-size: 1rem;
+        color: white;
+        font-weight: 500;
+        line-height: 1.4;
+      }
+
+      /* ── Copy Plan Button ── */
+      .btn-copy-plan {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        color: var(--text-secondary, #a1a1a1);
+        font-size: 0.85rem;
+        font-family: inherit;
+        cursor: pointer;
+        transition:
+          background 0.2s,
+          border-color 0.2s,
+          color 0.2s;
+      }
+      .btn-copy-plan:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: white;
+      }
+
+      /* ── Confidence Signals ── */
+      .confidence-signals {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 12px;
+        font-size: 0.75rem;
+        color: #6b7280;
+      }
+      .conf-dot {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: #6b7280;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .plan-decision-card {
+          animation: none;
+        }
+      }
     </style>
     <!-- PostHog Analytics (loaded only if API key is configured server-side) -->
     <script>
@@ -5042,6 +5112,20 @@
             >
               &#128229; Download Bundle Again
             </button>
+            <button class="btn-copy-plan" onclick="copyPlanToClipboard()">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+              </svg>
+              Copy Plan
+            </button>
           </div>
         </div>
 
@@ -5075,6 +5159,13 @@
               >
             </span>
           </button>
+        </div>
+        <div class="confidence-signals">
+          <span>Takes &lt;30 seconds</span>
+          <span class="conf-dot"></span>
+          <span>Based on real campaign data</span>
+          <span class="conf-dot"></span>
+          <span>No signup required</span>
         </div>
       </div>
     </main>
@@ -5669,8 +5760,25 @@
         const channelCount = enabledChannels.length;
         const goalsCount = (payload.campaign_goals || []).length;
 
+        // Build recommended strategy decision line
+        const topChannels = enabledChannels
+          .slice(0, 2)
+          .map((c) => c.label)
+          .join(" + ");
+        const decisionText =
+          "Focus on " +
+          topChannels +
+          " for fastest hiring at optimal cost-per-application.";
+
         // Build metrics row HTML
         let html = '<div class="plan-dashboard">';
+        html += '<div class="plan-decision-card">';
+        html += '<div class="plan-decision-label">Recommended Strategy</div>';
+        html +=
+          '<div class="plan-decision-text">' +
+          escapeHtml(decisionText) +
+          "</div>";
+        html += "</div>";
         html +=
           '<div class="plan-dashboard-title">Plan Summary Dashboard</div>';
 
@@ -5839,6 +5947,30 @@
         if (section) {
           section.classList.add("visible");
         }
+      }
+
+      // ============================================
+      // Copy Plan to Clipboard
+      // ============================================
+      function copyPlanToClipboard() {
+        var dashboard = document.getElementById("planDashboardSection");
+        if (!dashboard) return;
+        var text = dashboard.innerText;
+        navigator.clipboard
+          .writeText(text)
+          .then(function () {
+            var btn = document.querySelector(".btn-copy-plan");
+            if (!btn) return;
+            var orig = btn.innerHTML;
+            btn.innerHTML =
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+            setTimeout(function () {
+              btn.innerHTML = orig;
+            }, 2000);
+          })
+          .catch(function (err) {
+            console.error("Copy failed:", err);
+          });
       }
 
       // ============================================

@@ -1832,6 +1832,137 @@
           transition: none;
         }
       }
+
+      /* ── Outcomes / What You Get ── */
+      .outcomes-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 24px;
+        margin-top: 48px;
+      }
+      .outcome-card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 32px 24px;
+        text-align: center;
+        transition:
+          transform 0.2s,
+          border-color 0.2s;
+      }
+      .outcome-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.15);
+      }
+      .outcome-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+      }
+      .outcome-card h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--text-primary);
+      }
+      .outcome-card p {
+        font-size: 0.85rem;
+        color: #9ca3af;
+        line-height: 1.5;
+      }
+      @media (max-width: 768px) {
+        .outcomes-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 480px) {
+        .outcomes-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ── Use Cases ── */
+      .usecases-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 32px;
+      }
+      .usecase-pill {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 24px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 100px;
+        font-size: 0.88rem;
+        color: var(--text-secondary);
+        transition: border-color 0.2s;
+      }
+      .usecase-pill:hover {
+        border-color: rgba(255, 255, 255, 0.15);
+      }
+      .usecase-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      /* ── Differentiator ── */
+      .diff-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-top: 32px;
+      }
+      .diff-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+      }
+      .diff-item svg {
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+
+      /* ── Confidence Signals ── */
+      .confidence-signals {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 12px;
+        font-size: 0.75rem;
+        color: #6b7280;
+      }
+      .conf-dot {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: #6b7280;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .outcome-card {
+          transition: none;
+        }
+        .outcome-card:hover {
+          transform: none;
+        }
+        .usecase-pill {
+          transition: none;
+        }
+      }
     </style>
   </head>
   <body>
@@ -1947,6 +2078,13 @@
             </svg>
           </a>
           <a href="#platform" class="btn-secondary">Explore Products</a>
+        </div>
+        <div class="confidence-signals">
+          <span>Takes &lt;30 seconds</span>
+          <span class="conf-dot"></span>
+          <span>Based on real campaign data</span>
+          <span class="conf-dot"></span>
+          <span>No signup required</span>
         </div>
       </div>
 
@@ -2067,6 +2205,219 @@
       </div>
     </section>
 
+    <hr class="section-divider" />
+
+    <!-- ========================================== -->
+    <!-- SECTION 1b: WHAT YOU GET                   -->
+    <!-- ========================================== -->
+    <section class="outcomes-section" style="padding: 96px 24px">
+      <div class="container">
+        <div class="section-header reveal-on-scroll">
+          <div class="section-label">What You Get</div>
+          <div class="section-title">AI-powered answers in seconds</div>
+        </div>
+        <div class="outcomes-grid">
+          <div class="outcome-card reveal-on-scroll stagger-1">
+            <div
+              class="outcome-icon"
+              style="background: rgba(99, 102, 241, 0.12); color: #6366f1"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M3 3h18v18H3z" />
+                <path d="M3 9h18" />
+                <path d="M9 21V9" />
+              </svg>
+            </div>
+            <h3>Channel Mix</h3>
+            <p>
+              Where to spend across 91+ job boards for maximum reach and
+              quality.
+            </p>
+          </div>
+          <div class="outcome-card reveal-on-scroll stagger-2">
+            <div
+              class="outcome-icon"
+              style="background: rgba(34, 197, 94, 0.12); color: #22c55e"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v6l4 2" />
+              </svg>
+            </div>
+            <h3>Budget Allocation</h3>
+            <p>
+              How much per platform, optimized for cost-per-hire, not clicks.
+            </p>
+          </div>
+          <div class="outcome-card reveal-on-scroll stagger-3">
+            <div
+              class="outcome-icon"
+              style="background: rgba(6, 182, 212, 0.12); color: #06b6d4"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+            </div>
+            <h3>Funnel Forecast</h3>
+            <p>
+              Projected impressions, applications, and hires based on real
+              benchmarks.
+            </p>
+          </div>
+          <div class="outcome-card reveal-on-scroll stagger-4">
+            <div
+              class="outcome-icon"
+              style="background: rgba(245, 158, 11, 0.12); color: #f59e0b"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M12 20h9" />
+                <path
+                  d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"
+                />
+              </svg>
+            </div>
+            <h3>Creative Strategy</h3>
+            <p>
+              What messaging works for your role, industry, and target audience.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- SECTION 1c: USE CASES                      -->
+    <!-- ========================================== -->
+    <section class="usecases-section" style="padding: 64px 24px">
+      <div class="container">
+        <div class="section-header reveal-on-scroll">
+          <div class="section-label">Built For</div>
+          <div class="section-title">Every hiring scenario</div>
+        </div>
+        <div class="usecases-grid">
+          <div class="usecase-pill reveal-on-scroll">
+            <span class="usecase-dot" style="background: #6366f1"></span>
+            High-volume hiring (BPO, logistics, retail)
+          </div>
+          <div class="usecase-pill reveal-on-scroll">
+            <span class="usecase-dot" style="background: #06b6d4"></span>
+            Tech hiring (engineers, product, data)
+          </div>
+          <div class="usecase-pill reveal-on-scroll">
+            <span class="usecase-dot" style="background: #22c55e"></span>
+            Blue-collar roles (drivers, warehouse, field)
+          </div>
+          <div class="usecase-pill reveal-on-scroll">
+            <span class="usecase-dot" style="background: #f59e0b"></span>
+            Multi-location and global hiring
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- SECTION 1d: WHY THIS IS DIFFERENT          -->
+    <!-- ========================================== -->
+    <section class="differentiator-section" style="padding: 64px 24px">
+      <div class="container" style="max-width: 720px">
+        <div class="section-header reveal-on-scroll" style="text-align: center">
+          <div class="section-label">Why Nova AI</div>
+          <div class="section-title">
+            Built for recruitment, not generic marketing
+          </div>
+        </div>
+        <div class="diff-list reveal-on-scroll">
+          <div class="diff-item">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#22c55e"
+              stroke-width="2.5"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span
+              >Optimized for cost-per-hire and quality-of-hire, not vanity
+              clicks</span
+            >
+          </div>
+          <div class="diff-item">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#22c55e"
+              stroke-width="2.5"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span
+              >Uses real hiring performance patterns across 91+ job boards</span
+            >
+          </div>
+          <div class="diff-item">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#22c55e"
+              stroke-width="2.5"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span>25 real-time API integrations for live market data</span>
+          </div>
+          <div class="diff-item">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#22c55e"
+              stroke-width="2.5"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span
+              >Built by recruitment marketing practitioners, not generic
+              AI</span
+            >
+          </div>
+        </div>
+      </div>
+    </section>
     <hr class="section-divider" />
 
     <!-- ========================================== -->
