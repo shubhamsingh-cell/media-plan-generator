@@ -6,7 +6,7 @@
     <title>Nova AI Suite — Recruitment Intelligence Platform</title>
     <meta
       name="description"
-      content="AI-powered recruitment intelligence suite. Media planning, competitive intel, performance tracking, and 12+ tools for talent acquisition. By Shubham Singh Chandel."
+      content="AI-powered recruitment intelligence suite. Media planning, competitive intel, performance tracking, and 21+ tools for talent acquisition. By Shubham Singh Chandel."
     />
     <meta name="theme-color" content="#000000" />
     <link
@@ -29,7 +29,6 @@
       }
 
       :root {
-        /* Vercel/Linear-inspired: pure black bg, clean grays */
         --bg-primary: #000000;
         --bg-secondary: #0a0a0a;
         --bg-card: rgba(17, 17, 17, 0.8);
@@ -40,7 +39,7 @@
         --accent-light: #818cf8;
         --accent-glow: rgba(99, 102, 241, 0.12);
         --accent-glow-strong: rgba(99, 102, 241, 0.25);
-        --text-primary: #d4d4d8;
+        --text-primary: #e4e4e7;
         --text-secondary: #a1a1a1;
         --text-muted: #666666;
         --border: rgba(255, 255, 255, 0.08);
@@ -49,22 +48,21 @@
         --warning: #f59e0b;
         --cyan: #06b6d4;
         --rose: #f43f5e;
-        /* Brand colors for new effects */
         --brand-violet: #5a54bd;
         --brand-teal: #6bb3cd;
         --brand-port-gore: #202058;
         --radius: 12px;
         --radius-sm: 10px;
         --radius-xs: 6px;
-        /* Motion design tokens */
         --ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);
         --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
         --duration-reveal: 0.4s;
         --duration-ui: 0.2s;
         --duration-page: 0.6s;
+        --section-pad: clamp(80px, 10vw, 120px);
       }
 
-      /* ── Effect 1: Gradient border shimmer ── */
+      /* ── Gradient border shimmer ── */
       @property --border-angle {
         syntax: "<angle>";
         initial-value: 0deg;
@@ -75,188 +73,6 @@
         to {
           --border-angle: 360deg;
         }
-      }
-
-      /* ── Effect 2: Ambient glow spots ── */
-      .ambient-glow {
-        position: absolute;
-        border-radius: 50%;
-        filter: blur(80px);
-        pointer-events: none;
-        z-index: 0;
-        will-change: transform;
-      }
-
-      .ambient-glow--violet {
-        width: 420px;
-        height: 420px;
-        background: rgba(90, 84, 189, 0.12);
-        top: 8%;
-        left: 18%;
-        animation: glow-drift-1 20s ease-in-out infinite alternate;
-      }
-
-      .ambient-glow--teal {
-        width: 360px;
-        height: 360px;
-        background: rgba(107, 179, 205, 0.1);
-        top: 25%;
-        right: 12%;
-        animation: glow-drift-2 24s ease-in-out infinite alternate;
-      }
-
-      .ambient-glow--deep {
-        width: 300px;
-        height: 300px;
-        background: rgba(32, 32, 88, 0.15);
-        bottom: 10%;
-        left: 40%;
-        animation: glow-drift-3 18s ease-in-out infinite alternate;
-      }
-
-      @keyframes glow-drift-1 {
-        0% {
-          transform: translate(0, 0);
-        }
-        100% {
-          transform: translate(30px, -20px);
-        }
-      }
-
-      @keyframes glow-drift-2 {
-        0% {
-          transform: translate(0, 0);
-        }
-        100% {
-          transform: translate(-25px, 15px);
-        }
-      }
-
-      @keyframes glow-drift-3 {
-        0% {
-          transform: translate(0, 0);
-        }
-        100% {
-          transform: translate(20px, 25px);
-        }
-      }
-
-      /* ── Effect 3: Section edge fades ── */
-      .section-fade {
-        position: relative;
-      }
-
-      .section-fade::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 60px;
-        background: linear-gradient(to bottom, #000000, transparent);
-        pointer-events: none;
-        z-index: 2;
-      }
-
-      .section-fade::after {
-        content: "";
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 60px;
-        background: linear-gradient(to top, #000000, transparent);
-        pointer-events: none;
-        z-index: 2;
-      }
-
-      /* ── Effect 5: Text blur halo ── */
-      .hero-halo {
-        position: relative;
-      }
-
-      .hero-halo::before {
-        content: "";
-        position: absolute;
-        inset: -30px;
-        background: radial-gradient(
-          ellipse at center,
-          rgba(90, 84, 189, 0.2),
-          transparent 70%
-        );
-        filter: blur(30px);
-        z-index: -1;
-        pointer-events: none;
-      }
-
-      /* ── Effect 7: Scanning line ── */
-      @keyframes scan-line {
-        0% {
-          top: -2px;
-          opacity: 0;
-        }
-        5% {
-          opacity: 1;
-        }
-        90% {
-          opacity: 0.6;
-        }
-        100% {
-          top: 100%;
-          opacity: 0;
-        }
-      }
-
-      .hero-scan {
-        position: relative;
-        overflow: hidden;
-      }
-
-      .hero-scan::after {
-        content: "";
-        position: absolute;
-        left: 10%;
-        right: 10%;
-        height: 1px;
-        background: linear-gradient(
-          90deg,
-          transparent,
-          rgba(107, 179, 205, 0.35),
-          rgba(90, 84, 189, 0.35),
-          transparent
-        );
-        animation: scan-line 5s ease-in-out infinite;
-        pointer-events: none;
-        z-index: 3;
-      }
-
-      /* ── Effect 9: Dot-grid background ── */
-      .dot-grid-bg {
-        position: relative;
-      }
-
-      .dot-grid-bg::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background-image: radial-gradient(
-          circle,
-          rgba(90, 84, 189, 0.1) 1px,
-          transparent 1px
-        );
-        background-size: 24px 24px;
-        pointer-events: none;
-        z-index: 0;
-        mask-image: radial-gradient(
-          ellipse at center,
-          black 30%,
-          transparent 75%
-        );
-        -webkit-mask-image: radial-gradient(
-          ellipse at center,
-          black 30%,
-          transparent 75%
-        );
       }
 
       html {
@@ -394,7 +210,9 @@
         background: rgba(0, 0, 0, 0.8);
         backdrop-filter: blur(20px) saturate(1.5);
         border-bottom: 1px solid var(--border);
-        transition: background 0.3s;
+        transition:
+          background 0.3s,
+          height 0.3s var(--ease-standard);
       }
 
       .nav-logo {
@@ -473,301 +291,16 @@
         background: var(--accent-light) !important;
       }
 
-      /* ── Hero ── */
-      .hero {
+      /* ── Shared section wrapper ── */
+      .page-section {
         position: relative;
         z-index: 1;
-        padding: 100px 2rem 60px;
-        text-align: center;
-        max-width: 1100px;
-        margin: 0 auto;
       }
 
-      .hero-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        background: var(--accent-glow);
-        border: 1px solid var(--border);
-        color: var(--accent-light);
-        font-size: 0.8rem;
-        font-weight: 600;
-        padding: 6px 16px;
-        border-radius: 100px;
-        margin-bottom: 24px;
-        letter-spacing: 0.02em;
-      }
-
-      .hero-badge .dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--success);
-        animation: pulse-dot 2s ease-in-out infinite;
-      }
-
-      @keyframes pulse-dot {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.4;
-        }
-      }
-
-      .hero h1 {
-        font-size: clamp(3rem, 7vw, 5rem);
-        font-weight: 800;
-        line-height: 1.05;
-        letter-spacing: -0.04em;
-        margin-bottom: 20px;
-        background: linear-gradient(
-          135deg,
-          #f1f5f9 0%,
-          #c7d2fe 50%,
-          #818cf8 100%
-        );
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
-
-      .hero-subline {
-        font-size: clamp(1.05rem, 2vw, 1.25rem);
-        color: var(--text-secondary);
-        max-width: 540px;
-        margin: 0 auto 32px;
-        line-height: 1.5;
-      }
-
-      .hero-cta-row {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 16px;
-        margin-bottom: 48px;
-      }
-
-      .hero-cta-primary {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 14px 32px;
-        background: var(--accent);
-        color: white;
-        border: none;
-        border-radius: var(--radius-sm);
-        font-size: 1rem;
-        font-weight: 600;
-        text-decoration: none;
-        cursor: pointer;
-        transition: all 0.2s;
-        position: relative;
-        overflow: hidden;
-      }
-
-      .hero-cta-primary:hover {
-        background: var(--accent-light);
-        transform: translateY(-1px);
-        box-shadow:
-          0 8px 24px rgba(99, 102, 241, 0.3),
-          0 0 40px rgba(99, 102, 241, 0.15);
-      }
-
-      .hero-cta-secondary {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 14px 28px;
-        background: transparent;
-        color: var(--text-secondary);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        font-size: 1rem;
-        font-weight: 500;
-        text-decoration: none;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-
-      .hero-cta-secondary:hover {
-        border-color: var(--border-hover);
-        color: var(--text-primary);
-        background: rgba(255, 255, 255, 0.03);
-      }
-
-      /* Hero product demo preview */
-      .hero-demo {
-        max-width: 900px;
-        margin: 0 auto 0;
-        border-radius: 16px;
-        border: 1px solid var(--border);
-        background: rgba(10, 10, 10, 0.8);
-        overflow: hidden;
-        box-shadow:
-          0 20px 60px rgba(0, 0, 0, 0.5),
-          0 0 1px rgba(99, 102, 241, 0.1);
-      }
-
-      .hero-demo-toolbar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--border);
-        background: rgba(17, 17, 17, 0.6);
-      }
-
-      .hero-demo-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.08);
-      }
-
-      .hero-demo-dot:nth-child(1) {
-        background: #ff5f57;
-      }
-      .hero-demo-dot:nth-child(2) {
-        background: #febc2e;
-      }
-      .hero-demo-dot:nth-child(3) {
-        background: #28c840;
-      }
-
-      .hero-demo-url {
-        flex: 1;
-        margin-left: 12px;
-        padding: 5px 12px;
-        background: rgba(255, 255, 255, 0.04);
-        border-radius: 6px;
-        font-size: 0.75rem;
-        color: var(--text-muted);
-        font-family: monospace;
-      }
-
-      .hero-demo-body {
-        padding: 24px;
-        display: grid;
-        grid-template-columns: 180px 1fr;
-        gap: 20px;
-        min-height: 220px;
-      }
-
-      .hero-demo-sidebar {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-
-      .hero-demo-nav-item {
-        height: 10px;
-        border-radius: 5px;
-        background: rgba(99, 102, 241, 0.12);
-      }
-
-      .hero-demo-nav-item.active {
-        background: linear-gradient(
-          90deg,
-          var(--accent),
-          rgba(99, 102, 241, 0.3)
-        );
-      }
-
-      .hero-demo-content {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-
-      .hero-demo-chart-row {
-        display: flex;
-        gap: 12px;
-        flex: 1;
-      }
-
-      .hero-demo-chart {
-        flex: 1;
-        border-radius: 8px;
-        background: rgba(99, 102, 241, 0.06);
-        border: 1px solid rgba(99, 102, 241, 0.08);
-        display: flex;
-        align-items: flex-end;
-        padding: 12px 8px 8px;
-        gap: 4px;
-      }
-
-      .hero-demo-bar {
-        flex: 1;
-        border-radius: 3px 3px 0 0;
-        background: linear-gradient(to top, var(--accent), var(--cyan));
-        opacity: 0.7;
-      }
-
-      .hero-demo-table {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .hero-demo-table-row {
-        display: flex;
-        gap: 8px;
-      }
-
-      .hero-demo-table-cell {
-        flex: 1;
-        height: 10px;
-        border-radius: 4px;
-        background: rgba(255, 255, 255, 0.04);
-      }
-
-      .hero-demo-table-cell.highlight {
-        background: rgba(99, 102, 241, 0.1);
-      }
-
-      .hero-stats {
-        display: flex;
-        justify-content: center;
-        gap: 64px;
-        margin-top: 56px;
-        padding: 32px 0;
-        border-top: 1px solid var(--border);
-        border-bottom: 1px solid var(--border);
-      }
-
-      .hero-stat {
-        text-align: center;
-      }
-
-      .hero-stat .num {
-        font-size: clamp(2rem, 4vw, 2.8rem);
-        font-weight: 800;
-        color: var(--text-primary);
-        letter-spacing: -0.03em;
-        line-height: 1;
-      }
-
-      .hero-stat .label {
-        font-size: 0.78rem;
-        color: var(--text-muted);
-        margin-top: 6px;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-      }
-
-      /* ── Section titles ── */
-      .section {
-        position: relative;
-        z-index: 1;
+      .container {
         max-width: 1240px;
         margin: 0 auto;
-        padding: 80px 2rem;
-      }
-
-      .section-header {
-        margin-bottom: 56px;
+        padding: 0 2rem;
       }
 
       .section-label {
@@ -776,7 +309,7 @@
         text-transform: uppercase;
         letter-spacing: 0.12em;
         color: var(--accent);
-        margin-bottom: 8px;
+        margin-bottom: 12px;
       }
 
       .section-title {
@@ -800,150 +333,552 @@
         font-weight: 400;
       }
 
-      /* ── Flagship product (full-width card) ── */
-      .flagship {
+      /* ── SECTION 1: HERO (full viewport) ── */
+      .hero {
         position: relative;
         z-index: 1;
-        max-width: 1240px;
-        margin: 0 auto 40px;
-        padding: 0 2rem;
-      }
-
-      .flagship-card {
-        position: relative;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 48px;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
         align-items: center;
-        padding: 48px;
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: 16px;
+        justify-content: center;
+        text-align: center;
+        padding: 100px 2rem 80px;
         overflow: hidden;
-        backdrop-filter: blur(20px);
-        transition:
-          border-color 0.3s,
-          box-shadow 0.3s;
-        text-decoration: none;
-        color: inherit;
-        cursor: pointer;
-        box-shadow:
-          0 2px 8px rgba(0, 0, 0, 0.2),
-          0 0 1px rgba(90, 84, 189, 0.08);
       }
 
-      .flagship-card:hover {
-        border-color: var(--border-hover);
-        box-shadow:
-          0 20px 40px rgba(0, 0, 0, 0.25),
-          0 8px 16px rgba(32, 32, 88, 0.08),
-          0 4px 8px rgba(90, 84, 189, 0.06),
-          0 0 1px rgba(90, 84, 189, 0.12);
+      .hero .ambient-glow {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(80px);
+        pointer-events: none;
+        z-index: 0;
+        will-change: transform;
       }
 
-      .flagship-card::before {
+      .hero .ambient-glow--violet {
+        width: 500px;
+        height: 500px;
+        background: rgba(90, 84, 189, 0.15);
+        top: 10%;
+        left: 15%;
+        animation: glow-drift-1 20s ease-in-out infinite alternate;
+      }
+
+      .hero .ambient-glow--teal {
+        width: 400px;
+        height: 400px;
+        background: rgba(107, 179, 205, 0.1);
+        top: 20%;
+        right: 10%;
+        animation: glow-drift-2 24s ease-in-out infinite alternate;
+      }
+
+      .hero .ambient-glow--deep {
+        width: 350px;
+        height: 350px;
+        background: rgba(32, 32, 88, 0.18);
+        bottom: 15%;
+        left: 40%;
+        animation: glow-drift-3 18s ease-in-out infinite alternate;
+      }
+
+      @keyframes glow-drift-1 {
+        0% {
+          transform: translate(0, 0);
+        }
+        100% {
+          transform: translate(30px, -20px);
+        }
+      }
+
+      @keyframes glow-drift-2 {
+        0% {
+          transform: translate(0, 0);
+        }
+        100% {
+          transform: translate(-25px, 15px);
+        }
+      }
+
+      @keyframes glow-drift-3 {
+        0% {
+          transform: translate(0, 0);
+        }
+        100% {
+          transform: translate(20px, 25px);
+        }
+      }
+
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--accent-glow);
+        border: 1px solid var(--border);
+        color: var(--accent-light);
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 6px 16px;
+        border-radius: 100px;
+        margin-bottom: 32px;
+        letter-spacing: 0.02em;
+        position: relative;
+        z-index: 1;
+      }
+
+      .hero-badge .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--success);
+        animation: pulse-dot 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse-dot {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      .hero h1 {
+        font-size: clamp(3rem, 8vw, 5.5rem);
+        font-weight: 900;
+        line-height: 1.02;
+        letter-spacing: -0.04em;
+        margin-bottom: 24px;
+        max-width: 900px;
+        background: linear-gradient(
+          135deg,
+          #f1f5f9 0%,
+          #c7d2fe 50%,
+          #818cf8 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        position: relative;
+        z-index: 1;
+      }
+
+      .hero h1::before {
         content: "";
         position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
+        inset: -30px;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(90, 84, 189, 0.2),
+          transparent 70%
+        );
+        filter: blur(30px);
+        z-index: -1;
+        pointer-events: none;
+      }
+
+      .hero-subline {
+        font-size: clamp(1.1rem, 2vw, 1.35rem);
+        color: var(--text-secondary);
+        max-width: 600px;
+        margin: 0 auto 40px;
+        line-height: 1.6;
+        position: relative;
+        z-index: 1;
+      }
+
+      .hero-cta-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        margin-bottom: 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 16px 36px;
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-size: 1.05rem;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .btn-primary:hover {
+        background: var(--accent-light);
+        transform: translateY(-2px);
+        box-shadow:
+          0 8px 30px rgba(99, 102, 241, 0.35),
+          0 0 50px rgba(99, 102, 241, 0.15);
+      }
+
+      .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 16px 32px;
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 1.05rem;
+        font-weight: 500;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .btn-secondary:hover {
+        border-color: var(--border-hover);
+        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      /* Scan line on hero */
+      .hero::after {
+        content: "";
+        position: absolute;
+        left: 10%;
+        right: 10%;
         height: 1px;
         background: linear-gradient(
           90deg,
           transparent,
-          var(--accent),
+          rgba(107, 179, 205, 0.35),
+          rgba(90, 84, 189, 0.35),
           transparent
         );
-        opacity: 0;
-        transition: opacity 0.3s;
+        animation: scan-line 5s ease-in-out infinite;
+        pointer-events: none;
+        z-index: 3;
       }
 
-      .flagship-card:hover::before {
-        opacity: 1;
+      @keyframes scan-line {
+        0% {
+          top: -2px;
+          opacity: 0;
+        }
+        5% {
+          opacity: 1;
+        }
+        90% {
+          opacity: 0.6;
+        }
+        100% {
+          top: 100%;
+          opacity: 0;
+        }
       }
 
-      /* flagship h3 moved to later section for specificity */
-
-      .flagship-content p {
-        color: var(--text-secondary);
-        font-size: 0.95rem;
-        line-height: 1.7;
-        margin-bottom: 20px;
-      }
-
-      .flagship-features {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .flagship-features .tag {
-        font-size: 0.75rem;
-        font-weight: 500;
-        padding: 4px 12px;
-        border-radius: 100px;
-        background: var(--accent-glow);
-        color: var(--accent-light);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-      }
-
-      .flagship-preview {
+      /* ── SECTION 2: LOGO MARQUEE (trust bar) ── */
+      .trust-bar {
         position: relative;
-        background: rgba(15, 15, 25, 0.5);
-        border-radius: 12px;
-        padding: 24px;
-        border: 1px solid rgba(255, 255, 255, 0.04);
+        z-index: 1;
+        padding: 48px 0;
+        overflow: hidden;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        background: rgba(10, 10, 10, 0.6);
       }
 
-      .flagship-preview .mock-ui {
+      .trust-bar-label {
+        text-align: center;
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--text-muted);
+        margin-bottom: 28px;
+      }
+
+      .marquee-wrap {
+        overflow: hidden;
+      }
+
+      .marquee {
+        display: flex;
+        animation: marquee 35s linear infinite;
+        gap: 56px;
+        width: max-content;
+      }
+
+      .marquee-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        white-space: nowrap;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+
+      .marquee-item .mi-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: var(--accent-glow);
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+      }
+
+      @keyframes marquee {
+        0% {
+          transform: translateX(0);
+        }
+        100% {
+          transform: translateX(-50%);
+        }
+      }
+
+      /* ── SECTION 3: CAPABILITIES ── */
+      .capabilities-section {
+        padding: var(--section-pad) 0;
+      }
+
+      .capabilities-header {
+        text-align: center;
+        margin-bottom: 64px;
+      }
+
+      .capabilities-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+      }
+
+      .capability-card {
+        padding: 36px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        backdrop-filter: blur(16px);
+        transition: all 0.3s var(--ease-standard);
+        text-decoration: none;
+        color: inherit;
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 16px;
       }
 
-      .mock-bar {
-        height: 8px;
-        border-radius: 4px;
-        background: linear-gradient(90deg, var(--accent), var(--cyan));
+      .capability-card:hover {
+        border-color: var(--border-hover);
+        background: var(--bg-card-hover);
+        transform: translateY(-4px);
+        box-shadow:
+          0 20px 40px rgba(0, 0, 0, 0.3),
+          0 0 1px rgba(90, 84, 189, 0.12);
       }
 
-      .mock-bar.w60 {
-        width: 60%;
+      .capability-card .cap-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        background: var(--accent-glow);
+        border: 1px solid rgba(255, 255, 255, 0.06);
       }
-      .mock-bar.w80 {
-        width: 80%;
+
+      .capability-card h3 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
       }
-      .mock-bar.w45 {
-        width: 45%;
+
+      .capability-card p {
+        font-size: 0.88rem;
+        color: var(--text-muted);
+        line-height: 1.6;
       }
-      .mock-bar.w70 {
+
+      .cap-preview {
+        margin-top: auto;
+        padding: 12px;
+        background: rgba(15, 15, 25, 0.4);
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .cap-preview .mini-bar {
+        height: 5px;
+        border-radius: 3px;
+        background: linear-gradient(90deg, var(--accent), transparent);
+        opacity: 0.5;
+      }
+
+      .cap-preview .mini-bar.w70 {
         width: 70%;
       }
-
-      .mock-row {
-        display: flex;
-        gap: 8px;
+      .cap-preview .mini-bar.w50 {
+        width: 50%;
+      }
+      .cap-preview .mini-bar.w85 {
+        width: 85%;
       }
 
-      .mock-cell {
+      .cap-preview .mini-row {
+        display: flex;
+        gap: 4px;
+      }
+
+      .cap-preview .mini-cell {
         flex: 1;
-        height: 32px;
-        border-radius: 6px;
-        background: rgba(99, 102, 241, 0.08);
-        border: 1px solid rgba(99, 102, 241, 0.06);
+        height: 16px;
+        border-radius: 4px;
+        background: rgba(99, 102, 241, 0.06);
+        border: 1px solid rgba(99, 102, 241, 0.04);
       }
 
-      /* ── Product grid ── */
-      .products-grid {
+      /* ── SECTION 4: PLATFORM (tabbed interface) ── */
+      .platform-section {
+        padding: var(--section-pad) 0;
+        position: relative;
+      }
+
+      .platform-section::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(
+          circle,
+          rgba(90, 84, 189, 0.1) 1px,
+          transparent 1px
+        );
+        background-size: 24px 24px;
+        pointer-events: none;
+        z-index: 0;
+        mask-image: radial-gradient(
+          ellipse at center,
+          black 30%,
+          transparent 75%
+        );
+        -webkit-mask-image: radial-gradient(
+          ellipse at center,
+          black 30%,
+          transparent 75%
+        );
+      }
+
+      .platform-header {
+        text-align: center;
+        margin-bottom: 48px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .platform-search {
+        max-width: 480px;
+        margin: 0 auto 32px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .search-wrap {
+        position: relative;
+      }
+
+      .search-wrap .search-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        pointer-events: none;
+      }
+
+      .search-input {
+        width: 100%;
+        padding: 12px 16px 12px 40px;
+        background: rgba(15, 15, 25, 0.6);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+
+      .search-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+      }
+
+      /* Tab bar */
+      .tab-bar {
         display: flex;
-        flex-direction: column;
-        gap: 20px;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        margin-bottom: 48px;
+        position: relative;
+        z-index: 1;
+        padding: 4px;
+        background: rgba(15, 15, 25, 0.6);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        max-width: 700px;
+        margin-left: auto;
+        margin-right: auto;
       }
 
-      .product-grid-row {
+      .tab-btn {
+        padding: 10px 24px;
+        background: transparent;
+        border: none;
+        border-radius: 10px;
+        color: var(--text-secondary);
+        font-size: 0.88rem;
+        font-weight: 500;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+      }
+
+      .tab-btn:hover {
+        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .tab-btn.active {
+        background: var(--accent);
+        color: white;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+      }
+
+      /* Product grid */
+      .products-grid {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 20px;
+        position: relative;
+        z-index: 1;
       }
 
       .product-card {
@@ -963,7 +898,7 @@
         border: 1px solid transparent;
         border-radius: var(--radius);
         backdrop-filter: blur(16px);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.3s var(--ease-standard);
         text-decoration: none;
         color: inherit;
         overflow: hidden;
@@ -1028,21 +963,6 @@
         border: 1px solid var(--icon-border, rgba(255, 255, 255, 0.06));
       }
 
-      .card-title {
-        font-size: 1.1rem;
-        font-weight: 650;
-        margin-bottom: 8px;
-        letter-spacing: -0.01em;
-      }
-
-      .card-desc {
-        font-size: 0.85rem;
-        color: var(--text-muted);
-        line-height: 1.6;
-        flex: 1;
-      }
-
-      /* ── Card mini preview illustration ── */
       .card-preview {
         margin-bottom: 16px;
         padding: 12px;
@@ -1089,6 +1009,20 @@
         border-radius: 4px;
         background: rgba(99, 102, 241, 0.06);
         border: 1px solid rgba(99, 102, 241, 0.04);
+      }
+
+      .card-title {
+        font-size: 1.1rem;
+        font-weight: 650;
+        margin-bottom: 8px;
+        letter-spacing: -0.01em;
+      }
+
+      .card-desc {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        line-height: 1.6;
+        flex: 1;
       }
 
       .card-footer {
@@ -1157,82 +1091,356 @@
         background: rgba(6, 182, 212, 0.1);
       }
 
-      /* ── Capability bar (marquee) ── */
-      .capabilities {
+      .no-results {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-muted);
+      }
+
+      .no-results h4 {
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+      }
+
+      /* ── SECTION 5: FLAGSHIP ── */
+      .flagship-section {
+        padding: var(--section-pad) 0;
+      }
+
+      .flagship-card {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 56px;
+        align-items: center;
+        padding: 64px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        overflow: hidden;
+        backdrop-filter: blur(20px);
+        transition:
+          border-color 0.3s,
+          box-shadow 0.3s;
+        text-decoration: none;
+        color: inherit;
+        cursor: pointer;
+        box-shadow:
+          0 2px 8px rgba(0, 0, 0, 0.2),
+          0 0 1px rgba(90, 84, 189, 0.08);
+      }
+
+      .flagship-card:hover {
+        border-color: var(--border-hover);
+        box-shadow:
+          0 24px 48px rgba(0, 0, 0, 0.3),
+          0 8px 16px rgba(32, 32, 88, 0.1),
+          0 0 1px rgba(90, 84, 189, 0.12);
+      }
+
+      .flagship-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--accent),
+          var(--cyan),
+          transparent
+        );
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .flagship-card:hover::before {
+        opacity: 1;
+      }
+
+      .flagship-card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        padding: 1px;
+        background: linear-gradient(
+          135deg,
+          rgba(99, 102, 241, 0.3),
+          rgba(6, 182, 212, 0.2),
+          rgba(99, 102, 241, 0.3)
+        );
+        -webkit-mask:
+          linear-gradient(#fff 0 0) content-box,
+          linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        opacity: 0;
+        transition: opacity 0.4s;
+        pointer-events: none;
+      }
+
+      .flagship-card:hover::after {
+        opacity: 1;
+      }
+
+      .flagship-content h3 {
+        font-size: clamp(1.8rem, 3vw, 2.4rem);
+        font-weight: 800;
+        margin-bottom: 16px;
+        letter-spacing: -0.02em;
+      }
+
+      .flagship-content p {
+        color: var(--text-secondary);
+        font-size: 1rem;
+        line-height: 1.7;
+        margin-bottom: 24px;
+      }
+
+      .flagship-features {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 28px;
+      }
+
+      .flagship-features .tag {
+        font-size: 0.75rem;
+        font-weight: 500;
+        padding: 5px 14px;
+        border-radius: 100px;
+        background: var(--accent-glow);
+        color: var(--accent-light);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .flagship-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 28px;
+        background: var(--accent);
+        color: white;
+        border-radius: var(--radius-sm);
+        font-size: 0.95rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s;
+      }
+
+      .flagship-cta:hover {
+        background: var(--accent-light);
+        transform: translateY(-1px);
+      }
+
+      .flagship-preview {
+        position: relative;
+        background: rgba(15, 15, 25, 0.5);
+        border-radius: 16px;
+        padding: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.04);
+      }
+
+      .flagship-preview .mock-ui {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .mock-bar {
+        height: 8px;
+        border-radius: 4px;
+        background: linear-gradient(90deg, var(--accent), var(--cyan));
+      }
+
+      .mock-bar.w60 {
+        width: 60%;
+      }
+      .mock-bar.w80 {
+        width: 80%;
+      }
+      .mock-bar.w45 {
+        width: 45%;
+      }
+      .mock-bar.w70 {
+        width: 70%;
+      }
+
+      .mock-row {
+        display: flex;
+        gap: 8px;
+      }
+
+      .mock-cell {
+        flex: 1;
+        height: 36px;
+        border-radius: 8px;
+        background: rgba(99, 102, 241, 0.08);
+        border: 1px solid rgba(99, 102, 241, 0.06);
+      }
+
+      /* ── SECTION 6: RESULTS MARQUEE ── */
+      .stats-marquee {
         position: relative;
         z-index: 1;
-        padding: 40px 0;
+        padding: 56px 0;
         overflow: hidden;
         border-top: 1px solid var(--border);
         border-bottom: 1px solid var(--border);
         background: rgba(10, 10, 10, 0.6);
       }
 
-      .marquee {
-        display: flex;
-        animation: marquee 40s linear infinite;
-        gap: 48px;
-        width: max-content;
+      .stats-marquee .marquee {
+        animation: marquee 30s linear infinite;
+        gap: 80px;
       }
 
-      .marquee-item {
+      .stat-item {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 16px;
         white-space: nowrap;
-        color: var(--text-muted);
+      }
+
+      .stat-item .stat-num {
+        font-size: clamp(2rem, 4vw, 2.8rem);
+        font-weight: 800;
+        color: var(--text-primary);
+        letter-spacing: -0.03em;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stat-item .stat-label {
         font-size: 0.85rem;
-        font-weight: 500;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 600;
       }
 
-      .marquee-item .mi-icon {
-        width: 8px;
-        height: 8px;
+      .stat-divider {
+        width: 1px;
+        height: 40px;
+        background: var(--border);
+        flex-shrink: 0;
+      }
+
+      /* ── SECTION 7: SOCIAL PROOF ── */
+      .social-proof {
+        padding: var(--section-pad) 0;
+      }
+
+      .social-proof-header {
+        text-align: center;
+        margin-bottom: 64px;
+      }
+
+      .testimonials-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+      }
+
+      .testimonial-card {
+        padding: 36px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        backdrop-filter: blur(16px);
+        transition: border-color 0.3s;
+      }
+
+      .testimonial-card:hover {
+        border-color: var(--border-hover);
+      }
+
+      .testimonial-quote-mark {
+        font-size: 2.5rem;
+        line-height: 1;
+        color: var(--accent);
+        opacity: 0.4;
+      }
+
+      .testimonial-quote {
+        font-size: 0.95rem;
+        color: var(--text-secondary);
+        line-height: 1.7;
+        flex: 1;
+      }
+
+      .testimonial-author {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .testimonial-avatar {
+        width: 44px;
+        height: 44px;
         border-radius: 50%;
-        background: var(--accent);
-        opacity: 0.5;
+        background: linear-gradient(135deg, var(--accent), var(--cyan));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: white;
+        flex-shrink: 0;
       }
 
-      @keyframes marquee {
-        0% {
-          transform: translateX(0);
-        }
-        100% {
-          transform: translateX(-50%);
-        }
+      .testimonial-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-primary);
       }
 
-      /* ── CTA section ── */
+      .testimonial-role {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+      }
+
+      /* ── SECTION 8: CTA ── */
       .cta-section {
         position: relative;
         z-index: 1;
+        padding: var(--section-pad) 2rem;
         text-align: center;
-        padding: 80px 2rem;
       }
 
       .cta-card {
-        max-width: 700px;
+        max-width: 800px;
         margin: 0 auto;
-        padding: 48px;
+        padding: 72px 48px;
         background: linear-gradient(
           135deg,
-          rgba(99, 102, 241, 0.08),
-          rgba(6, 182, 212, 0.04)
+          rgba(99, 102, 241, 0.1),
+          rgba(6, 182, 212, 0.05)
         );
         border: 1px solid var(--border);
-        border-radius: 16px;
+        border-radius: 24px;
         backdrop-filter: blur(20px);
       }
 
       .cta-card h3 {
-        font-size: 1.6rem;
+        font-size: clamp(1.6rem, 3vw, 2.2rem);
         font-weight: 700;
-        margin-bottom: 12px;
+        margin-bottom: 16px;
+        letter-spacing: -0.02em;
       }
 
       .cta-card p {
         color: var(--text-secondary);
-        margin-bottom: 28px;
+        margin-bottom: 36px;
+        font-size: 1.05rem;
       }
 
       .cta-btn {
@@ -1240,21 +1448,22 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 12px 28px;
+        padding: 14px 32px;
         background: var(--accent);
         color: white;
         border: none;
         border-radius: var(--radius-sm);
-        font-size: 0.95rem;
+        font-size: 1rem;
         font-weight: 600;
         text-decoration: none;
         cursor: pointer;
         transition: all 0.2s;
+        overflow: hidden;
       }
 
       .cta-btn:hover {
         background: var(--accent-light);
-        transform: translateY(-1px);
+        transform: translateY(-2px);
         box-shadow:
           0 8px 24px rgba(99, 102, 241, 0.3),
           0 0 40px rgba(99, 102, 241, 0.15);
@@ -1279,242 +1488,11 @@
         opacity: 1;
       }
 
-      /* ── 3D Card Tilt (applied via JS) ── */
-      .product-card.tilt-active {
-        transition:
-          border-color 0.3s,
-          background 0.3s,
-          box-shadow 0.3s;
-      }
-
-      .product-card .tilt-shine {
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.3s;
-        background: radial-gradient(
-          circle at var(--shine-x, 50%) var(--shine-y, 50%),
-          rgba(99, 102, 241, 0.08) 0%,
-          transparent 60%
-        );
-      }
-
-      .product-card:hover .tilt-shine {
-        opacity: 1;
-      }
-
-      /* ── Hero stat number counter ── */
-      .hero-stat .num {
-        font-variant-numeric: tabular-nums;
-      }
-
-      /* ── Footer: see rich footer section below ── */
-
-      /* ── Animations ── */
-      .fade-in {
-        opacity: 0;
-        transform: translateY(20px);
-        transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-
-      .fade-in.visible {
-        opacity: 1;
-        transform: translateY(0);
-      }
-
-      /* ── Reveal-on-scroll (matches product templates) ── */
-      .reveal-on-scroll {
-        opacity: 0;
-        transform: translateY(24px);
-        filter: hue-rotate(40deg) saturate(0.5) brightness(0.8);
-        transition:
-          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-          filter 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      .reveal-on-scroll.visible {
-        opacity: 1;
-        transform: translateY(0);
-        filter: none;
-      }
-
-      .stagger-1 {
-        transition-delay: 0.05s;
-      }
-      .stagger-2 {
-        transition-delay: 0.1s;
-      }
-      .stagger-3 {
-        transition-delay: 0.15s;
-      }
-      .stagger-4 {
-        transition-delay: 0.2s;
-      }
-      .stagger-5 {
-        transition-delay: 0.25s;
-      }
-      .stagger-6 {
-        transition-delay: 0.3s;
-      }
-      .stagger-7 {
-        transition-delay: 0.35s;
-      }
-      .stagger-8 {
-        transition-delay: 0.4s;
-      }
-      .stagger-9 {
-        transition-delay: 0.45s;
-      }
-      .stagger-10 {
-        transition-delay: 0.5s;
-      }
-      .stagger-11 {
-        transition-delay: 0.55s;
-      }
-      .stagger-12 {
-        transition-delay: 0.6s;
-      }
-      .stagger-13 {
-        transition-delay: 0.65s;
-      }
-      .stagger-14 {
-        transition-delay: 0.7s;
-      }
-      .stagger-15 {
-        transition-delay: 0.75s;
-      }
-      .stagger-16 {
-        transition-delay: 0.8s;
-      }
-      .stagger-17 {
-        transition-delay: 0.85s;
-      }
-      .stagger-18 {
-        transition-delay: 0.9s;
-      }
-      .stagger-19 {
-        transition-delay: 0.95s;
-      }
-
-      /* ── Numbered category headers ── */
-      .category-header {
-        margin-bottom: 32px;
-        padding-bottom: 20px;
-        border-bottom: 1px solid var(--border);
-      }
-
-      .category-number {
-        font-size: 0.72rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        color: var(--accent);
-        margin-bottom: 6px;
-        font-family: "Inter", monospace;
-      }
-
-      .category-title {
-        font-size: clamp(1.4rem, 3vw, 1.8rem);
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        color: var(--text-primary);
-        margin-bottom: 4px;
-      }
-
-      .category-desc {
-        font-size: 0.88rem;
-        color: var(--text-muted);
-        max-width: 540px;
-      }
-
-      .category-section {
-        margin-bottom: 48px;
-      }
-
-      .category-section:last-child {
-        margin-bottom: 0;
-      }
-
-      /* ── Social proof / testimonials ── */
-      .social-proof {
-        position: relative;
-        z-index: 1;
-        max-width: 1240px;
-        margin: 0 auto;
-        padding: 80px 2rem;
-      }
-
-      .social-proof-header {
-        text-align: center;
-        margin-bottom: 56px;
-      }
-
-      .testimonials-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 24px;
-      }
-
-      .testimonial-card {
-        padding: 32px;
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-        transition: border-color 0.3s;
-      }
-
-      .testimonial-card:hover {
-        border-color: var(--border-hover);
-      }
-
-      .testimonial-quote {
-        font-size: 0.92rem;
-        color: var(--text-secondary);
-        line-height: 1.7;
-        flex: 1;
-      }
-
-      .testimonial-author {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-
-      .testimonial-avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, var(--accent), var(--cyan));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        font-size: 0.85rem;
-        color: white;
-        flex-shrink: 0;
-      }
-
-      .testimonial-name {
-        font-size: 0.88rem;
-        font-weight: 600;
-        color: var(--text-primary);
-      }
-
-      .testimonial-role {
-        font-size: 0.78rem;
-        color: var(--text-muted);
-      }
-
-      /* ── Rich footer ── */
+      /* ── SECTION 9: FOOTER ── */
       .footer {
         position: relative;
         z-index: 1;
-        padding: 64px 2rem 32px;
+        padding: 80px 2rem 32px;
         border-top: 1px solid var(--border);
         color: var(--text-muted);
         font-size: 0.8rem;
@@ -1602,50 +1580,173 @@
         text-decoration: underline;
       }
 
-      /* ── Flagship enhancements ── */
-      .flagship {
-        max-width: 1240px;
-        padding: 0 2rem;
+      /* ── 3D Card Tilt ── */
+      .product-card.tilt-active {
+        transition:
+          border-color 0.3s,
+          background 0.3s,
+          box-shadow 0.3s;
       }
 
-      .flagship-card {
-        padding: 56px;
+      .product-card .tilt-shine {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+        background: radial-gradient(
+          circle at var(--shine-x, 50%) var(--shine-y, 50%),
+          rgba(99, 102, 241, 0.08) 0%,
+          transparent 60%
+        );
       }
 
-      .flagship-content h3 {
-        font-size: clamp(1.6rem, 3vw, 2rem);
-        font-weight: 700;
-        margin-bottom: 12px;
-        letter-spacing: -0.02em;
+      .product-card:hover .tilt-shine {
+        opacity: 1;
       }
 
-      .flagship-cta {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 20px;
-        padding: 10px 24px;
-        background: var(--accent);
-        color: white;
-        border-radius: var(--radius-sm);
-        font-size: 0.9rem;
-        font-weight: 600;
-        text-decoration: none;
-        transition: all 0.2s;
+      /* ── Animations ── */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        filter: hue-rotate(40deg) saturate(0.5) brightness(0.8);
+        transition:
+          opacity 0.6s var(--ease-standard),
+          transform 0.6s var(--ease-standard),
+          filter 0.8s var(--ease-standard);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+        filter: none;
       }
 
-      .flagship-cta:hover {
-        background: var(--accent-light);
+      .stagger-1 {
+        transition-delay: 0.05s;
+      }
+      .stagger-2 {
+        transition-delay: 0.1s;
+      }
+      .stagger-3 {
+        transition-delay: 0.15s;
+      }
+      .stagger-4 {
+        transition-delay: 0.2s;
+      }
+      .stagger-5 {
+        transition-delay: 0.25s;
+      }
+      .stagger-6 {
+        transition-delay: 0.3s;
+      }
+
+      /* ── Streaming text ── */
+      .streaming-text .word {
+        display: inline-block;
+        opacity: 0;
+        transform: translateY(6px);
+        animation: stream-word 0.4s var(--ease-reveal) forwards;
+      }
+
+      @keyframes stream-word {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ── Page enter transition ── */
+      .page-enter {
+        animation: page-fade-in 0.6s var(--ease-reveal) both;
+      }
+
+      @keyframes page-fade-in {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ── SVG stroke-draw ── */
+      .card-icon svg path,
+      .card-icon svg circle,
+      .card-icon svg rect,
+      .card-icon svg line,
+      .card-icon svg polyline {
+        stroke-dasharray: 100;
+        stroke-dashoffset: 100;
+        transition: stroke-dashoffset 0.8s ease-out;
+      }
+
+      .product-card.svg-visible .card-icon svg path,
+      .product-card.svg-visible .card-icon svg circle,
+      .product-card.svg-visible .card-icon svg rect,
+      .product-card.svg-visible .card-icon svg line,
+      .product-card.svg-visible .card-icon svg polyline {
+        stroke-dashoffset: 0;
+      }
+
+      /* ── Ripple ── */
+      .ripple {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(0);
+        animation: ripple-expand 0.6s ease-out forwards;
+        pointer-events: none;
+      }
+
+      @keyframes ripple-expand {
+        to {
+          transform: scale(4);
+          opacity: 0;
+        }
+      }
+
+      /* Nova orb */
+      .nova-orb {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          #818cf8 0%,
+          #06b6d4 70%,
+          transparent 100%
+        );
+        animation: nova-breathe 2.5s ease-in-out infinite;
+        margin: 0 auto 24px;
+      }
+      @keyframes nova-breathe {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 0.7;
+          box-shadow: 0 0 20px rgba(99, 102, 241, 0.25);
+        }
+        50% {
+          transform: scale(1.2);
+          opacity: 1;
+          box-shadow: 0 0 50px rgba(99, 102, 241, 0.5);
+        }
       }
 
       /* ── Responsive ── */
       @media (max-width: 1024px) {
-        .product-grid-row {
+        .capabilities-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .products-grid {
           grid-template-columns: repeat(2, 1fr);
         }
         .flagship-card {
           grid-template-columns: 1fr;
-          padding: 36px;
+          padding: 40px;
         }
         .flagship-preview {
           display: none;
@@ -1657,20 +1758,21 @@
           grid-template-columns: 1fr 1fr;
           gap: 32px;
         }
-        .hero-demo-body {
-          grid-template-columns: 1fr;
-        }
-        .hero-demo-sidebar {
-          display: none;
+        .tab-bar {
+          flex-wrap: wrap;
+          max-width: 100%;
         }
       }
 
       @media (max-width: 640px) {
-        .product-grid-row {
+        .capabilities-grid {
+          grid-template-columns: 1fr;
+        }
+        .products-grid {
           grid-template-columns: 1fr;
         }
         .hero {
-          padding: 100px 1.5rem 40px;
+          padding: 100px 1.5rem 60px;
         }
         .hero-cta-row {
           flex-direction: column;
@@ -1686,30 +1788,28 @@
           flex-direction: column;
           text-align: center;
         }
-        .hero-stats {
-          gap: 24px;
-          flex-wrap: wrap;
-        }
         .nav {
           padding: 0 1rem;
         }
         .nav-links {
           display: none;
         }
-        .section {
-          padding: 40px 1.5rem;
+        .tab-bar {
+          gap: 2px;
+        }
+        .tab-btn {
+          padding: 8px 14px;
+          font-size: 0.8rem;
         }
         .flagship-card {
           padding: 28px;
         }
+        .cta-card {
+          padding: 48px 24px;
+        }
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .fade-in {
-          transition: none;
-          opacity: 1;
-          transform: none;
-        }
         .reveal-on-scroll {
           transition: none;
           opacity: 1;
@@ -1730,7 +1830,8 @@
         .product-card:hover {
           background: var(--bg-card-hover);
         }
-        .cta-btn:hover {
+        .cta-btn:hover,
+        .btn-primary:hover {
           transform: none;
         }
         @keyframes pulse-dot {
@@ -1763,223 +1864,16 @@
           opacity: 1 !important;
           transform: none !important;
         }
-        /* Phase 4 reduced motion */
-        .ambient-glow {
+        .hero .ambient-glow {
           animation: none;
         }
-        .hero-scan::after {
+        .hero::after {
           animation: none;
           display: none;
         }
-      }
-
-      /* ── Search / Filter ── */
-      .filter-bar {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 28px;
-        flex-wrap: wrap;
-      }
-
-      .search-input {
-        flex: 1;
-        min-width: 200px;
-        padding: 10px 16px 10px 40px;
-        background: rgba(15, 15, 25, 0.6);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        color: var(--text-primary);
-        font-size: 0.9rem;
-        font-family: inherit;
-        outline: none;
-        transition: border-color 0.2s;
-      }
-
-      .search-input:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px var(--accent-glow);
-      }
-
-      .search-wrap {
-        position: relative;
-        flex: 1;
-        min-width: 200px;
-      }
-
-      .search-wrap .search-icon {
-        position: absolute;
-        left: 14px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: var(--text-muted);
-        font-size: 0.85rem;
-        pointer-events: none;
-      }
-
-      .filter-btn {
-        padding: 10px 18px;
-        background: transparent;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        color: var(--text-secondary);
-        font-size: 0.82rem;
-        font-weight: 500;
-        font-family: inherit;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-
-      .filter-btn:hover,
-      .filter-btn.active {
-        border-color: var(--accent);
-        color: var(--accent-light);
-        background: var(--accent-glow);
-      }
-
-      .no-results {
-        grid-column: 1 / -1;
-        text-align: center;
-        padding: 60px 20px;
-        color: var(--text-muted);
-      }
-
-      .no-results h4 {
-        font-size: 1.1rem;
-        color: var(--text-secondary);
-        margin-bottom: 8px;
-      }
-
-      /* -- Nova thinking orb -- */
-      .nova-orb {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        background: radial-gradient(
-          circle,
-          #818cf8 0%,
-          #06b6d4 70%,
-          transparent 100%
-        );
-        animation: nova-breathe 2.5s ease-in-out infinite;
-        margin: 0 auto;
-      }
-      @keyframes nova-breathe {
-        0%,
-        100% {
-          transform: scale(1);
-          opacity: 0.7;
-          box-shadow: 0 0 20px rgba(99, 102, 241, 0.25);
+        .capability-card:hover {
+          transform: none;
         }
-        50% {
-          transform: scale(1.2);
-          opacity: 1;
-          box-shadow: 0 0 50px rgba(99, 102, 241, 0.5);
-        }
-      }
-
-      /* -- Gradient border shimmer on flagship card hover -- */
-      .flagship-card::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        padding: 1px;
-        background: linear-gradient(
-          135deg,
-          rgba(99, 102, 241, 0.3),
-          rgba(6, 182, 212, 0.2),
-          rgba(99, 102, 241, 0.3)
-        );
-        -webkit-mask:
-          linear-gradient(#fff 0 0) content-box,
-          linear-gradient(#fff 0 0);
-        -webkit-mask-composite: xor;
-        mask-composite: exclude;
-        opacity: 0;
-        transition: opacity 0.4s;
-        pointer-events: none;
-      }
-      .flagship-card:hover::after {
-        opacity: 1;
-      }
-
-      /* -- Button ripple micro-interaction -- */
-      .cta-btn {
-        overflow: hidden;
-      }
-      .ripple {
-        position: absolute;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.3);
-        transform: scale(0);
-        animation: ripple-expand 0.6s ease-out forwards;
-        pointer-events: none;
-      }
-      @keyframes ripple-expand {
-        to {
-          transform: scale(4);
-          opacity: 0;
-        }
-      }
-
-      /* -- Smooth nav transition -- */
-      .nav {
-        transition:
-          background 0.3s,
-          height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-
-      /* ── Phase 2/3: Streaming text effect ── */
-      .streaming-text .word {
-        display: inline-block;
-        opacity: 0;
-        transform: translateY(6px);
-        animation: stream-word 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      }
-
-      @keyframes stream-word {
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      /* ── Phase 2/3: Page enter transition ── */
-      .page-enter {
-        animation: page-fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-      }
-
-      @keyframes page-fade-in {
-        from {
-          opacity: 0;
-          transform: translateY(12px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-      /* ── SVG stroke-draw animation on card icons ── */
-      .card-icon svg path,
-      .card-icon svg circle,
-      .card-icon svg rect,
-      .card-icon svg line,
-      .card-icon svg polyline {
-        stroke-dasharray: 100;
-        stroke-dashoffset: 100;
-        transition: stroke-dashoffset 0.8s ease-out;
-      }
-
-      .product-card.svg-visible .card-icon svg path,
-      .product-card.svg-visible .card-icon svg circle,
-      .product-card.svg-visible .card-icon svg rect,
-      .product-card.svg-visible .card-icon svg line,
-      .product-card.svg-visible .card-icon svg polyline {
-        stroke-dashoffset: 0;
-      }
-
-      @media (prefers-reduced-motion: reduce) {
         .card-icon svg path,
         .card-icon svg circle,
         .card-icon svg rect,
@@ -2021,34 +1915,38 @@
         <span class="suite-badge">AI Suite</span>
       </a>
       <div class="nav-links">
-        <a href="#products" data-nav-filter="all">Products</a>
-        <a href="#products" data-nav-filter="analytics">Analytics</a>
-        <a href="#products" data-nav-filter="intelligence">Intelligence</a>
+        <a href="#platform" data-nav-filter="all">Products</a>
+        <a href="#platform" data-nav-filter="analytics">Analytics</a>
+        <a href="#platform" data-nav-filter="intelligence">Intelligence</a>
         <a href="#" id="dashboardLink" title="Admin Dashboard">Dashboard</a>
         <a href="/media-plan" class="nav-cta">Generate Plan</a>
       </div>
     </nav>
 
-    <!-- Hero -->
-    <section class="hero hero-scan">
-      <!-- Effect 2: Ambient glow spots -->
+    <!-- ========================================== -->
+    <!-- SECTION 1: HERO (full viewport)            -->
+    <!-- ========================================== -->
+    <section class="hero">
       <div class="ambient-glow ambient-glow--violet" aria-hidden="true"></div>
       <div class="ambient-glow ambient-glow--teal" aria-hidden="true"></div>
       <div class="ambient-glow ambient-glow--deep" aria-hidden="true"></div>
 
-      <div class="hero-badge fade-in">
+      <div class="hero-badge reveal-on-scroll">
         <span class="dot"></span>
         All systems operational
       </div>
-      <h1 class="fade-in stagger-1 streaming-text hero-halo" data-streaming>
-        Recruitment intelligence, built for scale
+
+      <h1 class="reveal-on-scroll stagger-1 streaming-text" data-streaming>
+        AI for Recruitment Advertising. Built for Talent Acquisition today.
       </h1>
-      <p class="hero-subline fade-in stagger-2">
-        21 AI-powered tools for media planning, competitive intel, and
-        performance tracking.
+
+      <p class="hero-subline reveal-on-scroll stagger-2">
+        This is how you plan smarter, optimize budgets, and hire faster at
+        scale.
       </p>
-      <div class="hero-cta-row fade-in stagger-3">
-        <a href="/media-plan" class="hero-cta-primary cta-btn">
+
+      <div class="hero-cta-row reveal-on-scroll stagger-3">
+        <a href="/media-plan" class="btn-primary cta-btn">
           Generate a Media Plan
           <svg
             width="16"
@@ -2063,275 +1961,334 @@
             <path d="M12 5l7 7-7 7" />
           </svg>
         </a>
-        <a href="#products" class="hero-cta-secondary"> Explore Products </a>
+        <a href="#platform" class="btn-secondary">Explore All Products</a>
       </div>
+    </section>
 
-      <!-- Product demo preview in hero -->
-      <div class="hero-demo fade-in stagger-4">
-        <div class="hero-demo-toolbar">
-          <span class="hero-demo-dot"></span>
-          <span class="hero-demo-dot"></span>
-          <span class="hero-demo-dot"></span>
-          <span class="hero-demo-url"
-            >nova-ai-suite.onrender.com/media-plan</span
+    <!-- ========================================== -->
+    <!-- SECTION 2: LOGO MARQUEE (trust bar)        -->
+    <!-- ========================================== -->
+    <div class="trust-bar page-section reveal-on-scroll">
+      <div class="trust-bar-label">Trusted by recruitment teams worldwide</div>
+      <div class="marquee-wrap">
+        <div class="marquee">
+          <div class="marquee-item">
+            <span class="mi-icon">&#127970;</span> Fortune 500
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#127973;</span> Healthcare
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#128187;</span> Technology
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#127974;</span> Financial Services
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#128722;</span> Retail
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#9881;</span> Manufacturing
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#127963;</span> Government
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#127891;</span> Education
+          </div>
+          <!-- Duplicate for seamless loop -->
+          <div class="marquee-item">
+            <span class="mi-icon">&#127970;</span> Fortune 500
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#127973;</span> Healthcare
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#128187;</span> Technology
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#127974;</span> Financial Services
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#128722;</span> Retail
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#9881;</span> Manufacturing
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#127963;</span> Government
+          </div>
+          <div class="marquee-item">
+            <span class="mi-icon">&#127891;</span> Education
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SECTION 3: CAPABILITIES ("With Nova AI")   -->
+    <!-- ========================================== -->
+    <section class="capabilities-section page-section">
+      <div class="container">
+        <div class="capabilities-header reveal-on-scroll">
+          <div class="section-label">With Nova AI, you can</div>
+          <div class="section-title">
+            Everything you need <span>for recruitment advertising</span>
+          </div>
+        </div>
+
+        <div class="capabilities-grid">
+          <a
+            href="/media-plan"
+            class="capability-card reveal-on-scroll stagger-1"
           >
-        </div>
-        <div class="hero-demo-body">
-          <div class="hero-demo-sidebar">
-            <div class="hero-demo-nav-item active" style="width: 80%"></div>
-            <div class="hero-demo-nav-item" style="width: 65%"></div>
-            <div class="hero-demo-nav-item" style="width: 70%"></div>
-            <div class="hero-demo-nav-item" style="width: 55%"></div>
-            <div class="hero-demo-nav-item" style="width: 60%"></div>
-          </div>
-          <div class="hero-demo-content">
-            <div class="hero-demo-chart-row">
-              <div class="hero-demo-chart">
-                <div class="hero-demo-bar" style="height: 40%"></div>
-                <div class="hero-demo-bar" style="height: 65%"></div>
-                <div class="hero-demo-bar" style="height: 85%"></div>
-                <div class="hero-demo-bar" style="height: 55%"></div>
-                <div class="hero-demo-bar" style="height: 70%"></div>
-                <div class="hero-demo-bar" style="height: 90%"></div>
-                <div class="hero-demo-bar" style="height: 45%"></div>
-              </div>
-              <div class="hero-demo-chart">
-                <div class="hero-demo-bar" style="height: 70%"></div>
-                <div class="hero-demo-bar" style="height: 50%"></div>
-                <div class="hero-demo-bar" style="height: 80%"></div>
-                <div class="hero-demo-bar" style="height: 60%"></div>
-                <div class="hero-demo-bar" style="height: 75%"></div>
-              </div>
+            <div class="cap-icon" style="background: rgba(99, 102, 241, 0.12)">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#818cf8"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path
+                  d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+                />
+                <path d="M14 2v6h6" />
+                <path d="M16 13H8" />
+                <path d="M16 17H8" />
+              </svg>
             </div>
-            <div class="hero-demo-table">
-              <div class="hero-demo-table-row">
-                <div class="hero-demo-table-cell highlight"></div>
-                <div class="hero-demo-table-cell"></div>
-                <div class="hero-demo-table-cell"></div>
-                <div class="hero-demo-table-cell highlight"></div>
+            <h3>Plan Media Campaigns</h3>
+            <p>
+              Generate data-driven recruitment media plans across 91+ job boards
+              with AI-powered budget allocation.
+            </p>
+            <div class="cap-preview">
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
               </div>
-              <div class="hero-demo-table-row">
-                <div class="hero-demo-table-cell"></div>
-                <div class="hero-demo-table-cell highlight"></div>
-                <div class="hero-demo-table-cell"></div>
-                <div class="hero-demo-table-cell"></div>
-              </div>
-              <div class="hero-demo-table-row">
-                <div class="hero-demo-table-cell highlight"></div>
-                <div class="hero-demo-table-cell"></div>
-                <div class="hero-demo-table-cell highlight"></div>
-                <div class="hero-demo-table-cell"></div>
-              </div>
+              <div class="mini-bar w85"></div>
+              <div class="mini-bar w50"></div>
             </div>
-          </div>
-        </div>
-      </div>
+          </a>
 
-      <div class="hero-stats fade-in stagger-5">
-        <div class="hero-stat">
-          <div class="num" id="product-count" data-counter data-target="21">
-            0
-          </div>
-          <div class="label">AI Products</div>
-        </div>
-        <div class="hero-stat">
-          <div class="num" data-counter data-target="91" data-suffix="+">0</div>
-          <div class="label">Job Boards</div>
-        </div>
-        <div class="hero-stat">
-          <div class="num" data-counter data-target="25">0</div>
-          <div class="label">Live APIs</div>
-        </div>
-        <div class="hero-stat">
-          <div class="num" data-counter data-target="50" data-suffix="+">0</div>
-          <div class="label">Industries</div>
+          <a href="/tracker" class="capability-card reveal-on-scroll stagger-2">
+            <div class="cap-icon" style="background: rgba(6, 182, 212, 0.12)">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#06b6d4"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path d="M3 3v18h18" />
+                <path d="M18 9l-5 5-2-2-4 4" />
+              </svg>
+            </div>
+            <h3>Analyze Performance</h3>
+            <p>
+              Track CPA, CPC, conversion rates, and quality-of-hire metrics with
+              AI-powered performance analysis.
+            </p>
+            <div class="cap-preview">
+              <div class="mini-bar w70"></div>
+              <div class="mini-bar w85"></div>
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+            </div>
+          </a>
+
+          <a
+            href="/competitive"
+            class="capability-card reveal-on-scroll stagger-3"
+          >
+            <div class="cap-icon" style="background: rgba(244, 63, 94, 0.12)">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#f43f5e"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
+            </div>
+            <h3>Scout Competition</h3>
+            <p>
+              Deep competitive analysis of hiring strategies, platform presence,
+              and market positioning in real-time.
+            </p>
+            <div class="cap-preview">
+              <div class="mini-bar w50"></div>
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+              <div class="mini-bar w70"></div>
+            </div>
+          </a>
+
+          <a
+            href="/simulator"
+            class="capability-card reveal-on-scroll stagger-4"
+          >
+            <div class="cap-icon" style="background: rgba(34, 197, 94, 0.12)">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#22c55e"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path
+                  d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"
+                />
+              </svg>
+            </div>
+            <h3>Optimize Budgets</h3>
+            <p>
+              Model recruitment budget scenarios with AI-driven forecasting.
+              Simulate spend allocation across channels.
+            </p>
+            <div class="cap-preview">
+              <div class="mini-bar w85"></div>
+              <div class="mini-bar w50"></div>
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+            </div>
+          </a>
+
+          <a
+            href="/compliance-guard"
+            class="capability-card reveal-on-scroll stagger-5"
+          >
+            <div class="cap-icon" style="background: rgba(34, 211, 238, 0.12)">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#22d3ee"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 2L4 7v5c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V7L12 2z"
+                />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+            </div>
+            <h3>Ensure Compliance</h3>
+            <p>
+              Scan job postings for pay transparency gaps, biased language, EEO
+              violations, and regulatory risks.
+            </p>
+            <div class="cap-preview">
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+              <div class="mini-bar w70"></div>
+              <div class="mini-bar w85"></div>
+            </div>
+          </a>
+
+          <a
+            href="/post-campaign"
+            class="capability-card reveal-on-scroll stagger-6"
+          >
+            <div class="cap-icon" style="background: rgba(244, 114, 182, 0.12)">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#f472b6"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path
+                  d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+                />
+                <path d="M14 2v6h6" />
+                <path d="M16 13H8" />
+                <path d="M16 17H8" />
+              </svg>
+            </div>
+            <h3>Generate Reports</h3>
+            <p>
+              Structured post-campaign reports with performance grades,
+              recommendations, and export to Excel, PPT, or PDF.
+            </p>
+            <div class="cap-preview">
+              <div class="mini-bar w70"></div>
+              <div class="mini-bar w50"></div>
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+            </div>
+          </a>
         </div>
       </div>
     </section>
 
-    <!-- Flagship Product -->
-    <div class="flagship reveal-on-scroll">
-      <a href="/media-plan" class="flagship-card fade-in stagger-4">
-        <div class="flagship-content">
-          <span class="card-status live">Live</span>
-          <h3>The AI Media Plan Generator</h3>
-          <p>
-            Generate data-driven recruitment media plans in minutes. Analyze 91+
-            job boards, optimize budgets with 5-tier data cascading, and export
-            to Excel, PPT, or PDF.
-          </p>
-          <div class="flagship-features">
-            <span class="tag">5-Tier Data Cascade</span>
-            <span class="tag">25 Real-Time APIs</span>
-            <span class="tag">Collar Intelligence</span>
-            <span class="tag">Excel + PPT + PDF</span>
-            <span class="tag">Budget Optimization</span>
-            <span class="tag">AI Chat Assistant</span>
-          </div>
-          <span class="flagship-cta">
-            Try the Generator
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-            >
-              <path d="M5 12h14" />
-              <path d="M12 5l7 7-7 7" />
-            </svg>
-          </span>
+    <!-- ========================================== -->
+    <!-- SECTION 4: PLATFORM (tabbed interface)     -->
+    <!-- ========================================== -->
+    <section class="platform-section page-section" id="platform">
+      <div class="container">
+        <div class="platform-header reveal-on-scroll">
+          <div class="section-label">Nova AI Platform</div>
+          <div class="section-title">21 products, one platform</div>
         </div>
-        <div class="flagship-preview">
-          <div class="mock-ui">
-            <div class="mock-bar w80"></div>
-            <div class="mock-row">
-              <div class="mock-cell"></div>
-              <div class="mock-cell"></div>
-              <div class="mock-cell"></div>
-            </div>
-            <div class="mock-bar w60"></div>
-            <div class="mock-bar w70"></div>
-            <div class="mock-row">
-              <div class="mock-cell"></div>
-              <div class="mock-cell"></div>
-            </div>
-            <div class="mock-bar w45"></div>
-            <div class="mock-row">
-              <div class="mock-cell"></div>
-              <div class="mock-cell"></div>
-              <div class="mock-cell"></div>
-            </div>
-            <div class="mock-bar w80"></div>
-          </div>
-        </div>
-      </a>
-    </div>
 
-    <!-- Capability Marquee -->
-    <div class="capabilities section-fade">
-      <div class="marquee">
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Programmatic Advertising
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Budget Optimization
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Competitive Intelligence
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Performance Tracking
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Market Research
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Social Media Planning
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Talent Supply Analysis
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Skill-Based Targeting
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Quality of Hire Analytics
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>ATS Integration
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>API Platform
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Media Plan Audit
-        </div>
-        <!-- Duplicate for seamless loop -->
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Programmatic Advertising
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Budget Optimization
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Competitive Intelligence
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Performance Tracking
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Market Research
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Social Media Planning
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Talent Supply Analysis
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Skill-Based Targeting
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Quality of Hire Analytics
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>ATS Integration
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>API Platform
-        </div>
-        <div class="marquee-item">
-          <span class="mi-icon"></span>Media Plan Audit
-        </div>
-      </div>
-    </div>
-
-    <!-- Products Section -->
-    <section class="section dot-grid-bg" id="products">
-      <div class="section-header fade-in reveal-on-scroll">
-        <div class="section-label">Product Suite</div>
-        <div class="section-title">
-          Every tool you need <span>for recruitment advertising</span>
-        </div>
-      </div>
-
-      <div class="filter-bar fade-in">
-        <div class="search-wrap">
-          <span class="search-icon">&#128269;</span>
-          <input
-            type="text"
-            class="search-input"
-            id="searchInput"
-            placeholder="Search 21 products... (press / to focus)"
-          />
-        </div>
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="planning">1.0 Plan</button>
-        <button class="filter-btn" data-filter="analytics">2.0 Analyze</button>
-        <button class="filter-btn" data-filter="intelligence">3.0 Intel</button>
-        <button class="filter-btn" data-filter="tools">4.0 Tools</button>
-        <button class="filter-btn" data-filter="compliance">5.0 Comply</button>
-      </div>
-
-      <div class="products-grid" id="productsGrid">
-        <!-- Category: 1.0 Plan -->
-        <div class="category-header reveal-on-scroll">
-          <div class="category-number">1.0 Plan</div>
-          <div class="category-title">Planning &amp; Strategy</div>
-          <div class="category-desc">
-            Build data-driven media plans and budget strategies for any hiring
-            scenario.
+        <div class="platform-search reveal-on-scroll">
+          <div class="search-wrap">
+            <span class="search-icon">&#128269;</span>
+            <input
+              type="text"
+              class="search-input"
+              id="searchInput"
+              placeholder="Search 21 products... (press / to focus)"
+            />
           </div>
         </div>
 
-        <div class="product-grid-row">
+        <div class="tab-bar reveal-on-scroll" id="tabBar">
+          <button class="tab-btn active" data-filter="all">All</button>
+          <button class="tab-btn" data-filter="planning">Planning</button>
+          <button class="tab-btn" data-filter="analytics">Analytics</button>
+          <button class="tab-btn" data-filter="intelligence">
+            Intelligence
+          </button>
+          <button class="tab-btn" data-filter="tools">Tools</button>
+          <button class="tab-btn" data-filter="compliance">Compliance</button>
+        </div>
+
+        <div class="products-grid" id="productsGrid">
           <!-- 1. Budget Simulator -->
           <a
             href="/simulator"
-            class="product-card fade-in stagger-1"
+            class="product-card reveal-on-scroll stagger-1"
             data-category="planning"
             data-keywords="budget simulator forecast scenario"
             style="--card-accent: #22c55e"
@@ -2373,15 +2330,15 @@
               Simulate spend allocation across channels.
             </div>
             <div class="card-footer">
-              <span class="card-category">Planning</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Planning</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
           <!-- 2. Performance Tracker -->
           <a
             href="/tracker"
-            class="product-card fade-in stagger-2"
+            class="product-card reveal-on-scroll stagger-2"
             data-category="analytics"
             data-keywords="performance tracker campaign kpi metrics"
             style="--card-accent: #06b6d4"
@@ -2421,15 +2378,15 @@
               Track CPA, CPC, and conversion rates.
             </div>
             <div class="card-footer">
-              <span class="card-category">Analytics</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Analytics</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
           <!-- 3. Competitive Intel -->
           <a
             href="/competitive"
-            class="product-card fade-in stagger-3"
+            class="product-card reveal-on-scroll stagger-3"
             data-category="intelligence"
             data-keywords="competitive intelligence analysis competitor"
             style="--card-accent: #f43f5e"
@@ -2470,26 +2427,15 @@
               and market positioning.
             </div>
             <div class="card-footer">
-              <span class="card-category">Intelligence</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Intelligence</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
-        </div>
-        <!-- end row 1 -->
-        <!-- Category: 2.0 Analyze -->
-        <div class="category-header reveal-on-scroll" style="margin-top: 32px">
-          <div class="category-number">2.0 Analyze</div>
-          <div class="category-title">Analytics &amp; Performance</div>
-          <div class="category-desc">
-            Track, audit, and optimize your recruitment advertising performance.
-          </div>
-        </div>
 
-        <div class="product-grid-row">
           <!-- 4. Quick Plan -->
           <a
             href="/quick-plan"
-            class="product-card fade-in stagger-4"
+            class="product-card reveal-on-scroll stagger-4"
             data-category="planning"
             data-keywords="quick plan fast instant media"
             style="--card-accent: #f59e0b"
@@ -2525,15 +2471,15 @@
               inputs, maximum intelligence.
             </div>
             <div class="card-footer">
-              <span class="card-category">Planning</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Planning</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
           <!-- 5. Media Plan Audit -->
           <a
             href="/audit"
-            class="product-card fade-in stagger-5"
+            class="product-card reveal-on-scroll stagger-5"
             data-category="analytics"
             data-keywords="audit review check existing media plan"
             style="--card-accent: #a855f7"
@@ -2575,15 +2521,15 @@
               scoring, gap analysis, and optimization recommendations.
             </div>
             <div class="card-footer">
-              <span class="card-category">Analytics</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Analytics</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
           <!-- 6. Market Pulse -->
           <a
             href="/market-pulse"
-            class="product-card fade-in stagger-6"
+            class="product-card reveal-on-scroll stagger-6"
             data-category="intelligence"
             data-keywords="market pulse trends real-time hiring"
             style="--card-accent: #6366f1"
@@ -2619,27 +2565,15 @@
               salary movements, and platform performance across industries.
             </div>
             <div class="card-footer">
-              <span class="card-category">Intelligence</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Intelligence</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
-        </div>
-        <!-- end row 2 -->
-        <!-- Category: 3.0 Intel -->
-        <div class="category-header reveal-on-scroll" style="margin-top: 32px">
-          <div class="category-number">3.0 Intel</div>
-          <div class="category-title">Intelligence &amp; Research</div>
-          <div class="category-desc">
-            Market research, competitive analysis, and talent supply
-            intelligence.
-          </div>
-        </div>
 
-        <div class="product-grid-row">
           <!-- 7. Social Plan -->
           <a
             href="/social-plan"
-            class="product-card fade-in stagger-7"
+            class="product-card reveal-on-scroll stagger-1"
             data-category="planning"
             data-keywords="social media plan facebook linkedin instagram tiktok"
             style="--card-accent: #3b82f6"
@@ -2681,15 +2615,15 @@
               platforms and 3 search engines. Collar-aware budget allocation.
             </div>
             <div class="card-footer">
-              <span class="card-category">Planning</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Planning</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
           <!-- 8. HireSignal -->
           <a
             href="/hire-signal"
-            class="product-card fade-in stagger-8"
+            class="product-card reveal-on-scroll stagger-2"
             data-category="analytics"
             data-keywords="hire signal quality source qoh retention"
             style="--card-accent: #10b981"
@@ -2731,15 +2665,15 @@
               analysis, retention tracking, and cost-per-quality-hire.
             </div>
             <div class="card-footer">
-              <span class="card-category">Analytics</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Analytics</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
           <!-- 9. ApplyFlow -->
           <a
             href="/applyflow"
-            class="product-card fade-in stagger-9"
+            class="product-card reveal-on-scroll stagger-3"
             data-category="tools"
             data-keywords="applyflow application tracking chatbot conversational"
             style="--card-accent: #ec4899"
@@ -2781,26 +2715,15 @@
               that guides candidates through the apply process seamlessly.
             </div>
             <div class="card-footer">
-              <span class="card-category">Tools</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Tools</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
-        </div>
-        <!-- end row 3 -->
-        <!-- Category: 4.0 Tools -->
-        <div class="category-header reveal-on-scroll" style="margin-top: 32px">
-          <div class="category-number">4.0 Tools</div>
-          <div class="category-title">Tools &amp; Integrations</div>
-          <div class="category-desc">
-            Developer tools, creative generation, and workflow automation.
-          </div>
-        </div>
 
-        <div class="product-grid-row">
           <!-- 10. API Portal -->
           <a
             href="/api-portal"
-            class="product-card fade-in stagger-10"
+            class="product-card reveal-on-scroll stagger-4"
             data-category="tools"
             data-keywords="api portal developer key management endpoint"
             style="--card-accent: #0ea5e9"
@@ -2840,15 +2763,15 @@
               OpenAPI 3.0 documentation. Three-tier access control.
             </div>
             <div class="card-footer">
-              <span class="card-category">Tools</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Tools</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
           <!-- 11. Talent Heat Map -->
           <a
             href="/talent-heatmap"
-            class="product-card fade-in stagger-11"
+            class="product-card reveal-on-scroll stagger-5"
             data-category="intelligence"
             data-keywords="talent heatmap geography salary supply heat map"
             style="--card-accent: #ef4444"
@@ -2888,15 +2811,15 @@
               across 60+ metros. Competition index and cost-of-living factors.
             </div>
             <div class="card-footer">
-              <span class="card-category">Intelligence</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Intelligence</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
           <!-- 12. Market Intel Reports -->
           <a
             href="/market-intel"
-            class="product-card fade-in stagger-12"
+            class="product-card reveal-on-scroll stagger-6"
             data-category="intelligence"
             data-keywords="market intelligence reports research industry"
             style="--card-accent: #fbbf24"
@@ -2938,17 +2861,15 @@
               talent supply analysis, and strategic recommendations by industry.
             </div>
             <div class="card-footer">
-              <span class="card-category">Intelligence</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Intelligence</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
-        </div>
-        <!-- end row 4 -->
-        <div class="product-grid-row">
+
           <!-- 13. SkillTarget -->
           <a
             href="/skill-target"
-            class="product-card fade-in stagger-13"
+            class="product-card reveal-on-scroll stagger-1"
             data-category="planning"
             data-keywords="skill target targeting channel recommendation"
             style="--card-accent: #8b5cf6"
@@ -2990,14 +2911,15 @@
               allocation.
             </div>
             <div class="card-footer">
-              <span class="card-category">Planning</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Planning</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
+          <!-- 14. ROI Calculator -->
           <a
             href="/roi-calculator"
-            class="product-card fade-in stagger-14"
+            class="product-card reveal-on-scroll stagger-2"
             data-category="analytics"
             data-keywords="roi calculator return investment cost per hire savings projection"
             style="--card-accent: #22c55e"
@@ -3041,15 +2963,15 @@
               annual returns.
             </div>
             <div class="card-footer">
-              <span class="card-category">Analytics</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Analytics</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
-          <!-- A/B Test Lab -->
+          <!-- 15. A/B Test Lab -->
           <a
             href="/ab-testing"
-            class="product-card fade-in stagger-15"
+            class="product-card reveal-on-scroll stagger-3"
             data-category="intelligence"
             data-keywords="ab test lab variant ad copy recruitment campaign testing"
             style="--card-accent: #6366f1"
@@ -3093,26 +3015,15 @@
               culture-focused approaches.
             </div>
             <div class="card-footer">
-              <span class="card-category">Intelligence</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Intelligence</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
-        </div>
-        <!-- end row 5 -->
-        <!-- Category: 5.0 Comply -->
-        <div class="category-header reveal-on-scroll" style="margin-top: 32px">
-          <div class="category-number">5.0 Comply</div>
-          <div class="category-title">Compliance &amp; Governance</div>
-          <div class="category-desc">
-            Pay transparency, bias detection, and regulatory compliance tools.
-          </div>
-        </div>
 
-        <div class="product-grid-row">
           <!-- 16. Quick Brief -->
           <a
             href="/quick-brief"
-            class="product-card fade-in stagger-16"
+            class="product-card reveal-on-scroll stagger-4"
             data-category="intelligence"
             data-keywords="quick brief natural language plain text hiring need parse structured"
             style="--card-accent: #6366f1"
@@ -3156,15 +3067,15 @@
               recommendations.
             </div>
             <div class="card-footer">
-              <span class="card-category">Intelligence</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Intelligence</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
           <!-- 17. Post-Campaign Analysis -->
           <a
             href="/post-campaign"
-            class="product-card fade-in stagger-17"
+            class="product-card reveal-on-scroll stagger-5"
             data-category="analytics"
             data-keywords="post campaign analysis report performance grade recommendation cpa cph"
             style="--card-accent: #f472b6"
@@ -3207,15 +3118,15 @@
               and recommendations for recruitment advertising campaigns.
             </div>
             <div class="card-footer">
-              <span class="card-category">Analytics</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Analytics</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
           <!-- 18. PayScale Sync -->
           <a
             href="/payscale-sync"
-            class="product-card fade-in stagger-18"
+            class="product-card reveal-on-scroll stagger-6"
             data-category="intelligence"
             data-keywords="payscale salary compensation pay transparency range benchmark"
             style="--card-accent: #34d399"
@@ -3257,15 +3168,15 @@
               transparency compliance for EU and US state laws.
             </div>
             <div class="card-footer">
-              <span class="card-category">Intelligence</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Intelligence</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
           <!-- 19. ComplianceGuard -->
           <a
             href="/compliance-guard"
-            class="product-card fade-in stagger-19"
+            class="product-card reveal-on-scroll stagger-1"
             data-category="compliance"
             data-keywords="compliance guard scan job posting bias language eeo ofccp age discrimination pay transparency salary"
             style="--card-accent: #22d3ee"
@@ -3308,17 +3219,15 @@
               violations, OFCCP issues, and age discrimination risks.
             </div>
             <div class="card-footer">
-              <span class="card-category">Compliance</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Compliance</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
-        </div>
-        <!-- end row 6 -->
-        <div class="product-grid-row">
+
           <!-- 20. CreativeAI -->
           <a
             href="/creative-ai"
-            class="product-card fade-in stagger-1"
+            class="product-card reveal-on-scroll stagger-2"
             data-category="tools"
             data-keywords="creative ai ad copy variant recruitment job posting generator"
             style="--card-accent: #fbbf24"
@@ -3357,15 +3266,15 @@
               any platform.
             </div>
             <div class="card-footer">
-              <span class="card-category">Tools</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Tools</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
           <!-- 21. VendorIQ -->
           <a
             href="/vendor-iq"
-            class="product-card fade-in stagger-2"
+            class="product-card reveal-on-scroll stagger-3"
             data-category="analytics"
             data-keywords="vendor iq compare job board performance cpc cpa quality benchmark"
             style="--card-accent: #6366f1"
@@ -3407,81 +3316,216 @@
               scores, and reach. Get smart budget allocation recommendations.
             </div>
             <div class="card-footer">
-              <span class="card-category">Analytics</span>
-              <span class="card-arrow">&rarr;</span>
+              <span class="card-category">Analytics</span
+              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
         </div>
-        <!-- end row 7 -->
       </div>
     </section>
 
-    <!-- Social Proof -->
-    <section class="social-proof section-fade">
-      <div class="social-proof-header reveal-on-scroll">
-        <div class="section-label">Trusted by TA Leaders</div>
-        <div
-          class="section-title"
-          style="
-            background: linear-gradient(
-              135deg,
-              #ededed 0%,
-              #c7d2fe 60%,
-              #818cf8 100%
-            );
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-          "
-        >
-          Built for teams that demand precision
+    <!-- ========================================== -->
+    <!-- SECTION 5: FLAGSHIP PRODUCT                -->
+    <!-- ========================================== -->
+    <section class="flagship-section page-section">
+      <div class="container">
+        <div class="reveal-on-scroll" style="margin-bottom: 32px">
+          <div class="section-label">Our Flagship Product</div>
+        </div>
+        <a href="/media-plan" class="flagship-card reveal-on-scroll">
+          <div class="flagship-content">
+            <span class="card-status live">Live</span>
+            <h3>The AI Media Plan Generator</h3>
+            <p>
+              Generate data-driven recruitment media plans in minutes. Analyze
+              91+ job boards, optimize budgets with 5-tier data cascading, and
+              export to Excel, PPT, or PDF.
+            </p>
+            <div class="flagship-features">
+              <span class="tag">5-Tier Data Cascade</span>
+              <span class="tag">25 Real-Time APIs</span>
+              <span class="tag">Collar Intelligence</span>
+              <span class="tag">Excel + PPT + PDF</span>
+              <span class="tag">Budget Optimization</span>
+              <span class="tag">AI Chat Assistant</span>
+            </div>
+            <span class="flagship-cta">
+              Try the Generator
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path d="M5 12h14" />
+                <path d="M12 5l7 7-7 7" />
+              </svg>
+            </span>
+          </div>
+          <div class="flagship-preview">
+            <div class="mock-ui">
+              <div class="mock-bar w80"></div>
+              <div class="mock-row">
+                <div class="mock-cell"></div>
+                <div class="mock-cell"></div>
+                <div class="mock-cell"></div>
+              </div>
+              <div class="mock-bar w60"></div>
+              <div class="mock-bar w70"></div>
+              <div class="mock-row">
+                <div class="mock-cell"></div>
+                <div class="mock-cell"></div>
+              </div>
+              <div class="mock-bar w45"></div>
+              <div class="mock-row">
+                <div class="mock-cell"></div>
+                <div class="mock-cell"></div>
+                <div class="mock-cell"></div>
+              </div>
+              <div class="mock-bar w80"></div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- SECTION 6: RESULTS MARQUEE                 -->
+    <!-- ========================================== -->
+    <div class="stats-marquee page-section reveal-on-scroll">
+      <div class="marquee">
+        <div class="stat-item">
+          <span class="stat-num" data-counter data-target="21">0</span>
+          <span class="stat-label">AI Products</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num" data-counter data-target="91" data-suffix="+"
+            >0</span
+          >
+          <span class="stat-label">Job Boards</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num" data-counter data-target="25">0</span>
+          <span class="stat-label">Live APIs</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num" data-counter data-target="50" data-suffix="+"
+            >0</span
+          >
+          <span class="stat-label">Industries</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num">5-Tier</span>
+          <span class="stat-label">Data Cascade</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num">Real-Time</span>
+          <span class="stat-label">Market Data</span>
+        </div>
+        <!-- Duplicate for seamless loop -->
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num" data-counter data-target="21">0</span>
+          <span class="stat-label">AI Products</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num" data-counter data-target="91" data-suffix="+"
+            >0</span
+          >
+          <span class="stat-label">Job Boards</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num" data-counter data-target="25">0</span>
+          <span class="stat-label">Live APIs</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num" data-counter data-target="50" data-suffix="+"
+            >0</span
+          >
+          <span class="stat-label">Industries</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num">5-Tier</span>
+          <span class="stat-label">Data Cascade</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-num">Real-Time</span>
+          <span class="stat-label">Market Data</span>
         </div>
       </div>
-      <div class="testimonials-grid">
-        <div class="testimonial-card reveal-on-scroll stagger-1">
-          <div class="testimonial-quote">
-            "The 5-tier data cascade alone justified the switch. We went from
-            spending 3 days on media plans to under 30 minutes with better
-            accuracy."
-          </div>
-          <div class="testimonial-author">
-            <div class="testimonial-avatar">JM</div>
-            <div>
-              <div class="testimonial-name">Jessica M.</div>
-              <div class="testimonial-role">
-                Head of TA, Fortune 500 Retailer
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SECTION 7: SOCIAL PROOF                    -->
+    <!-- ========================================== -->
+    <section class="social-proof page-section">
+      <div class="container">
+        <div class="social-proof-header reveal-on-scroll">
+          <div class="section-label">Social Proof</div>
+          <div class="section-title">What recruitment leaders are saying</div>
+        </div>
+        <div class="testimonials-grid">
+          <div class="testimonial-card reveal-on-scroll stagger-1">
+            <div class="testimonial-quote-mark">&ldquo;</div>
+            <div class="testimonial-quote">
+              The 5-tier data cascade alone justified the switch. We went from
+              spending 3 days on media plans to under 30 minutes with better
+              accuracy.
+            </div>
+            <div class="testimonial-author">
+              <div class="testimonial-avatar">JM</div>
+              <div>
+                <div class="testimonial-name">Jessica M.</div>
+                <div class="testimonial-role">
+                  Head of TA, Fortune 500 Retailer
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="testimonial-card reveal-on-scroll stagger-2">
-          <div class="testimonial-quote">
-            "ComplianceGuard flagged 14 pay transparency gaps in our job
-            postings that our legal team missed. The ROI was immediate and
-            measurable."
-          </div>
-          <div class="testimonial-author">
-            <div class="testimonial-avatar">RP</div>
-            <div>
-              <div class="testimonial-name">Raj P.</div>
-              <div class="testimonial-role">
-                VP Talent Acquisition, SaaS Scale-up
+          <div class="testimonial-card reveal-on-scroll stagger-2">
+            <div class="testimonial-quote-mark">&ldquo;</div>
+            <div class="testimonial-quote">
+              ComplianceGuard flagged 14 pay transparency gaps in our job
+              postings that our legal team missed. The ROI was immediate and
+              measurable.
+            </div>
+            <div class="testimonial-author">
+              <div class="testimonial-avatar">RP</div>
+              <div>
+                <div class="testimonial-name">Raj P.</div>
+                <div class="testimonial-role">
+                  VP Talent Acquisition, SaaS Scale-up
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="testimonial-card reveal-on-scroll stagger-3">
-          <div class="testimonial-quote">
-            "We use the Competitive Intel and Market Pulse tools daily. It
-            replaced three separate vendor subscriptions and gives us real-time
-            data."
-          </div>
-          <div class="testimonial-author">
-            <div class="testimonial-avatar">SK</div>
-            <div>
-              <div class="testimonial-name">Sarah K.</div>
-              <div class="testimonial-role">
-                Director of Recruitment Marketing
+          <div class="testimonial-card reveal-on-scroll stagger-3">
+            <div class="testimonial-quote-mark">&ldquo;</div>
+            <div class="testimonial-quote">
+              We use the Competitive Intel and Market Pulse tools daily. It
+              replaced three separate vendor subscriptions and gives us
+              real-time data.
+            </div>
+            <div class="testimonial-author">
+              <div class="testimonial-avatar">SK</div>
+              <div>
+                <div class="testimonial-name">Sarah K.</div>
+                <div class="testimonial-role">
+                  Director of Recruitment Marketing
+                </div>
               </div>
             </div>
           </div>
@@ -3489,11 +3533,17 @@
       </div>
     </section>
 
-    <!-- CTA -->
-    <section class="cta-section">
-      <div class="cta-card fade-in reveal-on-scroll">
+    <!-- ========================================== -->
+    <!-- SECTION 8: CTA                             -->
+    <!-- ========================================== -->
+    <section class="cta-section page-section">
+      <div class="cta-card reveal-on-scroll">
+        <div class="nova-orb" aria-hidden="true"></div>
         <h3>Ready to transform your recruitment advertising?</h3>
-        <p>Start with the Media Plan Generator, or explore the full suite.</p>
+        <p>
+          Start with the Media Plan Generator, or explore the full suite of 21
+          AI-powered tools.
+        </p>
         <a href="/media-plan" class="cta-btn">
           Generate Your First Plan
           <svg
@@ -3512,7 +3562,9 @@
       </div>
     </section>
 
-    <!-- Footer -->
+    <!-- ========================================== -->
+    <!-- SECTION 9: FOOTER                          -->
+    <!-- ========================================== -->
     <footer class="footer reveal-on-scroll">
       <div class="footer-grid">
         <div class="footer-brand">
@@ -3591,23 +3643,6 @@
 
     <script>
       (function () {
-        // ── Intersection Observer for fade-in animations ──
-        const observer = new IntersectionObserver(
-          function (entries) {
-            entries.forEach(function (entry) {
-              if (entry.isIntersecting) {
-                entry.target.classList.add("visible");
-                observer.unobserve(entry.target);
-              }
-            });
-          },
-          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
-        );
-
-        document.querySelectorAll(".fade-in").forEach(function (el) {
-          observer.observe(el);
-        });
-
         // ── Intersection Observer for reveal-on-scroll ──
         var revealObserver = new IntersectionObserver(
           function (entries) {
@@ -3625,11 +3660,11 @@
           revealObserver.observe(el);
         });
 
-        // ── Search ──
+        // ── Search + Tab Filter ──
         var searchInput = document.getElementById("searchInput");
         var grid = document.getElementById("productsGrid");
         var cards = grid.querySelectorAll(".product-card");
-        var filterBtns = document.querySelectorAll(".filter-btn");
+        var tabBtns = document.querySelectorAll(".tab-btn");
         var currentFilter = "all";
 
         function filterCards() {
@@ -3662,37 +3697,6 @@
             }
           });
 
-          // Show/hide empty rows and category headers
-          document
-            .querySelectorAll(".product-grid-row")
-            .forEach(function (row) {
-              var hasVisible = Array.from(
-                row.querySelectorAll(".product-card"),
-              ).some(function (c) {
-                return c.style.display !== "none";
-              });
-              row.style.display = hasVisible ? "" : "none";
-            });
-
-          // Hide category headers when all their adjacent rows are hidden
-          document
-            .querySelectorAll(".category-header")
-            .forEach(function (header) {
-              var next = header.nextElementSibling;
-              var hasVisibleRow = false;
-              while (next && !next.classList.contains("category-header")) {
-                if (
-                  next.classList.contains("product-grid-row") &&
-                  next.style.display !== "none"
-                ) {
-                  hasVisibleRow = true;
-                  break;
-                }
-                next = next.nextElementSibling;
-              }
-              header.style.display = hasVisibleRow ? "" : "none";
-            });
-
           // Show/hide no results
           var existing = grid.querySelector(".no-results");
           if (visibleCount === 0) {
@@ -3710,9 +3714,9 @@
 
         searchInput.addEventListener("input", filterCards);
 
-        filterBtns.forEach(function (btn) {
+        tabBtns.forEach(function (btn) {
           btn.addEventListener("click", function () {
-            filterBtns.forEach(function (b) {
+            tabBtns.forEach(function (b) {
               b.classList.remove("active");
             });
             btn.classList.add("active");
@@ -3739,21 +3743,19 @@
               window.location.href = "/dashboard?key=" + encodeURIComponent(pw);
           });
 
-        // ── Nav links: scroll to products + activate filter ──
+        // ── Nav links: scroll to platform + activate tab ──
         document.querySelectorAll("[data-nav-filter]").forEach(function (link) {
           link.addEventListener("click", function (e) {
             e.preventDefault();
             var filter = link.dataset.navFilter;
-            // Activate the matching filter button
-            filterBtns.forEach(function (btn) {
+            tabBtns.forEach(function (btn) {
               btn.classList.remove("active");
               if (btn.dataset.filter === filter) btn.classList.add("active");
             });
             currentFilter = filter;
             filterCards();
-            // Scroll to products section
             document
-              .getElementById("products")
+              .getElementById("platform")
               .scrollIntoView({ behavior: "smooth", block: "start" });
           });
         });
@@ -3765,10 +3767,13 @@
               if (entry.isIntersecting) {
                 var el = entry.target;
                 var target = parseInt(el.dataset.target, 10);
+                if (isNaN(target)) {
+                  counterObserver.unobserve(el);
+                  return;
+                }
                 var suffix = el.dataset.suffix || "";
-                var current = 0;
-                var duration = 1200;
                 var startTime = null;
+                var duration = 1200;
 
                 function animateCount(timestamp) {
                   if (!startTime) startTime = timestamp;
@@ -3777,7 +3782,7 @@
                     1,
                   );
                   var eased = 1 - Math.pow(1 - progress, 3);
-                  current = Math.floor(eased * target);
+                  var current = Math.floor(eased * target);
                   el.textContent = current.toLocaleString() + suffix;
                   if (progress < 1) {
                     requestAnimationFrame(animateCount);
@@ -3842,22 +3847,25 @@
           },
           { passive: true },
         );
-        // -- Button ripple effect --
-        document.querySelectorAll(".cta-btn, .nav-cta").forEach(function (btn) {
-          btn.addEventListener("click", function (e) {
-            var ripple = document.createElement("span");
-            ripple.className = "ripple";
-            var rect = btn.getBoundingClientRect();
-            ripple.style.left = e.clientX - rect.left + "px";
-            ripple.style.top = e.clientY - rect.top + "px";
-            btn.appendChild(ripple);
-            setTimeout(function () {
-              ripple.remove();
-            }, 600);
-          });
-        });
 
-        // ── Phase 2/3: Streaming text effect ──
+        // ── Button ripple effect ──
+        document
+          .querySelectorAll(".cta-btn, .btn-primary, .nav-cta")
+          .forEach(function (btn) {
+            btn.addEventListener("click", function (e) {
+              var ripple = document.createElement("span");
+              ripple.className = "ripple";
+              var rect = btn.getBoundingClientRect();
+              ripple.style.left = e.clientX - rect.left + "px";
+              ripple.style.top = e.clientY - rect.top + "px";
+              btn.appendChild(ripple);
+              setTimeout(function () {
+                ripple.remove();
+              }, 600);
+            });
+          });
+
+        // ── Streaming text effect ──
         if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
           document.querySelectorAll("[data-streaming]").forEach(function (el) {
             var text = el.textContent.trim();
@@ -3886,7 +3894,7 @@
           });
         }
 
-        // ── Phase 2/3: Page enter transition ──
+        // ── Page enter transition ──
         document.body.classList.add("page-enter");
 
         // ── Parallax scroll on aurora background layers ──
@@ -3907,7 +3915,7 @@
           }
         }
 
-        // ── SVG stroke-draw animation on card icons (IntersectionObserver) ──
+        // ── SVG stroke-draw animation on card icons ──
         if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
           var svgCardObserver = new IntersectionObserver(
             function (entries) {
