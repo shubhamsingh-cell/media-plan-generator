@@ -2876,6 +2876,281 @@
           animation: none !important;
           display: none;
         }
+        .preset-chip {
+          transition: none !important;
+          transform: none !important;
+        }
+        .plan-channel-fill {
+          transition: none !important;
+        }
+        .plan-dashboard {
+          animation: none !important;
+        }
+      }
+
+      /* ============================================
+           PRESET PROMPT CHIPS
+           ============================================ */
+      .preset-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 24px;
+        padding: 0 4px;
+      }
+      .preset-label {
+        font-size: 0.82rem;
+        color: var(--text-muted, #666);
+        white-space: nowrap;
+      }
+      .preset-chip {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 6px 16px;
+        font-size: 0.82rem;
+        color: var(--text-secondary, #a1a1a1);
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: inherit;
+      }
+      .preset-chip:hover {
+        background: rgba(99, 102, 241, 0.15);
+        border-color: rgba(99, 102, 241, 0.3);
+        color: white;
+        transform: translateY(-1px);
+      }
+      .preset-chip.preset-active {
+        background: rgba(99, 102, 241, 0.3);
+        border-color: rgba(99, 102, 241, 0.5);
+        color: white;
+      }
+
+      /* ============================================
+           PLAN DASHBOARD (Structured Output)
+           ============================================ */
+      .plan-dashboard {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        animation: fadeInUp 0.5s ease-out;
+      }
+      .plan-dashboard-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text, white);
+        margin-bottom: 4px;
+      }
+      .plan-metrics-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+      .plan-metric-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+      }
+      .plan-metric-label {
+        font-size: 0.78rem;
+        color: #666;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .plan-metric-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: white;
+      }
+      .plan-metric-value.accent {
+        color: var(--accent);
+      }
+      .plan-section-label {
+        font-size: 0.88rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted, #666);
+        margin-bottom: 8px;
+      }
+      .plan-channels {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .plan-channel-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .plan-channel-name {
+        width: 140px;
+        font-size: 0.85rem;
+        color: #a1a1a1;
+        flex-shrink: 0;
+      }
+      .plan-channel-track {
+        flex: 1;
+        height: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 5px;
+        overflow: hidden;
+      }
+      .plan-channel-fill {
+        height: 100%;
+        border-radius: 5px;
+        transition: width 1s ease;
+      }
+      .plan-channel-fill.bar-indigo {
+        background: linear-gradient(90deg, #6366f1, #818cf8);
+      }
+      .plan-channel-fill.bar-cyan {
+        background: linear-gradient(90deg, #06b6d4, #22d3ee);
+      }
+      .plan-channel-fill.bar-green {
+        background: linear-gradient(90deg, #10b981, #34d399);
+      }
+      .plan-channel-fill.bar-amber {
+        background: linear-gradient(90deg, #f59e0b, #fbbf24);
+      }
+      .plan-channel-fill.bar-rose {
+        background: linear-gradient(90deg, #f43f5e, #fb7185);
+      }
+      .plan-channel-value {
+        width: 80px;
+        text-align: right;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-secondary, #a1a1a1);
+      }
+      .plan-channel-cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .plan-channel-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 20px;
+      }
+      .plan-channel-card-name {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text, white);
+        margin-bottom: 4px;
+      }
+      .plan-channel-badge {
+        display: inline-block;
+        font-size: 0.68rem;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 12px;
+      }
+      .plan-channel-badge.badge-major {
+        background: rgba(99, 102, 241, 0.15);
+        color: #818cf8;
+      }
+      .plan-channel-badge.badge-programmatic {
+        background: rgba(6, 182, 212, 0.15);
+        color: #22d3ee;
+      }
+      .plan-channel-badge.badge-social {
+        background: rgba(16, 185, 129, 0.15);
+        color: #34d399;
+      }
+      .plan-channel-badge.badge-other {
+        background: rgba(245, 158, 11, 0.15);
+        color: #fbbf24;
+      }
+      .plan-channel-card-stat {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.82rem;
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      }
+      .plan-channel-card-stat:last-child {
+        border-bottom: none;
+      }
+      .plan-channel-card-stat .stat-label {
+        color: #666;
+      }
+      .plan-channel-card-stat .stat-value {
+        color: var(--text-secondary, #a1a1a1);
+        font-weight: 600;
+      }
+      .plan-insights-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 24px;
+      }
+      .plan-insights-card ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .plan-insights-card li {
+        padding: 8px 0;
+        font-size: 0.88rem;
+        color: var(--text-secondary, #a1a1a1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        line-height: 1.5;
+      }
+      .plan-insights-card li:last-child {
+        border-bottom: none;
+      }
+      .plan-insights-card li::before {
+        content: "\2022";
+        color: var(--accent);
+        font-weight: bold;
+        margin-right: 10px;
+      }
+
+      @media (max-width: 768px) {
+        .plan-metrics-row {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .plan-channel-cards {
+          grid-template-columns: 1fr;
+        }
+        .plan-channel-name {
+          width: 100px;
+        }
+        .preset-row {
+          gap: 8px;
+        }
+        .preset-chip {
+          font-size: 0.76rem;
+          padding: 5px 12px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .plan-metrics-row {
+          grid-template-columns: 1fr;
+        }
+        .plan-metric-value {
+          font-size: 1.4rem;
+        }
+        .plan-channel-bar {
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .plan-channel-name {
+          width: 100%;
+        }
+        .plan-channel-value {
+          width: auto;
+        }
       }
 
       /* ============================================
@@ -3282,6 +3557,66 @@
           <div class="step-label">Review & Export</div>
         </div>
       </nav>
+
+      <!-- Preset Prompt Chips -->
+      <div class="preset-row" id="presetRow">
+        <span class="preset-label">Try an example:</span>
+        <button
+          type="button"
+          class="preset-chip"
+          data-title="Software Engineer"
+          data-location="New York, NY"
+          data-industry="tech_engineering"
+          data-budget="$50,000 - $250,000"
+          data-client="TechCorp Inc"
+        >
+          Software Engineer in NYC
+        </button>
+        <button
+          type="button"
+          class="preset-chip"
+          data-title="Registered Nurse"
+          data-location="Los Angeles, CA"
+          data-industry="healthcare_medical"
+          data-budget="< $50,000"
+          data-client="CareFirst Health"
+        >
+          Nurse in LA
+        </button>
+        <button
+          type="button"
+          class="preset-chip"
+          data-title="Sales Manager"
+          data-location="Chicago, IL"
+          data-industry="retail_consumer"
+          data-budget="$50,000 - $250,000"
+          data-client="RetailMax Group"
+        >
+          Sales Manager in Chicago
+        </button>
+        <button
+          type="button"
+          class="preset-chip"
+          data-title="Data Analyst"
+          data-location="Remote"
+          data-industry="tech_engineering"
+          data-budget="$50,000 - $250,000"
+          data-client="DataFlow Analytics"
+        >
+          Remote Data Analyst
+        </button>
+        <button
+          type="button"
+          class="preset-chip"
+          data-title="Warehouse Associate"
+          data-location="Dallas, TX"
+          data-industry="blue_collar_trades"
+          data-budget="< $50,000"
+          data-client="SwiftShip Logistics"
+        >
+          Warehouse in Dallas
+        </button>
+      </div>
 
       <!-- Step 1: Client Info -->
       <div class="wizard-step active" id="step1">
@@ -4709,6 +5044,11 @@
           </div>
         </div>
 
+        <!-- Plan Summary Dashboard (populated by JS after generation) -->
+        <div class="hero-stat-section" id="planDashboardSection">
+          <div id="planDashboardContent"></div>
+        </div>
+
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="prevStep()">
             &#8592; Back
@@ -5234,6 +5574,275 @@
       }
 
       // ============================================
+      // Plan Summary Dashboard Builder
+      // ============================================
+      function buildPlanDashboard(payload) {
+        const container = document.getElementById("planDashboardContent");
+        if (!container) return;
+
+        // Parse budget for display
+        const budgetRaw = payload.budget_range || "Not specified";
+        const budgetDisplay = budgetRaw;
+
+        // Channel allocation defaults by category (percentages)
+        const channelCategories = payload.channel_categories || {};
+        const enabledChannels = [];
+        const channelMeta = {
+          programmatic_dsp: {
+            label: "Programmatic / DSP",
+            pct: 35,
+            type: "programmatic",
+            bar: "bar-cyan",
+            cpc: "$0.30-$1.20",
+          },
+          global_boards: {
+            label: "Global Job Boards",
+            pct: 20,
+            type: "major",
+            bar: "bar-indigo",
+            cpc: "$0.50-$2.00",
+          },
+          niche_boards: {
+            label: "Niche / Specialty Boards",
+            pct: 15,
+            type: "major",
+            bar: "bar-indigo",
+            cpc: "$0.80-$3.50",
+          },
+          social_media: {
+            label: "Social Media",
+            pct: 12,
+            type: "social",
+            bar: "bar-green",
+            cpc: "$0.40-$1.80",
+          },
+          regional_boards: {
+            label: "Regional Boards",
+            pct: 8,
+            type: "other",
+            bar: "bar-amber",
+            cpc: "$0.60-$2.50",
+          },
+          employer_branding: {
+            label: "Employer Branding",
+            pct: 5,
+            type: "other",
+            bar: "bar-rose",
+            cpc: "$1.00-$4.00",
+          },
+          apac_regional: {
+            label: "APAC Regional",
+            pct: 3,
+            type: "other",
+            bar: "bar-amber",
+            cpc: "$0.25-$1.50",
+          },
+          emea_regional: {
+            label: "EMEA Regional",
+            pct: 2,
+            type: "other",
+            bar: "bar-amber",
+            cpc: "$0.35-$1.80",
+          },
+        };
+
+        // Determine which channels are enabled
+        let totalPct = 0;
+        for (const [key, meta] of Object.entries(channelMeta)) {
+          if (channelCategories[key] !== false) {
+            enabledChannels.push({ key, ...meta });
+            totalPct += meta.pct;
+          }
+        }
+
+        // Normalize percentages to 100
+        if (totalPct > 0 && totalPct !== 100) {
+          enabledChannels.forEach((ch) => {
+            ch.pct = Math.round((ch.pct / totalPct) * 100);
+          });
+        }
+
+        // Compute summary metrics
+        const rolesCount = (payload.target_roles || []).length;
+        const locationsCount = (payload.locations || []).length;
+        const channelCount = enabledChannels.length;
+        const goalsCount = (payload.campaign_goals || []).length;
+
+        // Build metrics row HTML
+        let html = '<div class="plan-dashboard">';
+        html +=
+          '<div class="plan-dashboard-title">Plan Summary Dashboard</div>';
+
+        html += '<div class="plan-metrics-row">';
+        html += '<div class="plan-metric-card">';
+        html += '<div class="plan-metric-label">Budget</div>';
+        html +=
+          '<div class="plan-metric-value accent">' +
+          escapeHtml(budgetDisplay) +
+          "</div>";
+        html += "</div>";
+        html += '<div class="plan-metric-card">';
+        html += '<div class="plan-metric-label">Target Roles</div>';
+        html += '<div class="plan-metric-value">' + rolesCount + "</div>";
+        html += "</div>";
+        html += '<div class="plan-metric-card">';
+        html += '<div class="plan-metric-label">Locations</div>';
+        html += '<div class="plan-metric-value">' + locationsCount + "</div>";
+        html += "</div>";
+        html += '<div class="plan-metric-card">';
+        html += '<div class="plan-metric-label">Channels</div>';
+        html += '<div class="plan-metric-value">' + channelCount + "</div>";
+        html += "</div>";
+        html += "</div>"; // .plan-metrics-row
+
+        // Channel allocation bars
+        html += '<div class="plan-section-label">Channel Allocation</div>';
+        html += '<div class="plan-channels">';
+        enabledChannels
+          .sort((a, b) => b.pct - a.pct)
+          .forEach((ch) => {
+            html += '<div class="plan-channel-bar">';
+            html +=
+              '<div class="plan-channel-name">' +
+              escapeHtml(ch.label) +
+              "</div>";
+            html += '<div class="plan-channel-track">';
+            html +=
+              '<div class="plan-channel-fill ' +
+              ch.bar +
+              '" style="width: 0%" data-target-width="' +
+              ch.pct +
+              '%"></div>';
+            html += "</div>";
+            html += '<div class="plan-channel-value">' + ch.pct + "%</div>";
+            html += "</div>";
+          });
+        html += "</div>"; // .plan-channels
+
+        // Channel detail cards
+        html +=
+          '<div class="plan-section-label" style="margin-top: 16px">Channel Details</div>';
+        html += '<div class="plan-channel-cards">';
+        enabledChannels.forEach((ch) => {
+          const badgeClass =
+            ch.type === "major"
+              ? "badge-major"
+              : ch.type === "programmatic"
+                ? "badge-programmatic"
+                : ch.type === "social"
+                  ? "badge-social"
+                  : "badge-other";
+          html += '<div class="plan-channel-card">';
+          html +=
+            '<div class="plan-channel-card-name">' +
+            escapeHtml(ch.label) +
+            "</div>";
+          html +=
+            '<span class="plan-channel-badge ' +
+            badgeClass +
+            '">' +
+            escapeHtml(ch.type) +
+            "</span>";
+          html += '<div class="plan-channel-card-stat">';
+          html += '<span class="stat-label">Allocation</span>';
+          html += '<span class="stat-value">' + ch.pct + "%</span>";
+          html += "</div>";
+          html += '<div class="plan-channel-card-stat">';
+          html += '<span class="stat-label">Est. CPC Range</span>';
+          html += '<span class="stat-value">' + escapeHtml(ch.cpc) + "</span>";
+          html += "</div>";
+          html += '<div class="plan-channel-card-stat">';
+          html += '<span class="stat-label">Strength</span>';
+          html +=
+            '<span class="stat-value">' +
+            (ch.pct >= 15 ? "High" : ch.pct >= 8 ? "Medium" : "Low") +
+            "</span>";
+          html += "</div>";
+          html += "</div>";
+        });
+        html += "</div>"; // .plan-channel-cards
+
+        // Recommendations / insights
+        const insights = [];
+        if (rolesCount > 0) {
+          insights.push(
+            "Targeting " +
+              rolesCount +
+              " role" +
+              (rolesCount > 1 ? "s" : "") +
+              ": " +
+              (payload.target_roles || [])
+                .slice(0, 3)
+                .map(escapeHtml)
+                .join(", ") +
+              (rolesCount > 3 ? ", and more" : ""),
+          );
+        }
+        if (locationsCount > 0) {
+          insights.push(
+            "Geographic coverage: " +
+              (payload.locations || []).slice(0, 3).map(escapeHtml).join(", ") +
+              (locationsCount > 3
+                ? " + " + (locationsCount - 3) + " more"
+                : ""),
+          );
+        }
+        if (goalsCount > 0) {
+          insights.push(
+            "Campaign goals: " +
+              (payload.campaign_goals || []).map(escapeHtml).join(", "),
+          );
+        }
+        if (payload.campaign_duration) {
+          insights.push("Duration: " + escapeHtml(payload.campaign_duration));
+        }
+        if (payload.hire_volume) {
+          insights.push(
+            "Target hire volume: " + escapeHtml(payload.hire_volume),
+          );
+        }
+        const industryLabel = payload.industry_label || payload.industry || "";
+        if (industryLabel) {
+          insights.push("Industry: " + escapeHtml(industryLabel));
+        }
+        insights.push(
+          "Full channel strategy, budget breakdowns, and hiring funnel projections are included in the downloaded Excel and PPT files.",
+        );
+
+        html +=
+          '<div class="plan-section-label" style="margin-top: 16px">Key Insights</div>';
+        html += '<div class="plan-insights-card">';
+        html += "<ul>";
+        insights.forEach((insight) => {
+          html += "<li>" + insight + "</li>";
+        });
+        html += "</ul>";
+        html += "</div>"; // .plan-insights-card
+
+        html += "</div>"; // .plan-dashboard
+
+        container.innerHTML = html;
+
+        // Animate bars after render
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            container.querySelectorAll(".plan-channel-fill").forEach((bar) => {
+              const target = bar.dataset.targetWidth;
+              if (target) {
+                bar.style.width = target;
+              }
+            });
+          }, 100);
+        });
+
+        // Show the dashboard section
+        const section = document.getElementById("planDashboardSection");
+        if (section) {
+          section.classList.add("visible");
+        }
+      }
+
+      // ============================================
       // 25. Confetti celebration function
       // ============================================
       function showConfetti() {
@@ -5512,6 +6121,87 @@
         if (generateBtn) {
           generateBtn.classList.add("ready-pulse");
         }
+
+        // Preset prompt chips -- auto-fill form fields on click
+        document.querySelectorAll(".preset-chip").forEach((chip) => {
+          chip.addEventListener("click", function () {
+            // Fill client name
+            const clientNameEl = document.getElementById("clientName");
+            if (clientNameEl && this.dataset.client) {
+              clientNameEl.value = this.dataset.client;
+              clientNameEl.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+
+            // Fill use case
+            const useCaseEl = document.getElementById("useCase");
+            if (useCaseEl && this.dataset.title) {
+              useCaseEl.value =
+                "Hiring " +
+                this.dataset.title +
+                " roles in " +
+                (this.dataset.location || "multiple locations") +
+                ". Looking for a data-driven media plan to optimize recruitment spend and maximize qualified applicant volume.";
+              useCaseEl.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+
+            // Fill budget range (select)
+            const budgetEl = document.getElementById("budgetRange");
+            if (budgetEl && this.dataset.budget) {
+              budgetEl.value = this.dataset.budget;
+              budgetEl.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+
+            // Add location as tag
+            if (this.dataset.location) {
+              // Clear existing locations and add the preset one
+              locations.length = 0;
+              addTag(
+                "locationsContainer",
+                "locationInput",
+                locations,
+                this.dataset.location,
+              );
+            }
+
+            // Select industry card
+            if (this.dataset.industry) {
+              const industryCard = document.querySelector(
+                '.industry-card[data-industry="' + this.dataset.industry + '"]',
+              );
+              if (industryCard) {
+                selectIndustry(industryCard);
+              }
+            }
+
+            // Add role as tag (deferred slightly so industry roles load first)
+            if (this.dataset.title) {
+              setTimeout(() => {
+                // Add the specific role if not already present from industry defaults
+                if (!roles.includes(this.dataset.title)) {
+                  addTag(
+                    "rolesContainer",
+                    "roleInput",
+                    roles,
+                    this.dataset.title,
+                  );
+                }
+              }, 100);
+            }
+
+            // Visual feedback -- highlight active chip
+            document
+              .querySelectorAll(".preset-chip")
+              .forEach((c) => c.classList.remove("preset-active"));
+            this.classList.add("preset-active");
+            setTimeout(() => this.classList.remove("preset-active"), 600);
+
+            // Show toast
+            showToast(
+              'Example loaded: "' + this.textContent.trim() + '"',
+              "success",
+            );
+          });
+        });
       });
 
       // ============================================
@@ -6525,9 +7215,18 @@
                 ? "Files Generated Successfully"
                 : "File Generated Successfully";
               heroSection.classList.add("visible");
-              heroSection.scrollIntoView({
+            }
+
+            // Build and show the plan summary dashboard
+            buildPlanDashboard(payload);
+
+            // Scroll to dashboard (or hero section)
+            const scrollTarget =
+              document.getElementById("planDashboardSection") || heroSection;
+            if (scrollTarget) {
+              scrollTarget.scrollIntoView({
                 behavior: "smooth",
-                block: "center",
+                block: "start",
               });
             }
 

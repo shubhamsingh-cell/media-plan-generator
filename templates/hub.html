@@ -59,7 +59,7 @@
         --duration-reveal: 0.4s;
         --duration-ui: 0.2s;
         --duration-page: 0.6s;
-        --section-pad: clamp(80px, 10vw, 120px);
+        --section-pad: 96px;
       }
 
       /* ── Gradient border shimmer ── */
@@ -441,9 +441,9 @@
         background: var(--accent-glow);
         border: 1px solid var(--border);
         color: var(--accent-light);
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         font-weight: 600;
-        padding: 6px 16px;
+        padding: 6px 14px;
         border-radius: 100px;
         margin-bottom: 32px;
         letter-spacing: 0.02em;
@@ -509,16 +509,17 @@
       /* Hero stat pills */
       .hero-stats-row {
         display: flex;
-        gap: 24px;
+        gap: 16px;
         margin-bottom: 32px;
         flex-wrap: wrap;
+        opacity: 0.7;
       }
 
       .hero-stat-pill {
         display: flex;
         align-items: baseline;
         gap: 6px;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         color: var(--text-secondary);
       }
 
@@ -551,18 +552,21 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 16px 36px;
+        padding: 16px 40px;
         background: var(--accent);
         color: white;
         border: none;
         border-radius: var(--radius-sm);
-        font-size: 1.05rem;
+        font-size: 1.1rem;
         font-weight: 600;
         text-decoration: none;
         cursor: pointer;
         transition: all 0.2s;
         position: relative;
         overflow: hidden;
+        box-shadow:
+          0 0 30px rgba(99, 102, 241, 0.3),
+          0 8px 20px rgba(99, 102, 241, 0.2);
       }
 
       .btn-primary:hover {
@@ -577,22 +581,24 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 16px 32px;
+        padding: 14px 32px;
         background: transparent;
         color: var(--text-secondary);
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
-        font-size: 1.05rem;
+        font-size: 0.95rem;
         font-weight: 500;
         text-decoration: none;
         cursor: pointer;
         transition: all 0.2s;
+        opacity: 0.8;
       }
 
       .btn-secondary:hover {
         border-color: var(--border-hover);
         color: var(--text-primary);
         background: rgba(255, 255, 255, 0.03);
+        opacity: 1;
       }
 
       /* Scan line on hero */
@@ -1357,7 +1363,7 @@
       .footer {
         position: relative;
         z-index: 1;
-        padding: 80px 2rem 32px;
+        padding: 96px 2rem 32px;
         border-top: 1px solid var(--border);
         color: var(--text-muted);
         font-size: 0.8rem;
