@@ -876,19 +876,6 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
-      }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
-      }
     </style>
   </head>
   <body>
@@ -925,7 +912,7 @@
       </section>
 
       <!-- Upload & Context -->
-      <div class="glass-card">
+      <div class="glass-card reveal-on-scroll">
         <h2 class="section-title">Upload Campaign Data</h2>
         <p class="section-subtitle">
           Upload an Excel or CSV file with your campaign performance data.
@@ -963,7 +950,7 @@
       </div>
 
       <!-- Context Inputs -->
-      <div class="glass-card">
+      <div class="glass-card reveal-on-scroll">
         <h2 class="section-title">Campaign Context</h2>
         <p class="section-subtitle">
           Provide context for more accurate benchmark comparisons.
@@ -1037,18 +1024,23 @@
       </div>
 
       <!-- Results -->
-      <div class="results-section" id="resultsSection">
+      <div class="results-section reveal-on-scroll" id="resultsSection">
         <!-- Scorecard -->
-        <div class="glass-card">
+        <div class="glass-card reveal-on-scroll">
           <h2 class="section-title">Performance Scorecard</h2>
-          <div class="scorecard">
-            <div class="scorecard-grade" id="scorecardGrade">--</div>
-            <div class="scorecard-metrics" id="scorecardMetrics"></div>
+          <div class="scorecard reveal-on-scroll">
+            <div class="scorecard-grade reveal-on-scroll" id="scorecardGrade">
+              --
+            </div>
+            <div
+              class="scorecard-metrics reveal-on-scroll"
+              id="scorecardMetrics"
+            ></div>
           </div>
         </div>
 
         <!-- Channel Comparison -->
-        <div class="glass-card">
+        <div class="glass-card reveal-on-scroll">
           <h2 class="section-title">Channel Comparison: Actual vs Benchmark</h2>
           <div class="comparison-table-wrapper">
             <table class="comparison-table" id="comparisonTable">
@@ -1070,9 +1062,9 @@
         </div>
 
         <!-- Recommendations -->
-        <div class="glass-card">
+        <div class="glass-card reveal-on-scroll">
           <h2 class="section-title">Top Recommendations</h2>
-          <div class="rec-cards" id="recCards"></div>
+          <div class="rec-cards reveal-on-scroll" id="recCards"></div>
 
           <!-- Budget Reallocation -->
           <div class="realloc-section" id="reallocSection">
@@ -1092,13 +1084,13 @@
         </div>
 
         <!-- Downloads -->
-        <div class="glass-card">
+        <div class="glass-card reveal-on-scroll">
           <h2 class="section-title">Download Reports</h2>
           <p class="section-subtitle">
             Download detailed performance reports for offline review and
             stakeholder presentations.
           </p>
-          <div class="download-section">
+          <div class="download-section reveal-on-scroll">
             <button class="btn-download btn-excel" id="downloadExcel">
               <svg
                 viewBox="0 0 24 24"
@@ -1137,7 +1129,7 @@
       </div>
 
       <!-- Footer -->
-      <footer class="footer">
+      <footer class="footer reveal-on-scroll">
         <p>
           Powered by
           <a

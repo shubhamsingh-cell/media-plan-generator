@@ -84,6 +84,14 @@
           animation-duration: 0.01ms !important;
           transition-duration: 0.01ms !important;
         }
+        .stagger-1,
+        .stagger-2,
+        .stagger-3,
+        .stagger-4,
+        .stagger-5,
+        .stagger-6 {
+          transition-delay: 0s !important;
+        }
       }
 
       body {
@@ -1213,18 +1221,23 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
+      .stagger-1 {
+        transition-delay: 0.05s;
       }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
+      .stagger-2 {
+        transition-delay: 0.1s;
+      }
+      .stagger-3 {
+        transition-delay: 0.15s;
+      }
+      .stagger-4 {
+        transition-delay: 0.2s;
+      }
+      .stagger-5 {
+        transition-delay: 0.25s;
+      }
+      .stagger-6 {
+        transition-delay: 0.3s;
       }
     </style>
   </head>
@@ -1257,7 +1270,7 @@
     <!-- ═══ Main Content ═══ -->
     <main class="af-main">
       <!-- Left Panel: Job Configuration -->
-      <section class="af-card af-config">
+      <section class="af-card af-config reveal-on-scroll">
         <div class="af-section-title">
           <div class="af-section-icon">
             <svg
@@ -1386,7 +1399,7 @@
       </section>
 
       <!-- Right Panel: Live Chat Preview -->
-      <section class="af-card af-preview" id="preview-panel">
+      <section class="af-card af-preview reveal-on-scroll" id="preview-panel">
         <!-- Placeholder (before launch) -->
         <div class="af-preview-placeholder" id="preview-placeholder">
           <div class="af-placeholder-icon">
@@ -1507,25 +1520,25 @@
     </main>
 
     <!-- ═══ Stats Footer ═══ -->
-    <div class="af-stats">
-      <div class="af-card af-stat-card">
+    <div class="af-stats reveal-on-scroll">
+      <div class="af-card af-stat-card reveal-on-scroll stagger-1">
         <div class="af-stat-value" id="stat-messages">0</div>
         <div class="af-stat-label">Messages Sent</div>
       </div>
-      <div class="af-card af-stat-card">
+      <div class="af-card af-stat-card reveal-on-scroll stagger-2">
         <div class="af-stat-value" id="stat-time">
           0<span class="unit">s</span>
         </div>
         <div class="af-stat-label">Avg Completion Time</div>
       </div>
-      <div class="af-card af-stat-card">
+      <div class="af-card af-stat-card reveal-on-scroll stagger-3">
         <div class="af-stat-value" id="stat-score">--</div>
         <div class="af-stat-label">Qualification Score</div>
       </div>
     </div>
 
     <!-- ═══ View Application Summary Button ═══ -->
-    <div class="af-summary-btn-wrap" id="summary-btn-wrap">
+    <div class="af-summary-btn-wrap reveal-on-scroll" id="summary-btn-wrap">
       <button class="af-btn-view-summary" id="btn-view-summary" type="button">
         <svg
           width="18"
@@ -1550,8 +1563,8 @@
     </div>
 
     <!-- ═══ Embed Code Section ═══ -->
-    <div class="af-embed-section">
-      <div class="af-card af-embed-card">
+    <div class="af-embed-section reveal-on-scroll">
+      <div class="af-card af-embed-card reveal-on-scroll">
         <div class="af-embed-title">
           <svg
             width="16"
@@ -1576,7 +1589,7 @@
     </div>
 
     <!-- ═══ Footer ═══ -->
-    <footer class="af-footer">
+    <footer class="af-footer reveal-on-scroll">
       ApplyFlow by
       <a
         href="https://www.linkedin.com/in/chandel13/"

@@ -489,19 +489,6 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
-      }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
-      }
     </style>
   </head>
   <body>
@@ -523,7 +510,7 @@
       </div>
 
       <!-- Input Form -->
-      <div class="card">
+      <div class="card reveal-on-scroll">
         <div class="card-title">
           <div class="icon">&#9881;</div>
           Test Configuration
@@ -597,7 +584,7 @@
       <!-- Results -->
       <div id="results">
         <!-- Variants -->
-        <div class="variants-wrapper">
+        <div class="variants-wrapper reveal-on-scroll">
           <div class="variants-grid">
             <div class="variant-card variant-a" id="variantA"></div>
             <div class="variant-card variant-b" id="variantB"></div>
@@ -606,7 +593,7 @@
         </div>
 
         <!-- Test Configuration -->
-        <div class="card" style="margin-top: 1.5rem">
+        <div class="card reveal-on-scroll" style="margin-top: 1.5rem">
           <div class="card-title">
             <div class="icon">&#9878;</div>
             Test Configuration
@@ -619,7 +606,7 @@
         </div>
 
         <!-- Channel Tips -->
-        <div class="card">
+        <div class="card reveal-on-scroll">
           <div class="card-title">
             <div class="icon">&#9733;</div>
             Channel-Specific Best Practices
@@ -629,7 +616,7 @@
       </div>
     </div>
 
-    <footer>
+    <footer class="reveal-on-scroll">
       <p>
         Nova AI Suite -- Built by
         <a

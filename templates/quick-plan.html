@@ -890,19 +890,6 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
-      }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
-      }
     </style>
   </head>
   <body>
@@ -1022,11 +1009,19 @@
       <div class="qp-results" id="qpResults" aria-live="polite">
         <!-- Insight Cards -->
         <div class="qp-insights">
-          <div class="qp-card" id="qpRoleCard" aria-label="Role analysis">
+          <div
+            class="qp-card reveal-on-scroll"
+            id="qpRoleCard"
+            aria-label="Role analysis"
+          >
             <div class="qp-card-title">Role Insight</div>
             <div id="qpRoleContent"></div>
           </div>
-          <div class="qp-card" id="qpLocCard" aria-label="Location analysis">
+          <div
+            class="qp-card reveal-on-scroll"
+            id="qpLocCard"
+            aria-label="Location analysis"
+          >
             <div class="qp-card-title">Location Insight</div>
             <div id="qpLocContent"></div>
           </div>
@@ -1054,7 +1049,7 @@
         <div id="qpSeasonal" aria-label="Seasonal hiring advice"></div>
 
         <!-- CTA -->
-        <div class="qp-cta">
+        <div class="qp-cta reveal-on-scroll">
           <p class="qp-cta-text">
             Need a comprehensive multi-role media plan with Excel and PowerPoint
             exports?
@@ -1086,7 +1081,7 @@
     <!-- ============================================================
          FOOTER
          ============================================================ -->
-    <footer class="qp-footer" role="contentinfo">
+    <footer class="qp-footer reveal-on-scroll" role="contentinfo">
       <div class="qp-container">
         <p class="qp-footer-text">
           Powered by

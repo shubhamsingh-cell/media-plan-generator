@@ -100,6 +100,14 @@
           animation-duration: 0.01ms !important;
           transition-duration: 0.01ms !important;
         }
+        .stagger-1,
+        .stagger-2,
+        .stagger-3,
+        .stagger-4,
+        .stagger-5,
+        .stagger-6 {
+          transition-delay: 0s !important;
+        }
       }
       * {
         margin: 0;
@@ -868,18 +876,23 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
+      .stagger-1 {
+        transition-delay: 0.05s;
       }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
+      .stagger-2 {
+        transition-delay: 0.1s;
+      }
+      .stagger-3 {
+        transition-delay: 0.15s;
+      }
+      .stagger-4 {
+        transition-delay: 0.2s;
+      }
+      .stagger-5 {
+        transition-delay: 0.25s;
+      }
+      .stagger-6 {
+        transition-delay: 0.3s;
       }
     </style>
   </head>
@@ -912,7 +925,11 @@
       <div class="error-banner" id="errorBanner"></div>
 
       <!-- Tab Navigation -->
-      <nav class="tab-nav" role="tablist" aria-label="Portal sections">
+      <nav
+        class="tab-nav reveal-on-scroll"
+        role="tablist"
+        aria-label="Portal sections"
+      >
         <button
           class="tab-btn active"
           role="tab"
@@ -961,8 +978,12 @@
       </nav>
 
       <!-- ═══ TAB 1: API Keys ═══ -->
-      <div class="tab-panel active" id="panel-keys" role="tabpanel">
-        <div class="glass-card">
+      <div
+        class="tab-panel active reveal-on-scroll"
+        id="panel-keys"
+        role="tabpanel"
+      >
+        <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#128273;</span> Generate New API Key</h2>
           <div class="form-grid">
             <div class="form-group">
@@ -1037,7 +1058,7 @@
           </div>
         </div>
 
-        <div class="glass-card">
+        <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#128218;</span> Your API Keys</h2>
           <div id="keysTableContainer">
             <p style="color: var(--text-muted); font-size: 0.875rem">
@@ -1048,8 +1069,12 @@
       </div>
 
       <!-- ═══ TAB 2: API Explorer ═══ -->
-      <div class="tab-panel" id="panel-explorer" role="tabpanel">
-        <div class="glass-card">
+      <div
+        class="tab-panel reveal-on-scroll"
+        id="panel-explorer"
+        role="tabpanel"
+      >
+        <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#128640;</span> Interactive API Explorer</h2>
           <p
             style="
@@ -1068,8 +1093,8 @@
       </div>
 
       <!-- ═══ TAB 3: Usage Dashboard ═══ -->
-      <div class="tab-panel" id="panel-usage" role="tabpanel">
-        <div class="glass-card">
+      <div class="tab-panel reveal-on-scroll" id="panel-usage" role="tabpanel">
+        <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#128200;</span> Usage Analytics</h2>
           <div class="form-grid" style="margin-bottom: 1.5rem">
             <div class="form-group" style="grid-column: 1/-1">
@@ -1092,9 +1117,9 @@
             </div>
           </div>
           <div id="usageDashboard" style="display: none">
-            <div class="stats-grid" id="usageStats"></div>
+            <div class="stats-grid reveal-on-scroll" id="usageStats"></div>
             <div class="rate-limit-meter" id="rateLimitMeter"></div>
-            <div class="glass-card" style="padding: 1.5rem">
+            <div class="glass-card reveal-on-scroll" style="padding: 1.5rem">
               <h3
                 style="font-size: 1rem; font-weight: 600; margin-bottom: 1rem"
               >
@@ -1102,7 +1127,10 @@
               </h3>
               <div class="usage-bar-container" id="dailyUsageBars"></div>
             </div>
-            <div class="glass-card" style="padding: 1.5rem; margin-top: 1rem">
+            <div
+              class="glass-card reveal-on-scroll"
+              style="padding: 1.5rem; margin-top: 1rem"
+            >
               <h3
                 style="font-size: 1rem; font-weight: 600; margin-bottom: 1rem"
               >
@@ -1115,8 +1143,8 @@
       </div>
 
       <!-- ═══ TAB 4: Documentation ═══ -->
-      <div class="tab-panel" id="panel-docs" role="tabpanel">
-        <div class="glass-card">
+      <div class="tab-panel reveal-on-scroll" id="panel-docs" role="tabpanel">
+        <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#128214;</span> Quick Start Guide</h2>
           <div class="quickstart-steps">
             <div class="quickstart-step">
@@ -1188,7 +1216,7 @@ curl -X POST https://media-plan-generator.onrender.com/api/generate \
           </div>
         </div>
 
-        <div class="glass-card">
+        <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#128272;</span> Authentication</h2>
           <p
             style="
@@ -1239,7 +1267,7 @@ print(response.json())</pre
           </div>
         </div>
 
-        <div class="glass-card">
+        <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#9888;</span> Rate Limits</h2>
           <p
             style="
@@ -1306,11 +1334,15 @@ print(response.json())</pre
       </div>
 
       <!-- ═══ TAB 5: Pricing ═══ -->
-      <div class="tab-panel" id="panel-pricing" role="tabpanel">
-        <div class="glass-card">
+      <div
+        class="tab-panel reveal-on-scroll"
+        id="panel-pricing"
+        role="tabpanel"
+      >
+        <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#128176;</span> Pricing Tiers</h2>
           <div class="pricing-grid" id="pricingGrid">
-            <div class="pricing-card">
+            <div class="pricing-card reveal-on-scroll stagger-1">
               <h3>Free</h3>
               <div class="price">
                 $0<span
@@ -1337,7 +1369,7 @@ print(response.json())</pre
                 Get Free Key
               </button>
             </div>
-            <div class="pricing-card featured">
+            <div class="pricing-card featured reveal-on-scroll stagger-2">
               <h3>Pro</h3>
               <div class="price">
                 $49<span
@@ -1366,7 +1398,7 @@ print(response.json())</pre
                 Get Pro Key
               </button>
             </div>
-            <div class="pricing-card">
+            <div class="pricing-card reveal-on-scroll stagger-3">
               <h3>Enterprise</h3>
               <div class="price">Custom</div>
               <div class="rate-limit">Unlimited requests</div>

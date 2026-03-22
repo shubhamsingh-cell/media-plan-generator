@@ -878,20 +878,6 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
-      }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
-      }
-
       /* -- Reduced motion -- */
       @media (prefers-reduced-motion: reduce) {
         .reveal-on-scroll {
@@ -923,7 +909,10 @@
       <!-- Report Content (hidden until loaded) -->
       <div id="reportContent" style="display: none">
         <!-- Report Date & Period -->
-        <div class="section" style="text-align: center; padding: 16px 28px">
+        <div
+          class="section reveal-on-scroll"
+          style="text-align: center; padding: 16px 28px"
+        >
           <span
             style="font-size: 13px; color: var(--text-secondary)"
             id="reportPeriod"
@@ -936,7 +925,7 @@
         </div>
 
         <!-- Executive Summary / Key Takeaways -->
-        <div class="section">
+        <div class="section reveal-on-scroll">
           <h2 class="section-title">
             <span class="icon indigo">&#9733;</span>
             Key Takeaways
@@ -945,7 +934,11 @@
         </div>
 
         <!-- Labor Market Demand -->
-        <div class="section" id="demandSection" style="display: none">
+        <div
+          class="section reveal-on-scroll"
+          id="demandSection"
+          style="display: none"
+        >
           <h2 class="section-title">
             <span class="icon cyan">&#9862;</span>
             Labor Market Demand
@@ -959,7 +952,11 @@
         </div>
 
         <!-- CPC Trends Dashboard -->
-        <div class="section" id="cpcSection" style="display: none">
+        <div
+          class="section reveal-on-scroll"
+          id="cpcSection"
+          style="display: none"
+        >
           <h2 class="section-title">
             <span class="icon indigo">&#9650;</span>
             CPC Trend Dashboard
@@ -976,7 +973,11 @@
         </div>
 
         <!-- Industry Spotlight -->
-        <div class="section" id="industrySection" style="display: none">
+        <div
+          class="section reveal-on-scroll"
+          id="industrySection"
+          style="display: none"
+        >
           <h2 class="section-title">
             <span class="icon pink">&#9670;</span>
             Industry Spotlight
@@ -993,7 +994,11 @@
         </div>
 
         <!-- Platform Comparison -->
-        <div class="section" id="platformSection" style="display: none">
+        <div
+          class="section reveal-on-scroll"
+          id="platformSection"
+          style="display: none"
+        >
           <h2 class="section-title">
             <span class="icon green">&#9654;</span>
             Platform Comparison
@@ -1017,7 +1022,11 @@
         </div>
 
         <!-- Seasonal Outlook -->
-        <div class="section" id="seasonalSection" style="display: none">
+        <div
+          class="section reveal-on-scroll"
+          id="seasonalSection"
+          style="display: none"
+        >
           <h2 class="section-title">
             <span class="icon amber">&#9788;</span>
             <span id="seasonalTitle">Seasonal Outlook</span>
@@ -1091,7 +1100,7 @@
       </div>
 
       <!-- Report History -->
-      <div class="section" style="margin-top: 24px">
+      <div class="section reveal-on-scroll" style="margin-top: 24px">
         <h2 class="section-title">
           <span class="icon indigo">&#128197;</span>
           Report History
@@ -1106,7 +1115,7 @@
 
       <!-- Full Report Preview (hidden iframe) -->
       <div
-        class="section"
+        class="section reveal-on-scroll"
         id="previewSection"
         style="display: none; margin-top: 24px"
       >
@@ -1120,7 +1129,7 @@
       </div>
 
       <!-- Footer -->
-      <footer class="footer">
+      <footer class="footer reveal-on-scroll">
         Powered by
         <strong
           ><a href="https://www.linkedin.com/in/chandel13/"

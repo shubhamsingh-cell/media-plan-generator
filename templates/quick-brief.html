@@ -583,19 +583,6 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
-      }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
-      }
     </style>
   </head>
   <body>
@@ -635,7 +622,7 @@
       </header>
 
       <!-- INPUT -->
-      <section class="qb-input-card">
+      <section class="qb-input-card reveal-on-scroll">
         <label for="qb-input">Your Hiring Need</label>
         <textarea
           id="qb-input"
@@ -691,7 +678,7 @@
 
       <!-- RESULTS -->
       <section id="qb-results" class="qb-results" aria-live="polite">
-        <div class="qb-results-card">
+        <div class="qb-results-card reveal-on-scroll">
           <div class="qb-results-title">
             <svg
               viewBox="0 0 24 24"
@@ -716,7 +703,7 @@
           </div>
         </div>
 
-        <div class="qb-channels-card">
+        <div class="qb-channels-card reveal-on-scroll">
           <div class="qb-results-title">
             <svg
               viewBox="0 0 24 24"
@@ -758,7 +745,7 @@
     </main>
 
     <!-- FOOTER -->
-    <footer class="qb-footer" role="contentinfo">
+    <footer class="qb-footer reveal-on-scroll" role="contentinfo">
       <p>
         Nova AI Suite &mdash; Built by
         <a

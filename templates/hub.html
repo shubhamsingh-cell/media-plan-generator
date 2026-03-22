@@ -993,6 +993,15 @@
         .ripple {
           animation: none;
         }
+        .streaming-text .word {
+          opacity: 1 !important;
+          transform: none !important;
+          animation: none !important;
+        }
+        .page-enter {
+          opacity: 1 !important;
+          transform: none !important;
+        }
       }
 
       /* ── Search / Filter ── */
@@ -1151,6 +1160,37 @@
           background 0.3s,
           height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
+
+      /* ── Phase 2/3: Streaming text effect ── */
+      .streaming-text .word {
+        display: inline-block;
+        opacity: 0;
+        transform: translateY(6px);
+        animation: stream-word 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      @keyframes stream-word {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ── Phase 2/3: Page enter transition ── */
+      .page-enter {
+        animation: page-fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      @keyframes page-fade-in {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
     </style>
   </head>
   <body>
@@ -1196,7 +1236,9 @@
         <span class="dot"></span>
         All systems operational
       </div>
-      <h1 class="fade-in stagger-1">The Recruitment Intelligence Platform</h1>
+      <h1 class="fade-in stagger-1 streaming-text" data-streaming>
+        The Recruitment Intelligence Platform
+      </h1>
       <p class="fade-in stagger-2">
         AI-powered tools for every stage of talent acquisition. From media
         planning to competitive intelligence, performance tracking to market
@@ -2108,6 +2150,7 @@
             entries.forEach(function (entry) {
               if (entry.isIntersecting) {
                 entry.target.classList.add("visible");
+                observer.unobserve(entry.target);
               }
             });
           },
@@ -2318,6 +2361,27 @@
             }, 600);
           });
         });
+
+        // ── Phase 2/3: Streaming text effect ──
+        if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          document.querySelectorAll("[data-streaming]").forEach(function (el) {
+            var text = el.textContent.trim();
+            if (!text) return;
+            var words = text.split(/\s+/);
+            el.textContent = "";
+            words.forEach(function (word, i) {
+              if (i > 0) el.appendChild(document.createTextNode(" "));
+              var span = document.createElement("span");
+              span.className = "word";
+              span.style.animationDelay = 0.3 + i * 0.08 + "s";
+              span.textContent = word;
+              el.appendChild(span);
+            });
+          });
+        }
+
+        // ── Phase 2/3: Page enter transition ──
+        document.body.classList.add("page-enter");
       })();
     </script>
   </body>

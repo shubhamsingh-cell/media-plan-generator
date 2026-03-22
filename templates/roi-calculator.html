@@ -413,26 +413,38 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
+      .stagger-1 {
+        transition-delay: 0.05s;
       }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
+      .stagger-2 {
+        transition-delay: 0.1s;
       }
-
+      .stagger-3 {
+        transition-delay: 0.15s;
+      }
+      .stagger-4 {
+        transition-delay: 0.2s;
+      }
+      .stagger-5 {
+        transition-delay: 0.25s;
+      }
+      .stagger-6 {
+        transition-delay: 0.3s;
+      }
       /* -- Reduced motion -- */
       @media (prefers-reduced-motion: reduce) {
         .reveal-on-scroll {
           opacity: 1;
           transform: none;
           transition: none;
+        }
+        .stagger-1,
+        .stagger-2,
+        .stagger-3,
+        .stagger-4,
+        .stagger-5,
+        .stagger-6 {
+          transition-delay: 0s !important;
         }
       }
     </style>
@@ -458,7 +470,7 @@
       </div>
 
       <!-- Input Form -->
-      <div class="form-card">
+      <div class="form-card reveal-on-scroll">
         <h2>Input Parameters</h2>
         <div class="form-grid">
           <div class="form-group">
@@ -533,25 +545,25 @@
       </div>
 
       <!-- Results -->
-      <div class="results-section" id="resultsSection">
+      <div class="results-section reveal-on-scroll" id="resultsSection">
         <!-- KPI Cards -->
-        <div class="kpi-grid" id="kpiGrid">
-          <div class="kpi-card fade-up">
+        <div class="kpi-grid reveal-on-scroll" id="kpiGrid">
+          <div class="kpi-card fade-up reveal-on-scroll stagger-1">
             <div class="kpi-label">Projected Annual Savings</div>
             <div class="kpi-value kpi-positive" id="kpiAnnualSavings">--</div>
             <div class="kpi-sub" id="kpiMonthlySavings">--</div>
           </div>
-          <div class="kpi-card fade-up">
+          <div class="kpi-card fade-up reveal-on-scroll stagger-2">
             <div class="kpi-label">ROI</div>
             <div class="kpi-value kpi-positive" id="kpiROI">--</div>
             <div class="kpi-sub">Return on ad spend</div>
           </div>
-          <div class="kpi-card fade-up">
+          <div class="kpi-card fade-up reveal-on-scroll stagger-3">
             <div class="kpi-label">New Cost-Per-Hire</div>
             <div class="kpi-value kpi-accent" id="kpiNewCPH">--</div>
             <div class="kpi-sub" id="kpiCPHReduction">--</div>
           </div>
-          <div class="kpi-card fade-up">
+          <div class="kpi-card fade-up reveal-on-scroll stagger-4">
             <div class="kpi-label">Projected Time-to-Fill</div>
             <div class="kpi-value kpi-accent" id="kpiTTF">--</div>
             <div class="kpi-sub">30% improvement estimate</div>
@@ -559,7 +571,7 @@
         </div>
 
         <!-- Comparison Table -->
-        <div class="comparison-card fade-up">
+        <div class="comparison-card fade-up reveal-on-scroll">
           <h3>Current vs. Projected Metrics</h3>
           <table class="comparison-table">
             <thead>
@@ -575,7 +587,7 @@
         </div>
 
         <!-- Bar Chart -->
-        <div class="chart-card fade-up">
+        <div class="chart-card fade-up reveal-on-scroll">
           <h3>Cost-Per-Hire Comparison</h3>
           <div class="chart-container" id="chartContainer"></div>
         </div>
@@ -583,7 +595,7 @@
     </div>
 
     <!-- Footer -->
-    <footer class="footer">
+    <footer class="footer reveal-on-scroll">
       Nova AI Suite &mdash; Built by
       <a
         href="https://www.linkedin.com/in/chandel13/"

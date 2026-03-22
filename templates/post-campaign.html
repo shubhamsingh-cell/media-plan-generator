@@ -650,20 +650,6 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
-      }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
-      }
-
       /* -- Reduced motion -- */
       @media (prefers-reduced-motion: reduce) {
         .reveal-on-scroll {
@@ -713,7 +699,7 @@
       <!-- Input Form -->
       <form id="campaignForm" autocomplete="off">
         <!-- Campaign Info -->
-        <div class="card">
+        <div class="card reveal-on-scroll">
           <div class="card-title">
             <span class="num">1</span> Campaign Information
           </div>
@@ -773,7 +759,7 @@
         </div>
 
         <!-- Channels -->
-        <div class="card">
+        <div class="card reveal-on-scroll">
           <div class="card-title"><span class="num">2</span> Channels Used</div>
           <div class="checkbox-grid" id="channelCheckboxes">
             <!-- Rendered by JS -->
@@ -807,7 +793,7 @@
       <!-- Results -->
       <div id="results">
         <!-- 1. Campaign Summary -->
-        <div class="card" id="summaryCard">
+        <div class="card reveal-on-scroll" id="summaryCard">
           <div class="card-title">
             <span class="num">1</span> Campaign Summary
           </div>
@@ -817,7 +803,7 @@
         </div>
 
         <!-- 2. Channel Performance Table -->
-        <div class="card" id="performanceCard">
+        <div class="card reveal-on-scroll" id="performanceCard">
           <div class="card-title">
             <span class="num">2</span> Channel Performance
           </div>
@@ -844,13 +830,13 @@
         </div>
 
         <!-- 3. Key Findings -->
-        <div class="card" id="findingsCard">
+        <div class="card reveal-on-scroll" id="findingsCard">
           <div class="card-title"><span class="num">3</span> Key Findings</div>
           <ul class="findings-list" id="findingsList"></ul>
         </div>
 
         <!-- 4. Recommendations -->
-        <div class="card" id="recsCard">
+        <div class="card reveal-on-scroll" id="recsCard">
           <div class="card-title">
             <span class="num">4</span> Recommendations
           </div>
@@ -883,7 +869,7 @@
     </div>
 
     <!-- Footer -->
-    <footer class="footer">
+    <footer class="footer reveal-on-scroll">
       <p>
         Nova AI Suite -- Built by
         <a

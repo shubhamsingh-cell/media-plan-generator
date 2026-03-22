@@ -521,19 +521,6 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
-      }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
-      }
     </style>
   </head>
   <body>
@@ -559,7 +546,7 @@
       </div>
 
       <!-- Section 2: All Integrations & APIs -->
-      <div class="section">
+      <div class="section reveal-on-scroll">
         <div class="section-title">
           All Integrations & APIs <span class="badge" id="intSummary">--</span>
         </div>
@@ -571,7 +558,7 @@
       </div>
 
       <!-- Section 3: Cache Performance -->
-      <div class="section">
+      <div class="section reveal-on-scroll">
         <div class="section-title">
           Cache Performance <span class="badge">4 LAYERS</span>
         </div>
@@ -583,7 +570,7 @@
       </div>
 
       <!-- Section 4: LLM Provider Matrix -->
-      <div class="section">
+      <div class="section reveal-on-scroll">
         <div class="section-title">
           LLM Provider Matrix <span class="badge" id="providerCount">--</span>
         </div>
@@ -614,7 +601,7 @@
       </div>
 
       <!-- Section 5: Nova Chatbot Metrics -->
-      <div class="section">
+      <div class="section reveal-on-scroll">
         <div class="section-title">Nova Chatbot Performance</div>
         <div class="stat-row" id="novaStats">
           <div class="loading">
@@ -625,7 +612,7 @@
       </div>
 
       <!-- Section 6: API Enrichment -->
-      <div class="section">
+      <div class="section reveal-on-scroll">
         <div class="section-title">API Enrichment Performance</div>
         <div class="stat-row" id="enrichStats">
           <div class="loading">
@@ -635,7 +622,7 @@
       </div>
 
       <!-- Section 7: SLO Compliance -->
-      <div class="section">
+      <div class="section reveal-on-scroll">
         <div class="section-title">SLO Compliance</div>
         <div class="slo-row" id="sloCards">
           <div class="loading">
@@ -645,7 +632,7 @@
       </div>
 
       <!-- Section 8: Endpoint Latency Breakdown -->
-      <div class="section">
+      <div class="section reveal-on-scroll">
         <div class="section-title">Endpoint Latency Breakdown</div>
         <div class="table-wrap">
           <table>
@@ -669,7 +656,7 @@
       </div>
 
       <!-- Section 9: Recent Heal Actions -->
-      <div class="section">
+      <div class="section reveal-on-scroll">
         <div class="section-title">Recent Self-Healing Actions</div>
         <div class="table-wrap">
           <table>

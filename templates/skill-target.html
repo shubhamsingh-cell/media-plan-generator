@@ -47,6 +47,14 @@
           animation-duration: 0.01ms !important;
           transition-duration: 0.01ms !important;
         }
+        .stagger-1,
+        .stagger-2,
+        .stagger-3,
+        .stagger-4,
+        .stagger-5,
+        .stagger-6 {
+          transition-delay: 0s !important;
+        }
       }
       * {
         margin: 0;
@@ -582,18 +590,23 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
+      .stagger-1 {
+        transition-delay: 0.05s;
       }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
+      .stagger-2 {
+        transition-delay: 0.1s;
+      }
+      .stagger-3 {
+        transition-delay: 0.15s;
+      }
+      .stagger-4 {
+        transition-delay: 0.2s;
+      }
+      .stagger-5 {
+        transition-delay: 0.25s;
+      }
+      .stagger-6 {
+        transition-delay: 0.3s;
       }
     </style>
   </head>
@@ -613,7 +626,7 @@
       </div>
 
       <!-- Input Form -->
-      <div class="card">
+      <div class="card reveal-on-scroll">
         <div class="card-title">
           <div class="icon">&#9881;</div>
           Configure Analysis
@@ -714,9 +727,9 @@
 
       <!-- Results -->
       <div id="results">
-        <div class="results-grid">
+        <div class="results-grid reveal-on-scroll">
           <!-- Skill Analysis -->
-          <div class="card">
+          <div class="card reveal-on-scroll stagger-1">
             <div class="card-title">
               <div class="icon">&#9733;</div>
               Skill Analysis
@@ -724,7 +737,7 @@
             <div id="skillAnalysis"></div>
           </div>
           <!-- Channel Recommendations -->
-          <div class="card">
+          <div class="card reveal-on-scroll stagger-2">
             <div class="card-title">
               <div class="icon">&#9776;</div>
               Channel Recommendations
@@ -732,7 +745,7 @@
             <div id="channelRecs"></div>
           </div>
           <!-- Targeting Strategy -->
-          <div class="card">
+          <div class="card reveal-on-scroll stagger-3">
             <div class="card-title">
               <div class="icon">&#10148;</div>
               Targeting Strategy
@@ -740,7 +753,7 @@
             <div id="targetingStrategy"></div>
           </div>
           <!-- Budget Allocation -->
-          <div class="card">
+          <div class="card reveal-on-scroll stagger-4">
             <div class="card-title">
               <div class="icon">&#9672;</div>
               Budget Allocation
@@ -756,7 +769,7 @@
             </div>
           </div>
           <!-- Talent Pool -->
-          <div class="card">
+          <div class="card reveal-on-scroll stagger-5">
             <div class="card-title">
               <div class="icon">&#9823;</div>
               Talent Pool Estimate
@@ -764,7 +777,7 @@
             <div id="talentPool"></div>
           </div>
           <!-- Collar Classification -->
-          <div class="card">
+          <div class="card reveal-on-scroll stagger-6">
             <div class="card-title">
               <div class="icon">&#9878;</div>
               Classification
@@ -774,7 +787,7 @@
         </div>
 
         <!-- Export -->
-        <div class="card" style="margin-top: 1.5rem">
+        <div class="card reveal-on-scroll" style="margin-top: 1.5rem">
           <div class="card-title">
             <div class="icon">&#8681;</div>
             Export Results
@@ -791,7 +804,7 @@
       </div>
     </div>
 
-    <footer>
+    <footer class="reveal-on-scroll">
       <p>
         SkillTarget by
         <a

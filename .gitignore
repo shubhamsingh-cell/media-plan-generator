@@ -13,4 +13,5 @@ data/request_log.json.lock
 data/nova_learned_answers.json
 data/nova_unanswered.json
 media_plan_sample.pptx
+node_modules/
 .claude/

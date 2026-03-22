@@ -669,19 +669,6 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
-      }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
-      }
     </style>
   </head>
   <body>
@@ -709,7 +696,7 @@
       <!-- Main -->
       <div class="main-area">
         <!-- Orb -->
-        <div class="orb-section">
+        <div class="orb-section reveal-on-scroll">
           <canvas id="orb-canvas" width="800" height="800"></canvas>
           <div class="task-text" id="task-text">
             Initializing neural core...
@@ -718,7 +705,7 @@
         </div>
 
         <!-- Chat -->
-        <div class="chat-panel">
+        <div class="chat-panel reveal-on-scroll">
           <div class="chat-header">
             <div class="chat-header-title">Intelligence Feed</div>
             <div class="chat-header-actions">

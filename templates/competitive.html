@@ -115,6 +115,14 @@
           animation-iteration-count: 1 !important;
           transition-duration: 0.01ms !important;
         }
+        .stagger-1,
+        .stagger-2,
+        .stagger-3,
+        .stagger-4,
+        .stagger-5,
+        .stagger-6 {
+          transition-delay: 0s !important;
+        }
       }
 
       * {
@@ -1235,18 +1243,23 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
+      .stagger-1 {
+        transition-delay: 0.05s;
       }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
+      .stagger-2 {
+        transition-delay: 0.1s;
+      }
+      .stagger-3 {
+        transition-delay: 0.15s;
+      }
+      .stagger-4 {
+        transition-delay: 0.2s;
+      }
+      .stagger-5 {
+        transition-delay: 0.25s;
+      }
+      .stagger-6 {
+        transition-delay: 0.3s;
       }
     </style>
   </head>
@@ -1277,7 +1290,10 @@
       </header>
 
       <!-- Input Form -->
-      <div class="glass-card glass-card--accent form-section" id="inputSection">
+      <div
+        class="glass-card glass-card--accent form-section reveal-on-scroll"
+        id="inputSection"
+      >
         <h2>
           <span class="icon" aria-hidden="true">
             <svg
@@ -1402,30 +1418,30 @@
         aria-label="Analysis Results"
       >
         <!-- Skeleton Loading -->
-        <div class="results-skeleton">
-          <div class="glass-card result-block">
+        <div class="results-skeleton reveal-on-scroll">
+          <div class="glass-card result-block reveal-on-scroll">
             <div class="skeleton skeleton-line skeleton-line--short"></div>
             <div class="skeleton skeleton-block"></div>
           </div>
-          <div class="glass-card result-block">
+          <div class="glass-card result-block reveal-on-scroll">
             <div class="skeleton skeleton-line skeleton-line--short"></div>
             <div class="skeleton skeleton-block"></div>
             <div class="skeleton skeleton-line skeleton-line--long"></div>
             <div class="skeleton skeleton-line skeleton-line--medium"></div>
           </div>
-          <div class="glass-card result-block">
+          <div class="glass-card result-block reveal-on-scroll">
             <div class="skeleton skeleton-line skeleton-line--short"></div>
             <div class="skeleton skeleton-block"></div>
           </div>
         </div>
 
         <!-- Actual Results Content -->
-        <div class="results-content" id="resultsContent">
+        <div class="results-content reveal-on-scroll" id="resultsContent">
           <!-- Analysis Meta -->
-          <div class="analysis-meta" id="analysisMeta"></div>
+          <div class="analysis-meta reveal-on-scroll" id="analysisMeta"></div>
 
           <!-- Download Bar -->
-          <div class="download-bar" id="downloadBar">
+          <div class="download-bar reveal-on-scroll" id="downloadBar">
             <button
               class="btn-download btn-download--excel"
               id="downloadExcel"
@@ -1475,37 +1491,55 @@
           </div>
 
           <!-- Company Profile -->
-          <div class="glass-card result-block" id="profileCard">
+          <div
+            class="glass-card result-block reveal-on-scroll stagger-1"
+            id="profileCard"
+          >
             <h3 class="section-title">Company Profile</h3>
             <div id="profileContent"></div>
           </div>
 
           <!-- Competitor Comparison Table -->
-          <div class="glass-card result-block" id="comparisonCard">
+          <div
+            class="glass-card result-block reveal-on-scroll stagger-2"
+            id="comparisonCard"
+          >
             <h3 class="section-title">Competitor Comparison</h3>
             <div class="comparison-table-wrapper" id="comparisonContent"></div>
           </div>
 
           <!-- Hiring Activity -->
-          <div class="glass-card result-block" id="hiringCard">
+          <div
+            class="glass-card result-block reveal-on-scroll stagger-3"
+            id="hiringCard"
+          >
             <h3 class="section-title" id="hiringTitle">Hiring Activity</h3>
             <div id="hiringContent"></div>
           </div>
 
           <!-- Ad Benchmarks -->
-          <div class="glass-card result-block" id="benchmarkCard">
+          <div
+            class="glass-card result-block reveal-on-scroll stagger-4"
+            id="benchmarkCard"
+          >
             <h3 class="section-title">Ad Platform Benchmarks</h3>
             <div class="comparison-table-wrapper" id="benchmarkContent"></div>
           </div>
 
           <!-- Market Trends -->
-          <div class="glass-card result-block" id="trendsCard">
+          <div
+            class="glass-card result-block reveal-on-scroll stagger-5"
+            id="trendsCard"
+          >
             <h3 class="section-title">Market Trends (Search Interest)</h3>
             <div id="trendsContent"></div>
           </div>
 
           <!-- Recommendations -->
-          <div class="glass-card result-block" id="recsCard">
+          <div
+            class="glass-card result-block reveal-on-scroll stagger-6"
+            id="recsCard"
+          >
             <h3 class="section-title">Strategic Recommendations</h3>
             <div class="recs-grid" id="recsContent"></div>
           </div>
@@ -1513,7 +1547,7 @@
       </section>
 
       <!-- Footer -->
-      <footer class="page-footer">
+      <footer class="page-footer reveal-on-scroll">
         Powered by
         <a href="https://media-plan-generator.onrender.com/">Nova AI</a>
         &middot;

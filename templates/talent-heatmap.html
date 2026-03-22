@@ -720,19 +720,6 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
-      }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
-      }
     </style>
   </head>
   <body>
@@ -765,7 +752,7 @@
       <div class="error-banner" id="errorBanner"></div>
 
       <!-- ═══ Input Form ═══ -->
-      <section class="glass-card glass-card--accent">
+      <section class="glass-card glass-card--accent reveal-on-scroll">
         <h2><span class="icon">&#127758;</span> Configure Analysis</h2>
         <div class="form-grid">
           <div class="form-group">
@@ -885,11 +872,11 @@
       </section>
 
       <!-- ═══ Results ═══ -->
-      <section class="results-section" id="resultsSection">
-        <div class="analysis-meta" id="analysisMeta"></div>
+      <section class="results-section reveal-on-scroll" id="resultsSection">
+        <div class="analysis-meta reveal-on-scroll" id="analysisMeta"></div>
 
         <!-- Heat Map Visualization -->
-        <div class="glass-card">
+        <div class="glass-card reveal-on-scroll">
           <h2>
             <span class="icon">&#128293;</span> Hiring Difficulty Heat Map
           </h2>
@@ -907,7 +894,7 @@
         </div>
 
         <!-- Location Rankings -->
-        <div class="glass-card">
+        <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#127942;</span> Location Rankings</h2>
           <div class="table-wrap">
             <table class="rankings-table" id="rankingsTable">
@@ -928,7 +915,7 @@
         </div>
 
         <!-- Salary Comparison -->
-        <div class="glass-card">
+        <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#128176;</span> Salary Comparison</h2>
           <p
             style="
@@ -944,13 +931,16 @@
         </div>
 
         <!-- Location Comparison Cards -->
-        <div class="glass-card">
+        <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#128202;</span> Location Comparison</h2>
-          <div class="comparison-grid" id="comparisonGrid"></div>
+          <div
+            class="comparison-grid reveal-on-scroll"
+            id="comparisonGrid"
+          ></div>
         </div>
 
         <!-- Optimal Locations -->
-        <div class="glass-card">
+        <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#127775;</span> Optimal Hiring Locations</h2>
           <p
             style="
@@ -962,13 +952,13 @@
             Top recommended locations ranked across all 100+ US metros,
             combining talent availability, cost efficiency, and budget fit.
           </p>
-          <div class="optimal-grid" id="optimalGrid"></div>
+          <div class="optimal-grid reveal-on-scroll" id="optimalGrid"></div>
         </div>
 
         <!-- Downloads -->
-        <div class="glass-card">
+        <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#128229;</span> Download Reports</h2>
-          <div class="download-bar">
+          <div class="download-bar reveal-on-scroll">
             <button
               class="btn-download btn-download--excel"
               id="downloadExcel"

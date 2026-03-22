@@ -99,6 +99,14 @@
           animation-iteration-count: 1 !important;
           transition-duration: 0.01ms !important;
         }
+        .stagger-1,
+        .stagger-2,
+        .stagger-3,
+        .stagger-4,
+        .stagger-5,
+        .stagger-6 {
+          transition-delay: 0s !important;
+        }
       }
 
       * {
@@ -1337,18 +1345,23 @@
         opacity: 1;
         transform: translateY(0);
       }
-
-      /* -- Enhanced card/section glow -- */
-      .glow-hover {
-        transition:
-          box-shadow 0.4s ease,
-          border-color 0.3s ease;
+      .stagger-1 {
+        transition-delay: 0.05s;
       }
-      .glow-hover:hover {
-        box-shadow:
-          0 0 20px rgba(99, 102, 241, 0.12),
-          0 0 50px rgba(99, 102, 241, 0.06);
-        border-color: rgba(99, 102, 241, 0.2);
+      .stagger-2 {
+        transition-delay: 0.1s;
+      }
+      .stagger-3 {
+        transition-delay: 0.15s;
+      }
+      .stagger-4 {
+        transition-delay: 0.2s;
+      }
+      .stagger-5 {
+        transition-delay: 0.25s;
+      }
+      .stagger-6 {
+        transition-delay: 0.3s;
       }
     </style>
   </head>
@@ -1389,7 +1402,7 @@
 
       <!-- Upload / Input Section -->
       <section
-        class="upload-section glass-card"
+        class="upload-section glass-card reveal-on-scroll"
         aria-label="Upload hiring data"
       >
         <span class="section-label">Hiring Data</span>
@@ -1583,28 +1596,28 @@
         aria-label="Analysis results"
       >
         <!-- QoH Scorecard -->
-        <div class="scorecard" id="scorecard">
-          <div class="glass-card score-card">
+        <div class="scorecard reveal-on-scroll" id="scorecard">
+          <div class="glass-card score-card reveal-on-scroll stagger-1">
             <div class="score-card-label">QoH Grade</div>
             <div class="grade-display" id="overallGrade"></div>
             <div class="grade-label" id="gradeLabel"></div>
           </div>
-          <div class="glass-card score-card">
+          <div class="glass-card score-card reveal-on-scroll stagger-2">
             <div class="score-card-label">QoH Score</div>
             <div class="big-value" id="qohScore">--</div>
             <div class="grade-label">out of 100</div>
           </div>
-          <div class="glass-card score-card">
+          <div class="glass-card score-card reveal-on-scroll stagger-3">
             <div class="score-card-label">Total Hires</div>
             <div class="big-value" id="totalHires">--</div>
             <div class="grade-label" id="sourceCount">-- sources</div>
           </div>
-          <div class="glass-card score-card">
+          <div class="glass-card score-card reveal-on-scroll stagger-4">
             <div class="score-card-label">Quality Hire %</div>
             <div class="big-value" id="qualityPct">--</div>
             <div class="grade-label">QoH >= 60</div>
           </div>
-          <div class="glass-card score-card">
+          <div class="glass-card score-card reveal-on-scroll stagger-5">
             <div class="score-card-label">vs Industry</div>
             <div class="big-value" id="vsIndustry">--</div>
             <div class="grade-label" id="tierLabel">--</div>
@@ -1645,37 +1658,40 @@
         </div>
 
         <!-- Funnel Visualization -->
-        <div class="glass-card funnel-section" id="funnelSection">
+        <div
+          class="glass-card funnel-section reveal-on-scroll"
+          id="funnelSection"
+        >
           <span class="section-label">Conversion Funnel by Source</span>
           <div id="funnelContent"></div>
         </div>
 
         <!-- Retention Dashboard -->
-        <div class="glass-card" style="margin-bottom: 32px">
+        <div class="glass-card reveal-on-scroll" style="margin-bottom: 32px">
           <span class="section-label">Retention Dashboard</span>
-          <div class="retention-grid" id="retentionGrid"></div>
+          <div class="retention-grid reveal-on-scroll" id="retentionGrid"></div>
         </div>
 
         <!-- Cost Intelligence -->
-        <div class="glass-card" style="margin-bottom: 32px">
+        <div class="glass-card reveal-on-scroll" style="margin-bottom: 32px">
           <span class="section-label">Cost Intelligence -- CPH vs CPQH</span>
-          <div class="cost-grid" id="costGrid"></div>
+          <div class="cost-grid reveal-on-scroll" id="costGrid"></div>
         </div>
 
         <!-- Recommendations -->
-        <div class="glass-card" style="margin-bottom: 32px">
+        <div class="glass-card reveal-on-scroll" style="margin-bottom: 32px">
           <span class="section-label">Recommendations</span>
           <div class="rec-list" id="recList"></div>
         </div>
 
         <!-- Predictions -->
-        <div class="glass-card" style="margin-bottom: 32px">
+        <div class="glass-card reveal-on-scroll" style="margin-bottom: 32px">
           <span class="section-label">Next Quarter Predictions</span>
-          <div class="pred-grid" id="predGrid"></div>
+          <div class="pred-grid reveal-on-scroll" id="predGrid"></div>
         </div>
 
         <!-- Downloads -->
-        <div class="download-section" id="downloadSection">
+        <div class="download-section reveal-on-scroll" id="downloadSection">
           <button
             class="btn-download"
             id="downloadExcel"
