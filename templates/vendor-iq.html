@@ -1,0 +1,5842 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="VendorIQ - Compare recruitment advertising vendors and job boards on performance metrics. Decide where to allocate your TA budget."
+    />
+    <meta name="theme-color" content="#000000" />
+    <title>VendorIQ | Nova AI Suite</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><rect x='7' y='16' width='4' height='10' rx='1' fill='white' opacity='0.9'/><rect x='14' y='10' width='4' height='16' rx='1' fill='white'/><rect x='21' y='6' width='4' height='20' rx='1' fill='white' opacity='0.7'/></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ═══════════════════════════════════════════════════════════════════
+           DESIGN SYSTEM: Deep Obsidian + Electric Indigo
+           ═══════════════════════════════════════════════════════════════════ */
+      :root {
+        --bg-primary: #000000;
+        --bg-secondary: #111111;
+        --bg-card: rgba(17, 17, 17, 0.8);
+        --bg-card-hover: rgba(26, 26, 26, 0.9);
+        --bg-input: rgba(26, 26, 26, 0.6);
+        --accent: #6366f1;
+        --accent-light: #818cf8;
+        --accent-dim: rgba(99, 102, 241, 0.3);
+        --accent-glow: rgba(99, 102, 241, 0.15);
+        --text-primary: #d4d4d8;
+        --text-secondary: #a1a1a1;
+        --text-muted: #666666;
+        --text-bright: #d4d4d8;
+        --green: #22c55e;
+        --green-bg: rgba(34, 197, 94, 0.1);
+        --green-border: rgba(34, 197, 94, 0.3);
+        --red: #ef4444;
+        --red-bg: rgba(239, 68, 68, 0.1);
+        --red-border: rgba(239, 68, 68, 0.3);
+        --amber: #f59e0b;
+        --amber-bg: rgba(245, 158, 11, 0.1);
+        --amber-border: rgba(245, 158, 11, 0.3);
+        --border: rgba(255, 255, 255, 0.08);
+        --border-strong: rgba(255, 255, 255, 0.16);
+        --blur: 20px;
+        --radius: 12px;
+        --radius-sm: 8px;
+        --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.1);
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      /* Background gradient mesh */
+      body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background:
+          radial-gradient(
+            ellipse 600px 400px at 20% 10%,
+            rgba(99, 102, 241, 0.06),
+            transparent
+          ),
+          radial-gradient(
+            ellipse 500px 300px at 80% 80%,
+            rgba(99, 102, 241, 0.04),
+            transparent
+          );
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      /* ── Typography ── */
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+      h2 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      h3 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-secondary);
+      }
+
+      /* ── Layout ── */
+      .app-header {
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.95);
+        backdrop-filter: blur(var(--blur));
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .header-left .logo {
+        width: 32px;
+        height: 32px;
+        background: var(--accent);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+      }
+
+      .header-right a {
+        color: var(--accent-light);
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        opacity: 0.8;
+        transition: var(--transition);
+      }
+      .header-right a:hover {
+        opacity: 1;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* ── Cards ── */
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        backdrop-filter: blur(var(--blur));
+        padding: 16px;
+        transition: var(--transition);
+      }
+      .card:hover {
+        border-color: var(--border-strong);
+        box-shadow: var(--shadow-glow);
+      }
+
+      /* ── Hero ── */
+      .hero {
+        text-align: center;
+        padding: 48px 0 32px;
+      }
+      .hero-icon {
+        font-size: 2.5rem;
+        margin-bottom: 12px;
+      }
+      .hero h1 {
+        font-size: 2rem;
+        margin-bottom: 8px;
+      }
+      .hero p {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        max-width: 560px;
+        margin: 0 auto;
+      }
+
+      /* ── Filters Row ── */
+      .filters-row {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+      }
+      .filter-group {
+        flex: 1;
+        min-width: 200px;
+      }
+      .filter-group label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .form-input {
+        width: 100%;
+        padding: 10px 12px;
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        outline: none;
+      }
+      .form-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+      }
+      select.form-input {
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 30px;
+      }
+
+      /* ── Section Title ── */
+      .section-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-secondary);
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      /* ── Vendor Grid ── */
+      .vendor-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 10px;
+        margin-bottom: 24px;
+      }
+
+      .vendor-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 12px;
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        user-select: none;
+        position: relative;
+      }
+      .vendor-card:hover {
+        border-color: var(--border-strong);
+        background: var(--bg-card-hover);
+      }
+      .vendor-card.selected {
+        border-color: var(--accent);
+        background: var(--accent-glow);
+        box-shadow: 0 0 16px var(--accent-dim);
+      }
+      .vendor-card .vendor-emoji {
+        font-size: 1.4rem;
+        flex-shrink: 0;
+      }
+      .vendor-card .vendor-info {
+        min-width: 0;
+      }
+      .vendor-card .vendor-name {
+        font-size: 0.8rem;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .vendor-card .vendor-cat {
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .vendor-card .check-indicator {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 2px solid var(--border-strong);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.6rem;
+        transition: var(--transition);
+      }
+      .vendor-card.selected .check-indicator {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+
+      .selection-count {
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-bottom: 16px;
+      }
+      .selection-count .count {
+        color: var(--accent-light);
+        font-weight: 700;
+      }
+      .selection-count.warning {
+        color: var(--amber);
+      }
+
+      /* ── Buttons ── */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 12px 24px;
+        font-family: inherit;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border-radius: var(--radius-sm);
+        border: none;
+        cursor: pointer;
+        transition: var(--transition);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: white;
+      }
+      .btn-primary:hover {
+        background: var(--accent-light);
+        box-shadow: 0 0 20px var(--accent-dim);
+      }
+      .btn-primary:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .btn-block {
+        width: 100%;
+      }
+      .btn-reset {
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+        padding: 10px 20px;
+        font-size: 0.8rem;
+      }
+      .btn-reset:hover {
+        border-color: var(--border-strong);
+        color: var(--text-primary);
+      }
+
+      .compare-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-bottom: 32px;
+      }
+
+      /* ── Results Panel ── */
+      .results-panel {
+        display: none;
+      }
+      .results-panel.active {
+        display: block;
+      }
+
+      /* ── Comparison Table ── */
+      .table-wrapper {
+        overflow-x: auto;
+        margin-bottom: 32px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+      }
+      .comparison-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+      }
+      .comparison-table th {
+        background: rgba(99, 102, 241, 0.08);
+        padding: 12px 16px;
+        text-align: left;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      .comparison-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+      }
+      .comparison-table tr:last-child td {
+        border-bottom: none;
+      }
+      .comparison-table tr:hover td {
+        background: rgba(99, 102, 241, 0.04);
+      }
+      .vendor-cell {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+      }
+      .vendor-cell .emoji {
+        font-size: 1.2rem;
+      }
+      .vendor-cell .name {
+        font-weight: 600;
+      }
+      .winner-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--green-bg);
+        color: var(--green);
+        border: 1px solid var(--green-border);
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-left: 8px;
+      }
+      .metric-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .metric-bar-track {
+        flex: 1;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 3px;
+        overflow: hidden;
+        min-width: 60px;
+      }
+      .metric-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        background: var(--accent);
+        transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .metric-bar-fill.green {
+        background: var(--green);
+      }
+      .metric-bar-fill.amber {
+        background: var(--amber);
+      }
+      .metric-bar-fill.red {
+        background: var(--red);
+      }
+
+      .best-for-tag {
+        display: inline-block;
+        background: var(--accent-glow);
+        color: var(--accent-light);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.72rem;
+        font-weight: 500;
+      }
+
+      /* ── Radar Chart (CSS-only) ── */
+      .radar-section {
+        margin-bottom: 32px;
+      }
+      .radar-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+      }
+      .radar-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        text-align: center;
+      }
+      .radar-card h4 {
+        font-size: 0.9rem;
+        font-weight: 700;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      }
+      .radar-chart {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .radar-dim {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .radar-dim .dim-label {
+        font-size: 0.7rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        width: 70px;
+        text-align: right;
+        flex-shrink: 0;
+      }
+      .radar-dim .dim-bar {
+        flex: 1;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .radar-dim .dim-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .radar-dim .dim-val {
+        font-size: 0.72rem;
+        font-weight: 700;
+        width: 28px;
+        text-align: left;
+        flex-shrink: 0;
+      }
+
+      /* ── Budget Allocation ── */
+      .allocation-section {
+        margin-bottom: 32px;
+      }
+      .allocation-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+      }
+      .allocation-card h4 {
+        font-size: 0.9rem;
+        font-weight: 700;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .allocation-bars {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .alloc-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .alloc-row .alloc-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        width: 140px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .alloc-row .alloc-bar-track {
+        flex: 1;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 6px;
+        overflow: hidden;
+        position: relative;
+      }
+      .alloc-row .alloc-bar-fill {
+        height: 100%;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 8px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: white;
+        transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        min-width: 40px;
+      }
+      .alloc-row .alloc-pct {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--accent-light);
+        width: 50px;
+        text-align: right;
+        flex-shrink: 0;
+      }
+
+      .alloc-summary {
+        margin-top: 20px;
+        padding: 16px;
+        background: var(--accent-glow);
+        border: 1px solid var(--accent-dim);
+        border-radius: var(--radius-sm);
+        font-size: 0.85rem;
+        line-height: 1.6;
+        color: var(--text-primary);
+      }
+      .alloc-summary strong {
+        color: var(--accent-light);
+      }
+
+      /* ── Composite Score ── */
+      .composite-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 6px;
+      }
+      .composite-badge.tier-s {
+        background: var(--green-bg);
+        color: var(--green);
+        border: 1px solid var(--green-border);
+      }
+      .composite-badge.tier-a {
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--accent-light);
+        border: 1px solid var(--accent-dim);
+      }
+      .composite-badge.tier-b {
+        background: var(--amber-bg);
+        color: var(--amber);
+        border: 1px solid var(--amber-border);
+      }
+      .composite-badge.tier-c {
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+      }
+
+      /* ── Responsive ── */
+      @media (max-width: 768px) {
+        .container {
+          padding: 16px;
+        }
+        .vendor-grid {
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 8px;
+        }
+        .hero h1 {
+          font-size: 1.5rem;
+        }
+        .radar-grid {
+          grid-template-columns: 1fr;
+        }
+        .filters-row {
+          flex-direction: column;
+        }
+        .alloc-row .alloc-label {
+          width: 100px;
+          font-size: 0.72rem;
+        }
+      }
+
+      /* ── Reduced motion ── */
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
+          filter: none;
+        }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
+      :focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+      }
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+      }
+
+      /* -- Scroll reveal animations -- */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        filter: hue-rotate(40deg) saturate(0.5) brightness(0.8);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          filter 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+        filter: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ═══ HEADER ═══ -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo">
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <rect x="3" y="12" width="4" height="9" rx="1" />
+            <rect x="10" y="7" width="4" height="14" rx="1" />
+            <rect x="17" y="3" width="4" height="18" rx="1" />
+          </svg>
+        </div>
+        <h1>VendorIQ</h1>
+      </div>
+      <div class="header-right">
+        <a href="/hub">← Nova AI Suite</a>
+      </div>
+    </header>
+
+    <div class="container">
+      <!-- ═══ HERO ═══ -->
+      <section class="hero reveal-on-scroll">
+        <div class="hero-icon">
+          <svg
+            width="40"
+            height="40"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#818cf8"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <rect x="3" y="12" width="4" height="9" rx="1" />
+            <rect x="10" y="7" width="4" height="14" rx="1" />
+            <rect x="17" y="3" width="4" height="18" rx="1" />
+          </svg>
+        </div>
+        <h1>VendorIQ</h1>
+        <p>
+          Compare recruitment advertising vendors on real performance metrics.
+          Select 2-6 vendors to see head-to-head CPC, CPA, quality scores, and
+          get a smart budget allocation recommendation.
+        </p>
+      </section>
+
+      <!-- ═══ FILTERS ═══ -->
+      <section class="reveal-on-scroll">
+        <div class="filters-row">
+          <div class="filter-group">
+            <label for="industrySelect">Industry</label>
+            <select class="form-input" id="industrySelect">
+              <option value="general">General / All Industries</option>
+              <option value="tech">Technology</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="finance">Finance</option>
+              <option value="retail">Retail</option>
+              <option value="manufacturing">Manufacturing</option>
+              <option value="logistics">Logistics</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="roleSelect">Role Type</label>
+            <select class="form-input" id="roleSelect">
+              <option value="white_collar">White Collar</option>
+              <option value="blue_collar">Blue Collar</option>
+              <option value="executive">Executive</option>
+              <option value="hourly">Hourly</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ VENDOR SELECTION ═══ -->
+      <section class="reveal-on-scroll">
+        <div class="section-title">Major Job Boards</div>
+        <div class="vendor-grid" id="grid-major"></div>
+
+        <div class="section-title">Programmatic Platforms</div>
+        <div class="vendor-grid" id="grid-programmatic"></div>
+
+        <div class="section-title">Social Media</div>
+        <div class="vendor-grid" id="grid-social"></div>
+
+        <div class="section-title">Niche / Specialty</div>
+        <div class="vendor-grid" id="grid-niche"></div>
+
+        <div class="section-title">Search Engines</div>
+        <div class="vendor-grid" id="grid-search"></div>
+      </section>
+
+      <div class="selection-count reveal-on-scroll" id="selectionCount">
+        Select <span class="count">2-6</span> vendors to compare
+      </div>
+
+      <div class="compare-actions reveal-on-scroll">
+        <button
+          class="btn btn-primary"
+          id="btnCompare"
+          disabled
+          aria-label="Compare selected vendors"
+        >
+          Compare Vendors
+        </button>
+        <button
+          class="btn btn-reset"
+          id="btnReset"
+          aria-label="Reset selection"
+        >
+          Reset
+        </button>
+      </div>
+
+      <!-- ═══ RESULTS ═══ -->
+      <div class="results-panel" id="resultsPanel">
+        <!-- Comparison Table -->
+        <section class="reveal-on-scroll">
+          <div class="section-title">Performance Comparison</div>
+          <div class="table-wrapper">
+            <table class="comparison-table" id="comparisonTable">
+              <thead>
+                <tr>
+                  <th>Vendor</th>
+                  <th>Avg CPC</th>
+                  <th>Avg CPA</th>
+                  <th>Apply Rate</th>
+                  <th>Quality Score</th>
+                  <th>Monthly Reach</th>
+                  <th>Best For</th>
+                  <th>Overall</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Radar Charts -->
+        <section class="radar-section reveal-on-scroll">
+          <div class="section-title">Strength Profiles</div>
+          <div class="radar-grid" id="radarGrid"></div>
+        </section>
+
+        <!-- Budget Allocation -->
+        <section class="allocation-section reveal-on-scroll">
+          <div class="section-title">Budget Allocation Recommendation</div>
+          <div class="allocation-card">
+            <h4>💡 Recommended Split</h4>
+            <div class="allocation-bars" id="allocBars"></div>
+            <div class="alloc-summary" id="allocSummary"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        // ═══════════════════════════════════════════════════════════════════
+        // VENDOR DATABASE - Benchmark data by industry + role type
+        // ═══════════════════════════════════════════════════════════════════
+        var VENDOR_DATABASE = {
+          indeed: {
+            name: "Indeed",
+            logo: "🔵",
+            category: "major",
+            bestFor: "High-volume hourly & entry-level hiring",
+            strengths: {
+              reach: 95,
+              cost: 65,
+              quality: 60,
+              speed: 90,
+              targeting: 55,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.45,
+                  cpa: 28,
+                  applyRate: 8.2,
+                  qualityScore: 68,
+                  monthlyReach: 250000000,
+                },
+                blue_collar: {
+                  cpc: 0.3,
+                  cpa: 18,
+                  applyRate: 12.5,
+                  qualityScore: 62,
+                  monthlyReach: 250000000,
+                },
+                executive: {
+                  cpc: 1.2,
+                  cpa: 85,
+                  applyRate: 3.1,
+                  qualityScore: 55,
+                  monthlyReach: 250000000,
+                },
+                hourly: {
+                  cpc: 0.22,
+                  cpa: 14,
+                  applyRate: 15.0,
+                  qualityScore: 58,
+                  monthlyReach: 250000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.65,
+                  cpa: 42,
+                  applyRate: 6.8,
+                  qualityScore: 62,
+                  monthlyReach: 250000000,
+                },
+                blue_collar: {
+                  cpc: 0.35,
+                  cpa: 20,
+                  applyRate: 11.0,
+                  qualityScore: 60,
+                  monthlyReach: 250000000,
+                },
+                executive: {
+                  cpc: 1.5,
+                  cpa: 95,
+                  applyRate: 2.8,
+                  qualityScore: 52,
+                  monthlyReach: 250000000,
+                },
+                hourly: {
+                  cpc: 0.28,
+                  cpa: 16,
+                  applyRate: 13.5,
+                  qualityScore: 56,
+                  monthlyReach: 250000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.55,
+                  cpa: 35,
+                  applyRate: 7.5,
+                  qualityScore: 66,
+                  monthlyReach: 250000000,
+                },
+                blue_collar: {
+                  cpc: 0.32,
+                  cpa: 19,
+                  applyRate: 11.8,
+                  qualityScore: 64,
+                  monthlyReach: 250000000,
+                },
+                executive: {
+                  cpc: 1.3,
+                  cpa: 88,
+                  applyRate: 3.0,
+                  qualityScore: 54,
+                  monthlyReach: 250000000,
+                },
+                hourly: {
+                  cpc: 0.25,
+                  cpa: 15,
+                  applyRate: 14.2,
+                  qualityScore: 60,
+                  monthlyReach: 250000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.7,
+                  cpa: 45,
+                  applyRate: 6.2,
+                  qualityScore: 64,
+                  monthlyReach: 250000000,
+                },
+                blue_collar: {
+                  cpc: 0.38,
+                  cpa: 22,
+                  applyRate: 10.5,
+                  qualityScore: 58,
+                  monthlyReach: 250000000,
+                },
+                executive: {
+                  cpc: 1.6,
+                  cpa: 100,
+                  applyRate: 2.5,
+                  qualityScore: 56,
+                  monthlyReach: 250000000,
+                },
+                hourly: {
+                  cpc: 0.3,
+                  cpa: 17,
+                  applyRate: 13.0,
+                  qualityScore: 55,
+                  monthlyReach: 250000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.4,
+                  cpa: 24,
+                  applyRate: 9.0,
+                  qualityScore: 65,
+                  monthlyReach: 250000000,
+                },
+                blue_collar: {
+                  cpc: 0.25,
+                  cpa: 15,
+                  applyRate: 13.5,
+                  qualityScore: 63,
+                  monthlyReach: 250000000,
+                },
+                executive: {
+                  cpc: 1.1,
+                  cpa: 78,
+                  applyRate: 3.4,
+                  qualityScore: 54,
+                  monthlyReach: 250000000,
+                },
+                hourly: {
+                  cpc: 0.18,
+                  cpa: 12,
+                  applyRate: 16.0,
+                  qualityScore: 60,
+                  monthlyReach: 250000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.48,
+                  cpa: 30,
+                  applyRate: 7.8,
+                  qualityScore: 66,
+                  monthlyReach: 250000000,
+                },
+                blue_collar: {
+                  cpc: 0.28,
+                  cpa: 16,
+                  applyRate: 12.8,
+                  qualityScore: 65,
+                  monthlyReach: 250000000,
+                },
+                executive: {
+                  cpc: 1.25,
+                  cpa: 82,
+                  applyRate: 3.2,
+                  qualityScore: 53,
+                  monthlyReach: 250000000,
+                },
+                hourly: {
+                  cpc: 0.2,
+                  cpa: 13,
+                  applyRate: 15.5,
+                  qualityScore: 62,
+                  monthlyReach: 250000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.42,
+                  cpa: 26,
+                  applyRate: 8.5,
+                  qualityScore: 64,
+                  monthlyReach: 250000000,
+                },
+                blue_collar: {
+                  cpc: 0.26,
+                  cpa: 15,
+                  applyRate: 13.2,
+                  qualityScore: 66,
+                  monthlyReach: 250000000,
+                },
+                executive: {
+                  cpc: 1.15,
+                  cpa: 80,
+                  applyRate: 3.3,
+                  qualityScore: 52,
+                  monthlyReach: 250000000,
+                },
+                hourly: {
+                  cpc: 0.19,
+                  cpa: 12,
+                  applyRate: 15.8,
+                  qualityScore: 63,
+                  monthlyReach: 250000000,
+                },
+              },
+            },
+          },
+          linkedin: {
+            name: "LinkedIn",
+            logo: "🟦",
+            category: "major",
+            bestFor: "Professional & executive recruiting",
+            strengths: {
+              reach: 80,
+              cost: 35,
+              quality: 92,
+              speed: 60,
+              targeting: 95,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 1.8,
+                  cpa: 65,
+                  applyRate: 4.5,
+                  qualityScore: 88,
+                  monthlyReach: 67000000,
+                },
+                blue_collar: {
+                  cpc: 1.2,
+                  cpa: 55,
+                  applyRate: 3.8,
+                  qualityScore: 60,
+                  monthlyReach: 67000000,
+                },
+                executive: {
+                  cpc: 3.5,
+                  cpa: 120,
+                  applyRate: 5.2,
+                  qualityScore: 92,
+                  monthlyReach: 67000000,
+                },
+                hourly: {
+                  cpc: 1.5,
+                  cpa: 70,
+                  applyRate: 2.5,
+                  qualityScore: 52,
+                  monthlyReach: 67000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 2.2,
+                  cpa: 72,
+                  applyRate: 5.0,
+                  qualityScore: 90,
+                  monthlyReach: 67000000,
+                },
+                blue_collar: {
+                  cpc: 1.4,
+                  cpa: 60,
+                  applyRate: 3.5,
+                  qualityScore: 58,
+                  monthlyReach: 67000000,
+                },
+                executive: {
+                  cpc: 4.0,
+                  cpa: 130,
+                  applyRate: 5.5,
+                  qualityScore: 94,
+                  monthlyReach: 67000000,
+                },
+                hourly: {
+                  cpc: 1.8,
+                  cpa: 78,
+                  applyRate: 2.2,
+                  qualityScore: 50,
+                  monthlyReach: 67000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 1.9,
+                  cpa: 68,
+                  applyRate: 4.2,
+                  qualityScore: 86,
+                  monthlyReach: 67000000,
+                },
+                blue_collar: {
+                  cpc: 1.3,
+                  cpa: 58,
+                  applyRate: 3.6,
+                  qualityScore: 55,
+                  monthlyReach: 67000000,
+                },
+                executive: {
+                  cpc: 3.8,
+                  cpa: 125,
+                  applyRate: 5.0,
+                  qualityScore: 91,
+                  monthlyReach: 67000000,
+                },
+                hourly: {
+                  cpc: 1.6,
+                  cpa: 72,
+                  applyRate: 2.4,
+                  qualityScore: 48,
+                  monthlyReach: 67000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 2.4,
+                  cpa: 78,
+                  applyRate: 4.8,
+                  qualityScore: 91,
+                  monthlyReach: 67000000,
+                },
+                blue_collar: {
+                  cpc: 1.5,
+                  cpa: 62,
+                  applyRate: 3.4,
+                  qualityScore: 56,
+                  monthlyReach: 67000000,
+                },
+                executive: {
+                  cpc: 4.5,
+                  cpa: 140,
+                  applyRate: 5.8,
+                  qualityScore: 95,
+                  monthlyReach: 67000000,
+                },
+                hourly: {
+                  cpc: 1.9,
+                  cpa: 80,
+                  applyRate: 2.0,
+                  qualityScore: 48,
+                  monthlyReach: 67000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 1.6,
+                  cpa: 60,
+                  applyRate: 4.0,
+                  qualityScore: 82,
+                  monthlyReach: 67000000,
+                },
+                blue_collar: {
+                  cpc: 1.1,
+                  cpa: 52,
+                  applyRate: 3.2,
+                  qualityScore: 52,
+                  monthlyReach: 67000000,
+                },
+                executive: {
+                  cpc: 3.2,
+                  cpa: 110,
+                  applyRate: 4.8,
+                  qualityScore: 88,
+                  monthlyReach: 67000000,
+                },
+                hourly: {
+                  cpc: 1.4,
+                  cpa: 65,
+                  applyRate: 2.1,
+                  qualityScore: 45,
+                  monthlyReach: 67000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 1.7,
+                  cpa: 62,
+                  applyRate: 4.3,
+                  qualityScore: 84,
+                  monthlyReach: 67000000,
+                },
+                blue_collar: {
+                  cpc: 1.15,
+                  cpa: 54,
+                  applyRate: 3.5,
+                  qualityScore: 54,
+                  monthlyReach: 67000000,
+                },
+                executive: {
+                  cpc: 3.4,
+                  cpa: 115,
+                  applyRate: 5.0,
+                  qualityScore: 90,
+                  monthlyReach: 67000000,
+                },
+                hourly: {
+                  cpc: 1.45,
+                  cpa: 68,
+                  applyRate: 2.3,
+                  qualityScore: 46,
+                  monthlyReach: 67000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 1.65,
+                  cpa: 61,
+                  applyRate: 4.1,
+                  qualityScore: 83,
+                  monthlyReach: 67000000,
+                },
+                blue_collar: {
+                  cpc: 1.1,
+                  cpa: 50,
+                  applyRate: 3.8,
+                  qualityScore: 56,
+                  monthlyReach: 67000000,
+                },
+                executive: {
+                  cpc: 3.3,
+                  cpa: 112,
+                  applyRate: 4.9,
+                  qualityScore: 89,
+                  monthlyReach: 67000000,
+                },
+                hourly: {
+                  cpc: 1.42,
+                  cpa: 66,
+                  applyRate: 2.2,
+                  qualityScore: 47,
+                  monthlyReach: 67000000,
+                },
+              },
+            },
+          },
+          ziprecruiter: {
+            name: "ZipRecruiter",
+            logo: "🟢",
+            category: "major",
+            bestFor: "SMB hiring with AI matching",
+            strengths: {
+              reach: 70,
+              cost: 60,
+              quality: 72,
+              speed: 85,
+              targeting: 78,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.55,
+                  cpa: 32,
+                  applyRate: 7.8,
+                  qualityScore: 72,
+                  monthlyReach: 30000000,
+                },
+                blue_collar: {
+                  cpc: 0.35,
+                  cpa: 20,
+                  applyRate: 11.0,
+                  qualityScore: 68,
+                  monthlyReach: 30000000,
+                },
+                executive: {
+                  cpc: 1.4,
+                  cpa: 90,
+                  applyRate: 3.5,
+                  qualityScore: 62,
+                  monthlyReach: 30000000,
+                },
+                hourly: {
+                  cpc: 0.28,
+                  cpa: 16,
+                  applyRate: 13.0,
+                  qualityScore: 64,
+                  monthlyReach: 30000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.72,
+                  cpa: 40,
+                  applyRate: 6.5,
+                  qualityScore: 68,
+                  monthlyReach: 30000000,
+                },
+                blue_collar: {
+                  cpc: 0.4,
+                  cpa: 22,
+                  applyRate: 10.2,
+                  qualityScore: 65,
+                  monthlyReach: 30000000,
+                },
+                executive: {
+                  cpc: 1.6,
+                  cpa: 98,
+                  applyRate: 3.0,
+                  qualityScore: 58,
+                  monthlyReach: 30000000,
+                },
+                hourly: {
+                  cpc: 0.32,
+                  cpa: 18,
+                  applyRate: 12.0,
+                  qualityScore: 60,
+                  monthlyReach: 30000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.6,
+                  cpa: 35,
+                  applyRate: 7.2,
+                  qualityScore: 70,
+                  monthlyReach: 30000000,
+                },
+                blue_collar: {
+                  cpc: 0.38,
+                  cpa: 21,
+                  applyRate: 10.8,
+                  qualityScore: 67,
+                  monthlyReach: 30000000,
+                },
+                executive: {
+                  cpc: 1.45,
+                  cpa: 92,
+                  applyRate: 3.3,
+                  qualityScore: 60,
+                  monthlyReach: 30000000,
+                },
+                hourly: {
+                  cpc: 0.3,
+                  cpa: 17,
+                  applyRate: 12.5,
+                  qualityScore: 62,
+                  monthlyReach: 30000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.75,
+                  cpa: 42,
+                  applyRate: 6.0,
+                  qualityScore: 70,
+                  monthlyReach: 30000000,
+                },
+                blue_collar: {
+                  cpc: 0.42,
+                  cpa: 24,
+                  applyRate: 9.8,
+                  qualityScore: 62,
+                  monthlyReach: 30000000,
+                },
+                executive: {
+                  cpc: 1.7,
+                  cpa: 102,
+                  applyRate: 2.8,
+                  qualityScore: 58,
+                  monthlyReach: 30000000,
+                },
+                hourly: {
+                  cpc: 0.35,
+                  cpa: 19,
+                  applyRate: 11.5,
+                  qualityScore: 58,
+                  monthlyReach: 30000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.48,
+                  cpa: 28,
+                  applyRate: 8.5,
+                  qualityScore: 72,
+                  monthlyReach: 30000000,
+                },
+                blue_collar: {
+                  cpc: 0.3,
+                  cpa: 18,
+                  applyRate: 12.0,
+                  qualityScore: 70,
+                  monthlyReach: 30000000,
+                },
+                executive: {
+                  cpc: 1.3,
+                  cpa: 85,
+                  applyRate: 3.6,
+                  qualityScore: 60,
+                  monthlyReach: 30000000,
+                },
+                hourly: {
+                  cpc: 0.24,
+                  cpa: 14,
+                  applyRate: 14.0,
+                  qualityScore: 66,
+                  monthlyReach: 30000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.52,
+                  cpa: 30,
+                  applyRate: 7.5,
+                  qualityScore: 71,
+                  monthlyReach: 30000000,
+                },
+                blue_collar: {
+                  cpc: 0.33,
+                  cpa: 19,
+                  applyRate: 11.5,
+                  qualityScore: 69,
+                  monthlyReach: 30000000,
+                },
+                executive: {
+                  cpc: 1.35,
+                  cpa: 88,
+                  applyRate: 3.4,
+                  qualityScore: 60,
+                  monthlyReach: 30000000,
+                },
+                hourly: {
+                  cpc: 0.26,
+                  cpa: 15,
+                  applyRate: 13.5,
+                  qualityScore: 65,
+                  monthlyReach: 30000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.5,
+                  cpa: 29,
+                  applyRate: 7.6,
+                  qualityScore: 70,
+                  monthlyReach: 30000000,
+                },
+                blue_collar: {
+                  cpc: 0.32,
+                  cpa: 18,
+                  applyRate: 11.8,
+                  qualityScore: 70,
+                  monthlyReach: 30000000,
+                },
+                executive: {
+                  cpc: 1.32,
+                  cpa: 86,
+                  applyRate: 3.5,
+                  qualityScore: 59,
+                  monthlyReach: 30000000,
+                },
+                hourly: {
+                  cpc: 0.25,
+                  cpa: 14,
+                  applyRate: 13.8,
+                  qualityScore: 66,
+                  monthlyReach: 30000000,
+                },
+              },
+            },
+          },
+          glassdoor: {
+            name: "Glassdoor",
+            logo: "🟩",
+            category: "major",
+            bestFor: "Employer branding + quality applicants",
+            strengths: {
+              reach: 55,
+              cost: 50,
+              quality: 82,
+              speed: 50,
+              targeting: 70,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.85,
+                  cpa: 45,
+                  applyRate: 5.8,
+                  qualityScore: 78,
+                  monthlyReach: 55000000,
+                },
+                blue_collar: {
+                  cpc: 0.6,
+                  cpa: 35,
+                  applyRate: 6.5,
+                  qualityScore: 62,
+                  monthlyReach: 55000000,
+                },
+                executive: {
+                  cpc: 2.0,
+                  cpa: 95,
+                  applyRate: 4.0,
+                  qualityScore: 80,
+                  monthlyReach: 55000000,
+                },
+                hourly: {
+                  cpc: 0.5,
+                  cpa: 30,
+                  applyRate: 7.2,
+                  qualityScore: 55,
+                  monthlyReach: 55000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 1.0,
+                  cpa: 50,
+                  applyRate: 5.5,
+                  qualityScore: 82,
+                  monthlyReach: 55000000,
+                },
+                blue_collar: {
+                  cpc: 0.68,
+                  cpa: 38,
+                  applyRate: 6.0,
+                  qualityScore: 60,
+                  monthlyReach: 55000000,
+                },
+                executive: {
+                  cpc: 2.3,
+                  cpa: 105,
+                  applyRate: 3.8,
+                  qualityScore: 82,
+                  monthlyReach: 55000000,
+                },
+                hourly: {
+                  cpc: 0.55,
+                  cpa: 32,
+                  applyRate: 6.8,
+                  qualityScore: 52,
+                  monthlyReach: 55000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.9,
+                  cpa: 48,
+                  applyRate: 5.5,
+                  qualityScore: 76,
+                  monthlyReach: 55000000,
+                },
+                blue_collar: {
+                  cpc: 0.62,
+                  cpa: 36,
+                  applyRate: 6.2,
+                  qualityScore: 60,
+                  monthlyReach: 55000000,
+                },
+                executive: {
+                  cpc: 2.1,
+                  cpa: 98,
+                  applyRate: 3.9,
+                  qualityScore: 78,
+                  monthlyReach: 55000000,
+                },
+                hourly: {
+                  cpc: 0.52,
+                  cpa: 31,
+                  applyRate: 7.0,
+                  qualityScore: 54,
+                  monthlyReach: 55000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 1.1,
+                  cpa: 55,
+                  applyRate: 5.2,
+                  qualityScore: 80,
+                  monthlyReach: 55000000,
+                },
+                blue_collar: {
+                  cpc: 0.72,
+                  cpa: 40,
+                  applyRate: 5.8,
+                  qualityScore: 58,
+                  monthlyReach: 55000000,
+                },
+                executive: {
+                  cpc: 2.5,
+                  cpa: 110,
+                  applyRate: 4.2,
+                  qualityScore: 84,
+                  monthlyReach: 55000000,
+                },
+                hourly: {
+                  cpc: 0.58,
+                  cpa: 34,
+                  applyRate: 6.5,
+                  qualityScore: 50,
+                  monthlyReach: 55000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.78,
+                  cpa: 42,
+                  applyRate: 6.0,
+                  qualityScore: 74,
+                  monthlyReach: 55000000,
+                },
+                blue_collar: {
+                  cpc: 0.55,
+                  cpa: 32,
+                  applyRate: 7.0,
+                  qualityScore: 62,
+                  monthlyReach: 55000000,
+                },
+                executive: {
+                  cpc: 1.85,
+                  cpa: 88,
+                  applyRate: 4.1,
+                  qualityScore: 76,
+                  monthlyReach: 55000000,
+                },
+                hourly: {
+                  cpc: 0.45,
+                  cpa: 28,
+                  applyRate: 7.5,
+                  qualityScore: 54,
+                  monthlyReach: 55000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.82,
+                  cpa: 44,
+                  applyRate: 5.6,
+                  qualityScore: 75,
+                  monthlyReach: 55000000,
+                },
+                blue_collar: {
+                  cpc: 0.58,
+                  cpa: 34,
+                  applyRate: 6.4,
+                  qualityScore: 63,
+                  monthlyReach: 55000000,
+                },
+                executive: {
+                  cpc: 1.95,
+                  cpa: 92,
+                  applyRate: 4.0,
+                  qualityScore: 78,
+                  monthlyReach: 55000000,
+                },
+                hourly: {
+                  cpc: 0.48,
+                  cpa: 29,
+                  applyRate: 7.3,
+                  qualityScore: 56,
+                  monthlyReach: 55000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.8,
+                  cpa: 43,
+                  applyRate: 5.7,
+                  qualityScore: 74,
+                  monthlyReach: 55000000,
+                },
+                blue_collar: {
+                  cpc: 0.56,
+                  cpa: 33,
+                  applyRate: 6.6,
+                  qualityScore: 64,
+                  monthlyReach: 55000000,
+                },
+                executive: {
+                  cpc: 1.9,
+                  cpa: 90,
+                  applyRate: 4.0,
+                  qualityScore: 77,
+                  monthlyReach: 55000000,
+                },
+                hourly: {
+                  cpc: 0.46,
+                  cpa: 28,
+                  applyRate: 7.4,
+                  qualityScore: 55,
+                  monthlyReach: 55000000,
+                },
+              },
+            },
+          },
+          monster: {
+            name: "Monster",
+            logo: "🟣",
+            category: "major",
+            bestFor: "Resume database mining + mid-market",
+            strengths: {
+              reach: 50,
+              cost: 55,
+              quality: 58,
+              speed: 65,
+              targeting: 52,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.5,
+                  cpa: 35,
+                  applyRate: 6.5,
+                  qualityScore: 58,
+                  monthlyReach: 20000000,
+                },
+                blue_collar: {
+                  cpc: 0.35,
+                  cpa: 22,
+                  applyRate: 9.0,
+                  qualityScore: 55,
+                  monthlyReach: 20000000,
+                },
+                executive: {
+                  cpc: 1.3,
+                  cpa: 88,
+                  applyRate: 2.8,
+                  qualityScore: 50,
+                  monthlyReach: 20000000,
+                },
+                hourly: {
+                  cpc: 0.28,
+                  cpa: 18,
+                  applyRate: 10.5,
+                  qualityScore: 52,
+                  monthlyReach: 20000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.62,
+                  cpa: 40,
+                  applyRate: 5.8,
+                  qualityScore: 54,
+                  monthlyReach: 20000000,
+                },
+                blue_collar: {
+                  cpc: 0.4,
+                  cpa: 25,
+                  applyRate: 8.2,
+                  qualityScore: 52,
+                  monthlyReach: 20000000,
+                },
+                executive: {
+                  cpc: 1.5,
+                  cpa: 95,
+                  applyRate: 2.5,
+                  qualityScore: 48,
+                  monthlyReach: 20000000,
+                },
+                hourly: {
+                  cpc: 0.32,
+                  cpa: 20,
+                  applyRate: 9.8,
+                  qualityScore: 50,
+                  monthlyReach: 20000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.55,
+                  cpa: 37,
+                  applyRate: 6.2,
+                  qualityScore: 56,
+                  monthlyReach: 20000000,
+                },
+                blue_collar: {
+                  cpc: 0.37,
+                  cpa: 23,
+                  applyRate: 8.8,
+                  qualityScore: 54,
+                  monthlyReach: 20000000,
+                },
+                executive: {
+                  cpc: 1.35,
+                  cpa: 90,
+                  applyRate: 2.7,
+                  qualityScore: 50,
+                  monthlyReach: 20000000,
+                },
+                hourly: {
+                  cpc: 0.3,
+                  cpa: 19,
+                  applyRate: 10.2,
+                  qualityScore: 52,
+                  monthlyReach: 20000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.65,
+                  cpa: 42,
+                  applyRate: 5.5,
+                  qualityScore: 56,
+                  monthlyReach: 20000000,
+                },
+                blue_collar: {
+                  cpc: 0.42,
+                  cpa: 26,
+                  applyRate: 8.0,
+                  qualityScore: 50,
+                  monthlyReach: 20000000,
+                },
+                executive: {
+                  cpc: 1.55,
+                  cpa: 98,
+                  applyRate: 2.4,
+                  qualityScore: 48,
+                  monthlyReach: 20000000,
+                },
+                hourly: {
+                  cpc: 0.34,
+                  cpa: 21,
+                  applyRate: 9.5,
+                  qualityScore: 48,
+                  monthlyReach: 20000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.45,
+                  cpa: 32,
+                  applyRate: 7.0,
+                  qualityScore: 58,
+                  monthlyReach: 20000000,
+                },
+                blue_collar: {
+                  cpc: 0.3,
+                  cpa: 20,
+                  applyRate: 9.5,
+                  qualityScore: 56,
+                  monthlyReach: 20000000,
+                },
+                executive: {
+                  cpc: 1.2,
+                  cpa: 82,
+                  applyRate: 3.0,
+                  qualityScore: 50,
+                  monthlyReach: 20000000,
+                },
+                hourly: {
+                  cpc: 0.24,
+                  cpa: 16,
+                  applyRate: 11.0,
+                  qualityScore: 54,
+                  monthlyReach: 20000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.48,
+                  cpa: 33,
+                  applyRate: 6.8,
+                  qualityScore: 57,
+                  monthlyReach: 20000000,
+                },
+                blue_collar: {
+                  cpc: 0.32,
+                  cpa: 21,
+                  applyRate: 9.2,
+                  qualityScore: 56,
+                  monthlyReach: 20000000,
+                },
+                executive: {
+                  cpc: 1.25,
+                  cpa: 85,
+                  applyRate: 2.9,
+                  qualityScore: 49,
+                  monthlyReach: 20000000,
+                },
+                hourly: {
+                  cpc: 0.26,
+                  cpa: 17,
+                  applyRate: 10.8,
+                  qualityScore: 53,
+                  monthlyReach: 20000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.47,
+                  cpa: 33,
+                  applyRate: 6.7,
+                  qualityScore: 57,
+                  monthlyReach: 20000000,
+                },
+                blue_collar: {
+                  cpc: 0.31,
+                  cpa: 20,
+                  applyRate: 9.3,
+                  qualityScore: 57,
+                  monthlyReach: 20000000,
+                },
+                executive: {
+                  cpc: 1.22,
+                  cpa: 84,
+                  applyRate: 2.9,
+                  qualityScore: 49,
+                  monthlyReach: 20000000,
+                },
+                hourly: {
+                  cpc: 0.25,
+                  cpa: 16,
+                  applyRate: 10.9,
+                  qualityScore: 54,
+                  monthlyReach: 20000000,
+                },
+              },
+            },
+          },
+          careerbuilder: {
+            name: "CareerBuilder",
+            logo: "🔶",
+            category: "major",
+            bestFor: "Enterprise ATS integrations",
+            strengths: {
+              reach: 45,
+              cost: 50,
+              quality: 55,
+              speed: 60,
+              targeting: 58,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.55,
+                  cpa: 38,
+                  applyRate: 6.0,
+                  qualityScore: 55,
+                  monthlyReach: 15000000,
+                },
+                blue_collar: {
+                  cpc: 0.38,
+                  cpa: 24,
+                  applyRate: 8.5,
+                  qualityScore: 52,
+                  monthlyReach: 15000000,
+                },
+                executive: {
+                  cpc: 1.35,
+                  cpa: 92,
+                  applyRate: 2.6,
+                  qualityScore: 48,
+                  monthlyReach: 15000000,
+                },
+                hourly: {
+                  cpc: 0.3,
+                  cpa: 19,
+                  applyRate: 10.0,
+                  qualityScore: 50,
+                  monthlyReach: 15000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.68,
+                  cpa: 44,
+                  applyRate: 5.2,
+                  qualityScore: 52,
+                  monthlyReach: 15000000,
+                },
+                blue_collar: {
+                  cpc: 0.42,
+                  cpa: 26,
+                  applyRate: 7.8,
+                  qualityScore: 50,
+                  monthlyReach: 15000000,
+                },
+                executive: {
+                  cpc: 1.55,
+                  cpa: 100,
+                  applyRate: 2.3,
+                  qualityScore: 46,
+                  monthlyReach: 15000000,
+                },
+                hourly: {
+                  cpc: 0.34,
+                  cpa: 21,
+                  applyRate: 9.2,
+                  qualityScore: 48,
+                  monthlyReach: 15000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.58,
+                  cpa: 39,
+                  applyRate: 5.8,
+                  qualityScore: 54,
+                  monthlyReach: 15000000,
+                },
+                blue_collar: {
+                  cpc: 0.4,
+                  cpa: 25,
+                  applyRate: 8.2,
+                  qualityScore: 52,
+                  monthlyReach: 15000000,
+                },
+                executive: {
+                  cpc: 1.4,
+                  cpa: 94,
+                  applyRate: 2.5,
+                  qualityScore: 47,
+                  monthlyReach: 15000000,
+                },
+                hourly: {
+                  cpc: 0.32,
+                  cpa: 20,
+                  applyRate: 9.8,
+                  qualityScore: 50,
+                  monthlyReach: 15000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.72,
+                  cpa: 46,
+                  applyRate: 5.0,
+                  qualityScore: 54,
+                  monthlyReach: 15000000,
+                },
+                blue_collar: {
+                  cpc: 0.45,
+                  cpa: 28,
+                  applyRate: 7.5,
+                  qualityScore: 48,
+                  monthlyReach: 15000000,
+                },
+                executive: {
+                  cpc: 1.6,
+                  cpa: 105,
+                  applyRate: 2.2,
+                  qualityScore: 46,
+                  monthlyReach: 15000000,
+                },
+                hourly: {
+                  cpc: 0.36,
+                  cpa: 22,
+                  applyRate: 8.8,
+                  qualityScore: 46,
+                  monthlyReach: 15000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.5,
+                  cpa: 35,
+                  applyRate: 6.5,
+                  qualityScore: 55,
+                  monthlyReach: 15000000,
+                },
+                blue_collar: {
+                  cpc: 0.34,
+                  cpa: 22,
+                  applyRate: 9.0,
+                  qualityScore: 54,
+                  monthlyReach: 15000000,
+                },
+                executive: {
+                  cpc: 1.25,
+                  cpa: 85,
+                  applyRate: 2.8,
+                  qualityScore: 48,
+                  monthlyReach: 15000000,
+                },
+                hourly: {
+                  cpc: 0.28,
+                  cpa: 17,
+                  applyRate: 10.5,
+                  qualityScore: 52,
+                  monthlyReach: 15000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.53,
+                  cpa: 36,
+                  applyRate: 6.2,
+                  qualityScore: 55,
+                  monthlyReach: 15000000,
+                },
+                blue_collar: {
+                  cpc: 0.36,
+                  cpa: 23,
+                  applyRate: 8.8,
+                  qualityScore: 54,
+                  monthlyReach: 15000000,
+                },
+                executive: {
+                  cpc: 1.3,
+                  cpa: 88,
+                  applyRate: 2.7,
+                  qualityScore: 47,
+                  monthlyReach: 15000000,
+                },
+                hourly: {
+                  cpc: 0.29,
+                  cpa: 18,
+                  applyRate: 10.2,
+                  qualityScore: 51,
+                  monthlyReach: 15000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.52,
+                  cpa: 36,
+                  applyRate: 6.1,
+                  qualityScore: 54,
+                  monthlyReach: 15000000,
+                },
+                blue_collar: {
+                  cpc: 0.35,
+                  cpa: 22,
+                  applyRate: 8.9,
+                  qualityScore: 55,
+                  monthlyReach: 15000000,
+                },
+                executive: {
+                  cpc: 1.28,
+                  cpa: 87,
+                  applyRate: 2.7,
+                  qualityScore: 47,
+                  monthlyReach: 15000000,
+                },
+                hourly: {
+                  cpc: 0.28,
+                  cpa: 18,
+                  applyRate: 10.3,
+                  qualityScore: 52,
+                  monthlyReach: 15000000,
+                },
+              },
+            },
+          },
+          appcast: {
+            name: "Appcast",
+            logo: "🚀",
+            category: "programmatic",
+            bestFor: "Programmatic CPA optimization at scale",
+            strengths: {
+              reach: 85,
+              cost: 78,
+              quality: 70,
+              speed: 82,
+              targeting: 80,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.38,
+                  cpa: 22,
+                  applyRate: 9.0,
+                  qualityScore: 70,
+                  monthlyReach: 100000000,
+                },
+                blue_collar: {
+                  cpc: 0.22,
+                  cpa: 13,
+                  applyRate: 14.0,
+                  qualityScore: 65,
+                  monthlyReach: 100000000,
+                },
+                executive: {
+                  cpc: 1.0,
+                  cpa: 70,
+                  applyRate: 3.8,
+                  qualityScore: 60,
+                  monthlyReach: 100000000,
+                },
+                hourly: {
+                  cpc: 0.18,
+                  cpa: 10,
+                  applyRate: 16.0,
+                  qualityScore: 62,
+                  monthlyReach: 100000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.5,
+                  cpa: 28,
+                  applyRate: 7.8,
+                  qualityScore: 66,
+                  monthlyReach: 100000000,
+                },
+                blue_collar: {
+                  cpc: 0.28,
+                  cpa: 15,
+                  applyRate: 12.5,
+                  qualityScore: 62,
+                  monthlyReach: 100000000,
+                },
+                executive: {
+                  cpc: 1.2,
+                  cpa: 78,
+                  applyRate: 3.5,
+                  qualityScore: 56,
+                  monthlyReach: 100000000,
+                },
+                hourly: {
+                  cpc: 0.22,
+                  cpa: 12,
+                  applyRate: 14.5,
+                  qualityScore: 58,
+                  monthlyReach: 100000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.42,
+                  cpa: 24,
+                  applyRate: 8.5,
+                  qualityScore: 68,
+                  monthlyReach: 100000000,
+                },
+                blue_collar: {
+                  cpc: 0.24,
+                  cpa: 14,
+                  applyRate: 13.5,
+                  qualityScore: 64,
+                  monthlyReach: 100000000,
+                },
+                executive: {
+                  cpc: 1.05,
+                  cpa: 72,
+                  applyRate: 3.7,
+                  qualityScore: 58,
+                  monthlyReach: 100000000,
+                },
+                hourly: {
+                  cpc: 0.2,
+                  cpa: 11,
+                  applyRate: 15.5,
+                  qualityScore: 60,
+                  monthlyReach: 100000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.52,
+                  cpa: 30,
+                  applyRate: 7.5,
+                  qualityScore: 66,
+                  monthlyReach: 100000000,
+                },
+                blue_collar: {
+                  cpc: 0.3,
+                  cpa: 16,
+                  applyRate: 12.0,
+                  qualityScore: 60,
+                  monthlyReach: 100000000,
+                },
+                executive: {
+                  cpc: 1.25,
+                  cpa: 80,
+                  applyRate: 3.4,
+                  qualityScore: 55,
+                  monthlyReach: 100000000,
+                },
+                hourly: {
+                  cpc: 0.24,
+                  cpa: 13,
+                  applyRate: 14.0,
+                  qualityScore: 56,
+                  monthlyReach: 100000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.34,
+                  cpa: 20,
+                  applyRate: 9.5,
+                  qualityScore: 70,
+                  monthlyReach: 100000000,
+                },
+                blue_collar: {
+                  cpc: 0.2,
+                  cpa: 12,
+                  applyRate: 14.8,
+                  qualityScore: 66,
+                  monthlyReach: 100000000,
+                },
+                executive: {
+                  cpc: 0.95,
+                  cpa: 65,
+                  applyRate: 4.0,
+                  qualityScore: 58,
+                  monthlyReach: 100000000,
+                },
+                hourly: {
+                  cpc: 0.16,
+                  cpa: 9,
+                  applyRate: 17.0,
+                  qualityScore: 64,
+                  monthlyReach: 100000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.36,
+                  cpa: 21,
+                  applyRate: 9.2,
+                  qualityScore: 69,
+                  monthlyReach: 100000000,
+                },
+                blue_collar: {
+                  cpc: 0.21,
+                  cpa: 12,
+                  applyRate: 14.2,
+                  qualityScore: 66,
+                  monthlyReach: 100000000,
+                },
+                executive: {
+                  cpc: 0.98,
+                  cpa: 68,
+                  applyRate: 3.9,
+                  qualityScore: 59,
+                  monthlyReach: 100000000,
+                },
+                hourly: {
+                  cpc: 0.17,
+                  cpa: 10,
+                  applyRate: 16.5,
+                  qualityScore: 63,
+                  monthlyReach: 100000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.35,
+                  cpa: 20,
+                  applyRate: 9.3,
+                  qualityScore: 68,
+                  monthlyReach: 100000000,
+                },
+                blue_collar: {
+                  cpc: 0.2,
+                  cpa: 12,
+                  applyRate: 14.5,
+                  qualityScore: 67,
+                  monthlyReach: 100000000,
+                },
+                executive: {
+                  cpc: 0.96,
+                  cpa: 66,
+                  applyRate: 3.9,
+                  qualityScore: 58,
+                  monthlyReach: 100000000,
+                },
+                hourly: {
+                  cpc: 0.16,
+                  cpa: 9,
+                  applyRate: 16.8,
+                  qualityScore: 64,
+                  monthlyReach: 100000000,
+                },
+              },
+            },
+          },
+          pandologic: {
+            name: "PandoLogic",
+            logo: "🤖",
+            category: "programmatic",
+            bestFor: "AI-driven bid optimization",
+            strengths: {
+              reach: 80,
+              cost: 82,
+              quality: 68,
+              speed: 78,
+              targeting: 85,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.35,
+                  cpa: 20,
+                  applyRate: 9.5,
+                  qualityScore: 68,
+                  monthlyReach: 90000000,
+                },
+                blue_collar: {
+                  cpc: 0.2,
+                  cpa: 12,
+                  applyRate: 14.5,
+                  qualityScore: 64,
+                  monthlyReach: 90000000,
+                },
+                executive: {
+                  cpc: 0.95,
+                  cpa: 65,
+                  applyRate: 4.0,
+                  qualityScore: 58,
+                  monthlyReach: 90000000,
+                },
+                hourly: {
+                  cpc: 0.16,
+                  cpa: 9,
+                  applyRate: 16.5,
+                  qualityScore: 60,
+                  monthlyReach: 90000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.48,
+                  cpa: 26,
+                  applyRate: 8.0,
+                  qualityScore: 64,
+                  monthlyReach: 90000000,
+                },
+                blue_collar: {
+                  cpc: 0.26,
+                  cpa: 14,
+                  applyRate: 13.0,
+                  qualityScore: 60,
+                  monthlyReach: 90000000,
+                },
+                executive: {
+                  cpc: 1.15,
+                  cpa: 74,
+                  applyRate: 3.6,
+                  qualityScore: 55,
+                  monthlyReach: 90000000,
+                },
+                hourly: {
+                  cpc: 0.2,
+                  cpa: 11,
+                  applyRate: 15.0,
+                  qualityScore: 56,
+                  monthlyReach: 90000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.4,
+                  cpa: 22,
+                  applyRate: 9.0,
+                  qualityScore: 66,
+                  monthlyReach: 90000000,
+                },
+                blue_collar: {
+                  cpc: 0.22,
+                  cpa: 13,
+                  applyRate: 14.0,
+                  qualityScore: 63,
+                  monthlyReach: 90000000,
+                },
+                executive: {
+                  cpc: 1.0,
+                  cpa: 68,
+                  applyRate: 3.8,
+                  qualityScore: 56,
+                  monthlyReach: 90000000,
+                },
+                hourly: {
+                  cpc: 0.18,
+                  cpa: 10,
+                  applyRate: 16.0,
+                  qualityScore: 58,
+                  monthlyReach: 90000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.5,
+                  cpa: 28,
+                  applyRate: 7.8,
+                  qualityScore: 64,
+                  monthlyReach: 90000000,
+                },
+                blue_collar: {
+                  cpc: 0.28,
+                  cpa: 15,
+                  applyRate: 12.5,
+                  qualityScore: 58,
+                  monthlyReach: 90000000,
+                },
+                executive: {
+                  cpc: 1.2,
+                  cpa: 76,
+                  applyRate: 3.5,
+                  qualityScore: 54,
+                  monthlyReach: 90000000,
+                },
+                hourly: {
+                  cpc: 0.22,
+                  cpa: 12,
+                  applyRate: 14.5,
+                  qualityScore: 55,
+                  monthlyReach: 90000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.32,
+                  cpa: 18,
+                  applyRate: 10.0,
+                  qualityScore: 68,
+                  monthlyReach: 90000000,
+                },
+                blue_collar: {
+                  cpc: 0.18,
+                  cpa: 10,
+                  applyRate: 15.5,
+                  qualityScore: 65,
+                  monthlyReach: 90000000,
+                },
+                executive: {
+                  cpc: 0.88,
+                  cpa: 60,
+                  applyRate: 4.2,
+                  qualityScore: 56,
+                  monthlyReach: 90000000,
+                },
+                hourly: {
+                  cpc: 0.14,
+                  cpa: 8,
+                  applyRate: 17.5,
+                  qualityScore: 62,
+                  monthlyReach: 90000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.34,
+                  cpa: 19,
+                  applyRate: 9.8,
+                  qualityScore: 67,
+                  monthlyReach: 90000000,
+                },
+                blue_collar: {
+                  cpc: 0.19,
+                  cpa: 11,
+                  applyRate: 14.8,
+                  qualityScore: 65,
+                  monthlyReach: 90000000,
+                },
+                executive: {
+                  cpc: 0.92,
+                  cpa: 62,
+                  applyRate: 4.1,
+                  qualityScore: 57,
+                  monthlyReach: 90000000,
+                },
+                hourly: {
+                  cpc: 0.15,
+                  cpa: 8,
+                  applyRate: 17.0,
+                  qualityScore: 62,
+                  monthlyReach: 90000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.33,
+                  cpa: 19,
+                  applyRate: 9.6,
+                  qualityScore: 67,
+                  monthlyReach: 90000000,
+                },
+                blue_collar: {
+                  cpc: 0.19,
+                  cpa: 11,
+                  applyRate: 15.0,
+                  qualityScore: 66,
+                  monthlyReach: 90000000,
+                },
+                executive: {
+                  cpc: 0.9,
+                  cpa: 61,
+                  applyRate: 4.1,
+                  qualityScore: 57,
+                  monthlyReach: 90000000,
+                },
+                hourly: {
+                  cpc: 0.15,
+                  cpa: 8,
+                  applyRate: 17.2,
+                  qualityScore: 63,
+                  monthlyReach: 90000000,
+                },
+              },
+            },
+          },
+          joveo: {
+            name: "Joveo",
+            logo: "⚡",
+            category: "programmatic",
+            bestFor: "Data-driven programmatic with real-time optimization",
+            strengths: {
+              reach: 82,
+              cost: 85,
+              quality: 75,
+              speed: 88,
+              targeting: 90,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.32,
+                  cpa: 18,
+                  applyRate: 10.0,
+                  qualityScore: 75,
+                  monthlyReach: 85000000,
+                },
+                blue_collar: {
+                  cpc: 0.18,
+                  cpa: 10,
+                  applyRate: 15.5,
+                  qualityScore: 70,
+                  monthlyReach: 85000000,
+                },
+                executive: {
+                  cpc: 0.88,
+                  cpa: 60,
+                  applyRate: 4.2,
+                  qualityScore: 65,
+                  monthlyReach: 85000000,
+                },
+                hourly: {
+                  cpc: 0.14,
+                  cpa: 8,
+                  applyRate: 18.0,
+                  qualityScore: 68,
+                  monthlyReach: 85000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.42,
+                  cpa: 24,
+                  applyRate: 8.5,
+                  qualityScore: 72,
+                  monthlyReach: 85000000,
+                },
+                blue_collar: {
+                  cpc: 0.24,
+                  cpa: 13,
+                  applyRate: 13.5,
+                  qualityScore: 66,
+                  monthlyReach: 85000000,
+                },
+                executive: {
+                  cpc: 1.05,
+                  cpa: 68,
+                  applyRate: 3.8,
+                  qualityScore: 62,
+                  monthlyReach: 85000000,
+                },
+                hourly: {
+                  cpc: 0.18,
+                  cpa: 10,
+                  applyRate: 16.0,
+                  qualityScore: 64,
+                  monthlyReach: 85000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.36,
+                  cpa: 20,
+                  applyRate: 9.5,
+                  qualityScore: 73,
+                  monthlyReach: 85000000,
+                },
+                blue_collar: {
+                  cpc: 0.2,
+                  cpa: 11,
+                  applyRate: 15.0,
+                  qualityScore: 68,
+                  monthlyReach: 85000000,
+                },
+                executive: {
+                  cpc: 0.92,
+                  cpa: 62,
+                  applyRate: 4.0,
+                  qualityScore: 63,
+                  monthlyReach: 85000000,
+                },
+                hourly: {
+                  cpc: 0.16,
+                  cpa: 9,
+                  applyRate: 17.0,
+                  qualityScore: 66,
+                  monthlyReach: 85000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.45,
+                  cpa: 26,
+                  applyRate: 8.2,
+                  qualityScore: 71,
+                  monthlyReach: 85000000,
+                },
+                blue_collar: {
+                  cpc: 0.26,
+                  cpa: 14,
+                  applyRate: 13.0,
+                  qualityScore: 64,
+                  monthlyReach: 85000000,
+                },
+                executive: {
+                  cpc: 1.1,
+                  cpa: 70,
+                  applyRate: 3.7,
+                  qualityScore: 60,
+                  monthlyReach: 85000000,
+                },
+                hourly: {
+                  cpc: 0.2,
+                  cpa: 11,
+                  applyRate: 15.5,
+                  qualityScore: 62,
+                  monthlyReach: 85000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.28,
+                  cpa: 16,
+                  applyRate: 10.5,
+                  qualityScore: 75,
+                  monthlyReach: 85000000,
+                },
+                blue_collar: {
+                  cpc: 0.16,
+                  cpa: 9,
+                  applyRate: 16.5,
+                  qualityScore: 72,
+                  monthlyReach: 85000000,
+                },
+                executive: {
+                  cpc: 0.82,
+                  cpa: 55,
+                  applyRate: 4.5,
+                  qualityScore: 63,
+                  monthlyReach: 85000000,
+                },
+                hourly: {
+                  cpc: 0.12,
+                  cpa: 7,
+                  applyRate: 19.0,
+                  qualityScore: 70,
+                  monthlyReach: 85000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.3,
+                  cpa: 17,
+                  applyRate: 10.2,
+                  qualityScore: 74,
+                  monthlyReach: 85000000,
+                },
+                blue_collar: {
+                  cpc: 0.17,
+                  cpa: 10,
+                  applyRate: 16.0,
+                  qualityScore: 71,
+                  monthlyReach: 85000000,
+                },
+                executive: {
+                  cpc: 0.85,
+                  cpa: 58,
+                  applyRate: 4.3,
+                  qualityScore: 64,
+                  monthlyReach: 85000000,
+                },
+                hourly: {
+                  cpc: 0.13,
+                  cpa: 7,
+                  applyRate: 18.5,
+                  qualityScore: 69,
+                  monthlyReach: 85000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.3,
+                  cpa: 17,
+                  applyRate: 10.3,
+                  qualityScore: 74,
+                  monthlyReach: 85000000,
+                },
+                blue_collar: {
+                  cpc: 0.17,
+                  cpa: 9,
+                  applyRate: 16.2,
+                  qualityScore: 72,
+                  monthlyReach: 85000000,
+                },
+                executive: {
+                  cpc: 0.84,
+                  cpa: 57,
+                  applyRate: 4.4,
+                  qualityScore: 64,
+                  monthlyReach: 85000000,
+                },
+                hourly: {
+                  cpc: 0.13,
+                  cpa: 7,
+                  applyRate: 18.8,
+                  qualityScore: 70,
+                  monthlyReach: 85000000,
+                },
+              },
+            },
+          },
+          recruitics: {
+            name: "Recruitics",
+            logo: "📈",
+            category: "programmatic",
+            bestFor: "Analytics-first programmatic media buying",
+            strengths: {
+              reach: 78,
+              cost: 75,
+              quality: 72,
+              speed: 75,
+              targeting: 82,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.4,
+                  cpa: 24,
+                  applyRate: 8.5,
+                  qualityScore: 72,
+                  monthlyReach: 75000000,
+                },
+                blue_collar: {
+                  cpc: 0.24,
+                  cpa: 14,
+                  applyRate: 13.0,
+                  qualityScore: 66,
+                  monthlyReach: 75000000,
+                },
+                executive: {
+                  cpc: 1.05,
+                  cpa: 72,
+                  applyRate: 3.6,
+                  qualityScore: 62,
+                  monthlyReach: 75000000,
+                },
+                hourly: {
+                  cpc: 0.2,
+                  cpa: 11,
+                  applyRate: 15.0,
+                  qualityScore: 63,
+                  monthlyReach: 75000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.52,
+                  cpa: 30,
+                  applyRate: 7.2,
+                  qualityScore: 68,
+                  monthlyReach: 75000000,
+                },
+                blue_collar: {
+                  cpc: 0.3,
+                  cpa: 16,
+                  applyRate: 11.8,
+                  qualityScore: 62,
+                  monthlyReach: 75000000,
+                },
+                executive: {
+                  cpc: 1.25,
+                  cpa: 80,
+                  applyRate: 3.3,
+                  qualityScore: 58,
+                  monthlyReach: 75000000,
+                },
+                hourly: {
+                  cpc: 0.24,
+                  cpa: 13,
+                  applyRate: 13.5,
+                  qualityScore: 59,
+                  monthlyReach: 75000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.44,
+                  cpa: 26,
+                  applyRate: 8.0,
+                  qualityScore: 70,
+                  monthlyReach: 75000000,
+                },
+                blue_collar: {
+                  cpc: 0.26,
+                  cpa: 15,
+                  applyRate: 12.5,
+                  qualityScore: 65,
+                  monthlyReach: 75000000,
+                },
+                executive: {
+                  cpc: 1.1,
+                  cpa: 74,
+                  applyRate: 3.5,
+                  qualityScore: 60,
+                  monthlyReach: 75000000,
+                },
+                hourly: {
+                  cpc: 0.22,
+                  cpa: 12,
+                  applyRate: 14.5,
+                  qualityScore: 61,
+                  monthlyReach: 75000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.55,
+                  cpa: 32,
+                  applyRate: 7.0,
+                  qualityScore: 68,
+                  monthlyReach: 75000000,
+                },
+                blue_collar: {
+                  cpc: 0.32,
+                  cpa: 17,
+                  applyRate: 11.5,
+                  qualityScore: 60,
+                  monthlyReach: 75000000,
+                },
+                executive: {
+                  cpc: 1.3,
+                  cpa: 82,
+                  applyRate: 3.2,
+                  qualityScore: 56,
+                  monthlyReach: 75000000,
+                },
+                hourly: {
+                  cpc: 0.26,
+                  cpa: 14,
+                  applyRate: 13.0,
+                  qualityScore: 57,
+                  monthlyReach: 75000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.36,
+                  cpa: 22,
+                  applyRate: 9.0,
+                  qualityScore: 72,
+                  monthlyReach: 75000000,
+                },
+                blue_collar: {
+                  cpc: 0.22,
+                  cpa: 12,
+                  applyRate: 14.0,
+                  qualityScore: 68,
+                  monthlyReach: 75000000,
+                },
+                executive: {
+                  cpc: 0.98,
+                  cpa: 66,
+                  applyRate: 3.8,
+                  qualityScore: 60,
+                  monthlyReach: 75000000,
+                },
+                hourly: {
+                  cpc: 0.18,
+                  cpa: 10,
+                  applyRate: 16.0,
+                  qualityScore: 65,
+                  monthlyReach: 75000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.38,
+                  cpa: 23,
+                  applyRate: 8.8,
+                  qualityScore: 71,
+                  monthlyReach: 75000000,
+                },
+                blue_collar: {
+                  cpc: 0.23,
+                  cpa: 13,
+                  applyRate: 13.5,
+                  qualityScore: 67,
+                  monthlyReach: 75000000,
+                },
+                executive: {
+                  cpc: 1.02,
+                  cpa: 70,
+                  applyRate: 3.7,
+                  qualityScore: 61,
+                  monthlyReach: 75000000,
+                },
+                hourly: {
+                  cpc: 0.19,
+                  cpa: 10,
+                  applyRate: 15.5,
+                  qualityScore: 64,
+                  monthlyReach: 75000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.37,
+                  cpa: 22,
+                  applyRate: 8.8,
+                  qualityScore: 71,
+                  monthlyReach: 75000000,
+                },
+                blue_collar: {
+                  cpc: 0.22,
+                  cpa: 13,
+                  applyRate: 13.8,
+                  qualityScore: 68,
+                  monthlyReach: 75000000,
+                },
+                executive: {
+                  cpc: 1.0,
+                  cpa: 68,
+                  applyRate: 3.7,
+                  qualityScore: 61,
+                  monthlyReach: 75000000,
+                },
+                hourly: {
+                  cpc: 0.18,
+                  cpa: 10,
+                  applyRate: 15.8,
+                  qualityScore: 65,
+                  monthlyReach: 75000000,
+                },
+              },
+            },
+          },
+          facebook: {
+            name: "Facebook Jobs",
+            logo: "📘",
+            category: "social",
+            bestFor: "Local & hourly hiring with social targeting",
+            strengths: {
+              reach: 90,
+              cost: 70,
+              quality: 55,
+              speed: 85,
+              targeting: 88,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.42,
+                  cpa: 25,
+                  applyRate: 7.5,
+                  qualityScore: 55,
+                  monthlyReach: 180000000,
+                },
+                blue_collar: {
+                  cpc: 0.22,
+                  cpa: 12,
+                  applyRate: 14.0,
+                  qualityScore: 52,
+                  monthlyReach: 180000000,
+                },
+                executive: {
+                  cpc: 1.5,
+                  cpa: 95,
+                  applyRate: 2.0,
+                  qualityScore: 40,
+                  monthlyReach: 180000000,
+                },
+                hourly: {
+                  cpc: 0.15,
+                  cpa: 8,
+                  applyRate: 18.0,
+                  qualityScore: 50,
+                  monthlyReach: 180000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.55,
+                  cpa: 32,
+                  applyRate: 6.2,
+                  qualityScore: 50,
+                  monthlyReach: 180000000,
+                },
+                blue_collar: {
+                  cpc: 0.28,
+                  cpa: 14,
+                  applyRate: 12.5,
+                  qualityScore: 48,
+                  monthlyReach: 180000000,
+                },
+                executive: {
+                  cpc: 1.8,
+                  cpa: 110,
+                  applyRate: 1.8,
+                  qualityScore: 38,
+                  monthlyReach: 180000000,
+                },
+                hourly: {
+                  cpc: 0.2,
+                  cpa: 10,
+                  applyRate: 16.0,
+                  qualityScore: 46,
+                  monthlyReach: 180000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.45,
+                  cpa: 27,
+                  applyRate: 7.2,
+                  qualityScore: 54,
+                  monthlyReach: 180000000,
+                },
+                blue_collar: {
+                  cpc: 0.24,
+                  cpa: 13,
+                  applyRate: 13.5,
+                  qualityScore: 52,
+                  monthlyReach: 180000000,
+                },
+                executive: {
+                  cpc: 1.55,
+                  cpa: 98,
+                  applyRate: 1.9,
+                  qualityScore: 39,
+                  monthlyReach: 180000000,
+                },
+                hourly: {
+                  cpc: 0.16,
+                  cpa: 9,
+                  applyRate: 17.5,
+                  qualityScore: 50,
+                  monthlyReach: 180000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.58,
+                  cpa: 34,
+                  applyRate: 6.0,
+                  qualityScore: 48,
+                  monthlyReach: 180000000,
+                },
+                blue_collar: {
+                  cpc: 0.3,
+                  cpa: 16,
+                  applyRate: 12.0,
+                  qualityScore: 45,
+                  monthlyReach: 180000000,
+                },
+                executive: {
+                  cpc: 1.9,
+                  cpa: 115,
+                  applyRate: 1.7,
+                  qualityScore: 36,
+                  monthlyReach: 180000000,
+                },
+                hourly: {
+                  cpc: 0.22,
+                  cpa: 11,
+                  applyRate: 15.5,
+                  qualityScore: 44,
+                  monthlyReach: 180000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.38,
+                  cpa: 22,
+                  applyRate: 8.0,
+                  qualityScore: 56,
+                  monthlyReach: 180000000,
+                },
+                blue_collar: {
+                  cpc: 0.18,
+                  cpa: 10,
+                  applyRate: 15.5,
+                  qualityScore: 55,
+                  monthlyReach: 180000000,
+                },
+                executive: {
+                  cpc: 1.4,
+                  cpa: 88,
+                  applyRate: 2.2,
+                  qualityScore: 42,
+                  monthlyReach: 180000000,
+                },
+                hourly: {
+                  cpc: 0.12,
+                  cpa: 6,
+                  applyRate: 20.0,
+                  qualityScore: 54,
+                  monthlyReach: 180000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.4,
+                  cpa: 24,
+                  applyRate: 7.6,
+                  qualityScore: 54,
+                  monthlyReach: 180000000,
+                },
+                blue_collar: {
+                  cpc: 0.2,
+                  cpa: 11,
+                  applyRate: 14.5,
+                  qualityScore: 54,
+                  monthlyReach: 180000000,
+                },
+                executive: {
+                  cpc: 1.45,
+                  cpa: 92,
+                  applyRate: 2.0,
+                  qualityScore: 40,
+                  monthlyReach: 180000000,
+                },
+                hourly: {
+                  cpc: 0.14,
+                  cpa: 7,
+                  applyRate: 18.5,
+                  qualityScore: 52,
+                  monthlyReach: 180000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.39,
+                  cpa: 23,
+                  applyRate: 7.8,
+                  qualityScore: 54,
+                  monthlyReach: 180000000,
+                },
+                blue_collar: {
+                  cpc: 0.19,
+                  cpa: 10,
+                  applyRate: 15.0,
+                  qualityScore: 55,
+                  monthlyReach: 180000000,
+                },
+                executive: {
+                  cpc: 1.42,
+                  cpa: 90,
+                  applyRate: 2.1,
+                  qualityScore: 40,
+                  monthlyReach: 180000000,
+                },
+                hourly: {
+                  cpc: 0.13,
+                  cpa: 7,
+                  applyRate: 19.0,
+                  qualityScore: 53,
+                  monthlyReach: 180000000,
+                },
+              },
+            },
+          },
+          instagram: {
+            name: "Instagram",
+            logo: "📸",
+            category: "social",
+            bestFor: "Employer branding + Gen-Z outreach",
+            strengths: {
+              reach: 75,
+              cost: 55,
+              quality: 45,
+              speed: 70,
+              targeting: 82,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.6,
+                  cpa: 38,
+                  applyRate: 5.0,
+                  qualityScore: 45,
+                  monthlyReach: 120000000,
+                },
+                blue_collar: {
+                  cpc: 0.35,
+                  cpa: 20,
+                  applyRate: 9.5,
+                  qualityScore: 42,
+                  monthlyReach: 120000000,
+                },
+                executive: {
+                  cpc: 2.0,
+                  cpa: 130,
+                  applyRate: 1.2,
+                  qualityScore: 30,
+                  monthlyReach: 120000000,
+                },
+                hourly: {
+                  cpc: 0.25,
+                  cpa: 14,
+                  applyRate: 12.0,
+                  qualityScore: 40,
+                  monthlyReach: 120000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.72,
+                  cpa: 44,
+                  applyRate: 4.5,
+                  qualityScore: 42,
+                  monthlyReach: 120000000,
+                },
+                blue_collar: {
+                  cpc: 0.4,
+                  cpa: 22,
+                  applyRate: 8.8,
+                  qualityScore: 40,
+                  monthlyReach: 120000000,
+                },
+                executive: {
+                  cpc: 2.3,
+                  cpa: 145,
+                  applyRate: 1.0,
+                  qualityScore: 28,
+                  monthlyReach: 120000000,
+                },
+                hourly: {
+                  cpc: 0.3,
+                  cpa: 16,
+                  applyRate: 11.0,
+                  qualityScore: 38,
+                  monthlyReach: 120000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.65,
+                  cpa: 40,
+                  applyRate: 4.8,
+                  qualityScore: 44,
+                  monthlyReach: 120000000,
+                },
+                blue_collar: {
+                  cpc: 0.37,
+                  cpa: 21,
+                  applyRate: 9.2,
+                  qualityScore: 41,
+                  monthlyReach: 120000000,
+                },
+                executive: {
+                  cpc: 2.1,
+                  cpa: 135,
+                  applyRate: 1.1,
+                  qualityScore: 29,
+                  monthlyReach: 120000000,
+                },
+                hourly: {
+                  cpc: 0.27,
+                  cpa: 15,
+                  applyRate: 11.5,
+                  qualityScore: 39,
+                  monthlyReach: 120000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.75,
+                  cpa: 46,
+                  applyRate: 4.2,
+                  qualityScore: 40,
+                  monthlyReach: 120000000,
+                },
+                blue_collar: {
+                  cpc: 0.42,
+                  cpa: 24,
+                  applyRate: 8.5,
+                  qualityScore: 38,
+                  monthlyReach: 120000000,
+                },
+                executive: {
+                  cpc: 2.4,
+                  cpa: 150,
+                  applyRate: 0.9,
+                  qualityScore: 26,
+                  monthlyReach: 120000000,
+                },
+                hourly: {
+                  cpc: 0.32,
+                  cpa: 17,
+                  applyRate: 10.5,
+                  qualityScore: 36,
+                  monthlyReach: 120000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.52,
+                  cpa: 34,
+                  applyRate: 5.5,
+                  qualityScore: 48,
+                  monthlyReach: 120000000,
+                },
+                blue_collar: {
+                  cpc: 0.3,
+                  cpa: 17,
+                  applyRate: 10.5,
+                  qualityScore: 46,
+                  monthlyReach: 120000000,
+                },
+                executive: {
+                  cpc: 1.85,
+                  cpa: 120,
+                  applyRate: 1.3,
+                  qualityScore: 32,
+                  monthlyReach: 120000000,
+                },
+                hourly: {
+                  cpc: 0.22,
+                  cpa: 12,
+                  applyRate: 13.0,
+                  qualityScore: 44,
+                  monthlyReach: 120000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.58,
+                  cpa: 36,
+                  applyRate: 5.2,
+                  qualityScore: 44,
+                  monthlyReach: 120000000,
+                },
+                blue_collar: {
+                  cpc: 0.33,
+                  cpa: 19,
+                  applyRate: 9.8,
+                  qualityScore: 43,
+                  monthlyReach: 120000000,
+                },
+                executive: {
+                  cpc: 1.95,
+                  cpa: 128,
+                  applyRate: 1.2,
+                  qualityScore: 30,
+                  monthlyReach: 120000000,
+                },
+                hourly: {
+                  cpc: 0.24,
+                  cpa: 13,
+                  applyRate: 12.5,
+                  qualityScore: 41,
+                  monthlyReach: 120000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.56,
+                  cpa: 35,
+                  applyRate: 5.3,
+                  qualityScore: 44,
+                  monthlyReach: 120000000,
+                },
+                blue_collar: {
+                  cpc: 0.32,
+                  cpa: 18,
+                  applyRate: 10.0,
+                  qualityScore: 44,
+                  monthlyReach: 120000000,
+                },
+                executive: {
+                  cpc: 1.92,
+                  cpa: 126,
+                  applyRate: 1.2,
+                  qualityScore: 30,
+                  monthlyReach: 120000000,
+                },
+                hourly: {
+                  cpc: 0.23,
+                  cpa: 13,
+                  applyRate: 12.8,
+                  qualityScore: 42,
+                  monthlyReach: 120000000,
+                },
+              },
+            },
+          },
+          tiktok: {
+            name: "TikTok",
+            logo: "🎵",
+            category: "social",
+            bestFor: "Gen-Z hiring with viral reach",
+            strengths: {
+              reach: 70,
+              cost: 60,
+              quality: 35,
+              speed: 90,
+              targeting: 72,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.5,
+                  cpa: 35,
+                  applyRate: 4.5,
+                  qualityScore: 35,
+                  monthlyReach: 150000000,
+                },
+                blue_collar: {
+                  cpc: 0.28,
+                  cpa: 18,
+                  applyRate: 9.0,
+                  qualityScore: 38,
+                  monthlyReach: 150000000,
+                },
+                executive: {
+                  cpc: 2.5,
+                  cpa: 160,
+                  applyRate: 0.8,
+                  qualityScore: 22,
+                  monthlyReach: 150000000,
+                },
+                hourly: {
+                  cpc: 0.2,
+                  cpa: 12,
+                  applyRate: 13.0,
+                  qualityScore: 36,
+                  monthlyReach: 150000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.62,
+                  cpa: 42,
+                  applyRate: 3.8,
+                  qualityScore: 32,
+                  monthlyReach: 150000000,
+                },
+                blue_collar: {
+                  cpc: 0.34,
+                  cpa: 20,
+                  applyRate: 8.2,
+                  qualityScore: 35,
+                  monthlyReach: 150000000,
+                },
+                executive: {
+                  cpc: 2.8,
+                  cpa: 180,
+                  applyRate: 0.6,
+                  qualityScore: 20,
+                  monthlyReach: 150000000,
+                },
+                hourly: {
+                  cpc: 0.24,
+                  cpa: 14,
+                  applyRate: 11.5,
+                  qualityScore: 33,
+                  monthlyReach: 150000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.55,
+                  cpa: 38,
+                  applyRate: 4.2,
+                  qualityScore: 34,
+                  monthlyReach: 150000000,
+                },
+                blue_collar: {
+                  cpc: 0.3,
+                  cpa: 19,
+                  applyRate: 8.8,
+                  qualityScore: 36,
+                  monthlyReach: 150000000,
+                },
+                executive: {
+                  cpc: 2.6,
+                  cpa: 165,
+                  applyRate: 0.7,
+                  qualityScore: 21,
+                  monthlyReach: 150000000,
+                },
+                hourly: {
+                  cpc: 0.22,
+                  cpa: 13,
+                  applyRate: 12.5,
+                  qualityScore: 35,
+                  monthlyReach: 150000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.65,
+                  cpa: 44,
+                  applyRate: 3.5,
+                  qualityScore: 30,
+                  monthlyReach: 150000000,
+                },
+                blue_collar: {
+                  cpc: 0.36,
+                  cpa: 22,
+                  applyRate: 8.0,
+                  qualityScore: 32,
+                  monthlyReach: 150000000,
+                },
+                executive: {
+                  cpc: 2.9,
+                  cpa: 185,
+                  applyRate: 0.5,
+                  qualityScore: 18,
+                  monthlyReach: 150000000,
+                },
+                hourly: {
+                  cpc: 0.26,
+                  cpa: 15,
+                  applyRate: 11.0,
+                  qualityScore: 30,
+                  monthlyReach: 150000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.45,
+                  cpa: 30,
+                  applyRate: 5.0,
+                  qualityScore: 38,
+                  monthlyReach: 150000000,
+                },
+                blue_collar: {
+                  cpc: 0.24,
+                  cpa: 15,
+                  applyRate: 10.0,
+                  qualityScore: 42,
+                  monthlyReach: 150000000,
+                },
+                executive: {
+                  cpc: 2.3,
+                  cpa: 148,
+                  applyRate: 0.9,
+                  qualityScore: 24,
+                  monthlyReach: 150000000,
+                },
+                hourly: {
+                  cpc: 0.18,
+                  cpa: 10,
+                  applyRate: 14.5,
+                  qualityScore: 40,
+                  monthlyReach: 150000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.48,
+                  cpa: 33,
+                  applyRate: 4.6,
+                  qualityScore: 34,
+                  monthlyReach: 150000000,
+                },
+                blue_collar: {
+                  cpc: 0.26,
+                  cpa: 16,
+                  applyRate: 9.5,
+                  qualityScore: 39,
+                  monthlyReach: 150000000,
+                },
+                executive: {
+                  cpc: 2.4,
+                  cpa: 155,
+                  applyRate: 0.8,
+                  qualityScore: 22,
+                  monthlyReach: 150000000,
+                },
+                hourly: {
+                  cpc: 0.19,
+                  cpa: 11,
+                  applyRate: 13.5,
+                  qualityScore: 37,
+                  monthlyReach: 150000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.47,
+                  cpa: 32,
+                  applyRate: 4.7,
+                  qualityScore: 35,
+                  monthlyReach: 150000000,
+                },
+                blue_collar: {
+                  cpc: 0.25,
+                  cpa: 16,
+                  applyRate: 9.8,
+                  qualityScore: 40,
+                  monthlyReach: 150000000,
+                },
+                executive: {
+                  cpc: 2.38,
+                  cpa: 152,
+                  applyRate: 0.8,
+                  qualityScore: 22,
+                  monthlyReach: 150000000,
+                },
+                hourly: {
+                  cpc: 0.19,
+                  cpa: 11,
+                  applyRate: 13.8,
+                  qualityScore: 38,
+                  monthlyReach: 150000000,
+                },
+              },
+            },
+          },
+          twitter: {
+            name: "Twitter/X",
+            logo: "🐦",
+            category: "social",
+            bestFor: "Tech community engagement recruiting",
+            strengths: {
+              reach: 60,
+              cost: 52,
+              quality: 48,
+              speed: 75,
+              targeting: 65,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.55,
+                  cpa: 40,
+                  applyRate: 4.0,
+                  qualityScore: 48,
+                  monthlyReach: 65000000,
+                },
+                blue_collar: {
+                  cpc: 0.38,
+                  cpa: 25,
+                  applyRate: 6.5,
+                  qualityScore: 40,
+                  monthlyReach: 65000000,
+                },
+                executive: {
+                  cpc: 1.8,
+                  cpa: 120,
+                  applyRate: 1.5,
+                  qualityScore: 42,
+                  monthlyReach: 65000000,
+                },
+                hourly: {
+                  cpc: 0.3,
+                  cpa: 20,
+                  applyRate: 8.0,
+                  qualityScore: 38,
+                  monthlyReach: 65000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.48,
+                  cpa: 35,
+                  applyRate: 4.8,
+                  qualityScore: 55,
+                  monthlyReach: 65000000,
+                },
+                blue_collar: {
+                  cpc: 0.35,
+                  cpa: 23,
+                  applyRate: 6.8,
+                  qualityScore: 42,
+                  monthlyReach: 65000000,
+                },
+                executive: {
+                  cpc: 1.6,
+                  cpa: 105,
+                  applyRate: 1.8,
+                  qualityScore: 48,
+                  monthlyReach: 65000000,
+                },
+                hourly: {
+                  cpc: 0.28,
+                  cpa: 18,
+                  applyRate: 8.5,
+                  qualityScore: 40,
+                  monthlyReach: 65000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.58,
+                  cpa: 42,
+                  applyRate: 3.8,
+                  qualityScore: 45,
+                  monthlyReach: 65000000,
+                },
+                blue_collar: {
+                  cpc: 0.4,
+                  cpa: 26,
+                  applyRate: 6.2,
+                  qualityScore: 38,
+                  monthlyReach: 65000000,
+                },
+                executive: {
+                  cpc: 1.85,
+                  cpa: 125,
+                  applyRate: 1.4,
+                  qualityScore: 40,
+                  monthlyReach: 65000000,
+                },
+                hourly: {
+                  cpc: 0.32,
+                  cpa: 21,
+                  applyRate: 7.5,
+                  qualityScore: 36,
+                  monthlyReach: 65000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.52,
+                  cpa: 38,
+                  applyRate: 4.2,
+                  qualityScore: 50,
+                  monthlyReach: 65000000,
+                },
+                blue_collar: {
+                  cpc: 0.38,
+                  cpa: 25,
+                  applyRate: 6.0,
+                  qualityScore: 40,
+                  monthlyReach: 65000000,
+                },
+                executive: {
+                  cpc: 1.7,
+                  cpa: 112,
+                  applyRate: 1.6,
+                  qualityScore: 45,
+                  monthlyReach: 65000000,
+                },
+                hourly: {
+                  cpc: 0.3,
+                  cpa: 19,
+                  applyRate: 7.8,
+                  qualityScore: 38,
+                  monthlyReach: 65000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.58,
+                  cpa: 42,
+                  applyRate: 3.6,
+                  qualityScore: 44,
+                  monthlyReach: 65000000,
+                },
+                blue_collar: {
+                  cpc: 0.4,
+                  cpa: 26,
+                  applyRate: 6.0,
+                  qualityScore: 38,
+                  monthlyReach: 65000000,
+                },
+                executive: {
+                  cpc: 1.9,
+                  cpa: 128,
+                  applyRate: 1.3,
+                  qualityScore: 38,
+                  monthlyReach: 65000000,
+                },
+                hourly: {
+                  cpc: 0.32,
+                  cpa: 21,
+                  applyRate: 7.5,
+                  qualityScore: 36,
+                  monthlyReach: 65000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.56,
+                  cpa: 41,
+                  applyRate: 3.8,
+                  qualityScore: 46,
+                  monthlyReach: 65000000,
+                },
+                blue_collar: {
+                  cpc: 0.39,
+                  cpa: 25,
+                  applyRate: 6.3,
+                  qualityScore: 39,
+                  monthlyReach: 65000000,
+                },
+                executive: {
+                  cpc: 1.82,
+                  cpa: 122,
+                  applyRate: 1.4,
+                  qualityScore: 41,
+                  monthlyReach: 65000000,
+                },
+                hourly: {
+                  cpc: 0.31,
+                  cpa: 20,
+                  applyRate: 7.8,
+                  qualityScore: 37,
+                  monthlyReach: 65000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.55,
+                  cpa: 40,
+                  applyRate: 3.9,
+                  qualityScore: 46,
+                  monthlyReach: 65000000,
+                },
+                blue_collar: {
+                  cpc: 0.38,
+                  cpa: 25,
+                  applyRate: 6.4,
+                  qualityScore: 40,
+                  monthlyReach: 65000000,
+                },
+                executive: {
+                  cpc: 1.8,
+                  cpa: 120,
+                  applyRate: 1.5,
+                  qualityScore: 41,
+                  monthlyReach: 65000000,
+                },
+                hourly: {
+                  cpc: 0.3,
+                  cpa: 20,
+                  applyRate: 8.0,
+                  qualityScore: 37,
+                  monthlyReach: 65000000,
+                },
+              },
+            },
+          },
+          dice: {
+            name: "Dice",
+            logo: "🎲",
+            category: "niche",
+            bestFor: "Tech & IT-specific recruiting",
+            strengths: {
+              reach: 30,
+              cost: 45,
+              quality: 88,
+              speed: 55,
+              targeting: 92,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 1.2,
+                  cpa: 55,
+                  applyRate: 6.5,
+                  qualityScore: 85,
+                  monthlyReach: 5000000,
+                },
+                blue_collar: {
+                  cpc: 0.9,
+                  cpa: 50,
+                  applyRate: 4.0,
+                  qualityScore: 45,
+                  monthlyReach: 5000000,
+                },
+                executive: {
+                  cpc: 2.8,
+                  cpa: 120,
+                  applyRate: 4.5,
+                  qualityScore: 82,
+                  monthlyReach: 5000000,
+                },
+                hourly: {
+                  cpc: 0.8,
+                  cpa: 48,
+                  applyRate: 3.5,
+                  qualityScore: 40,
+                  monthlyReach: 5000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 1.0,
+                  cpa: 45,
+                  applyRate: 8.0,
+                  qualityScore: 90,
+                  monthlyReach: 5000000,
+                },
+                blue_collar: {
+                  cpc: 0.8,
+                  cpa: 45,
+                  applyRate: 4.5,
+                  qualityScore: 50,
+                  monthlyReach: 5000000,
+                },
+                executive: {
+                  cpc: 2.5,
+                  cpa: 105,
+                  applyRate: 5.2,
+                  qualityScore: 88,
+                  monthlyReach: 5000000,
+                },
+                hourly: {
+                  cpc: 0.7,
+                  cpa: 42,
+                  applyRate: 4.0,
+                  qualityScore: 45,
+                  monthlyReach: 5000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 1.3,
+                  cpa: 60,
+                  applyRate: 5.5,
+                  qualityScore: 75,
+                  monthlyReach: 5000000,
+                },
+                blue_collar: {
+                  cpc: 1.0,
+                  cpa: 55,
+                  applyRate: 3.5,
+                  qualityScore: 40,
+                  monthlyReach: 5000000,
+                },
+                executive: {
+                  cpc: 3.0,
+                  cpa: 130,
+                  applyRate: 4.0,
+                  qualityScore: 72,
+                  monthlyReach: 5000000,
+                },
+                hourly: {
+                  cpc: 0.9,
+                  cpa: 52,
+                  applyRate: 3.0,
+                  qualityScore: 35,
+                  monthlyReach: 5000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 1.15,
+                  cpa: 52,
+                  applyRate: 6.8,
+                  qualityScore: 84,
+                  monthlyReach: 5000000,
+                },
+                blue_collar: {
+                  cpc: 0.95,
+                  cpa: 52,
+                  applyRate: 3.8,
+                  qualityScore: 42,
+                  monthlyReach: 5000000,
+                },
+                executive: {
+                  cpc: 2.7,
+                  cpa: 115,
+                  applyRate: 4.8,
+                  qualityScore: 80,
+                  monthlyReach: 5000000,
+                },
+                hourly: {
+                  cpc: 0.82,
+                  cpa: 48,
+                  applyRate: 3.2,
+                  qualityScore: 38,
+                  monthlyReach: 5000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 1.4,
+                  cpa: 65,
+                  applyRate: 5.0,
+                  qualityScore: 70,
+                  monthlyReach: 5000000,
+                },
+                blue_collar: {
+                  cpc: 1.05,
+                  cpa: 58,
+                  applyRate: 3.2,
+                  qualityScore: 35,
+                  monthlyReach: 5000000,
+                },
+                executive: {
+                  cpc: 3.1,
+                  cpa: 135,
+                  applyRate: 3.5,
+                  qualityScore: 65,
+                  monthlyReach: 5000000,
+                },
+                hourly: {
+                  cpc: 0.95,
+                  cpa: 55,
+                  applyRate: 2.8,
+                  qualityScore: 32,
+                  monthlyReach: 5000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 1.25,
+                  cpa: 58,
+                  applyRate: 6.0,
+                  qualityScore: 80,
+                  monthlyReach: 5000000,
+                },
+                blue_collar: {
+                  cpc: 0.92,
+                  cpa: 52,
+                  applyRate: 3.8,
+                  qualityScore: 42,
+                  monthlyReach: 5000000,
+                },
+                executive: {
+                  cpc: 2.85,
+                  cpa: 122,
+                  applyRate: 4.3,
+                  qualityScore: 78,
+                  monthlyReach: 5000000,
+                },
+                hourly: {
+                  cpc: 0.85,
+                  cpa: 50,
+                  applyRate: 3.3,
+                  qualityScore: 38,
+                  monthlyReach: 5000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 1.28,
+                  cpa: 59,
+                  applyRate: 5.8,
+                  qualityScore: 78,
+                  monthlyReach: 5000000,
+                },
+                blue_collar: {
+                  cpc: 0.94,
+                  cpa: 53,
+                  applyRate: 3.7,
+                  qualityScore: 42,
+                  monthlyReach: 5000000,
+                },
+                executive: {
+                  cpc: 2.88,
+                  cpa: 124,
+                  applyRate: 4.2,
+                  qualityScore: 76,
+                  monthlyReach: 5000000,
+                },
+                hourly: {
+                  cpc: 0.86,
+                  cpa: 50,
+                  applyRate: 3.2,
+                  qualityScore: 37,
+                  monthlyReach: 5000000,
+                },
+              },
+            },
+          },
+          github_jobs: {
+            name: "GitHub Jobs",
+            logo: "🐙",
+            category: "niche",
+            bestFor: "Developer & engineering hiring",
+            strengths: {
+              reach: 25,
+              cost: 40,
+              quality: 90,
+              speed: 45,
+              targeting: 95,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 1.5,
+                  cpa: 60,
+                  applyRate: 5.5,
+                  qualityScore: 88,
+                  monthlyReach: 4000000,
+                },
+                blue_collar: {
+                  cpc: 1.2,
+                  cpa: 70,
+                  applyRate: 2.5,
+                  qualityScore: 35,
+                  monthlyReach: 4000000,
+                },
+                executive: {
+                  cpc: 3.0,
+                  cpa: 130,
+                  applyRate: 3.8,
+                  qualityScore: 78,
+                  monthlyReach: 4000000,
+                },
+                hourly: {
+                  cpc: 1.1,
+                  cpa: 65,
+                  applyRate: 2.0,
+                  qualityScore: 30,
+                  monthlyReach: 4000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 1.2,
+                  cpa: 48,
+                  applyRate: 7.5,
+                  qualityScore: 92,
+                  monthlyReach: 4000000,
+                },
+                blue_collar: {
+                  cpc: 1.0,
+                  cpa: 60,
+                  applyRate: 3.0,
+                  qualityScore: 40,
+                  monthlyReach: 4000000,
+                },
+                executive: {
+                  cpc: 2.6,
+                  cpa: 110,
+                  applyRate: 4.5,
+                  qualityScore: 85,
+                  monthlyReach: 4000000,
+                },
+                hourly: {
+                  cpc: 0.9,
+                  cpa: 55,
+                  applyRate: 2.5,
+                  qualityScore: 35,
+                  monthlyReach: 4000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 1.6,
+                  cpa: 68,
+                  applyRate: 4.5,
+                  qualityScore: 72,
+                  monthlyReach: 4000000,
+                },
+                blue_collar: {
+                  cpc: 1.3,
+                  cpa: 75,
+                  applyRate: 2.0,
+                  qualityScore: 30,
+                  monthlyReach: 4000000,
+                },
+                executive: {
+                  cpc: 3.2,
+                  cpa: 140,
+                  applyRate: 3.2,
+                  qualityScore: 68,
+                  monthlyReach: 4000000,
+                },
+                hourly: {
+                  cpc: 1.2,
+                  cpa: 70,
+                  applyRate: 1.5,
+                  qualityScore: 25,
+                  monthlyReach: 4000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 1.45,
+                  cpa: 58,
+                  applyRate: 5.8,
+                  qualityScore: 86,
+                  monthlyReach: 4000000,
+                },
+                blue_collar: {
+                  cpc: 1.18,
+                  cpa: 68,
+                  applyRate: 2.3,
+                  qualityScore: 32,
+                  monthlyReach: 4000000,
+                },
+                executive: {
+                  cpc: 2.9,
+                  cpa: 125,
+                  applyRate: 4.0,
+                  qualityScore: 80,
+                  monthlyReach: 4000000,
+                },
+                hourly: {
+                  cpc: 1.05,
+                  cpa: 62,
+                  applyRate: 1.8,
+                  qualityScore: 28,
+                  monthlyReach: 4000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 1.65,
+                  cpa: 72,
+                  applyRate: 4.0,
+                  qualityScore: 68,
+                  monthlyReach: 4000000,
+                },
+                blue_collar: {
+                  cpc: 1.35,
+                  cpa: 78,
+                  applyRate: 1.8,
+                  qualityScore: 28,
+                  monthlyReach: 4000000,
+                },
+                executive: {
+                  cpc: 3.3,
+                  cpa: 145,
+                  applyRate: 3.0,
+                  qualityScore: 62,
+                  monthlyReach: 4000000,
+                },
+                hourly: {
+                  cpc: 1.25,
+                  cpa: 72,
+                  applyRate: 1.4,
+                  qualityScore: 22,
+                  monthlyReach: 4000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 1.55,
+                  cpa: 65,
+                  applyRate: 5.0,
+                  qualityScore: 82,
+                  monthlyReach: 4000000,
+                },
+                blue_collar: {
+                  cpc: 1.25,
+                  cpa: 72,
+                  applyRate: 2.2,
+                  qualityScore: 33,
+                  monthlyReach: 4000000,
+                },
+                executive: {
+                  cpc: 3.05,
+                  cpa: 132,
+                  applyRate: 3.6,
+                  qualityScore: 75,
+                  monthlyReach: 4000000,
+                },
+                hourly: {
+                  cpc: 1.15,
+                  cpa: 68,
+                  applyRate: 1.7,
+                  qualityScore: 27,
+                  monthlyReach: 4000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 1.52,
+                  cpa: 64,
+                  applyRate: 5.2,
+                  qualityScore: 80,
+                  monthlyReach: 4000000,
+                },
+                blue_collar: {
+                  cpc: 1.22,
+                  cpa: 72,
+                  applyRate: 2.3,
+                  qualityScore: 34,
+                  monthlyReach: 4000000,
+                },
+                executive: {
+                  cpc: 3.02,
+                  cpa: 130,
+                  applyRate: 3.6,
+                  qualityScore: 74,
+                  monthlyReach: 4000000,
+                },
+                hourly: {
+                  cpc: 1.12,
+                  cpa: 66,
+                  applyRate: 1.8,
+                  qualityScore: 28,
+                  monthlyReach: 4000000,
+                },
+              },
+            },
+          },
+          angellist: {
+            name: "AngelList",
+            logo: "😇",
+            category: "niche",
+            bestFor: "Startup & venture-backed hiring",
+            strengths: {
+              reach: 20,
+              cost: 42,
+              quality: 85,
+              speed: 50,
+              targeting: 88,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 1.3,
+                  cpa: 55,
+                  applyRate: 6.0,
+                  qualityScore: 82,
+                  monthlyReach: 3000000,
+                },
+                blue_collar: {
+                  cpc: 1.1,
+                  cpa: 65,
+                  applyRate: 2.8,
+                  qualityScore: 38,
+                  monthlyReach: 3000000,
+                },
+                executive: {
+                  cpc: 2.8,
+                  cpa: 115,
+                  applyRate: 4.5,
+                  qualityScore: 80,
+                  monthlyReach: 3000000,
+                },
+                hourly: {
+                  cpc: 1.0,
+                  cpa: 60,
+                  applyRate: 2.2,
+                  qualityScore: 32,
+                  monthlyReach: 3000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 1.1,
+                  cpa: 42,
+                  applyRate: 7.8,
+                  qualityScore: 88,
+                  monthlyReach: 3000000,
+                },
+                blue_collar: {
+                  cpc: 0.95,
+                  cpa: 58,
+                  applyRate: 3.2,
+                  qualityScore: 42,
+                  monthlyReach: 3000000,
+                },
+                executive: {
+                  cpc: 2.4,
+                  cpa: 100,
+                  applyRate: 5.2,
+                  qualityScore: 85,
+                  monthlyReach: 3000000,
+                },
+                hourly: {
+                  cpc: 0.85,
+                  cpa: 52,
+                  applyRate: 2.8,
+                  qualityScore: 36,
+                  monthlyReach: 3000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 1.4,
+                  cpa: 60,
+                  applyRate: 5.2,
+                  qualityScore: 72,
+                  monthlyReach: 3000000,
+                },
+                blue_collar: {
+                  cpc: 1.15,
+                  cpa: 68,
+                  applyRate: 2.5,
+                  qualityScore: 35,
+                  monthlyReach: 3000000,
+                },
+                executive: {
+                  cpc: 3.0,
+                  cpa: 125,
+                  applyRate: 3.8,
+                  qualityScore: 70,
+                  monthlyReach: 3000000,
+                },
+                hourly: {
+                  cpc: 1.05,
+                  cpa: 62,
+                  applyRate: 2.0,
+                  qualityScore: 28,
+                  monthlyReach: 3000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 1.25,
+                  cpa: 52,
+                  applyRate: 6.5,
+                  qualityScore: 84,
+                  monthlyReach: 3000000,
+                },
+                blue_collar: {
+                  cpc: 1.08,
+                  cpa: 64,
+                  applyRate: 2.6,
+                  qualityScore: 36,
+                  monthlyReach: 3000000,
+                },
+                executive: {
+                  cpc: 2.7,
+                  cpa: 112,
+                  applyRate: 4.8,
+                  qualityScore: 82,
+                  monthlyReach: 3000000,
+                },
+                hourly: {
+                  cpc: 0.95,
+                  cpa: 58,
+                  applyRate: 2.2,
+                  qualityScore: 30,
+                  monthlyReach: 3000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 1.45,
+                  cpa: 62,
+                  applyRate: 5.0,
+                  qualityScore: 70,
+                  monthlyReach: 3000000,
+                },
+                blue_collar: {
+                  cpc: 1.18,
+                  cpa: 70,
+                  applyRate: 2.2,
+                  qualityScore: 32,
+                  monthlyReach: 3000000,
+                },
+                executive: {
+                  cpc: 3.1,
+                  cpa: 130,
+                  applyRate: 3.5,
+                  qualityScore: 66,
+                  monthlyReach: 3000000,
+                },
+                hourly: {
+                  cpc: 1.08,
+                  cpa: 64,
+                  applyRate: 1.8,
+                  qualityScore: 26,
+                  monthlyReach: 3000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 1.35,
+                  cpa: 58,
+                  applyRate: 5.5,
+                  qualityScore: 76,
+                  monthlyReach: 3000000,
+                },
+                blue_collar: {
+                  cpc: 1.12,
+                  cpa: 66,
+                  applyRate: 2.6,
+                  qualityScore: 36,
+                  monthlyReach: 3000000,
+                },
+                executive: {
+                  cpc: 2.88,
+                  cpa: 120,
+                  applyRate: 4.2,
+                  qualityScore: 74,
+                  monthlyReach: 3000000,
+                },
+                hourly: {
+                  cpc: 1.02,
+                  cpa: 60,
+                  applyRate: 2.0,
+                  qualityScore: 30,
+                  monthlyReach: 3000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 1.32,
+                  cpa: 56,
+                  applyRate: 5.6,
+                  qualityScore: 75,
+                  monthlyReach: 3000000,
+                },
+                blue_collar: {
+                  cpc: 1.1,
+                  cpa: 66,
+                  applyRate: 2.7,
+                  qualityScore: 37,
+                  monthlyReach: 3000000,
+                },
+                executive: {
+                  cpc: 2.85,
+                  cpa: 118,
+                  applyRate: 4.3,
+                  qualityScore: 74,
+                  monthlyReach: 3000000,
+                },
+                hourly: {
+                  cpc: 1.0,
+                  cpa: 60,
+                  applyRate: 2.1,
+                  qualityScore: 30,
+                  monthlyReach: 3000000,
+                },
+              },
+            },
+          },
+          stackoverflow: {
+            name: "Stack Overflow",
+            logo: "📚",
+            category: "niche",
+            bestFor: "Senior developer & DevOps hiring",
+            strengths: {
+              reach: 28,
+              cost: 38,
+              quality: 92,
+              speed: 42,
+              targeting: 94,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 1.6,
+                  cpa: 62,
+                  applyRate: 5.2,
+                  qualityScore: 90,
+                  monthlyReach: 6000000,
+                },
+                blue_collar: {
+                  cpc: 1.3,
+                  cpa: 75,
+                  applyRate: 2.0,
+                  qualityScore: 32,
+                  monthlyReach: 6000000,
+                },
+                executive: {
+                  cpc: 3.2,
+                  cpa: 135,
+                  applyRate: 3.5,
+                  qualityScore: 80,
+                  monthlyReach: 6000000,
+                },
+                hourly: {
+                  cpc: 1.2,
+                  cpa: 70,
+                  applyRate: 1.5,
+                  qualityScore: 28,
+                  monthlyReach: 6000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 1.3,
+                  cpa: 50,
+                  applyRate: 7.0,
+                  qualityScore: 94,
+                  monthlyReach: 6000000,
+                },
+                blue_collar: {
+                  cpc: 1.1,
+                  cpa: 65,
+                  applyRate: 2.5,
+                  qualityScore: 38,
+                  monthlyReach: 6000000,
+                },
+                executive: {
+                  cpc: 2.8,
+                  cpa: 115,
+                  applyRate: 4.2,
+                  qualityScore: 88,
+                  monthlyReach: 6000000,
+                },
+                hourly: {
+                  cpc: 1.0,
+                  cpa: 60,
+                  applyRate: 2.0,
+                  qualityScore: 32,
+                  monthlyReach: 6000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 1.7,
+                  cpa: 70,
+                  applyRate: 4.2,
+                  qualityScore: 74,
+                  monthlyReach: 6000000,
+                },
+                blue_collar: {
+                  cpc: 1.4,
+                  cpa: 80,
+                  applyRate: 1.8,
+                  qualityScore: 28,
+                  monthlyReach: 6000000,
+                },
+                executive: {
+                  cpc: 3.4,
+                  cpa: 145,
+                  applyRate: 3.0,
+                  qualityScore: 70,
+                  monthlyReach: 6000000,
+                },
+                hourly: {
+                  cpc: 1.3,
+                  cpa: 75,
+                  applyRate: 1.2,
+                  qualityScore: 24,
+                  monthlyReach: 6000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 1.55,
+                  cpa: 60,
+                  applyRate: 5.5,
+                  qualityScore: 88,
+                  monthlyReach: 6000000,
+                },
+                blue_collar: {
+                  cpc: 1.28,
+                  cpa: 72,
+                  applyRate: 2.0,
+                  qualityScore: 30,
+                  monthlyReach: 6000000,
+                },
+                executive: {
+                  cpc: 3.1,
+                  cpa: 128,
+                  applyRate: 3.8,
+                  qualityScore: 82,
+                  monthlyReach: 6000000,
+                },
+                hourly: {
+                  cpc: 1.15,
+                  cpa: 68,
+                  applyRate: 1.5,
+                  qualityScore: 26,
+                  monthlyReach: 6000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 1.75,
+                  cpa: 75,
+                  applyRate: 3.8,
+                  qualityScore: 70,
+                  monthlyReach: 6000000,
+                },
+                blue_collar: {
+                  cpc: 1.45,
+                  cpa: 82,
+                  applyRate: 1.5,
+                  qualityScore: 25,
+                  monthlyReach: 6000000,
+                },
+                executive: {
+                  cpc: 3.5,
+                  cpa: 150,
+                  applyRate: 2.8,
+                  qualityScore: 64,
+                  monthlyReach: 6000000,
+                },
+                hourly: {
+                  cpc: 1.35,
+                  cpa: 78,
+                  applyRate: 1.0,
+                  qualityScore: 20,
+                  monthlyReach: 6000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 1.65,
+                  cpa: 66,
+                  applyRate: 4.8,
+                  qualityScore: 84,
+                  monthlyReach: 6000000,
+                },
+                blue_collar: {
+                  cpc: 1.35,
+                  cpa: 78,
+                  applyRate: 1.8,
+                  qualityScore: 30,
+                  monthlyReach: 6000000,
+                },
+                executive: {
+                  cpc: 3.25,
+                  cpa: 138,
+                  applyRate: 3.3,
+                  qualityScore: 78,
+                  monthlyReach: 6000000,
+                },
+                hourly: {
+                  cpc: 1.25,
+                  cpa: 72,
+                  applyRate: 1.3,
+                  qualityScore: 25,
+                  monthlyReach: 6000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 1.62,
+                  cpa: 65,
+                  applyRate: 5.0,
+                  qualityScore: 82,
+                  monthlyReach: 6000000,
+                },
+                blue_collar: {
+                  cpc: 1.32,
+                  cpa: 76,
+                  applyRate: 1.9,
+                  qualityScore: 31,
+                  monthlyReach: 6000000,
+                },
+                executive: {
+                  cpc: 3.22,
+                  cpa: 136,
+                  applyRate: 3.4,
+                  qualityScore: 77,
+                  monthlyReach: 6000000,
+                },
+                hourly: {
+                  cpc: 1.22,
+                  cpa: 71,
+                  applyRate: 1.4,
+                  qualityScore: 26,
+                  monthlyReach: 6000000,
+                },
+              },
+            },
+          },
+          google_jobs: {
+            name: "Google for Jobs",
+            logo: "🔍",
+            category: "search",
+            bestFor: "Organic reach through search aggregation",
+            strengths: {
+              reach: 92,
+              cost: 88,
+              quality: 65,
+              speed: 80,
+              targeting: 60,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.25,
+                  cpa: 15,
+                  applyRate: 10.5,
+                  qualityScore: 65,
+                  monthlyReach: 300000000,
+                },
+                blue_collar: {
+                  cpc: 0.15,
+                  cpa: 8,
+                  applyRate: 16.0,
+                  qualityScore: 60,
+                  monthlyReach: 300000000,
+                },
+                executive: {
+                  cpc: 0.7,
+                  cpa: 50,
+                  applyRate: 4.5,
+                  qualityScore: 55,
+                  monthlyReach: 300000000,
+                },
+                hourly: {
+                  cpc: 0.1,
+                  cpa: 6,
+                  applyRate: 20.0,
+                  qualityScore: 58,
+                  monthlyReach: 300000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.35,
+                  cpa: 20,
+                  applyRate: 8.8,
+                  qualityScore: 62,
+                  monthlyReach: 300000000,
+                },
+                blue_collar: {
+                  cpc: 0.2,
+                  cpa: 10,
+                  applyRate: 14.0,
+                  qualityScore: 58,
+                  monthlyReach: 300000000,
+                },
+                executive: {
+                  cpc: 0.85,
+                  cpa: 58,
+                  applyRate: 4.0,
+                  qualityScore: 52,
+                  monthlyReach: 300000000,
+                },
+                hourly: {
+                  cpc: 0.14,
+                  cpa: 7,
+                  applyRate: 18.0,
+                  qualityScore: 55,
+                  monthlyReach: 300000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.28,
+                  cpa: 16,
+                  applyRate: 10.0,
+                  qualityScore: 64,
+                  monthlyReach: 300000000,
+                },
+                blue_collar: {
+                  cpc: 0.16,
+                  cpa: 9,
+                  applyRate: 15.5,
+                  qualityScore: 60,
+                  monthlyReach: 300000000,
+                },
+                executive: {
+                  cpc: 0.75,
+                  cpa: 52,
+                  applyRate: 4.3,
+                  qualityScore: 54,
+                  monthlyReach: 300000000,
+                },
+                hourly: {
+                  cpc: 0.11,
+                  cpa: 6,
+                  applyRate: 19.5,
+                  qualityScore: 57,
+                  monthlyReach: 300000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.38,
+                  cpa: 22,
+                  applyRate: 8.5,
+                  qualityScore: 62,
+                  monthlyReach: 300000000,
+                },
+                blue_collar: {
+                  cpc: 0.22,
+                  cpa: 11,
+                  applyRate: 13.5,
+                  qualityScore: 56,
+                  monthlyReach: 300000000,
+                },
+                executive: {
+                  cpc: 0.9,
+                  cpa: 62,
+                  applyRate: 3.8,
+                  qualityScore: 50,
+                  monthlyReach: 300000000,
+                },
+                hourly: {
+                  cpc: 0.15,
+                  cpa: 8,
+                  applyRate: 17.5,
+                  qualityScore: 54,
+                  monthlyReach: 300000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.22,
+                  cpa: 13,
+                  applyRate: 11.0,
+                  qualityScore: 65,
+                  monthlyReach: 300000000,
+                },
+                blue_collar: {
+                  cpc: 0.12,
+                  cpa: 7,
+                  applyRate: 17.0,
+                  qualityScore: 62,
+                  monthlyReach: 300000000,
+                },
+                executive: {
+                  cpc: 0.65,
+                  cpa: 46,
+                  applyRate: 4.8,
+                  qualityScore: 54,
+                  monthlyReach: 300000000,
+                },
+                hourly: {
+                  cpc: 0.08,
+                  cpa: 5,
+                  applyRate: 22.0,
+                  qualityScore: 60,
+                  monthlyReach: 300000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.24,
+                  cpa: 14,
+                  applyRate: 10.8,
+                  qualityScore: 64,
+                  monthlyReach: 300000000,
+                },
+                blue_collar: {
+                  cpc: 0.14,
+                  cpa: 8,
+                  applyRate: 16.5,
+                  qualityScore: 62,
+                  monthlyReach: 300000000,
+                },
+                executive: {
+                  cpc: 0.68,
+                  cpa: 48,
+                  applyRate: 4.6,
+                  qualityScore: 54,
+                  monthlyReach: 300000000,
+                },
+                hourly: {
+                  cpc: 0.09,
+                  cpa: 5,
+                  applyRate: 21.0,
+                  qualityScore: 60,
+                  monthlyReach: 300000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.23,
+                  cpa: 14,
+                  applyRate: 10.8,
+                  qualityScore: 64,
+                  monthlyReach: 300000000,
+                },
+                blue_collar: {
+                  cpc: 0.13,
+                  cpa: 7,
+                  applyRate: 16.8,
+                  qualityScore: 63,
+                  monthlyReach: 300000000,
+                },
+                executive: {
+                  cpc: 0.66,
+                  cpa: 47,
+                  applyRate: 4.7,
+                  qualityScore: 54,
+                  monthlyReach: 300000000,
+                },
+                hourly: {
+                  cpc: 0.09,
+                  cpa: 5,
+                  applyRate: 21.5,
+                  qualityScore: 61,
+                  monthlyReach: 300000000,
+                },
+              },
+            },
+          },
+          bing_jobs: {
+            name: "Bing Jobs",
+            logo: "🔷",
+            category: "search",
+            bestFor: "Supplemental search reach at low CPC",
+            strengths: {
+              reach: 45,
+              cost: 85,
+              quality: 58,
+              speed: 72,
+              targeting: 50,
+            },
+            metrics: {
+              general: {
+                white_collar: {
+                  cpc: 0.2,
+                  cpa: 14,
+                  applyRate: 8.5,
+                  qualityScore: 58,
+                  monthlyReach: 50000000,
+                },
+                blue_collar: {
+                  cpc: 0.12,
+                  cpa: 7,
+                  applyRate: 13.5,
+                  qualityScore: 55,
+                  monthlyReach: 50000000,
+                },
+                executive: {
+                  cpc: 0.55,
+                  cpa: 42,
+                  applyRate: 3.8,
+                  qualityScore: 48,
+                  monthlyReach: 50000000,
+                },
+                hourly: {
+                  cpc: 0.08,
+                  cpa: 5,
+                  applyRate: 16.5,
+                  qualityScore: 52,
+                  monthlyReach: 50000000,
+                },
+              },
+              tech: {
+                white_collar: {
+                  cpc: 0.28,
+                  cpa: 18,
+                  applyRate: 7.2,
+                  qualityScore: 55,
+                  monthlyReach: 50000000,
+                },
+                blue_collar: {
+                  cpc: 0.16,
+                  cpa: 9,
+                  applyRate: 11.8,
+                  qualityScore: 52,
+                  monthlyReach: 50000000,
+                },
+                executive: {
+                  cpc: 0.68,
+                  cpa: 48,
+                  applyRate: 3.2,
+                  qualityScore: 45,
+                  monthlyReach: 50000000,
+                },
+                hourly: {
+                  cpc: 0.1,
+                  cpa: 6,
+                  applyRate: 15.0,
+                  qualityScore: 48,
+                  monthlyReach: 50000000,
+                },
+              },
+              healthcare: {
+                white_collar: {
+                  cpc: 0.22,
+                  cpa: 15,
+                  applyRate: 8.2,
+                  qualityScore: 57,
+                  monthlyReach: 50000000,
+                },
+                blue_collar: {
+                  cpc: 0.13,
+                  cpa: 7,
+                  applyRate: 13.0,
+                  qualityScore: 54,
+                  monthlyReach: 50000000,
+                },
+                executive: {
+                  cpc: 0.58,
+                  cpa: 44,
+                  applyRate: 3.6,
+                  qualityScore: 47,
+                  monthlyReach: 50000000,
+                },
+                hourly: {
+                  cpc: 0.09,
+                  cpa: 5,
+                  applyRate: 16.0,
+                  qualityScore: 51,
+                  monthlyReach: 50000000,
+                },
+              },
+              finance: {
+                white_collar: {
+                  cpc: 0.3,
+                  cpa: 20,
+                  applyRate: 7.0,
+                  qualityScore: 54,
+                  monthlyReach: 50000000,
+                },
+                blue_collar: {
+                  cpc: 0.18,
+                  cpa: 10,
+                  applyRate: 11.5,
+                  qualityScore: 50,
+                  monthlyReach: 50000000,
+                },
+                executive: {
+                  cpc: 0.72,
+                  cpa: 52,
+                  applyRate: 3.0,
+                  qualityScore: 44,
+                  monthlyReach: 50000000,
+                },
+                hourly: {
+                  cpc: 0.12,
+                  cpa: 7,
+                  applyRate: 14.5,
+                  qualityScore: 46,
+                  monthlyReach: 50000000,
+                },
+              },
+              retail: {
+                white_collar: {
+                  cpc: 0.18,
+                  cpa: 12,
+                  applyRate: 9.0,
+                  qualityScore: 58,
+                  monthlyReach: 50000000,
+                },
+                blue_collar: {
+                  cpc: 0.1,
+                  cpa: 6,
+                  applyRate: 14.5,
+                  qualityScore: 56,
+                  monthlyReach: 50000000,
+                },
+                executive: {
+                  cpc: 0.5,
+                  cpa: 38,
+                  applyRate: 4.0,
+                  qualityScore: 48,
+                  monthlyReach: 50000000,
+                },
+                hourly: {
+                  cpc: 0.07,
+                  cpa: 4,
+                  applyRate: 18.0,
+                  qualityScore: 54,
+                  monthlyReach: 50000000,
+                },
+              },
+              manufacturing: {
+                white_collar: {
+                  cpc: 0.19,
+                  cpa: 13,
+                  applyRate: 8.8,
+                  qualityScore: 57,
+                  monthlyReach: 50000000,
+                },
+                blue_collar: {
+                  cpc: 0.11,
+                  cpa: 6,
+                  applyRate: 14.0,
+                  qualityScore: 56,
+                  monthlyReach: 50000000,
+                },
+                executive: {
+                  cpc: 0.52,
+                  cpa: 40,
+                  applyRate: 3.9,
+                  qualityScore: 47,
+                  monthlyReach: 50000000,
+                },
+                hourly: {
+                  cpc: 0.08,
+                  cpa: 4,
+                  applyRate: 17.5,
+                  qualityScore: 54,
+                  monthlyReach: 50000000,
+                },
+              },
+              logistics: {
+                white_collar: {
+                  cpc: 0.19,
+                  cpa: 13,
+                  applyRate: 8.8,
+                  qualityScore: 57,
+                  monthlyReach: 50000000,
+                },
+                blue_collar: {
+                  cpc: 0.11,
+                  cpa: 6,
+                  applyRate: 14.2,
+                  qualityScore: 57,
+                  monthlyReach: 50000000,
+                },
+                executive: {
+                  cpc: 0.52,
+                  cpa: 39,
+                  applyRate: 3.9,
+                  qualityScore: 47,
+                  monthlyReach: 50000000,
+                },
+                hourly: {
+                  cpc: 0.07,
+                  cpa: 4,
+                  applyRate: 17.8,
+                  qualityScore: 55,
+                  monthlyReach: 50000000,
+                },
+              },
+            },
+          },
+        };
+
+        // ═══════════════════════════════════════════════════════════════════
+        // DOM REFS
+        // ═══════════════════════════════════════════════════════════════════
+        var $industrySelect = document.getElementById("industrySelect");
+        var $roleSelect = document.getElementById("roleSelect");
+        var $btnCompare = document.getElementById("btnCompare");
+        var $btnReset = document.getElementById("btnReset");
+        var $selectionCount = document.getElementById("selectionCount");
+        var $resultsPanel = document.getElementById("resultsPanel");
+        var $tableBody = document.getElementById("tableBody");
+        var $radarGrid = document.getElementById("radarGrid");
+        var $allocBars = document.getElementById("allocBars");
+        var $allocSummary = document.getElementById("allocSummary");
+
+        var selectedVendors = {};
+        var VENDOR_COLORS = [
+          "#6366f1",
+          "#22c55e",
+          "#f59e0b",
+          "#ef4444",
+          "#06b6d4",
+          "#a855f7",
+        ];
+        var DIM_LABELS = ["Reach", "Cost", "Quality", "Speed", "Targeting"];
+        var DIM_KEYS = ["reach", "cost", "quality", "speed", "targeting"];
+
+        // ═══════════════════════════════════════════════════════════════════
+        // BUILD VENDOR CARDS
+        // ═══════════════════════════════════════════════════════════════════
+        function buildVendorCards() {
+          var grids = {
+            major: document.getElementById("grid-major"),
+            programmatic: document.getElementById("grid-programmatic"),
+            social: document.getElementById("grid-social"),
+            niche: document.getElementById("grid-niche"),
+            search: document.getElementById("grid-search"),
+          };
+
+          Object.keys(VENDOR_DATABASE).forEach(function (key) {
+            var v = VENDOR_DATABASE[key];
+            var card = document.createElement("div");
+            card.className = "vendor-card";
+            card.setAttribute("data-vendor", key);
+            card.setAttribute("role", "checkbox");
+            card.setAttribute("aria-checked", "false");
+            card.setAttribute("tabindex", "0");
+            card.innerHTML =
+              '<span class="vendor-emoji">' +
+              v.logo +
+              "</span>" +
+              '<div class="vendor-info">' +
+              '<div class="vendor-name">' +
+              v.name +
+              "</div>" +
+              '<div class="vendor-cat">' +
+              v.category +
+              "</div>" +
+              "</div>" +
+              '<div class="check-indicator"></div>';
+
+            card.addEventListener("click", function () {
+              toggleVendor(key, card);
+            });
+            card.addEventListener("keydown", function (e) {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                toggleVendor(key, card);
+              }
+            });
+
+            if (grids[v.category]) {
+              grids[v.category].appendChild(card);
+            }
+          });
+        }
+
+        function toggleVendor(key, card) {
+          if (selectedVendors[key]) {
+            delete selectedVendors[key];
+            card.classList.remove("selected");
+            card.setAttribute("aria-checked", "false");
+            card.querySelector(".check-indicator").textContent = "";
+          } else {
+            var count = Object.keys(selectedVendors).length;
+            if (count >= 6) return;
+            selectedVendors[key] = true;
+            card.classList.add("selected");
+            card.setAttribute("aria-checked", "true");
+            card.querySelector(".check-indicator").textContent = "\u2713";
+          }
+          updateSelectionUI();
+        }
+
+        function updateSelectionUI() {
+          var count = Object.keys(selectedVendors).length;
+          if (count < 2) {
+            $selectionCount.innerHTML =
+              'Select <span class="count">' +
+              (2 - count) +
+              " more</span> vendor" +
+              (2 - count > 1 ? "s" : "") +
+              " to compare";
+            $selectionCount.className = "selection-count";
+            $btnCompare.disabled = true;
+          } else if (count > 6) {
+            $selectionCount.innerHTML =
+              '<span class="count">Maximum 6</span> vendors allowed';
+            $selectionCount.className = "selection-count warning";
+            $btnCompare.disabled = true;
+          } else {
+            $selectionCount.innerHTML =
+              '<span class="count">' +
+              count +
+              "</span> vendor" +
+              (count > 1 ? "s" : "") +
+              " selected";
+            $selectionCount.className = "selection-count";
+            $btnCompare.disabled = false;
+          }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // COMPARISON ENGINE
+        // ═══════════════════════════════════════════════════════════════════
+        function getVendorMetrics(vendorKey) {
+          var v = VENDOR_DATABASE[vendorKey];
+          var industry = $industrySelect.value;
+          var role = $roleSelect.value;
+          var m = v.metrics[industry];
+          if (!m) m = v.metrics.general;
+          var rm = m[role];
+          if (!rm) rm = m.white_collar;
+          return rm;
+        }
+
+        function computeCompositeScore(vendorKey) {
+          var v = VENDOR_DATABASE[vendorKey];
+          var s = v.strengths;
+          // Weighted: quality 30%, cost 25%, reach 20%, speed 15%, targeting 10%
+          return (
+            s.quality * 0.3 +
+            s.cost * 0.25 +
+            s.reach * 0.2 +
+            s.speed * 0.15 +
+            s.targeting * 0.1
+          );
+        }
+
+        function getCompositeTier(score) {
+          if (score >= 75) return { tier: "S", cls: "tier-s" };
+          if (score >= 65) return { tier: "A", cls: "tier-a" };
+          if (score >= 50) return { tier: "B", cls: "tier-b" };
+          return { tier: "C", cls: "tier-c" };
+        }
+
+        function formatReach(n) {
+          if (n >= 1000000000) return (n / 1000000000).toFixed(1) + "B";
+          if (n >= 1000000) return (n / 1000000).toFixed(0) + "M";
+          if (n >= 1000) return (n / 1000).toFixed(0) + "K";
+          return n.toString();
+        }
+
+        function getBarColor(val, max) {
+          var pct = val / max;
+          if (pct >= 0.7) return "green";
+          if (pct >= 0.4) return "amber";
+          return "red";
+        }
+
+        function runComparison() {
+          var keys = Object.keys(selectedVendors);
+          if (keys.length < 2) return;
+
+          // Compute scores and sort
+          var ranked = keys
+            .map(function (k) {
+              return {
+                key: k,
+                score: computeCompositeScore(k),
+                metrics: getVendorMetrics(k),
+              };
+            })
+            .sort(function (a, b) {
+              return b.score - a.score;
+            });
+
+          var winnerKey = ranked[0].key;
+
+          // Build table
+          var maxQuality = Math.max.apply(
+            null,
+            ranked.map(function (r) {
+              return r.metrics.qualityScore;
+            }),
+          );
+          var maxApply = Math.max.apply(
+            null,
+            ranked.map(function (r) {
+              return r.metrics.applyRate;
+            }),
+          );
+
+          var html = "";
+          ranked.forEach(function (r, idx) {
+            var v = VENDOR_DATABASE[r.key];
+            var m = r.metrics;
+            var tier = getCompositeTier(r.score);
+            var isWinner = r.key === winnerKey;
+
+            html += "<tr>";
+            html +=
+              '<td><div class="vendor-cell"><span class="emoji">' +
+              v.logo +
+              '</span><span class="name">' +
+              v.name +
+              "</span>";
+            if (isWinner)
+              html += '<span class="winner-badge">&#9733; Best Overall</span>';
+            html += "</div></td>";
+            html += "<td>$" + m.cpc.toFixed(2) + "</td>";
+            html += "<td>$" + m.cpa.toFixed(0) + "</td>";
+            html +=
+              '<td><div class="metric-bar"><div class="metric-bar-track"><div class="metric-bar-fill ' +
+              getBarColor(m.applyRate, maxApply) +
+              '" style="width:' +
+              ((m.applyRate / maxApply) * 100).toFixed(0) +
+              '%"></div></div>' +
+              m.applyRate.toFixed(1) +
+              "%</div></td>";
+            html +=
+              '<td><div class="metric-bar"><div class="metric-bar-track"><div class="metric-bar-fill ' +
+              getBarColor(m.qualityScore, 100) +
+              '" style="width:' +
+              m.qualityScore +
+              '%"></div></div>' +
+              m.qualityScore +
+              "</div></td>";
+            html += "<td>" + formatReach(m.monthlyReach) + "</td>";
+            html +=
+              '<td><span class="best-for-tag">' + v.bestFor + "</span></td>";
+            html +=
+              '<td><span class="composite-badge ' +
+              tier.cls +
+              '">' +
+              tier.tier +
+              " " +
+              r.score.toFixed(0) +
+              "</span></td>";
+            html += "</tr>";
+          });
+          $tableBody.innerHTML = html;
+
+          // Build radar cards
+          var radarHTML = "";
+          ranked.forEach(function (r, idx) {
+            var v = VENDOR_DATABASE[r.key];
+            var color = VENDOR_COLORS[idx % VENDOR_COLORS.length];
+            radarHTML +=
+              '<div class="radar-card"><h4>' +
+              v.logo +
+              " " +
+              v.name +
+              '</h4><div class="radar-chart">';
+            DIM_KEYS.forEach(function (dk, di) {
+              var val = v.strengths[dk];
+              radarHTML += '<div class="radar-dim">';
+              radarHTML +=
+                '<span class="dim-label">' + DIM_LABELS[di] + "</span>";
+              radarHTML +=
+                '<div class="dim-bar"><div class="dim-fill" style="width:' +
+                val +
+                "%;background:" +
+                color +
+                '"></div></div>';
+              radarHTML +=
+                '<span class="dim-val" style="color:' +
+                color +
+                '">' +
+                val +
+                "</span>";
+              radarHTML += "</div>";
+            });
+            radarHTML += "</div></div>";
+          });
+          $radarGrid.innerHTML = radarHTML;
+
+          // Budget allocation
+          var totalScore = ranked.reduce(function (sum, r) {
+            return sum + r.score;
+          }, 0);
+          var allocHTML = "";
+          var summaryParts = [];
+          ranked.forEach(function (r, idx) {
+            var v = VENDOR_DATABASE[r.key];
+            var pct = Math.round((r.score / totalScore) * 100);
+            var color = VENDOR_COLORS[idx % VENDOR_COLORS.length];
+            allocHTML += '<div class="alloc-row">';
+            allocHTML +=
+              '<div class="alloc-label">' + v.logo + " " + v.name + "</div>";
+            allocHTML +=
+              '<div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:' +
+              pct +
+              "%;background:" +
+              color +
+              '">' +
+              pct +
+              "%</div></div>";
+            allocHTML += '<div class="alloc-pct">' + pct + "%</div>";
+            allocHTML += "</div>";
+            summaryParts.push("<strong>" + pct + "%</strong> to " + v.name);
+          });
+          $allocBars.innerHTML = allocHTML;
+
+          var winner = VENDOR_DATABASE[winnerKey];
+          $allocSummary.innerHTML =
+            "For your <strong>" +
+            $industrySelect.options[$industrySelect.selectedIndex].text +
+            "</strong> / <strong>" +
+            $roleSelect.options[$roleSelect.selectedIndex].text +
+            "</strong> hiring profile, we recommend allocating " +
+            summaryParts.join(", ") +
+            ". " +
+            "<strong>" +
+            winner.name +
+            "</strong> leads as the top overall vendor, excelling in " +
+            DIM_KEYS.filter(function (dk) {
+              return winner.strengths[dk] >= 80;
+            })
+              .map(function (dk) {
+                return dk.charAt(0).toUpperCase() + dk.slice(1);
+              })
+              .join(" and ") +
+            ".";
+
+          // Show results
+          $resultsPanel.classList.add("active");
+
+          // Re-observe new reveal-on-scroll elements
+          document
+            .querySelectorAll(".results-panel .reveal-on-scroll")
+            .forEach(function (el) {
+              el.classList.remove("visible");
+              scrollObserver.observe(el);
+            });
+
+          // Scroll to results
+          $resultsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // RESET
+        // ═══════════════════════════════════════════════════════════════════
+        function resetAll() {
+          selectedVendors = {};
+          document
+            .querySelectorAll(".vendor-card.selected")
+            .forEach(function (card) {
+              card.classList.remove("selected");
+              card.setAttribute("aria-checked", "false");
+              card.querySelector(".check-indicator").textContent = "";
+            });
+          $resultsPanel.classList.remove("active");
+          updateSelectionUI();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // EVENT LISTENERS
+        // ═══════════════════════════════════════════════════════════════════
+        $btnCompare.addEventListener("click", runComparison);
+        $btnReset.addEventListener("click", resetAll);
+        $industrySelect.addEventListener("change", function () {
+          if ($resultsPanel.classList.contains("active")) runComparison();
+        });
+        $roleSelect.addEventListener("change", function () {
+          if ($resultsPanel.classList.contains("active")) runComparison();
+        });
+
+        // ═══════════════════════════════════════════════════════════════════
+        // INIT
+        // ═══════════════════════════════════════════════════════════════════
+        buildVendorCards();
+        updateSelectionUI();
+      })();
+
+      // Scroll reveal
+      var scrollObserver = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) {
+              e.target.classList.add("visible");
+              scrollObserver.unobserve(e.target);
+            }
+          });
+        },
+        { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+      );
+      document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+        scrollObserver.observe(el);
+      });
+    </script>
+    <footer
+      class="reveal-on-scroll"
+      style="
+        text-align: center;
+        padding: 2rem 1rem;
+        color: #64748b;
+        font-size: 0.8rem;
+        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        margin-top: 3rem;
+      "
+    >
+      Powered by
+      <a
+        href="https://www.linkedin.com/in/chandel13/"
+        target="_blank"
+        rel="noopener"
+        style="color: #818cf8; text-decoration: none"
+        >Shubham Singh Chandel</a
+      >
+      &middot; Nova AI Suite
+    </footer>
+  </body>
+</html>

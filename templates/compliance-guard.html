@@ -1,0 +1,1942 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Scan job postings for compliance issues -- salary transparency, biased language, EEO violations, OFCCP issues, and age discrimination."
+    />
+    <meta name="theme-color" content="#000000" />
+    <title>ComplianceGuard | Nova AI Suite</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M16 4L6 10v6c0 5.55 4.27 10.74 10 12 5.73-1.26 10-6.45 10-12v-6L16 4z' stroke='white' stroke-width='2' fill='none'/><path d='M11 16l3 3 6-6' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ============================================
+           Design System: Deep Obsidian + Electric Indigo
+           Glassmorphism 2.0 Dark Mode
+           ============================================ */
+      :root {
+        --obsidian: #000000;
+        --obsidian-light: #111111;
+        --navy: #1a1a1a;
+        --indigo: #6366f1;
+        --indigo-light: #818cf8;
+        --indigo-pale: rgba(99, 102, 241, 0.08);
+        --indigo-glow: rgba(99, 102, 241, 0.15);
+        --cyan-accent: #22d3ee;
+        --green-success: #34d399;
+        --amber-warning: #fbbf24;
+        --red-error: #f87171;
+        --accent: #6366f1;
+        --accent-light: #818cf8;
+        --bg: #000000;
+        --surface-1: rgba(17, 17, 17, 0.6);
+        --surface-2: rgba(26, 26, 26, 0.5);
+        --surface-3: rgba(26, 26, 26, 0.4);
+        --card: rgba(17, 17, 17, 0.8);
+        --card-solid: #111111;
+        --card-hover: rgba(26, 26, 26, 0.7);
+        --glass-blur: blur(40px) saturate(1.5);
+        --glass-blur-md: blur(24px) saturate(1.3);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-border-hover: rgba(255, 255, 255, 0.16);
+        --glass-inset: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+        --text: #d4d4d8;
+        --text-secondary: #a1a1a1;
+        --text-muted: #666666;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-accent: rgba(99, 102, 241, 0.3);
+        --shadow-md:
+          0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+        --shadow-lg:
+          0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+        --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+        --radius: 12px;
+        --radius-sm: 8px;
+        --radius-lg: 16px;
+        --radius-xl: 20px;
+        --gradient-primary: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+        --gradient-accent: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
+        --gradient-mesh:
+          radial-gradient(
+            ellipse at 20% 50%,
+            rgba(99, 102, 241, 0.08) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 20%,
+            rgba(34, 211, 238, 0.06) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 40% 80%,
+            rgba(99, 102, 241, 0.04) 0%,
+            transparent 50%
+          );
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+        --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        --duration-fast: 100ms;
+        --duration-normal: 200ms;
+        --duration-slow: 300ms;
+        --focus-ring: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
+          filter: none;
+        }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+        .stagger-1,
+        .stagger-2,
+        .stagger-3,
+        .stagger-4,
+        .stagger-5,
+        .stagger-6 {
+          transition-delay: 0s !important;
+        }
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      ::selection {
+        background: var(--accent);
+        color: white;
+      }
+
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        position: relative;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: var(--gradient-mesh);
+        pointer-events: none;
+        z-index: 0;
+        animation: ambientDrift 20s ease-in-out infinite alternate;
+      }
+
+      @keyframes ambientDrift {
+        0% {
+          background:
+            radial-gradient(
+              ellipse at 20% 50%,
+              rgba(99, 102, 241, 0.08) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 80% 20%,
+              rgba(34, 211, 238, 0.06) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 40% 80%,
+              rgba(99, 102, 241, 0.04) 0%,
+              transparent 50%
+            );
+        }
+        50% {
+          background:
+            radial-gradient(
+              ellipse at 60% 30%,
+              rgba(99, 102, 241, 0.1) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 20% 70%,
+              rgba(34, 211, 238, 0.05) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 80% 60%,
+              rgba(129, 140, 248, 0.06) 0%,
+              transparent 50%
+            );
+        }
+        100% {
+          background:
+            radial-gradient(
+              ellipse at 40% 60%,
+              rgba(99, 102, 241, 0.07) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 70% 40%,
+              rgba(34, 211, 238, 0.08) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 30% 20%,
+              rgba(99, 102, 241, 0.05) 0%,
+              transparent 50%
+            );
+        }
+      }
+
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.4;
+      }
+
+      /* ── HEADER ─────────────────────────────────── */
+      .app-header {
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(20px) saturate(1.3);
+        -webkit-backdrop-filter: blur(20px) saturate(1.3);
+        color: var(--text);
+        padding: 0 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 64px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        border-bottom: 1px solid var(--glass-border);
+      }
+
+      .app-header::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(99, 102, 241, 0.3),
+          transparent
+        );
+      }
+
+      .header-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .header-logo {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-sm);
+        background: var(--gradient-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .header-logo svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .app-header h1 {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .header-badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 99px;
+        background: var(--indigo-pale);
+        color: var(--indigo-light);
+        border: 1px solid var(--border-accent);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .nav-link {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 8px 16px;
+        border-radius: var(--radius-sm);
+        transition: all var(--duration-normal) var(--ease-standard);
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+      }
+
+      .nav-link:hover {
+        color: var(--text);
+        background: var(--surface-2);
+      }
+
+      .nav-link:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      /* ── MAIN CONTAINER ─────────────────────────── */
+      .main-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 24px 64px;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* ── PAGE TITLE ─────────────────────────────── */
+      .page-title {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      .page-title h2 {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        background: var(--gradient-accent);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+      }
+
+      .page-title p {
+        font-size: 15px;
+        color: var(--text-secondary);
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      /* ── GLASS CARD ─────────────────────────────── */
+      .glass-card {
+        background: var(--card);
+        backdrop-filter: var(--glass-blur-md);
+        -webkit-backdrop-filter: var(--glass-blur-md);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-lg);
+        padding: 32px;
+        box-shadow: var(--shadow-md), var(--glass-inset);
+        transition: border-color var(--duration-normal) var(--ease-standard);
+      }
+
+      .glass-card:hover {
+        border-color: var(--glass-border-hover);
+      }
+
+      /* ── SECTION LABEL ──────────────────────────── */
+      .section-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--indigo-light);
+        margin-bottom: 16px;
+        display: block;
+      }
+
+      /* ── FORM INPUTS ────────────────────────────── */
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 20px;
+        margin-top: 24px;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .form-group label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+
+      .form-group input,
+      .form-group select,
+      .form-group textarea {
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 12px 16px;
+        font-size: 14px;
+        color: var(--text);
+        font-family: inherit;
+        transition: all var(--duration-normal) var(--ease-standard);
+        min-height: 44px;
+        width: 100%;
+      }
+
+      .form-group input::placeholder,
+      .form-group textarea::placeholder {
+        color: var(--text-muted);
+      }
+
+      .form-group input:focus,
+      .form-group select:focus,
+      .form-group textarea:focus {
+        outline: none;
+        border-color: var(--indigo);
+        box-shadow: var(--focus-ring);
+        background: var(--surface-2);
+      }
+
+      .form-group textarea {
+        resize: vertical;
+        line-height: 1.6;
+      }
+
+      /* ── BUTTON ─────────────────────────────────── */
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 14px 32px;
+        font-size: 15px;
+        font-weight: 600;
+        color: white;
+        background: var(--gradient-primary);
+        border: none;
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: all var(--duration-normal) var(--ease-standard);
+        box-shadow: var(--shadow-md), var(--shadow-glow);
+        min-width: 44px;
+        min-height: 44px;
+        font-family: inherit;
+        position: relative;
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow:
+          var(--shadow-lg),
+          0 0 30px rgba(99, 102, 241, 0.25);
+      }
+
+      .btn-primary:active:not(:disabled) {
+        transform: translateY(0);
+      }
+
+      .btn-primary:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .btn-primary .spinner {
+        display: none;
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+
+      .btn-primary.loading .spinner {
+        display: block;
+      }
+      .btn-primary.loading .btn-text {
+        display: none;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ── ERROR BANNER ───────────────────────────── */
+      .error-banner {
+        background: rgba(248, 113, 113, 0.1);
+        border: 1px solid rgba(248, 113, 113, 0.3);
+        border-radius: var(--radius-sm);
+        color: var(--red-error);
+        padding: 12px 16px;
+        font-size: 14px;
+        margin-top: 16px;
+        display: none;
+      }
+
+      .error-banner.visible {
+        display: block;
+      }
+
+      /* ── RESULTS PANEL ──────────────────────────── */
+      .results-section {
+        margin-top: 32px;
+        display: none;
+      }
+
+      .results-section.visible {
+        display: block;
+      }
+
+      /* ── SCORE DISPLAY ──────────────────────────── */
+      .score-card {
+        text-align: center;
+        padding: 40px 32px;
+        margin-bottom: 24px;
+      }
+
+      .score-ring {
+        position: relative;
+        width: 160px;
+        height: 160px;
+        margin: 0 auto 20px;
+      }
+
+      .score-ring svg {
+        transform: rotate(-90deg);
+        width: 160px;
+        height: 160px;
+      }
+
+      .score-ring .track {
+        fill: none;
+        stroke: var(--surface-1);
+        stroke-width: 10;
+      }
+
+      .score-ring .progress {
+        fill: none;
+        stroke-width: 10;
+        stroke-linecap: round;
+        stroke-dasharray: 440;
+        stroke-dashoffset: 440;
+        transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .score-ring .score-value {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 48px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+
+      .score-ring .score-label {
+        position: absolute;
+        top: 65%;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-secondary);
+        margin-top: 4px;
+      }
+
+      .score-status {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+
+      .score-summary {
+        font-size: 14px;
+        color: var(--text-secondary);
+        max-width: 480px;
+        margin: 0 auto;
+      }
+
+      /* ── CATEGORY TABS ──────────────────────────── */
+      .category-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 24px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .category-tab {
+        padding: 8px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: 99px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all var(--duration-normal) var(--ease-standard);
+        font-family: inherit;
+        min-height: 36px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .category-tab:hover {
+        color: var(--text);
+        background: var(--surface-2);
+        border-color: var(--glass-border-hover);
+      }
+
+      .category-tab:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      .category-tab.active {
+        color: white;
+        background: var(--gradient-primary);
+        border-color: var(--indigo);
+      }
+
+      .category-tab .tab-count {
+        font-size: 11px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 1px 6px;
+        border-radius: 99px;
+        min-width: 20px;
+        text-align: center;
+      }
+
+      .category-tab.active .tab-count {
+        background: rgba(255, 255, 255, 0.25);
+      }
+
+      /* ── VIOLATIONS LIST ────────────────────────── */
+      .violations-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .violation-item {
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: border-color var(--duration-normal) var(--ease-standard);
+      }
+
+      .violation-item:hover {
+        border-color: var(--glass-border-hover);
+      }
+
+      .violation-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .violation-severity {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 99px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        flex-shrink: 0;
+      }
+
+      .severity-critical {
+        background: rgba(248, 113, 113, 0.15);
+        color: var(--red-error);
+        border: 1px solid rgba(248, 113, 113, 0.3);
+      }
+
+      .severity-warning {
+        background: rgba(251, 191, 36, 0.15);
+        color: var(--amber-warning);
+        border: 1px solid rgba(251, 191, 36, 0.3);
+      }
+
+      .severity-info {
+        background: rgba(34, 211, 238, 0.15);
+        color: var(--cyan-accent);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+      }
+
+      .violation-category {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--indigo-light);
+      }
+
+      .violation-message {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 8px;
+      }
+
+      .violation-flagged {
+        font-size: 13px;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+        padding: 8px 12px;
+        background: rgba(248, 113, 113, 0.06);
+        border-left: 3px solid var(--red-error);
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        font-family: "Courier New", monospace;
+      }
+
+      .violation-suggestion {
+        font-size: 13px;
+        color: var(--green-success);
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .violation-suggestion::before {
+        content: "\2192";
+        flex-shrink: 0;
+        font-weight: 700;
+      }
+
+      /* ── SUMMARY PANEL ──────────────────────────── */
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .summary-stat {
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        text-align: center;
+      }
+
+      .summary-stat .stat-value {
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 4px;
+      }
+
+      .summary-stat .stat-label {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-secondary);
+      }
+
+      /* ── RECOMMENDATIONS ────────────────────────── */
+      .recommendations {
+        margin-top: 24px;
+      }
+
+      .rec-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .rec-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px;
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+      }
+
+      .rec-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 16px;
+      }
+
+      .rec-icon.critical {
+        background: rgba(248, 113, 113, 0.15);
+      }
+      .rec-icon.warning {
+        background: rgba(251, 191, 36, 0.15);
+      }
+      .rec-icon.success {
+        background: rgba(52, 211, 153, 0.15);
+      }
+
+      .rec-text {
+        font-size: 14px;
+        color: var(--text);
+        line-height: 1.5;
+      }
+
+      /* ── NO VIOLATIONS ──────────────────────────── */
+      .no-violations {
+        text-align: center;
+        padding: 48px 32px;
+        color: var(--text-secondary);
+      }
+
+      .no-violations .check-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: rgba(52, 211, 153, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        font-size: 28px;
+      }
+
+      /* ── REVEAL ON SCROLL ───────────────────────── */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        filter: hue-rotate(40deg) saturate(0.5) brightness(0.8);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          filter 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+        filter: none;
+      }
+      .stagger-1 {
+        transition-delay: 0.05s;
+      }
+      .stagger-2 {
+        transition-delay: 0.1s;
+      }
+      .stagger-3 {
+        transition-delay: 0.15s;
+      }
+      .stagger-4 {
+        transition-delay: 0.2s;
+      }
+
+      /* ── RESPONSIVE ─────────────────────────────── */
+      @media (max-width: 768px) {
+        .app-header {
+          padding: 0 16px;
+        }
+        .main-container {
+          padding: 24px 16px 48px;
+        }
+        .glass-card {
+          padding: 24px 20px;
+        }
+        .page-title h2 {
+          font-size: 24px;
+        }
+        .score-ring {
+          width: 120px;
+          height: 120px;
+        }
+        .score-ring svg {
+          width: 120px;
+          height: 120px;
+        }
+        .score-ring .score-value {
+          font-size: 36px;
+        }
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+        .summary-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .category-tabs {
+          gap: 6px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .summary-grid {
+          grid-template-columns: 1fr;
+        }
+        .violation-header {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header" role="banner">
+      <div class="header-content">
+        <div class="header-logo" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M12 2L4 7v5c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V7L12 2z"
+            />
+            <path d="M9 12l2 2 4-4" />
+          </svg>
+        </div>
+        <h1>ComplianceGuard</h1>
+        <span class="header-badge">Compliance</span>
+      </div>
+      <nav aria-label="Main navigation">
+        <a href="/hub" class="nav-link" aria-label="Back to Nova AI Suite Hub"
+          >Hub</a
+        >
+      </nav>
+    </header>
+
+    <main class="main-container" role="main">
+      <!-- Page Title -->
+      <div class="page-title reveal-on-scroll">
+        <h2>Job Posting Compliance Scanner</h2>
+        <p>
+          Scan job postings for pay transparency gaps, biased language, EEO
+          violations, OFCCP issues, and age discrimination risks.
+        </p>
+      </div>
+
+      <!-- Input Section -->
+      <section
+        class="glass-card reveal-on-scroll stagger-1"
+        aria-label="Job posting input"
+      >
+        <span class="section-label">Job Posting Text</span>
+        <div class="form-group">
+          <label for="jobPosting"
+            >Paste or type the full job posting below</label
+          >
+          <textarea
+            id="jobPosting"
+            rows="12"
+            placeholder="Paste the complete job description here. Include all sections -- requirements, responsibilities, qualifications, benefits, and legal disclosures..."
+            aria-required="true"
+          ></textarea>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="jobTitle">Job Title (optional)</label>
+            <input
+              type="text"
+              id="jobTitle"
+              placeholder="e.g. Senior Software Engineer"
+            />
+          </div>
+          <div class="form-group">
+            <label for="jobLocation">Location (optional)</label>
+            <input
+              type="text"
+              id="jobLocation"
+              placeholder="e.g. New York, NY"
+            />
+          </div>
+          <div class="form-group">
+            <label for="companyName">Company (optional)</label>
+            <input type="text" id="companyName" placeholder="e.g. Acme Corp" />
+          </div>
+        </div>
+
+        <div
+          style="
+            margin-top: 24px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+          "
+        >
+          <button
+            class="btn-primary"
+            id="scanBtn"
+            type="button"
+            aria-label="Scan job posting for compliance issues"
+          >
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="btn-text">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                style="vertical-align: middle; margin-right: 4px"
+              >
+                <path
+                  d="M12 2L4 7v5c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V7L12 2z"
+                />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+              Scan for Compliance
+            </span>
+          </button>
+          <button
+            class="btn-primary"
+            id="clearBtn"
+            type="button"
+            style="
+              background: var(--surface-2);
+              box-shadow: none;
+              color: var(--text-secondary);
+            "
+            aria-label="Clear form"
+          >
+            Clear
+          </button>
+        </div>
+
+        <div class="error-banner" id="errorBanner" role="alert"></div>
+      </section>
+
+      <!-- Results Section -->
+      <section
+        class="results-section"
+        id="resultsSection"
+        aria-label="Compliance scan results"
+      >
+        <!-- Score Card -->
+        <div class="glass-card score-card reveal-on-scroll" id="scoreCard">
+          <div class="score-ring">
+            <svg viewBox="0 0 160 160">
+              <circle class="track" cx="80" cy="80" r="70" />
+              <circle
+                class="progress"
+                id="scoreProgress"
+                cx="80"
+                cy="80"
+                r="70"
+              />
+            </svg>
+            <div class="score-value" id="scoreValue">--</div>
+            <div class="score-label">Score</div>
+          </div>
+          <div class="score-status" id="scoreStatus"></div>
+          <div class="score-summary" id="scoreSummary"></div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div
+          class="summary-grid reveal-on-scroll stagger-1"
+          id="summaryGrid"
+        ></div>
+
+        <!-- Category Tabs -->
+        <div class="glass-card reveal-on-scroll stagger-2">
+          <span class="section-label">Findings by Category</span>
+          <div class="category-tabs" id="categoryTabs" role="tablist"></div>
+          <div
+            class="violations-list"
+            id="violationsList"
+            role="tabpanel"
+          ></div>
+        </div>
+
+        <!-- Recommendations -->
+        <div class="glass-card recommendations reveal-on-scroll stagger-3">
+          <span class="section-label">Recommendations</span>
+          <div class="rec-list" id="recList"></div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      (function () {
+        "use strict";
+
+        // ── Compliance Rules Engine ────────────────────────────────────────
+        var COMPLIANCE_RULES = [
+          // ── Pay Transparency ──────────────────────────────────────────
+          {
+            id: "pay_no_salary",
+            category: "Pay Transparency",
+            severity: "Critical",
+            pattern: null,
+            negativeCheck: true,
+            negativePattern:
+              /(\$\s*\d[\d,]*\s*[-\u2013\u2014to]+\s*\$?\s*\d[\d,]*|salary\s*(?:range|:)\s*\$?\d|compensation\s*(?:range|:)\s*\$?\d|pay\s*(?:range|:)\s*\$?\d|\d+[kK]\s*[-\u2013\u2014to]+\s*\d+[kK]|per\s*(?:hour|year|annum)\s*.*\$?\d)/i,
+            message: "No salary or compensation range found",
+            suggestion:
+              "Include a specific salary or compensation range. Many states (CO, NY, CA, WA) require pay transparency in job postings.",
+          },
+          {
+            id: "pay_competitive",
+            category: "Pay Transparency",
+            severity: "Warning",
+            pattern: /competitive\s*(?:salary|compensation|pay|benefits)/i,
+            message:
+              '"Competitive salary" is vague and may violate pay transparency laws',
+            suggestion:
+              "Replace with a specific salary range, e.g. '$80,000 - $110,000 per year'.",
+          },
+          {
+            id: "pay_doe",
+            category: "Pay Transparency",
+            severity: "Warning",
+            pattern:
+              /(?:salary|compensation|pay)\s*(?:depends?|based)\s*(?:on|upon)\s*experience/i,
+            message: "Salary dependent on experience without a stated range",
+            suggestion:
+              "Provide a salary range even when experience is a factor, e.g. '$70,000 - $100,000 DOE'.",
+          },
+          {
+            id: "pay_commensurate",
+            category: "Pay Transparency",
+            severity: "Warning",
+            pattern: /commensurate\s+with\s+experience/i,
+            message:
+              '"Commensurate with experience" is insufficiently transparent',
+            suggestion:
+              "State a concrete range. Pay transparency laws require specific numbers, not vague references.",
+          },
+
+          // ── Gender Bias ───────────────────────────────────────────────
+          {
+            id: "bias_ninja",
+            category: "Bias Language",
+            severity: "Warning",
+            pattern: /\bninja\b/i,
+            message: '"Ninja" is exclusionary tech jargon',
+            suggestion:
+              "Use 'expert', 'specialist', or 'senior professional' instead.",
+          },
+          {
+            id: "bias_rockstar",
+            category: "Bias Language",
+            severity: "Warning",
+            pattern: /\brock\s*star\b/i,
+            message: '"Rockstar" is exclusionary and gendered jargon',
+            suggestion:
+              "Use 'top performer', 'high achiever', or 'accomplished professional' instead.",
+          },
+          {
+            id: "bias_guru",
+            category: "Bias Language",
+            severity: "Warning",
+            pattern: /\bguru\b/i,
+            message: '"Guru" can be culturally insensitive and exclusionary',
+            suggestion: "Use 'expert', 'authority', or 'specialist' instead.",
+          },
+          {
+            id: "bias_manpower",
+            category: "Bias Language",
+            severity: "Warning",
+            pattern: /\bmanpower\b/i,
+            message: '"Manpower" is gendered language',
+            suggestion: "Use 'workforce', 'staffing', or 'personnel' instead.",
+          },
+          {
+            id: "bias_chairman",
+            category: "Bias Language",
+            severity: "Warning",
+            pattern: /\bchair\s*man\b/i,
+            message: '"Chairman" is gendered language',
+            suggestion: "Use 'chairperson' or 'chair' instead.",
+          },
+          {
+            id: "bias_he_she",
+            category: "Bias Language",
+            severity: "Warning",
+            pattern:
+              /\bhe\s*\/\s*she\b|\bhe\s+or\s+she\b|\bhis\s*\/\s*her\b|\bhis\s+or\s+her\b/i,
+            message: "Gendered pronouns in job description",
+            suggestion:
+              "Use 'they/them/their' or rephrase to remove pronouns entirely. E.g. 'The candidate will...' instead of 'He/she will...'.",
+          },
+          {
+            id: "bias_guys",
+            category: "Bias Language",
+            severity: "Info",
+            pattern: /\bguys\b/i,
+            message: '"Guys" can feel exclusionary to non-male candidates',
+            suggestion:
+              "Use 'team', 'folks', 'everyone', or 'team members' instead.",
+          },
+          {
+            id: "bias_mankind",
+            category: "Bias Language",
+            severity: "Info",
+            pattern: /\bmankind\b/i,
+            message: '"Mankind" is gendered language',
+            suggestion: "Use 'humanity', 'humankind', or 'people' instead.",
+          },
+          {
+            id: "bias_aggressive",
+            category: "Bias Language",
+            severity: "Info",
+            pattern: /\baggressive(?:ly)?\b/i,
+            message:
+              '"Aggressive" is a masculine-coded word that deters female applicants',
+            suggestion:
+              "Use 'ambitious', 'driven', 'proactive', or 'results-oriented' instead.",
+          },
+          {
+            id: "bias_dominant",
+            category: "Bias Language",
+            severity: "Info",
+            pattern: /\bdominant\b|\bdominate\b/i,
+            message: '"Dominant/Dominate" is a masculine-coded word',
+            suggestion:
+              "Use 'leading', 'excelling', or 'top-performing' instead.",
+          },
+
+          // ── Age Discrimination ────────────────────────────────────────
+          {
+            id: "age_young",
+            category: "Age Discrimination",
+            severity: "Critical",
+            pattern:
+              /\byoung\s+(?:professional|team|company|environment|culture)\b/i,
+            message: '"Young" signals age preference and violates ADEA',
+            suggestion:
+              "Remove age-related adjectives. Use 'dynamic', 'innovative', or 'fast-paced' to describe culture.",
+          },
+          {
+            id: "age_digital_native",
+            category: "Age Discrimination",
+            severity: "Critical",
+            pattern: /\bdigital\s+native\b/i,
+            message:
+              '"Digital native" implies preference for younger candidates',
+            suggestion:
+              "Use 'digitally fluent', 'tech-savvy', or list specific technical skills required.",
+          },
+          {
+            id: "age_energetic",
+            category: "Age Discrimination",
+            severity: "Warning",
+            pattern: /\benergetic\b/i,
+            message: '"Energetic" can imply age preference',
+            suggestion:
+              "Use 'motivated', 'enthusiastic', or 'dedicated' instead.",
+          },
+          {
+            id: "age_recent_grad",
+            category: "Age Discrimination",
+            severity: "Warning",
+            pattern:
+              /\brecent\s+graduat(?:e|es|ion)\b|\bnew\s+graduat(?:e|es)\b|\bfresh\s+(?:out\s+of|from)\s+(?:college|university|school)\b/i,
+            message:
+              "Targeting recent graduates can constitute age discrimination",
+            suggestion:
+              "Remove graduation recency requirements. Focus on skills and qualifications instead.",
+          },
+          {
+            id: "age_excessive_yoe",
+            category: "Age Discrimination",
+            severity: "Warning",
+            pattern:
+              /\b(?:1[1-9]|[2-9]\d)\+?\s*(?:years?|yrs?)\s*(?:of)?\s*(?:experience|exp)\b/i,
+            message:
+              "Requiring more than 10 years of experience may constitute age discrimination",
+            suggestion:
+              "Consider reducing the years-of-experience requirement or replacing with competency-based criteria.",
+          },
+          {
+            id: "age_youthful",
+            category: "Age Discrimination",
+            severity: "Warning",
+            pattern: /\byouthful\b/i,
+            message: '"Youthful" signals age preference',
+            suggestion:
+              "Remove the word. Describe the work environment without age-related terms.",
+          },
+
+          // ── Disability Bias ───────────────────────────────────────────
+          {
+            id: "disability_stand",
+            category: "Disability Bias",
+            severity: "Warning",
+            pattern:
+              /\bmust\s+(?:be\s+able\s+to\s+)?(?:stand|walk|lift|carry|climb)\b/i,
+            negativeAccommodation:
+              /\breasonable\s+accommodat(?:ion|ions)\b|\bada\b|\baccommodat(?:ion|ions)\s+(?:available|provided|will\s+be\s+made)\b/i,
+            message:
+              "Physical requirements stated without accommodation language",
+            suggestion:
+              "Add 'Reasonable accommodations may be made to enable individuals with disabilities to perform essential functions.' after physical requirements.",
+          },
+          {
+            id: "disability_physical_demand",
+            category: "Disability Bias",
+            severity: "Warning",
+            pattern: /\bphysically\s+demanding\b/i,
+            negativeAccommodation:
+              /\breasonable\s+accommodat(?:ion|ions)\b|\bada\b/i,
+            message: '"Physically demanding" without accommodation statement',
+            suggestion:
+              "Clarify essential physical functions and add ADA reasonable accommodation language.",
+          },
+          {
+            id: "disability_normal",
+            category: "Disability Bias",
+            severity: "Info",
+            pattern: /\bnormal\s+(?:vision|hearing|speech|mobility)\b/i,
+            message:
+              '"Normal" when describing physical abilities is exclusionary',
+            suggestion:
+              "Describe the specific functional requirement instead, e.g. 'ability to read standard print' or 'ability to communicate verbally and in writing'.",
+          },
+
+          // ── EEO Statement ─────────────────────────────────────────────
+          {
+            id: "eeo_missing",
+            category: "EEO",
+            severity: "Critical",
+            pattern: null,
+            negativeCheck: true,
+            negativePattern:
+              /\bequal\s+(?:employment\s+)?opportunity\b|\beeo\b|\baffirmative\s+action\b|\bequal\s+opportunity\s+employer\b|\bwithout\s+regard\s+to\s+race\b|\bnondiscrimination\b|\bnon-discrimination\b/i,
+            message: "No Equal Employment Opportunity (EEO) statement found",
+            suggestion:
+              "Add an EEO statement such as: '[Company] is an Equal Opportunity Employer. All qualified applicants will receive consideration for employment without regard to race, color, religion, sex, sexual orientation, gender identity, national origin, disability, or veteran status.'",
+          },
+
+          // ── OFCCP / Federal Contractor ─────────────────────────────────
+          {
+            id: "ofccp_veteran",
+            category: "OFCCP",
+            severity: "Info",
+            pattern: null,
+            negativeCheck: true,
+            negativePattern:
+              /\bveteran(?:s)?\s+(?:status|preference)\b|\bprotected\s+veteran\b|\bvets?\b.*\bwelcome\b|\bveteran(?:s)?\s+(?:encouraged|welcome)\b/i,
+            message: "No veteran inclusion language detected",
+            suggestion:
+              "Consider adding language welcoming protected veterans, especially if you are a federal contractor subject to VEVRAA.",
+          },
+          {
+            id: "ofccp_disability_statement",
+            category: "OFCCP",
+            severity: "Info",
+            pattern: null,
+            negativeCheck: true,
+            negativePattern:
+              /\bindividuals?\s+with\s+disabilit(?:y|ies)\b|\bada\b|\breasonable\s+accommodat(?:ion|ions)\b|\bdisability\s+(?:status|inclusion)\b/i,
+            message: "No disability inclusion language detected",
+            suggestion:
+              "Consider adding: 'We welcome and encourage individuals with disabilities to apply. Reasonable accommodations are available upon request.'",
+          },
+        ];
+
+        // ── Inclusive language terms ────────────────────────────────────
+        var INCLUSIVE_TERMS = [
+          /\bcollaborat(?:e|ive|ion)\b/i,
+          /\binclusi(?:ve|on|vity)\b/i,
+          /\bdivers(?:e|ity)\b/i,
+          /\bbelonging\b/i,
+          /\bequit(?:y|able)\b/i,
+          /\baccessib(?:le|ility)\b/i,
+          /\bflexib(?:le|ility)\b/i,
+          /\bwork[\s-]*life\s*balance\b/i,
+          /\bremote[\s-]*(?:friendly|first|work|option)\b/i,
+          /\bhybrid\s*(?:work|option|schedule)\b/i,
+          /\bmentor(?:ship|ing)\b/i,
+          /\bprofessional\s*(?:development|growth)\b/i,
+          /\bparental\s*leave\b/i,
+          /\bwellness\b/i,
+          /\bemployee\s*resource\s*group\b/i,
+          /\berg\b/i,
+        ];
+
+        var EXCLUSIVE_TERMS = [
+          /\brockstar\b/i,
+          /\bninja\b/i,
+          /\bguru\b/i,
+          /\bhustle\b/i,
+          /\bcrush\s*it\b/i,
+          /\bkiller\b/i,
+          /\bwar\s*room\b/i,
+          /\bman\s*(?:hours?|power|kind)\b/i,
+          /\bhe\s*\/\s*she\b/i,
+          /\bguys\b/i,
+          /\baggressive\b/i,
+          /\bdominant\b/i,
+          /\bcut[\s-]*throat\b/i,
+        ];
+
+        // ── DOM refs ───────────────────────────────────────────────────
+        var jobPosting = document.getElementById("jobPosting");
+        var scanBtn = document.getElementById("scanBtn");
+        var clearBtn = document.getElementById("clearBtn");
+        var errorBanner = document.getElementById("errorBanner");
+        var resultsSection = document.getElementById("resultsSection");
+        var scoreProgress = document.getElementById("scoreProgress");
+        var scoreValue = document.getElementById("scoreValue");
+        var scoreStatus = document.getElementById("scoreStatus");
+        var scoreSummary = document.getElementById("scoreSummary");
+        var summaryGrid = document.getElementById("summaryGrid");
+        var categoryTabs = document.getElementById("categoryTabs");
+        var violationsList = document.getElementById("violationsList");
+        var recList = document.getElementById("recList");
+
+        var currentCategory = "All";
+
+        // ── Event listeners ────────────────────────────────────────────
+        scanBtn.addEventListener("click", runScan);
+        clearBtn.addEventListener("click", clearForm);
+
+        function clearForm() {
+          jobPosting.value = "";
+          document.getElementById("jobTitle").value = "";
+          document.getElementById("jobLocation").value = "";
+          document.getElementById("companyName").value = "";
+          resultsSection.classList.remove("visible");
+          hideError();
+        }
+
+        // ── Scan engine ────────────────────────────────────────────────
+        function runScan() {
+          hideError();
+          var text = (jobPosting.value || "").trim();
+          if (!text) {
+            showError("Please paste a job posting to scan.");
+            return;
+          }
+          if (text.length < 50) {
+            showError(
+              "Job posting seems too short. Please paste the complete posting for accurate results.",
+            );
+            return;
+          }
+
+          var violations = [];
+
+          COMPLIANCE_RULES.forEach(function (rule) {
+            if (rule.negativeCheck) {
+              // Rule triggers when pattern is NOT found
+              if (!rule.negativePattern.test(text)) {
+                violations.push({
+                  id: rule.id,
+                  category: rule.category,
+                  severity: rule.severity,
+                  message: rule.message,
+                  suggestion: rule.suggestion,
+                  flaggedText: null,
+                });
+              }
+            } else if (rule.pattern) {
+              var match = text.match(rule.pattern);
+              if (match) {
+                // Check for accommodation language exception
+                if (
+                  rule.negativeAccommodation &&
+                  rule.negativeAccommodation.test(text)
+                ) {
+                  return; // Skip -- accommodation language present
+                }
+                violations.push({
+                  id: rule.id,
+                  category: rule.category,
+                  severity: rule.severity,
+                  message: rule.message,
+                  suggestion: rule.suggestion,
+                  flaggedText: match[0],
+                });
+              }
+            }
+          });
+
+          // ── Inclusive language scoring ────────────────────────────────
+          var inclusiveCount = 0;
+          INCLUSIVE_TERMS.forEach(function (pat) {
+            if (pat.test(text)) inclusiveCount++;
+          });
+
+          var exclusiveCount = 0;
+          EXCLUSIVE_TERMS.forEach(function (pat) {
+            if (pat.test(text)) exclusiveCount++;
+          });
+
+          // ── Calculate score ──────────────────────────────────────────
+          var score = calculateScore(
+            violations,
+            inclusiveCount,
+            exclusiveCount,
+          );
+
+          // ── Render results ───────────────────────────────────────────
+          renderResults(violations, score, inclusiveCount, exclusiveCount);
+        }
+
+        function calculateScore(violations, inclusiveCount, exclusiveCount) {
+          var score = 100;
+          violations.forEach(function (v) {
+            if (v.severity === "Critical") score -= 20;
+            else if (v.severity === "Warning") score -= 8;
+            else if (v.severity === "Info") score -= 3;
+          });
+
+          // Bonus for inclusive language (max +10)
+          score += Math.min(inclusiveCount * 2, 10);
+          // Penalty for exclusive language beyond what rules caught
+          score -= exclusiveCount * 2;
+
+          return Math.max(0, Math.min(100, Math.round(score)));
+        }
+
+        function renderResults(
+          violations,
+          score,
+          inclusiveCount,
+          exclusiveCount,
+        ) {
+          resultsSection.classList.add("visible");
+
+          // ── Score ring ───────────────────────────────────────────────
+          var circumference = 2 * Math.PI * 70;
+          var offset = circumference - (score / 100) * circumference;
+          scoreProgress.style.strokeDasharray = circumference;
+          // Start fully hidden, then animate
+          scoreProgress.style.strokeDashoffset = circumference;
+
+          var scoreColor;
+          var statusText;
+          if (score >= 80) {
+            scoreColor = "var(--green-success)";
+            statusText = "Good Standing";
+          } else if (score >= 60) {
+            scoreColor = "var(--amber-warning)";
+            statusText = "Needs Improvement";
+          } else {
+            scoreColor = "var(--red-error)";
+            statusText = "High Risk";
+          }
+
+          scoreProgress.style.stroke = scoreColor;
+          scoreValue.style.color = scoreColor;
+          scoreValue.textContent = score;
+          scoreStatus.style.color = scoreColor;
+          scoreStatus.textContent = statusText;
+
+          // Animate score ring after a brief delay
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              scoreProgress.style.strokeDashoffset = offset;
+            });
+          });
+
+          var critCount = violations.filter(function (v) {
+            return v.severity === "Critical";
+          }).length;
+          var warnCount = violations.filter(function (v) {
+            return v.severity === "Warning";
+          }).length;
+          var infoCount = violations.filter(function (v) {
+            return v.severity === "Info";
+          }).length;
+
+          scoreSummary.textContent =
+            violations.length +
+            " issue" +
+            (violations.length !== 1 ? "s" : "") +
+            " found: " +
+            critCount +
+            " critical, " +
+            warnCount +
+            " warning" +
+            (warnCount !== 1 ? "s" : "") +
+            ", " +
+            infoCount +
+            " informational.";
+
+          // ── Summary stats ────────────────────────────────────────────
+          summaryGrid.innerHTML = "";
+          var stats = [
+            {
+              value: critCount,
+              label: "Critical",
+              color: "var(--red-error)",
+            },
+            {
+              value: warnCount,
+              label: "Warnings",
+              color: "var(--amber-warning)",
+            },
+            {
+              value: infoCount,
+              label: "Informational",
+              color: "var(--cyan-accent)",
+            },
+            {
+              value: inclusiveCount,
+              label: "Inclusive Terms",
+              color: "var(--green-success)",
+            },
+          ];
+
+          stats.forEach(function (s) {
+            var el = document.createElement("div");
+            el.className = "summary-stat";
+            var valDiv = document.createElement("div");
+            valDiv.className = "stat-value";
+            valDiv.style.color = s.color;
+            valDiv.textContent = s.value;
+            var lblDiv = document.createElement("div");
+            lblDiv.className = "stat-label";
+            lblDiv.textContent = s.label;
+            el.appendChild(valDiv);
+            el.appendChild(lblDiv);
+            summaryGrid.appendChild(el);
+          });
+
+          // ── Category tabs ────────────────────────────────────────────
+          var categories = {};
+          violations.forEach(function (v) {
+            if (!categories[v.category]) categories[v.category] = 0;
+            categories[v.category]++;
+          });
+
+          categoryTabs.innerHTML = "";
+          var allTab = createTab("All", violations.length, true);
+          categoryTabs.appendChild(allTab);
+
+          Object.keys(categories).forEach(function (cat) {
+            categoryTabs.appendChild(createTab(cat, categories[cat], false));
+          });
+
+          currentCategory = "All";
+          renderViolations(violations);
+
+          // ── Recommendations ──────────────────────────────────────────
+          renderRecommendations(violations, score, inclusiveCount);
+
+          // Scroll to results
+          resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+
+          // Re-observe new reveal-on-scroll elements
+          document
+            .querySelectorAll(
+              ".results-section .reveal-on-scroll:not(.visible)",
+            )
+            .forEach(function (el) {
+              scrollObserver.observe(el);
+            });
+        }
+
+        function createTab(label, count, active) {
+          var btn = document.createElement("button");
+          btn.className = "category-tab" + (active ? " active" : "");
+          btn.setAttribute("role", "tab");
+          btn.setAttribute("aria-selected", active ? "true" : "false");
+          btn.textContent = label + " ";
+          var countSpan = document.createElement("span");
+          countSpan.className = "tab-count";
+          countSpan.textContent = count;
+          btn.appendChild(countSpan);
+
+          btn.addEventListener("click", function () {
+            categoryTabs
+              .querySelectorAll(".category-tab")
+              .forEach(function (t) {
+                t.classList.remove("active");
+                t.setAttribute("aria-selected", "false");
+              });
+            btn.classList.add("active");
+            btn.setAttribute("aria-selected", "true");
+            currentCategory = label;
+            var allViolations = getViolationsFromLastScan();
+            renderViolations(allViolations);
+          });
+
+          return btn;
+        }
+
+        var lastViolations = [];
+
+        function getViolationsFromLastScan() {
+          return lastViolations;
+        }
+
+        function renderViolations(violations) {
+          lastViolations = violations;
+          violationsList.innerHTML = "";
+
+          var filtered =
+            currentCategory === "All"
+              ? violations
+              : violations.filter(function (v) {
+                  return v.category === currentCategory;
+                });
+
+          if (filtered.length === 0) {
+            var noViol = document.createElement("div");
+            noViol.className = "no-violations";
+            noViol.innerHTML =
+              '<div class="check-icon" aria-hidden="true">\u2713</div>' +
+              "<p>No issues found" +
+              (currentCategory !== "All"
+                ? " in " + escapeHtml(currentCategory)
+                : "") +
+              ".</p>";
+            violationsList.appendChild(noViol);
+            return;
+          }
+
+          // Sort: Critical first, then Warning, then Info
+          var severityOrder = { Critical: 0, Warning: 1, Info: 2 };
+          filtered.sort(function (a, b) {
+            return (
+              (severityOrder[a.severity] || 99) -
+              (severityOrder[b.severity] || 99)
+            );
+          });
+
+          filtered.forEach(function (v) {
+            var item = document.createElement("div");
+            item.className = "violation-item";
+
+            var header = document.createElement("div");
+            header.className = "violation-header";
+
+            var catLabel = document.createElement("span");
+            catLabel.className = "violation-category";
+            catLabel.textContent = v.category;
+
+            var sevBadge = document.createElement("span");
+            sevBadge.className =
+              "violation-severity severity-" + v.severity.toLowerCase();
+            sevBadge.textContent = v.severity;
+
+            header.appendChild(catLabel);
+            header.appendChild(sevBadge);
+            item.appendChild(header);
+
+            var msg = document.createElement("div");
+            msg.className = "violation-message";
+            msg.textContent = v.message;
+            item.appendChild(msg);
+
+            if (v.flaggedText) {
+              var flagged = document.createElement("div");
+              flagged.className = "violation-flagged";
+              flagged.textContent = 'Flagged: "' + v.flaggedText + '"';
+              item.appendChild(flagged);
+            }
+
+            var suggestion = document.createElement("div");
+            suggestion.className = "violation-suggestion";
+            suggestion.textContent = v.suggestion;
+            item.appendChild(suggestion);
+
+            violationsList.appendChild(item);
+          });
+        }
+
+        function renderRecommendations(violations, score, inclusiveCount) {
+          recList.innerHTML = "";
+
+          var recs = [];
+
+          var hasCritical = violations.some(function (v) {
+            return v.severity === "Critical";
+          });
+          var hasBias = violations.some(function (v) {
+            return v.category === "Bias Language";
+          });
+          var hasAge = violations.some(function (v) {
+            return v.category === "Age Discrimination";
+          });
+          var hasPayIssue = violations.some(function (v) {
+            return v.category === "Pay Transparency";
+          });
+          var hasNoEEO = violations.some(function (v) {
+            return v.id === "eeo_missing";
+          });
+
+          if (hasPayIssue) {
+            recs.push({
+              icon: "\uD83D\uDCB0",
+              iconClass: "critical",
+              text: "Add a specific salary or compensation range. States including Colorado, New York, California, and Washington require pay transparency. This is the most common compliance gap.",
+            });
+          }
+
+          if (hasNoEEO) {
+            recs.push({
+              icon: "\u2696\uFE0F",
+              iconClass: "critical",
+              text: "Add an Equal Employment Opportunity (EEO) statement. This is legally required for federal contractors and strongly recommended for all employers.",
+            });
+          }
+
+          if (hasAge) {
+            recs.push({
+              icon: "\u26A0\uFE0F",
+              iconClass: "warning",
+              text: "Remove age-signaling language. Terms like 'digital native', 'young team', or excessive years-of-experience requirements can violate the Age Discrimination in Employment Act (ADEA).",
+            });
+          }
+
+          if (hasBias) {
+            recs.push({
+              icon: "\u270D\uFE0F",
+              iconClass: "warning",
+              text: "Replace gendered and exclusionary jargon with neutral alternatives. Research shows masculine-coded words in job posts reduce female applicant rates by up to 30%.",
+            });
+          }
+
+          if (inclusiveCount < 3) {
+            recs.push({
+              icon: "\u2728",
+              iconClass: "warning",
+              text: "Add more inclusive language. Mention benefits like flexible work, professional development, mentorship programs, and ERGs to attract diverse candidates.",
+            });
+          }
+
+          if (score >= 80 && !hasCritical) {
+            recs.push({
+              icon: "\u2705",
+              iconClass: "success",
+              text: "This posting is in good compliance standing. Continue reviewing postings regularly, as laws and best practices evolve. Consider having legal counsel review critical postings.",
+            });
+          }
+
+          if (recs.length === 0) {
+            recs.push({
+              icon: "\u2705",
+              iconClass: "success",
+              text: "No specific recommendations at this time. The posting appears well-structured.",
+            });
+          }
+
+          recs.forEach(function (r) {
+            var item = document.createElement("div");
+            item.className = "rec-item";
+
+            var icon = document.createElement("div");
+            icon.className = "rec-icon " + r.iconClass;
+            icon.textContent = r.icon;
+            icon.setAttribute("aria-hidden", "true");
+
+            var textEl = document.createElement("div");
+            textEl.className = "rec-text";
+            textEl.textContent = r.text;
+
+            item.appendChild(icon);
+            item.appendChild(textEl);
+            recList.appendChild(item);
+          });
+        }
+
+        // ── Utilities ──────────────────────────────────────────────────
+        function showError(msg) {
+          errorBanner.textContent = msg;
+          errorBanner.classList.add("visible");
+        }
+
+        function hideError() {
+          errorBanner.classList.remove("visible");
+        }
+
+        function escapeHtml(str) {
+          var div = document.createElement("div");
+          div.textContent = str;
+          return div.innerHTML;
+        }
+
+        // ── Scroll reveal ──────────────────────────────────────────────
+        var scrollObserver = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) {
+                e.target.classList.add("visible");
+                scrollObserver.unobserve(e.target);
+              }
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          scrollObserver.observe(el);
+        });
+      })();
+    </script>
+    <footer
+      class="reveal-on-scroll"
+      style="
+        text-align: center;
+        padding: 2rem 1rem;
+        color: #64748b;
+        font-size: 0.8rem;
+        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        margin-top: 3rem;
+      "
+    >
+      Powered by
+      <a
+        href="https://www.linkedin.com/in/chandel13/"
+        target="_blank"
+        rel="noopener"
+        style="color: #818cf8; text-decoration: none"
+        >Shubham Singh Chandel</a
+      >
+      &middot; Nova AI Suite
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,2171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="PayScale Sync - Market-competitive salary ranges for job postings with pay transparency compliance. Supports EU Pay Transparency Directive and US state laws."
+    />
+    <meta name="theme-color" content="#000000" />
+    <title>PayScale Sync | Nova AI Suite</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' font-size='18' fill='white'>$</text></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --obsidian: #000000;
+        --obsidian-light: #111111;
+        --navy: #1a1a1a;
+        --indigo: #6366f1;
+        --indigo-light: #818cf8;
+        --indigo-pale: rgba(99, 102, 241, 0.08);
+        --indigo-glow: rgba(99, 102, 241, 0.15);
+        --cyan-accent: #22d3ee;
+        --green-success: #34d399;
+        --accent: #6366f1;
+        --accent-light: #818cf8;
+        --accent-warm: #f87171;
+        --warning: #fbbf24;
+        --error: #f87171;
+        --bg: #000000;
+        --surface-1: rgba(17, 17, 17, 0.8);
+        --card: rgba(17, 17, 17, 0.8);
+        --card-hover: rgba(26, 26, 26, 0.7);
+        --glass-blur-md: blur(24px) saturate(1.3);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-border-hover: rgba(255, 255, 255, 0.16);
+        --text: #d4d4d8;
+        --text-secondary: #a1a1a1;
+        --text-light: #a1a1a1;
+        --text-muted: #666666;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-accent: rgba(99, 102, 241, 0.3);
+        --shadow-md:
+          0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+        --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+        --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+        --radius: 12px;
+        --radius-sm: 8px;
+        --radius-lg: 16px;
+        --gradient-primary: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+        --gradient-accent: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
+        --gradient-mesh:
+          radial-gradient(
+            ellipse at 20% 50%,
+            rgba(99, 102, 241, 0.08) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 20%,
+            rgba(34, 211, 238, 0.06) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 40% 80%,
+            rgba(99, 102, 241, 0.04) 0%,
+            transparent 50%
+          );
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+        --duration-normal: 200ms;
+        --duration-slow: 300ms;
+        --focus-ring: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
+          filter: none;
+        }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      ::selection {
+        background: var(--accent);
+        color: white;
+      }
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: var(--gradient-mesh);
+        pointer-events: none;
+        z-index: 0;
+      }
+      .page-wrapper {
+        position: relative;
+        z-index: 1;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+      .page-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+      }
+      .page-header h1 {
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        font-weight: 800;
+        background: var(--gradient-accent);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.5rem;
+      }
+      .page-header p {
+        color: var(--text-secondary);
+        font-size: 1rem;
+        max-width: 640px;
+        margin: 0 auto;
+      }
+      .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--text-light);
+        text-decoration: none;
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+        padding: 0.5rem 0;
+        min-height: 44px;
+        transition: color var(--duration-normal);
+      }
+      .back-link:hover {
+        color: var(--accent-light);
+      }
+      .back-link:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: 4px;
+      }
+
+      .glass-card {
+        background: var(--card);
+        backdrop-filter: var(--glass-blur-md);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        box-shadow: var(--shadow-md);
+        margin-bottom: 1.5rem;
+        transition: border-color var(--duration-normal);
+      }
+      .glass-card:hover {
+        border-color: var(--glass-border-hover);
+      }
+      .glass-card h2 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .glass-card h2 .icon {
+        width: 36px;
+        height: 36px;
+        background: var(--gradient-primary);
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        flex-shrink: 0;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+      }
+      @media (max-width: 640px) {
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .form-group--full {
+        grid-column: 1 / -1;
+      }
+      label {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+      input[type="text"],
+      input[type="number"],
+      select {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        font-size: 0.9375rem;
+        font-family: inherit;
+        color: var(--text);
+        background: rgba(17, 17, 17, 0.8);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        outline: none;
+        transition:
+          border-color var(--duration-normal),
+          box-shadow var(--duration-normal);
+        min-height: 48px;
+        -webkit-appearance: none;
+      }
+      input::placeholder {
+        color: var(--text-muted);
+      }
+      input:focus,
+      select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+      }
+      select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23818CF8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        padding-right: 2.5rem;
+        cursor: pointer;
+      }
+
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        padding: 0.875rem 2rem;
+        font-size: 1rem;
+        font-weight: 700;
+        font-family: inherit;
+        color: white;
+        background: var(--gradient-primary);
+        border: none;
+        border-radius: var(--radius);
+        cursor: pointer;
+        min-height: 52px;
+        min-width: 200px;
+        transition: all var(--duration-normal);
+        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+        position: relative;
+        overflow: hidden;
+      }
+      .btn-primary:hover:not(:disabled) {
+        box-shadow: 0 6px 24px rgba(99, 102, 241, 0.45);
+        transform: translateY(-1px);
+      }
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn-primary:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        font-family: inherit;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        min-height: 44px;
+        transition: all var(--duration-normal);
+        text-decoration: none;
+        color: var(--cyan-accent);
+        background: rgba(34, 211, 238, 0.08);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+      }
+      .btn-secondary:hover {
+        background: rgba(34, 211, 238, 0.15);
+      }
+      .btn-secondary:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      /* Results */
+      .results-section {
+        display: none;
+      }
+      .results-section.visible {
+        display: block;
+        animation: fadeSlideIn 400ms var(--ease-out);
+      }
+      @keyframes fadeSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(16px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Salary range visual */
+      .salary-range-visual {
+        position: relative;
+        margin: 2rem 0;
+      }
+      .range-bar-container {
+        position: relative;
+        height: 48px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: var(--radius-sm);
+        overflow: visible;
+        margin: 1.5rem 0 2.5rem;
+      }
+      .range-bar-fill {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        border-radius: var(--radius-sm);
+        background: linear-gradient(
+          90deg,
+          rgba(34, 211, 238, 0.4),
+          rgba(99, 102, 241, 0.6),
+          rgba(248, 113, 113, 0.4)
+        );
+        transition: all 600ms var(--ease-out);
+      }
+      .range-marker {
+        position: absolute;
+        top: -8px;
+        width: 3px;
+        height: calc(100% + 16px);
+        background: white;
+        border-radius: 2px;
+        transform: translateX(-50%);
+      }
+      .range-marker::after {
+        content: attr(data-label);
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+      .range-marker.median {
+        background: var(--accent-light);
+        width: 4px;
+      }
+      .range-labels {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 0.5rem;
+      }
+      .range-label {
+        text-align: center;
+      }
+      .range-label .amount {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: white;
+      }
+      .range-label .label-text {
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .range-label.median-label .amount {
+        color: var(--accent-light);
+      }
+
+      /* Stat cards */
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+      }
+      .stat-card {
+        background: rgba(17, 17, 17, 0.5);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+        padding: 1.25rem;
+        text-align: center;
+        transition:
+          border-color var(--duration-normal),
+          transform var(--duration-normal);
+      }
+      .stat-card:hover {
+        border-color: var(--glass-border-hover);
+        transform: translateY(-2px);
+      }
+      .stat-card .stat-value {
+        font-size: 1.75rem;
+        font-weight: 800;
+        background: var(--gradient-accent);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .stat-card .stat-label {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 0.25rem;
+      }
+
+      /* Compliance badges */
+      .compliance-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .compliance-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        background: rgba(17, 17, 17, 0.5);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+      }
+      .compliance-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.875rem;
+        flex-shrink: 0;
+        margin-top: 0.1rem;
+      }
+      .compliance-icon.active {
+        background: rgba(52, 211, 153, 0.15);
+        color: var(--green-success);
+      }
+      .compliance-icon.upcoming {
+        background: rgba(251, 191, 36, 0.15);
+        color: var(--warning);
+      }
+      .compliance-icon.na {
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-muted);
+      }
+      .compliance-info {
+        flex: 1;
+      }
+      .compliance-name {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .compliance-detail {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.15rem;
+      }
+      .compliance-status-badge {
+        font-size: 0.6875rem;
+        font-weight: 700;
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+      .badge-active {
+        color: var(--green-success);
+        background: rgba(52, 211, 153, 0.1);
+      }
+      .badge-upcoming {
+        color: var(--warning);
+        background: rgba(251, 191, 36, 0.1);
+      }
+      .badge-na {
+        color: var(--text-muted);
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      /* Comparable roles */
+      .comparable-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1rem;
+      }
+      .comparable-card {
+        background: rgba(17, 17, 17, 0.5);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+        padding: 1.25rem;
+        transition:
+          border-color var(--duration-normal),
+          transform var(--duration-normal);
+      }
+      .comparable-card:hover {
+        border-color: var(--glass-border-hover);
+        transform: translateY(-2px);
+      }
+      .comparable-title {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+      }
+      .comparable-range {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+      .comparable-range .range-text {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--accent-light);
+      }
+      .comparable-range .diff-text {
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+      .diff-higher {
+        color: var(--green-success);
+      }
+      .diff-lower {
+        color: var(--accent-warm);
+      }
+      .diff-same {
+        color: var(--text-muted);
+      }
+      .comparable-bar {
+        height: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .comparable-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        background: var(--gradient-primary);
+        transition: width 600ms var(--ease-out);
+      }
+
+      /* Posting range card */
+      .posting-range {
+        background: rgba(99, 102, 241, 0.06);
+        border: 1px solid var(--border-accent);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        text-align: center;
+      }
+      .posting-range .posting-value {
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: white;
+        margin: 0.5rem 0;
+      }
+      .posting-range .posting-label {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+      }
+      .posting-range .posting-note {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.75rem;
+      }
+
+      /* Copy button */
+      .btn-copy {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        font-family: inherit;
+        color: var(--green-success);
+        background: rgba(52, 211, 153, 0.08);
+        border: 1px solid rgba(52, 211, 153, 0.3);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        min-height: 44px;
+        transition: all var(--duration-normal);
+      }
+      .btn-copy:hover {
+        background: rgba(52, 211, 153, 0.15);
+      }
+      .btn-copy:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .btn-copy.copied {
+        color: white;
+        background: rgba(52, 211, 153, 0.3);
+      }
+
+      /* Cost of living */
+      .col-adjustment {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: rgba(17, 17, 17, 0.5);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+      }
+      .col-index {
+        font-size: 2rem;
+        font-weight: 800;
+        min-width: 80px;
+        text-align: center;
+      }
+      .col-index.high {
+        color: var(--accent-warm);
+      }
+      .col-index.medium {
+        color: var(--warning);
+      }
+      .col-index.low {
+        color: var(--green-success);
+      }
+      .col-details {
+        flex: 1;
+      }
+      .col-details .col-location {
+        font-size: 0.9375rem;
+        font-weight: 600;
+      }
+      .col-details .col-description {
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+      }
+
+      /* Error banner */
+      .error-banner {
+        background: rgba(248, 113, 113, 0.1);
+        border: 1px solid rgba(248, 113, 113, 0.3);
+        border-radius: var(--radius-sm);
+        padding: 0.75rem 1.25rem;
+        color: var(--error);
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+        display: none;
+      }
+      .error-banner.visible {
+        display: block;
+      }
+
+      /* Footer */
+      .footer {
+        text-align: center;
+        padding: 2rem 0;
+        color: var(--text-muted);
+        font-size: 0.8125rem;
+        border-top: 1px solid var(--border);
+        margin-top: 3rem;
+      }
+      .footer a {
+        color: var(--accent-light);
+        text-decoration: none;
+        transition: color var(--duration-normal);
+      }
+      .footer a:hover {
+        color: var(--accent);
+      }
+
+      /* -- Scroll reveal animations -- */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        filter: hue-rotate(40deg) saturate(0.5) brightness(0.8);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          filter 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+        filter: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-wrapper">
+      <a href="/" class="back-link" aria-label="Back to home">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+        Back to Nova AI
+      </a>
+
+      <header class="page-header">
+        <h1>&#128176; PayScale Sync</h1>
+        <p>
+          Market-competitive salary ranges for job postings. Comply with pay
+          transparency laws across the EU and US with data-driven compensation
+          intelligence.
+        </p>
+      </header>
+
+      <div class="error-banner" id="errorBanner"></div>
+
+      <!-- Input Form -->
+      <section class="glass-card reveal-on-scroll">
+        <h2><span class="icon">&#128200;</span> Salary Intelligence</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="jobTitleInput">Job Title</label>
+            <input
+              type="text"
+              id="jobTitleInput"
+              placeholder="e.g. Software Engineer, Marketing Manager"
+            />
+          </div>
+          <div class="form-group">
+            <label for="locationInput">Location</label>
+            <input
+              type="text"
+              id="locationInput"
+              placeholder="e.g. San Francisco, New York, London"
+            />
+          </div>
+          <div class="form-group">
+            <label for="industryInput">Industry</label>
+            <select id="industryInput">
+              <option value="technology">Technology</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="finance">Finance &amp; Banking</option>
+              <option value="retail">Retail &amp; Consumer</option>
+              <option value="manufacturing">Manufacturing</option>
+              <option value="energy">Energy &amp; Utilities</option>
+              <option value="education">Education</option>
+              <option value="media">Media &amp; Entertainment</option>
+              <option value="pharma">Pharma &amp; Biotech</option>
+              <option value="consulting">
+                Consulting &amp; Professional Services
+              </option>
+              <option value="logistics">Logistics &amp; Supply Chain</option>
+              <option value="construction">
+                Construction &amp; Real Estate
+              </option>
+              <option value="government">Government &amp; Public Sector</option>
+              <option value="nonprofit">Nonprofit</option>
+              <option value="hospitality">Hospitality &amp; Travel</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="companySizeInput">Company Size</label>
+            <select id="companySizeInput">
+              <option value="startup">1&ndash;50 employees</option>
+              <option value="small">51&ndash;200 employees</option>
+              <option value="mid" selected>201&ndash;1,000 employees</option>
+              <option value="enterprise">1,000+ employees</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="experienceInput">Experience Level</label>
+            <select id="experienceInput">
+              <option value="entry">Entry Level</option>
+              <option value="mid" selected>Mid Level</option>
+              <option value="senior">Senior</option>
+              <option value="director">Director</option>
+              <option value="executive">Executive / VP+</option>
+            </select>
+          </div>
+          <div class="form-group" style="align-self: end">
+            <button class="btn-primary" id="analyzeBtn" type="button">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
+                />
+              </svg>
+              Get Salary Intelligence
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Results -->
+      <div class="results-section" id="resultsSection">
+        <!-- Salary Range Card -->
+        <section class="glass-card reveal-on-scroll" id="salaryRangeCard">
+          <h2><span class="icon">&#128178;</span> Salary Range</h2>
+          <div id="salaryRangeContent"></div>
+        </section>
+
+        <!-- Recommended Posting Range -->
+        <section class="glass-card reveal-on-scroll" id="postingRangeCard">
+          <h2><span class="icon">&#128203;</span> Recommended Posting Range</h2>
+          <div id="postingRangeContent"></div>
+        </section>
+
+        <!-- Key Stats -->
+        <section class="glass-card reveal-on-scroll" id="statsCard">
+          <h2><span class="icon">&#128202;</span> Compensation Snapshot</h2>
+          <div class="stat-grid" id="statsGrid"></div>
+        </section>
+
+        <!-- Cost of Living -->
+        <section class="glass-card reveal-on-scroll" id="colCard">
+          <h2><span class="icon">&#127968;</span> Cost-of-Living Adjustment</h2>
+          <div id="colContent"></div>
+        </section>
+
+        <!-- Pay Transparency Compliance -->
+        <section class="glass-card reveal-on-scroll" id="complianceCard">
+          <h2><span class="icon">&#9989;</span> Pay Transparency Compliance</h2>
+          <div class="compliance-list" id="complianceList"></div>
+        </section>
+
+        <!-- Comparable Roles -->
+        <section class="glass-card reveal-on-scroll" id="comparableCard">
+          <h2><span class="icon">&#128101;</span> Comparable Roles</h2>
+          <div class="comparable-grid" id="comparableGrid"></div>
+        </section>
+
+        <!-- Actions -->
+        <section class="glass-card reveal-on-scroll" id="actionsCard">
+          <h2><span class="icon">&#128230;</span> Export</h2>
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap">
+            <button class="btn-copy" id="copyBtn" type="button">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                <path
+                  d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
+                />
+              </svg>
+              Copy to Job Posting
+            </button>
+            <button class="btn-secondary" id="resetBtn" type="button">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              New Analysis
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <p>
+          Nova AI Suite &mdash; Built by
+          <a
+            href="https://www.linkedin.com/in/chandel13/"
+            target="_blank"
+            rel="noopener"
+            >Shubham Singh Chandel</a
+          >
+          &middot; Powered by AI &middot; 2024&ndash;2026
+        </p>
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        // ── Salary Database ──
+        // Base salaries (USD annual) for national US median at mid-level
+        var SALARY_DATABASE = {
+          "software engineer": {
+            base: 125000,
+            similar: [
+              "Full Stack Developer",
+              "Backend Engineer",
+              "Frontend Engineer",
+              "DevOps Engineer",
+              "Platform Engineer",
+            ],
+          },
+          "data scientist": {
+            base: 130000,
+            similar: [
+              "Machine Learning Engineer",
+              "Data Analyst",
+              "AI Engineer",
+              "Business Intelligence Analyst",
+              "Research Scientist",
+            ],
+          },
+          "product manager": {
+            base: 135000,
+            similar: [
+              "Program Manager",
+              "Technical Product Manager",
+              "Product Owner",
+              "Product Director",
+              "Strategy Manager",
+            ],
+          },
+          "marketing manager": {
+            base: 95000,
+            similar: [
+              "Brand Manager",
+              "Digital Marketing Manager",
+              "Growth Manager",
+              "Content Marketing Manager",
+              "Demand Generation Manager",
+            ],
+          },
+          "sales representative": {
+            base: 65000,
+            similar: [
+              "Account Executive",
+              "Business Development Rep",
+              "Inside Sales Rep",
+              "Sales Associate",
+              "Client Advisor",
+            ],
+          },
+          "project manager": {
+            base: 100000,
+            similar: [
+              "Program Manager",
+              "Scrum Master",
+              "Delivery Manager",
+              "Technical Project Manager",
+              "PMO Analyst",
+            ],
+          },
+          "financial analyst": {
+            base: 85000,
+            similar: [
+              "Investment Analyst",
+              "Budget Analyst",
+              "Credit Analyst",
+              "Risk Analyst",
+              "Treasury Analyst",
+            ],
+          },
+          "registered nurse": {
+            base: 82000,
+            similar: [
+              "Licensed Practical Nurse",
+              "Nurse Practitioner",
+              "Clinical Nurse Specialist",
+              "Travel Nurse",
+              "ICU Nurse",
+            ],
+          },
+          "graphic designer": {
+            base: 62000,
+            similar: [
+              "Visual Designer",
+              "UI Designer",
+              "Brand Designer",
+              "Creative Director",
+              "Illustrator",
+            ],
+          },
+          "ux designer": {
+            base: 105000,
+            similar: [
+              "UX Researcher",
+              "Product Designer",
+              "Interaction Designer",
+              "UI/UX Designer",
+              "Design Lead",
+            ],
+          },
+          accountant: {
+            base: 72000,
+            similar: [
+              "Staff Accountant",
+              "Senior Accountant",
+              "Tax Accountant",
+              "Auditor",
+              "Controller",
+            ],
+          },
+          "human resources manager": {
+            base: 95000,
+            similar: [
+              "HR Business Partner",
+              "Talent Acquisition Manager",
+              "People Operations Manager",
+              "Compensation Manager",
+              "HR Director",
+            ],
+          },
+          "operations manager": {
+            base: 90000,
+            similar: [
+              "Operations Director",
+              "Supply Chain Manager",
+              "Logistics Manager",
+              "Warehouse Manager",
+              "Facilities Manager",
+            ],
+          },
+          "customer success manager": {
+            base: 85000,
+            similar: [
+              "Account Manager",
+              "Client Success Manager",
+              "Customer Experience Manager",
+              "Relationship Manager",
+              "Implementation Manager",
+            ],
+          },
+          "business analyst": {
+            base: 88000,
+            similar: [
+              "Systems Analyst",
+              "Requirements Analyst",
+              "Process Analyst",
+              "Data Analyst",
+              "Management Consultant",
+            ],
+          },
+          "mechanical engineer": {
+            base: 92000,
+            similar: [
+              "Design Engineer",
+              "Manufacturing Engineer",
+              "Process Engineer",
+              "Quality Engineer",
+              "CAD Engineer",
+            ],
+          },
+          teacher: {
+            base: 58000,
+            similar: [
+              "Instructor",
+              "Adjunct Professor",
+              "Curriculum Developer",
+              "Academic Coordinator",
+              "Tutor",
+            ],
+          },
+          pharmacist: {
+            base: 128000,
+            similar: [
+              "Clinical Pharmacist",
+              "Pharmacy Manager",
+              "Pharmaceutical Sales Rep",
+              "Pharmacy Technician",
+              "Drug Safety Specialist",
+            ],
+          },
+          "civil engineer": {
+            base: 88000,
+            similar: [
+              "Structural Engineer",
+              "Environmental Engineer",
+              "Construction Manager",
+              "Geotechnical Engineer",
+              "Transportation Engineer",
+            ],
+          },
+          "electrical engineer": {
+            base: 95000,
+            similar: [
+              "Electronics Engineer",
+              "Power Systems Engineer",
+              "Control Systems Engineer",
+              "Hardware Engineer",
+              "Embedded Systems Engineer",
+            ],
+          },
+          paralegal: {
+            base: 58000,
+            similar: [
+              "Legal Assistant",
+              "Legal Secretary",
+              "Litigation Support",
+              "Contract Specialist",
+              "Compliance Analyst",
+            ],
+          },
+          "web developer": {
+            base: 85000,
+            similar: [
+              "Frontend Developer",
+              "Full Stack Developer",
+              "WordPress Developer",
+              "Web Designer",
+              "JavaScript Developer",
+            ],
+          },
+          "executive assistant": {
+            base: 65000,
+            similar: [
+              "Administrative Assistant",
+              "Office Manager",
+              "Chief of Staff",
+              "Personal Assistant",
+              "Operations Coordinator",
+            ],
+          },
+          "supply chain analyst": {
+            base: 72000,
+            similar: [
+              "Procurement Analyst",
+              "Logistics Coordinator",
+              "Inventory Analyst",
+              "Demand Planner",
+              "Sourcing Specialist",
+            ],
+          },
+          "cybersecurity analyst": {
+            base: 110000,
+            similar: [
+              "Security Engineer",
+              "Information Security Analyst",
+              "SOC Analyst",
+              "Penetration Tester",
+              "Security Architect",
+            ],
+          },
+          "content writer": {
+            base: 58000,
+            similar: [
+              "Copywriter",
+              "Technical Writer",
+              "Content Strategist",
+              "Blog Writer",
+              "Communications Specialist",
+            ],
+          },
+          recruiter: {
+            base: 70000,
+            similar: [
+              "Talent Acquisition Specialist",
+              "Sourcer",
+              "HR Recruiter",
+              "Technical Recruiter",
+              "Recruiting Coordinator",
+            ],
+          },
+          "quality assurance engineer": {
+            base: 95000,
+            similar: [
+              "QA Analyst",
+              "Test Engineer",
+              "SDET",
+              "Automation Engineer",
+              "Quality Lead",
+            ],
+          },
+          chef: {
+            base: 52000,
+            similar: [
+              "Sous Chef",
+              "Executive Chef",
+              "Pastry Chef",
+              "Line Cook",
+              "Kitchen Manager",
+            ],
+          },
+          "social media manager": {
+            base: 62000,
+            similar: [
+              "Community Manager",
+              "Digital Marketing Specialist",
+              "Content Creator",
+              "Influencer Marketing Manager",
+              "Social Media Strategist",
+            ],
+          },
+        };
+
+        // Location multipliers and cost-of-living index
+        var LOCATIONS = {
+          "san francisco": {
+            multiplier: 1.3,
+            colIndex: 182,
+            state: "CA",
+            country: "US",
+            label: "San Francisco, CA",
+          },
+          "new york": {
+            multiplier: 1.25,
+            colIndex: 187,
+            state: "NY",
+            country: "US",
+            label: "New York, NY",
+          },
+          "new york city": {
+            multiplier: 1.25,
+            colIndex: 187,
+            state: "NY",
+            country: "US",
+            label: "New York, NY",
+          },
+          seattle: {
+            multiplier: 1.2,
+            colIndex: 170,
+            state: "WA",
+            country: "US",
+            label: "Seattle, WA",
+          },
+          "los angeles": {
+            multiplier: 1.15,
+            colIndex: 166,
+            state: "CA",
+            country: "US",
+            label: "Los Angeles, CA",
+          },
+          boston: {
+            multiplier: 1.15,
+            colIndex: 162,
+            state: "MA",
+            country: "US",
+            label: "Boston, MA",
+          },
+          chicago: {
+            multiplier: 1.05,
+            colIndex: 107,
+            state: "IL",
+            country: "US",
+            label: "Chicago, IL",
+          },
+          denver: {
+            multiplier: 1.05,
+            colIndex: 128,
+            state: "CO",
+            country: "US",
+            label: "Denver, CO",
+          },
+          austin: {
+            multiplier: 0.95,
+            colIndex: 112,
+            state: "TX",
+            country: "US",
+            label: "Austin, TX",
+          },
+          dallas: {
+            multiplier: 0.92,
+            colIndex: 104,
+            state: "TX",
+            country: "US",
+            label: "Dallas, TX",
+          },
+          atlanta: {
+            multiplier: 0.95,
+            colIndex: 107,
+            state: "GA",
+            country: "US",
+            label: "Atlanta, GA",
+          },
+          miami: {
+            multiplier: 1.0,
+            colIndex: 123,
+            state: "FL",
+            country: "US",
+            label: "Miami, FL",
+          },
+          phoenix: {
+            multiplier: 0.9,
+            colIndex: 103,
+            state: "AZ",
+            country: "US",
+            label: "Phoenix, AZ",
+          },
+          portland: {
+            multiplier: 1.05,
+            colIndex: 130,
+            state: "OR",
+            country: "US",
+            label: "Portland, OR",
+          },
+          minneapolis: {
+            multiplier: 1.0,
+            colIndex: 106,
+            state: "MN",
+            country: "US",
+            label: "Minneapolis, MN",
+          },
+          london: {
+            multiplier: 1.15,
+            colIndex: 175,
+            state: null,
+            country: "UK",
+            label: "London, UK",
+          },
+          berlin: {
+            multiplier: 0.85,
+            colIndex: 120,
+            state: null,
+            country: "DE",
+            label: "Berlin, Germany",
+          },
+          amsterdam: {
+            multiplier: 0.9,
+            colIndex: 130,
+            state: null,
+            country: "NL",
+            label: "Amsterdam, Netherlands",
+          },
+          paris: {
+            multiplier: 0.9,
+            colIndex: 140,
+            state: null,
+            country: "FR",
+            label: "Paris, France",
+          },
+          dublin: {
+            multiplier: 0.95,
+            colIndex: 135,
+            state: null,
+            country: "IE",
+            label: "Dublin, Ireland",
+          },
+          toronto: {
+            multiplier: 0.88,
+            colIndex: 125,
+            state: null,
+            country: "CA",
+            label: "Toronto, Canada",
+          },
+          sydney: {
+            multiplier: 0.95,
+            colIndex: 140,
+            state: null,
+            country: "AU",
+            label: "Sydney, Australia",
+          },
+          singapore: {
+            multiplier: 1.0,
+            colIndex: 145,
+            state: null,
+            country: "SG",
+            label: "Singapore",
+          },
+          bangalore: {
+            multiplier: 0.35,
+            colIndex: 46,
+            state: null,
+            country: "IN",
+            label: "Bangalore, India",
+          },
+          remote: {
+            multiplier: 1.0,
+            colIndex: 100,
+            state: null,
+            country: "US",
+            label: "Remote (US-based)",
+          },
+        };
+
+        // Company size multipliers
+        var SIZE_MULTIPLIERS = {
+          startup: 0.9,
+          small: 0.95,
+          mid: 1.0,
+          enterprise: 1.1,
+        };
+
+        // Experience level multipliers
+        var EXPERIENCE_MULTIPLIERS = {
+          entry: 0.7,
+          mid: 1.0,
+          senior: 1.3,
+          director: 1.6,
+          executive: 2.0,
+        };
+
+        // Industry multipliers
+        var INDUSTRY_MULTIPLIERS = {
+          technology: 1.15,
+          healthcare: 1.05,
+          finance: 1.12,
+          retail: 0.85,
+          manufacturing: 0.92,
+          energy: 1.08,
+          education: 0.78,
+          media: 0.9,
+          pharma: 1.1,
+          consulting: 1.08,
+          logistics: 0.88,
+          construction: 0.95,
+          government: 0.82,
+          nonprofit: 0.75,
+          hospitality: 0.8,
+        };
+
+        // Pay transparency laws database
+        var TRANSPARENCY_LAWS = [
+          {
+            id: "co",
+            name: "Colorado Equal Pay for Equal Work Act",
+            jurisdiction: "Colorado",
+            state: "CO",
+            country: "US",
+            effectiveDate: "2021-01-01",
+            requirement:
+              "Must disclose salary range and benefits in all job postings",
+            status: "active",
+          },
+          {
+            id: "nyc",
+            name: "NYC Pay Transparency Law",
+            jurisdiction: "New York City",
+            state: "NY",
+            country: "US",
+            effectiveDate: "2022-11-01",
+            requirement:
+              "Salary range required in job ads for positions in NYC",
+            status: "active",
+          },
+          {
+            id: "wa",
+            name: "Washington Equal Pay and Opportunities Act",
+            jurisdiction: "Washington State",
+            state: "WA",
+            country: "US",
+            effectiveDate: "2023-01-01",
+            requirement:
+              "Employers with 15+ employees must disclose salary ranges",
+            status: "active",
+          },
+          {
+            id: "ca",
+            name: "California Pay Transparency Act (SB 1162)",
+            jurisdiction: "California",
+            state: "CA",
+            country: "US",
+            effectiveDate: "2023-01-01",
+            requirement:
+              "Employers with 15+ employees must include pay scale in job postings",
+            status: "active",
+          },
+          {
+            id: "ny",
+            name: "New York State Pay Transparency Law",
+            jurisdiction: "New York State",
+            state: "NY",
+            country: "US",
+            effectiveDate: "2023-09-17",
+            requirement:
+              "All employers with 4+ employees must disclose salary ranges",
+            status: "active",
+          },
+          {
+            id: "il",
+            name: "Illinois Pay Transparency Act",
+            jurisdiction: "Illinois",
+            state: "IL",
+            country: "US",
+            effectiveDate: "2025-01-01",
+            requirement:
+              "Employers with 15+ employees must disclose pay scale and benefits",
+            status: "active",
+          },
+          {
+            id: "mn",
+            name: "Minnesota Pay Transparency Law",
+            jurisdiction: "Minnesota",
+            state: "MN",
+            country: "US",
+            effectiveDate: "2025-01-01",
+            requirement:
+              "All employers must provide starting salary range in postings",
+            status: "active",
+          },
+          {
+            id: "ma",
+            name: "Massachusetts Pay Transparency Law",
+            jurisdiction: "Massachusetts",
+            state: "MA",
+            country: "US",
+            effectiveDate: "2025-07-31",
+            requirement:
+              "Employers with 25+ employees must disclose pay ranges",
+            status: "upcoming",
+          },
+          {
+            id: "nj",
+            name: "New Jersey Pay Transparency Act",
+            jurisdiction: "New Jersey",
+            state: "NJ",
+            country: "US",
+            effectiveDate: "2025-06-01",
+            requirement:
+              "Employers with 10+ employees must include salary range in postings",
+            status: "active",
+          },
+          {
+            id: "hi",
+            name: "Hawaii Pay Transparency Law",
+            jurisdiction: "Hawaii",
+            state: "HI",
+            country: "US",
+            effectiveDate: "2024-01-01",
+            requirement:
+              "Employers with 50+ employees must disclose hourly rate or salary range",
+            status: "active",
+          },
+          {
+            id: "eu",
+            name: "EU Pay Transparency Directive",
+            jurisdiction: "European Union",
+            state: null,
+            country: "EU",
+            effectiveDate: "2026-06-07",
+            requirement:
+              "All EU member states must require salary ranges in job postings; employees have right to pay information",
+            status: "upcoming",
+          },
+          {
+            id: "uk",
+            name: "UK Voluntary Pay Transparency Guidance",
+            jurisdiction: "United Kingdom",
+            state: null,
+            country: "UK",
+            effectiveDate: null,
+            requirement:
+              "No legal mandate yet; voluntary guidance encourages salary disclosure. Gender pay gap reporting required for 250+ employees.",
+            status: "voluntary",
+          },
+        ];
+
+        // EU member states for directive matching
+        var EU_COUNTRIES = [
+          "DE",
+          "FR",
+          "NL",
+          "IE",
+          "ES",
+          "IT",
+          "PT",
+          "BE",
+          "AT",
+          "SE",
+          "DK",
+          "FI",
+          "PL",
+          "CZ",
+          "GR",
+          "HU",
+          "RO",
+          "BG",
+          "HR",
+          "SK",
+          "SI",
+          "LT",
+          "LV",
+          "EE",
+          "CY",
+          "MT",
+          "LU",
+        ];
+
+        // ── DOM refs ──
+        var jobTitleInput = document.getElementById("jobTitleInput");
+        var locationInput = document.getElementById("locationInput");
+        var industryInput = document.getElementById("industryInput");
+        var companySizeInput = document.getElementById("companySizeInput");
+        var experienceInput = document.getElementById("experienceInput");
+        var analyzeBtn = document.getElementById("analyzeBtn");
+        var resultsSection = document.getElementById("resultsSection");
+        var errorBanner = document.getElementById("errorBanner");
+        var copyBtn = document.getElementById("copyBtn");
+        var resetBtn = document.getElementById("resetBtn");
+
+        var lastResult = null;
+
+        // ── Event listeners ──
+        analyzeBtn.addEventListener("click", runAnalysis);
+        copyBtn.addEventListener("click", copyToClipboard);
+        resetBtn.addEventListener("click", function () {
+          resultsSection.classList.remove("visible");
+          lastResult = null;
+          jobTitleInput.value = "";
+          locationInput.value = "";
+          jobTitleInput.focus();
+          hideError();
+        });
+
+        // Allow Enter key on inputs
+        [jobTitleInput, locationInput].forEach(function (el) {
+          el.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+              runAnalysis();
+            }
+          });
+        });
+
+        // ── Core logic ──
+        function runAnalysis() {
+          hideError();
+
+          var jobTitle = (jobTitleInput.value || "").trim().toLowerCase();
+          var location = (locationInput.value || "").trim().toLowerCase();
+          var industry = industryInput.value;
+          var companySize = companySizeInput.value;
+          var experience = experienceInput.value;
+
+          if (!jobTitle) {
+            showError("Please enter a job title.");
+            jobTitleInput.focus();
+            return;
+          }
+          if (!location) {
+            showError("Please enter a location.");
+            locationInput.focus();
+            return;
+          }
+
+          // Find best matching job
+          var jobMatch = findBestMatch(jobTitle, Object.keys(SALARY_DATABASE));
+          if (!jobMatch) {
+            showError(
+              'No salary data found for "' +
+                escapeHtml(jobTitle) +
+                '". Try a common title like Software Engineer, Marketing Manager, or Accountant.',
+            );
+            return;
+          }
+
+          // Find best matching location
+          var locMatch = findBestMatch(location, Object.keys(LOCATIONS));
+          if (!locMatch) {
+            showError(
+              'Location "' +
+                escapeHtml(location) +
+                '" not found. Try a major city like San Francisco, New York, London, or Berlin.',
+            );
+            return;
+          }
+
+          var jobData = SALARY_DATABASE[jobMatch];
+          var locData = LOCATIONS[locMatch];
+          var baseSalary = jobData.base;
+
+          var locMult = locData.multiplier;
+          var sizeMult = SIZE_MULTIPLIERS[companySize] || 1.0;
+          var expMult = EXPERIENCE_MULTIPLIERS[experience] || 1.0;
+          var indMult = INDUSTRY_MULTIPLIERS[industry] || 1.0;
+
+          var adjustedMedian = Math.round(
+            baseSalary * locMult * sizeMult * expMult * indMult,
+          );
+          var min = Math.round(adjustedMedian * 0.78);
+          var max = Math.round(adjustedMedian * 1.28);
+          var p10 = Math.round(adjustedMedian * 0.82);
+          var p75 = Math.round(adjustedMedian * 1.15);
+          var p25 = Math.round(adjustedMedian * 0.9);
+
+          lastResult = {
+            jobTitle: capitalizeWords(jobMatch),
+            location: locData.label,
+            industry: industryInput.options[industryInput.selectedIndex].text,
+            experience:
+              experienceInput.options[experienceInput.selectedIndex].text,
+            companySize:
+              companySizeInput.options[companySizeInput.selectedIndex].text,
+            min: min,
+            median: adjustedMedian,
+            max: max,
+            p10: p10,
+            p25: p25,
+            p75: p75,
+            locData: locData,
+            jobData: jobData,
+            locMult: locMult,
+            sizeMult: sizeMult,
+            expMult: expMult,
+            indMult: indMult,
+          };
+
+          renderResults(lastResult);
+          resultsSection.classList.add("visible");
+
+          // Re-observe newly visible reveal-on-scroll elements
+          document
+            .querySelectorAll(".results-section .reveal-on-scroll")
+            .forEach(function (el) {
+              el.classList.remove("visible");
+              scrollObserver.observe(el);
+            });
+
+          resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        function renderResults(r) {
+          // 1. Salary Range Visual
+          var rangeHTML =
+            '<div class="salary-range-visual">' +
+            '<div style="text-align:center;margin-bottom:0.5rem">' +
+            '<span style="font-size:0.8125rem;color:var(--text-muted)">' +
+            escapeHtml(r.jobTitle) +
+            " in " +
+            escapeHtml(r.location) +
+            "</span></div>" +
+            '<div class="range-bar-container">' +
+            '<div class="range-bar-fill" style="left:0;width:100%"></div>' +
+            '<div class="range-marker" style="left:0%" data-label="Min"></div>' +
+            '<div class="range-marker median" style="left:50%" data-label="Median"></div>' +
+            '<div class="range-marker" style="left:100%" data-label="Max"></div>' +
+            "</div>" +
+            '<div class="range-labels">' +
+            '<div class="range-label"><div class="amount">' +
+            formatCurrency(r.min) +
+            '</div><div class="label-text">Minimum</div></div>' +
+            '<div class="range-label median-label"><div class="amount">' +
+            formatCurrency(r.median) +
+            '</div><div class="label-text">Median</div></div>' +
+            '<div class="range-label"><div class="amount">' +
+            formatCurrency(r.max) +
+            '</div><div class="label-text">Maximum</div></div>' +
+            "</div></div>";
+          document.getElementById("salaryRangeContent").innerHTML = rangeHTML;
+
+          // 2. Recommended Posting Range
+          var postingHTML =
+            '<div class="posting-range">' +
+            '<div class="posting-label">Recommended salary range for your job posting</div>' +
+            '<div class="posting-value">' +
+            formatCurrency(r.p10) +
+            " &ndash; " +
+            formatCurrency(r.p75) +
+            "</div>" +
+            '<div class="posting-label">10th &ndash; 75th Percentile</div>' +
+            '<div class="posting-note">This range covers the competitive market band. ' +
+            "Posting a range wider than this may reduce applicant quality; " +
+            "narrower ranges may exclude qualified candidates.</div>" +
+            "</div>";
+          document.getElementById("postingRangeContent").innerHTML =
+            postingHTML;
+
+          // 3. Key stats
+          var statsHTML =
+            '<div class="stat-card"><div class="stat-value">' +
+            formatCurrency(r.p25) +
+            '</div><div class="stat-label">25th Percentile</div></div>' +
+            '<div class="stat-card"><div class="stat-value">' +
+            formatCurrency(r.median) +
+            '</div><div class="stat-label">Median Salary</div></div>' +
+            '<div class="stat-card"><div class="stat-value">' +
+            formatCurrency(r.p75) +
+            '</div><div class="stat-label">75th Percentile</div></div>' +
+            '<div class="stat-card"><div class="stat-value">' +
+            (r.locMult >= 1 ? "+" : "") +
+            Math.round((r.locMult - 1) * 100) +
+            '%</div><div class="stat-label">Location Adj.</div></div>';
+          document.getElementById("statsGrid").innerHTML = statsHTML;
+
+          // 4. Cost of living
+          var colClass =
+            r.locData.colIndex >= 150
+              ? "high"
+              : r.locData.colIndex >= 110
+                ? "medium"
+                : "low";
+          var colDesc =
+            r.locData.colIndex >= 150
+              ? "High cost of living. Salary expectations are significantly above national average."
+              : r.locData.colIndex >= 110
+                ? "Moderate cost of living. Salaries are near or slightly above average."
+                : "Below-average cost of living. Salaries may be lower but purchasing power is strong.";
+          var colHTML =
+            '<div class="col-adjustment">' +
+            '<div class="col-index ' +
+            colClass +
+            '">' +
+            r.locData.colIndex +
+            "</div>" +
+            '<div class="col-details">' +
+            '<div class="col-location">' +
+            escapeHtml(r.location) +
+            " Cost-of-Living Index</div>" +
+            '<div class="col-description">' +
+            colDesc +
+            " (US national average = 100)</div>" +
+            "</div></div>";
+          document.getElementById("colContent").innerHTML = colHTML;
+
+          // 5. Pay transparency compliance
+          var applicableLaws = getApplicableLaws(r.locData);
+          var complianceHTML = "";
+          if (applicableLaws.length === 0) {
+            complianceHTML =
+              '<div class="compliance-item">' +
+              '<div class="compliance-icon na">&#8212;</div>' +
+              '<div class="compliance-info">' +
+              '<div class="compliance-name">No mandatory pay transparency laws apply</div>' +
+              '<div class="compliance-detail">This location does not currently have mandatory pay transparency requirements. However, voluntarily disclosing salary ranges is recommended best practice.</div>' +
+              "</div></div>";
+          } else {
+            applicableLaws.forEach(function (law) {
+              var iconClass =
+                law.status === "active"
+                  ? "active"
+                  : law.status === "upcoming"
+                    ? "upcoming"
+                    : "na";
+              var icon =
+                law.status === "active"
+                  ? "&#10003;"
+                  : law.status === "upcoming"
+                    ? "&#9719;"
+                    : "&#8212;";
+              var badgeClass =
+                law.status === "active"
+                  ? "badge-active"
+                  : law.status === "upcoming"
+                    ? "badge-upcoming"
+                    : "badge-na";
+              var dateStr = law.effectiveDate
+                ? "Effective " + formatDate(law.effectiveDate)
+                : "";
+              complianceHTML +=
+                '<div class="compliance-item">' +
+                '<div class="compliance-icon ' +
+                iconClass +
+                '">' +
+                icon +
+                "</div>" +
+                '<div class="compliance-info">' +
+                '<div class="compliance-name">' +
+                escapeHtml(law.name) +
+                " " +
+                '<span class="compliance-status-badge ' +
+                badgeClass +
+                '">' +
+                law.status +
+                "</span></div>" +
+                '<div class="compliance-detail">' +
+                escapeHtml(law.requirement) +
+                (dateStr ? " &middot; " + dateStr : "") +
+                "</div></div></div>";
+            });
+          }
+          document.getElementById("complianceList").innerHTML = complianceHTML;
+
+          // 6. Comparable roles
+          var comparableHTML = "";
+          var similarTitles = (r.jobData.similar || []).slice(0, 5);
+          similarTitles.forEach(function (title) {
+            var titleKey = title.toLowerCase();
+            var compareBase = SALARY_DATABASE[titleKey]
+              ? SALARY_DATABASE[titleKey].base
+              : r.jobData.base * (0.85 + Math.random() * 0.3);
+            var compareSalary = Math.round(
+              compareBase * r.locMult * r.sizeMult * r.expMult * r.indMult,
+            );
+            var compareMin = Math.round(compareSalary * 0.82);
+            var compareMax = Math.round(compareSalary * 1.15);
+            var diff = Math.round(
+              ((compareSalary - r.median) / r.median) * 100,
+            );
+            var diffClass =
+              diff > 2 ? "diff-higher" : diff < -2 ? "diff-lower" : "diff-same";
+            var diffText =
+              diff > 0
+                ? "+" + diff + "% higher"
+                : diff < 0
+                  ? diff + "% lower"
+                  : "Similar";
+            var barWidth = Math.min(
+              100,
+              Math.round((compareSalary / r.max) * 100),
+            );
+
+            comparableHTML +=
+              '<div class="comparable-card">' +
+              '<div class="comparable-title">' +
+              escapeHtml(title) +
+              "</div>" +
+              '<div class="comparable-range">' +
+              '<span class="range-text">' +
+              formatCurrency(compareMin) +
+              " &ndash; " +
+              formatCurrency(compareMax) +
+              "</span>" +
+              '<span class="diff-text ' +
+              diffClass +
+              '">' +
+              diffText +
+              "</span></div>" +
+              '<div class="comparable-bar"><div class="comparable-bar-fill" style="width:' +
+              barWidth +
+              '%"></div></div>' +
+              "</div>";
+          });
+          document.getElementById("comparableGrid").innerHTML = comparableHTML;
+        }
+
+        // ── Compliance matching ──
+        function getApplicableLaws(locData) {
+          var laws = [];
+          TRANSPARENCY_LAWS.forEach(function (law) {
+            var match = false;
+            // Match by US state
+            if (law.country === "US" && locData.country === "US") {
+              if (law.state === locData.state) {
+                match = true;
+              }
+            }
+            // Match EU directive for EU countries
+            if (
+              law.country === "EU" &&
+              EU_COUNTRIES.indexOf(locData.country) >= 0
+            ) {
+              match = true;
+            }
+            // Match UK
+            if (law.country === "UK" && locData.country === "UK") {
+              match = true;
+            }
+            if (match) {
+              laws.push(law);
+            }
+          });
+          return laws;
+        }
+
+        // ── Copy to clipboard ──
+        function copyToClipboard() {
+          if (!lastResult) return;
+          var r = lastResult;
+          var text =
+            "Salary Range: " +
+            formatCurrency(r.p10) +
+            " - " +
+            formatCurrency(r.p75) +
+            " per year\n" +
+            "Role: " +
+            r.jobTitle +
+            "\n" +
+            "Location: " +
+            r.location +
+            "\n" +
+            "Experience: " +
+            r.experience +
+            "\n\n" +
+            "The salary range for this position is " +
+            formatCurrency(r.p10) +
+            " to " +
+            formatCurrency(r.p75) +
+            " annually. " +
+            "Individual compensation will vary based on qualifications, skills, and experience.";
+
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(
+              function () {
+                showCopied();
+              },
+              function () {
+                fallbackCopy(text);
+              },
+            );
+          } else {
+            fallbackCopy(text);
+          }
+        }
+
+        function fallbackCopy(text) {
+          var ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand("copy");
+            showCopied();
+          } catch (e) {
+            showError("Copy failed. Please select and copy manually.");
+          }
+          document.body.removeChild(ta);
+        }
+
+        function showCopied() {
+          copyBtn.classList.add("copied");
+          var origHTML = copyBtn.innerHTML;
+          copyBtn.innerHTML =
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+          setTimeout(function () {
+            copyBtn.classList.remove("copied");
+            copyBtn.innerHTML = origHTML;
+          }, 2000);
+        }
+
+        // ── Fuzzy matching ──
+        function findBestMatch(input, candidates) {
+          // Exact match first
+          if (candidates.indexOf(input) >= 0) return input;
+
+          // Substring match
+          var matches = candidates.filter(function (c) {
+            return c.indexOf(input) >= 0 || input.indexOf(c) >= 0;
+          });
+          if (matches.length > 0) return matches[0];
+
+          // Word overlap match
+          var inputWords = input.split(/[\s,\-\/]+/).filter(function (w) {
+            return w.length > 2;
+          });
+          var bestScore = 0;
+          var bestMatch = null;
+          candidates.forEach(function (c) {
+            var cWords = c.split(/[\s,\-\/]+/);
+            var score = 0;
+            inputWords.forEach(function (iw) {
+              cWords.forEach(function (cw) {
+                if (cw.indexOf(iw) >= 0 || iw.indexOf(cw) >= 0) {
+                  score += 1;
+                }
+              });
+            });
+            if (score > bestScore) {
+              bestScore = score;
+              bestMatch = c;
+            }
+          });
+          return bestScore > 0 ? bestMatch : null;
+        }
+
+        // ── Helpers ──
+        function formatCurrency(n) {
+          return "$" + numberWithCommas(n);
+        }
+
+        function numberWithCommas(n) {
+          return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        function capitalizeWords(s) {
+          return s.replace(/\b\w/g, function (c) {
+            return c.toUpperCase();
+          });
+        }
+
+        function formatDate(dateStr) {
+          var parts = dateStr.split("-");
+          var months = [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+          ];
+          return (
+            months[parseInt(parts[1], 10) - 1] +
+            " " +
+            parts[2] +
+            ", " +
+            parts[0]
+          );
+        }
+
+        function escapeHtml(s) {
+          if (typeof s !== "string") return String(s);
+          return s
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        function showError(msg) {
+          errorBanner.textContent = msg;
+          errorBanner.classList.add("visible");
+        }
+        function hideError() {
+          errorBanner.textContent = "";
+          errorBanner.classList.remove("visible");
+        }
+
+        // ── Scroll reveal ──
+        var scrollObserver = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) {
+                e.target.classList.add("visible");
+                scrollObserver.unobserve(e.target);
+              }
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          scrollObserver.observe(el);
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -1226,6 +1226,17 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 
     <script>
+      // ── Escape HTML to prevent XSS ──
+      function escapeHtml(str) {
+        if (str == null) return "";
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
       // ── State ──
       let currentPlan = null;
       let budgetChartInstance = null;
@@ -1381,7 +1392,7 @@
         grid.innerHTML = items
           .map(
             (i) =>
-              `<div class="stat-card"><div class="stat-value ${i.cls}">${i.v}</div><div class="stat-label">${i.l}</div></div>`,
+              `<div class="stat-card"><div class="stat-value ${i.cls}">${escapeHtml(i.v)}</div><div class="stat-label">${escapeHtml(i.l)}</div></div>`,
           )
           .join("");
       }
@@ -1411,8 +1422,8 @@
       <div class="platform-card">
         <div class="platform-header">
           <div class="platform-name">
-            <span class="platform-dot" style="background:${p.color}"></span>
-            ${p.name}
+            <span class="platform-dot" style="background:${escapeHtml(p.color)}"></span>
+            ${escapeHtml(p.name)}
           </div>
           <span class="fit-badge ${fitClass}">${p.fit_score}/100</span>
         </div>
@@ -1420,7 +1431,7 @@
           <div class="platform-meta">
             ${(p.ad_formats || [])
               .slice(0, 4)
-              .map((f) => `<span class="platform-tag">${f}</span>`)
+              .map((f) => `<span class="platform-tag">${escapeHtml(f)}</span>`)
               .join("")}
           </div>
           ${hasBudget ? `<div class="platform-budget">${formatBudget(alloc.budget)} (${alloc.pct_of_total}%)</div>` : `<div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.4rem">Not allocated (below threshold)</div>`}
@@ -1430,7 +1441,7 @@
             <div>CTR: <span class="ps-val">${((bench.avg_ctr || 0) * 100).toFixed(1)}%</span></div>
             <div>CPA: <span class="ps-val">$${(bench.avg_cpa || 0).toFixed(2)}</span></div>
           </div>
-          ${p.reasons && p.reasons.length ? `<div class="platform-reasons">${p.reasons.join(" | ")}</div>` : ""}
+          ${p.reasons && p.reasons.length ? `<div class="platform-reasons">${p.reasons.map((r) => escapeHtml(r)).join(" | ")}</div>` : ""}
         </div>
       </div>`;
           })
@@ -1503,7 +1514,7 @@
             ([k, v], i) =>
               `<div class="legend-item">
       <div class="legend-color" style="background:${colors[i % colors.length]}"></div>
-      <div class="legend-name">${v.name}</div>
+      <div class="legend-name">${escapeHtml(v.name)}</div>
       <div class="legend-value">$${v.budget.toLocaleString()}</div>
       <div class="legend-pct">${v.pct_of_total}%</div>
     </div>`,
@@ -1523,19 +1534,19 @@
           .map(([key, t]) => {
             let body = "";
             if (t.job_titles && t.job_titles.length) {
-              body += `<div class="targeting-section"><h5>Job Titles</h5><ul class="targeting-list">${t.job_titles.map((j) => `<li>${j}</li>`).join("")}</ul></div>`;
+              body += `<div class="targeting-section"><h5>Job Titles</h5><ul class="targeting-list">${t.job_titles.map((j) => `<li>${escapeHtml(j)}</li>`).join("")}</ul></div>`;
             }
             if (t.interests && t.interests.length) {
-              body += `<div class="targeting-section"><h5>Interests</h5><ul class="targeting-list">${t.interests.map((j) => `<li>${j}</li>`).join("")}</ul></div>`;
+              body += `<div class="targeting-section"><h5>Interests</h5><ul class="targeting-list">${t.interests.map((j) => `<li>${escapeHtml(j)}</li>`).join("")}</ul></div>`;
             }
             if (t.behaviors && t.behaviors.length) {
-              body += `<div class="targeting-section"><h5>Behaviors</h5><ul class="targeting-list">${t.behaviors.map((j) => `<li>${j}</li>`).join("")}</ul></div>`;
+              body += `<div class="targeting-section"><h5>Behaviors</h5><ul class="targeting-list">${t.behaviors.map((j) => `<li>${escapeHtml(j)}</li>`).join("")}</ul></div>`;
             }
             if (t.hashtags && t.hashtags.length) {
-              body += `<div class="targeting-section"><h5>Hashtags</h5><ul class="targeting-list">${t.hashtags.map((j) => `<li>${j}</li>`).join("")}</ul></div>`;
+              body += `<div class="targeting-section"><h5>Hashtags</h5><ul class="targeting-list">${t.hashtags.map((j) => `<li>${escapeHtml(j)}</li>`).join("")}</ul></div>`;
             }
             if (t.targeting_types && t.targeting_types.length) {
-              body += `<div class="targeting-section"><h5>Available Targeting Types</h5><ul class="targeting-list">${t.targeting_types.map((j) => `<li>${j}</li>`).join("")}</ul></div>`;
+              body += `<div class="targeting-section"><h5>Available Targeting Types</h5><ul class="targeting-list">${t.targeting_types.map((j) => `<li>${escapeHtml(j)}</li>`).join("")}</ul></div>`;
             }
             if (t.keyword_strategy) {
               body += `<div class="targeting-section"><h5>Keyword Strategy</h5><ul class="targeting-list">${Object.entries(
@@ -1543,7 +1554,7 @@
               )
                 .map(
                   ([k, v]) =>
-                    `<li><strong>${k.replace(/_/g, " ")}:</strong> ${v}</li>`,
+                    `<li><strong>${escapeHtml(k.replace(/_/g, " "))}:</strong> ${escapeHtml(v)}</li>`,
                 )
                 .join("")}</ul></div>`;
             }
@@ -1551,7 +1562,10 @@
               body += `<div class="targeting-section"><h5>Demographics</h5><ul class="targeting-list">${Object.entries(
                 t.demographics,
               )
-                .map(([k, v]) => `<li><strong>${k}:</strong> ${v}</li>`)
+                .map(
+                  ([k, v]) =>
+                    `<li><strong>${escapeHtml(k)}:</strong> ${escapeHtml(v)}</li>`,
+                )
                 .join("")}</ul></div>`;
             }
             const platformName = t.platform
@@ -1562,7 +1576,7 @@
             return `
       <div class="targeting-card" onclick="this.classList.toggle('open')">
         <div class="targeting-header">
-          <h4>${platformName}</h4>
+          <h4>${escapeHtml(platformName)}</h4>
           <span class="targeting-arrow">&#9660;</span>
         </div>
         <div class="targeting-body">${body || '<p style="color:var(--text-dim)">Default targeting recommended.</p>'}</div>
@@ -1584,7 +1598,7 @@
             const posts = week.posts || [];
             return `
       <div class="calendar-week">
-        <div class="calendar-week-header">Week ${week.week}: ${week.theme}</div>
+        <div class="calendar-week-header">Week ${week.week}: ${escapeHtml(week.theme)}</div>
         <table class="calendar-table">
           <thead><tr><th>Day</th><th>Platform</th><th>Content Type</th><th>Format</th><th>Engagement</th></tr></thead>
           <tbody>
@@ -1592,11 +1606,11 @@
               .map(
                 (p) => `
               <tr>
-                <td>${p.day}</td>
-                <td>${p.platform_name || p.platform}</td>
-                <td>${p.content_type}</td>
-                <td>${p.format}</td>
-                <td><span class="engagement-badge ${p.expected_engagement}">${p.expected_engagement}</span></td>
+                <td>${escapeHtml(p.day)}</td>
+                <td>${escapeHtml(p.platform_name || p.platform)}</td>
+                <td>${escapeHtml(p.content_type)}</td>
+                <td>${escapeHtml(p.format)}</td>
+                <td><span class="engagement-badge ${escapeHtml(p.expected_engagement)}">${escapeHtml(p.expected_engagement)}</span></td>
               </tr>
             `,
               )
@@ -1625,7 +1639,7 @@
               )
                 .map(
                   ([k, v]) =>
-                    `<div class="brief-spec"><div class="spec-label">${k.replace(/_/g, " ")}</div><div class="spec-value">${v}</div></div>`,
+                    `<div class="brief-spec"><div class="spec-label">${escapeHtml(k.replace(/_/g, " "))}</div><div class="spec-value">${escapeHtml(v)}</div></div>`,
                 )
                 .join("")}</div>`;
             }
@@ -1636,38 +1650,38 @@
               )
                 .map(
                   ([k, v]) =>
-                    `<div class="brief-spec"><div class="spec-label">${k} limit</div><div class="spec-value">${v} chars</div></div>`,
+                    `<div class="brief-spec"><div class="spec-label">${escapeHtml(k)} limit</div><div class="spec-value">${escapeHtml(v)} chars</div></div>`,
                 )
                 .join("")}</div>`;
             }
             let tipsHtml = "";
             if (b.creative_tips && b.creative_tips.length) {
-              tipsHtml = `<ul class="targeting-list">${b.creative_tips.map((t) => `<li>${t}</li>`).join("")}</ul>`;
+              tipsHtml = `<ul class="targeting-list">${b.creative_tips.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul>`;
             }
             return `
       <div class="brief-card" onclick="this.classList.toggle('open')">
         <div class="brief-header">
           <h4 style="display:flex;align-items:center;gap:0.5rem;font-size:1rem;font-weight:600">
-            <span class="platform-dot" style="background:${b.color}"></span>
-            ${b.platform_name}
+            <span class="platform-dot" style="background:${escapeHtml(b.color)}"></span>
+            ${escapeHtml(b.platform_name)}
           </h4>
           <span class="targeting-arrow brief-arrow">&#9660;</span>
         </div>
         <div class="brief-body">
-          <div class="brief-section"><h5>Tone & Voice</h5><p>${b.tone}</p></div>
-          <div class="brief-section"><h5>CTA Options</h5><p>${b.cta_options}</p></div>
+          <div class="brief-section"><h5>Tone & Voice</h5><p>${escapeHtml(b.tone)}</p></div>
+          <div class="brief-section"><h5>CTA Options</h5><p>${escapeHtml(b.cta_options)}</p></div>
           <div class="brief-section"><h5>Image / Video Specs</h5>${specsHtml}</div>
           <div class="brief-section"><h5>Copy Limits</h5>${limitsHtml}</div>
           <div class="brief-section"><h5>Recommended Formats</h5>
-            <div style="display:flex;flex-wrap:wrap;gap:0.4rem">${(b.recommended_formats || []).map((f) => `<span class="platform-tag">${f}</span>`).join("")}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:0.4rem">${(b.recommended_formats || []).map((f) => `<span class="platform-tag">${escapeHtml(f)}</span>`).join("")}</div>
           </div>
           <div class="brief-section">
             <h5>Sample Headline</h5>
-            <div class="sample-copy">${b.sample_headline}</div>
+            <div class="sample-copy">${escapeHtml(b.sample_headline)}</div>
           </div>
           <div class="brief-section">
             <h5>Sample Body Copy</h5>
-            <div class="sample-copy">${b.sample_body}</div>
+            <div class="sample-copy">${escapeHtml(b.sample_body)}</div>
           </div>
           <div class="brief-section"><h5>Creative Tips</h5>${tipsHtml}</div>
         </div>
@@ -1696,7 +1710,7 @@
             const roiPct = Math.round(((p.roi_score || 0) / maxRoi) * 100);
             return `
       <tr>
-        <td style="text-align:left;font-weight:600">${p.platform}</td>
+        <td style="text-align:left;font-weight:600">${escapeHtml(p.platform)}</td>
         <td>${formatBudget(p.budget)}</td>
         <td>${(p.impressions || 0).toLocaleString()}</td>
         <td>${(p.reach || 0).toLocaleString()}</td>
@@ -1736,8 +1750,8 @@
     <div class="card" style="margin-top:1rem">
       <h4 style="font-size:1rem;margin-bottom:0.5rem;color:var(--accent-light)">ROI Analysis</h4>
       <p style="font-size:0.9rem;color:var(--text-muted)">
-        <strong>Best ROI:</strong> ${perf.best_roi_platform} -- consider scaling budget here if CPA holds.<br>
-        <strong>Lowest ROI:</strong> ${perf.worst_roi_platform} -- monitor closely, reduce spend if underperforming after week 2.
+        <strong>Best ROI:</strong> ${escapeHtml(perf.best_roi_platform)} -- consider scaling budget here if CPA holds.<br>
+        <strong>Lowest ROI:</strong> ${escapeHtml(perf.worst_roi_platform)} -- monitor closely, reduce spend if underperforming after week 2.
       </p>
     </div>`;
       }

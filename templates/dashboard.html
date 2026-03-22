@@ -1400,7 +1400,7 @@
         <a href="/media-plan" title="Go to Media Plan Generator">
           <span class="nav-icon">&#x1f4cb;</span> Media Plan Generator
         </a>
-        <a href="/dashboard?key=Chandel13" class="active">
+        <a id="nav-dashboard-link" href="/dashboard" class="active">
           <span class="nav-icon">&#x1f4ca;</span> Admin Dashboard
         </a>
         <div class="sidebar-nav-label">Sections</div>
@@ -2200,6 +2200,14 @@
       // ===== AUTH: Extract admin key from URL and reuse for API calls =====
       const _urlParams = new URLSearchParams(window.location.search);
       const _adminKey = _urlParams.get("key") || "";
+
+      // Set dashboard nav link href dynamically so the key isn't hardcoded in HTML
+      document.addEventListener("DOMContentLoaded", function () {
+        var dashLink = document.getElementById("nav-dashboard-link");
+        if (dashLink && _adminKey) {
+          dashLink.href = "/dashboard?key=" + encodeURIComponent(_adminKey);
+        }
+      });
 
       function authFetch(url, opts = {}) {
         // Attach admin key as Bearer header for all dashboard API calls
@@ -4251,9 +4259,12 @@
 
       async function fetchAdminStats() {
         try {
-          const res = await fetch("/api/admin/stats?key=Chandel13", {
-            signal: AbortSignal.timeout(10000),
-          });
+          const res = await fetch(
+            "/api/admin/stats?key=" + encodeURIComponent(_adminKey),
+            {
+              signal: AbortSignal.timeout(10000),
+            },
+          );
           if (!res.ok) throw new Error("Stats endpoint returned " + res.status);
           const data = await res.json();
           kpiData = data;

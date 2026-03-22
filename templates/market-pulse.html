@@ -1414,7 +1414,7 @@
             '<span class="industry-badge ' +
             cls +
             '">' +
-            item.arrow +
+            escHtml(item.arrow) +
             " " +
             (change > 0 ? "+" : "") +
             change.toFixed(1) +
@@ -1460,7 +1460,7 @@
             '<td><span class="rank-badge ' +
             rCls +
             '">' +
-            p.rank +
+            escHtml(p.rank) +
             "</span></td>" +
             '<td style="font-weight:500;">' +
             escHtml(p.label) +
@@ -1481,7 +1481,7 @@
             '<span class="bar-change ' +
             cls +
             '">' +
-            p.arrow +
+            escHtml(p.arrow) +
             " " +
             (change > 0 ? "+" : "") +
             change.toFixed(1) +

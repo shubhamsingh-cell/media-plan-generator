@@ -56,6 +56,12 @@
         --radius: 12px;
         --radius-sm: 10px;
         --radius-xs: 6px;
+        /* Motion design tokens */
+        --ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+        --duration-reveal: 0.4s;
+        --duration-ui: 0.2s;
+        --duration-page: 0.6s;
       }
 
       /* ── Effect 1: Gradient border shimmer ── */
@@ -78,6 +84,7 @@
         filter: blur(80px);
         pointer-events: none;
         z-index: 0;
+        will-change: transform;
       }
 
       .ambient-glow--violet {
@@ -807,6 +814,7 @@
             )
             border-box;
         transform: translateY(-4px);
+        will-change: transform;
         box-shadow:
           0 20px 40px rgba(0, 0, 0, 0.3),
           0 8px 16px rgba(32, 32, 88, 0.08),
@@ -1113,6 +1121,22 @@
         transform: translateY(0);
       }
 
+      /* ── Reveal-on-scroll (matches product templates) ── */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        filter: hue-rotate(40deg) saturate(0.5) brightness(0.8);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          filter 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+        filter: none;
+      }
+
       .stagger-1 {
         transition-delay: 0.05s;
       }
@@ -1214,6 +1238,12 @@
           transition: none;
           opacity: 1;
           transform: none;
+        }
+        .reveal-on-scroll {
+          transition: none;
+          opacity: 1;
+          transform: none;
+          filter: none;
         }
         .marquee {
           animation: none;
@@ -1527,7 +1557,7 @@
       </p>
       <div class="hero-stats fade-in stagger-3">
         <div class="hero-stat">
-          <div class="num" id="product-count" data-counter data-target="14">
+          <div class="num" id="product-count" data-counter data-target="21">
             0
           </div>
           <div class="label">AI Products</div>
@@ -1548,7 +1578,7 @@
     </section>
 
     <!-- Flagship Product -->
-    <div class="flagship">
+    <div class="flagship reveal-on-scroll">
       <a href="/media-plan" class="flagship-card fade-in stagger-4">
         <div class="flagship-content">
           <span class="card-status live">Live</span>
@@ -1673,7 +1703,7 @@
 
     <!-- Products Section -->
     <section class="section dot-grid-bg" id="products">
-      <div class="section-header fade-in">
+      <div class="section-header fade-in reveal-on-scroll">
         <div class="section-label">Product Suite</div>
         <div class="section-title">
           Every tool you need <span>for recruitment advertising</span>
@@ -1697,6 +1727,7 @@
           Intelligence
         </button>
         <button class="filter-btn" data-filter="tools">Tools</button>
+        <button class="filter-btn" data-filter="compliance">Compliance</button>
       </div>
 
       <div class="products-grid" id="productsGrid">
@@ -2403,14 +2434,179 @@
               <span class="card-arrow">&rarr;</span>
             </div>
           </a>
+
+          <!-- 18. PayScale Sync -->
+          <a
+            href="/payscale-sync"
+            class="product-card fade-in stagger-18"
+            data-category="intelligence"
+            data-keywords="payscale salary compensation pay transparency range benchmark"
+          >
+            <span class="card-status new">New</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(52, 211, 153, 0.1);
+                --icon-border: rgba(52, 211, 153, 0.15);
+              "
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#34d399"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path
+                  d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
+                />
+              </svg>
+            </div>
+            <div class="card-title">PayScale Sync</div>
+            <div class="card-desc">
+              Market-competitive salary ranges for job postings with pay
+              transparency compliance for EU and US state laws.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Intelligence</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
+
+          <!-- 19. ComplianceGuard -->
+          <a
+            href="/compliance-guard"
+            class="product-card fade-in stagger-19"
+            data-category="compliance"
+            data-keywords="compliance guard scan job posting bias language eeo ofccp age discrimination pay transparency salary"
+          >
+            <span class="card-status new">New</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(34, 211, 238, 0.1);
+                --icon-border: rgba(34, 211, 238, 0.15);
+              "
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#22d3ee"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 2L4 7v5c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V7L12 2z"
+                />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+            </div>
+            <div class="card-title">ComplianceGuard</div>
+            <div class="card-desc">
+              Scan job postings for pay transparency gaps, biased language, EEO
+              violations, OFCCP issues, and age discrimination risks.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Compliance</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
         </div>
         <!-- end row 6 -->
+        <div class="product-grid-row">
+          <!-- 20. CreativeAI -->
+          <a
+            href="/creative-ai"
+            class="product-card fade-in stagger-1"
+            data-category="tools"
+            data-keywords="creative ai ad copy variant recruitment job posting generator"
+          >
+            <span class="card-status new">New</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(251, 191, 36, 0.1);
+                --icon-border: rgba(251, 191, 36, 0.15);
+              "
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#fbbf24"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path
+                  d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6z"
+                />
+              </svg>
+            </div>
+            <div class="card-title">CreativeAI</div>
+            <div class="card-desc">
+              Generate 5 distinct recruitment ad copy variants for A/B testing.
+              Benefits-first, culture-forward, growth-focused, and more across
+              any platform.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Tools</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
+
+          <!-- 21. VendorIQ -->
+          <a
+            href="/vendor-iq"
+            class="product-card fade-in stagger-2"
+            data-category="analytics"
+            data-keywords="vendor iq compare job board performance cpc cpa quality benchmark"
+          >
+            <span class="card-status new">New</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(99, 102, 241, 0.1);
+                --icon-border: rgba(99, 102, 241, 0.15);
+              "
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#6366f1"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <rect x="3" y="12" width="4" height="9" rx="1" />
+                <rect x="10" y="7" width="4" height="14" rx="1" />
+                <rect x="17" y="3" width="4" height="18" rx="1" />
+              </svg>
+            </div>
+            <div class="card-title">VendorIQ</div>
+            <div class="card-desc">
+              Compare recruitment advertising vendors on CPC, CPA, quality
+              scores, and reach. Get smart budget allocation recommendations.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Analytics</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
+        </div>
+        <!-- end row 7 -->
       </div>
     </section>
 
     <!-- CTA -->
     <section class="cta-section">
-      <div class="cta-card fade-in">
+      <div class="cta-card fade-in reveal-on-scroll">
         <h3>Ready to transform your recruitment advertising?</h3>
         <p>
           Start with our flagship Media Plan Generator, or explore the full
@@ -2435,7 +2631,7 @@
     </section>
 
     <!-- Footer -->
-    <footer class="footer">
+    <footer class="footer reveal-on-scroll">
       <p>
         Nova AI Suite &mdash; Built by
         <a
@@ -2465,6 +2661,23 @@
 
         document.querySelectorAll(".fade-in").forEach(function (el) {
           observer.observe(el);
+        });
+
+        // ── Intersection Observer for reveal-on-scroll ──
+        var revealObserver = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("visible");
+                revealObserver.unobserve(entry.target);
+              }
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          revealObserver.observe(el);
         });
 
         // ── Search ──

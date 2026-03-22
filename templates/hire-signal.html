@@ -2123,9 +2123,9 @@
               (src.avg_qoh_score || 0).toFixed(1) +
               "</td>" +
               '<td><span class="cell-grade grade-' +
-              grade.toLowerCase() +
+              escapeHtml(grade.toLowerCase()) +
               '">' +
-              grade +
+              escapeHtml(grade) +
               "</span></td>" +
               '<td class="text-mono">' +
               cpqh +
@@ -2323,7 +2323,7 @@
               '<span class="rec-badge ' +
               badgeClass +
               '">' +
-              priority.toUpperCase() +
+              escapeHtml(priority.toUpperCase()) +
               "</span>";
             list.appendChild(item);
           });
@@ -2372,7 +2372,7 @@
               (pred.projected_qoh || 0).toFixed(1) +
               "</span></div>" +
               '<div class="pred-row"><span>Projected Grade</span><span class="pred-value">' +
-              (pred.projected_grade || "C") +
+              escapeHtml(pred.projected_grade || "C") +
               "</span></div>" +
               '<div class="pred-row"><span>Proj. Retention</span><span class="pred-value">' +
               (pred.projected_retention || 0).toFixed(0) +
@@ -2383,7 +2383,7 @@
               (pred.range_high || 0).toFixed(0) +
               "</span></div>" +
               '<div class="pred-row"><span>Confidence</span><span class="pred-value">' +
-              (pred.confidence || "low") +
+              escapeHtml(pred.confidence || "low") +
               "</span></div>";
             grid.appendChild(card);
           });

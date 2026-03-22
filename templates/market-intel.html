@@ -837,6 +837,17 @@
     </div>
 
     <script>
+      /* ---- Escape HTML to prevent XSS ---- */
+      function escapeHtml(str) {
+        if (str == null) return "";
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
       /* ---- State ---- */
       let reportData = null;
 
@@ -932,12 +943,16 @@
       function metricHTML(label, value, sub, cls) {
         return (
           '<div class="metric-card"><div class="metric-label">' +
-          label +
+          escapeHtml(label) +
           '</div><div class="metric-value">' +
-          value +
+          escapeHtml(value) +
           "</div>" +
           (sub
-            ? '<div class="metric-sub ' + (cls || "") + '">' + sub + "</div>"
+            ? '<div class="metric-sub ' +
+              (cls || "") +
+              '">' +
+              escapeHtml(sub) +
+              "</div>"
             : "") +
           "</div>"
         );
@@ -962,7 +977,7 @@
         var n = d.summary_narrative || "";
         document.getElementById("summaryNarrative").innerHTML =
           "<h3>Executive Summary</h3><p>" +
-          (n || "No narrative available.") +
+          escapeHtml(n || "No narrative available.") +
           "</p>";
       }
 
@@ -1002,7 +1017,7 @@
         document.getElementById("laborMetrics").innerHTML = html;
         document.getElementById("laborNarrative").innerHTML =
           "<h3>Labor Market Analysis</h3><p>" +
-          (d.labor_narrative || "No analysis available.") +
+          escapeHtml(d.labor_narrative || "No analysis available.") +
           "</p>";
       }
 
@@ -1038,7 +1053,7 @@
         document.getElementById("compMetrics").innerHTML = html;
         document.getElementById("compNarrative").innerHTML =
           "<h3>Compensation Insights</h3><p>" +
-          (d.comp_narrative || "No insights available.") +
+          escapeHtml(d.comp_narrative || "No insights available.") +
           "</p>";
       }
 
@@ -1048,7 +1063,7 @@
         channels.forEach(function (ch) {
           html +=
             '<tr><td style="font-weight:600;color:var(--text)">' +
-            (ch.name || "") +
+            escapeHtml(ch.name || "") +
             "</td><td>" +
             fmt(ch.cpc) +
             "</td><td>" +
@@ -1058,7 +1073,7 @@
             "</td><td>" +
             qualityBadge(ch.quality) +
             '</td><td style="font-size:12px;">' +
-            (ch.recommendation || "") +
+            escapeHtml(ch.recommendation || "") +
             "</td></tr>";
         });
         document.getElementById("channelBody").innerHTML =
@@ -1078,7 +1093,7 @@
           '<span style="color:' +
           color +
           ';font-weight:600;font-size:12px;">' +
-          q +
+          escapeHtml(q) +
           "</span>"
         );
       }
@@ -1089,7 +1104,7 @@
         trends.forEach(function (t) {
           html +=
             '<tr><td style="font-weight:600;color:var(--text)">' +
-            (t.platform || "") +
+            escapeHtml(t.platform || "") +
             "</td>";
           html += "<td>" + fmt(t.current_cpc) + "</td>";
           html +=
@@ -1114,7 +1129,7 @@
             "</td>";
           html +=
             '<td style="font-size:12px;color:var(--text-sec)">' +
-            (t.forecast || "--") +
+            escapeHtml(t.forecast || "--") +
             "</td></tr>";
         });
         document.getElementById("cpcBody").innerHTML =
@@ -1139,9 +1154,9 @@
             '<div class="season-cell ' +
             cls +
             '"><div class="month">' +
-            (m.month || "") +
+            escapeHtml(m.month || "") +
             '</div><div class="rating">' +
-            (m.label || m.score || "") +
+            escapeHtml(m.label || m.score || "") +
             "</div></div>";
         });
         document.getElementById("seasonGrid").innerHTML =
@@ -1163,9 +1178,9 @@
             '<div class="rec-card"><div class="rec-rank">' +
             (i + 1) +
             '</div><div class="rec-body"><div class="rec-title">' +
-            (r.title || "") +
+            escapeHtml(r.title || "") +
             '</div><div class="rec-desc">' +
-            (r.description || "") +
+            escapeHtml(r.description || "") +
             '</div></div><div class="rec-impact"><div class="rec-impact-score ' +
             impCls +
             '">' +
