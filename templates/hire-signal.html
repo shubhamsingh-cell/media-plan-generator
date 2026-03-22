@@ -1,1677 +1,2451 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="HireSignal -- Quality of Hire Signal Tracker. Understand which recruitment channels produce the best hires, not just the most applications.">
-    <meta name="theme-color" content="#000000">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="HireSignal -- Quality of Hire Signal Tracker. Understand which recruitment channels produce the best hires, not just the most applications."
+    />
+    <meta name="theme-color" content="#000000" />
     <title>HireSignal | Quality of Hire Tracker | Nova AI Suite</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M9 22l3-10 4 6 4-8 3 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='16' cy='8' r='3' fill='white' opacity='0.6'/></svg>">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M9 22l3-10 4 6 4-8 3 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='16' cy='8' r='3' fill='white' opacity='0.6'/></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <style>
-        :root {
-            --obsidian: #000000;
-            --obsidian-light: #111111;
-            --navy: #1a1a1a;
-            --indigo: #6366F1;
-            --indigo-light: #818CF8;
-            --indigo-pale: rgba(99,102,241,0.08);
-            --indigo-glow: rgba(99,102,241,0.15);
-            --cyan-accent: #22D3EE;
-            --green-success: #34D399;
-            --amber-warning: #FBBF24;
-            --red-error: #F87171;
-            --accent: #6366F1;
-            --accent-light: #818CF8;
-            --bg: #000000;
-            --surface-1: rgba(17,17,17,0.8);
-            --surface-2: rgba(26,26,26,0.5);
-            --surface-3: rgba(26,26,26,0.4);
-            --card: rgba(17,17,17,0.8);
-            --card-solid: #111111;
-            --card-hover: rgba(26,26,26,0.7);
-            --glass-blur: blur(40px) saturate(1.5);
-            --glass-blur-md: blur(24px) saturate(1.3);
-            --glass-border: rgba(255,255,255,0.08);
-            --glass-border-hover: rgba(255,255,255,0.16);
-            --glass-inset: 0 0 0 1px rgba(255,255,255,0.04) inset;
-            --text: #ededed;
-            --text-secondary: #a1a1a1;
-            --text-muted: #666666;
-            --border: rgba(255,255,255,0.08);
-            --border-accent: rgba(99,102,241,0.3);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3);
-            --shadow-lg: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
-            --shadow-glow: 0 0 20px rgba(99,102,241,0.15);
-            --radius: 12px;
-            --radius-sm: 8px;
-            --radius-lg: 16px;
-            --radius-xl: 20px;
-            --gradient-primary: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);
-            --gradient-accent: linear-gradient(135deg, #6366F1 0%, #22D3EE 100%);
-            --gradient-mesh: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.08) 0%, transparent 50%),
-                             radial-gradient(ellipse at 80% 20%, rgba(34,211,238,0.06) 0%, transparent 50%),
-                             radial-gradient(ellipse at 40% 80%, rgba(99,102,241,0.04) 0%, transparent 50%);
-            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-            --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
-            --duration-fast: 100ms;
-            --duration-normal: 200ms;
-            --duration-slow: 300ms;
-            --focus-ring: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent);
+      :root {
+        --obsidian: #000000;
+        --obsidian-light: #111111;
+        --navy: #1a1a1a;
+        --indigo: #6366f1;
+        --indigo-light: #818cf8;
+        --indigo-pale: rgba(99, 102, 241, 0.08);
+        --indigo-glow: rgba(99, 102, 241, 0.15);
+        --cyan-accent: #22d3ee;
+        --green-success: #34d399;
+        --amber-warning: #fbbf24;
+        --red-error: #f87171;
+        --accent: #6366f1;
+        --accent-light: #818cf8;
+        --bg: #000000;
+        --surface-1: rgba(17, 17, 17, 0.8);
+        --surface-2: rgba(26, 26, 26, 0.5);
+        --surface-3: rgba(26, 26, 26, 0.4);
+        --card: rgba(17, 17, 17, 0.8);
+        --card-solid: #111111;
+        --card-hover: rgba(26, 26, 26, 0.7);
+        --glass-blur: blur(40px) saturate(1.5);
+        --glass-blur-md: blur(24px) saturate(1.3);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-border-hover: rgba(255, 255, 255, 0.16);
+        --glass-inset: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+        --text: #ededed;
+        --text-secondary: #a1a1a1;
+        --text-muted: #666666;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-accent: rgba(99, 102, 241, 0.3);
+        --shadow-md:
+          0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+        --shadow-lg:
+          0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+        --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+        --radius: 12px;
+        --radius-sm: 8px;
+        --radius-lg: 16px;
+        --radius-xl: 20px;
+        --gradient-primary: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+        --gradient-accent: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
+        --gradient-mesh:
+          radial-gradient(
+            ellipse at 20% 50%,
+            rgba(99, 102, 241, 0.08) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 20%,
+            rgba(34, 211, 238, 0.06) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 40% 80%,
+            rgba(99, 102, 241, 0.04) 0%,
+            transparent 50%
+          );
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+        --duration-fast: 100ms;
+        --duration-normal: 200ms;
+        --duration-slow: 300ms;
+        --focus-ring: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
         }
-
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
         }
+      }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
-        ::selection { background: var(--accent); color: white; }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      ::selection {
+        background: var(--accent);
+        color: white;
+      }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            font-size: 16px;
-            line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
-            position: relative;
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        position: relative;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: var(--gradient-mesh);
+        pointer-events: none;
+        z-index: 0;
+        animation: ambientDrift 20s ease-in-out infinite alternate;
+      }
+
+      @keyframes ambientDrift {
+        0% {
+          background:
+            radial-gradient(
+              ellipse at 20% 50%,
+              rgba(99, 102, 241, 0.08) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 80% 20%,
+              rgba(34, 211, 238, 0.06) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 40% 80%,
+              rgba(99, 102, 241, 0.04) 0%,
+              transparent 50%
+            );
         }
-
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background: var(--gradient-mesh);
-            pointer-events: none;
-            z-index: 0;
-            animation: ambientDrift 20s ease-in-out infinite alternate;
+        50% {
+          background:
+            radial-gradient(
+              ellipse at 60% 30%,
+              rgba(99, 102, 241, 0.1) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 20% 70%,
+              rgba(34, 211, 238, 0.05) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 80% 60%,
+              rgba(129, 140, 248, 0.06) 0%,
+              transparent 50%
+            );
         }
-
-        @keyframes ambientDrift {
-            0% { background: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(34,211,238,0.06) 0%, transparent 50%), radial-gradient(ellipse at 40% 80%, rgba(99,102,241,0.04) 0%, transparent 50%); }
-            50% { background: radial-gradient(ellipse at 60% 30%, rgba(99,102,241,0.1) 0%, transparent 50%), radial-gradient(ellipse at 20% 70%, rgba(34,211,238,0.05) 0%, transparent 50%), radial-gradient(ellipse at 80% 60%, rgba(129,140,248,0.06) 0%, transparent 50%); }
-            100% { background: radial-gradient(ellipse at 40% 60%, rgba(99,102,241,0.07) 0%, transparent 50%), radial-gradient(ellipse at 70% 40%, rgba(34,211,238,0.08) 0%, transparent 50%), radial-gradient(ellipse at 30% 20%, rgba(99,102,241,0.05) 0%, transparent 50%); }
+        100% {
+          background:
+            radial-gradient(
+              ellipse at 40% 60%,
+              rgba(99, 102, 241, 0.07) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 70% 40%,
+              rgba(34, 211, 238, 0.08) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 30% 20%,
+              rgba(99, 102, 241, 0.05) 0%,
+              transparent 50%
+            );
         }
+      }
 
-        body::after {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
-            pointer-events: none;
-            z-index: 0;
-            opacity: 0.4;
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.4;
+      }
+
+      /* HEADER */
+      .app-header {
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(20px) saturate(1.3);
+        -webkit-backdrop-filter: blur(20px) saturate(1.3);
+        color: var(--text);
+        padding: 0 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 64px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        border-bottom: 1px solid var(--glass-border);
+      }
+
+      .app-header::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(99, 102, 241, 0.3),
+          transparent
+        );
+      }
+
+      .header-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .header-logo {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: var(--gradient-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .header-logo svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .app-header h1 {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .header-badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 99px;
+        background: var(--indigo-pale);
+        color: var(--indigo-light);
+        border: 1px solid var(--border-accent);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .nav-link {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 8px 16px;
+        border-radius: var(--radius-sm);
+        transition: all var(--duration-normal) var(--ease-standard);
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+      }
+
+      .nav-link:hover {
+        color: var(--text);
+        background: var(--surface-2);
+      }
+      .nav-link:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      /* MAIN */
+      .main-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 24px 64px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .page-title {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      .page-title h2 {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        background: var(--gradient-accent);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+      }
+
+      .page-title p {
+        font-size: 15px;
+        color: var(--text-secondary);
+        max-width: 640px;
+        margin: 0 auto;
+      }
+
+      /* GLASS CARD */
+      .glass-card {
+        background: var(--card);
+        backdrop-filter: var(--glass-blur-md);
+        -webkit-backdrop-filter: var(--glass-blur-md);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-lg);
+        padding: 32px;
+        box-shadow: var(--shadow-md), var(--glass-inset);
+        transition: border-color var(--duration-normal) var(--ease-standard);
+      }
+
+      .glass-card:hover {
+        border-color: var(--glass-border-hover);
+      }
+
+      /* SECTION LABEL */
+      .section-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--indigo-light);
+        margin-bottom: 16px;
+        display: block;
+      }
+
+      /* UPLOAD SECTION */
+      .upload-section {
+        margin-bottom: 32px;
+      }
+
+      .drop-zone {
+        border: 2px dashed var(--border-accent);
+        border-radius: var(--radius);
+        padding: 48px 32px;
+        text-align: center;
+        cursor: pointer;
+        transition: all var(--duration-normal) var(--ease-standard);
+        background: var(--indigo-pale);
+        min-height: 140px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        position: relative;
+      }
+
+      .drop-zone:hover,
+      .drop-zone.drag-over {
+        border-color: var(--indigo);
+        background: var(--indigo-glow);
+        box-shadow: var(--shadow-glow);
+      }
+
+      .drop-zone-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: var(--gradient-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 4px;
+      }
+
+      .drop-zone-icon svg {
+        width: 24px;
+        height: 24px;
+        color: white;
+      }
+      .drop-zone-text {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .drop-zone-hint {
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+
+      .drop-zone input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+
+      .file-selected {
+        display: none;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: rgba(99, 102, 241, 0.1);
+        border-radius: var(--radius-sm);
+        margin-top: 12px;
+      }
+
+      .file-selected.visible {
+        display: flex;
+      }
+      .file-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text);
+        flex: 1;
+      }
+
+      .file-remove {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: color var(--duration-fast);
+      }
+
+      .file-remove:hover {
+        color: var(--red-error);
+      }
+
+      /* FORM */
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin: 20px 0;
+      }
+
+      .form-group label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .form-group input,
+      .form-group select {
+        width: 100%;
+        padding: 10px 14px;
+        font-size: 14px;
+        color: var(--text);
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: inherit;
+        transition: border-color var(--duration-normal);
+        min-height: 44px;
+      }
+
+      .form-group input:focus,
+      .form-group select:focus {
+        outline: none;
+        border-color: var(--indigo);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+      }
+
+      .form-group select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%23818CF8' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 14px center;
+        padding-right: 36px;
+      }
+
+      .form-group select option {
+        background: #111111;
+        color: var(--text);
+      }
+
+      /* MODE TOGGLE */
+      .mode-toggle {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 16px 0;
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
+
+      .toggle-switch {
+        width: 44px;
+        height: 24px;
+        background: var(--surface-2);
+        border-radius: 12px;
+        position: relative;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        transition: background var(--duration-normal);
+      }
+
+      .toggle-switch.active {
+        background: var(--indigo);
+        border-color: var(--indigo);
+      }
+
+      .toggle-switch::after {
+        content: "";
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: white;
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        transition: transform var(--duration-normal) var(--ease-out);
+      }
+
+      .toggle-switch.active::after {
+        transform: translateX(20px);
+      }
+
+      /* BUTTONS */
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 14px 32px;
+        font-size: 15px;
+        font-weight: 600;
+        color: white;
+        background: var(--gradient-primary);
+        border: none;
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: all var(--duration-normal) var(--ease-standard);
+        font-family: inherit;
+        width: 100%;
+        margin-top: 16px;
+        min-height: 52px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-glow), var(--shadow-md);
+      }
+      .btn-primary:active {
+        transform: translateY(0);
+      }
+      .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .btn-primary:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      .btn-primary .spinner {
+        display: none;
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
         }
+      }
 
-        /* HEADER */
+      .btn-primary.loading .spinner {
+        display: block;
+      }
+      .btn-primary.loading .btn-text {
+        display: none;
+      }
+      .btn-primary.loading .btn-loading-text {
+        display: inline;
+      }
+      .btn-primary .btn-loading-text {
+        display: none;
+      }
+
+      .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--indigo-light);
+        background: var(--indigo-pale);
+        border: 1px solid var(--border-accent);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-family: inherit;
+        transition: all var(--duration-normal);
+        min-height: 44px;
+      }
+
+      .btn-secondary:hover {
+        background: var(--indigo-glow);
+        border-color: var(--indigo);
+      }
+
+      /* RESULTS */
+      .results-section {
+        display: none;
+        margin-top: 32px;
+      }
+
+      .results-section.visible {
+        display: block;
+        animation: fadeUp 0.5s var(--ease-out);
+      }
+
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* SCORECARD */
+      .scorecard {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+
+      .score-card {
+        text-align: center;
+        padding: 24px 16px;
+      }
+
+      .score-card-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+      }
+
+      .grade-display {
+        font-size: 56px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1;
+        margin-bottom: 8px;
+      }
+
+      .grade-A,
+      .grade-B {
+        color: var(--green-success);
+      }
+      .grade-C {
+        color: var(--amber-warning);
+      }
+      .grade-D,
+      .grade-F {
+        color: var(--red-error);
+      }
+
+      .grade-label {
+        font-size: 13px;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+
+      .big-value {
+        font-size: 36px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: var(--text);
+        line-height: 1.1;
+        margin-bottom: 4px;
+      }
+
+      .big-value.positive {
+        color: var(--green-success);
+      }
+      .big-value.negative {
+        color: var(--red-error);
+      }
+      .big-value.neutral {
+        color: var(--amber-warning);
+      }
+
+      .trend-arrow {
+        display: inline-block;
+        font-size: 18px;
+        margin-left: 4px;
+      }
+
+      /* SOURCE EFFECTIVENESS TABLE */
+      .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -32px;
+        padding: 0 32px;
+      }
+
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        min-width: 900px;
+      }
+
+      .data-table th {
+        padding: 12px 14px;
+        text-align: center;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--indigo-light);
+        background: var(--surface-2);
+        border-bottom: 2px solid var(--border-accent);
+        white-space: nowrap;
+      }
+
+      .data-table th:first-child {
+        text-align: left;
+      }
+
+      .data-table td {
+        padding: 12px 14px;
+        text-align: center;
+        color: var(--text);
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+
+      .data-table td:first-child {
+        text-align: left;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .data-table tbody tr:hover {
+        background: var(--surface-2);
+      }
+
+      .cell-grade {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 28px;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 13px;
+      }
+
+      .cell-grade.grade-a,
+      .cell-grade.grade-b {
+        background: rgba(52, 211, 153, 0.15);
+        color: var(--green-success);
+      }
+      .cell-grade.grade-c {
+        background: rgba(251, 191, 36, 0.12);
+        color: var(--amber-warning);
+      }
+      .cell-grade.grade-d,
+      .cell-grade.grade-f {
+        background: rgba(248, 113, 113, 0.12);
+        color: var(--red-error);
+      }
+
+      .text-mono {
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 12px;
+      }
+
+      /* FUNNEL */
+      .funnel-section {
+        margin-bottom: 32px;
+      }
+
+      .funnel-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .funnel-label {
+        width: 130px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        flex-shrink: 0;
+        text-align: right;
+      }
+
+      .funnel-bar-bg {
+        flex: 1;
+        height: 28px;
+        background: var(--surface-2);
+        border-radius: 6px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .funnel-bar-fill {
+        height: 100%;
+        border-radius: 6px;
+        background: var(--gradient-primary);
+        transition: width 0.8s var(--ease-out);
+        min-width: 2px;
+        display: flex;
+        align-items: center;
+        padding-left: 8px;
+      }
+
+      .funnel-bar-value {
+        font-size: 11px;
+        font-weight: 700;
+        color: white;
+        white-space: nowrap;
+      }
+
+      /* RETENTION */
+      .retention-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+
+      .retention-card {
+        padding: 20px;
+      }
+
+      .retention-source {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 14px;
+      }
+
+      .retention-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .retention-label {
+        width: 70px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+        flex-shrink: 0;
+      }
+
+      .retention-bar-bg {
+        flex: 1;
+        height: 20px;
+        background: var(--surface-2);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .retention-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.8s var(--ease-out);
+        min-width: 2px;
+      }
+
+      .retention-bar-fill.high {
+        background: var(--green-success);
+      }
+      .retention-bar-fill.medium {
+        background: var(--amber-warning);
+      }
+      .retention-bar-fill.low {
+        background: var(--red-error);
+      }
+
+      .retention-value {
+        width: 45px;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text);
+        text-align: right;
+        flex-shrink: 0;
+      }
+
+      /* COST INTELLIGENCE */
+      .cost-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+
+      .cost-card {
+        padding: 20px;
+      }
+
+      .cost-source {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 12px;
+      }
+
+      .cost-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .cost-metric {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .cost-value {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .cost-value.highlight {
+        color: var(--indigo-light);
+      }
+      .cost-value.good {
+        color: var(--green-success);
+      }
+      .cost-value.bad {
+        color: var(--red-error);
+      }
+
+      /* RECOMMENDATIONS */
+      .rec-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 32px;
+      }
+
+      .rec-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 16px 20px;
+        border-radius: var(--radius);
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        transition: border-color var(--duration-normal);
+      }
+
+      .rec-item:hover {
+        border-color: var(--glass-border-hover);
+      }
+
+      .rec-impact {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 16px;
+        font-weight: 800;
+        color: white;
+      }
+
+      .rec-impact.high {
+        background: linear-gradient(135deg, #ef4444, #f87171);
+      }
+      .rec-impact.medium {
+        background: linear-gradient(135deg, #f59e0b, #fbbf24);
+      }
+      .rec-impact.low {
+        background: linear-gradient(135deg, #10b981, #34d399);
+      }
+
+      .rec-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .rec-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 4px;
+      }
+      .rec-desc {
+        font-size: 13px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+      }
+
+      .rec-badge {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 99px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        flex-shrink: 0;
+        align-self: flex-start;
+      }
+
+      .badge-critical,
+      .badge-high {
+        background: rgba(248, 113, 113, 0.15);
+        color: var(--red-error);
+      }
+      .badge-medium {
+        background: rgba(251, 191, 36, 0.12);
+        color: var(--amber-warning);
+      }
+      .badge-low {
+        background: rgba(34, 211, 238, 0.12);
+        color: var(--cyan-accent);
+      }
+
+      /* PREDICTIONS */
+      .pred-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+
+      .pred-card {
+        padding: 20px;
+      }
+
+      .pred-source {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 4px;
+      }
+
+      .pred-trend {
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 12px;
+      }
+
+      .pred-trend.improving {
+        color: var(--green-success);
+      }
+      .pred-trend.declining {
+        color: var(--red-error);
+      }
+      .pred-trend.stable {
+        color: var(--amber-warning);
+      }
+
+      .pred-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 5px 0;
+        font-size: 12px;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .pred-value {
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      /* DOWNLOAD */
+      .download-section {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 32px;
+      }
+
+      .btn-download {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 24px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: all var(--duration-normal) var(--ease-standard);
+        font-family: inherit;
+        min-height: 48px;
+      }
+
+      .btn-download:hover {
+        background: var(--surface-2);
+        border-color: var(--glass-border-hover);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
+
+      .btn-download:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .btn-download svg {
+        width: 18px;
+        height: 18px;
+        color: var(--indigo-light);
+      }
+
+      /* ERROR */
+      .error-banner {
+        display: none;
+        background: rgba(248, 113, 113, 0.1);
+        border: 1px solid rgba(248, 113, 113, 0.25);
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        margin-top: 16px;
+        color: var(--red-error);
+        font-size: 14px;
+      }
+
+      .error-banner.visible {
+        display: block;
+      }
+
+      /* MANUAL ENTRY */
+      .manual-section {
+        display: none;
+        margin-top: 20px;
+      }
+      .manual-section.visible {
+        display: block;
+      }
+
+      .manual-table-wrapper {
+        overflow-x: auto;
+        margin: 16px 0;
+      }
+
+      .manual-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        min-width: 800px;
+      }
+
+      .manual-table th {
+        padding: 10px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--indigo-light);
+        background: var(--surface-2);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .manual-table td {
+        padding: 4px;
+      }
+
+      .manual-table input,
+      .manual-table select {
+        width: 100%;
+        padding: 6px 8px;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-family: inherit;
+      }
+
+      .manual-table input:focus,
+      .manual-table select:focus {
+        outline: none;
+        border-color: var(--indigo);
+      }
+
+      .manual-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      .btn-icon {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-family: inherit;
+        transition: all var(--duration-fast);
+      }
+
+      .btn-icon:hover {
+        color: var(--text);
+        border-color: var(--glass-border-hover);
+      }
+
+      /* RESPONSIVE */
+      @media (max-width: 768px) {
         .app-header {
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(20px) saturate(1.3);
-            -webkit-backdrop-filter: blur(20px) saturate(1.3);
-            color: var(--text);
-            padding: 0 32px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 64px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            border-bottom: 1px solid var(--glass-border);
+          padding: 0 16px;
         }
-
-        .app-header::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(99,102,241,0.3), transparent);
-        }
-
-        .header-content {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .header-logo {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
-            background: var(--gradient-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .header-logo svg { width: 18px; height: 18px; }
-
-        .app-header h1 {
-            font-size: 16px;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-        }
-
-        .header-badge {
-            font-size: 10px;
-            font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 99px;
-            background: var(--indigo-pale);
-            color: var(--indigo-light);
-            border: 1px solid var(--border-accent);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .nav-link {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-            padding: 8px 16px;
-            border-radius: var(--radius-sm);
-            transition: all var(--duration-normal) var(--ease-standard);
-            min-width: 44px;
-            min-height: 44px;
-            display: flex;
-            align-items: center;
-        }
-
-        .nav-link:hover { color: var(--text); background: var(--surface-2); }
-        .nav-link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-        /* MAIN */
         .main-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 32px 24px 64px;
-            position: relative;
-            z-index: 1;
+          padding: 20px 16px 48px;
         }
-
-        .page-title {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
         .page-title h2 {
-            font-size: 32px;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-            background: var(--gradient-accent);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 8px;
+          font-size: 24px;
         }
-
-        .page-title p {
-            font-size: 15px;
-            color: var(--text-secondary);
-            max-width: 640px;
-            margin: 0 auto;
-        }
-
-        /* GLASS CARD */
         .glass-card {
-            background: var(--card);
-            backdrop-filter: var(--glass-blur-md);
-            -webkit-backdrop-filter: var(--glass-blur-md);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-lg);
-            padding: 32px;
-            box-shadow: var(--shadow-md), var(--glass-inset);
-            transition: border-color var(--duration-normal) var(--ease-standard);
+          padding: 20px;
         }
-
-        .glass-card:hover { border-color: var(--glass-border-hover); }
-
-        /* SECTION LABEL */
-        .section-label {
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--indigo-light);
-            margin-bottom: 16px;
-            display: block;
-        }
-
-        /* UPLOAD SECTION */
-        .upload-section { margin-bottom: 32px; }
-
-        .drop-zone {
-            border: 2px dashed var(--border-accent);
-            border-radius: var(--radius);
-            padding: 48px 32px;
-            text-align: center;
-            cursor: pointer;
-            transition: all var(--duration-normal) var(--ease-standard);
-            background: var(--indigo-pale);
-            min-height: 140px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            position: relative;
-        }
-
-        .drop-zone:hover, .drop-zone.drag-over {
-            border-color: var(--indigo);
-            background: var(--indigo-glow);
-            box-shadow: var(--shadow-glow);
-        }
-
-        .drop-zone-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            background: var(--gradient-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 4px;
-        }
-
-        .drop-zone-icon svg { width: 24px; height: 24px; color: white; }
-        .drop-zone-text { font-size: 15px; font-weight: 600; color: var(--text); }
-        .drop-zone-hint { font-size: 13px; color: var(--text-muted); }
-
-        .drop-zone input[type="file"] {
-            position: absolute;
-            inset: 0;
-            opacity: 0;
-            cursor: pointer;
-        }
-
-        .file-selected {
-            display: none;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-            background: rgba(99,102,241,0.1);
-            border-radius: var(--radius-sm);
-            margin-top: 12px;
-        }
-
-        .file-selected.visible { display: flex; }
-        .file-name { font-size: 14px; font-weight: 500; color: var(--text); flex: 1; }
-
-        .file-remove {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            padding: 4px;
-            border-radius: 4px;
-            transition: color var(--duration-fast);
-        }
-
-        .file-remove:hover { color: var(--red-error); }
-
-        /* FORM */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
-            margin: 20px 0;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 10px 14px;
-            font-size: 14px;
-            color: var(--text);
-            background: var(--surface-1);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-family: inherit;
-            transition: border-color var(--duration-normal);
-            min-height: 44px;
-        }
-
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: var(--indigo);
-            box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
-        }
-
-        .form-group select {
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%23818CF8' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 14px center;
-            padding-right: 36px;
-        }
-
-        .form-group select option { background: #111111; color: var(--text); }
-
-        /* MODE TOGGLE */
-        .mode-toggle {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin: 16px 0;
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-
-        .toggle-switch {
-            width: 44px;
-            height: 24px;
-            background: var(--surface-2);
-            border-radius: 12px;
-            position: relative;
-            cursor: pointer;
-            border: 1px solid var(--border);
-            transition: background var(--duration-normal);
-        }
-
-        .toggle-switch.active { background: var(--indigo); border-color: var(--indigo); }
-
-        .toggle-switch::after {
-            content: '';
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: white;
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            transition: transform var(--duration-normal) var(--ease-out);
-        }
-
-        .toggle-switch.active::after { transform: translateX(20px); }
-
-        /* BUTTONS */
-        .btn-primary {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            padding: 14px 32px;
-            font-size: 15px;
-            font-weight: 600;
-            color: white;
-            background: var(--gradient-primary);
-            border: none;
-            border-radius: var(--radius);
-            cursor: pointer;
-            transition: all var(--duration-normal) var(--ease-standard);
-            font-family: inherit;
-            width: 100%;
-            margin-top: 16px;
-            min-height: 52px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-primary:hover { transform: translateY(-1px); box-shadow: var(--shadow-glow), var(--shadow-md); }
-        .btn-primary:active { transform: translateY(0); }
-        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .btn-primary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-        .btn-primary .spinner {
-            display: none;
-            width: 18px;
-            height: 18px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .btn-primary.loading .spinner { display: block; }
-        .btn-primary.loading .btn-text { display: none; }
-        .btn-primary.loading .btn-loading-text { display: inline; }
-        .btn-primary .btn-loading-text { display: none; }
-
-        .btn-secondary {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 20px;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--indigo-light);
-            background: var(--indigo-pale);
-            border: 1px solid var(--border-accent);
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            font-family: inherit;
-            transition: all var(--duration-normal);
-            min-height: 44px;
-        }
-
-        .btn-secondary:hover { background: var(--indigo-glow); border-color: var(--indigo); }
-
-        /* RESULTS */
-        .results-section {
-            display: none;
-            margin-top: 32px;
-        }
-
-        .results-section.visible { display: block; animation: fadeUp 0.5s var(--ease-out); }
-
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* SCORECARD */
         .scorecard {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 16px;
-            margin-bottom: 32px;
+          grid-template-columns: repeat(2, 1fr);
         }
-
-        .score-card {
-            text-align: center;
-            padding: 24px 16px;
+        .form-grid {
+          grid-template-columns: 1fr;
         }
-
-        .score-card-label {
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-        }
-
-        .grade-display {
-            font-size: 56px;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-            line-height: 1;
-            margin-bottom: 8px;
-        }
-
-        .grade-A, .grade-B { color: var(--green-success); }
-        .grade-C { color: var(--amber-warning); }
-        .grade-D, .grade-F { color: var(--red-error); }
-
-        .grade-label {
-            font-size: 13px;
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
-
-        .big-value {
-            font-size: 36px;
-            font-weight: 800;
-            letter-spacing: -0.02em;
-            color: var(--text);
-            line-height: 1.1;
-            margin-bottom: 4px;
-        }
-
-        .big-value.positive { color: var(--green-success); }
-        .big-value.negative { color: var(--red-error); }
-        .big-value.neutral { color: var(--amber-warning); }
-
-        .trend-arrow {
-            display: inline-block;
-            font-size: 18px;
-            margin-left: 4px;
-        }
-
-        /* SOURCE EFFECTIVENESS TABLE */
-        .table-wrapper {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            margin: 0 -32px;
-            padding: 0 32px;
-        }
-
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-            min-width: 900px;
-        }
-
-        .data-table th {
-            padding: 12px 14px;
-            text-align: center;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--indigo-light);
-            background: var(--surface-2);
-            border-bottom: 2px solid var(--border-accent);
-            white-space: nowrap;
-        }
-
-        .data-table th:first-child { text-align: left; }
-
-        .data-table td {
-            padding: 12px 14px;
-            text-align: center;
-            color: var(--text);
-            border-bottom: 1px solid var(--border);
-            white-space: nowrap;
-        }
-
-        .data-table td:first-child {
-            text-align: left;
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        .data-table tbody tr:hover { background: var(--surface-2); }
-
-        .cell-grade {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            height: 28px;
-            border-radius: 6px;
-            font-weight: 700;
-            font-size: 13px;
-        }
-
-        .cell-grade.grade-a, .cell-grade.grade-b { background: rgba(52,211,153,0.15); color: var(--green-success); }
-        .cell-grade.grade-c { background: rgba(251,191,36,0.12); color: var(--amber-warning); }
-        .cell-grade.grade-d, .cell-grade.grade-f { background: rgba(248,113,113,0.12); color: var(--red-error); }
-
-        .text-mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
-
-        /* FUNNEL */
-        .funnel-section { margin-bottom: 32px; }
-
-        .funnel-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-
-        .funnel-label {
-            width: 130px;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text);
-            flex-shrink: 0;
-            text-align: right;
-        }
-
-        .funnel-bar-bg {
-            flex: 1;
-            height: 28px;
-            background: var(--surface-2);
-            border-radius: 6px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .funnel-bar-fill {
-            height: 100%;
-            border-radius: 6px;
-            background: var(--gradient-primary);
-            transition: width 0.8s var(--ease-out);
-            min-width: 2px;
-            display: flex;
-            align-items: center;
-            padding-left: 8px;
-        }
-
-        .funnel-bar-value {
-            font-size: 11px;
-            font-weight: 700;
-            color: white;
-            white-space: nowrap;
-        }
-
-        /* RETENTION */
-        .retention-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 16px;
-            margin-bottom: 32px;
-        }
-
-        .retention-card {
-            padding: 20px;
-        }
-
-        .retention-source {
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 14px;
-        }
-
-        .retention-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 10px;
-        }
-
-        .retention-label {
-            width: 70px;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-muted);
-            flex-shrink: 0;
-        }
-
-        .retention-bar-bg {
-            flex: 1;
-            height: 20px;
-            background: var(--surface-2);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .retention-bar-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.8s var(--ease-out);
-            min-width: 2px;
-        }
-
-        .retention-bar-fill.high { background: var(--green-success); }
-        .retention-bar-fill.medium { background: var(--amber-warning); }
-        .retention-bar-fill.low { background: var(--red-error); }
-
-        .retention-value {
-            width: 45px;
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--text);
-            text-align: right;
-            flex-shrink: 0;
-        }
-
-        /* COST INTELLIGENCE */
-        .cost-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 16px;
-            margin-bottom: 32px;
-        }
-
-        .cost-card { padding: 20px; }
-
-        .cost-source {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 12px;
-        }
-
-        .cost-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 0;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .cost-metric { font-size: 12px; color: var(--text-muted); }
-        .cost-value { font-size: 13px; font-weight: 600; color: var(--text); }
-        .cost-value.highlight { color: var(--indigo-light); }
-        .cost-value.good { color: var(--green-success); }
-        .cost-value.bad { color: var(--red-error); }
-
-        /* RECOMMENDATIONS */
-        .rec-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
-
-        .rec-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 16px;
-            padding: 16px 20px;
-            border-radius: var(--radius);
-            background: var(--surface-1);
-            border: 1px solid var(--border);
-            transition: border-color var(--duration-normal);
-        }
-
-        .rec-item:hover { border-color: var(--glass-border-hover); }
-
-        .rec-impact {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            font-size: 16px;
-            font-weight: 800;
-            color: white;
-        }
-
-        .rec-impact.high { background: linear-gradient(135deg, #EF4444, #F87171); }
-        .rec-impact.medium { background: linear-gradient(135deg, #F59E0B, #FBBF24); }
-        .rec-impact.low { background: linear-gradient(135deg, #10B981, #34D399); }
-
-        .rec-body { flex: 1; min-width: 0; }
-        .rec-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
-        .rec-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
-
-        .rec-badge {
-            font-size: 10px;
-            font-weight: 700;
-            padding: 3px 10px;
-            border-radius: 99px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            flex-shrink: 0;
-            align-self: flex-start;
-        }
-
-        .badge-critical, .badge-high { background: rgba(248,113,113,0.15); color: var(--red-error); }
-        .badge-medium { background: rgba(251,191,36,0.12); color: var(--amber-warning); }
-        .badge-low { background: rgba(34,211,238,0.12); color: var(--cyan-accent); }
-
-        /* PREDICTIONS */
-        .pred-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 16px;
-            margin-bottom: 32px;
-        }
-
-        .pred-card { padding: 20px; }
-
-        .pred-source {
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 4px;
-        }
-
-        .pred-trend {
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 12px;
-        }
-
-        .pred-trend.improving { color: var(--green-success); }
-        .pred-trend.declining { color: var(--red-error); }
-        .pred-trend.stable { color: var(--amber-warning); }
-
-        .pred-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            font-size: 12px;
-            color: var(--text-secondary);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .pred-value { font-weight: 600; color: var(--text); }
-
-        /* DOWNLOAD */
         .download-section {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            margin-top: 32px;
+          flex-direction: column;
         }
-
         .btn-download {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 14px 24px;
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text);
-            background: var(--surface-1);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            cursor: pointer;
-            transition: all var(--duration-normal) var(--ease-standard);
-            font-family: inherit;
-            min-height: 48px;
+          width: 100%;
+          justify-content: center;
         }
-
-        .btn-download:hover {
-            background: var(--surface-2);
-            border-color: var(--glass-border-hover);
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-md);
+        .retention-grid {
+          grid-template-columns: 1fr;
         }
-
-        .btn-download:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-        .btn-download svg { width: 18px; height: 18px; color: var(--indigo-light); }
-
-        /* ERROR */
-        .error-banner {
-            display: none;
-            background: rgba(248,113,113,0.1);
-            border: 1px solid rgba(248,113,113,0.25);
-            border-radius: var(--radius);
-            padding: 16px 20px;
-            margin-top: 16px;
-            color: var(--red-error);
-            font-size: 14px;
+        .cost-grid {
+          grid-template-columns: 1fr;
         }
-
-        .error-banner.visible { display: block; }
-
-        /* MANUAL ENTRY */
-        .manual-section { display: none; margin-top: 20px; }
-        .manual-section.visible { display: block; }
-
-        .manual-table-wrapper {
-            overflow-x: auto;
-            margin: 16px 0;
+        .pred-grid {
+          grid-template-columns: 1fr;
         }
-
-        .manual-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-            min-width: 800px;
+        .funnel-label {
+          width: 90px;
+          font-size: 11px;
         }
-
-        .manual-table th {
-            padding: 10px 8px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            color: var(--indigo-light);
-            background: var(--surface-2);
-            border-bottom: 1px solid var(--border);
+        .table-wrapper {
+          margin: 0 -20px;
+          padding: 0 20px;
         }
+      }
 
-        .manual-table td { padding: 4px; }
-
-        .manual-table input, .manual-table select {
-            width: 100%;
-            padding: 6px 8px;
-            font-size: 12px;
-            color: var(--text);
-            background: var(--surface-1);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            font-family: inherit;
+      @media (max-width: 480px) {
+        .app-header h1 {
+          font-size: 14px;
         }
-
-        .manual-table input:focus, .manual-table select:focus {
-            outline: none;
-            border-color: var(--indigo);
+        .header-badge {
+          display: none;
         }
-
-        .manual-actions {
-            display: flex;
-            gap: 12px;
-            margin-top: 12px;
+        .scorecard {
+          grid-template-columns: 1fr;
         }
+      }
 
-        .btn-icon {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 8px 16px;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            background: var(--surface-1);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            font-family: inherit;
-            transition: all var(--duration-fast);
-        }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
 
-        .btn-icon:hover { color: var(--text); border-color: var(--glass-border-hover); }
+      /* -- Scroll reveal animations -- */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
 
-        /* RESPONSIVE */
-        @media (max-width: 768px) {
-            .app-header { padding: 0 16px; }
-            .main-container { padding: 20px 16px 48px; }
-            .page-title h2 { font-size: 24px; }
-            .glass-card { padding: 20px; }
-            .scorecard { grid-template-columns: repeat(2, 1fr); }
-            .form-grid { grid-template-columns: 1fr; }
-            .download-section { flex-direction: column; }
-            .btn-download { width: 100%; justify-content: center; }
-            .retention-grid { grid-template-columns: 1fr; }
-            .cost-grid { grid-template-columns: 1fr; }
-            .pred-grid { grid-template-columns: 1fr; }
-            .funnel-label { width: 90px; font-size: 11px; }
-            .table-wrapper { margin: 0 -20px; padding: 0 20px; }
-        }
-
-        @media (max-width: 480px) {
-            .app-header h1 { font-size: 14px; }
-            .header-badge { display: none; }
-            .scorecard { grid-template-columns: 1fr; }
-        }
-
-        .sr-only {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0,0,0,0);
-            white-space: nowrap;
-            border: 0;
-        }
+      /* -- Enhanced card/section glow -- */
+      .glow-hover {
+        transition:
+          box-shadow 0.4s ease,
+          border-color 0.3s ease;
+      }
+      .glow-hover:hover {
+        box-shadow:
+          0 0 20px rgba(99, 102, 241, 0.12),
+          0 0 50px rgba(99, 102, 241, 0.06);
+        border-color: rgba(99, 102, 241, 0.2);
+      }
     </style>
-</head>
-<body>
-
+  </head>
+  <body>
     <header class="app-header" role="banner">
-        <div class="header-content">
-            <div class="header-logo" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M4 18V12l4-4 4 6 4-8 4 8"/>
-                </svg>
-            </div>
-            <h1>Nova AI Suite</h1>
-            <span class="header-badge">HireSignal</span>
+      <div class="header-content">
+        <div class="header-logo" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M4 18V12l4-4 4 6 4-8 4 8" />
+          </svg>
         </div>
-        <nav aria-label="Main navigation">
-            <a href="/" class="nav-link" aria-label="Back to Media Plan Generator">Generator</a>
-        </nav>
+        <h1>Nova AI Suite</h1>
+        <span class="header-badge">HireSignal</span>
+      </div>
+      <nav aria-label="Main navigation">
+        <a href="/" class="nav-link" aria-label="Back to Media Plan Generator"
+          >Generator</a
+        >
+      </nav>
     </header>
 
     <main class="main-container" role="main">
+      <div class="page-title">
+        <h2>Quality of Hire Signal Tracker</h2>
+        <p>
+          Understand which recruitment channels produce the best hires -- not
+          just the most applications. Track QoH scores, retention,
+          cost-per-quality-hire, and source effectiveness.
+        </p>
+      </div>
 
-        <div class="page-title">
-            <h2>Quality of Hire Signal Tracker</h2>
-            <p>Understand which recruitment channels produce the best hires -- not just the most applications. Track QoH scores, retention, cost-per-quality-hire, and source effectiveness.</p>
+      <!-- Upload / Input Section -->
+      <section
+        class="upload-section glass-card"
+        aria-label="Upload hiring data"
+      >
+        <span class="section-label">Hiring Data</span>
+
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+          <span>File Upload</span>
+          <div
+            class="toggle-switch"
+            id="modeToggle"
+            role="switch"
+            aria-checked="false"
+            tabindex="0"
+            aria-label="Toggle between file upload and manual entry"
+          ></div>
+          <span>Manual Entry</span>
+          <span style="margin-left: auto">
+            <button class="btn-secondary" id="sampleBtn" type="button">
+              Load Sample Data
+            </button>
+          </span>
         </div>
 
-        <!-- Upload / Input Section -->
-        <section class="upload-section glass-card" aria-label="Upload hiring data">
-            <span class="section-label">Hiring Data</span>
-
-            <!-- Mode Toggle -->
-            <div class="mode-toggle">
-                <span>File Upload</span>
-                <div class="toggle-switch" id="modeToggle" role="switch" aria-checked="false" tabindex="0" aria-label="Toggle between file upload and manual entry"></div>
-                <span>Manual Entry</span>
-                <span style="margin-left:auto;">
-                    <button class="btn-secondary" id="sampleBtn" type="button">Load Sample Data</button>
-                </span>
+        <!-- File Upload Mode -->
+        <div id="uploadMode">
+          <div
+            class="drop-zone"
+            id="dropZone"
+            role="button"
+            tabindex="0"
+            aria-label="Drop file here or click to upload"
+          >
+            <div class="drop-zone-icon" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
             </div>
+            <span class="drop-zone-text"
+              >Drag and drop your hiring data here</span
+            >
+            <span class="drop-zone-hint"
+              >Excel (.xlsx, .xls) or CSV -- columns: Source, Hire Date,
+              Performance Rating, Retention Status, etc.</span
+            >
+            <input
+              type="file"
+              id="fileInput"
+              accept=".xlsx,.xls,.csv"
+              aria-label="Select hiring data file"
+            />
+          </div>
 
-            <!-- File Upload Mode -->
-            <div id="uploadMode">
-                <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Drop file here or click to upload">
-                    <div class="drop-zone-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                            <polyline points="17 8 12 3 7 8"/>
-                            <line x1="12" y1="3" x2="12" y2="15"/>
-                        </svg>
-                    </div>
-                    <span class="drop-zone-text">Drag and drop your hiring data here</span>
-                    <span class="drop-zone-hint">Excel (.xlsx, .xls) or CSV -- columns: Source, Hire Date, Performance Rating, Retention Status, etc.</span>
-                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" aria-label="Select hiring data file">
-                </div>
-
-                <div class="file-selected" id="fileSelected">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--indigo-light)" stroke-width="2" aria-hidden="true">
-                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                    <span class="file-name" id="fileName"></span>
-                    <button class="file-remove" id="fileRemove" aria-label="Remove file" type="button">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <line x1="18" y1="6" x2="6" y2="18"/>
-                            <line x1="6" y1="6" x2="18" y2="18"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Manual Entry Mode -->
-            <div class="manual-section" id="manualMode">
-                <div class="manual-table-wrapper">
-                    <table class="manual-table" id="manualTable">
-                        <thead>
-                            <tr>
-                                <th>Source</th>
-                                <th>Role</th>
-                                <th>Perf (1-5)</th>
-                                <th>Retained?</th>
-                                <th>TTP (days)</th>
-                                <th>HM Sat (1-5)</th>
-                                <th>Cost ($)</th>
-                                <th>Apps</th>
-                                <th>Interviews</th>
-                                <th>Offers</th>
-                            </tr>
-                        </thead>
-                        <tbody id="manualTableBody"></tbody>
-                    </table>
-                </div>
-                <div class="manual-actions">
-                    <button class="btn-icon" id="addRowBtn" type="button">+ Add Row</button>
-                    <button class="btn-icon" id="clearRowsBtn" type="button">Clear All</button>
-                </div>
-            </div>
-
-            <!-- Context Inputs -->
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="clientName">Client Name</label>
-                    <input type="text" id="clientName" placeholder="e.g., Acme Corp" autocomplete="organization">
-                </div>
-                <div class="form-group">
-                    <label for="industry">Industry</label>
-                    <select id="industry" aria-label="Select industry">
-                        <option value="general_entry_level">General / Entry-Level</option>
-                        <option value="healthcare_medical">Healthcare & Medical</option>
-                        <option value="blue_collar_trades">Blue Collar / Skilled Trades</option>
-                        <option value="tech_engineering" selected>Technology & Engineering</option>
-                        <option value="finance_banking">Finance & Banking</option>
-                        <option value="retail_consumer">Retail & Consumer</option>
-                        <option value="logistics_supply_chain">Logistics & Supply Chain</option>
-                        <option value="hospitality_travel">Hospitality & Travel</option>
-                        <option value="aerospace_defense">Aerospace & Defense</option>
-                        <option value="construction_real_estate">Construction & Real Estate</option>
-                        <option value="automotive">Automotive & Manufacturing</option>
-                        <option value="energy_utilities">Energy & Utilities</option>
-                        <option value="pharma_biotech">Pharma & Biotech</option>
-                        <option value="insurance">Insurance</option>
-                        <option value="telecommunications">Telecommunications</option>
-                        <option value="food_beverage">Food & Beverage</option>
-                        <option value="education">Education</option>
-                        <option value="media_entertainment">Media & Entertainment</option>
-                    </select>
-                </div>
-            </div>
-
-            <button class="btn-primary" id="analyzeBtn" type="button" aria-label="Analyze hiring data">
-                <span class="spinner" aria-hidden="true"></span>
-                <span class="btn-text">Analyze Quality of Hire</span>
-                <span class="btn-loading-text">Analyzing hiring data...</span>
+          <div class="file-selected" id="fileSelected">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--indigo-light)"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            <span class="file-name" id="fileName"></span>
+            <button
+              class="file-remove"
+              id="fileRemove"
+              aria-label="Remove file"
+              type="button"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
+          </div>
+        </div>
 
-            <div class="error-banner" id="errorBanner" role="alert"></div>
-        </section>
+        <!-- Manual Entry Mode -->
+        <div class="manual-section" id="manualMode">
+          <div class="manual-table-wrapper">
+            <table class="manual-table" id="manualTable">
+              <thead>
+                <tr>
+                  <th>Source</th>
+                  <th>Role</th>
+                  <th>Perf (1-5)</th>
+                  <th>Retained?</th>
+                  <th>TTP (days)</th>
+                  <th>HM Sat (1-5)</th>
+                  <th>Cost ($)</th>
+                  <th>Apps</th>
+                  <th>Interviews</th>
+                  <th>Offers</th>
+                </tr>
+              </thead>
+              <tbody id="manualTableBody"></tbody>
+            </table>
+          </div>
+          <div class="manual-actions">
+            <button class="btn-icon" id="addRowBtn" type="button">
+              + Add Row
+            </button>
+            <button class="btn-icon" id="clearRowsBtn" type="button">
+              Clear All
+            </button>
+          </div>
+        </div>
 
-        <!-- Results Section -->
-        <section class="results-section" id="resultsSection" aria-label="Analysis results">
+        <!-- Context Inputs -->
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="clientName">Client Name</label>
+            <input
+              type="text"
+              id="clientName"
+              placeholder="e.g., Acme Corp"
+              autocomplete="organization"
+            />
+          </div>
+          <div class="form-group">
+            <label for="industry">Industry</label>
+            <select id="industry" aria-label="Select industry">
+              <option value="general_entry_level">General / Entry-Level</option>
+              <option value="healthcare_medical">Healthcare & Medical</option>
+              <option value="blue_collar_trades">
+                Blue Collar / Skilled Trades
+              </option>
+              <option value="tech_engineering" selected>
+                Technology & Engineering
+              </option>
+              <option value="finance_banking">Finance & Banking</option>
+              <option value="retail_consumer">Retail & Consumer</option>
+              <option value="logistics_supply_chain">
+                Logistics & Supply Chain
+              </option>
+              <option value="hospitality_travel">Hospitality & Travel</option>
+              <option value="aerospace_defense">Aerospace & Defense</option>
+              <option value="construction_real_estate">
+                Construction & Real Estate
+              </option>
+              <option value="automotive">Automotive & Manufacturing</option>
+              <option value="energy_utilities">Energy & Utilities</option>
+              <option value="pharma_biotech">Pharma & Biotech</option>
+              <option value="insurance">Insurance</option>
+              <option value="telecommunications">Telecommunications</option>
+              <option value="food_beverage">Food & Beverage</option>
+              <option value="education">Education</option>
+              <option value="media_entertainment">Media & Entertainment</option>
+            </select>
+          </div>
+        </div>
 
-            <!-- QoH Scorecard -->
-            <div class="scorecard" id="scorecard">
-                <div class="glass-card score-card">
-                    <div class="score-card-label">QoH Grade</div>
-                    <div class="grade-display" id="overallGrade"></div>
-                    <div class="grade-label" id="gradeLabel"></div>
-                </div>
-                <div class="glass-card score-card">
-                    <div class="score-card-label">QoH Score</div>
-                    <div class="big-value" id="qohScore">--</div>
-                    <div class="grade-label">out of 100</div>
-                </div>
-                <div class="glass-card score-card">
-                    <div class="score-card-label">Total Hires</div>
-                    <div class="big-value" id="totalHires">--</div>
-                    <div class="grade-label" id="sourceCount">-- sources</div>
-                </div>
-                <div class="glass-card score-card">
-                    <div class="score-card-label">Quality Hire %</div>
-                    <div class="big-value" id="qualityPct">--</div>
-                    <div class="grade-label">QoH >= 60</div>
-                </div>
-                <div class="glass-card score-card">
-                    <div class="score-card-label">vs Industry</div>
-                    <div class="big-value" id="vsIndustry">--</div>
-                    <div class="grade-label" id="tierLabel">--</div>
-                </div>
-            </div>
+        <button
+          class="btn-primary"
+          id="analyzeBtn"
+          type="button"
+          aria-label="Analyze hiring data"
+        >
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="btn-text">Analyze Quality of Hire</span>
+          <span class="btn-loading-text">Analyzing hiring data...</span>
+        </button>
 
-            <!-- Source Effectiveness Matrix -->
-            <div class="glass-card" style="margin-bottom:32px; padding:0; overflow:hidden;">
-                <div style="padding:20px 24px 0;">
-                    <span class="section-label">Source Effectiveness Matrix</span>
-                </div>
-                <div class="table-wrapper" style="padding: 0 24px 24px;">
-                    <table class="data-table" id="sourceTable" aria-label="Source effectiveness data">
-                        <thead>
-                            <tr>
-                                <th>Source</th>
-                                <th>Hires</th>
-                                <th>Apps</th>
-                                <th>Interviews</th>
-                                <th>Offers</th>
-                                <th>QoH Score</th>
-                                <th>Grade</th>
-                                <th>CPQH</th>
-                                <th>Retention</th>
-                                <th>Quality %</th>
-                            </tr>
-                        </thead>
-                        <tbody id="sourceTableBody"></tbody>
-                    </table>
-                </div>
-            </div>
+        <div class="error-banner" id="errorBanner" role="alert"></div>
+      </section>
 
-            <!-- Funnel Visualization -->
-            <div class="glass-card funnel-section" id="funnelSection">
-                <span class="section-label">Conversion Funnel by Source</span>
-                <div id="funnelContent"></div>
-            </div>
+      <!-- Results Section -->
+      <section
+        class="results-section"
+        id="resultsSection"
+        aria-label="Analysis results"
+      >
+        <!-- QoH Scorecard -->
+        <div class="scorecard" id="scorecard">
+          <div class="glass-card score-card">
+            <div class="score-card-label">QoH Grade</div>
+            <div class="grade-display" id="overallGrade"></div>
+            <div class="grade-label" id="gradeLabel"></div>
+          </div>
+          <div class="glass-card score-card">
+            <div class="score-card-label">QoH Score</div>
+            <div class="big-value" id="qohScore">--</div>
+            <div class="grade-label">out of 100</div>
+          </div>
+          <div class="glass-card score-card">
+            <div class="score-card-label">Total Hires</div>
+            <div class="big-value" id="totalHires">--</div>
+            <div class="grade-label" id="sourceCount">-- sources</div>
+          </div>
+          <div class="glass-card score-card">
+            <div class="score-card-label">Quality Hire %</div>
+            <div class="big-value" id="qualityPct">--</div>
+            <div class="grade-label">QoH >= 60</div>
+          </div>
+          <div class="glass-card score-card">
+            <div class="score-card-label">vs Industry</div>
+            <div class="big-value" id="vsIndustry">--</div>
+            <div class="grade-label" id="tierLabel">--</div>
+          </div>
+        </div>
 
-            <!-- Retention Dashboard -->
-            <div class="glass-card" style="margin-bottom:32px;">
-                <span class="section-label">Retention Dashboard</span>
-                <div class="retention-grid" id="retentionGrid"></div>
-            </div>
+        <!-- Source Effectiveness Matrix -->
+        <div
+          class="glass-card"
+          style="margin-bottom: 32px; padding: 0; overflow: hidden"
+        >
+          <div style="padding: 20px 24px 0">
+            <span class="section-label">Source Effectiveness Matrix</span>
+          </div>
+          <div class="table-wrapper" style="padding: 0 24px 24px">
+            <table
+              class="data-table"
+              id="sourceTable"
+              aria-label="Source effectiveness data"
+            >
+              <thead>
+                <tr>
+                  <th>Source</th>
+                  <th>Hires</th>
+                  <th>Apps</th>
+                  <th>Interviews</th>
+                  <th>Offers</th>
+                  <th>QoH Score</th>
+                  <th>Grade</th>
+                  <th>CPQH</th>
+                  <th>Retention</th>
+                  <th>Quality %</th>
+                </tr>
+              </thead>
+              <tbody id="sourceTableBody"></tbody>
+            </table>
+          </div>
+        </div>
 
-            <!-- Cost Intelligence -->
-            <div class="glass-card" style="margin-bottom:32px;">
-                <span class="section-label">Cost Intelligence -- CPH vs CPQH</span>
-                <div class="cost-grid" id="costGrid"></div>
-            </div>
+        <!-- Funnel Visualization -->
+        <div class="glass-card funnel-section" id="funnelSection">
+          <span class="section-label">Conversion Funnel by Source</span>
+          <div id="funnelContent"></div>
+        </div>
 
-            <!-- Recommendations -->
-            <div class="glass-card" style="margin-bottom:32px;">
-                <span class="section-label">Recommendations</span>
-                <div class="rec-list" id="recList"></div>
-            </div>
+        <!-- Retention Dashboard -->
+        <div class="glass-card" style="margin-bottom: 32px">
+          <span class="section-label">Retention Dashboard</span>
+          <div class="retention-grid" id="retentionGrid"></div>
+        </div>
 
-            <!-- Predictions -->
-            <div class="glass-card" style="margin-bottom:32px;">
-                <span class="section-label">Next Quarter Predictions</span>
-                <div class="pred-grid" id="predGrid"></div>
-            </div>
+        <!-- Cost Intelligence -->
+        <div class="glass-card" style="margin-bottom: 32px">
+          <span class="section-label">Cost Intelligence -- CPH vs CPQH</span>
+          <div class="cost-grid" id="costGrid"></div>
+        </div>
 
-            <!-- Downloads -->
-            <div class="download-section" id="downloadSection">
-                <button class="btn-download" id="downloadExcel" type="button" aria-label="Download Excel report">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    Download HireSignal Report (Excel)
-                </button>
-                <button class="btn-download" id="downloadPpt" type="button" aria-label="Download PowerPoint presentation">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    Download Presentation (PPT)
-                </button>
-            </div>
-        </section>
+        <!-- Recommendations -->
+        <div class="glass-card" style="margin-bottom: 32px">
+          <span class="section-label">Recommendations</span>
+          <div class="rec-list" id="recList"></div>
+        </div>
+
+        <!-- Predictions -->
+        <div class="glass-card" style="margin-bottom: 32px">
+          <span class="section-label">Next Quarter Predictions</span>
+          <div class="pred-grid" id="predGrid"></div>
+        </div>
+
+        <!-- Downloads -->
+        <div class="download-section" id="downloadSection">
+          <button
+            class="btn-download"
+            id="downloadExcel"
+            type="button"
+            aria-label="Download Excel report"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download HireSignal Report (Excel)
+          </button>
+          <button
+            class="btn-download"
+            id="downloadPpt"
+            type="button"
+            aria-label="Download PowerPoint presentation"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download Presentation (PPT)
+          </button>
+        </div>
+      </section>
     </main>
 
     <script>
-    (function() {
-        'use strict';
+      (function () {
+        "use strict";
 
         // DOM refs
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const fileSelected = document.getElementById('fileSelected');
-        const fileName = document.getElementById('fileName');
-        const fileRemove = document.getElementById('fileRemove');
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        const sampleBtn = document.getElementById('sampleBtn');
-        const errorBanner = document.getElementById('errorBanner');
-        const resultsSection = document.getElementById('resultsSection');
-        const modeToggle = document.getElementById('modeToggle');
-        const uploadMode = document.getElementById('uploadMode');
-        const manualMode = document.getElementById('manualMode');
-        const manualTableBody = document.getElementById('manualTableBody');
+        const dropZone = document.getElementById("dropZone");
+        const fileInput = document.getElementById("fileInput");
+        const fileSelected = document.getElementById("fileSelected");
+        const fileName = document.getElementById("fileName");
+        const fileRemove = document.getElementById("fileRemove");
+        const analyzeBtn = document.getElementById("analyzeBtn");
+        const sampleBtn = document.getElementById("sampleBtn");
+        const errorBanner = document.getElementById("errorBanner");
+        const resultsSection = document.getElementById("resultsSection");
+        const modeToggle = document.getElementById("modeToggle");
+        const uploadMode = document.getElementById("uploadMode");
+        const manualMode = document.getElementById("manualMode");
+        const manualTableBody = document.getElementById("manualTableBody");
 
         let selectedFile = null;
         let lastReportData = null;
         let isManualMode = false;
 
         // Mode toggle
-        modeToggle.addEventListener('click', function() {
-            isManualMode = !isManualMode;
-            modeToggle.classList.toggle('active', isManualMode);
-            modeToggle.setAttribute('aria-checked', isManualMode);
-            uploadMode.style.display = isManualMode ? 'none' : 'block';
-            manualMode.classList.toggle('visible', isManualMode);
-            if (isManualMode && manualTableBody.children.length === 0) {
-                for (let i = 0; i < 5; i++) addManualRow();
-            }
+        modeToggle.addEventListener("click", function () {
+          isManualMode = !isManualMode;
+          modeToggle.classList.toggle("active", isManualMode);
+          modeToggle.setAttribute("aria-checked", isManualMode);
+          uploadMode.style.display = isManualMode ? "none" : "block";
+          manualMode.classList.toggle("visible", isManualMode);
+          if (isManualMode && manualTableBody.children.length === 0) {
+            for (let i = 0; i < 5; i++) addManualRow();
+          }
         });
 
-        modeToggle.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); modeToggle.click(); }
+        modeToggle.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            modeToggle.click();
+          }
         });
 
         // Manual entry
-        var manualSources = ['LinkedIn', 'Indeed', 'Employee Referral', 'Career Site', 'Glassdoor', 'University Recruiting', 'Staffing Agency', 'Facebook', 'Google Ads', 'ZipRecruiter'];
+        var manualSources = [
+          "LinkedIn",
+          "Indeed",
+          "Employee Referral",
+          "Career Site",
+          "Glassdoor",
+          "University Recruiting",
+          "Staffing Agency",
+          "Facebook",
+          "Google Ads",
+          "ZipRecruiter",
+        ];
 
         function addManualRow() {
-            var tr = document.createElement('tr');
-            tr.innerHTML =
-                '<td><select>' + manualSources.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join('') + '</select></td>' +
-                '<td><input type="text" placeholder="e.g. Software Engineer"></td>' +
-                '<td><input type="number" min="1" max="5" step="0.1" placeholder="3.5"></td>' +
-                '<td><select><option value="yes">Yes</option><option value="no">No</option></select></td>' +
-                '<td><input type="number" min="1" max="365" placeholder="45"></td>' +
-                '<td><input type="number" min="1" max="5" step="0.1" placeholder="4.0"></td>' +
-                '<td><input type="number" min="0" placeholder="4500"></td>' +
-                '<td><input type="number" min="0" placeholder="30"></td>' +
-                '<td><input type="number" min="0" placeholder="8"></td>' +
-                '<td><input type="number" min="0" placeholder="2"></td>';
-            manualTableBody.appendChild(tr);
+          var tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td><select>" +
+            manualSources
+              .map(function (s) {
+                return '<option value="' + s + '">' + s + "</option>";
+              })
+              .join("") +
+            "</select></td>" +
+            '<td><input type="text" placeholder="e.g. Software Engineer"></td>' +
+            '<td><input type="number" min="1" max="5" step="0.1" placeholder="3.5"></td>' +
+            '<td><select><option value="yes">Yes</option><option value="no">No</option></select></td>' +
+            '<td><input type="number" min="1" max="365" placeholder="45"></td>' +
+            '<td><input type="number" min="1" max="5" step="0.1" placeholder="4.0"></td>' +
+            '<td><input type="number" min="0" placeholder="4500"></td>' +
+            '<td><input type="number" min="0" placeholder="30"></td>' +
+            '<td><input type="number" min="0" placeholder="8"></td>' +
+            '<td><input type="number" min="0" placeholder="2"></td>';
+          manualTableBody.appendChild(tr);
         }
 
-        document.getElementById('addRowBtn').addEventListener('click', addManualRow);
-        document.getElementById('clearRowsBtn').addEventListener('click', function() {
-            manualTableBody.innerHTML = '';
+        document
+          .getElementById("addRowBtn")
+          .addEventListener("click", addManualRow);
+        document
+          .getElementById("clearRowsBtn")
+          .addEventListener("click", function () {
+            manualTableBody.innerHTML = "";
             for (var i = 0; i < 5; i++) addManualRow();
-        });
+          });
 
         function getManualData() {
-            var rows = manualTableBody.querySelectorAll('tr');
-            var data = [];
-            rows.forEach(function(tr) {
-                var inputs = tr.querySelectorAll('input, select');
-                var source = inputs[0].value;
-                var role = inputs[1].value;
-                var perf = parseFloat(inputs[2].value);
-                var retained = inputs[3].value === 'yes';
-                var ttp = parseFloat(inputs[4].value);
-                var hm = parseFloat(inputs[5].value);
-                var cost = parseFloat(inputs[6].value);
-                var apps = parseFloat(inputs[7].value);
-                var interviews = parseFloat(inputs[8].value);
-                var offers = parseFloat(inputs[9].value);
+          var rows = manualTableBody.querySelectorAll("tr");
+          var data = [];
+          rows.forEach(function (tr) {
+            var inputs = tr.querySelectorAll("input, select");
+            var source = inputs[0].value;
+            var role = inputs[1].value;
+            var perf = parseFloat(inputs[2].value);
+            var retained = inputs[3].value === "yes";
+            var ttp = parseFloat(inputs[4].value);
+            var hm = parseFloat(inputs[5].value);
+            var cost = parseFloat(inputs[6].value);
+            var apps = parseFloat(inputs[7].value);
+            var interviews = parseFloat(inputs[8].value);
+            var offers = parseFloat(inputs[9].value);
 
-                if (source && (!isNaN(perf) || !isNaN(cost))) {
-                    data.push({
-                        source: source,
-                        role: role || 'General',
-                        performance_rating: isNaN(perf) ? null : perf,
-                        retention_status: retained,
-                        time_to_productivity: isNaN(ttp) ? null : ttp,
-                        hiring_manager_satisfaction: isNaN(hm) ? null : hm,
-                        cost_to_hire: isNaN(cost) ? 0 : cost,
-                        applications: isNaN(apps) ? 0 : apps,
-                        interviews: isNaN(interviews) ? 0 : interviews,
-                        offers: isNaN(offers) ? 0 : offers,
-                        hire_date: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                        tenure_days: retained ? Math.floor(Math.random() * 300 + 60) : Math.floor(Math.random() * 150 + 10),
-                        cultural_fit: null,
-                        diversity_flag: null,
-                    });
-                }
-            });
-            return data;
+            if (source && (!isNaN(perf) || !isNaN(cost))) {
+              data.push({
+                source: source,
+                role: role || "General",
+                performance_rating: isNaN(perf) ? null : perf,
+                retention_status: retained,
+                time_to_productivity: isNaN(ttp) ? null : ttp,
+                hiring_manager_satisfaction: isNaN(hm) ? null : hm,
+                cost_to_hire: isNaN(cost) ? 0 : cost,
+                applications: isNaN(apps) ? 0 : apps,
+                interviews: isNaN(interviews) ? 0 : interviews,
+                offers: isNaN(offers) ? 0 : offers,
+                hire_date: new Date(
+                  Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000,
+                )
+                  .toISOString()
+                  .split("T")[0],
+                tenure_days: retained
+                  ? Math.floor(Math.random() * 300 + 60)
+                  : Math.floor(Math.random() * 150 + 10),
+                cultural_fit: null,
+                diversity_flag: null,
+              });
+            }
+          });
+          return data;
         }
 
         // File upload
-        dropZone.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('drag-over'); });
-        dropZone.addEventListener('dragleave', function(e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('drag-over'); });
-        dropZone.addEventListener('drop', function(e) {
-            e.preventDefault(); e.stopPropagation();
-            dropZone.classList.remove('drag-over');
-            if (e.dataTransfer.files.length > 0) handleFileSelect(e.dataTransfer.files[0]);
+        dropZone.addEventListener("dragover", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.add("drag-over");
         });
-        fileInput.addEventListener('change', function() { if (fileInput.files.length > 0) handleFileSelect(fileInput.files[0]); });
-        dropZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+        dropZone.addEventListener("dragleave", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.remove("drag-over");
+        });
+        dropZone.addEventListener("drop", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.remove("drag-over");
+          if (e.dataTransfer.files.length > 0)
+            handleFileSelect(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener("change", function () {
+          if (fileInput.files.length > 0) handleFileSelect(fileInput.files[0]);
+        });
+        dropZone.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            fileInput.click();
+          }
+        });
 
         function handleFileSelect(file) {
-            var ext = file.name.split('.').pop().toLowerCase();
-            if (!['xlsx', 'xls', 'csv'].includes(ext)) { showError('Please upload an Excel (.xlsx, .xls) or CSV file.'); return; }
-            if (file.size > 10 * 1024 * 1024) { showError('File exceeds 10MB limit.'); return; }
-            selectedFile = file;
-            fileName.textContent = file.name;
-            fileSelected.classList.add('visible');
-            hideError();
+          var ext = file.name.split(".").pop().toLowerCase();
+          if (!["xlsx", "xls", "csv"].includes(ext)) {
+            showError("Please upload an Excel (.xlsx, .xls) or CSV file.");
+            return;
+          }
+          if (file.size > 10 * 1024 * 1024) {
+            showError("File exceeds 10MB limit.");
+            return;
+          }
+          selectedFile = file;
+          fileName.textContent = file.name;
+          fileSelected.classList.add("visible");
+          hideError();
         }
 
-        fileRemove.addEventListener('click', function() {
-            selectedFile = null; fileInput.value = ''; fileSelected.classList.remove('visible');
+        fileRemove.addEventListener("click", function () {
+          selectedFile = null;
+          fileInput.value = "";
+          fileSelected.classList.remove("visible");
         });
 
         // Sample data
-        sampleBtn.addEventListener('click', async function() {
-            sampleBtn.disabled = true;
-            sampleBtn.textContent = 'Loading...';
-            try {
-                var resp = await fetch('/api/hire-signal/sample-data', { method: 'POST' });
-                var data = await resp.json();
-                if (data.success) {
-                    lastReportData = data;
-                    renderResults(data);
-                    resultsSection.classList.add('visible');
-                    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                } else {
-                    showError(data.error || 'Failed to load sample data.');
-                }
-            } catch (err) {
-                showError('Failed to load sample data: ' + err.message);
-            } finally {
-                sampleBtn.disabled = false;
-                sampleBtn.textContent = 'Load Sample Data';
+        sampleBtn.addEventListener("click", async function () {
+          sampleBtn.disabled = true;
+          sampleBtn.textContent = "Loading...";
+          try {
+            var resp = await fetch("/api/hire-signal/sample-data", {
+              method: "POST",
+            });
+            var data = await resp.json();
+            if (data.success) {
+              lastReportData = data;
+              renderResults(data);
+              resultsSection.classList.add("visible");
+              resultsSection.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            } else {
+              showError(data.error || "Failed to load sample data.");
             }
+          } catch (err) {
+            showError("Failed to load sample data: " + err.message);
+          } finally {
+            sampleBtn.disabled = false;
+            sampleBtn.textContent = "Load Sample Data";
+          }
         });
 
         // Analyze
-        analyzeBtn.addEventListener('click', runAnalysis);
+        analyzeBtn.addEventListener("click", runAnalysis);
 
         async function runAnalysis() {
-            hideError();
-            resultsSection.classList.remove('visible');
-            analyzeBtn.classList.add('loading');
-            analyzeBtn.disabled = true;
+          hideError();
+          resultsSection.classList.remove("visible");
+          analyzeBtn.classList.add("loading");
+          analyzeBtn.disabled = true;
 
-            try {
-                var response;
-                if (isManualMode) {
-                    var manualData = getManualData();
-                    if (manualData.length === 0) { throw new Error('Please enter at least one hire record.'); }
-                    response = await fetch('/api/hire-signal/analyze', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            manual_data: manualData,
-                            client_name: document.getElementById('clientName').value || 'Client',
-                            industry: document.getElementById('industry').value,
-                        }),
-                    });
-                } else {
-                    if (!selectedFile) { throw new Error('Please upload a hiring data file first.'); }
-                    var formData = new FormData();
-                    formData.append('file', selectedFile);
-                    formData.append('client_name', document.getElementById('clientName').value || 'Client');
-                    formData.append('industry', document.getElementById('industry').value);
-                    response = await fetch('/api/hire-signal/analyze', { method: 'POST', body: formData });
-                }
-
-                if (!response.ok) { throw new Error('Server error: ' + response.status); }
-                var data = await response.json();
-                if (!data.success) { throw new Error(data.error || 'Analysis failed.'); }
-
-                lastReportData = data;
-                renderResults(data);
-                resultsSection.classList.add('visible');
-                resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } catch (err) {
-                showError(err.message || 'An unexpected error occurred.');
-            } finally {
-                analyzeBtn.classList.remove('loading');
-                analyzeBtn.disabled = false;
+          try {
+            var response;
+            if (isManualMode) {
+              var manualData = getManualData();
+              if (manualData.length === 0) {
+                throw new Error("Please enter at least one hire record.");
+              }
+              response = await fetch("/api/hire-signal/analyze", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  manual_data: manualData,
+                  client_name:
+                    document.getElementById("clientName").value || "Client",
+                  industry: document.getElementById("industry").value,
+                }),
+              });
+            } else {
+              if (!selectedFile) {
+                throw new Error("Please upload a hiring data file first.");
+              }
+              var formData = new FormData();
+              formData.append("file", selectedFile);
+              formData.append(
+                "client_name",
+                document.getElementById("clientName").value || "Client",
+              );
+              formData.append(
+                "industry",
+                document.getElementById("industry").value,
+              );
+              response = await fetch("/api/hire-signal/analyze", {
+                method: "POST",
+                body: formData,
+              });
             }
+
+            if (!response.ok) {
+              throw new Error("Server error: " + response.status);
+            }
+            var data = await response.json();
+            if (!data.success) {
+              throw new Error(data.error || "Analysis failed.");
+            }
+
+            lastReportData = data;
+            renderResults(data);
+            resultsSection.classList.add("visible");
+            resultsSection.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          } catch (err) {
+            showError(err.message || "An unexpected error occurred.");
+          } finally {
+            analyzeBtn.classList.remove("loading");
+            analyzeBtn.disabled = false;
+          }
         }
 
         // Render results
         function renderResults(data) {
-            renderScorecard(data);
-            renderSourceTable(data.source_effectiveness || {});
-            renderFunnel(data.source_effectiveness || {});
-            renderRetention(data.retention || {}, data.source_effectiveness || {});
-            renderCost(data.cost_analysis || {});
-            renderRecommendations(data.recommendations || []);
-            renderPredictions(data.predictions || {});
+          renderScorecard(data);
+          renderSourceTable(data.source_effectiveness || {});
+          renderFunnel(data.source_effectiveness || {});
+          renderRetention(
+            data.retention || {},
+            data.source_effectiveness || {},
+          );
+          renderCost(data.cost_analysis || {});
+          renderRecommendations(data.recommendations || []);
+          renderPredictions(data.predictions || {});
         }
 
         function renderScorecard(data) {
-            var se = data.source_effectiveness || {};
-            var bm = data.benchmark || {};
-            var cost = data.cost_analysis || {};
-            var qoh_comp = bm.qoh_comparison || {};
-            var overall = cost.overall || {};
+          var se = data.source_effectiveness || {};
+          var bm = data.benchmark || {};
+          var cost = data.cost_analysis || {};
+          var qoh_comp = bm.qoh_comparison || {};
+          var overall = cost.overall || {};
 
-            var grade = se.overall_grade || 'N/A';
-            var gradeEl = document.getElementById('overallGrade');
-            gradeEl.textContent = grade;
-            gradeEl.className = 'grade-display grade-' + grade;
+          var grade = se.overall_grade || "N/A";
+          var gradeEl = document.getElementById("overallGrade");
+          gradeEl.textContent = grade;
+          gradeEl.className = "grade-display grade-" + grade;
 
-            var labels = { 'A': 'Excellent', 'B': 'Strong', 'C': 'Average', 'D': 'Below Average', 'F': 'Poor' };
-            document.getElementById('gradeLabel').textContent = labels[grade] || '';
+          var labels = {
+            A: "Excellent",
+            B: "Strong",
+            C: "Average",
+            D: "Below Average",
+            F: "Poor",
+          };
+          document.getElementById("gradeLabel").textContent =
+            labels[grade] || "";
 
-            document.getElementById('qohScore').textContent = (se.overall_qoh || 0).toFixed(1);
-            document.getElementById('totalHires').textContent = (se.total_hires || 0).toLocaleString();
-            document.getElementById('sourceCount').textContent = (se.source_count || 0) + ' sources';
+          document.getElementById("qohScore").textContent = (
+            se.overall_qoh || 0
+          ).toFixed(1);
+          document.getElementById("totalHires").textContent = (
+            se.total_hires || 0
+          ).toLocaleString();
+          document.getElementById("sourceCount").textContent =
+            (se.source_count || 0) + " sources";
 
-            var qPct = overall.quality_pct || 0;
-            var qEl = document.getElementById('qualityPct');
-            qEl.textContent = qPct.toFixed(0) + '%';
+          var qPct = overall.quality_pct || 0;
+          var qEl = document.getElementById("qualityPct");
+          qEl.textContent = qPct.toFixed(0) + "%";
 
-            var vsAvg = qoh_comp.vs_avg || 0;
-            var vsEl = document.getElementById('vsIndustry');
-            vsEl.textContent = (vsAvg >= 0 ? '+' : '') + vsAvg.toFixed(0) + ' pts';
-            vsEl.className = 'big-value ' + (vsAvg >= 5 ? 'positive' : (vsAvg <= -5 ? 'negative' : 'neutral'));
+          var vsAvg = qoh_comp.vs_avg || 0;
+          var vsEl = document.getElementById("vsIndustry");
+          vsEl.textContent =
+            (vsAvg >= 0 ? "+" : "") + vsAvg.toFixed(0) + " pts";
+          vsEl.className =
+            "big-value " +
+            (vsAvg >= 5 ? "positive" : vsAvg <= -5 ? "negative" : "neutral");
 
-            document.getElementById('tierLabel').textContent = bm.tier_label || '';
+          document.getElementById("tierLabel").textContent =
+            bm.tier_label || "";
         }
 
         function renderSourceTable(se) {
-            var tbody = document.getElementById('sourceTableBody');
-            tbody.innerHTML = '';
-            var sources = se.sources || {};
-            var sorted = Object.values(sources).sort(function(a, b) { return (b.avg_qoh_score || 0) - (a.avg_qoh_score || 0); });
+          var tbody = document.getElementById("sourceTableBody");
+          tbody.innerHTML = "";
+          var sources = se.sources || {};
+          var sorted = Object.values(sources).sort(function (a, b) {
+            return (b.avg_qoh_score || 0) - (a.avg_qoh_score || 0);
+          });
 
-            sorted.forEach(function(src) {
-                var tr = document.createElement('tr');
-                var grade = src.qoh_grade || 'C';
-                var cpqh = src.cost_per_quality_hire ? '$' + src.cost_per_quality_hire.toLocaleString('en-US', {maximumFractionDigits: 0}) : 'N/A';
-                var ret = src.retention_rate !== null && src.retention_rate !== undefined ? src.retention_rate.toFixed(0) + '%' : 'N/A';
-                tr.innerHTML =
-                    '<td>' + escapeHtml(src.source) + '</td>' +
-                    '<td class="text-mono">' + src.total_hires + '</td>' +
-                    '<td class="text-mono">' + Math.round(src.total_applications || 0) + '</td>' +
-                    '<td class="text-mono">' + Math.round(src.total_interviews || 0) + '</td>' +
-                    '<td class="text-mono">' + Math.round(src.total_offers || 0) + '</td>' +
-                    '<td class="text-mono" style="font-weight:700">' + (src.avg_qoh_score || 0).toFixed(1) + '</td>' +
-                    '<td><span class="cell-grade grade-' + grade.toLowerCase() + '">' + grade + '</span></td>' +
-                    '<td class="text-mono">' + cpqh + '</td>' +
-                    '<td class="text-mono">' + ret + '</td>' +
-                    '<td class="text-mono">' + (src.quality_hire_pct || 0).toFixed(0) + '%</td>';
-                tbody.appendChild(tr);
-            });
+          sorted.forEach(function (src) {
+            var tr = document.createElement("tr");
+            var grade = src.qoh_grade || "C";
+            var cpqh = src.cost_per_quality_hire
+              ? "$" +
+                src.cost_per_quality_hire.toLocaleString("en-US", {
+                  maximumFractionDigits: 0,
+                })
+              : "N/A";
+            var ret =
+              src.retention_rate !== null && src.retention_rate !== undefined
+                ? src.retention_rate.toFixed(0) + "%"
+                : "N/A";
+            tr.innerHTML =
+              "<td>" +
+              escapeHtml(src.source) +
+              "</td>" +
+              '<td class="text-mono">' +
+              src.total_hires +
+              "</td>" +
+              '<td class="text-mono">' +
+              Math.round(src.total_applications || 0) +
+              "</td>" +
+              '<td class="text-mono">' +
+              Math.round(src.total_interviews || 0) +
+              "</td>" +
+              '<td class="text-mono">' +
+              Math.round(src.total_offers || 0) +
+              "</td>" +
+              '<td class="text-mono" style="font-weight:700">' +
+              (src.avg_qoh_score || 0).toFixed(1) +
+              "</td>" +
+              '<td><span class="cell-grade grade-' +
+              grade.toLowerCase() +
+              '">' +
+              grade +
+              "</span></td>" +
+              '<td class="text-mono">' +
+              cpqh +
+              "</td>" +
+              '<td class="text-mono">' +
+              ret +
+              "</td>" +
+              '<td class="text-mono">' +
+              (src.quality_hire_pct || 0).toFixed(0) +
+              "%</td>";
+            tbody.appendChild(tr);
+          });
         }
 
         function renderFunnel(se) {
-            var content = document.getElementById('funnelContent');
-            content.innerHTML = '';
-            var sources = se.sources || {};
-            var sorted = Object.values(sources).sort(function(a, b) { return (b.avg_qoh_score || 0) - (a.avg_qoh_score || 0); });
+          var content = document.getElementById("funnelContent");
+          content.innerHTML = "";
+          var sources = se.sources || {};
+          var sorted = Object.values(sources).sort(function (a, b) {
+            return (b.avg_qoh_score || 0) - (a.avg_qoh_score || 0);
+          });
 
-            sorted.forEach(function(src) {
-                var conv = src.conversion_rates || {};
-                var rates = [
-                    { label: 'App->Interview', value: conv.app_to_interview || 0 },
-                    { label: 'Interview->Offer', value: conv.interview_to_offer || 0 },
-                    { label: 'Offer->Hire', value: conv.offer_to_hire || 0 },
-                ];
+          sorted.forEach(function (src) {
+            var conv = src.conversion_rates || {};
+            var rates = [
+              { label: "App->Interview", value: conv.app_to_interview || 0 },
+              {
+                label: "Interview->Offer",
+                value: conv.interview_to_offer || 0,
+              },
+              { label: "Offer->Hire", value: conv.offer_to_hire || 0 },
+            ];
 
-                var wrapper = document.createElement('div');
-                wrapper.style.marginBottom = '20px';
-                wrapper.innerHTML = '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px;">' + escapeHtml(src.source) + ' <span style="font-size:12px;color:var(--text-muted);font-weight:400;">(' + src.total_hires + ' hires)</span></div>';
+            var wrapper = document.createElement("div");
+            wrapper.style.marginBottom = "20px";
+            wrapper.innerHTML =
+              '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px;">' +
+              escapeHtml(src.source) +
+              ' <span style="font-size:12px;color:var(--text-muted);font-weight:400;">(' +
+              src.total_hires +
+              " hires)</span></div>";
 
-                rates.forEach(function(r) {
-                    var pct = Math.min(100, r.value);
-                    var row = document.createElement('div');
-                    row.className = 'funnel-row';
-                    row.innerHTML =
-                        '<div class="funnel-label">' + r.label + '</div>' +
-                        '<div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:' + pct + '%;"><span class="funnel-bar-value">' + r.value.toFixed(1) + '%</span></div></div>';
-                    wrapper.appendChild(row);
-                });
-                content.appendChild(wrapper);
+            rates.forEach(function (r) {
+              var pct = Math.min(100, r.value);
+              var row = document.createElement("div");
+              row.className = "funnel-row";
+              row.innerHTML =
+                '<div class="funnel-label">' +
+                r.label +
+                "</div>" +
+                '<div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:' +
+                pct +
+                '%;"><span class="funnel-bar-value">' +
+                r.value.toFixed(1) +
+                "%</span></div></div>";
+              wrapper.appendChild(row);
             });
+            content.appendChild(wrapper);
+          });
         }
 
         function renderRetention(ret, se) {
-            var grid = document.getElementById('retentionGrid');
-            grid.innerHTML = '';
-            var sourceRet = ret.sources || {};
-            var sources = se.sources || {};
+          var grid = document.getElementById("retentionGrid");
+          grid.innerHTML = "";
+          var sourceRet = ret.sources || {};
+          var sources = se.sources || {};
 
-            Object.keys(sourceRet).sort().forEach(function(sourceName) {
-                var sr = sourceRet[sourceName];
-                var card = document.createElement('div');
-                card.className = 'glass-card retention-card';
+          Object.keys(sourceRet)
+            .sort()
+            .forEach(function (sourceName) {
+              var sr = sourceRet[sourceName];
+              var card = document.createElement("div");
+              card.className = "glass-card retention-card";
 
-                var html = '<div class="retention-source">' + escapeHtml(sourceName) + '</div>';
-                ['90d', '180d', '1y'].forEach(function(period) {
-                    var data = sr[period] || {};
-                    var rate = data.rate;
-                    var label = period === '1y' ? '1 Year' : period.replace('d', ' Day');
-                    var pct = rate !== null && rate !== undefined ? rate : 0;
-                    var barClass = pct >= 75 ? 'high' : (pct >= 50 ? 'medium' : 'low');
-                    html +=
-                        '<div class="retention-row">' +
-                            '<div class="retention-label">' + label + '</div>' +
-                            '<div class="retention-bar-bg"><div class="retention-bar-fill ' + barClass + '" style="width:' + pct + '%;"></div></div>' +
-                            '<div class="retention-value">' + (rate !== null && rate !== undefined ? rate.toFixed(0) + '%' : 'N/A') + '</div>' +
-                        '</div>';
-                });
-                card.innerHTML = html;
-                grid.appendChild(card);
+              var html =
+                '<div class="retention-source">' +
+                escapeHtml(sourceName) +
+                "</div>";
+              ["90d", "180d", "1y"].forEach(function (period) {
+                var data = sr[period] || {};
+                var rate = data.rate;
+                var label =
+                  period === "1y" ? "1 Year" : period.replace("d", " Day");
+                var pct = rate !== null && rate !== undefined ? rate : 0;
+                var barClass =
+                  pct >= 75 ? "high" : pct >= 50 ? "medium" : "low";
+                html +=
+                  '<div class="retention-row">' +
+                  '<div class="retention-label">' +
+                  label +
+                  "</div>" +
+                  '<div class="retention-bar-bg"><div class="retention-bar-fill ' +
+                  barClass +
+                  '" style="width:' +
+                  pct +
+                  '%;"></div></div>' +
+                  '<div class="retention-value">' +
+                  (rate !== null && rate !== undefined
+                    ? rate.toFixed(0) + "%"
+                    : "N/A") +
+                  "</div>" +
+                  "</div>";
+              });
+              card.innerHTML = html;
+              grid.appendChild(card);
             });
         }
 
         function renderCost(costData) {
-            var grid = document.getElementById('costGrid');
-            grid.innerHTML = '';
-            var sources = costData.sources || {};
+          var grid = document.getElementById("costGrid");
+          grid.innerHTML = "";
+          var sources = costData.sources || {};
 
-            Object.keys(sources).sort().forEach(function(sourceName) {
-                var cs = sources[sourceName];
-                var card = document.createElement('div');
-                card.className = 'glass-card cost-card';
-                var effective = cs.is_cost_effective;
-                var vr = cs.value_ratio;
+          Object.keys(sources)
+            .sort()
+            .forEach(function (sourceName) {
+              var cs = sources[sourceName];
+              var card = document.createElement("div");
+              card.className = "glass-card cost-card";
+              var effective = cs.is_cost_effective;
+              var vr = cs.value_ratio;
 
-                card.innerHTML =
-                    '<div class="cost-source">' + escapeHtml(sourceName) + '</div>' +
-                    '<div class="cost-row"><span class="cost-metric">Total Cost</span><span class="cost-value">$' + (cs.total_cost || 0).toLocaleString('en-US', {maximumFractionDigits: 0}) + '</span></div>' +
-                    '<div class="cost-row"><span class="cost-metric">Cost per Hire</span><span class="cost-value">$' + (cs.cost_per_hire || 0).toLocaleString('en-US', {maximumFractionDigits: 0}) + '</span></div>' +
-                    '<div class="cost-row"><span class="cost-metric">Cost per Quality Hire</span><span class="cost-value highlight">' + (cs.cost_per_quality_hire ? '$' + cs.cost_per_quality_hire.toLocaleString('en-US', {maximumFractionDigits: 0}) : 'N/A') + '</span></div>' +
-                    '<div class="cost-row"><span class="cost-metric">Quality Hire %</span><span class="cost-value">' + (cs.quality_pct || 0).toFixed(0) + '%</span></div>' +
-                    '<div class="cost-row"><span class="cost-metric">CPQH/CPH Ratio</span><span class="cost-value ' + (effective ? 'good' : 'bad') + '">' + (vr ? vr.toFixed(2) + 'x' : 'N/A') + '</span></div>' +
-                    '<div class="cost-row"><span class="cost-metric">Cost Effective</span><span class="cost-value ' + (effective ? 'good' : 'bad') + '">' + (effective ? 'Yes' : 'No') + '</span></div>';
+              card.innerHTML =
+                '<div class="cost-source">' +
+                escapeHtml(sourceName) +
+                "</div>" +
+                '<div class="cost-row"><span class="cost-metric">Total Cost</span><span class="cost-value">$' +
+                (cs.total_cost || 0).toLocaleString("en-US", {
+                  maximumFractionDigits: 0,
+                }) +
+                "</span></div>" +
+                '<div class="cost-row"><span class="cost-metric">Cost per Hire</span><span class="cost-value">$' +
+                (cs.cost_per_hire || 0).toLocaleString("en-US", {
+                  maximumFractionDigits: 0,
+                }) +
+                "</span></div>" +
+                '<div class="cost-row"><span class="cost-metric">Cost per Quality Hire</span><span class="cost-value highlight">' +
+                (cs.cost_per_quality_hire
+                  ? "$" +
+                    cs.cost_per_quality_hire.toLocaleString("en-US", {
+                      maximumFractionDigits: 0,
+                    })
+                  : "N/A") +
+                "</span></div>" +
+                '<div class="cost-row"><span class="cost-metric">Quality Hire %</span><span class="cost-value">' +
+                (cs.quality_pct || 0).toFixed(0) +
+                "%</span></div>" +
+                '<div class="cost-row"><span class="cost-metric">CPQH/CPH Ratio</span><span class="cost-value ' +
+                (effective ? "good" : "bad") +
+                '">' +
+                (vr ? vr.toFixed(2) + "x" : "N/A") +
+                "</span></div>" +
+                '<div class="cost-row"><span class="cost-metric">Cost Effective</span><span class="cost-value ' +
+                (effective ? "good" : "bad") +
+                '">' +
+                (effective ? "Yes" : "No") +
+                "</span></div>";
 
-                grid.appendChild(card);
+              grid.appendChild(card);
             });
         }
 
         function renderRecommendations(recs) {
-            var list = document.getElementById('recList');
-            list.innerHTML = '';
+          var list = document.getElementById("recList");
+          list.innerHTML = "";
 
-            recs.forEach(function(rec) {
-                var impact = rec.impact_score || 0;
-                var priority = rec.priority || 'medium';
-                var impactClass = impact >= 80 ? 'high' : (impact >= 50 ? 'medium' : 'low');
-                var badgeClass = (priority === 'critical' || priority === 'high') ? 'badge-high' : (priority === 'medium' ? 'badge-medium' : 'badge-low');
+          recs.forEach(function (rec) {
+            var impact = rec.impact_score || 0;
+            var priority = rec.priority || "medium";
+            var impactClass =
+              impact >= 80 ? "high" : impact >= 50 ? "medium" : "low";
+            var badgeClass =
+              priority === "critical" || priority === "high"
+                ? "badge-high"
+                : priority === "medium"
+                  ? "badge-medium"
+                  : "badge-low";
 
-                var item = document.createElement('div');
-                item.className = 'rec-item';
-                item.innerHTML =
-                    '<div class="rec-impact ' + impactClass + '">' + impact + '</div>' +
-                    '<div class="rec-body">' +
-                        '<div class="rec-title">' + escapeHtml(rec.title || '') + '</div>' +
-                        '<div class="rec-desc">' + escapeHtml(rec.description || '') + '</div>' +
-                    '</div>' +
-                    '<span class="rec-badge ' + badgeClass + '">' + priority.toUpperCase() + '</span>';
-                list.appendChild(item);
-            });
+            var item = document.createElement("div");
+            item.className = "rec-item";
+            item.innerHTML =
+              '<div class="rec-impact ' +
+              impactClass +
+              '">' +
+              impact +
+              "</div>" +
+              '<div class="rec-body">' +
+              '<div class="rec-title">' +
+              escapeHtml(rec.title || "") +
+              "</div>" +
+              '<div class="rec-desc">' +
+              escapeHtml(rec.description || "") +
+              "</div>" +
+              "</div>" +
+              '<span class="rec-badge ' +
+              badgeClass +
+              '">' +
+              priority.toUpperCase() +
+              "</span>";
+            list.appendChild(item);
+          });
         }
 
         function renderPredictions(predData) {
-            var grid = document.getElementById('predGrid');
-            grid.innerHTML = '';
-            var preds = predData.predictions || {};
+          var grid = document.getElementById("predGrid");
+          grid.innerHTML = "";
+          var preds = predData.predictions || {};
 
-            var sorted = Object.values(preds).sort(function(a, b) { return (b.projected_qoh || 0) - (a.projected_qoh || 0); });
+          var sorted = Object.values(preds).sort(function (a, b) {
+            return (b.projected_qoh || 0) - (a.projected_qoh || 0);
+          });
 
-            sorted.forEach(function(pred) {
-                var card = document.createElement('div');
-                card.className = 'glass-card pred-card';
-                var trend = pred.trend || 'stable';
-                var trendLabel = trend === 'improving' ? 'Improving' : (trend === 'declining' ? 'Declining' : 'Stable');
-                var trendSymbol = trend === 'improving' ? ' ^' : (trend === 'declining' ? ' v' : ' -');
+          sorted.forEach(function (pred) {
+            var card = document.createElement("div");
+            card.className = "glass-card pred-card";
+            var trend = pred.trend || "stable";
+            var trendLabel =
+              trend === "improving"
+                ? "Improving"
+                : trend === "declining"
+                  ? "Declining"
+                  : "Stable";
+            var trendSymbol =
+              trend === "improving"
+                ? " ^"
+                : trend === "declining"
+                  ? " v"
+                  : " -";
 
-                card.innerHTML =
-                    '<div class="pred-source">' + escapeHtml(pred.source || '') + '</div>' +
-                    '<div class="pred-trend ' + trend + '">' + trendLabel + trendSymbol + '</div>' +
-                    '<div class="pred-row"><span>Current QoH</span><span class="pred-value">' + (pred.current_qoh || 0).toFixed(1) + '</span></div>' +
-                    '<div class="pred-row"><span>Projected QoH</span><span class="pred-value">' + (pred.projected_qoh || 0).toFixed(1) + '</span></div>' +
-                    '<div class="pred-row"><span>Projected Grade</span><span class="pred-value">' + (pred.projected_grade || 'C') + '</span></div>' +
-                    '<div class="pred-row"><span>Proj. Retention</span><span class="pred-value">' + (pred.projected_retention || 0).toFixed(0) + '%</span></div>' +
-                    '<div class="pred-row"><span>Range</span><span class="pred-value">' + (pred.range_low || 0).toFixed(0) + ' - ' + (pred.range_high || 0).toFixed(0) + '</span></div>' +
-                    '<div class="pred-row"><span>Confidence</span><span class="pred-value">' + (pred.confidence || 'low') + '</span></div>';
-                grid.appendChild(card);
-            });
+            card.innerHTML =
+              '<div class="pred-source">' +
+              escapeHtml(pred.source || "") +
+              "</div>" +
+              '<div class="pred-trend ' +
+              trend +
+              '">' +
+              trendLabel +
+              trendSymbol +
+              "</div>" +
+              '<div class="pred-row"><span>Current QoH</span><span class="pred-value">' +
+              (pred.current_qoh || 0).toFixed(1) +
+              "</span></div>" +
+              '<div class="pred-row"><span>Projected QoH</span><span class="pred-value">' +
+              (pred.projected_qoh || 0).toFixed(1) +
+              "</span></div>" +
+              '<div class="pred-row"><span>Projected Grade</span><span class="pred-value">' +
+              (pred.projected_grade || "C") +
+              "</span></div>" +
+              '<div class="pred-row"><span>Proj. Retention</span><span class="pred-value">' +
+              (pred.projected_retention || 0).toFixed(0) +
+              "%</span></div>" +
+              '<div class="pred-row"><span>Range</span><span class="pred-value">' +
+              (pred.range_low || 0).toFixed(0) +
+              " - " +
+              (pred.range_high || 0).toFixed(0) +
+              "</span></div>" +
+              '<div class="pred-row"><span>Confidence</span><span class="pred-value">' +
+              (pred.confidence || "low") +
+              "</span></div>";
+            grid.appendChild(card);
+          });
         }
 
         // Downloads
-        document.getElementById('downloadExcel').addEventListener('click', function() { downloadReport('excel'); });
-        document.getElementById('downloadPpt').addEventListener('click', function() { downloadReport('ppt'); });
+        document
+          .getElementById("downloadExcel")
+          .addEventListener("click", function () {
+            downloadReport("excel");
+          });
+        document
+          .getElementById("downloadPpt")
+          .addEventListener("click", function () {
+            downloadReport("ppt");
+          });
 
         async function downloadReport(format) {
-            if (!lastReportData) { showError('Run the analysis first.'); return; }
-            try {
-                var url = '/api/hire-signal/download/' + format;
-                var response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        report_data: lastReportData,
-                        client_name: document.getElementById('clientName').value || 'Client',
-                    }),
-                });
-                if (!response.ok) { throw new Error('Download failed: ' + response.status); }
-                var blob = await response.blob();
-                var ext = format === 'excel' ? 'xlsx' : 'pptx';
-                var clientName = (document.getElementById('clientName').value || 'Client').replace(/[^a-zA-Z0-9]/g, '_');
-                var a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = clientName + '_HireSignal_Report.' + ext;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(a.href);
-            } catch (err) {
-                showError('Download failed: ' + err.message);
+          if (!lastReportData) {
+            showError("Run the analysis first.");
+            return;
+          }
+          try {
+            var url = "/api/hire-signal/download/" + format;
+            var response = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                report_data: lastReportData,
+                client_name:
+                  document.getElementById("clientName").value || "Client",
+              }),
+            });
+            if (!response.ok) {
+              throw new Error("Download failed: " + response.status);
             }
+            var blob = await response.blob();
+            var ext = format === "excel" ? "xlsx" : "pptx";
+            var clientName = (
+              document.getElementById("clientName").value || "Client"
+            ).replace(/[^a-zA-Z0-9]/g, "_");
+            var a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = clientName + "_HireSignal_Report." + ext;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+          } catch (err) {
+            showError("Download failed: " + err.message);
+          }
         }
 
         // Utilities
-        function showError(msg) { errorBanner.textContent = msg; errorBanner.classList.add('visible'); }
-        function hideError() { errorBanner.classList.remove('visible'); }
-        function escapeHtml(str) { var d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+        function showError(msg) {
+          errorBanner.textContent = msg;
+          errorBanner.classList.add("visible");
+        }
+        function hideError() {
+          errorBanner.classList.remove("visible");
+        }
+        function escapeHtml(str) {
+          var d = document.createElement("div");
+          d.textContent = str;
+          return d.innerHTML;
+        }
+      })();
 
-    })();
+      // Scroll reveal
+      (function () {
+        var ro = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) e.target.classList.add("visible");
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          ro.observe(el);
+        });
+      })();
     </script>
-</body>
+  </body>
 </html>

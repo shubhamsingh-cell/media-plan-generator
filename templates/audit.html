@@ -1,1610 +1,2161 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Audit your recruitment advertising media plan. Compare against industry benchmarks, identify overspend, and discover missing channels.">
-    <meta name="theme-color" content="#000000">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Audit your recruitment advertising media plan. Compare against industry benchmarks, identify overspend, and discover missing channels."
+    />
+    <meta name="theme-color" content="#000000" />
     <title>Media Plan Audit Tool | Nova AI Suite</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <style>
-        /* ============================================
+      /* ============================================
            Design System: Deep Obsidian + Electric Indigo
            Glassmorphism 2.0 Dark Mode
            ============================================ */
-        :root {
-            --obsidian: #000000;
-            --obsidian-light: #111111;
-            --navy: #1a1a1a;
-            --indigo: #6366F1;
-            --indigo-light: #818CF8;
-            --indigo-pale: rgba(99,102,241,0.08);
-            --indigo-glow: rgba(99,102,241,0.15);
-            --cyan-accent: #22D3EE;
-            --green-success: #34D399;
-            --amber-warning: #FBBF24;
-            --red-error: #F87171;
-            --accent: #6366F1;
-            --accent-light: #818CF8;
-            --bg: #000000;
-            --surface-1: rgba(17,17,17,0.6);
-            --surface-2: rgba(26,26,26,0.5);
-            --surface-3: rgba(26,26,26,0.4);
-            --card: rgba(17,17,17,0.8);
-            --card-solid: #111111;
-            --card-hover: rgba(26,26,26,0.7);
-            --glass-blur: blur(40px) saturate(1.5);
-            --glass-blur-md: blur(24px) saturate(1.3);
-            --glass-border: rgba(255,255,255,0.08);
-            --glass-border-hover: rgba(255,255,255,0.16);
-            --glass-inset: 0 0 0 1px rgba(255,255,255,0.04) inset;
-            --text: #ededed;
-            --text-secondary: #a1a1a1;
-            --text-muted: #666666;
-            --border: rgba(255,255,255,0.08);
-            --border-accent: rgba(99,102,241,0.3);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3);
-            --shadow-lg: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
-            --shadow-glow: 0 0 20px rgba(99,102,241,0.15);
-            --radius: 12px;
-            --radius-sm: 8px;
-            --radius-lg: 16px;
-            --radius-xl: 20px;
-            --gradient-primary: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);
-            --gradient-accent: linear-gradient(135deg, #6366F1 0%, #22D3EE 100%);
-            --gradient-mesh: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.08) 0%, transparent 50%),
-                             radial-gradient(ellipse at 80% 20%, rgba(34,211,238,0.06) 0%, transparent 50%),
-                             radial-gradient(ellipse at 40% 80%, rgba(99,102,241,0.04) 0%, transparent 50%);
-            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-            --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
-            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-            --duration-fast: 100ms;
-            --duration-normal: 200ms;
-            --duration-slow: 300ms;
-            --focus-ring: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent);
+      :root {
+        --obsidian: #000000;
+        --obsidian-light: #111111;
+        --navy: #1a1a1a;
+        --indigo: #6366f1;
+        --indigo-light: #818cf8;
+        --indigo-pale: rgba(99, 102, 241, 0.08);
+        --indigo-glow: rgba(99, 102, 241, 0.15);
+        --cyan-accent: #22d3ee;
+        --green-success: #34d399;
+        --amber-warning: #fbbf24;
+        --red-error: #f87171;
+        --accent: #6366f1;
+        --accent-light: #818cf8;
+        --bg: #000000;
+        --surface-1: rgba(17, 17, 17, 0.6);
+        --surface-2: rgba(26, 26, 26, 0.5);
+        --surface-3: rgba(26, 26, 26, 0.4);
+        --card: rgba(17, 17, 17, 0.8);
+        --card-solid: #111111;
+        --card-hover: rgba(26, 26, 26, 0.7);
+        --glass-blur: blur(40px) saturate(1.5);
+        --glass-blur-md: blur(24px) saturate(1.3);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-border-hover: rgba(255, 255, 255, 0.16);
+        --glass-inset: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+        --text: #ededed;
+        --text-secondary: #a1a1a1;
+        --text-muted: #666666;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-accent: rgba(99, 102, 241, 0.3);
+        --shadow-md:
+          0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+        --shadow-lg:
+          0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+        --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+        --radius: 12px;
+        --radius-sm: 8px;
+        --radius-lg: 16px;
+        --radius-xl: 20px;
+        --gradient-primary: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+        --gradient-accent: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
+        --gradient-mesh:
+          radial-gradient(
+            ellipse at 20% 50%,
+            rgba(99, 102, 241, 0.08) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 20%,
+            rgba(34, 211, 238, 0.06) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 40% 80%,
+            rgba(99, 102, 241, 0.04) 0%,
+            transparent 50%
+          );
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+        --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        --duration-fast: 100ms;
+        --duration-normal: 200ms;
+        --duration-slow: 300ms;
+        --focus-ring: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
         }
-
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
         }
+      }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
-        ::selection { background: var(--accent); color: white; }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      ::selection {
+        background: var(--accent);
+        color: white;
+      }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            font-size: 16px;
-            line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            position: relative;
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        position: relative;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: var(--gradient-mesh);
+        pointer-events: none;
+        z-index: 0;
+        animation: ambientDrift 20s ease-in-out infinite alternate;
+      }
+
+      @keyframes ambientDrift {
+        0% {
+          background:
+            radial-gradient(
+              ellipse at 20% 50%,
+              rgba(99, 102, 241, 0.08) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 80% 20%,
+              rgba(34, 211, 238, 0.06) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 40% 80%,
+              rgba(99, 102, 241, 0.04) 0%,
+              transparent 50%
+            );
         }
-
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background: var(--gradient-mesh);
-            pointer-events: none;
-            z-index: 0;
-            animation: ambientDrift 20s ease-in-out infinite alternate;
+        50% {
+          background:
+            radial-gradient(
+              ellipse at 60% 30%,
+              rgba(99, 102, 241, 0.1) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 20% 70%,
+              rgba(34, 211, 238, 0.05) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 80% 60%,
+              rgba(129, 140, 248, 0.06) 0%,
+              transparent 50%
+            );
         }
-
-        @keyframes ambientDrift {
-            0% {
-                background: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.08) 0%, transparent 50%),
-                             radial-gradient(ellipse at 80% 20%, rgba(34,211,238,0.06) 0%, transparent 50%),
-                             radial-gradient(ellipse at 40% 80%, rgba(99,102,241,0.04) 0%, transparent 50%);
-            }
-            50% {
-                background: radial-gradient(ellipse at 60% 30%, rgba(99,102,241,0.1) 0%, transparent 50%),
-                             radial-gradient(ellipse at 20% 70%, rgba(34,211,238,0.05) 0%, transparent 50%),
-                             radial-gradient(ellipse at 80% 60%, rgba(129,140,248,0.06) 0%, transparent 50%);
-            }
-            100% {
-                background: radial-gradient(ellipse at 40% 60%, rgba(99,102,241,0.07) 0%, transparent 50%),
-                             radial-gradient(ellipse at 70% 40%, rgba(34,211,238,0.08) 0%, transparent 50%),
-                             radial-gradient(ellipse at 30% 20%, rgba(99,102,241,0.05) 0%, transparent 50%);
-            }
+        100% {
+          background:
+            radial-gradient(
+              ellipse at 40% 60%,
+              rgba(99, 102, 241, 0.07) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 70% 40%,
+              rgba(34, 211, 238, 0.08) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 30% 20%,
+              rgba(99, 102, 241, 0.05) 0%,
+              transparent 50%
+            );
         }
+      }
 
-        body::after {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
-            pointer-events: none;
-            z-index: 0;
-            opacity: 0.4;
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.4;
+      }
+
+      /* ── HEADER ─────────────────────────────────── */
+      .app-header {
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(20px) saturate(1.3);
+        -webkit-backdrop-filter: blur(20px) saturate(1.3);
+        color: var(--text);
+        padding: 0 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 64px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        border-bottom: 1px solid var(--glass-border);
+      }
+
+      .app-header::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(99, 102, 241, 0.3),
+          transparent
+        );
+      }
+
+      .header-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .header-logo {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-sm);
+        background: var(--gradient-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .header-logo svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .app-header h1 {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .header-badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 99px;
+        background: var(--indigo-pale);
+        color: var(--indigo-light);
+        border: 1px solid var(--border-accent);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .nav-link {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 8px 16px;
+        border-radius: var(--radius-sm);
+        transition: all var(--duration-normal) var(--ease-standard);
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+      }
+
+      .nav-link:hover {
+        color: var(--text);
+        background: var(--surface-2);
+      }
+
+      .nav-link:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      /* ── MAIN CONTAINER ─────────────────────────── */
+      .main-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 24px 64px;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* ── PAGE TITLE ─────────────────────────────── */
+      .page-title {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      .page-title h2 {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        background: var(--gradient-accent);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+      }
+
+      .page-title p {
+        font-size: 15px;
+        color: var(--text-secondary);
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      /* ── GLASS CARD ─────────────────────────────── */
+      .glass-card {
+        background: var(--card);
+        backdrop-filter: var(--glass-blur-md);
+        -webkit-backdrop-filter: var(--glass-blur-md);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-lg);
+        padding: 32px;
+        box-shadow: var(--shadow-md), var(--glass-inset);
+        transition: border-color var(--duration-normal) var(--ease-standard);
+      }
+
+      .glass-card:hover {
+        border-color: var(--glass-border-hover);
+      }
+
+      /* ── UPLOAD SECTION ─────────────────────────── */
+      .upload-section {
+        margin-bottom: 32px;
+      }
+
+      .section-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--indigo-light);
+        margin-bottom: 16px;
+        display: block;
+      }
+
+      .drop-zone {
+        border: 2px dashed var(--border-accent);
+        border-radius: var(--radius);
+        padding: 48px 32px;
+        text-align: center;
+        cursor: pointer;
+        transition: all var(--duration-normal) var(--ease-standard);
+        background: var(--indigo-pale);
+        min-height: 160px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        position: relative;
+      }
+
+      .drop-zone:hover,
+      .drop-zone.drag-over {
+        border-color: var(--indigo);
+        background: var(--indigo-glow);
+        box-shadow: var(--shadow-glow);
+      }
+
+      .drop-zone:focus-within {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      .drop-zone-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: var(--radius);
+        background: var(--gradient-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 4px;
+      }
+
+      .drop-zone-icon svg {
+        width: 24px;
+        height: 24px;
+        color: white;
+      }
+
+      .drop-zone-text {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .drop-zone-hint {
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+
+      .drop-zone input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        min-width: 44px;
+        min-height: 44px;
+      }
+
+      .file-selected {
+        display: none;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid var(--border-accent);
+        border-radius: var(--radius-sm);
+        margin-top: 12px;
+        font-size: 14px;
+        color: var(--text);
+      }
+
+      .file-selected.visible {
+        display: flex;
+      }
+
+      .file-selected .file-name {
+        flex: 1;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .file-remove {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color var(--duration-fast);
+      }
+
+      .file-remove:hover {
+        color: var(--red-error);
+      }
+      .file-remove:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      /* ── FORM INPUTS ────────────────────────────── */
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 20px;
+        margin-top: 24px;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .form-group label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+
+      .form-group input,
+      .form-group select {
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 12px 16px;
+        font-size: 14px;
+        color: var(--text);
+        font-family: inherit;
+        transition: all var(--duration-normal) var(--ease-standard);
+        min-height: 44px;
+        width: 100%;
+      }
+
+      .form-group input::placeholder {
+        color: var(--text-muted);
+      }
+
+      .form-group input:focus,
+      .form-group select:focus {
+        outline: none;
+        border-color: var(--indigo);
+        box-shadow: var(--focus-ring);
+        background: var(--surface-2);
+      }
+
+      .form-group select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%23818CF8' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 14px center;
+        padding-right: 36px;
+        cursor: pointer;
+      }
+
+      .form-group select option {
+        background: var(--card-solid);
+        color: var(--text);
+      }
+
+      /* ── SUBMIT BUTTON ──────────────────────────── */
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 14px 32px;
+        font-size: 15px;
+        font-weight: 600;
+        color: white;
+        background: var(--gradient-primary);
+        border: none;
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: all var(--duration-normal) var(--ease-standard);
+        box-shadow: var(--shadow-md), var(--shadow-glow);
+        min-width: 44px;
+        min-height: 48px;
+        font-family: inherit;
+        letter-spacing: -0.01em;
+        width: 100%;
+        margin-top: 24px;
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow:
+          var(--shadow-lg),
+          0 0 30px rgba(99, 102, 241, 0.25);
+      }
+
+      .btn-primary:active:not(:disabled) {
+        transform: translateY(0);
+      }
+
+      .btn-primary:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .btn-primary .spinner {
+        display: none;
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+
+      .btn-primary.loading .spinner {
+        display: block;
+      }
+      .btn-primary.loading .btn-text {
+        display: none;
+      }
+      .btn-primary.loading .btn-loading-text {
+        display: inline;
+      }
+      .btn-primary .btn-loading-text {
+        display: none;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
         }
+      }
 
-        /* ── HEADER ─────────────────────────────────── */
+      /* ── RESULTS SECTION ────────────────────────── */
+      .results-section {
+        display: none;
+        margin-top: 48px;
+        animation: fadeInUp 0.4s var(--ease-out);
+      }
+
+      .results-section.visible {
+        display: block;
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ── SCORECARD ──────────────────────────────── */
+      .scorecard {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 32px;
+      }
+
+      .score-card {
+        text-align: center;
+        padding: 32px 24px;
+      }
+
+      .score-card-label {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-bottom: 16px;
+      }
+
+      /* Grade display */
+      .grade-display {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 12px;
+        font-size: 42px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        position: relative;
+      }
+
+      .grade-display::before {
+        content: "";
+        position: absolute;
+        inset: -3px;
+        border-radius: 50%;
+        padding: 3px;
+        background: var(--gradient-primary);
+        -webkit-mask:
+          linear-gradient(#fff 0 0) content-box,
+          linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+      }
+
+      .grade-A {
+        color: var(--green-success);
+      }
+      .grade-A::before {
+        background: linear-gradient(135deg, #34d399, #059669);
+      }
+      .grade-B {
+        color: var(--green-success);
+      }
+      .grade-B::before {
+        background: linear-gradient(135deg, #34d399, #10b981);
+      }
+      .grade-C {
+        color: var(--amber-warning);
+      }
+      .grade-C::before {
+        background: linear-gradient(135deg, #fbbf24, #d97706);
+      }
+      .grade-D {
+        color: var(--red-error);
+      }
+      .grade-D::before {
+        background: linear-gradient(135deg, #f87171, #dc2626);
+      }
+      .grade-F {
+        color: var(--red-error);
+      }
+      .grade-F::before {
+        background: linear-gradient(135deg, #f87171, #b91c1c);
+      }
+
+      .grade-label {
+        font-size: 14px;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+
+      /* Circular gauge */
+      .gauge-container {
+        position: relative;
+        width: 96px;
+        height: 96px;
+        margin: 0 auto 12px;
+      }
+
+      .gauge-svg {
+        transform: rotate(-90deg);
+        width: 96px;
+        height: 96px;
+      }
+
+      .gauge-bg {
+        fill: none;
+        stroke: var(--surface-3);
+        stroke-width: 6;
+      }
+
+      .gauge-fill {
+        fill: none;
+        stroke-width: 6;
+        stroke-linecap: round;
+        transition: stroke-dashoffset 1s var(--ease-out);
+      }
+
+      .gauge-value {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+
+      .gauge-suffix {
+        font-size: 12px;
+        font-weight: 400;
+        color: var(--text-muted);
+      }
+
+      /* ── SAVINGS BANNER ─────────────────────────── */
+      .savings-banner {
+        background: linear-gradient(
+          135deg,
+          rgba(52, 211, 153, 0.12) 0%,
+          rgba(16, 185, 129, 0.06) 100%
+        );
+        border: 1px solid rgba(52, 211, 153, 0.25);
+        border-radius: var(--radius-lg);
+        padding: 28px 32px;
+        text-align: center;
+        margin-bottom: 32px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .savings-banner::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(
+          circle,
+          rgba(52, 211, 153, 0.06) 0%,
+          transparent 50%
+        );
+        animation: savingsPulse 4s ease-in-out infinite;
+      }
+
+      @keyframes savingsPulse {
+        0%,
+        100% {
+          opacity: 0.5;
+          transform: scale(0.8);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.2);
+        }
+      }
+
+      .savings-amount {
+        font-size: 36px;
+        font-weight: 800;
+        color: var(--green-success);
+        letter-spacing: -0.03em;
+        position: relative;
+      }
+
+      .savings-text {
+        font-size: 15px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+        position: relative;
+      }
+
+      .savings-banner.no-savings {
+        background: linear-gradient(
+          135deg,
+          rgba(52, 211, 153, 0.08) 0%,
+          rgba(16, 185, 129, 0.04) 100%
+        );
+      }
+
+      .savings-banner.no-savings .savings-amount {
+        font-size: 20px;
+      }
+
+      /* ── AUDIT TABLE ────────────────────────────── */
+      .audit-table-wrapper {
+        overflow-x: auto;
+        margin-bottom: 32px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+      }
+
+      .audit-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      .audit-table thead th {
+        background: var(--navy);
+        color: var(--text);
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 14px 16px;
+        text-align: left;
+        white-space: nowrap;
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+
+      .audit-table tbody td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+      }
+
+      .audit-table tbody tr {
+        transition: background var(--duration-fast);
+      }
+
+      .audit-table tbody tr:hover {
+        background: var(--surface-2);
+      }
+
+      .audit-table .row-optimal {
+        border-left: 3px solid var(--green-success);
+      }
+
+      .audit-table .row-review {
+        border-left: 3px solid var(--amber-warning);
+      }
+
+      .audit-table .row-overspend {
+        border-left: 3px solid var(--red-error);
+      }
+
+      .audit-table .row-nodata {
+        border-left: 3px solid var(--text-muted);
+      }
+
+      .cell-channel {
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .cell-grade {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-sm);
+        font-weight: 700;
+        font-size: 14px;
+      }
+
+      .cell-grade.grade-a {
+        background: rgba(52, 211, 153, 0.15);
+        color: var(--green-success);
+      }
+      .cell-grade.grade-b {
+        background: rgba(52, 211, 153, 0.1);
+        color: #6ee7b7;
+      }
+      .cell-grade.grade-c {
+        background: rgba(251, 191, 36, 0.12);
+        color: var(--amber-warning);
+      }
+      .cell-grade.grade-d {
+        background: rgba(248, 113, 113, 0.12);
+        color: var(--red-error);
+      }
+      .cell-grade.grade-f {
+        background: rgba(248, 113, 113, 0.18);
+        color: #fca5a5;
+      }
+
+      .cell-finding {
+        font-size: 12px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 99px;
+        display: inline-block;
+      }
+
+      .finding-optimal {
+        background: rgba(52, 211, 153, 0.12);
+        color: var(--green-success);
+      }
+      .finding-review {
+        background: rgba(251, 191, 36, 0.12);
+        color: var(--amber-warning);
+      }
+      .finding-overspend {
+        background: rgba(248, 113, 113, 0.12);
+        color: var(--red-error);
+      }
+      .finding-nodata {
+        background: var(--surface-3);
+        color: var(--text-muted);
+      }
+
+      .variance-positive {
+        color: var(--red-error);
+      }
+      .variance-negative {
+        color: var(--green-success);
+      }
+      .variance-neutral {
+        color: var(--text-muted);
+      }
+
+      /* ── MISSING CHANNELS ───────────────────────── */
+      .missing-section {
+        margin-bottom: 32px;
+      }
+
+      .missing-section h3 {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 16px;
+        letter-spacing: -0.02em;
+      }
+
+      .missing-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 16px;
+      }
+
+      .missing-card {
+        padding: 20px;
+        border-left: 3px solid var(--indigo);
+      }
+
+      .missing-card.importance-critical {
+        border-left-color: var(--red-error);
+      }
+      .missing-card.importance-high {
+        border-left-color: var(--amber-warning);
+      }
+      .missing-card.importance-medium {
+        border-left-color: var(--cyan-accent);
+      }
+
+      .missing-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+
+      .missing-card-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .importance-badge {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 99px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .badge-critical {
+        background: rgba(248, 113, 113, 0.15);
+        color: var(--red-error);
+      }
+      .badge-high {
+        background: rgba(251, 191, 36, 0.12);
+        color: var(--amber-warning);
+      }
+      .badge-medium {
+        background: rgba(34, 211, 238, 0.12);
+        color: var(--cyan-accent);
+      }
+
+      .missing-card-reason {
+        font-size: 13px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+      }
+
+      /* ── RECOMMENDATIONS ────────────────────────── */
+      .recs-section {
+        margin-bottom: 32px;
+      }
+
+      .recs-section h3 {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 16px;
+        letter-spacing: -0.02em;
+      }
+
+      .rec-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .rec-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 16px 20px;
+        border-radius: var(--radius);
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        transition: border-color var(--duration-normal);
+      }
+
+      .rec-item:hover {
+        border-color: var(--glass-border-hover);
+      }
+
+      .rec-number {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--gradient-primary);
+        color: white;
+        font-size: 14px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .rec-body {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .rec-action {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 4px;
+      }
+
+      .rec-detail {
+        font-size: 13px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+      }
+
+      .rec-priority {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 99px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        flex-shrink: 0;
+        align-self: flex-start;
+        margin-top: 2px;
+      }
+
+      .priority-high {
+        background: rgba(248, 113, 113, 0.15);
+        color: var(--red-error);
+      }
+      .priority-medium {
+        background: rgba(251, 191, 36, 0.12);
+        color: var(--amber-warning);
+      }
+      .priority-low {
+        background: rgba(34, 211, 238, 0.12);
+        color: var(--cyan-accent);
+      }
+
+      /* ── DOWNLOAD BUTTONS ───────────────────────── */
+      .download-section {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 32px;
+      }
+
+      .btn-download {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 24px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: all var(--duration-normal) var(--ease-standard);
+        text-decoration: none;
+        font-family: inherit;
+        min-width: 44px;
+        min-height: 48px;
+      }
+
+      .btn-download:hover {
+        background: var(--surface-2);
+        border-color: var(--glass-border-hover);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
+
+      .btn-download:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      .btn-download svg {
+        width: 18px;
+        height: 18px;
+        color: var(--indigo-light);
+      }
+
+      /* ── ERROR STATE ────────────────────────────── */
+      .error-banner {
+        display: none;
+        background: rgba(248, 113, 113, 0.1);
+        border: 1px solid rgba(248, 113, 113, 0.25);
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        margin-top: 16px;
+        color: var(--red-error);
+        font-size: 14px;
+      }
+
+      .error-banner.visible {
+        display: block;
+      }
+
+      /* ── RESPONSIVE ─────────────────────────────── */
+      @media (max-width: 768px) {
         .app-header {
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(20px) saturate(1.3);
-            -webkit-backdrop-filter: blur(20px) saturate(1.3);
-            color: var(--text);
-            padding: 0 32px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 64px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            border-bottom: 1px solid var(--glass-border);
+          padding: 0 16px;
         }
-
-        .app-header::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(99,102,241,0.3), transparent);
-        }
-
-        .header-content {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .header-logo {
-            width: 32px;
-            height: 32px;
-            border-radius: var(--radius-sm);
-            background: var(--gradient-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .header-logo svg { width: 18px; height: 18px; }
-
-        .app-header h1 {
-            font-size: 16px;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-        }
-
-        .header-badge {
-            font-size: 10px;
-            font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 99px;
-            background: var(--indigo-pale);
-            color: var(--indigo-light);
-            border: 1px solid var(--border-accent);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .nav-link {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-            padding: 8px 16px;
-            border-radius: var(--radius-sm);
-            transition: all var(--duration-normal) var(--ease-standard);
-            min-width: 44px;
-            min-height: 44px;
-            display: flex;
-            align-items: center;
-        }
-
-        .nav-link:hover {
-            color: var(--text);
-            background: var(--surface-2);
-        }
-
-        .nav-link:focus-visible {
-            outline: none;
-            box-shadow: var(--focus-ring);
-        }
-
-        /* ── MAIN CONTAINER ─────────────────────────── */
         .main-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 32px 24px 64px;
-            position: relative;
-            z-index: 1;
+          padding: 20px 16px 48px;
         }
-
-        /* ── PAGE TITLE ─────────────────────────────── */
-        .page-title {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
         .page-title h2 {
-            font-size: 32px;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-            background: var(--gradient-accent);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 8px;
+          font-size: 24px;
         }
-
-        .page-title p {
-            font-size: 15px;
-            color: var(--text-secondary);
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        /* ── GLASS CARD ─────────────────────────────── */
         .glass-card {
-            background: var(--card);
-            backdrop-filter: var(--glass-blur-md);
-            -webkit-backdrop-filter: var(--glass-blur-md);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-lg);
-            padding: 32px;
-            box-shadow: var(--shadow-md), var(--glass-inset);
-            transition: border-color var(--duration-normal) var(--ease-standard);
+          padding: 20px;
         }
-
-        .glass-card:hover {
-            border-color: var(--glass-border-hover);
-        }
-
-        /* ── UPLOAD SECTION ─────────────────────────── */
-        .upload-section {
-            margin-bottom: 32px;
-        }
-
-        .section-label {
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--indigo-light);
-            margin-bottom: 16px;
-            display: block;
-        }
-
-        .drop-zone {
-            border: 2px dashed var(--border-accent);
-            border-radius: var(--radius);
-            padding: 48px 32px;
-            text-align: center;
-            cursor: pointer;
-            transition: all var(--duration-normal) var(--ease-standard);
-            background: var(--indigo-pale);
-            min-height: 160px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            position: relative;
-        }
-
-        .drop-zone:hover, .drop-zone.drag-over {
-            border-color: var(--indigo);
-            background: var(--indigo-glow);
-            box-shadow: var(--shadow-glow);
-        }
-
-        .drop-zone:focus-within {
-            outline: none;
-            box-shadow: var(--focus-ring);
-        }
-
-        .drop-zone-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: var(--radius);
-            background: var(--gradient-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 4px;
-        }
-
-        .drop-zone-icon svg { width: 24px; height: 24px; color: white; }
-
-        .drop-zone-text {
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        .drop-zone-hint {
-            font-size: 13px;
-            color: var(--text-muted);
-        }
-
-        .drop-zone input[type="file"] {
-            position: absolute;
-            inset: 0;
-            opacity: 0;
-            cursor: pointer;
-            min-width: 44px;
-            min-height: 44px;
-        }
-
-        .file-selected {
-            display: none;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-            background: rgba(99,102,241,0.1);
-            border: 1px solid var(--border-accent);
-            border-radius: var(--radius-sm);
-            margin-top: 12px;
-            font-size: 14px;
-            color: var(--text);
-        }
-
-        .file-selected.visible { display: flex; }
-
-        .file-selected .file-name {
-            flex: 1;
-            font-weight: 500;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .file-remove {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            padding: 4px;
-            border-radius: 4px;
-            min-width: 44px;
-            min-height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: color var(--duration-fast);
-        }
-
-        .file-remove:hover { color: var(--red-error); }
-        .file-remove:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-        /* ── FORM INPUTS ────────────────────────────── */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 20px;
-            margin-top: 24px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .form-group label {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        .form-group input,
-        .form-group select {
-            background: var(--surface-1);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 12px 16px;
-            font-size: 14px;
-            color: var(--text);
-            font-family: inherit;
-            transition: all var(--duration-normal) var(--ease-standard);
-            min-height: 44px;
-            width: 100%;
-        }
-
-        .form-group input::placeholder {
-            color: var(--text-muted);
-        }
-
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: var(--indigo);
-            box-shadow: var(--focus-ring);
-            background: var(--surface-2);
-        }
-
-        .form-group select {
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%23818CF8' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 14px center;
-            padding-right: 36px;
-            cursor: pointer;
-        }
-
-        .form-group select option {
-            background: var(--card-solid);
-            color: var(--text);
-        }
-
-        /* ── SUBMIT BUTTON ──────────────────────────── */
-        .btn-primary {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            padding: 14px 32px;
-            font-size: 15px;
-            font-weight: 600;
-            color: white;
-            background: var(--gradient-primary);
-            border: none;
-            border-radius: var(--radius);
-            cursor: pointer;
-            transition: all var(--duration-normal) var(--ease-standard);
-            box-shadow: var(--shadow-md), var(--shadow-glow);
-            min-width: 44px;
-            min-height: 48px;
-            font-family: inherit;
-            letter-spacing: -0.01em;
-            width: 100%;
-            margin-top: 24px;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-lg), 0 0 30px rgba(99,102,241,0.25);
-        }
-
-        .btn-primary:active:not(:disabled) {
-            transform: translateY(0);
-        }
-
-        .btn-primary:focus-visible {
-            outline: none;
-            box-shadow: var(--focus-ring);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .btn-primary .spinner {
-            display: none;
-            width: 18px;
-            height: 18px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-        }
-
-        .btn-primary.loading .spinner { display: block; }
-        .btn-primary.loading .btn-text { display: none; }
-        .btn-primary.loading .btn-loading-text { display: inline; }
-        .btn-primary .btn-loading-text { display: none; }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* ── RESULTS SECTION ────────────────────────── */
-        .results-section {
-            display: none;
-            margin-top: 48px;
-            animation: fadeInUp 0.4s var(--ease-out);
-        }
-
-        .results-section.visible { display: block; }
-
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ── SCORECARD ──────────────────────────────── */
         .scorecard {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 24px;
-            margin-bottom: 32px;
+          grid-template-columns: 1fr;
+          gap: 16px;
         }
-
-        .score-card {
-            text-align: center;
-            padding: 32px 24px;
+        .form-grid {
+          grid-template-columns: 1fr;
         }
-
-        .score-card-label {
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-muted);
-            margin-bottom: 16px;
-        }
-
-        /* Grade display */
-        .grade-display {
-            width: 96px;
-            height: 96px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 12px;
-            font-size: 42px;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-            position: relative;
-        }
-
-        .grade-display::before {
-            content: '';
-            position: absolute;
-            inset: -3px;
-            border-radius: 50%;
-            padding: 3px;
-            background: var(--gradient-primary);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-        }
-
-        .grade-A { color: var(--green-success); }
-        .grade-A::before { background: linear-gradient(135deg, #34D399, #059669); }
-        .grade-B { color: var(--green-success); }
-        .grade-B::before { background: linear-gradient(135deg, #34D399, #10B981); }
-        .grade-C { color: var(--amber-warning); }
-        .grade-C::before { background: linear-gradient(135deg, #FBBF24, #D97706); }
-        .grade-D { color: var(--red-error); }
-        .grade-D::before { background: linear-gradient(135deg, #F87171, #DC2626); }
-        .grade-F { color: var(--red-error); }
-        .grade-F::before { background: linear-gradient(135deg, #F87171, #B91C1C); }
-
-        .grade-label {
-            font-size: 14px;
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
-
-        /* Circular gauge */
-        .gauge-container {
-            position: relative;
-            width: 96px;
-            height: 96px;
-            margin: 0 auto 12px;
-        }
-
-        .gauge-svg {
-            transform: rotate(-90deg);
-            width: 96px;
-            height: 96px;
-        }
-
-        .gauge-bg {
-            fill: none;
-            stroke: var(--surface-3);
-            stroke-width: 6;
-        }
-
-        .gauge-fill {
-            fill: none;
-            stroke-width: 6;
-            stroke-linecap: round;
-            transition: stroke-dashoffset 1s var(--ease-out);
-        }
-
-        .gauge-value {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-        }
-
-        .gauge-suffix {
-            font-size: 12px;
-            font-weight: 400;
-            color: var(--text-muted);
-        }
-
-        /* ── SAVINGS BANNER ─────────────────────────── */
-        .savings-banner {
-            background: linear-gradient(135deg, rgba(52,211,153,0.12) 0%, rgba(16,185,129,0.06) 100%);
-            border: 1px solid rgba(52,211,153,0.25);
-            border-radius: var(--radius-lg);
-            padding: 28px 32px;
-            text-align: center;
-            margin-bottom: 32px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .savings-banner::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(52,211,153,0.06) 0%, transparent 50%);
-            animation: savingsPulse 4s ease-in-out infinite;
-        }
-
-        @keyframes savingsPulse {
-            0%, 100% { opacity: 0.5; transform: scale(0.8); }
-            50% { opacity: 1; transform: scale(1.2); }
-        }
-
-        .savings-amount {
-            font-size: 36px;
-            font-weight: 800;
-            color: var(--green-success);
-            letter-spacing: -0.03em;
-            position: relative;
-        }
-
-        .savings-text {
-            font-size: 15px;
-            color: var(--text-secondary);
-            margin-top: 4px;
-            position: relative;
-        }
-
-        .savings-banner.no-savings {
-            background: linear-gradient(135deg, rgba(52,211,153,0.08) 0%, rgba(16,185,129,0.04) 100%);
-        }
-
-        .savings-banner.no-savings .savings-amount {
-            font-size: 20px;
-        }
-
-        /* ── AUDIT TABLE ────────────────────────────── */
-        .audit-table-wrapper {
-            overflow-x: auto;
-            margin-bottom: 32px;
-            border-radius: var(--radius);
-            border: 1px solid var(--border);
-        }
-
-        .audit-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-
-        .audit-table thead th {
-            background: var(--navy);
-            color: var(--text);
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            padding: 14px 16px;
-            text-align: left;
-            white-space: nowrap;
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 2;
-        }
-
-        .audit-table tbody td {
-            padding: 14px 16px;
-            border-bottom: 1px solid var(--border);
-            vertical-align: middle;
-        }
-
-        .audit-table tbody tr {
-            transition: background var(--duration-fast);
-        }
-
-        .audit-table tbody tr:hover {
-            background: var(--surface-2);
-        }
-
-        .audit-table .row-optimal {
-            border-left: 3px solid var(--green-success);
-        }
-
-        .audit-table .row-review {
-            border-left: 3px solid var(--amber-warning);
-        }
-
-        .audit-table .row-overspend {
-            border-left: 3px solid var(--red-error);
-        }
-
-        .audit-table .row-nodata {
-            border-left: 3px solid var(--text-muted);
-        }
-
-        .cell-channel {
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        .cell-grade {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            height: 32px;
-            border-radius: var(--radius-sm);
-            font-weight: 700;
-            font-size: 14px;
-        }
-
-        .cell-grade.grade-a { background: rgba(52,211,153,0.15); color: var(--green-success); }
-        .cell-grade.grade-b { background: rgba(52,211,153,0.1); color: #6EE7B7; }
-        .cell-grade.grade-c { background: rgba(251,191,36,0.12); color: var(--amber-warning); }
-        .cell-grade.grade-d { background: rgba(248,113,113,0.12); color: var(--red-error); }
-        .cell-grade.grade-f { background: rgba(248,113,113,0.18); color: #FCA5A5; }
-
-        .cell-finding {
-            font-size: 12px;
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 99px;
-            display: inline-block;
-        }
-
-        .finding-optimal { background: rgba(52,211,153,0.12); color: var(--green-success); }
-        .finding-review { background: rgba(251,191,36,0.12); color: var(--amber-warning); }
-        .finding-overspend { background: rgba(248,113,113,0.12); color: var(--red-error); }
-        .finding-nodata { background: var(--surface-3); color: var(--text-muted); }
-
-        .variance-positive { color: var(--red-error); }
-        .variance-negative { color: var(--green-success); }
-        .variance-neutral { color: var(--text-muted); }
-
-        /* ── MISSING CHANNELS ───────────────────────── */
-        .missing-section {
-            margin-bottom: 32px;
-        }
-
-        .missing-section h3 {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 16px;
-            letter-spacing: -0.02em;
-        }
-
         .missing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 16px;
+          grid-template-columns: 1fr;
         }
-
-        .missing-card {
-            padding: 20px;
-            border-left: 3px solid var(--indigo);
-        }
-
-        .missing-card.importance-critical { border-left-color: var(--red-error); }
-        .missing-card.importance-high { border-left-color: var(--amber-warning); }
-        .missing-card.importance-medium { border-left-color: var(--cyan-accent); }
-
-        .missing-card-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 8px;
-        }
-
-        .missing-card-name {
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--text);
-        }
-
-        .importance-badge {
-            font-size: 10px;
-            font-weight: 700;
-            padding: 3px 10px;
-            border-radius: 99px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .badge-critical { background: rgba(248,113,113,0.15); color: var(--red-error); }
-        .badge-high { background: rgba(251,191,36,0.12); color: var(--amber-warning); }
-        .badge-medium { background: rgba(34,211,238,0.12); color: var(--cyan-accent); }
-
-        .missing-card-reason {
-            font-size: 13px;
-            color: var(--text-secondary);
-            line-height: 1.5;
-        }
-
-        /* ── RECOMMENDATIONS ────────────────────────── */
-        .recs-section {
-            margin-bottom: 32px;
-        }
-
-        .recs-section h3 {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 16px;
-            letter-spacing: -0.02em;
-        }
-
-        .rec-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .rec-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 16px;
-            padding: 16px 20px;
-            border-radius: var(--radius);
-            background: var(--surface-1);
-            border: 1px solid var(--border);
-            transition: border-color var(--duration-normal);
-        }
-
-        .rec-item:hover {
-            border-color: var(--glass-border-hover);
-        }
-
-        .rec-number {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--gradient-primary);
-            color: white;
-            font-size: 14px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .rec-body { flex: 1; min-width: 0; }
-
-        .rec-action {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text);
-            margin-bottom: 4px;
-        }
-
-        .rec-detail {
-            font-size: 13px;
-            color: var(--text-secondary);
-            line-height: 1.5;
-        }
-
-        .rec-priority {
-            font-size: 10px;
-            font-weight: 700;
-            padding: 3px 10px;
-            border-radius: 99px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            flex-shrink: 0;
-            align-self: flex-start;
-            margin-top: 2px;
-        }
-
-        .priority-high { background: rgba(248,113,113,0.15); color: var(--red-error); }
-        .priority-medium { background: rgba(251,191,36,0.12); color: var(--amber-warning); }
-        .priority-low { background: rgba(34,211,238,0.12); color: var(--cyan-accent); }
-
-        /* ── DOWNLOAD BUTTONS ───────────────────────── */
         .download-section {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            margin-top: 32px;
+          flex-direction: column;
         }
-
         .btn-download {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 14px 24px;
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text);
-            background: var(--surface-1);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            cursor: pointer;
-            transition: all var(--duration-normal) var(--ease-standard);
-            text-decoration: none;
-            font-family: inherit;
-            min-width: 44px;
-            min-height: 48px;
+          width: 100%;
+          justify-content: center;
         }
-
-        .btn-download:hover {
-            background: var(--surface-2);
-            border-color: var(--glass-border-hover);
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-md);
+        .btn-primary {
+          padding: 14px 20px;
         }
-
-        .btn-download:focus-visible {
-            outline: none;
-            box-shadow: var(--focus-ring);
+        .savings-amount {
+          font-size: 28px;
         }
-
-        .btn-download svg { width: 18px; height: 18px; color: var(--indigo-light); }
-
-        /* ── ERROR STATE ────────────────────────────── */
-        .error-banner {
-            display: none;
-            background: rgba(248,113,113,0.1);
-            border: 1px solid rgba(248,113,113,0.25);
-            border-radius: var(--radius);
-            padding: 16px 20px;
-            margin-top: 16px;
-            color: var(--red-error);
-            font-size: 14px;
+        .drop-zone {
+          padding: 32px 16px;
         }
-
-        .error-banner.visible { display: block; }
-
-        /* ── RESPONSIVE ─────────────────────────────── */
-        @media (max-width: 768px) {
-            .app-header { padding: 0 16px; }
-            .main-container { padding: 20px 16px 48px; }
-            .page-title h2 { font-size: 24px; }
-            .glass-card { padding: 20px; }
-            .scorecard { grid-template-columns: 1fr; gap: 16px; }
-            .form-grid { grid-template-columns: 1fr; }
-            .missing-grid { grid-template-columns: 1fr; }
-            .download-section { flex-direction: column; }
-            .btn-download { width: 100%; justify-content: center; }
-            .btn-primary { padding: 14px 20px; }
-            .savings-amount { font-size: 28px; }
-            .drop-zone { padding: 32px 16px; }
-            .rec-item { flex-wrap: wrap; }
+        .rec-item {
+          flex-wrap: wrap;
         }
+      }
 
-        @media (max-width: 480px) {
-            .app-header h1 { font-size: 14px; }
-            .header-badge { display: none; }
+      @media (max-width: 480px) {
+        .app-header h1 {
+          font-size: 14px;
         }
+        .header-badge {
+          display: none;
+        }
+      }
 
-        /* ── UTILITIES ──────────────────────────────── */
-        .sr-only {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0,0,0,0);
-            white-space: nowrap;
-            border: 0;
-        }
+      /* ── UTILITIES ──────────────────────────────── */
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
 
-        .text-mono {
-            font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
-        }
+      .text-mono {
+        font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
+      }
+
+      /* -- Scroll reveal animations -- */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* -- Enhanced card/section glow -- */
+      .glow-hover {
+        transition:
+          box-shadow 0.4s ease,
+          border-color 0.3s ease;
+      }
+      .glow-hover:hover {
+        box-shadow:
+          0 0 20px rgba(99, 102, 241, 0.12),
+          0 0 50px rgba(99, 102, 241, 0.06);
+        border-color: rgba(99, 102, 241, 0.2);
+      }
     </style>
-</head>
-<body>
-
+  </head>
+  <body>
     <!-- Header -->
     <header class="app-header" role="banner">
-        <div class="header-content">
-            <div class="header-logo" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M4 18V12l4-4 4 6 4-8 4 8"/>
-                </svg>
-            </div>
-            <h1>Nova AI</h1>
-            <span class="header-badge">Audit Tool</span>
+      <div class="header-content">
+        <div class="header-logo" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M4 18V12l4-4 4 6 4-8 4 8" />
+          </svg>
         </div>
-        <nav aria-label="Main navigation">
-            <a href="/" class="nav-link" aria-label="Back to Media Plan Generator">Generator</a>
-        </nav>
+        <h1>Nova AI</h1>
+        <span class="header-badge">Audit Tool</span>
+      </div>
+      <nav aria-label="Main navigation">
+        <a href="/" class="nav-link" aria-label="Back to Media Plan Generator"
+          >Generator</a
+        >
+      </nav>
     </header>
 
     <main class="main-container" role="main">
+      <!-- Page Title -->
+      <div class="page-title">
+        <h2>Media Plan Audit</h2>
+        <p>
+          Upload your existing recruitment media plan. We will compare every
+          line item against industry benchmarks and identify savings
+          opportunities.
+        </p>
+      </div>
 
-        <!-- Page Title -->
-        <div class="page-title">
-            <h2>Media Plan Audit</h2>
-            <p>Upload your existing recruitment media plan. We will compare every line item against industry benchmarks and identify savings opportunities.</p>
+      <!-- Upload Form -->
+      <section
+        class="upload-section glass-card"
+        aria-label="Upload and configure audit"
+      >
+        <span class="section-label">Upload Media Plan</span>
+
+        <div
+          class="drop-zone"
+          id="dropZone"
+          role="button"
+          tabindex="0"
+          aria-label="Drop file here or click to upload Excel or CSV media plan"
+        >
+          <div class="drop-zone-icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+          </div>
+          <span class="drop-zone-text">Drag and drop your media plan here</span>
+          <span class="drop-zone-hint"
+            >Excel (.xlsx, .xls) or CSV -- max 10MB</span
+          >
+          <input
+            type="file"
+            id="fileInput"
+            accept=".xlsx,.xls,.csv"
+            aria-label="Select media plan file"
+          />
         </div>
 
-        <!-- Upload Form -->
-        <section class="upload-section glass-card" aria-label="Upload and configure audit">
-            <span class="section-label">Upload Media Plan</span>
+        <div class="file-selected" id="fileSelected">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--indigo-light)"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+          <span class="file-name" id="fileName"></span>
+          <button
+            class="file-remove"
+            id="fileRemove"
+            aria-label="Remove file"
+            type="button"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
 
-            <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Drop file here or click to upload Excel or CSV media plan">
-                <div class="drop-zone-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                </div>
-                <span class="drop-zone-text">Drag and drop your media plan here</span>
-                <span class="drop-zone-hint">Excel (.xlsx, .xls) or CSV -- max 10MB</span>
-                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" aria-label="Select media plan file">
+        <!-- Context Inputs -->
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="clientName">Client Name</label>
+            <input
+              type="text"
+              id="clientName"
+              placeholder="e.g., Acme Corp"
+              autocomplete="organization"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="industry">Industry</label>
+            <select id="industry" aria-label="Select industry">
+              <option value="general_entry_level">General / Entry-Level</option>
+              <option value="healthcare_medical">Healthcare & Medical</option>
+              <option value="blue_collar_trades">
+                Blue Collar / Skilled Trades
+              </option>
+              <option value="tech_engineering">Technology & Engineering</option>
+              <option value="finance_banking">Finance & Banking</option>
+              <option value="retail_consumer">Retail & Consumer</option>
+              <option value="logistics_supply_chain">
+                Logistics & Supply Chain
+              </option>
+              <option value="hospitality_travel">Hospitality & Travel</option>
+              <option value="aerospace_defense">Aerospace & Defense</option>
+              <option value="construction_real_estate">
+                Construction & Real Estate
+              </option>
+              <option value="automotive">Automotive & Manufacturing</option>
+              <option value="energy_utilities">Energy & Utilities</option>
+              <option value="pharma_biotech">Pharma & Biotech</option>
+              <option value="insurance">Insurance</option>
+              <option value="telecommunications">Telecommunications</option>
+              <option value="food_beverage">Food & Beverage</option>
+              <option value="education">Education</option>
+              <option value="maritime_marine">Maritime & Marine</option>
+              <option value="legal_services">Legal Services</option>
+              <option value="mental_health">Mental Health & Behavioral</option>
+              <option value="media_entertainment">Media & Entertainment</option>
+              <option value="military_recruitment">Military Recruitment</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="targetRoles">Target Roles</label>
+            <input
+              type="text"
+              id="targetRoles"
+              placeholder="e.g., Software Engineer, Nurse, Warehouse"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="targetLocations">Target Locations</label>
+            <input
+              type="text"
+              id="targetLocations"
+              placeholder="e.g., New York, California, United States"
+            />
+          </div>
+        </div>
+
+        <button
+          class="btn-primary"
+          id="runAuditBtn"
+          type="button"
+          aria-label="Run media plan audit"
+        >
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="btn-text">Run Audit</span>
+          <span class="btn-loading-text">Analyzing your media plan...</span>
+        </button>
+
+        <div class="error-banner" id="errorBanner" role="alert"></div>
+      </section>
+
+      <!-- Results Section -->
+      <section
+        class="results-section"
+        id="resultsSection"
+        aria-label="Audit results"
+      >
+        <!-- Audit Scorecard -->
+        <div class="scorecard" id="scorecard">
+          <div class="glass-card score-card">
+            <div class="score-card-label">Overall Grade</div>
+            <div
+              class="grade-display"
+              id="overallGrade"
+              aria-label="Overall audit grade"
+            ></div>
+            <div class="grade-label" id="overallGradeLabel"></div>
+          </div>
+
+          <div class="glass-card score-card">
+            <div class="score-card-label">Budget Efficiency</div>
+            <div class="gauge-container" aria-label="Budget efficiency score">
+              <svg class="gauge-svg" viewBox="0 0 96 96">
+                <circle class="gauge-bg" cx="48" cy="48" r="40"></circle>
+                <circle
+                  class="gauge-fill"
+                  id="efficiencyGauge"
+                  cx="48"
+                  cy="48"
+                  r="40"
+                  stroke-dasharray="251.327"
+                  stroke-dashoffset="251.327"
+                ></circle>
+              </svg>
+              <div class="gauge-value">
+                <span id="efficiencyValue">0</span
+                ><span class="gauge-suffix">/100</span>
+              </div>
             </div>
+            <div class="grade-label">Cost Efficiency</div>
+          </div>
 
-            <div class="file-selected" id="fileSelected">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--indigo-light)" stroke-width="2" aria-hidden="true">
-                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                </svg>
-                <span class="file-name" id="fileName"></span>
-                <button class="file-remove" id="fileRemove" aria-label="Remove file" type="button">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                </button>
+          <div class="glass-card score-card">
+            <div class="score-card-label">Channel Coverage</div>
+            <div class="gauge-container" aria-label="Channel coverage score">
+              <svg class="gauge-svg" viewBox="0 0 96 96">
+                <circle class="gauge-bg" cx="48" cy="48" r="40"></circle>
+                <circle
+                  class="gauge-fill"
+                  id="coverageGauge"
+                  cx="48"
+                  cy="48"
+                  r="40"
+                  stroke-dasharray="251.327"
+                  stroke-dashoffset="251.327"
+                ></circle>
+              </svg>
+              <div class="gauge-value">
+                <span id="coverageValue">0</span
+                ><span class="gauge-suffix">/100</span>
+              </div>
             </div>
+            <div class="grade-label">Platform Coverage</div>
+          </div>
+        </div>
 
-            <!-- Context Inputs -->
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="clientName">Client Name</label>
-                    <input type="text" id="clientName" placeholder="e.g., Acme Corp" autocomplete="organization">
-                </div>
+        <!-- Savings Banner -->
+        <div class="savings-banner" id="savingsBanner">
+          <div class="savings-amount" id="savingsAmount"></div>
+          <div class="savings-text" id="savingsText"></div>
+        </div>
 
-                <div class="form-group">
-                    <label for="industry">Industry</label>
-                    <select id="industry" aria-label="Select industry">
-                        <option value="general_entry_level">General / Entry-Level</option>
-                        <option value="healthcare_medical">Healthcare & Medical</option>
-                        <option value="blue_collar_trades">Blue Collar / Skilled Trades</option>
-                        <option value="tech_engineering">Technology & Engineering</option>
-                        <option value="finance_banking">Finance & Banking</option>
-                        <option value="retail_consumer">Retail & Consumer</option>
-                        <option value="logistics_supply_chain">Logistics & Supply Chain</option>
-                        <option value="hospitality_travel">Hospitality & Travel</option>
-                        <option value="aerospace_defense">Aerospace & Defense</option>
-                        <option value="construction_real_estate">Construction & Real Estate</option>
-                        <option value="automotive">Automotive & Manufacturing</option>
-                        <option value="energy_utilities">Energy & Utilities</option>
-                        <option value="pharma_biotech">Pharma & Biotech</option>
-                        <option value="insurance">Insurance</option>
-                        <option value="telecommunications">Telecommunications</option>
-                        <option value="food_beverage">Food & Beverage</option>
-                        <option value="education">Education</option>
-                        <option value="maritime_marine">Maritime & Marine</option>
-                        <option value="legal_services">Legal Services</option>
-                        <option value="mental_health">Mental Health & Behavioral</option>
-                        <option value="media_entertainment">Media & Entertainment</option>
-                        <option value="military_recruitment">Military Recruitment</option>
-                    </select>
-                </div>
+        <!-- Line-by-Line Audit Table -->
+        <div
+          class="glass-card"
+          style="margin-bottom: 32px; padding: 0; overflow: hidden"
+        >
+          <div style="padding: 20px 24px 0">
+            <span class="section-label">Line-by-Line Audit</span>
+          </div>
+          <div class="audit-table-wrapper">
+            <table
+              class="audit-table"
+              id="auditTable"
+              aria-label="Line-by-line audit results"
+            >
+              <thead>
+                <tr>
+                  <th scope="col">Channel</th>
+                  <th scope="col">Planned Budget</th>
+                  <th scope="col">Planned CPC</th>
+                  <th scope="col">Benchmark CPC</th>
+                  <th scope="col">Variance</th>
+                  <th scope="col">Grade</th>
+                  <th scope="col">Finding</th>
+                </tr>
+              </thead>
+              <tbody id="auditTableBody"></tbody>
+            </table>
+          </div>
+        </div>
 
-                <div class="form-group">
-                    <label for="targetRoles">Target Roles</label>
-                    <input type="text" id="targetRoles" placeholder="e.g., Software Engineer, Nurse, Warehouse">
-                </div>
+        <!-- Missing Channels -->
+        <div class="missing-section" id="missingSection">
+          <h3>Missing Channels</h3>
+          <div class="missing-grid" id="missingGrid"></div>
+        </div>
 
-                <div class="form-group">
-                    <label for="targetLocations">Target Locations</label>
-                    <input type="text" id="targetLocations" placeholder="e.g., New York, California, United States">
-                </div>
-            </div>
+        <!-- Recommendations -->
+        <div class="recs-section" id="recsSection">
+          <h3>Top Recommendations</h3>
+          <div class="rec-list" id="recList"></div>
+        </div>
 
-            <button class="btn-primary" id="runAuditBtn" type="button" aria-label="Run media plan audit">
-                <span class="spinner" aria-hidden="true"></span>
-                <span class="btn-text">Run Audit</span>
-                <span class="btn-loading-text">Analyzing your media plan...</span>
-            </button>
-
-            <div class="error-banner" id="errorBanner" role="alert"></div>
-        </section>
-
-        <!-- Results Section -->
-        <section class="results-section" id="resultsSection" aria-label="Audit results">
-
-            <!-- Audit Scorecard -->
-            <div class="scorecard" id="scorecard">
-                <div class="glass-card score-card">
-                    <div class="score-card-label">Overall Grade</div>
-                    <div class="grade-display" id="overallGrade" aria-label="Overall audit grade"></div>
-                    <div class="grade-label" id="overallGradeLabel"></div>
-                </div>
-
-                <div class="glass-card score-card">
-                    <div class="score-card-label">Budget Efficiency</div>
-                    <div class="gauge-container" aria-label="Budget efficiency score">
-                        <svg class="gauge-svg" viewBox="0 0 96 96">
-                            <circle class="gauge-bg" cx="48" cy="48" r="40"></circle>
-                            <circle class="gauge-fill" id="efficiencyGauge" cx="48" cy="48" r="40"
-                                    stroke-dasharray="251.327" stroke-dashoffset="251.327"></circle>
-                        </svg>
-                        <div class="gauge-value">
-                            <span id="efficiencyValue">0</span><span class="gauge-suffix">/100</span>
-                        </div>
-                    </div>
-                    <div class="grade-label">Cost Efficiency</div>
-                </div>
-
-                <div class="glass-card score-card">
-                    <div class="score-card-label">Channel Coverage</div>
-                    <div class="gauge-container" aria-label="Channel coverage score">
-                        <svg class="gauge-svg" viewBox="0 0 96 96">
-                            <circle class="gauge-bg" cx="48" cy="48" r="40"></circle>
-                            <circle class="gauge-fill" id="coverageGauge" cx="48" cy="48" r="40"
-                                    stroke-dasharray="251.327" stroke-dashoffset="251.327"></circle>
-                        </svg>
-                        <div class="gauge-value">
-                            <span id="coverageValue">0</span><span class="gauge-suffix">/100</span>
-                        </div>
-                    </div>
-                    <div class="grade-label">Platform Coverage</div>
-                </div>
-            </div>
-
-            <!-- Savings Banner -->
-            <div class="savings-banner" id="savingsBanner">
-                <div class="savings-amount" id="savingsAmount"></div>
-                <div class="savings-text" id="savingsText"></div>
-            </div>
-
-            <!-- Line-by-Line Audit Table -->
-            <div class="glass-card" style="margin-bottom:32px; padding:0; overflow:hidden;">
-                <div style="padding:20px 24px 0;">
-                    <span class="section-label">Line-by-Line Audit</span>
-                </div>
-                <div class="audit-table-wrapper">
-                    <table class="audit-table" id="auditTable" aria-label="Line-by-line audit results">
-                        <thead>
-                            <tr>
-                                <th scope="col">Channel</th>
-                                <th scope="col">Planned Budget</th>
-                                <th scope="col">Planned CPC</th>
-                                <th scope="col">Benchmark CPC</th>
-                                <th scope="col">Variance</th>
-                                <th scope="col">Grade</th>
-                                <th scope="col">Finding</th>
-                            </tr>
-                        </thead>
-                        <tbody id="auditTableBody"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Missing Channels -->
-            <div class="missing-section" id="missingSection">
-                <h3>Missing Channels</h3>
-                <div class="missing-grid" id="missingGrid"></div>
-            </div>
-
-            <!-- Recommendations -->
-            <div class="recs-section" id="recsSection">
-                <h3>Top Recommendations</h3>
-                <div class="rec-list" id="recList"></div>
-            </div>
-
-            <!-- Downloads -->
-            <div class="download-section" id="downloadSection">
-                <button class="btn-download" id="downloadExcel" type="button" aria-label="Download audit report as Excel">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    Download Audit Report (Excel)
-                </button>
-                <button class="btn-download" id="downloadPpt" type="button" aria-label="Download audit presentation as PowerPoint">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    Download Presentation (PPT)
-                </button>
-            </div>
-        </section>
+        <!-- Downloads -->
+        <div class="download-section" id="downloadSection">
+          <button
+            class="btn-download"
+            id="downloadExcel"
+            type="button"
+            aria-label="Download audit report as Excel"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download Audit Report (Excel)
+          </button>
+          <button
+            class="btn-download"
+            id="downloadPpt"
+            type="button"
+            aria-label="Download audit presentation as PowerPoint"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download Presentation (PPT)
+          </button>
+        </div>
+      </section>
     </main>
 
     <script>
-    (function() {
-        'use strict';
+      (function () {
+        "use strict";
 
         // ── DOM References ──────────────────────────────────────────────
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const fileSelected = document.getElementById('fileSelected');
-        const fileName = document.getElementById('fileName');
-        const fileRemove = document.getElementById('fileRemove');
-        const runAuditBtn = document.getElementById('runAuditBtn');
-        const errorBanner = document.getElementById('errorBanner');
-        const resultsSection = document.getElementById('resultsSection');
+        const dropZone = document.getElementById("dropZone");
+        const fileInput = document.getElementById("fileInput");
+        const fileSelected = document.getElementById("fileSelected");
+        const fileName = document.getElementById("fileName");
+        const fileRemove = document.getElementById("fileRemove");
+        const runAuditBtn = document.getElementById("runAuditBtn");
+        const errorBanner = document.getElementById("errorBanner");
+        const resultsSection = document.getElementById("resultsSection");
 
         let selectedFile = null;
         let lastReportData = null;
 
         // ── File Upload ─────────────────────────────────────────────────
-        dropZone.addEventListener('dragover', function(e) {
+        dropZone.addEventListener("dragover", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.add("drag-over");
+        });
+
+        dropZone.addEventListener("dragleave", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.remove("drag-over");
+        });
+
+        dropZone.addEventListener("drop", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.remove("drag-over");
+          const files = e.dataTransfer.files;
+          if (files.length > 0) {
+            handleFileSelect(files[0]);
+          }
+        });
+
+        fileInput.addEventListener("change", function () {
+          if (fileInput.files.length > 0) {
+            handleFileSelect(fileInput.files[0]);
+          }
+        });
+
+        dropZone.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            e.stopPropagation();
-            dropZone.classList.add('drag-over');
-        });
-
-        dropZone.addEventListener('dragleave', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            dropZone.classList.remove('drag-over');
-        });
-
-        dropZone.addEventListener('drop', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            dropZone.classList.remove('drag-over');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFileSelect(files[0]);
-            }
-        });
-
-        fileInput.addEventListener('change', function() {
-            if (fileInput.files.length > 0) {
-                handleFileSelect(fileInput.files[0]);
-            }
-        });
-
-        dropZone.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                fileInput.click();
-            }
+            fileInput.click();
+          }
         });
 
         function handleFileSelect(file) {
-            const ext = file.name.split('.').pop().toLowerCase();
-            if (!['xlsx', 'xls', 'csv'].includes(ext)) {
-                showError('Please upload an Excel (.xlsx, .xls) or CSV file.');
-                return;
-            }
-            if (file.size > 10 * 1024 * 1024) {
-                showError('File size exceeds 10MB limit.');
-                return;
-            }
-            selectedFile = file;
-            fileName.textContent = file.name;
-            fileSelected.classList.add('visible');
-            hideError();
+          const ext = file.name.split(".").pop().toLowerCase();
+          if (!["xlsx", "xls", "csv"].includes(ext)) {
+            showError("Please upload an Excel (.xlsx, .xls) or CSV file.");
+            return;
+          }
+          if (file.size > 10 * 1024 * 1024) {
+            showError("File size exceeds 10MB limit.");
+            return;
+          }
+          selectedFile = file;
+          fileName.textContent = file.name;
+          fileSelected.classList.add("visible");
+          hideError();
         }
 
-        fileRemove.addEventListener('click', function() {
-            selectedFile = null;
-            fileInput.value = '';
-            fileSelected.classList.remove('visible');
+        fileRemove.addEventListener("click", function () {
+          selectedFile = null;
+          fileInput.value = "";
+          fileSelected.classList.remove("visible");
         });
 
         // ── Run Audit ───────────────────────────────────────────────────
-        runAuditBtn.addEventListener('click', runAudit);
+        runAuditBtn.addEventListener("click", runAudit);
 
         async function runAudit() {
-            if (!selectedFile) {
-                showError('Please upload a media plan file first.');
-                return;
+          if (!selectedFile) {
+            showError("Please upload a media plan file first.");
+            return;
+          }
+
+          hideError();
+          resultsSection.classList.remove("visible");
+          runAuditBtn.classList.add("loading");
+          runAuditBtn.disabled = true;
+
+          try {
+            const formData = new FormData();
+            formData.append("file", selectedFile);
+            formData.append(
+              "client_name",
+              document.getElementById("clientName").value || "Client",
+            );
+            formData.append(
+              "industry",
+              document.getElementById("industry").value,
+            );
+            formData.append(
+              "roles",
+              document.getElementById("targetRoles").value,
+            );
+            formData.append(
+              "locations",
+              document.getElementById("targetLocations").value,
+            );
+
+            const response = await fetch("/api/audit/analyze", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!response.ok) {
+              const text = await response.text();
+              throw new Error(text || "Server error: " + response.status);
             }
 
-            hideError();
-            resultsSection.classList.remove('visible');
-            runAuditBtn.classList.add('loading');
-            runAuditBtn.disabled = true;
+            const data = await response.json();
 
-            try {
-                const formData = new FormData();
-                formData.append('file', selectedFile);
-                formData.append('client_name', document.getElementById('clientName').value || 'Client');
-                formData.append('industry', document.getElementById('industry').value);
-                formData.append('roles', document.getElementById('targetRoles').value);
-                formData.append('locations', document.getElementById('targetLocations').value);
-
-                const response = await fetch('/api/audit/analyze', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                if (!response.ok) {
-                    const text = await response.text();
-                    throw new Error(text || 'Server error: ' + response.status);
-                }
-
-                const data = await response.json();
-
-                if (!data.success) {
-                    throw new Error(data.error || 'Audit failed. Please check your file format.');
-                }
-
-                lastReportData = data;
-                renderResults(data);
-                resultsSection.classList.add('visible');
-                resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-            } catch (err) {
-                showError(err.message || 'An unexpected error occurred. Please try again.');
-            } finally {
-                runAuditBtn.classList.remove('loading');
-                runAuditBtn.disabled = false;
+            if (!data.success) {
+              throw new Error(
+                data.error || "Audit failed. Please check your file format.",
+              );
             }
+
+            lastReportData = data;
+            renderResults(data);
+            resultsSection.classList.add("visible");
+            resultsSection.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          } catch (err) {
+            showError(
+              err.message || "An unexpected error occurred. Please try again.",
+            );
+          } finally {
+            runAuditBtn.classList.remove("loading");
+            runAuditBtn.disabled = false;
+          }
         }
 
         // ── Render Results ──────────────────────────────────────────────
         function renderResults(data) {
-            renderScorecard(data.scorecard || {});
-            renderSavingsBanner(data.savings || {});
-            renderAuditTable(data.audit_results || []);
-            renderMissingChannels(data.missing_channels || []);
-            renderRecommendations(data.recommendations || []);
+          renderScorecard(data.scorecard || {});
+          renderSavingsBanner(data.savings || {});
+          renderAuditTable(data.audit_results || []);
+          renderMissingChannels(data.missing_channels || []);
+          renderRecommendations(data.recommendations || []);
         }
 
         function renderScorecard(sc) {
-            const grade = sc.overall_grade || 'N/A';
-            const gradeEl = document.getElementById('overallGrade');
-            gradeEl.textContent = grade;
-            gradeEl.className = 'grade-display grade-' + grade;
+          const grade = sc.overall_grade || "N/A";
+          const gradeEl = document.getElementById("overallGrade");
+          gradeEl.textContent = grade;
+          gradeEl.className = "grade-display grade-" + grade;
 
-            const labelMap = {
-                'A': 'Excellent plan',
-                'B': 'Strong plan',
-                'C': 'Needs optimization',
-                'D': 'Significant issues',
-                'F': 'Major overhaul needed',
-                'N/A': 'Insufficient data'
-            };
-            document.getElementById('overallGradeLabel').textContent = labelMap[grade] || '';
+          const labelMap = {
+            A: "Excellent plan",
+            B: "Strong plan",
+            C: "Needs optimization",
+            D: "Significant issues",
+            F: "Major overhaul needed",
+            "N/A": "Insufficient data",
+          };
+          document.getElementById("overallGradeLabel").textContent =
+            labelMap[grade] || "";
 
-            // Efficiency gauge
-            animateGauge('efficiencyGauge', 'efficiencyValue', sc.budget_efficiency_score || 0);
-            // Coverage gauge
-            animateGauge('coverageGauge', 'coverageValue', sc.channel_coverage_score || 0);
+          // Efficiency gauge
+          animateGauge(
+            "efficiencyGauge",
+            "efficiencyValue",
+            sc.budget_efficiency_score || 0,
+          );
+          // Coverage gauge
+          animateGauge(
+            "coverageGauge",
+            "coverageValue",
+            sc.channel_coverage_score || 0,
+          );
         }
 
         function animateGauge(gaugeId, valueId, score) {
-            const circumference = 2 * Math.PI * 40; // r=40
-            const offset = circumference - (score / 100) * circumference;
-            const gaugeEl = document.getElementById(gaugeId);
-            const valueEl = document.getElementById(valueId);
+          const circumference = 2 * Math.PI * 40; // r=40
+          const offset = circumference - (score / 100) * circumference;
+          const gaugeEl = document.getElementById(gaugeId);
+          const valueEl = document.getElementById(valueId);
 
-            // Color based on score
-            let color;
-            if (score >= 70) color = '#34D399';
-            else if (score >= 40) color = '#FBBF24';
-            else color = '#F87171';
+          // Color based on score
+          let color;
+          if (score >= 70) color = "#34D399";
+          else if (score >= 40) color = "#FBBF24";
+          else color = "#F87171";
 
-            gaugeEl.style.stroke = color;
+          gaugeEl.style.stroke = color;
 
-            // Animate
-            requestAnimationFrame(function() {
-                gaugeEl.style.strokeDashoffset = offset;
-            });
+          // Animate
+          requestAnimationFrame(function () {
+            gaugeEl.style.strokeDashoffset = offset;
+          });
 
-            // Counter animation
-            let current = 0;
-            const step = score / 30;
-            const timer = setInterval(function() {
-                current += step;
-                if (current >= score) {
-                    current = score;
-                    clearInterval(timer);
-                }
-                valueEl.textContent = Math.round(current);
-            }, 30);
+          // Counter animation
+          let current = 0;
+          const step = score / 30;
+          const timer = setInterval(function () {
+            current += step;
+            if (current >= score) {
+              current = score;
+              clearInterval(timer);
+            }
+            valueEl.textContent = Math.round(current);
+          }, 30);
         }
 
         function renderSavingsBanner(savings) {
-            const banner = document.getElementById('savingsBanner');
-            const amountEl = document.getElementById('savingsAmount');
-            const textEl = document.getElementById('savingsText');
-            const total = savings.total_savings || 0;
+          const banner = document.getElementById("savingsBanner");
+          const amountEl = document.getElementById("savingsAmount");
+          const textEl = document.getElementById("savingsText");
+          const total = savings.total_savings || 0;
 
-            if (total > 0) {
-                banner.classList.remove('no-savings');
-                amountEl.textContent = 'Save $' + total.toLocaleString('en-US', {maximumFractionDigits: 0});
-                textEl.textContent = savings.narrative || 'by optimizing your media plan';
-            } else {
-                banner.classList.add('no-savings');
-                amountEl.textContent = 'Costs are in line with benchmarks';
-                textEl.textContent = savings.narrative || 'Focus on channel coverage for maximum impact.';
-            }
+          if (total > 0) {
+            banner.classList.remove("no-savings");
+            amountEl.textContent =
+              "Save $" +
+              total.toLocaleString("en-US", { maximumFractionDigits: 0 });
+            textEl.textContent =
+              savings.narrative || "by optimizing your media plan";
+          } else {
+            banner.classList.add("no-savings");
+            amountEl.textContent = "Costs are in line with benchmarks";
+            textEl.textContent =
+              savings.narrative ||
+              "Focus on channel coverage for maximum impact.";
+          }
         }
 
         function renderAuditTable(results) {
-            const tbody = document.getElementById('auditTableBody');
-            tbody.innerHTML = '';
+          const tbody = document.getElementById("auditTableBody");
+          tbody.innerHTML = "";
 
-            results.forEach(function(ar) {
-                const tr = document.createElement('tr');
-                const finding = ar.finding || 'no_data';
-                const rowClass = {
-                    optimal: 'row-optimal',
-                    review: 'row-review',
-                    overspend: 'row-overspend',
-                    no_data: 'row-nodata'
-                }[finding] || 'row-nodata';
-                tr.className = rowClass;
+          results.forEach(function (ar) {
+            const tr = document.createElement("tr");
+            const finding = ar.finding || "no_data";
+            const rowClass =
+              {
+                optimal: "row-optimal",
+                review: "row-review",
+                overspend: "row-overspend",
+                no_data: "row-nodata",
+              }[finding] || "row-nodata";
+            tr.className = rowClass;
 
-                const grade = ar.grade || 'C';
-                const gradeClass = 'grade-' + grade.toLowerCase();
-                const cpcVar = ar.cpc_variance_pct || 0;
-                const varClass = cpcVar > 0 ? 'variance-positive' : cpcVar < 0 ? 'variance-negative' : 'variance-neutral';
-                const findingLabel = {
-                    optimal: 'Optimal',
-                    review: 'Needs Review',
-                    overspend: 'Overspend',
-                    no_data: 'No Data'
-                }[finding] || finding;
-                const findingClass = {
-                    optimal: 'finding-optimal',
-                    review: 'finding-review',
-                    overspend: 'finding-overspend',
-                    no_data: 'finding-nodata'
-                }[finding] || 'finding-nodata';
+            const grade = ar.grade || "C";
+            const gradeClass = "grade-" + grade.toLowerCase();
+            const cpcVar = ar.cpc_variance_pct || 0;
+            const varClass =
+              cpcVar > 0
+                ? "variance-positive"
+                : cpcVar < 0
+                  ? "variance-negative"
+                  : "variance-neutral";
+            const findingLabel =
+              {
+                optimal: "Optimal",
+                review: "Needs Review",
+                overspend: "Overspend",
+                no_data: "No Data",
+              }[finding] || finding;
+            const findingClass =
+              {
+                optimal: "finding-optimal",
+                review: "finding-review",
+                overspend: "finding-overspend",
+                no_data: "finding-nodata",
+              }[finding] || "finding-nodata";
 
-                const plannedCpc = ar.planned_cpc != null ? '$' + ar.planned_cpc.toFixed(2) : 'N/A';
-                const benchCpc = '$' + (ar.benchmark_cpc || 0).toFixed(2);
-                const varStr = cpcVar !== 0 ? (cpcVar > 0 ? '+' : '') + cpcVar.toFixed(1) + '%' : '-';
+            const plannedCpc =
+              ar.planned_cpc != null ? "$" + ar.planned_cpc.toFixed(2) : "N/A";
+            const benchCpc = "$" + (ar.benchmark_cpc || 0).toFixed(2);
+            const varStr =
+              cpcVar !== 0
+                ? (cpcVar > 0 ? "+" : "") + cpcVar.toFixed(1) + "%"
+                : "-";
 
-                tr.innerHTML =
-                    '<td class="cell-channel">' + escapeHtml(ar.channel || '') + '</td>' +
-                    '<td class="text-mono">$' + (ar.planned_budget || 0).toLocaleString('en-US', {maximumFractionDigits: 0}) + '</td>' +
-                    '<td class="text-mono">' + plannedCpc + '</td>' +
-                    '<td class="text-mono">' + benchCpc + '</td>' +
-                    '<td class="text-mono ' + varClass + '">' + varStr + '</td>' +
-                    '<td><span class="cell-grade ' + gradeClass + '">' + grade + '</span></td>' +
-                    '<td><span class="cell-finding ' + findingClass + '">' + findingLabel + '</span></td>';
+            tr.innerHTML =
+              '<td class="cell-channel">' +
+              escapeHtml(ar.channel || "") +
+              "</td>" +
+              '<td class="text-mono">$' +
+              (ar.planned_budget || 0).toLocaleString("en-US", {
+                maximumFractionDigits: 0,
+              }) +
+              "</td>" +
+              '<td class="text-mono">' +
+              plannedCpc +
+              "</td>" +
+              '<td class="text-mono">' +
+              benchCpc +
+              "</td>" +
+              '<td class="text-mono ' +
+              varClass +
+              '">' +
+              varStr +
+              "</td>" +
+              '<td><span class="cell-grade ' +
+              gradeClass +
+              '">' +
+              grade +
+              "</span></td>" +
+              '<td><span class="cell-finding ' +
+              findingClass +
+              '">' +
+              findingLabel +
+              "</span></td>";
 
-                tbody.appendChild(tr);
-            });
+            tbody.appendChild(tr);
+          });
         }
 
         function renderMissingChannels(channels) {
-            const section = document.getElementById('missingSection');
-            const grid = document.getElementById('missingGrid');
-            grid.innerHTML = '';
+          const section = document.getElementById("missingSection");
+          const grid = document.getElementById("missingGrid");
+          grid.innerHTML = "";
 
-            if (channels.length === 0) {
-                grid.innerHTML = '<div class="glass-card" style="padding:24px;grid-column:1/-1;text-align:center;color:var(--green-success);font-weight:600;">Your media plan covers all recommended channels. Excellent coverage!</div>';
-                return;
-            }
+          if (channels.length === 0) {
+            grid.innerHTML =
+              '<div class="glass-card" style="padding:24px;grid-column:1/-1;text-align:center;color:var(--green-success);font-weight:600;">Your media plan covers all recommended channels. Excellent coverage!</div>';
+            return;
+          }
 
-            channels.forEach(function(mc) {
-                const importance = mc.importance || 'medium';
-                const card = document.createElement('div');
-                card.className = 'glass-card missing-card importance-' + importance;
+          channels.forEach(function (mc) {
+            const importance = mc.importance || "medium";
+            const card = document.createElement("div");
+            card.className = "glass-card missing-card importance-" + importance;
 
-                const badgeClass = {
-                    critical: 'badge-critical',
-                    high: 'badge-high',
-                    medium: 'badge-medium'
-                }[importance] || 'badge-medium';
+            const badgeClass =
+              {
+                critical: "badge-critical",
+                high: "badge-high",
+                medium: "badge-medium",
+              }[importance] || "badge-medium";
 
-                card.innerHTML =
-                    '<div class="missing-card-header">' +
-                        '<span class="missing-card-name">' + escapeHtml(mc.channel || '') + '</span>' +
-                        '<span class="importance-badge ' + badgeClass + '">' + importance.toUpperCase() + '</span>' +
-                    '</div>' +
-                    '<div class="missing-card-reason">' + escapeHtml(mc.reason || '') + '</div>';
+            card.innerHTML =
+              '<div class="missing-card-header">' +
+              '<span class="missing-card-name">' +
+              escapeHtml(mc.channel || "") +
+              "</span>" +
+              '<span class="importance-badge ' +
+              badgeClass +
+              '">' +
+              importance.toUpperCase() +
+              "</span>" +
+              "</div>" +
+              '<div class="missing-card-reason">' +
+              escapeHtml(mc.reason || "") +
+              "</div>";
 
-                grid.appendChild(card);
-            });
+            grid.appendChild(card);
+          });
         }
 
         function renderRecommendations(recs) {
-            const list = document.getElementById('recList');
-            list.innerHTML = '';
+          const list = document.getElementById("recList");
+          list.innerHTML = "";
 
-            recs.forEach(function(rec, idx) {
-                const priority = rec.priority || 'medium';
-                const prioClass = {
-                    high: 'priority-high',
-                    medium: 'priority-medium',
-                    low: 'priority-low'
-                }[priority] || 'priority-medium';
+          recs.forEach(function (rec, idx) {
+            const priority = rec.priority || "medium";
+            const prioClass =
+              {
+                high: "priority-high",
+                medium: "priority-medium",
+                low: "priority-low",
+              }[priority] || "priority-medium";
 
-                const item = document.createElement('div');
-                item.className = 'rec-item';
-                item.innerHTML =
-                    '<div class="rec-number">' + (rec.priority_num || idx + 1) + '</div>' +
-                    '<div class="rec-body">' +
-                        '<div class="rec-action">' + escapeHtml(rec.action || '') + '</div>' +
-                        '<div class="rec-detail">' + escapeHtml(rec.detail || '') + '</div>' +
-                    '</div>' +
-                    '<span class="rec-priority ' + prioClass + '">' + priority.toUpperCase() + '</span>';
-                list.appendChild(item);
-            });
+            const item = document.createElement("div");
+            item.className = "rec-item";
+            item.innerHTML =
+              '<div class="rec-number">' +
+              (rec.priority_num || idx + 1) +
+              "</div>" +
+              '<div class="rec-body">' +
+              '<div class="rec-action">' +
+              escapeHtml(rec.action || "") +
+              "</div>" +
+              '<div class="rec-detail">' +
+              escapeHtml(rec.detail || "") +
+              "</div>" +
+              "</div>" +
+              '<span class="rec-priority ' +
+              prioClass +
+              '">' +
+              priority.toUpperCase() +
+              "</span>";
+            list.appendChild(item);
+          });
         }
 
         // ── Downloads ───────────────────────────────────────────────────
-        document.getElementById('downloadExcel').addEventListener('click', function() {
-            downloadReport('excel');
-        });
+        document
+          .getElementById("downloadExcel")
+          .addEventListener("click", function () {
+            downloadReport("excel");
+          });
 
-        document.getElementById('downloadPpt').addEventListener('click', function() {
-            downloadReport('ppt');
-        });
+        document
+          .getElementById("downloadPpt")
+          .addEventListener("click", function () {
+            downloadReport("ppt");
+          });
 
         async function downloadReport(format) {
-            if (!lastReportData) {
-                showError('Please run the audit first.');
-                return;
+          if (!lastReportData) {
+            showError("Please run the audit first.");
+            return;
+          }
+
+          try {
+            const response = await fetch("/api/audit/download/" + format, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                report_data: lastReportData,
+                client_name:
+                  document.getElementById("clientName").value || "Client",
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error("Download failed: " + response.status);
             }
 
-            try {
-                const response = await fetch('/api/audit/download/' + format, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        report_data: lastReportData,
-                        client_name: document.getElementById('clientName').value || 'Client',
-                    }),
-                });
-
-                if (!response.ok) {
-                    throw new Error('Download failed: ' + response.status);
-                }
-
-                const blob = await response.blob();
-                const ext = format === 'excel' ? 'xlsx' : 'pptx';
-                const clientName = (document.getElementById('clientName').value || 'Client').replace(/[^a-zA-Z0-9]/g, '_');
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = clientName + '_Media_Plan_Audit.' + ext;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-
-            } catch (err) {
-                showError('Download failed: ' + err.message);
-            }
+            const blob = await response.blob();
+            const ext = format === "excel" ? "xlsx" : "pptx";
+            const clientName = (
+              document.getElementById("clientName").value || "Client"
+            ).replace(/[^a-zA-Z0-9]/g, "_");
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = clientName + "_Media_Plan_Audit." + ext;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          } catch (err) {
+            showError("Download failed: " + err.message);
+          }
         }
 
         // ── Utilities ───────────────────────────────────────────────────
         function showError(msg) {
-            errorBanner.textContent = msg;
-            errorBanner.classList.add('visible');
+          errorBanner.textContent = msg;
+          errorBanner.classList.add("visible");
         }
 
         function hideError() {
-            errorBanner.classList.remove('visible');
+          errorBanner.classList.remove("visible");
         }
 
         function escapeHtml(str) {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
+          const div = document.createElement("div");
+          div.textContent = str;
+          return div.innerHTML;
         }
+      })();
 
-    })();
+      // Scroll reveal
+      (function () {
+        var ro = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) e.target.classList.add("visible");
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          ro.observe(el);
+        });
+      })();
     </script>
-<footer style="text-align:center; padding:2rem 1rem; color:#64748B; font-size:0.8rem; border-top:1px solid rgba(99,102,241,0.1); margin-top:3rem;">
-    Powered by <a href="https://www.linkedin.com/in/chandel13/" target="_blank" rel="noopener" style="color:#818CF8;text-decoration:none;">Shubham Singh Chandel</a> &middot; Nova AI Suite
-</footer>
-</body>
+    <footer
+      style="
+        text-align: center;
+        padding: 2rem 1rem;
+        color: #64748b;
+        font-size: 0.8rem;
+        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        margin-top: 3rem;
+      "
+    >
+      Powered by
+      <a
+        href="https://www.linkedin.com/in/chandel13/"
+        target="_blank"
+        rel="noopener"
+        style="color: #818cf8; text-decoration: none"
+        >Shubham Singh Chandel</a
+      >
+      &middot; Nova AI Suite
+    </footer>
+  </body>
 </html>

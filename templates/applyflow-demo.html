@@ -1,1971 +1,2503 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="ApplyFlow Conversational Apply Widget Demo - Configure a job posting and test the AI-powered chatbot apply experience. By Nova AI Suite.">
-<meta name="theme-color" content="#000000">
-<title>ApplyFlow Demo | Conversational Apply Widget | Nova AI Suite</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-/* ═══════════════════════════════════════════════════════════════════
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="ApplyFlow Conversational Apply Widget Demo - Configure a job posting and test the AI-powered chatbot apply experience. By Nova AI Suite."
+    />
+    <meta name="theme-color" content="#000000" />
+    <title>ApplyFlow Demo | Conversational Apply Widget | Nova AI Suite</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ═══════════════════════════════════════════════════════════════════
    DESIGN SYSTEM: Deep Obsidian + Electric Indigo
    ═══════════════════════════════════════════════════════════════════ */
-:root {
-  --bg-primary: #000000;
-  --bg-secondary: #0a0a0a;
-  --bg-card: rgba(17, 17, 17, 0.8);
-  --bg-card-hover: rgba(26, 26, 26, 0.9);
-  --bg-input: rgba(26, 26, 26, 0.6);
-  --accent: #6366f1;
-  --accent-light: #818cf8;
-  --accent-dim: rgba(99, 102, 241, 0.3);
-  --accent-glow: rgba(99, 102, 241, 0.15);
-  --accent-bg: rgba(99, 102, 241, 0.08);
-  --text-primary: #ededed;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-bright: #f8fafc;
-  --green: #22c55e;
-  --green-bg: rgba(34, 197, 94, 0.1);
-  --green-border: rgba(34, 197, 94, 0.3);
-  --red: #ef4444;
-  --red-bg: rgba(239, 68, 68, 0.1);
-  --red-border: rgba(239, 68, 68, 0.3);
-  --amber: #f59e0b;
-  --amber-bg: rgba(245, 158, 11, 0.1);
-  --border: rgba(99, 102, 241, 0.12);
-  --border-strong: rgba(99, 102, 241, 0.25);
-  --blur: 20px;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-lg: 16px;
-  --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.1);
-  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-::selection { background: var(--accent); color: white; }
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  min-height: 100vh;
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background:
-    radial-gradient(ellipse 600px 400px at 20% 10%, rgba(99, 102, 241, 0.06), transparent),
-    radial-gradient(ellipse 500px 300px at 80% 80%, rgba(99, 102, 241, 0.04), transparent);
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* ── Header ── */
-.af-header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  padding: 14px 32px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  background: rgba(17, 17, 17, 0.95);
-  backdrop-filter: blur(var(--blur));
-  -webkit-backdrop-filter: blur(var(--blur));
-}
-
-.af-header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.af-logo {
-  width: 34px; height: 34px;
-  background: var(--accent);
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-}
-
-.af-logo svg { width: 18px; height: 18px; color: #fff; }
-
-.af-brand {
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--text-bright);
-}
-
-.af-brand span { color: var(--accent-light); }
-
-.af-badge {
-  font-size: 9px;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-dim);
-  padding: 3px 8px;
-  border-radius: 20px;
-  color: var(--accent-light);
-  font-weight: 600;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-
-.af-header-right a {
-  color: var(--accent-light);
-  text-decoration: none;
-  font-size: 0.8rem;
-  font-weight: 500;
-  opacity: 0.8;
-  transition: var(--transition);
-  padding: 6px 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-}
-
-.af-header-right a:hover {
-  opacity: 1;
-  border-color: var(--border);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-/* ── Main Layout ── */
-.af-main {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: 40% 60%;
-  gap: 24px;
-  padding: 24px 32px;
-  max-width: 1480px;
-  margin: 0 auto;
-  min-height: calc(100vh - 260px);
-}
-
-/* ── Card Base ── */
-.af-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-/* ── Config Panel (Left) ── */
-.af-config {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  overflow-y: auto;
-  max-height: calc(100vh - 110px);
-  position: sticky;
-  top: 70px;
-}
-
-.af-config::-webkit-scrollbar { width: 4px; }
-.af-config::-webkit-scrollbar-track { background: transparent; }
-.af-config::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
-
-.af-section-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-bright);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.af-section-icon {
-  width: 28px; height: 28px;
-  border-radius: 8px;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-dim);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px;
-}
-
-.af-section-desc {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.6;
-  margin-top: -6px;
-}
-
-.af-form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.af-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.af-input, .af-select, .af-textarea {
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  font-size: 13px;
-  color: var(--text-primary);
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  width: 100%;
-}
-
-.af-input:focus, .af-select:focus, .af-textarea:focus {
-  border-color: var(--accent-dim);
-  box-shadow: 0 0 0 3px var(--accent-bg);
-}
-
-.af-input::placeholder, .af-textarea::placeholder {
-  color: var(--text-muted);
-}
-
-.af-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 32px;
-  cursor: pointer;
-}
-
-.af-select option {
-  background: #0a0a0a;
-  color: var(--text-primary);
-}
-
-.af-textarea {
-  resize: vertical;
-  min-height: 80px;
-  line-height: 1.6;
-}
-
-.af-hint {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-top: 1px;
-}
-
-/* Screening questions */
-.af-screening-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.af-screening-row {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.af-screening-row input { flex: 1; }
-
-.af-btn-remove-q {
-  background: none;
-  border: 1px solid var(--red-border);
-  color: var(--red);
-  width: 30px; height: 30px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
-  flex-shrink: 0;
-  transition: var(--transition);
-}
-
-.af-btn-remove-q:hover {
-  background: var(--red-bg);
-  border-color: rgba(239, 68, 68, 0.5);
-}
-
-.af-btn-add-q {
-  background: var(--accent-bg);
-  border: 1px dashed var(--accent-dim);
-  color: var(--accent-light);
-  padding: 8px 14px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: inherit;
-  transition: var(--transition);
-  text-align: center;
-}
-
-.af-btn-add-q:hover {
-  background: rgba(99, 102, 241, 0.12);
-  border-color: rgba(99, 102, 241, 0.4);
-}
-
-.af-btn-add-q:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.af-btn-launch {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  padding: 13px 24px;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.25s;
-  letter-spacing: 0.3px;
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
-  width: 100%;
-}
-
-.af-btn-launch:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
-}
-
-.af-btn-launch:active { transform: scale(0.98); }
-
-.af-btn-launch:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-/* ── Preview Panel (Right) ── */
-.af-preview {
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  min-height: 600px;
-  overflow: hidden;
-}
-
-/* Phone mockup frame */
-.af-phone-frame {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: #000000;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  position: relative;
-  box-shadow: 0 0 60px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.05);
-}
-
-/* Chat Header */
-.af-chat-header {
-  padding: 16px 20px;
-  background: rgba(17, 17, 17, 0.95);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.af-chat-avatar {
-  width: 36px; height: 36px;
-  border-radius: 10px;
-  background: var(--accent);
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-
-.af-chat-avatar svg { width: 18px; height: 18px; color: #fff; }
-
-.af-chat-header-info { flex: 1; min-width: 0; }
-
-.af-chat-job-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-bright);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.af-chat-company {
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-
-.af-chat-status {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10px;
-  color: var(--green);
-  font-weight: 600;
-}
-
-.af-chat-status-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--green);
-  animation: statusPulse 2s infinite;
-}
-
-@keyframes statusPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-/* Progress Bar */
-.af-progress-wrap {
-  padding: 10px 20px;
-  background: rgba(17, 17, 17, 0.6);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.af-progress-bar-track {
-  width: 100%;
-  height: 4px;
-  background: rgba(99, 102, 241, 0.12);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.af-progress-bar-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, var(--accent), var(--accent-light));
-  border-radius: 4px;
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.af-progress-labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 6px;
-}
-
-.af-stage-label {
-  font-size: 8px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  transition: color 0.3s;
-  white-space: nowrap;
-}
-
-.af-stage-label.active {
-  color: var(--accent-light);
-}
-
-.af-stage-label.completed {
-  color: var(--green);
-}
-
-/* Chat Messages Area */
-.af-chat-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  scroll-behavior: smooth;
-}
-
-.af-chat-messages::-webkit-scrollbar { width: 4px; }
-.af-chat-messages::-webkit-scrollbar-track { background: transparent; }
-.af-chat-messages::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
-
-/* Message Bubbles */
-.af-msg {
-  display: flex;
-  flex-direction: column;
-  max-width: 82%;
-  animation: msgFadeIn 0.35s ease;
-}
-
-@keyframes msgFadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.af-msg.ai {
-  align-self: flex-start;
-}
-
-.af-msg.user {
-  align-self: flex-end;
-}
-
-.af-msg-bubble {
-  padding: 10px 14px;
-  border-radius: 14px;
-  font-size: 13px;
-  line-height: 1.6;
-  word-wrap: break-word;
-}
-
-.af-msg.ai .af-msg-bubble {
-  background: rgba(99, 102, 241, 0.12);
-  border: 1px solid rgba(99, 102, 241, 0.15);
-  color: var(--text-primary);
-  border-bottom-left-radius: 4px;
-}
-
-.af-msg.user .af-msg-bubble {
-  background: rgba(26, 26, 26, 0.9);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-  border-bottom-right-radius: 4px;
-}
-
-.af-msg-time {
-  font-size: 9px;
-  color: var(--text-muted);
-  margin-top: 3px;
-  padding: 0 4px;
-}
-
-.af-msg.user .af-msg-time { text-align: right; }
-
-/* Quick-reply chips */
-.af-chips-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 20px 8px;
-  animation: msgFadeIn 0.35s ease;
-}
-
-.af-chip {
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-dim);
-  color: var(--accent-light);
-  padding: 7px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: var(--transition);
-  white-space: nowrap;
-}
-
-.af-chip:hover {
-  background: rgba(99, 102, 241, 0.18);
-  border-color: var(--accent);
-  transform: translateY(-1px);
-}
-
-.af-chip:active { transform: scale(0.96); }
-
-/* Typing indicator */
-.af-typing {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 10px 14px;
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.1);
-  border-radius: 14px;
-  border-bottom-left-radius: 4px;
-  align-self: flex-start;
-  max-width: 80px;
-}
-
-.af-typing-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--accent-light);
-  animation: typingBounce 1.4s infinite;
-}
-
-.af-typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.af-typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes typingBounce {
-  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
-  30% { opacity: 1; transform: translateY(-4px); }
-}
-
-/* Chat Input */
-.af-chat-input-wrap {
-  padding: 12px 16px;
-  background: rgba(17, 17, 17, 0.95);
-  border-top: 1px solid var(--border);
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.af-chat-input {
-  flex: 1;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 10px 16px;
-  font-size: 13px;
-  color: var(--text-primary);
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.af-chat-input:focus {
-  border-color: var(--accent-dim);
-}
-
-.af-chat-input::placeholder { color: var(--text-muted); }
-
-.af-chat-input:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.af-btn-send {
-  width: 38px; height: 38px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: none;
-  color: #fff;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: var(--transition);
-  flex-shrink: 0;
-}
-
-.af-btn-send:hover {
-  background: var(--accent-light);
-  transform: scale(1.05);
-}
-
-.af-btn-send:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.af-btn-send svg { width: 16px; height: 16px; }
-
-/* Placeholder state */
-.af-preview-placeholder {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 40px;
-}
-
-.af-placeholder-icon {
-  width: 72px; height: 72px;
-  border-radius: 18px;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-dim);
-  display: flex; align-items: center; justify-content: center;
-}
-
-.af-placeholder-icon svg { width: 32px; height: 32px; color: var(--accent-light); }
-
-.af-placeholder-text {
-  font-size: 13px;
-  color: var(--text-secondary);
-  text-align: center;
-  line-height: 1.7;
-}
-
-.af-placeholder-text strong { color: var(--text-primary); }
-
-/* Summary overlay */
-.af-summary-overlay {
-  display: none;
-  position: absolute;
-  inset: 0;
-  background: rgba(8, 9, 13, 0.95);
-  backdrop-filter: blur(8px);
-  z-index: 10;
-  padding: 24px;
-  overflow-y: auto;
-  animation: msgFadeIn 0.4s ease;
-}
-
-.af-summary-overlay.visible { display: flex; flex-direction: column; gap: 16px; }
-
-.af-summary-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.af-summary-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-bright);
-}
-
-.af-btn-close-summary {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  width: 30px; height: 30px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
-  transition: var(--transition);
-}
-
-.af-btn-close-summary:hover {
-  border-color: var(--accent-dim);
-  color: var(--text-primary);
-}
-
-.af-summary-card {
-  background: rgba(17, 17, 17, 0.6);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-}
-
-.af-summary-card h4 {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 8px;
-}
-
-.af-summary-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.06);
-  font-size: 12px;
-}
-
-.af-summary-row:last-child { border-bottom: none; }
-
-.af-summary-row .label { color: var(--text-secondary); }
-.af-summary-row .value { color: var(--text-primary); font-weight: 600; }
-
-.af-summary-score {
-  text-align: center;
-  padding: 20px;
-}
-
-.af-summary-score-num {
-  font-size: 48px;
-  font-weight: 800;
-  color: var(--accent-light);
-  line-height: 1;
-}
-
-.af-summary-score-label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 4px;
-}
-
-/* ── Stats Footer ── */
-.af-stats {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  padding: 0 32px 24px;
-  max-width: 1480px;
-  margin: 0 auto;
-}
-
-.af-stat-card {
-  padding: 20px;
-  text-align: center;
-}
-
-.af-stat-value {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--text-bright);
-  letter-spacing: -0.02em;
-}
-
-.af-stat-value .unit {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.af-stat-label {
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin-top: 4px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-/* View Summary Button */
-.af-summary-btn-wrap {
-  position: relative;
-  z-index: 1;
-  padding: 0 32px 24px;
-  max-width: 1480px;
-  margin: 0 auto;
-  display: none;
-}
-
-.af-summary-btn-wrap.visible { display: block; }
-
-.af-btn-view-summary {
-  width: 100%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-light));
-  color: #fff;
-  border: none;
-  padding: 14px 24px;
-  border-radius: var(--radius);
-  font-size: 14px;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.25s;
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.af-btn-view-summary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
-}
-
-/* ── Embed Code Section ── */
-.af-embed-section {
-  position: relative;
-  z-index: 1;
-  padding: 0 32px 32px;
-  max-width: 1480px;
-  margin: 0 auto;
-}
-
-.af-embed-card {
-  padding: 24px;
-}
-
-.af-embed-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-bright);
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.af-embed-title svg { color: var(--accent-light); }
-
-.af-embed-code {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  font-family: 'SF Mono', Monaco, Menlo, 'Courier New', monospace;
-  font-size: 11px;
-  color: #93c5fd;
-  line-height: 1.7;
-  overflow-x: auto;
-  white-space: pre;
-  position: relative;
-}
-
-.af-btn-copy {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-dim);
-  color: var(--accent-light);
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 10px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: var(--transition);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 600;
-}
-
-.af-btn-copy:hover { background: rgba(99, 102, 241, 0.18); }
-
-.af-btn-copy.copied {
-  background: var(--green-bg);
-  border-color: var(--green-border);
-  color: var(--green);
-}
-
-/* ── Footer ── */
-.af-footer {
-  position: relative;
-  z-index: 1;
-  text-align: center;
-  padding: 20px 32px;
-  border-top: 1px solid var(--border);
-  font-size: 11px;
-  color: var(--text-muted);
-  letter-spacing: 0.5px;
-}
-
-.af-footer a {
-  color: var(--accent-light);
-  text-decoration: none;
-}
-
-/* ── Animations ── */
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.af-config { animation: fadeInUp 0.5s ease both; }
-.af-preview { animation: fadeInUp 0.5s ease 0.1s both; }
-.af-stats .af-stat-card:nth-child(1) { animation: fadeInUp 0.5s ease 0.2s both; }
-.af-stats .af-stat-card:nth-child(2) { animation: fadeInUp 0.5s ease 0.25s both; }
-.af-stats .af-stat-card:nth-child(3) { animation: fadeInUp 0.5s ease 0.3s both; }
-.af-embed-card { animation: fadeInUp 0.5s ease 0.35s both; }
-
-/* ── Responsive ── */
-@media (max-width: 1024px) {
-  .af-main {
-    grid-template-columns: 1fr;
-    padding: 20px 16px;
-  }
-  .af-config {
-    position: static;
-    max-height: none;
-  }
-  .af-stats {
-    padding: 0 16px 20px;
-    grid-template-columns: repeat(3, 1fr);
-  }
-  .af-embed-section { padding: 0 16px 24px; }
-  .af-summary-btn-wrap { padding: 0 16px 20px; }
-}
-
-@media (max-width: 640px) {
-  .af-header { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
-  .af-main { padding: 16px 12px; gap: 16px; }
-  .af-config { padding: 16px; }
-  .af-stats {
-    grid-template-columns: 1fr;
-    gap: 8px;
-    padding: 0 12px 16px;
-  }
-  .af-embed-section { padding: 0 12px 20px; }
-  .af-summary-btn-wrap { padding: 0 12px 16px; }
-  .af-phone-frame { min-height: 480px; }
-  .af-progress-labels { display: none; }
-}
-</style>
-</head>
-<body>
-
-<!-- ═══ Header ═══ -->
-<header class="af-header">
-  <div class="af-header-left">
-    <div class="af-logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      </svg>
-    </div>
-    <div class="af-brand">Nova AI Suite <span>ApplyFlow</span></div>
-    <div class="af-badge">Interactive Demo</div>
-  </div>
-  <nav class="af-header-right">
-    <a href="/">Back to Nova</a>
-  </nav>
-</header>
-
-<!-- ═══ Main Content ═══ -->
-<main class="af-main">
-
-  <!-- Left Panel: Job Configuration -->
-  <section class="af-card af-config">
-    <div class="af-section-title">
-      <div class="af-section-icon">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      :root {
+        --bg-primary: #000000;
+        --bg-secondary: #0a0a0a;
+        --bg-card: rgba(17, 17, 17, 0.8);
+        --bg-card-hover: rgba(26, 26, 26, 0.9);
+        --bg-input: rgba(26, 26, 26, 0.6);
+        --accent: #6366f1;
+        --accent-light: #818cf8;
+        --accent-dim: rgba(99, 102, 241, 0.3);
+        --accent-glow: rgba(99, 102, 241, 0.15);
+        --accent-bg: rgba(99, 102, 241, 0.08);
+        --text-primary: #ededed;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+        --text-bright: #f8fafc;
+        --green: #22c55e;
+        --green-bg: rgba(34, 197, 94, 0.1);
+        --green-border: rgba(34, 197, 94, 0.3);
+        --red: #ef4444;
+        --red-bg: rgba(239, 68, 68, 0.1);
+        --red-border: rgba(239, 68, 68, 0.3);
+        --amber: #f59e0b;
+        --amber-bg: rgba(245, 158, 11, 0.1);
+        --border: rgba(99, 102, 241, 0.12);
+        --border-strong: rgba(99, 102, 241, 0.25);
+        --blur: 20px;
+        --radius: 12px;
+        --radius-sm: 8px;
+        --radius-lg: 16px;
+        --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.1);
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      ::selection {
+        background: var(--accent);
+        color: white;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background:
+          radial-gradient(
+            ellipse 600px 400px at 20% 10%,
+            rgba(99, 102, 241, 0.06),
+            transparent
+          ),
+          radial-gradient(
+            ellipse 500px 300px at 80% 80%,
+            rgba(99, 102, 241, 0.04),
+            transparent
+          );
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      /* ── Header ── */
+      .af-header {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        padding: 14px 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+        background: rgba(17, 17, 17, 0.95);
+        backdrop-filter: blur(var(--blur));
+        -webkit-backdrop-filter: blur(var(--blur));
+      }
+
+      .af-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .af-logo {
+        width: 34px;
+        height: 34px;
+        background: var(--accent);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .af-logo svg {
+        width: 18px;
+        height: 18px;
+        color: #fff;
+      }
+
+      .af-brand {
+        font-size: 1.1rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: var(--text-bright);
+      }
+
+      .af-brand span {
+        color: var(--accent-light);
+      }
+
+      .af-badge {
+        font-size: 9px;
+        background: var(--accent-bg);
+        border: 1px solid var(--accent-dim);
+        padding: 3px 8px;
+        border-radius: 20px;
+        color: var(--accent-light);
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+
+      .af-header-right a {
+        color: var(--accent-light);
+        text-decoration: none;
+        font-size: 0.8rem;
+        font-weight: 500;
+        opacity: 0.8;
+        transition: var(--transition);
+        padding: 6px 14px;
+        border-radius: var(--radius-sm);
+        border: 1px solid transparent;
+      }
+
+      .af-header-right a:hover {
+        opacity: 1;
+        border-color: var(--border);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      /* ── Main Layout ── */
+      .af-main {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: 40% 60%;
+        gap: 24px;
+        padding: 24px 32px;
+        max-width: 1480px;
+        margin: 0 auto;
+        min-height: calc(100vh - 260px);
+      }
+
+      /* ── Card Base ── */
+      .af-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+      }
+
+      /* ── Config Panel (Left) ── */
+      .af-config {
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        overflow-y: auto;
+        max-height: calc(100vh - 110px);
+        position: sticky;
+        top: 70px;
+      }
+
+      .af-config::-webkit-scrollbar {
+        width: 4px;
+      }
+      .af-config::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .af-config::-webkit-scrollbar-thumb {
+        background: var(--accent-dim);
+        border-radius: 4px;
+      }
+
+      .af-section-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text-bright);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .af-section-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: var(--accent-bg);
+        border: 1px solid var(--accent-dim);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+      }
+
+      .af-section-desc {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        margin-top: -6px;
+      }
+
+      .af-form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .af-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .af-input,
+      .af-select,
+      .af-textarea {
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 10px 14px;
+        font-size: 13px;
+        color: var(--text-primary);
+        font-family: inherit;
+        outline: none;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+        width: 100%;
+      }
+
+      .af-input:focus,
+      .af-select:focus,
+      .af-textarea:focus {
+        border-color: var(--accent-dim);
+        box-shadow: 0 0 0 3px var(--accent-bg);
+      }
+
+      .af-input::placeholder,
+      .af-textarea::placeholder {
+        color: var(--text-muted);
+      }
+
+      .af-select {
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 32px;
+        cursor: pointer;
+      }
+
+      .af-select option {
+        background: #0a0a0a;
+        color: var(--text-primary);
+      }
+
+      .af-textarea {
+        resize: vertical;
+        min-height: 80px;
+        line-height: 1.6;
+      }
+
+      .af-hint {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 1px;
+      }
+
+      /* Screening questions */
+      .af-screening-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .af-screening-row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .af-screening-row input {
+        flex: 1;
+      }
+
+      .af-btn-remove-q {
+        background: none;
+        border: 1px solid var(--red-border);
+        color: var(--red);
+        width: 30px;
+        height: 30px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+        transition: var(--transition);
+      }
+
+      .af-btn-remove-q:hover {
+        background: var(--red-bg);
+        border-color: rgba(239, 68, 68, 0.5);
+      }
+
+      .af-btn-add-q {
+        background: var(--accent-bg);
+        border: 1px dashed var(--accent-dim);
+        color: var(--accent-light);
+        padding: 8px 14px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        font-family: inherit;
+        transition: var(--transition);
+        text-align: center;
+      }
+
+      .af-btn-add-q:hover {
+        background: rgba(99, 102, 241, 0.12);
+        border-color: rgba(99, 102, 241, 0.4);
+      }
+
+      .af-btn-add-q:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .af-btn-launch {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        padding: 13px 24px;
+        border-radius: var(--radius-sm);
+        font-size: 14px;
+        font-weight: 700;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.25s;
+        letter-spacing: 0.3px;
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+        width: 100%;
+      }
+
+      .af-btn-launch:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+      }
+
+      .af-btn-launch:active {
+        transform: scale(0.98);
+      }
+
+      .af-btn-launch:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      /* ── Preview Panel (Right) ── */
+      .af-preview {
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        min-height: 600px;
+        overflow: hidden;
+      }
+
+      /* Phone mockup frame */
+      .af-phone-frame {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #000000;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        position: relative;
+        box-shadow:
+          0 0 60px rgba(0, 0, 0, 0.5),
+          0 0 20px rgba(99, 102, 241, 0.05);
+      }
+
+      /* Chat Header */
+      .af-chat-header {
+        padding: 16px 20px;
+        background: rgba(17, 17, 17, 0.95);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+
+      .af-chat-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .af-chat-avatar svg {
+        width: 18px;
+        height: 18px;
+        color: #fff;
+      }
+
+      .af-chat-header-info {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .af-chat-job-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-bright);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .af-chat-company {
+        font-size: 11px;
+        color: var(--text-secondary);
+      }
+
+      .af-chat-status {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 10px;
+        color: var(--green);
+        font-weight: 600;
+      }
+
+      .af-chat-status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--green);
+        animation: statusPulse 2s infinite;
+      }
+
+      @keyframes statusPulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      /* Progress Bar */
+      .af-progress-wrap {
+        padding: 10px 20px;
+        background: rgba(17, 17, 17, 0.6);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+
+      .af-progress-bar-track {
+        width: 100%;
+        height: 4px;
+        background: rgba(99, 102, 241, 0.12);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .af-progress-bar-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, var(--accent), var(--accent-light));
+        border-radius: 4px;
+        transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .af-progress-labels {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 6px;
+      }
+
+      .af-stage-label {
+        font-size: 8px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        transition: color 0.3s;
+        white-space: nowrap;
+      }
+
+      .af-stage-label.active {
+        color: var(--accent-light);
+      }
+
+      .af-stage-label.completed {
+        color: var(--green);
+      }
+
+      /* Chat Messages Area */
+      .af-chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        scroll-behavior: smooth;
+      }
+
+      .af-chat-messages::-webkit-scrollbar {
+        width: 4px;
+      }
+      .af-chat-messages::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .af-chat-messages::-webkit-scrollbar-thumb {
+        background: var(--accent-dim);
+        border-radius: 4px;
+      }
+
+      /* Message Bubbles */
+      .af-msg {
+        display: flex;
+        flex-direction: column;
+        max-width: 82%;
+        animation: msgFadeIn 0.35s ease;
+      }
+
+      @keyframes msgFadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .af-msg.ai {
+        align-self: flex-start;
+      }
+
+      .af-msg.user {
+        align-self: flex-end;
+      }
+
+      .af-msg-bubble {
+        padding: 10px 14px;
+        border-radius: 14px;
+        font-size: 13px;
+        line-height: 1.6;
+        word-wrap: break-word;
+      }
+
+      .af-msg.ai .af-msg-bubble {
+        background: rgba(99, 102, 241, 0.12);
+        border: 1px solid rgba(99, 102, 241, 0.15);
+        color: var(--text-primary);
+        border-bottom-left-radius: 4px;
+      }
+
+      .af-msg.user .af-msg-bubble {
+        background: rgba(26, 26, 26, 0.9);
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+        border-bottom-right-radius: 4px;
+      }
+
+      .af-msg-time {
+        font-size: 9px;
+        color: var(--text-muted);
+        margin-top: 3px;
+        padding: 0 4px;
+      }
+
+      .af-msg.user .af-msg-time {
+        text-align: right;
+      }
+
+      /* Quick-reply chips */
+      .af-chips-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 0 20px 8px;
+        animation: msgFadeIn 0.35s ease;
+      }
+
+      .af-chip {
+        background: var(--accent-bg);
+        border: 1px solid var(--accent-dim);
+        color: var(--accent-light);
+        padding: 7px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        font-family: inherit;
+        cursor: pointer;
+        transition: var(--transition);
+        white-space: nowrap;
+      }
+
+      .af-chip:hover {
+        background: rgba(99, 102, 241, 0.18);
+        border-color: var(--accent);
+        transform: translateY(-1px);
+      }
+
+      .af-chip:active {
+        transform: scale(0.96);
+      }
+
+      /* Typing indicator */
+      .af-typing {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 10px 14px;
+        background: rgba(99, 102, 241, 0.08);
+        border: 1px solid rgba(99, 102, 241, 0.1);
+        border-radius: 14px;
+        border-bottom-left-radius: 4px;
+        align-self: flex-start;
+        max-width: 80px;
+      }
+
+      .af-typing-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent-light);
+        animation: typingBounce 1.4s infinite;
+      }
+
+      .af-typing-dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .af-typing-dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes typingBounce {
+        0%,
+        60%,
+        100% {
+          opacity: 0.3;
+          transform: translateY(0);
+        }
+        30% {
+          opacity: 1;
+          transform: translateY(-4px);
+        }
+      }
+
+      /* Chat Input */
+      .af-chat-input-wrap {
+        padding: 12px 16px;
+        background: rgba(17, 17, 17, 0.95);
+        border-top: 1px solid var(--border);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-shrink: 0;
+      }
+
+      .af-chat-input {
+        flex: 1;
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 10px 16px;
+        font-size: 13px;
+        color: var(--text-primary);
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+
+      .af-chat-input:focus {
+        border-color: var(--accent-dim);
+      }
+
+      .af-chat-input::placeholder {
+        color: var(--text-muted);
+      }
+
+      .af-chat-input:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .af-btn-send {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition);
+        flex-shrink: 0;
+      }
+
+      .af-btn-send:hover {
+        background: var(--accent-light);
+        transform: scale(1.05);
+      }
+
+      .af-btn-send:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .af-btn-send svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* Placeholder state */
+      .af-preview-placeholder {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        padding: 40px;
+      }
+
+      .af-placeholder-icon {
+        width: 72px;
+        height: 72px;
+        border-radius: 18px;
+        background: var(--accent-bg);
+        border: 1px solid var(--accent-dim);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .af-placeholder-icon svg {
+        width: 32px;
+        height: 32px;
+        color: var(--accent-light);
+      }
+
+      .af-placeholder-text {
+        font-size: 13px;
+        color: var(--text-secondary);
+        text-align: center;
+        line-height: 1.7;
+      }
+
+      .af-placeholder-text strong {
+        color: var(--text-primary);
+      }
+
+      /* Summary overlay */
+      .af-summary-overlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(8, 9, 13, 0.95);
+        backdrop-filter: blur(8px);
+        z-index: 10;
+        padding: 24px;
+        overflow-y: auto;
+        animation: msgFadeIn 0.4s ease;
+      }
+
+      .af-summary-overlay.visible {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .af-summary-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .af-summary-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-bright);
+      }
+
+      .af-btn-close-summary {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        width: 30px;
+        height: 30px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        transition: var(--transition);
+      }
+
+      .af-btn-close-summary:hover {
+        border-color: var(--accent-dim);
+        color: var(--text-primary);
+      }
+
+      .af-summary-card {
+        background: rgba(17, 17, 17, 0.6);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+      }
+
+      .af-summary-card h4 {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+      }
+
+      .af-summary-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(99, 102, 241, 0.06);
+        font-size: 12px;
+      }
+
+      .af-summary-row:last-child {
+        border-bottom: none;
+      }
+
+      .af-summary-row .label {
+        color: var(--text-secondary);
+      }
+      .af-summary-row .value {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+
+      .af-summary-score {
+        text-align: center;
+        padding: 20px;
+      }
+
+      .af-summary-score-num {
+        font-size: 48px;
+        font-weight: 800;
+        color: var(--accent-light);
+        line-height: 1;
+      }
+
+      .af-summary-score-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+      }
+
+      /* ── Stats Footer ── */
+      .af-stats {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        padding: 0 32px 24px;
+        max-width: 1480px;
+        margin: 0 auto;
+      }
+
+      .af-stat-card {
+        padding: 20px;
+        text-align: center;
+      }
+
+      .af-stat-value {
+        font-size: 28px;
+        font-weight: 800;
+        color: var(--text-bright);
+        letter-spacing: -0.02em;
+      }
+
+      .af-stat-value .unit {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+
+      .af-stat-label {
+        font-size: 11px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      /* View Summary Button */
+      .af-summary-btn-wrap {
+        position: relative;
+        z-index: 1;
+        padding: 0 32px 24px;
+        max-width: 1480px;
+        margin: 0 auto;
+        display: none;
+      }
+
+      .af-summary-btn-wrap.visible {
+        display: block;
+      }
+
+      .af-btn-view-summary {
+        width: 100%;
+        background: linear-gradient(135deg, var(--accent), var(--accent-light));
+        color: #fff;
+        border: none;
+        padding: 14px 24px;
+        border-radius: var(--radius);
+        font-size: 14px;
+        font-weight: 700;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.25s;
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .af-btn-view-summary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+      }
+
+      /* ── Embed Code Section ── */
+      .af-embed-section {
+        position: relative;
+        z-index: 1;
+        padding: 0 32px 32px;
+        max-width: 1480px;
+        margin: 0 auto;
+      }
+
+      .af-embed-card {
+        padding: 24px;
+      }
+
+      .af-embed-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-bright);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .af-embed-title svg {
+        color: var(--accent-light);
+      }
+
+      .af-embed-code {
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        font-family: "SF Mono", Monaco, Menlo, "Courier New", monospace;
+        font-size: 11px;
+        color: #93c5fd;
+        line-height: 1.7;
+        overflow-x: auto;
+        white-space: pre;
+        position: relative;
+      }
+
+      .af-btn-copy {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: var(--accent-bg);
+        border: 1px solid var(--accent-dim);
+        color: var(--accent-light);
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 10px;
+        font-family: inherit;
+        cursor: pointer;
+        transition: var(--transition);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+      }
+
+      .af-btn-copy:hover {
+        background: rgba(99, 102, 241, 0.18);
+      }
+
+      .af-btn-copy.copied {
+        background: var(--green-bg);
+        border-color: var(--green-border);
+        color: var(--green);
+      }
+
+      /* ── Footer ── */
+      .af-footer {
+        position: relative;
+        z-index: 1;
+        text-align: center;
+        padding: 20px 32px;
+        border-top: 1px solid var(--border);
+        font-size: 11px;
+        color: var(--text-muted);
+        letter-spacing: 0.5px;
+      }
+
+      .af-footer a {
+        color: var(--accent-light);
+        text-decoration: none;
+      }
+
+      /* ── Animations ── */
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .af-config {
+        animation: fadeInUp 0.5s ease both;
+      }
+      .af-preview {
+        animation: fadeInUp 0.5s ease 0.1s both;
+      }
+      .af-stats .af-stat-card:nth-child(1) {
+        animation: fadeInUp 0.5s ease 0.2s both;
+      }
+      .af-stats .af-stat-card:nth-child(2) {
+        animation: fadeInUp 0.5s ease 0.25s both;
+      }
+      .af-stats .af-stat-card:nth-child(3) {
+        animation: fadeInUp 0.5s ease 0.3s both;
+      }
+      .af-embed-card {
+        animation: fadeInUp 0.5s ease 0.35s both;
+      }
+
+      /* ── Responsive ── */
+      @media (max-width: 1024px) {
+        .af-main {
+          grid-template-columns: 1fr;
+          padding: 20px 16px;
+        }
+        .af-config {
+          position: static;
+          max-height: none;
+        }
+        .af-stats {
+          padding: 0 16px 20px;
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .af-embed-section {
+          padding: 0 16px 24px;
+        }
+        .af-summary-btn-wrap {
+          padding: 0 16px 20px;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .af-header {
+          padding: 12px 16px;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .af-main {
+          padding: 16px 12px;
+          gap: 16px;
+        }
+        .af-config {
+          padding: 16px;
+        }
+        .af-stats {
+          grid-template-columns: 1fr;
+          gap: 8px;
+          padding: 0 12px 16px;
+        }
+        .af-embed-section {
+          padding: 0 12px 20px;
+        }
+        .af-summary-btn-wrap {
+          padding: 0 12px 16px;
+        }
+        .af-phone-frame {
+          min-height: 480px;
+        }
+        .af-progress-labels {
+          display: none;
+        }
+      }
+
+      /* -- Scroll reveal animations -- */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* -- Enhanced card/section glow -- */
+      .glow-hover {
+        transition:
+          box-shadow 0.4s ease,
+          border-color 0.3s ease;
+      }
+      .glow-hover:hover {
+        box-shadow:
+          0 0 20px rgba(99, 102, 241, 0.12),
+          0 0 50px rgba(99, 102, 241, 0.06);
+        border-color: rgba(99, 102, 241, 0.2);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ═══ Header ═══ -->
+    <header class="af-header">
+      <div class="af-header-left">
+        <div class="af-logo">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+            />
+          </svg>
+        </div>
+        <div class="af-brand">Nova AI Suite <span>ApplyFlow</span></div>
+        <div class="af-badge">Interactive Demo</div>
       </div>
-      Job Configuration
-    </div>
-    <div class="af-section-desc">
-      Configure the job posting details. The AI chatbot will tailor its conversation flow, screening questions, and qualification logic based on the role and industry.
-    </div>
+      <nav class="af-header-right">
+        <a href="/">Back to Nova</a>
+      </nav>
+    </header>
 
-    <div class="af-form-group">
-      <label class="af-label" for="cfg-role">Job Role *</label>
-      <input class="af-input" type="text" id="cfg-role" placeholder="e.g., Software Engineer, Registered Nurse, CDL Truck Driver" value="Software Engineer">
-    </div>
+    <!-- ═══ Main Content ═══ -->
+    <main class="af-main">
+      <!-- Left Panel: Job Configuration -->
+      <section class="af-card af-config">
+        <div class="af-section-title">
+          <div class="af-section-icon">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+              />
+            </svg>
+          </div>
+          Job Configuration
+        </div>
+        <div class="af-section-desc">
+          Configure the job posting details. The AI chatbot will tailor its
+          conversation flow, screening questions, and qualification logic based
+          on the role and industry.
+        </div>
 
-    <div class="af-form-group">
-      <label class="af-label" for="cfg-company">Company Name *</label>
-      <input class="af-input" type="text" id="cfg-company" placeholder="e.g., Acme Corp" value="Acme Corp">
-    </div>
+        <div class="af-form-group">
+          <label class="af-label" for="cfg-role">Job Role *</label>
+          <input
+            class="af-input"
+            type="text"
+            id="cfg-role"
+            placeholder="e.g., Software Engineer, Registered Nurse, CDL Truck Driver"
+            value="Software Engineer"
+          />
+        </div>
 
-    <div class="af-form-group">
-      <label class="af-label" for="cfg-location">Location</label>
-      <input class="af-input" type="text" id="cfg-location" placeholder="e.g., San Francisco, CA" value="San Francisco, CA">
-    </div>
+        <div class="af-form-group">
+          <label class="af-label" for="cfg-company">Company Name *</label>
+          <input
+            class="af-input"
+            type="text"
+            id="cfg-company"
+            placeholder="e.g., Acme Corp"
+            value="Acme Corp"
+          />
+        </div>
 
-    <div class="af-form-group">
-      <label class="af-label" for="cfg-industry">Industry</label>
-      <select class="af-select" id="cfg-industry">
-        <option value="">-- Select Industry --</option>
-        <option value="Technology" selected>Technology</option>
-        <option value="Healthcare">Healthcare</option>
-        <option value="Finance & Banking">Finance & Banking</option>
-        <option value="Retail & E-Commerce">Retail & E-Commerce</option>
-        <option value="Manufacturing">Manufacturing</option>
-        <option value="Logistics & Transportation">Logistics & Transportation</option>
-        <option value="Hospitality & Food Service">Hospitality & Food Service</option>
-        <option value="Education">Education</option>
-        <option value="Government & Public Sector">Government & Public Sector</option>
-        <option value="Energy & Utilities">Energy & Utilities</option>
-        <option value="Telecommunications">Telecommunications</option>
-        <option value="Insurance">Insurance</option>
-        <option value="Real Estate">Real Estate</option>
-        <option value="Media & Entertainment">Media & Entertainment</option>
-        <option value="Automotive">Automotive</option>
-        <option value="Aerospace & Defense">Aerospace & Defense</option>
-        <option value="Pharmaceutical">Pharmaceutical</option>
-        <option value="Construction">Construction</option>
-        <option value="Agriculture">Agriculture</option>
-        <option value="Staffing & Recruiting">Staffing & Recruiting</option>
-        <option value="Non-Profit">Non-Profit</option>
-        <option value="Other">Other</option>
-      </select>
-    </div>
+        <div class="af-form-group">
+          <label class="af-label" for="cfg-location">Location</label>
+          <input
+            class="af-input"
+            type="text"
+            id="cfg-location"
+            placeholder="e.g., San Francisco, CA"
+            value="San Francisco, CA"
+          />
+        </div>
 
-    <div class="af-form-group">
-      <label class="af-label" for="cfg-requirements">Requirements</label>
-      <textarea class="af-textarea" id="cfg-requirements" placeholder="One requirement per line, e.g.:&#10;- 3+ years Python experience&#10;- Bachelor's in CS or related field">- 3+ years Python experience
+        <div class="af-form-group">
+          <label class="af-label" for="cfg-industry">Industry</label>
+          <select class="af-select" id="cfg-industry">
+            <option value="">-- Select Industry --</option>
+            <option value="Technology" selected>Technology</option>
+            <option value="Healthcare">Healthcare</option>
+            <option value="Finance & Banking">Finance & Banking</option>
+            <option value="Retail & E-Commerce">Retail & E-Commerce</option>
+            <option value="Manufacturing">Manufacturing</option>
+            <option value="Logistics & Transportation">
+              Logistics & Transportation
+            </option>
+            <option value="Hospitality & Food Service">
+              Hospitality & Food Service
+            </option>
+            <option value="Education">Education</option>
+            <option value="Government & Public Sector">
+              Government & Public Sector
+            </option>
+            <option value="Energy & Utilities">Energy & Utilities</option>
+            <option value="Telecommunications">Telecommunications</option>
+            <option value="Insurance">Insurance</option>
+            <option value="Real Estate">Real Estate</option>
+            <option value="Media & Entertainment">Media & Entertainment</option>
+            <option value="Automotive">Automotive</option>
+            <option value="Aerospace & Defense">Aerospace & Defense</option>
+            <option value="Pharmaceutical">Pharmaceutical</option>
+            <option value="Construction">Construction</option>
+            <option value="Agriculture">Agriculture</option>
+            <option value="Staffing & Recruiting">Staffing & Recruiting</option>
+            <option value="Non-Profit">Non-Profit</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div class="af-form-group">
+          <label class="af-label" for="cfg-requirements">Requirements</label>
+          <textarea
+            class="af-textarea"
+            id="cfg-requirements"
+            placeholder="One requirement per line, e.g.:&#10;- 3+ years Python experience&#10;- Bachelor's in CS or related field"
+          >
+- 3+ years Python experience
 - Bachelor's in CS or related field
 - Experience with REST APIs
-- Strong problem-solving skills</textarea>
-      <div class="af-hint">One per line. Used by the AI to evaluate candidate qualification.</div>
-    </div>
-
-    <div class="af-form-group">
-      <label class="af-label">Custom Screening Questions <span style="color:var(--text-muted)">(max 5)</span></label>
-      <div class="af-screening-list" id="screening-list"></div>
-      <button class="af-btn-add-q" id="btn-add-q" type="button">+ Add Screening Question</button>
-    </div>
-
-    <button class="af-btn-launch" id="btn-launch" type="button">Launch Widget</button>
-  </section>
-
-  <!-- Right Panel: Live Chat Preview -->
-  <section class="af-card af-preview" id="preview-panel">
-
-    <!-- Placeholder (before launch) -->
-    <div class="af-preview-placeholder" id="preview-placeholder">
-      <div class="af-placeholder-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-      </div>
-      <div class="af-placeholder-text">
-        Configure your job details on the left<br>
-        and click <strong>Launch Widget</strong> to start<br>
-        the conversational apply experience.
-      </div>
-    </div>
-
-    <!-- Chat UI (after launch) -->
-    <div class="af-phone-frame" id="chat-ui" style="display:none;">
-
-      <!-- Chat Header -->
-      <div class="af-chat-header">
-        <div class="af-chat-avatar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
+- Strong problem-solving skills</textarea
+          >
+          <div class="af-hint">
+            One per line. Used by the AI to evaluate candidate qualification.
+          </div>
         </div>
-        <div class="af-chat-header-info">
-          <div class="af-chat-job-title" id="chat-job-title">Software Engineer</div>
-          <div class="af-chat-company" id="chat-company">Acme Corp</div>
-        </div>
-        <div class="af-chat-status">
-          <div class="af-chat-status-dot"></div>
-          Online
-        </div>
-      </div>
 
-      <!-- Progress Bar -->
-      <div class="af-progress-wrap">
-        <div class="af-progress-bar-track">
-          <div class="af-progress-bar-fill" id="progress-fill"></div>
+        <div class="af-form-group">
+          <label class="af-label"
+            >Custom Screening Questions
+            <span style="color: var(--text-muted)">(max 5)</span></label
+          >
+          <div class="af-screening-list" id="screening-list"></div>
+          <button class="af-btn-add-q" id="btn-add-q" type="button">
+            + Add Screening Question
+          </button>
         </div>
-        <div class="af-progress-labels" id="progress-labels">
-          <span class="af-stage-label active" data-stage="0">Welcome</span>
-          <span class="af-stage-label" data-stage="1">Qualify</span>
-          <span class="af-stage-label" data-stage="2">Experience</span>
-          <span class="af-stage-label" data-stage="3">Skills</span>
-          <span class="af-stage-label" data-stage="4">Contact</span>
-          <span class="af-stage-label" data-stage="5">Confirm</span>
-        </div>
-      </div>
 
-      <!-- Messages -->
-      <div class="af-chat-messages" id="chat-messages"></div>
-
-      <!-- Input -->
-      <div class="af-chat-input-wrap">
-        <input class="af-chat-input" type="text" id="chat-input" placeholder="Type your response..." disabled>
-        <button class="af-btn-send" id="btn-send" type="button" disabled aria-label="Send message">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
+        <button class="af-btn-launch" id="btn-launch" type="button">
+          Launch Widget
         </button>
-      </div>
+      </section>
 
-      <!-- Summary Overlay -->
-      <div class="af-summary-overlay" id="summary-overlay">
-        <div class="af-summary-header">
-          <div class="af-summary-title">Application Summary</div>
-          <button class="af-btn-close-summary" id="btn-close-summary" type="button">&times;</button>
+      <!-- Right Panel: Live Chat Preview -->
+      <section class="af-card af-preview" id="preview-panel">
+        <!-- Placeholder (before launch) -->
+        <div class="af-preview-placeholder" id="preview-placeholder">
+          <div class="af-placeholder-icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+              />
+            </svg>
+          </div>
+          <div class="af-placeholder-text">
+            Configure your job details on the left<br />
+            and click <strong>Launch Widget</strong> to start<br />
+            the conversational apply experience.
+          </div>
         </div>
-        <div id="summary-content"></div>
+
+        <!-- Chat UI (after launch) -->
+        <div class="af-phone-frame" id="chat-ui" style="display: none">
+          <!-- Chat Header -->
+          <div class="af-chat-header">
+            <div class="af-chat-avatar">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                />
+              </svg>
+            </div>
+            <div class="af-chat-header-info">
+              <div class="af-chat-job-title" id="chat-job-title">
+                Software Engineer
+              </div>
+              <div class="af-chat-company" id="chat-company">Acme Corp</div>
+            </div>
+            <div class="af-chat-status">
+              <div class="af-chat-status-dot"></div>
+              Online
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="af-progress-wrap">
+            <div class="af-progress-bar-track">
+              <div class="af-progress-bar-fill" id="progress-fill"></div>
+            </div>
+            <div class="af-progress-labels" id="progress-labels">
+              <span class="af-stage-label active" data-stage="0">Welcome</span>
+              <span class="af-stage-label" data-stage="1">Qualify</span>
+              <span class="af-stage-label" data-stage="2">Experience</span>
+              <span class="af-stage-label" data-stage="3">Skills</span>
+              <span class="af-stage-label" data-stage="4">Contact</span>
+              <span class="af-stage-label" data-stage="5">Confirm</span>
+            </div>
+          </div>
+
+          <!-- Messages -->
+          <div class="af-chat-messages" id="chat-messages"></div>
+
+          <!-- Input -->
+          <div class="af-chat-input-wrap">
+            <input
+              class="af-chat-input"
+              type="text"
+              id="chat-input"
+              placeholder="Type your response..."
+              disabled
+            />
+            <button
+              class="af-btn-send"
+              id="btn-send"
+              type="button"
+              disabled
+              aria-label="Send message"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Summary Overlay -->
+          <div class="af-summary-overlay" id="summary-overlay">
+            <div class="af-summary-header">
+              <div class="af-summary-title">Application Summary</div>
+              <button
+                class="af-btn-close-summary"
+                id="btn-close-summary"
+                type="button"
+              >
+                &times;
+              </button>
+            </div>
+            <div id="summary-content"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ═══ Stats Footer ═══ -->
+    <div class="af-stats">
+      <div class="af-card af-stat-card">
+        <div class="af-stat-value" id="stat-messages">0</div>
+        <div class="af-stat-label">Messages Sent</div>
+      </div>
+      <div class="af-card af-stat-card">
+        <div class="af-stat-value" id="stat-time">
+          0<span class="unit">s</span>
+        </div>
+        <div class="af-stat-label">Avg Completion Time</div>
+      </div>
+      <div class="af-card af-stat-card">
+        <div class="af-stat-value" id="stat-score">--</div>
+        <div class="af-stat-label">Qualification Score</div>
       </div>
     </div>
-  </section>
-</main>
 
-<!-- ═══ Stats Footer ═══ -->
-<div class="af-stats">
-  <div class="af-card af-stat-card">
-    <div class="af-stat-value" id="stat-messages">0</div>
-    <div class="af-stat-label">Messages Sent</div>
-  </div>
-  <div class="af-card af-stat-card">
-    <div class="af-stat-value" id="stat-time">0<span class="unit">s</span></div>
-    <div class="af-stat-label">Avg Completion Time</div>
-  </div>
-  <div class="af-card af-stat-card">
-    <div class="af-stat-value" id="stat-score">--</div>
-    <div class="af-stat-label">Qualification Score</div>
-  </div>
-</div>
-
-<!-- ═══ View Application Summary Button ═══ -->
-<div class="af-summary-btn-wrap" id="summary-btn-wrap">
-  <button class="af-btn-view-summary" id="btn-view-summary" type="button">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
-    </svg>
-    View Application Summary
-  </button>
-</div>
-
-<!-- ═══ Embed Code Section ═══ -->
-<div class="af-embed-section">
-  <div class="af-card af-embed-card">
-    <div class="af-embed-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-      </svg>
-      Embed Code
+    <!-- ═══ View Application Summary Button ═══ -->
+    <div class="af-summary-btn-wrap" id="summary-btn-wrap">
+      <button class="af-btn-view-summary" id="btn-view-summary" type="button">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+          />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <polyline points="10 9 9 9 8 9" />
+        </svg>
+        View Application Summary
+      </button>
     </div>
-    <div class="af-embed-code" id="embed-code-wrap">
-      <button class="af-btn-copy" id="btn-copy" type="button">Copy</button>
-      <code id="embed-code-text"></code>
+
+    <!-- ═══ Embed Code Section ═══ -->
+    <div class="af-embed-section">
+      <div class="af-card af-embed-card">
+        <div class="af-embed-title">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
+          Embed Code
+        </div>
+        <div class="af-embed-code" id="embed-code-wrap">
+          <button class="af-btn-copy" id="btn-copy" type="button">Copy</button>
+          <code id="embed-code-text"></code>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
-<!-- ═══ Footer ═══ -->
-<footer class="af-footer">
-  ApplyFlow by <a href="https://www.linkedin.com/in/chandel13/" target="_blank" rel="noopener">Shubham Singh Chandel</a>
-  &mdash; AI-powered conversational apply experience
-</footer>
+    <!-- ═══ Footer ═══ -->
+    <footer class="af-footer">
+      ApplyFlow by
+      <a
+        href="https://www.linkedin.com/in/chandel13/"
+        target="_blank"
+        rel="noopener"
+        >Shubham Singh Chandel</a
+      >
+      &mdash; AI-powered conversational apply experience
+    </footer>
 
-<script>
-(function () {
-  'use strict';
+    <script>
+      (function () {
+        "use strict";
 
-  // ── DOM refs ──
-  var roleInput = document.getElementById('cfg-role');
-  var companyInput = document.getElementById('cfg-company');
-  var locationInput = document.getElementById('cfg-location');
-  var industrySelect = document.getElementById('cfg-industry');
-  var requirementsInput = document.getElementById('cfg-requirements');
-  var screeningList = document.getElementById('screening-list');
-  var btnAddQ = document.getElementById('btn-add-q');
-  var btnLaunch = document.getElementById('btn-launch');
-  var previewPlaceholder = document.getElementById('preview-placeholder');
-  var chatUI = document.getElementById('chat-ui');
-  var chatJobTitle = document.getElementById('chat-job-title');
-  var chatCompany = document.getElementById('chat-company');
-  var chatMessages = document.getElementById('chat-messages');
-  var chatInput = document.getElementById('chat-input');
-  var btnSend = document.getElementById('btn-send');
-  var progressFill = document.getElementById('progress-fill');
-  var progressLabels = document.getElementById('progress-labels');
-  var embedCodeText = document.getElementById('embed-code-text');
-  var btnCopy = document.getElementById('btn-copy');
-  var statMessages = document.getElementById('stat-messages');
-  var statTime = document.getElementById('stat-time');
-  var statScore = document.getElementById('stat-score');
-  var summaryBtnWrap = document.getElementById('summary-btn-wrap');
-  var btnViewSummary = document.getElementById('btn-view-summary');
-  var summaryOverlay = document.getElementById('summary-overlay');
-  var summaryContent = document.getElementById('summary-content');
-  var btnCloseSummary = document.getElementById('btn-close-summary');
+        // ── DOM refs ──
+        var roleInput = document.getElementById("cfg-role");
+        var companyInput = document.getElementById("cfg-company");
+        var locationInput = document.getElementById("cfg-location");
+        var industrySelect = document.getElementById("cfg-industry");
+        var requirementsInput = document.getElementById("cfg-requirements");
+        var screeningList = document.getElementById("screening-list");
+        var btnAddQ = document.getElementById("btn-add-q");
+        var btnLaunch = document.getElementById("btn-launch");
+        var previewPlaceholder = document.getElementById("preview-placeholder");
+        var chatUI = document.getElementById("chat-ui");
+        var chatJobTitle = document.getElementById("chat-job-title");
+        var chatCompany = document.getElementById("chat-company");
+        var chatMessages = document.getElementById("chat-messages");
+        var chatInput = document.getElementById("chat-input");
+        var btnSend = document.getElementById("btn-send");
+        var progressFill = document.getElementById("progress-fill");
+        var progressLabels = document.getElementById("progress-labels");
+        var embedCodeText = document.getElementById("embed-code-text");
+        var btnCopy = document.getElementById("btn-copy");
+        var statMessages = document.getElementById("stat-messages");
+        var statTime = document.getElementById("stat-time");
+        var statScore = document.getElementById("stat-score");
+        var summaryBtnWrap = document.getElementById("summary-btn-wrap");
+        var btnViewSummary = document.getElementById("btn-view-summary");
+        var summaryOverlay = document.getElementById("summary-overlay");
+        var summaryContent = document.getElementById("summary-content");
+        var btnCloseSummary = document.getElementById("btn-close-summary");
 
-  var screeningQuestions = [];
-  var sessionId = null;
-  var messageCount = 0;
-  var startTime = null;
-  var isComplete = false;
-  var isSending = false;
-  var lastSummaryData = null;
+        var screeningQuestions = [];
+        var sessionId = null;
+        var messageCount = 0;
+        var startTime = null;
+        var isComplete = false;
+        var isSending = false;
+        var lastSummaryData = null;
 
-  // Stage definitions
-  var STAGES = ['Welcome', 'Qualification', 'Experience', 'Skills', 'Contact', 'Confirmation'];
+        // Stage definitions
+        var STAGES = [
+          "Welcome",
+          "Qualification",
+          "Experience",
+          "Skills",
+          "Contact",
+          "Confirmation",
+        ];
 
-  // ── Screening Questions UI ──
-  function renderScreening() {
-    screeningList.innerHTML = '';
-    screeningQuestions.forEach(function (q, i) {
-      var row = document.createElement('div');
-      row.className = 'af-screening-row';
+        // ── Screening Questions UI ──
+        function renderScreening() {
+          screeningList.innerHTML = "";
+          screeningQuestions.forEach(function (q, i) {
+            var row = document.createElement("div");
+            row.className = "af-screening-row";
 
-      var inp = document.createElement('input');
-      inp.type = 'text';
-      inp.className = 'af-input';
-      inp.value = q;
-      inp.placeholder = 'e.g., Are you authorized to work in the US?';
-      inp.setAttribute('data-idx', i);
-      inp.addEventListener('input', function () {
-        screeningQuestions[parseInt(this.getAttribute('data-idx'))] = this.value;
-        updateEmbed();
-      });
+            var inp = document.createElement("input");
+            inp.type = "text";
+            inp.className = "af-input";
+            inp.value = q;
+            inp.placeholder = "e.g., Are you authorized to work in the US?";
+            inp.setAttribute("data-idx", i);
+            inp.addEventListener("input", function () {
+              screeningQuestions[parseInt(this.getAttribute("data-idx"))] =
+                this.value;
+              updateEmbed();
+            });
 
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'af-btn-remove-q';
-      btn.innerHTML = '&times;';
-      btn.setAttribute('data-idx', i);
-      btn.setAttribute('aria-label', 'Remove question');
-      btn.addEventListener('click', function () {
-        screeningQuestions.splice(parseInt(this.getAttribute('data-idx')), 1);
-        renderScreening();
-        updateEmbed();
-      });
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "af-btn-remove-q";
+            btn.innerHTML = "&times;";
+            btn.setAttribute("data-idx", i);
+            btn.setAttribute("aria-label", "Remove question");
+            btn.addEventListener("click", function () {
+              screeningQuestions.splice(
+                parseInt(this.getAttribute("data-idx")),
+                1,
+              );
+              renderScreening();
+              updateEmbed();
+            });
 
-      row.appendChild(inp);
-      row.appendChild(btn);
-      screeningList.appendChild(row);
-    });
-    btnAddQ.disabled = screeningQuestions.length >= 5;
-  }
+            row.appendChild(inp);
+            row.appendChild(btn);
+            screeningList.appendChild(row);
+          });
+          btnAddQ.disabled = screeningQuestions.length >= 5;
+        }
 
-  btnAddQ.addEventListener('click', function () {
-    if (screeningQuestions.length < 5) {
-      screeningQuestions.push('');
-      renderScreening();
-      var inputs = screeningList.querySelectorAll('input');
-      if (inputs.length) inputs[inputs.length - 1].focus();
-    }
-  });
+        btnAddQ.addEventListener("click", function () {
+          if (screeningQuestions.length < 5) {
+            screeningQuestions.push("");
+            renderScreening();
+            var inputs = screeningList.querySelectorAll("input");
+            if (inputs.length) inputs[inputs.length - 1].focus();
+          }
+        });
 
-  // ── Get Config ──
-  function getConfig() {
-    var reqs = requirementsInput.value.split('\n')
-      .map(function (s) { return s.replace(/^[\s\-\*\u2022]+/, '').trim(); })
-      .filter(function (s) { return s.length > 0; });
-    var qs = screeningQuestions.filter(function (s) { return s.trim().length > 0; });
-    return {
-      role: roleInput.value.trim() || 'Open Position',
-      company: companyInput.value.trim() || 'Company',
-      location: locationInput.value.trim() || '',
-      industry: industrySelect.value || '',
-      requirements: reqs,
-      screening_questions: qs
-    };
-  }
+        // ── Get Config ──
+        function getConfig() {
+          var reqs = requirementsInput.value
+            .split("\n")
+            .map(function (s) {
+              return s.replace(/^[\s\-\*\u2022]+/, "").trim();
+            })
+            .filter(function (s) {
+              return s.length > 0;
+            });
+          var qs = screeningQuestions.filter(function (s) {
+            return s.trim().length > 0;
+          });
+          return {
+            role: roleInput.value.trim() || "Open Position",
+            company: companyInput.value.trim() || "Company",
+            location: locationInput.value.trim() || "",
+            industry: industrySelect.value || "",
+            requirements: reqs,
+            screening_questions: qs,
+          };
+        }
 
-  // ── Embed Code ──
-  function updateEmbed() {
-    var cfg = getConfig();
-    var code = '<!-- ApplyFlow by Nova AI Suite -->\n'
-      + '<script src="https://media-plan-generator.onrender.com/static/applyflow-widget.js"><\/script>\n'
-      + '<script>\n'
-      + '  ApplyFlow.init({\n'
-      + '    role: ' + JSON.stringify(cfg.role) + ',\n'
-      + '    company: ' + JSON.stringify(cfg.company) + ',\n'
-      + '    location: ' + JSON.stringify(cfg.location) + ',\n'
-      + '    industry: ' + JSON.stringify(cfg.industry) + ',\n'
-      + '    requirements: ' + JSON.stringify(cfg.requirements) + ',\n'
-      + '    screeningQuestions: ' + JSON.stringify(cfg.screening_questions) + '\n'
-      + '  });\n'
-      + '<\/script>';
-    embedCodeText.textContent = code;
-  }
+        // ── Embed Code ──
+        function updateEmbed() {
+          var cfg = getConfig();
+          var code =
+            "<!-- ApplyFlow by Nova AI Suite -->\n" +
+            '<script src="https://media-plan-generator.onrender.com/static/applyflow-widget.js"><\/script>\n' +
+            "<script>\n" +
+            "  ApplyFlow.init({\n" +
+            "    role: " +
+            JSON.stringify(cfg.role) +
+            ",\n" +
+            "    company: " +
+            JSON.stringify(cfg.company) +
+            ",\n" +
+            "    location: " +
+            JSON.stringify(cfg.location) +
+            ",\n" +
+            "    industry: " +
+            JSON.stringify(cfg.industry) +
+            ",\n" +
+            "    requirements: " +
+            JSON.stringify(cfg.requirements) +
+            ",\n" +
+            "    screeningQuestions: " +
+            JSON.stringify(cfg.screening_questions) +
+            "\n" +
+            "  });\n" +
+            "<\/script>";
+          embedCodeText.textContent = code;
+        }
 
-  [roleInput, companyInput, locationInput, industrySelect, requirementsInput].forEach(function (el) {
-    el.addEventListener('input', updateEmbed);
-    el.addEventListener('change', updateEmbed);
-  });
+        [
+          roleInput,
+          companyInput,
+          locationInput,
+          industrySelect,
+          requirementsInput,
+        ].forEach(function (el) {
+          el.addEventListener("input", updateEmbed);
+          el.addEventListener("change", updateEmbed);
+        });
 
-  // ── Copy Button ──
-  btnCopy.addEventListener('click', function () {
-    var text = embedCodeText.textContent;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () {
-        btnCopy.textContent = 'Copied!';
-        btnCopy.classList.add('copied');
-        setTimeout(function () { btnCopy.textContent = 'Copy'; btnCopy.classList.remove('copied'); }, 2000);
-      });
-    } else {
-      var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.cssText = 'position:fixed;opacity:0';
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand('copy'); btnCopy.textContent = 'Copied!'; btnCopy.classList.add('copied');
-        setTimeout(function () { btnCopy.textContent = 'Copy'; btnCopy.classList.remove('copied'); }, 2000);
-      } catch (e) {}
-      document.body.removeChild(ta);
-    }
-  });
+        // ── Copy Button ──
+        btnCopy.addEventListener("click", function () {
+          var text = embedCodeText.textContent;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () {
+              btnCopy.textContent = "Copied!";
+              btnCopy.classList.add("copied");
+              setTimeout(function () {
+                btnCopy.textContent = "Copy";
+                btnCopy.classList.remove("copied");
+              }, 2000);
+            });
+          } else {
+            var ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.cssText = "position:fixed;opacity:0";
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+              document.execCommand("copy");
+              btnCopy.textContent = "Copied!";
+              btnCopy.classList.add("copied");
+              setTimeout(function () {
+                btnCopy.textContent = "Copy";
+                btnCopy.classList.remove("copied");
+              }, 2000);
+            } catch (e) {}
+            document.body.removeChild(ta);
+          }
+        });
 
-  // ── Timestamp Helper ──
-  function timeStr() {
-    var d = new Date();
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
+        // ── Timestamp Helper ──
+        function timeStr() {
+          var d = new Date();
+          return d.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        }
 
-  // ── Render Message ──
-  function renderMessage(text, sender) {
-    removeTyping();
-    var wrap = document.createElement('div');
-    wrap.className = 'af-msg ' + sender;
+        // ── Render Message ──
+        function renderMessage(text, sender) {
+          removeTyping();
+          var wrap = document.createElement("div");
+          wrap.className = "af-msg " + sender;
 
-    var bubble = document.createElement('div');
-    bubble.className = 'af-msg-bubble';
-    bubble.textContent = text;
+          var bubble = document.createElement("div");
+          bubble.className = "af-msg-bubble";
+          bubble.textContent = text;
 
-    var time = document.createElement('div');
-    time.className = 'af-msg-time';
-    time.textContent = timeStr();
+          var time = document.createElement("div");
+          time.className = "af-msg-time";
+          time.textContent = timeStr();
 
-    wrap.appendChild(bubble);
-    wrap.appendChild(time);
-    chatMessages.appendChild(wrap);
-    scrollToBottom();
+          wrap.appendChild(bubble);
+          wrap.appendChild(time);
+          chatMessages.appendChild(wrap);
+          scrollToBottom();
 
-    if (sender === 'user') messageCount++;
-    updateStats();
-  }
+          if (sender === "user") messageCount++;
+          updateStats();
+        }
 
-  // ── Render Quick-Reply Chips ──
-  function renderChips(chips) {
-    if (!chips || !chips.length) return;
-    removeChips();
-    var wrap = document.createElement('div');
-    wrap.className = 'af-chips-wrap';
-    wrap.id = 'current-chips';
-    chips.forEach(function (label) {
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'af-chip';
-      btn.textContent = label;
-      btn.addEventListener('click', function () {
-        removeChips();
-        sendMessage(label);
-      });
-      wrap.appendChild(btn);
-    });
-    chatMessages.appendChild(wrap);
-    scrollToBottom();
-  }
+        // ── Render Quick-Reply Chips ──
+        function renderChips(chips) {
+          if (!chips || !chips.length) return;
+          removeChips();
+          var wrap = document.createElement("div");
+          wrap.className = "af-chips-wrap";
+          wrap.id = "current-chips";
+          chips.forEach(function (label) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "af-chip";
+            btn.textContent = label;
+            btn.addEventListener("click", function () {
+              removeChips();
+              sendMessage(label);
+            });
+            wrap.appendChild(btn);
+          });
+          chatMessages.appendChild(wrap);
+          scrollToBottom();
+        }
 
-  function removeChips() {
-    var existing = document.getElementById('current-chips');
-    if (existing) existing.remove();
-  }
+        function removeChips() {
+          var existing = document.getElementById("current-chips");
+          if (existing) existing.remove();
+        }
 
-  // ── Typing Indicator ──
-  function showTyping() {
-    removeTyping();
-    var el = document.createElement('div');
-    el.className = 'af-typing';
-    el.id = 'typing-indicator';
-    el.innerHTML = '<div class="af-typing-dot"></div><div class="af-typing-dot"></div><div class="af-typing-dot"></div>';
-    chatMessages.appendChild(el);
-    scrollToBottom();
-  }
+        // ── Typing Indicator ──
+        function showTyping() {
+          removeTyping();
+          var el = document.createElement("div");
+          el.className = "af-typing";
+          el.id = "typing-indicator";
+          el.innerHTML =
+            '<div class="af-typing-dot"></div><div class="af-typing-dot"></div><div class="af-typing-dot"></div>';
+          chatMessages.appendChild(el);
+          scrollToBottom();
+        }
 
-  function removeTyping() {
-    var el = document.getElementById('typing-indicator');
-    if (el) el.remove();
-  }
+        function removeTyping() {
+          var el = document.getElementById("typing-indicator");
+          if (el) el.remove();
+        }
 
-  // ── Progress ──
-  function updateProgress(pct, stageIndex) {
-    progressFill.style.width = Math.min(100, Math.max(0, pct)) + '%';
-    var labels = progressLabels.querySelectorAll('.af-stage-label');
-    labels.forEach(function (lbl) {
-      var idx = parseInt(lbl.getAttribute('data-stage'));
-      lbl.classList.remove('active', 'completed');
-      if (idx < stageIndex) lbl.classList.add('completed');
-      else if (idx === stageIndex) lbl.classList.add('active');
-    });
-  }
+        // ── Progress ──
+        function updateProgress(pct, stageIndex) {
+          progressFill.style.width = Math.min(100, Math.max(0, pct)) + "%";
+          var labels = progressLabels.querySelectorAll(".af-stage-label");
+          labels.forEach(function (lbl) {
+            var idx = parseInt(lbl.getAttribute("data-stage"));
+            lbl.classList.remove("active", "completed");
+            if (idx < stageIndex) lbl.classList.add("completed");
+            else if (idx === stageIndex) lbl.classList.add("active");
+          });
+        }
 
-  // ── Stats ──
-  function updateStats() {
-    statMessages.textContent = messageCount;
-    if (startTime) {
-      var elapsed = Math.round((Date.now() - startTime) / 1000);
-      if (elapsed < 60) {
-        statTime.innerHTML = elapsed + '<span class="unit">s</span>';
-      } else {
-        var m = Math.floor(elapsed / 60);
-        var s = elapsed % 60;
-        statTime.innerHTML = m + '<span class="unit">m</span> ' + s + '<span class="unit">s</span>';
-      }
-    }
-  }
+        // ── Stats ──
+        function updateStats() {
+          statMessages.textContent = messageCount;
+          if (startTime) {
+            var elapsed = Math.round((Date.now() - startTime) / 1000);
+            if (elapsed < 60) {
+              statTime.innerHTML = elapsed + '<span class="unit">s</span>';
+            } else {
+              var m = Math.floor(elapsed / 60);
+              var s = elapsed % 60;
+              statTime.innerHTML =
+                m +
+                '<span class="unit">m</span> ' +
+                s +
+                '<span class="unit">s</span>';
+            }
+          }
+        }
 
-  function scrollToBottom() {
-    requestAnimationFrame(function () {
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    });
-  }
+        function scrollToBottom() {
+          requestAnimationFrame(function () {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+          });
+        }
 
-  // ── API: Init Widget ──
-  function initWidget() {
-    var cfg = getConfig();
+        // ── API: Init Widget ──
+        function initWidget() {
+          var cfg = getConfig();
 
-    // Update chat header
-    chatJobTitle.textContent = cfg.role;
-    chatCompany.textContent = cfg.company + (cfg.location ? ' - ' + cfg.location : '');
+          // Update chat header
+          chatJobTitle.textContent = cfg.role;
+          chatCompany.textContent =
+            cfg.company + (cfg.location ? " - " + cfg.location : "");
 
-    // Show chat UI
-    previewPlaceholder.style.display = 'none';
-    chatUI.style.display = 'flex';
-    chatMessages.innerHTML = '';
-    removeChips();
-    chatInput.disabled = true;
-    btnSend.disabled = true;
-    btnLaunch.disabled = true;
-    btnLaunch.textContent = 'Starting...';
-    messageCount = 0;
-    startTime = Date.now();
-    isComplete = false;
-    sessionId = null;
-    lastSummaryData = null;
-    summaryBtnWrap.classList.remove('visible');
-    summaryOverlay.classList.remove('visible');
-    updateProgress(0, 0);
-    updateStats();
+          // Show chat UI
+          previewPlaceholder.style.display = "none";
+          chatUI.style.display = "flex";
+          chatMessages.innerHTML = "";
+          removeChips();
+          chatInput.disabled = true;
+          btnSend.disabled = true;
+          btnLaunch.disabled = true;
+          btnLaunch.textContent = "Starting...";
+          messageCount = 0;
+          startTime = Date.now();
+          isComplete = false;
+          sessionId = null;
+          lastSummaryData = null;
+          summaryBtnWrap.classList.remove("visible");
+          summaryOverlay.classList.remove("visible");
+          updateProgress(0, 0);
+          updateStats();
 
-    showTyping();
+          showTyping();
 
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/applyflow', true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.timeout = 30000;
+          var xhr = new XMLHttpRequest();
+          xhr.open("POST", "/api/applyflow", true);
+          xhr.setRequestHeader("Content-Type", "application/json");
+          xhr.timeout = 30000;
 
-    xhr.onload = function () {
-      btnLaunch.disabled = false;
-      btnLaunch.textContent = 'Launch Widget';
+          xhr.onload = function () {
+            btnLaunch.disabled = false;
+            btnLaunch.textContent = "Launch Widget";
 
-      if (xhr.status === 200) {
-        try {
-          var data = JSON.parse(xhr.responseText);
-          sessionId = data.session_id || ('s_' + Date.now());
+            if (xhr.status === 200) {
+              try {
+                var data = JSON.parse(xhr.responseText);
+                sessionId = data.session_id || "s_" + Date.now();
+                removeTyping();
+
+                // Display greeting message(s)
+                var msgs = data.messages || [
+                  data.message ||
+                    "Welcome! Let's get started with your application.",
+                ];
+                if (typeof msgs === "string") msgs = [msgs];
+                msgs.forEach(function (m) {
+                  renderMessage(m, "ai");
+                });
+
+                if (data.chips && data.chips.length) renderChips(data.chips);
+                if (data.progress != null)
+                  updateProgress(data.progress, data.stage_index || 0);
+
+                chatInput.disabled = false;
+                btnSend.disabled = false;
+                chatInput.focus();
+              } catch (e) {
+                handleInitFallback();
+              }
+            } else {
+              handleInitFallback();
+            }
+          };
+
+          xhr.onerror = function () {
+            btnLaunch.disabled = false;
+            btnLaunch.textContent = "Launch Widget";
+            handleInitFallback();
+          };
+
+          xhr.ontimeout = xhr.onerror;
+
+          xhr.send(JSON.stringify({ action: "init", job_config: cfg }));
+        }
+
+        // Fallback: run locally if API unavailable
+        function handleInitFallback() {
+          sessionId = "local_" + Date.now();
           removeTyping();
 
-          // Display greeting message(s)
-          var msgs = data.messages || [data.message || 'Welcome! Let\'s get started with your application.'];
-          if (typeof msgs === 'string') msgs = [msgs];
-          msgs.forEach(function (m) { renderMessage(m, 'ai'); });
+          var cfg = getConfig();
+          var greeting =
+            "Hi there! I'm the AI recruitment assistant for " +
+            cfg.company +
+            ". " +
+            "I'm here to help you apply for the " +
+            cfg.role +
+            " position" +
+            (cfg.location ? " in " + cfg.location : "") +
+            ".\n\n" +
+            "This will be a quick, conversational application -- much faster than filling out a traditional form. Ready to get started?";
 
-          if (data.chips && data.chips.length) renderChips(data.chips);
-          if (data.progress != null) updateProgress(data.progress, data.stage_index || 0);
+          renderMessage(greeting, "ai");
+          renderChips([
+            "Yes, let's go!",
+            "Tell me more about the role",
+            "Not right now",
+          ]);
+          updateProgress(5, 0);
 
           chatInput.disabled = false;
           btnSend.disabled = false;
           chatInput.focus();
-        } catch (e) {
-          handleInitFallback();
+
+          // Set up local conversation state
+          window._afLocalState = {
+            stage: 0,
+            collected: {},
+            cfg: cfg,
+            questionIndex: 0,
+          };
         }
-      } else {
-        handleInitFallback();
-      }
-    };
 
-    xhr.onerror = function () {
-      btnLaunch.disabled = false;
-      btnLaunch.textContent = 'Launch Widget';
-      handleInitFallback();
-    };
+        // ── API: Send Chat Message ──
+        function sendMessage(text) {
+          if (!text || !text.trim() || isSending || isComplete) return;
+          text = text.trim();
+          isSending = true;
+          chatInput.disabled = true;
+          btnSend.disabled = true;
+          removeChips();
 
-    xhr.ontimeout = xhr.onerror;
+          renderMessage(text, "user");
 
-    xhr.send(JSON.stringify({ action: 'init', job_config: cfg }));
-  }
+          showTyping();
 
-  // Fallback: run locally if API unavailable
-  function handleInitFallback() {
-    sessionId = 'local_' + Date.now();
-    removeTyping();
+          var cfg = getConfig();
 
-    var cfg = getConfig();
-    var greeting = 'Hi there! I\'m the AI recruitment assistant for ' + cfg.company + '. '
-      + 'I\'m here to help you apply for the ' + cfg.role + ' position'
-      + (cfg.location ? ' in ' + cfg.location : '') + '.\n\n'
-      + 'This will be a quick, conversational application -- much faster than filling out a traditional form. Ready to get started?';
+          var xhr = new XMLHttpRequest();
+          xhr.open("POST", "/api/applyflow", true);
+          xhr.setRequestHeader("Content-Type", "application/json");
+          xhr.timeout = 30000;
 
-    renderMessage(greeting, 'ai');
-    renderChips(['Yes, let\'s go!', 'Tell me more about the role', 'Not right now']);
-    updateProgress(5, 0);
+          xhr.onload = function () {
+            isSending = false;
 
-    chatInput.disabled = false;
-    btnSend.disabled = false;
-    chatInput.focus();
+            if (xhr.status === 200) {
+              try {
+                var data = JSON.parse(xhr.responseText);
+                removeTyping();
 
-    // Set up local conversation state
-    window._afLocalState = {
-      stage: 0,
-      collected: {},
-      cfg: cfg,
-      questionIndex: 0
-    };
-  }
+                var msgs = data.messages || [
+                  data.message || "Thank you for your response.",
+                ];
+                if (typeof msgs === "string") msgs = [msgs];
+                msgs.forEach(function (m) {
+                  renderMessage(m, "ai");
+                });
 
-  // ── API: Send Chat Message ──
-  function sendMessage(text) {
-    if (!text || !text.trim() || isSending || isComplete) return;
-    text = text.trim();
-    isSending = true;
-    chatInput.disabled = true;
-    btnSend.disabled = true;
-    removeChips();
+                if (data.chips && data.chips.length) renderChips(data.chips);
+                if (data.progress != null)
+                  updateProgress(data.progress, data.stage_index || 0);
+                if (data.qualification_score != null)
+                  statScore.textContent =
+                    Math.round(data.qualification_score) + "%";
 
-    renderMessage(text, 'user');
+                if (data.is_complete) {
+                  handleCompletion(data);
+                } else {
+                  chatInput.disabled = false;
+                  btnSend.disabled = false;
+                  chatInput.focus();
+                }
+              } catch (e) {
+                handleChatFallback(text);
+              }
+            } else {
+              handleChatFallback(text);
+            }
+          };
 
-    showTyping();
+          xhr.onerror = function () {
+            isSending = false;
+            handleChatFallback(text);
+          };
 
-    var cfg = getConfig();
+          xhr.ontimeout = xhr.onerror;
 
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/applyflow', true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.timeout = 30000;
+          xhr.send(
+            JSON.stringify({
+              action: "chat",
+              session_id: sessionId,
+              message: text,
+              job_config: cfg,
+            }),
+          );
+        }
 
-    xhr.onload = function () {
-      isSending = false;
-
-      if (xhr.status === 200) {
-        try {
-          var data = JSON.parse(xhr.responseText);
+        // ── Local Fallback Chat Logic ──
+        function handleChatFallback(userMsg) {
+          isSending = false;
           removeTyping();
 
-          var msgs = data.messages || [data.message || 'Thank you for your response.'];
-          if (typeof msgs === 'string') msgs = [msgs];
-          msgs.forEach(function (m) { renderMessage(m, 'ai'); });
+          var st = window._afLocalState || {
+            stage: 0,
+            collected: {},
+            cfg: getConfig(),
+            questionIndex: 0,
+          };
+          var cfg = st.cfg;
+          var response = "";
+          var chips = [];
+          var progress = 0;
+          var stageIndex = 0;
 
-          if (data.chips && data.chips.length) renderChips(data.chips);
-          if (data.progress != null) updateProgress(data.progress, data.stage_index || 0);
-          if (data.qualification_score != null) statScore.textContent = Math.round(data.qualification_score) + '%';
+          // Simple local conversation flow
+          switch (st.stage) {
+            case 0: // Welcome -> Qualification
+              st.stage = 1;
+              stageIndex = 1;
+              progress = 15;
+              if (
+                cfg.screening_questions &&
+                cfg.screening_questions.length > 0
+              ) {
+                st.questionIndex = 0;
+                response =
+                  "Great! Let me start with a few screening questions.\n\n" +
+                  cfg.screening_questions[0];
+                chips = ["Yes", "No"];
+              } else {
+                response =
+                  "Excellent! Let's start with your background. How many years of relevant experience do you have in this field?";
+                chips = ["0-1 years", "2-4 years", "5-9 years", "10+ years"];
+                st.stage = 2;
+                stageIndex = 2;
+                progress = 30;
+              }
+              break;
 
-          if (data.is_complete) {
-            handleCompletion(data);
-          } else {
-            chatInput.disabled = false;
-            btnSend.disabled = false;
-            chatInput.focus();
+            case 1: // Screening questions
+              st.collected["screening_" + st.questionIndex] = userMsg;
+              st.questionIndex++;
+              if (st.questionIndex < (cfg.screening_questions || []).length) {
+                response =
+                  "Got it. Next question:\n\n" +
+                  cfg.screening_questions[st.questionIndex];
+                chips = ["Yes", "No"];
+                stageIndex = 1;
+                progress =
+                  15 +
+                  (st.questionIndex / (cfg.screening_questions.length + 1)) *
+                    15;
+              } else {
+                st.stage = 2;
+                stageIndex = 2;
+                progress = 30;
+                response =
+                  "Thanks for answering those. Now let's talk about your experience.\n\nHow many years of relevant experience do you have?";
+                chips = ["0-1 years", "2-4 years", "5-9 years", "10+ years"];
+              }
+              break;
+
+            case 2: // Experience
+              st.collected.experience = userMsg;
+              st.stage = 3;
+              stageIndex = 3;
+              progress = 50;
+              var reqStr =
+                cfg.requirements.length > 0
+                  ? "The role requires: " +
+                    cfg.requirements.slice(0, 3).join(", ") +
+                    ".\n\n"
+                  : "";
+              response =
+                reqStr +
+                "Which of these skills do you have the most expertise in? Tell me about your strongest relevant skill.";
+              chips =
+                cfg.requirements.length > 0
+                  ? cfg.requirements.slice(0, 4).map(function (r) {
+                      return r.substring(0, 30);
+                    })
+                  : [
+                      "Technical skills",
+                      "Leadership",
+                      "Problem-solving",
+                      "Communication",
+                    ];
+              break;
+
+            case 3: // Skills
+              st.collected.skills = userMsg;
+              st.stage = 4;
+              stageIndex = 4;
+              progress = 70;
+              response =
+                "Impressive! Now let's get your contact details so we can follow up.\n\nWhat is your full name?";
+              chips = [];
+              break;
+
+            case 4: // Contact - Name
+              st.collected.name = userMsg;
+              st.stage = 5;
+              stageIndex = 4;
+              progress = 80;
+              response =
+                "Nice to meet you, " +
+                userMsg.split(" ")[0] +
+                "! What is your email address?";
+              break;
+
+            case 5: // Contact - Email
+              st.collected.email = userMsg;
+              st.stage = 6;
+              stageIndex = 4;
+              progress = 90;
+              response =
+                'And what is your phone number? (Optional - type "skip" to skip)';
+              chips = ["Skip"];
+              break;
+
+            case 6: // Contact - Phone -> Confirmation
+              if (userMsg.toLowerCase() !== "skip") {
+                st.collected.phone = userMsg;
+              }
+              st.stage = 7;
+              stageIndex = 5;
+              progress = 100;
+
+              var score = calculateScore(st.collected, cfg);
+              statScore.textContent = score + "%";
+
+              response =
+                "Thank you for completing your application for " +
+                cfg.role +
+                " at " +
+                cfg.company +
+                "!\n\n" +
+                "Your qualification score: " +
+                score +
+                "%\n\n" +
+                "Our team will review your application and get back to you within 2-3 business days. " +
+                "You'll receive a confirmation email at " +
+                (st.collected.email || "your email") +
+                ".";
+
+              lastSummaryData = {
+                job: cfg.role,
+                company: cfg.company,
+                location: cfg.location,
+                industry: cfg.industry,
+                collected: st.collected,
+                score: score,
+              };
+
+              handleCompletion({ qualification_score: score });
+              renderMessage(response, "ai");
+              updateProgress(progress, stageIndex);
+              window._afLocalState = st;
+              return; // Early return since handleCompletion manages input state
           }
-        } catch (e) {
-          handleChatFallback(text);
+
+          renderMessage(response, "ai");
+          if (chips.length) renderChips(chips);
+          updateProgress(progress, stageIndex);
+
+          chatInput.disabled = false;
+          btnSend.disabled = false;
+          chatInput.focus();
+
+          window._afLocalState = st;
         }
-      } else {
-        handleChatFallback(text);
-      }
-    };
 
-    xhr.onerror = function () {
-      isSending = false;
-      handleChatFallback(text);
-    };
-
-    xhr.ontimeout = xhr.onerror;
-
-    xhr.send(JSON.stringify({
-      action: 'chat',
-      session_id: sessionId,
-      message: text,
-      job_config: cfg
-    }));
-  }
-
-  // ── Local Fallback Chat Logic ──
-  function handleChatFallback(userMsg) {
-    isSending = false;
-    removeTyping();
-
-    var st = window._afLocalState || { stage: 0, collected: {}, cfg: getConfig(), questionIndex: 0 };
-    var cfg = st.cfg;
-    var response = '';
-    var chips = [];
-    var progress = 0;
-    var stageIndex = 0;
-
-    // Simple local conversation flow
-    switch (st.stage) {
-      case 0: // Welcome -> Qualification
-        st.stage = 1;
-        stageIndex = 1;
-        progress = 15;
-        if (cfg.screening_questions && cfg.screening_questions.length > 0) {
-          st.questionIndex = 0;
-          response = 'Great! Let me start with a few screening questions.\n\n' + cfg.screening_questions[0];
-          chips = ['Yes', 'No'];
-        } else {
-          response = 'Excellent! Let\'s start with your background. How many years of relevant experience do you have in this field?';
-          chips = ['0-1 years', '2-4 years', '5-9 years', '10+ years'];
-          st.stage = 2;
-          stageIndex = 2;
-          progress = 30;
+        function calculateScore(collected, cfg) {
+          var score = 40; // base
+          if (collected.experience) {
+            if (collected.experience.indexOf("10+") >= 0) score += 25;
+            else if (collected.experience.indexOf("5-9") >= 0) score += 20;
+            else if (collected.experience.indexOf("2-4") >= 0) score += 15;
+            else score += 5;
+          }
+          if (collected.skills && collected.skills.length > 10) score += 15;
+          if (collected.name) score += 5;
+          if (collected.email) score += 10;
+          if (collected.phone) score += 5;
+          return Math.min(100, score);
         }
-        break;
 
-      case 1: // Screening questions
-        st.collected['screening_' + st.questionIndex] = userMsg;
-        st.questionIndex++;
-        if (st.questionIndex < (cfg.screening_questions || []).length) {
-          response = 'Got it. Next question:\n\n' + cfg.screening_questions[st.questionIndex];
-          chips = ['Yes', 'No'];
-          stageIndex = 1;
-          progress = 15 + (st.questionIndex / (cfg.screening_questions.length + 1)) * 15;
-        } else {
-          st.stage = 2;
-          stageIndex = 2;
-          progress = 30;
-          response = 'Thanks for answering those. Now let\'s talk about your experience.\n\nHow many years of relevant experience do you have?';
-          chips = ['0-1 years', '2-4 years', '5-9 years', '10+ years'];
+        // ── Completion Handler ──
+        function handleCompletion(data) {
+          isComplete = true;
+          chatInput.disabled = true;
+          btnSend.disabled = true;
+          chatInput.placeholder = "Application complete";
+          updateProgress(100, 5);
+          updateStats();
+
+          if (data && data.qualification_score != null) {
+            statScore.textContent = Math.round(data.qualification_score) + "%";
+          }
+
+          summaryBtnWrap.classList.add("visible");
         }
-        break;
 
-      case 2: // Experience
-        st.collected.experience = userMsg;
-        st.stage = 3;
-        stageIndex = 3;
-        progress = 50;
-        var reqStr = cfg.requirements.length > 0
-          ? 'The role requires: ' + cfg.requirements.slice(0, 3).join(', ') + '.\n\n'
-          : '';
-        response = reqStr + 'Which of these skills do you have the most expertise in? Tell me about your strongest relevant skill.';
-        chips = cfg.requirements.length > 0
-          ? cfg.requirements.slice(0, 4).map(function (r) { return r.substring(0, 30); })
-          : ['Technical skills', 'Leadership', 'Problem-solving', 'Communication'];
-        break;
+        // ── View Summary ──
+        btnViewSummary.addEventListener("click", function () {
+          if (lastSummaryData) {
+            renderLocalSummary(lastSummaryData);
+            return;
+          }
 
-      case 3: // Skills
-        st.collected.skills = userMsg;
-        st.stage = 4;
-        stageIndex = 4;
-        progress = 70;
-        response = 'Impressive! Now let\'s get your contact details so we can follow up.\n\nWhat is your full name?';
-        chips = [];
-        break;
+          // Try API first
+          var xhr = new XMLHttpRequest();
+          xhr.open("POST", "/api/applyflow", true);
+          xhr.setRequestHeader("Content-Type", "application/json");
+          xhr.timeout = 10000;
 
-      case 4: // Contact - Name
-        st.collected.name = userMsg;
-        st.stage = 5;
-        stageIndex = 4;
-        progress = 80;
-        response = 'Nice to meet you, ' + userMsg.split(' ')[0] + '! What is your email address?';
-        break;
+          xhr.onload = function () {
+            if (xhr.status === 200) {
+              try {
+                var data = JSON.parse(xhr.responseText);
+                renderAPISummary(data);
+              } catch (e) {
+                renderGenericSummary();
+              }
+            } else {
+              renderGenericSummary();
+            }
+          };
 
-      case 5: // Contact - Email
-        st.collected.email = userMsg;
-        st.stage = 6;
-        stageIndex = 4;
-        progress = 90;
-        response = 'And what is your phone number? (Optional - type "skip" to skip)';
-        chips = ['Skip'];
-        break;
+          xhr.onerror = function () {
+            renderGenericSummary();
+          };
+          xhr.ontimeout = xhr.onerror;
 
-      case 6: // Contact - Phone -> Confirmation
-        if (userMsg.toLowerCase() !== 'skip') {
-          st.collected.phone = userMsg;
+          xhr.send(
+            JSON.stringify({ action: "summary", session_id: sessionId }),
+          );
+        });
+
+        function renderLocalSummary(data) {
+          var c = data.collected || {};
+          var html =
+            '<div class="af-summary-score">' +
+            '<div class="af-summary-score-num">' +
+            (data.score || "--") +
+            "%</div>" +
+            '<div class="af-summary-score-label">Qualification Score</div>' +
+            "</div>" +
+            '<div class="af-summary-card"><h4>Position Details</h4>' +
+            summaryRow("Role", data.job || "--") +
+            summaryRow("Company", data.company || "--") +
+            summaryRow("Location", data.location || "--") +
+            summaryRow("Industry", data.industry || "--") +
+            "</div>" +
+            '<div class="af-summary-card"><h4>Candidate Information</h4>' +
+            summaryRow("Name", c.name || "--") +
+            summaryRow("Email", c.email || "--") +
+            summaryRow("Phone", c.phone || "--") +
+            summaryRow("Experience", c.experience || "--") +
+            summaryRow("Key Skills", c.skills || "--") +
+            "</div>" +
+            '<div class="af-summary-card"><h4>Session Metrics</h4>' +
+            summaryRow("Messages Sent", messageCount) +
+            summaryRow("Completion Time", statTime.textContent) +
+            summaryRow("Status", "Complete") +
+            "</div>";
+          summaryContent.innerHTML = html;
+          summaryOverlay.classList.add("visible");
         }
-        st.stage = 7;
-        stageIndex = 5;
-        progress = 100;
 
-        var score = calculateScore(st.collected, cfg);
-        statScore.textContent = score + '%';
+        function renderAPISummary(data) {
+          var html =
+            '<div class="af-summary-score">' +
+            '<div class="af-summary-score-num">' +
+            (data.qualification_score != null
+              ? Math.round(data.qualification_score) + "%"
+              : "--") +
+            "</div>" +
+            '<div class="af-summary-score-label">Qualification Score</div>' +
+            "</div>";
 
-        response = 'Thank you for completing your application for ' + cfg.role + ' at ' + cfg.company + '!\n\n'
-          + 'Your qualification score: ' + score + '%\n\n'
-          + 'Our team will review your application and get back to you within 2-3 business days. '
-          + 'You\'ll receive a confirmation email at ' + (st.collected.email || 'your email') + '.';
+          if (data.collected_data) {
+            html +=
+              '<div class="af-summary-card"><h4>Candidate Information</h4>';
+            Object.keys(data.collected_data).forEach(function (k) {
+              html += summaryRow(
+                k.replace(/_/g, " ").replace(/\b\w/g, function (c) {
+                  return c.toUpperCase();
+                }),
+                data.collected_data[k],
+              );
+            });
+            html += "</div>";
+          }
 
-        lastSummaryData = {
-          job: cfg.role,
-          company: cfg.company,
-          location: cfg.location,
-          industry: cfg.industry,
-          collected: st.collected,
-          score: score
-        };
+          html +=
+            '<div class="af-summary-card"><h4>Session Metrics</h4>' +
+            summaryRow("Messages Sent", messageCount) +
+            summaryRow("Completion Time", statTime.textContent) +
+            summaryRow("Status", "Complete") +
+            "</div>";
 
-        handleCompletion({ qualification_score: score });
-        renderMessage(response, 'ai');
-        updateProgress(progress, stageIndex);
-        window._afLocalState = st;
-        return; // Early return since handleCompletion manages input state
-    }
-
-    renderMessage(response, 'ai');
-    if (chips.length) renderChips(chips);
-    updateProgress(progress, stageIndex);
-
-    chatInput.disabled = false;
-    btnSend.disabled = false;
-    chatInput.focus();
-
-    window._afLocalState = st;
-  }
-
-  function calculateScore(collected, cfg) {
-    var score = 40; // base
-    if (collected.experience) {
-      if (collected.experience.indexOf('10+') >= 0) score += 25;
-      else if (collected.experience.indexOf('5-9') >= 0) score += 20;
-      else if (collected.experience.indexOf('2-4') >= 0) score += 15;
-      else score += 5;
-    }
-    if (collected.skills && collected.skills.length > 10) score += 15;
-    if (collected.name) score += 5;
-    if (collected.email) score += 10;
-    if (collected.phone) score += 5;
-    return Math.min(100, score);
-  }
-
-  // ── Completion Handler ──
-  function handleCompletion(data) {
-    isComplete = true;
-    chatInput.disabled = true;
-    btnSend.disabled = true;
-    chatInput.placeholder = 'Application complete';
-    updateProgress(100, 5);
-    updateStats();
-
-    if (data && data.qualification_score != null) {
-      statScore.textContent = Math.round(data.qualification_score) + '%';
-    }
-
-    summaryBtnWrap.classList.add('visible');
-  }
-
-  // ── View Summary ──
-  btnViewSummary.addEventListener('click', function () {
-    if (lastSummaryData) {
-      renderLocalSummary(lastSummaryData);
-      return;
-    }
-
-    // Try API first
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/applyflow', true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.timeout = 10000;
-
-    xhr.onload = function () {
-      if (xhr.status === 200) {
-        try {
-          var data = JSON.parse(xhr.responseText);
-          renderAPISummary(data);
-        } catch (e) {
-          renderGenericSummary();
+          summaryContent.innerHTML = html;
+          summaryOverlay.classList.add("visible");
         }
-      } else {
-        renderGenericSummary();
-      }
-    };
 
-    xhr.onerror = function () { renderGenericSummary(); };
-    xhr.ontimeout = xhr.onerror;
+        function renderGenericSummary() {
+          var cfg = getConfig();
+          var html =
+            '<div class="af-summary-score">' +
+            '<div class="af-summary-score-num">' +
+            statScore.textContent +
+            "</div>" +
+            '<div class="af-summary-score-label">Qualification Score</div>' +
+            "</div>" +
+            '<div class="af-summary-card"><h4>Position</h4>' +
+            summaryRow("Role", cfg.role) +
+            summaryRow("Company", cfg.company) +
+            summaryRow("Location", cfg.location || "--") +
+            "</div>" +
+            '<div class="af-summary-card"><h4>Session Metrics</h4>' +
+            summaryRow("Messages Sent", messageCount) +
+            summaryRow("Completion Time", statTime.textContent) +
+            summaryRow("Status", "Complete") +
+            "</div>";
+          summaryContent.innerHTML = html;
+          summaryOverlay.classList.add("visible");
+        }
 
-    xhr.send(JSON.stringify({ action: 'summary', session_id: sessionId }));
-  });
+        function summaryRow(label, value) {
+          return (
+            '<div class="af-summary-row"><span class="label">' +
+            escapeHtml(String(label)) +
+            '</span><span class="value">' +
+            escapeHtml(String(value)) +
+            "</span></div>"
+          );
+        }
 
-  function renderLocalSummary(data) {
-    var c = data.collected || {};
-    var html = '<div class="af-summary-score">'
-      + '<div class="af-summary-score-num">' + (data.score || '--') + '%</div>'
-      + '<div class="af-summary-score-label">Qualification Score</div>'
-      + '</div>'
-      + '<div class="af-summary-card"><h4>Position Details</h4>'
-      + summaryRow('Role', data.job || '--')
-      + summaryRow('Company', data.company || '--')
-      + summaryRow('Location', data.location || '--')
-      + summaryRow('Industry', data.industry || '--')
-      + '</div>'
-      + '<div class="af-summary-card"><h4>Candidate Information</h4>'
-      + summaryRow('Name', c.name || '--')
-      + summaryRow('Email', c.email || '--')
-      + summaryRow('Phone', c.phone || '--')
-      + summaryRow('Experience', c.experience || '--')
-      + summaryRow('Key Skills', c.skills || '--')
-      + '</div>'
-      + '<div class="af-summary-card"><h4>Session Metrics</h4>'
-      + summaryRow('Messages Sent', messageCount)
-      + summaryRow('Completion Time', statTime.textContent)
-      + summaryRow('Status', 'Complete')
-      + '</div>';
-    summaryContent.innerHTML = html;
-    summaryOverlay.classList.add('visible');
-  }
+        btnCloseSummary.addEventListener("click", function () {
+          summaryOverlay.classList.remove("visible");
+        });
 
-  function renderAPISummary(data) {
-    var html = '<div class="af-summary-score">'
-      + '<div class="af-summary-score-num">' + (data.qualification_score != null ? Math.round(data.qualification_score) + '%' : '--') + '</div>'
-      + '<div class="af-summary-score-label">Qualification Score</div>'
-      + '</div>';
+        // ── Launch Button ──
+        btnLaunch.addEventListener("click", function () {
+          if (!roleInput.value.trim() || !companyInput.value.trim()) {
+            roleInput.focus();
+            return;
+          }
+          initWidget();
+        });
 
-    if (data.collected_data) {
-      html += '<div class="af-summary-card"><h4>Candidate Information</h4>';
-      Object.keys(data.collected_data).forEach(function (k) {
-        html += summaryRow(k.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }), data.collected_data[k]);
-      });
-      html += '</div>';
-    }
+        // ── Send Button ──
+        btnSend.addEventListener("click", function () {
+          var text = chatInput.value.trim();
+          if (text) {
+            chatInput.value = "";
+            sendMessage(text);
+          }
+        });
 
-    html += '<div class="af-summary-card"><h4>Session Metrics</h4>'
-      + summaryRow('Messages Sent', messageCount)
-      + summaryRow('Completion Time', statTime.textContent)
-      + summaryRow('Status', 'Complete')
-      + '</div>';
+        // ── Enter Key ──
+        chatInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            var text = chatInput.value.trim();
+            if (text) {
+              chatInput.value = "";
+              sendMessage(text);
+            }
+          }
+        });
 
-    summaryContent.innerHTML = html;
-    summaryOverlay.classList.add('visible');
-  }
+        // ── Timer Update ──
+        setInterval(function () {
+          if (startTime && !isComplete) updateStats();
+        }, 1000);
 
-  function renderGenericSummary() {
-    var cfg = getConfig();
-    var html = '<div class="af-summary-score">'
-      + '<div class="af-summary-score-num">' + statScore.textContent + '</div>'
-      + '<div class="af-summary-score-label">Qualification Score</div>'
-      + '</div>'
-      + '<div class="af-summary-card"><h4>Position</h4>'
-      + summaryRow('Role', cfg.role)
-      + summaryRow('Company', cfg.company)
-      + summaryRow('Location', cfg.location || '--')
-      + '</div>'
-      + '<div class="af-summary-card"><h4>Session Metrics</h4>'
-      + summaryRow('Messages Sent', messageCount)
-      + summaryRow('Completion Time', statTime.textContent)
-      + summaryRow('Status', 'Complete')
-      + '</div>';
-    summaryContent.innerHTML = html;
-    summaryOverlay.classList.add('visible');
-  }
+        // ── Helpers ──
+        function escapeHtml(text) {
+          var div = document.createElement("div");
+          div.appendChild(document.createTextNode(text || ""));
+          return div.innerHTML;
+        }
 
-  function summaryRow(label, value) {
-    return '<div class="af-summary-row"><span class="label">' + escapeHtml(String(label)) + '</span><span class="value">' + escapeHtml(String(value)) + '</span></div>';
-  }
+        // ── Init ──
+        renderScreening();
+        updateEmbed();
+      })();
 
-  btnCloseSummary.addEventListener('click', function () {
-    summaryOverlay.classList.remove('visible');
-  });
-
-  // ── Launch Button ──
-  btnLaunch.addEventListener('click', function () {
-    if (!roleInput.value.trim() || !companyInput.value.trim()) {
-      roleInput.focus();
-      return;
-    }
-    initWidget();
-  });
-
-  // ── Send Button ──
-  btnSend.addEventListener('click', function () {
-    var text = chatInput.value.trim();
-    if (text) {
-      chatInput.value = '';
-      sendMessage(text);
-    }
-  });
-
-  // ── Enter Key ──
-  chatInput.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      var text = chatInput.value.trim();
-      if (text) {
-        chatInput.value = '';
-        sendMessage(text);
-      }
-    }
-  });
-
-  // ── Timer Update ──
-  setInterval(function () {
-    if (startTime && !isComplete) updateStats();
-  }, 1000);
-
-  // ── Helpers ──
-  function escapeHtml(text) {
-    var div = document.createElement('div');
-    div.appendChild(document.createTextNode(text || ''));
-    return div.innerHTML;
-  }
-
-  // ── Init ──
-  renderScreening();
-  updateEmbed();
-})();
-</script>
-
-</body>
+      // Scroll reveal
+      (function () {
+        var ro = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) e.target.classList.add("visible");
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          ro.observe(el);
+        });
+      })();
+    </script>
+  </body>
 </html>

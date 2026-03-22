@@ -1,902 +1,1538 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>N.O.V.A. - Recruitment Intelligence System</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-  @font-face{font-family:'JarvisFont';src:local('SF Mono'),local('Menlo'),local('Consolas');font-display:swap}
-  :root{
-    --cyan:#818CF8;--cyan-dim:rgba(99,102,241,.15);--cyan-glow:rgba(99,102,241,.4);
-    --orange:#ff6b35;--green:#00ff88;--red:#ff3355;
-    --bg:#000000;--surface:rgba(17,17,17,0.8);--border:rgba(99,102,241,.12);
-    --text:#ededed;--text-dim:#666666;
-  }
-  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'JarvisFont',monospace}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>N.O.V.A. - Recruitment Intelligence System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      @font-face {
+        font-family: "JarvisFont";
+        src: local("SF Mono"), local("Menlo"), local("Consolas");
+        font-display: swap;
+      }
+      :root {
+        --cyan: #818cf8;
+        --cyan-dim: rgba(99, 102, 241, 0.15);
+        --cyan-glow: rgba(99, 102, 241, 0.4);
+        --orange: #ff6b35;
+        --green: #00ff88;
+        --red: #ff3355;
+        --bg: #000000;
+        --surface: rgba(17, 17, 17, 0.8);
+        --border: rgba(99, 102, 241, 0.12);
+        --text: #ededed;
+        --text-dim: #666666;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "JarvisFont", monospace;
+      }
 
-  /* ── Scanline overlay ── */
-  body::after{
-    content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
-    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);
-  }
+      /* ── Scanline overlay ── */
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        pointer-events: none;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 0, 0, 0.03) 2px,
+          rgba(0, 0, 0, 0.03) 4px
+        );
+      }
 
-  /* ── Layout ── */
-  .jarvis-container{
-    display:grid;grid-template-rows:auto 1fr auto;height:100vh;
-    background:radial-gradient(ellipse at 50% 30%,rgba(99,102,241,0.05) 0%,var(--bg) 70%);
-  }
+      /* ── Layout ── */
+      .jarvis-container {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        height: 100vh;
+        background: radial-gradient(
+          ellipse at 50% 30%,
+          rgba(99, 102, 241, 0.05) 0%,
+          var(--bg) 70%
+        );
+      }
 
-  /* ── Top HUD bar ── */
-  .hud-top{
-    display:flex;justify-content:space-between;align-items:center;
-    padding:12px 24px;border-bottom:1px solid var(--border);
-    background:linear-gradient(180deg,rgba(17,17,17,0.6) 0%,transparent 100%);
-  }
-  .hud-top-left{display:flex;align-items:center;gap:12px}
-  .nova-logo{
-    font-size:20px;font-weight:700;letter-spacing:6px;color:var(--cyan);
-    text-shadow:0 0 20px var(--cyan-glow),0 0 40px rgba(99,102,241,.15);
-  }
-  .nova-logo span{color:var(--text-dim);font-weight:400;font-size:11px;letter-spacing:2px;margin-left:8px}
-  .hud-status{display:flex;gap:16px;font-size:10px;letter-spacing:1px;text-transform:uppercase}
-  .hud-status-item{display:flex;align-items:center;gap:5px}
-  .hud-dot{width:6px;height:6px;border-radius:50%;animation:pulse-dot 2s infinite}
-  .hud-dot.online{background:var(--green);box-shadow:0 0 8px var(--green)}
-  .hud-dot.active{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
-  @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+      /* ── Top HUD bar ── */
+      .hud-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 24px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(
+          180deg,
+          rgba(17, 17, 17, 0.6) 0%,
+          transparent 100%
+        );
+      }
+      .hud-top-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .nova-logo {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 6px;
+        color: var(--cyan);
+        text-shadow:
+          0 0 20px var(--cyan-glow),
+          0 0 40px rgba(99, 102, 241, 0.15);
+      }
+      .nova-logo span {
+        color: var(--text-dim);
+        font-weight: 400;
+        font-size: 11px;
+        letter-spacing: 2px;
+        margin-left: 8px;
+      }
+      .hud-status {
+        display: flex;
+        gap: 16px;
+        font-size: 10px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+      .hud-status-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .hud-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        animation: pulse-dot 2s infinite;
+      }
+      .hud-dot.online {
+        background: var(--green);
+        box-shadow: 0 0 8px var(--green);
+      }
+      .hud-dot.active {
+        background: var(--cyan);
+        box-shadow: 0 0 8px var(--cyan);
+      }
+      @keyframes pulse-dot {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
 
-  /* ── Main area ── */
-  .main-area{
-    display:grid;grid-template-columns:1fr 420px;gap:0;overflow:hidden;position:relative;
-  }
+      /* ── Main area ── */
+      .main-area {
+        display: grid;
+        grid-template-columns: 1fr 420px;
+        gap: 0;
+        overflow: hidden;
+        position: relative;
+      }
 
-  /* ── Orb container ── */
-  .orb-section{
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    position:relative;overflow:hidden;
-  }
-  #orb-canvas{display:block;max-width:100%;max-height:100%}
+      /* ── Orb container ── */
+      .orb-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+      }
+      #orb-canvas {
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+      }
 
-  /* Task cycling text */
-  .task-text{
-    position:absolute;bottom:60px;left:50%;transform:translateX(-50%);
-    font-size:11px;letter-spacing:2px;text-transform:uppercase;
-    color:var(--cyan);opacity:.7;white-space:nowrap;
-    text-shadow:0 0 10px var(--cyan-glow);
-    transition:opacity .4s;
-  }
-  .task-text.fade{opacity:0}
+      /* Task cycling text */
+      .task-text {
+        position: absolute;
+        bottom: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 11px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--cyan);
+        opacity: 0.7;
+        white-space: nowrap;
+        text-shadow: 0 0 10px var(--cyan-glow);
+        transition: opacity 0.4s;
+      }
+      .task-text.fade {
+        opacity: 0;
+      }
 
-  /* Orb status ring text */
-  .orb-status{
-    position:absolute;bottom:28px;left:50%;transform:translateX(-50%);
-    font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--text-dim);
-  }
+      /* Orb status ring text */
+      .orb-status {
+        position: absolute;
+        bottom: 28px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 9px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--text-dim);
+      }
 
-  /* ── Chat panel ── */
-  .chat-panel{
-    display:flex;flex-direction:column;
-    border-left:1px solid var(--border);
-    background:linear-gradient(180deg,rgba(17,17,17,.95) 0%,rgba(17,17,17,.9) 100%);
-  }
-  .chat-header{
-    padding:16px 20px;border-bottom:1px solid var(--border);
-    display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
-  }
-  .chat-header-title{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--cyan)}
-  .chat-header-actions{display:flex;gap:8px}
-  .chat-header-actions button{
-    background:none;border:1px solid var(--border);color:var(--text-dim);
-    padding:4px 10px;border-radius:4px;font-family:inherit;font-size:9px;
-    letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .2s;
-  }
-  .chat-header-actions button:hover{border-color:var(--cyan);color:var(--cyan)}
+      /* ── Chat panel ── */
+      .chat-panel {
+        display: flex;
+        flex-direction: column;
+        border-left: 1px solid var(--border);
+        background: linear-gradient(
+          180deg,
+          rgba(17, 17, 17, 0.95) 0%,
+          rgba(17, 17, 17, 0.9) 100%
+        );
+      }
+      .chat-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+      }
+      .chat-header-title {
+        font-size: 12px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--cyan);
+      }
+      .chat-header-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .chat-header-actions button {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: 9px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .chat-header-actions button:hover {
+        border-color: var(--cyan);
+        color: var(--cyan);
+      }
 
-  /* Messages */
-  .chat-messages{
-    flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px;
-  }
-  .chat-messages::-webkit-scrollbar{width:3px}
-  .chat-messages::-webkit-scrollbar-track{background:transparent}
-  .chat-messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+      /* Messages */
+      .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .chat-messages::-webkit-scrollbar {
+        width: 3px;
+      }
+      .chat-messages::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .chat-messages::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 2px;
+      }
 
-  .msg{max-width:95%;animation:msg-in .3s ease-out}
-  @keyframes msg-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+      .msg {
+        max-width: 95%;
+        animation: msg-in 0.3s ease-out;
+      }
+      @keyframes msg-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
 
-  .msg-user{
-    align-self:flex-end;
-    background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(99,102,241,.06));
-    border:1px solid rgba(99,102,241,.2);
-    border-radius:12px 12px 4px 12px;
-    padding:10px 14px;font-size:13px;line-height:1.6;color:#e0f0ff;
-  }
-  .msg-assistant{
-    align-self:flex-start;
-    background:rgba(17,17,17,.6);
-    border:1px solid var(--border);
-    border-radius:12px 12px 12px 4px;
-    padding:12px 16px;font-size:13px;line-height:1.7;
-  }
-  .msg-assistant h3{font-size:13px;font-weight:600;color:var(--cyan);margin:8px 0 4px}
-  .msg-assistant h3:first-child{margin-top:0}
-  .msg-assistant strong{font-weight:600;color:#e0f0ff}
-  .msg-assistant em{font-style:italic;color:var(--text-dim)}
-  .msg-assistant ul,.msg-assistant ol{margin:4px 0;padding-left:18px}
-  .msg-assistant li{margin-bottom:3px}
-  .msg-assistant li::marker{color:var(--cyan)}
-  .msg-assistant table{border-collapse:collapse;width:100%;margin:8px 0;font-size:11px}
-  .msg-assistant th,.msg-assistant td{border:1px solid var(--border);padding:5px 8px;text-align:left}
-  .msg-assistant th{background:rgba(99,102,241,.08);color:var(--cyan);font-weight:600}
-  .msg-assistant code{
-    background:rgba(99,102,241,.08);padding:1px 5px;border-radius:3px;
-    font-family:inherit;font-size:12px;color:var(--cyan);
-  }
-  .msg-assistant p{margin:4px 0}
-  .msg-assistant a{color:var(--cyan);text-decoration:underline}
+      .msg-user {
+        align-self: flex-end;
+        background: linear-gradient(
+          135deg,
+          rgba(99, 102, 241, 0.12),
+          rgba(99, 102, 241, 0.06)
+        );
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 12px 12px 4px 12px;
+        padding: 10px 14px;
+        font-size: 13px;
+        line-height: 1.6;
+        color: #e0f0ff;
+      }
+      .msg-assistant {
+        align-self: flex-start;
+        background: rgba(17, 17, 17, 0.6);
+        border: 1px solid var(--border);
+        border-radius: 12px 12px 12px 4px;
+        padding: 12px 16px;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .msg-assistant h3 {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--cyan);
+        margin: 8px 0 4px;
+      }
+      .msg-assistant h3:first-child {
+        margin-top: 0;
+      }
+      .msg-assistant strong {
+        font-weight: 600;
+        color: #e0f0ff;
+      }
+      .msg-assistant em {
+        font-style: italic;
+        color: var(--text-dim);
+      }
+      .msg-assistant ul,
+      .msg-assistant ol {
+        margin: 4px 0;
+        padding-left: 18px;
+      }
+      .msg-assistant li {
+        margin-bottom: 3px;
+      }
+      .msg-assistant li::marker {
+        color: var(--cyan);
+      }
+      .msg-assistant table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 8px 0;
+        font-size: 11px;
+      }
+      .msg-assistant th,
+      .msg-assistant td {
+        border: 1px solid var(--border);
+        padding: 5px 8px;
+        text-align: left;
+      }
+      .msg-assistant th {
+        background: rgba(99, 102, 241, 0.08);
+        color: var(--cyan);
+        font-weight: 600;
+      }
+      .msg-assistant code {
+        background: rgba(99, 102, 241, 0.08);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-family: inherit;
+        font-size: 12px;
+        color: var(--cyan);
+      }
+      .msg-assistant p {
+        margin: 4px 0;
+      }
+      .msg-assistant a {
+        color: var(--cyan);
+        text-decoration: underline;
+      }
 
-  /* Meta badges */
-  .msg-meta{
-    margin-top:8px;padding-top:6px;border-top:1px solid var(--border);
-    display:flex;flex-wrap:wrap;gap:4px;align-items:center;
-  }
-  .meta-badge{
-    font-size:9px;padding:2px 7px;border-radius:10px;
-    background:rgba(99,102,241,.1);color:var(--cyan);
-    border:1px solid rgba(99,102,241,.15);letter-spacing:.5px;
-  }
-  .conf-badge{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;letter-spacing:.5px}
-  .conf-high{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.2)}
-  .conf-medium{background:rgba(255,170,0,.1);color:#ffaa00;border:1px solid rgba(255,170,0,.2)}
-  .conf-low{background:rgba(255,51,85,.1);color:var(--red);border:1px solid rgba(255,51,85,.2)}
+      /* Meta badges */
+      .msg-meta {
+        margin-top: 8px;
+        padding-top: 6px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        align-items: center;
+      }
+      .meta-badge {
+        font-size: 9px;
+        padding: 2px 7px;
+        border-radius: 10px;
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--cyan);
+        border: 1px solid rgba(99, 102, 241, 0.15);
+        letter-spacing: 0.5px;
+      }
+      .conf-badge {
+        font-size: 9px;
+        padding: 2px 7px;
+        border-radius: 10px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+      .conf-high {
+        background: rgba(0, 255, 136, 0.1);
+        color: var(--green);
+        border: 1px solid rgba(0, 255, 136, 0.2);
+      }
+      .conf-medium {
+        background: rgba(255, 170, 0, 0.1);
+        color: #ffaa00;
+        border: 1px solid rgba(255, 170, 0, 0.2);
+      }
+      .conf-low {
+        background: rgba(255, 51, 85, 0.1);
+        color: var(--red);
+        border: 1px solid rgba(255, 51, 85, 0.2);
+      }
 
-  /* Thinking indicator */
-  .thinking-indicator{
-    align-self:flex-start;display:flex;align-items:center;gap:8px;
-    padding:10px 16px;
-    background:rgba(17,17,17,.6);border:1px solid var(--border);
-    border-radius:12px 12px 12px 4px;
-  }
-  .thinking-dots{display:flex;gap:4px}
-  .thinking-dots span{
-    width:6px;height:6px;border-radius:50%;background:var(--cyan);
-    animation:think-bounce 1.4s infinite;
-  }
-  .thinking-dots span:nth-child(2){animation-delay:.2s}
-  .thinking-dots span:nth-child(3){animation-delay:.4s}
-  @keyframes think-bounce{0%,60%,100%{transform:translateY(0);opacity:.3}30%{transform:translateY(-8px);opacity:1}}
-  .thinking-label{font-size:10px;color:var(--cyan);letter-spacing:1px;text-transform:uppercase}
+      /* Thinking indicator */
+      .thinking-indicator {
+        align-self: flex-start;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background: rgba(17, 17, 17, 0.6);
+        border: 1px solid var(--border);
+        border-radius: 12px 12px 12px 4px;
+      }
+      .thinking-dots {
+        display: flex;
+        gap: 4px;
+      }
+      .thinking-dots span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--cyan);
+        animation: think-bounce 1.4s infinite;
+      }
+      .thinking-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .thinking-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes think-bounce {
+        0%,
+        60%,
+        100% {
+          transform: translateY(0);
+          opacity: 0.3;
+        }
+        30% {
+          transform: translateY(-8px);
+          opacity: 1;
+        }
+      }
+      .thinking-label {
+        font-size: 10px;
+        color: var(--cyan);
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
 
-  /* Input area */
-  .chat-input-area{
-    padding:14px 20px;border-top:1px solid var(--border);
-    display:flex;gap:10px;align-items:flex-end;flex-shrink:0;
-    background:rgba(17,17,17,.8);
-  }
-  .chat-input{
-    flex:1;background:rgba(99,102,241,.04);border:1px solid var(--border);
-    border-radius:8px;padding:10px 14px;font-family:inherit;font-size:13px;
-    color:var(--text);resize:none;outline:none;min-height:20px;max-height:120px;
-    line-height:1.5;transition:border-color .2s;
-  }
-  .chat-input:focus{border-color:rgba(99,102,241,.4);background:rgba(99,102,241,.06)}
-  .chat-input::placeholder{color:var(--text-dim)}
-  .chat-send{
-    width:40px;height:40px;border-radius:8px;
-    background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(99,102,241,.08));
-    border:1px solid rgba(99,102,241,.3);color:var(--cyan);
-    cursor:pointer;display:flex;align-items:center;justify-content:center;
-    flex-shrink:0;transition:all .2s;
-  }
-  .chat-send:hover{background:rgba(99,102,241,.2);border-color:var(--cyan);box-shadow:0 0 15px rgba(99,102,241,.2)}
-  .chat-send:active{transform:scale(.95)}
-  .chat-send:disabled{opacity:.3;cursor:not-allowed;transform:none;box-shadow:none}
-  .chat-send svg{width:18px;height:18px}
+      /* Input area */
+      .chat-input-area {
+        padding: 14px 20px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+        flex-shrink: 0;
+        background: rgba(17, 17, 17, 0.8);
+      }
+      .chat-input {
+        flex: 1;
+        background: rgba(99, 102, 241, 0.04);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-family: inherit;
+        font-size: 13px;
+        color: var(--text);
+        resize: none;
+        outline: none;
+        min-height: 20px;
+        max-height: 120px;
+        line-height: 1.5;
+        transition: border-color 0.2s;
+      }
+      .chat-input:focus {
+        border-color: rgba(99, 102, 241, 0.4);
+        background: rgba(99, 102, 241, 0.06);
+      }
+      .chat-input::placeholder {
+        color: var(--text-dim);
+      }
+      .chat-send {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: linear-gradient(
+          135deg,
+          rgba(99, 102, 241, 0.15),
+          rgba(99, 102, 241, 0.08)
+        );
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: var(--cyan);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.2s;
+      }
+      .chat-send:hover {
+        background: rgba(99, 102, 241, 0.2);
+        border-color: var(--cyan);
+        box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+      }
+      .chat-send:active {
+        transform: scale(0.95);
+      }
+      .chat-send:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+      .chat-send svg {
+        width: 18px;
+        height: 18px;
+      }
 
-  .chat-footer{
-    text-align:center;padding:6px;font-size:9px;color:var(--text-dim);
-    letter-spacing:1px;border-top:1px solid rgba(99,102,241,.05);flex-shrink:0;
-  }
+      .chat-footer {
+        text-align: center;
+        padding: 6px;
+        font-size: 9px;
+        color: var(--text-dim);
+        letter-spacing: 1px;
+        border-top: 1px solid rgba(99, 102, 241, 0.05);
+        flex-shrink: 0;
+      }
 
-  /* ── Bottom HUD ── */
-  .hud-bottom{
-    display:flex;justify-content:space-between;align-items:center;
-    padding:8px 24px;border-top:1px solid var(--border);
-    font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);
-    background:linear-gradient(0deg,rgba(17,17,17,.4) 0%,transparent 100%);
-  }
-  .hud-bottom-section{display:flex;gap:20px}
+      /* ── Bottom HUD ── */
+      .hud-bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 24px;
+        border-top: 1px solid var(--border);
+        font-size: 9px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        background: linear-gradient(
+          0deg,
+          rgba(17, 17, 17, 0.4) 0%,
+          transparent 100%
+        );
+      }
+      .hud-bottom-section {
+        display: flex;
+        gap: 20px;
+      }
 
-  /* ── Welcome message ── */
-  .welcome-msg{
-    align-self:flex-start;text-align:left;
-    background:rgba(17,17,17,.6);border:1px solid var(--border);
-    border-radius:12px 12px 12px 4px;padding:14px 18px;
-  }
-  .welcome-msg .greeting{font-size:14px;color:var(--cyan);font-weight:600;margin-bottom:6px}
-  .welcome-msg .desc{font-size:12px;line-height:1.7;color:var(--text)}
+      /* ── Welcome message ── */
+      .welcome-msg {
+        align-self: flex-start;
+        text-align: left;
+        background: rgba(17, 17, 17, 0.6);
+        border: 1px solid var(--border);
+        border-radius: 12px 12px 12px 4px;
+        padding: 14px 18px;
+      }
+      .welcome-msg .greeting {
+        font-size: 14px;
+        color: var(--cyan);
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+      .welcome-msg .desc {
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--text);
+      }
 
-  /* Suggested questions */
-  .suggestions{display:flex;flex-direction:column;gap:6px;margin-top:4px}
-  .suggestions-title{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:2px}
-  .suggestion-btn{
-    background:rgba(99,102,241,.04);border:1px solid var(--border);
-    padding:8px 12px;border-radius:8px;cursor:pointer;
-    font-family:inherit;font-size:11px;color:var(--text);text-align:left;
-    transition:all .2s;line-height:1.4;
-  }
-  .suggestion-btn:hover{
-    border-color:rgba(99,102,241,.3);background:rgba(99,102,241,.08);
-    color:var(--cyan);transform:translateX(4px);
-  }
+      /* Suggested questions */
+      .suggestions {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 4px;
+      }
+      .suggestions-title {
+        font-size: 9px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        margin-bottom: 2px;
+      }
+      .suggestion-btn {
+        background: rgba(99, 102, 241, 0.04);
+        border: 1px solid var(--border);
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 11px;
+        color: var(--text);
+        text-align: left;
+        transition: all 0.2s;
+        line-height: 1.4;
+      }
+      .suggestion-btn:hover {
+        border-color: rgba(99, 102, 241, 0.3);
+        background: rgba(99, 102, 241, 0.08);
+        color: var(--cyan);
+        transform: translateX(4px);
+      }
 
-  /* ── Responsive ── */
-  @media(max-width:900px){
-    .main-area{grid-template-columns:1fr;grid-template-rows:280px 1fr}
-    .chat-panel{border-left:none;border-top:1px solid var(--border)}
-    .orb-section{min-height:280px}
-  }
-  @media(max-width:500px){
-    .hud-top{padding:8px 12px}.hud-status{gap:8px}
-    .main-area{grid-template-rows:200px 1fr}
-    .chat-input-area{padding:10px 12px}
-    .chat-messages{padding:12px}
-  }
+      /* ── Responsive ── */
+      @media (max-width: 900px) {
+        .main-area {
+          grid-template-columns: 1fr;
+          grid-template-rows: 280px 1fr;
+        }
+        .chat-panel {
+          border-left: none;
+          border-top: 1px solid var(--border);
+        }
+        .orb-section {
+          min-height: 280px;
+        }
+      }
+      @media (max-width: 500px) {
+        .hud-top {
+          padding: 8px 12px;
+        }
+        .hud-status {
+          gap: 8px;
+        }
+        .main-area {
+          grid-template-rows: 200px 1fr;
+        }
+        .chat-input-area {
+          padding: 10px 12px;
+        }
+        .chat-messages {
+          padding: 12px;
+        }
+      }
 
-  @media(prefers-reduced-motion:reduce){
-    *,*::before,*::after{
-      animation-duration:0.01ms !important;
-      animation-iteration-count:1 !important;
-      transition-duration:0.01ms !important;
-    }
-  }
-</style>
-</head>
-<body>
-<div class="jarvis-container">
-  <!-- Top HUD -->
-  <div class="hud-top">
-    <div class="hud-top-left">
-      <div class="nova-logo">N.O.V.A.<span>Neural Optimized Virtual Advisor</span></div>
-    </div>
-    <div class="hud-status">
-      <div class="hud-status-item"><div class="hud-dot online"></div>System Online</div>
-      <div class="hud-status-item"><div class="hud-dot active"></div>18 APIs Active</div>
-      <div class="hud-status-item" id="hud-uptime">Uptime --:--:--</div>
-    </div>
-  </div>
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
 
-  <!-- Main -->
-  <div class="main-area">
-    <!-- Orb -->
-    <div class="orb-section">
-      <canvas id="orb-canvas" width="800" height="800"></canvas>
-      <div class="task-text" id="task-text">Initializing neural core...</div>
-      <div class="orb-status" id="orb-status">STANDBY</div>
-    </div>
+      /* -- Scroll reveal animations -- */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
 
-    <!-- Chat -->
-    <div class="chat-panel">
-      <div class="chat-header">
-        <div class="chat-header-title">Intelligence Feed</div>
-        <div class="chat-header-actions">
-          <button id="clear-btn" title="Clear conversation">Clear</button>
+      /* -- Enhanced card/section glow -- */
+      .glow-hover {
+        transition:
+          box-shadow 0.4s ease,
+          border-color 0.3s ease;
+      }
+      .glow-hover:hover {
+        box-shadow:
+          0 0 20px rgba(99, 102, 241, 0.12),
+          0 0 50px rgba(99, 102, 241, 0.06);
+        border-color: rgba(99, 102, 241, 0.2);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="jarvis-container">
+      <!-- Top HUD -->
+      <div class="hud-top">
+        <div class="hud-top-left">
+          <div class="nova-logo">
+            N.O.V.A.<span>Neural Optimized Virtual Advisor</span>
+          </div>
+        </div>
+        <div class="hud-status">
+          <div class="hud-status-item">
+            <div class="hud-dot online"></div>
+            System Online
+          </div>
+          <div class="hud-status-item">
+            <div class="hud-dot active"></div>
+            18 APIs Active
+          </div>
+          <div class="hud-status-item" id="hud-uptime">Uptime --:--:--</div>
         </div>
       </div>
-      <div class="chat-messages" id="chat-messages"></div>
-      <div class="chat-input-area">
-        <textarea class="chat-input" id="chat-input" placeholder="Query Nova..." rows="1"></textarea>
-        <button class="chat-send" id="chat-send" title="Send">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-        </button>
+
+      <!-- Main -->
+      <div class="main-area">
+        <!-- Orb -->
+        <div class="orb-section">
+          <canvas id="orb-canvas" width="800" height="800"></canvas>
+          <div class="task-text" id="task-text">
+            Initializing neural core...
+          </div>
+          <div class="orb-status" id="orb-status">STANDBY</div>
+        </div>
+
+        <!-- Chat -->
+        <div class="chat-panel">
+          <div class="chat-header">
+            <div class="chat-header-title">Intelligence Feed</div>
+            <div class="chat-header-actions">
+              <button id="clear-btn" title="Clear conversation">Clear</button>
+            </div>
+          </div>
+          <div class="chat-messages" id="chat-messages"></div>
+          <div class="chat-input-area">
+            <textarea
+              class="chat-input"
+              id="chat-input"
+              placeholder="Query Nova..."
+              rows="1"
+            ></textarea>
+            <button class="chat-send" id="chat-send" title="Send">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            </button>
+          </div>
+          <div class="chat-footer">Powered by Nova &middot; Nova AI Suite</div>
+        </div>
       </div>
-      <div class="chat-footer">Powered by Nova &middot; Nova AI Suite</div>
+
+      <!-- Bottom HUD -->
+      <div class="hud-bottom">
+        <div class="hud-bottom-section">
+          <span>Nova AI Suite v3.5.0</span>
+          <span id="hud-time"></span>
+        </div>
+        <div class="hud-bottom-section">
+          <span>10,238+ Supply Partners</span>
+          <span>70+ Countries</span>
+          <span id="hud-queries">Queries: 0</span>
+        </div>
+      </div>
     </div>
-  </div>
 
-  <!-- Bottom HUD -->
-  <div class="hud-bottom">
-    <div class="hud-bottom-section">
-      <span>Nova AI Suite v3.5.0</span>
-      <span id="hud-time"></span>
-    </div>
-    <div class="hud-bottom-section">
-      <span>10,238+ Supply Partners</span>
-      <span>70+ Countries</span>
-      <span id="hud-queries">Queries: 0</span>
-    </div>
-  </div>
-</div>
+    <script>
+      (function () {
+        "use strict";
 
-<script>
-(function(){
-'use strict';
+        // ============================================================================
+        // 3D ORB ANIMATION
+        // ============================================================================
+        var canvas = document.getElementById("orb-canvas");
+        var ctx = canvas.getContext("2d");
+        var W = 800,
+          H = 800;
+        var CX = W / 2,
+          CY = H / 2;
+        var orbRadius = 200;
+        var time = 0;
+        var isThinking = false;
+        var thinkIntensity = 0; // 0..1, smoothly transitions
 
-// ============================================================================
-// 3D ORB ANIMATION
-// ============================================================================
-var canvas = document.getElementById('orb-canvas');
-var ctx = canvas.getContext('2d');
-var W = 800, H = 800;
-var CX = W/2, CY = H/2;
-var orbRadius = 200;
-var time = 0;
-var isThinking = false;
-var thinkIntensity = 0; // 0..1, smoothly transitions
+        // Dot particles on the orb surface
+        var dots = [];
+        var NUM_DOTS = 320;
+        var RING_COUNT = 12;
 
-// Dot particles on the orb surface
-var dots = [];
-var NUM_DOTS = 320;
-var RING_COUNT = 12;
-
-// Generate dots arranged in rings (latitude bands) for a sphere
-for(var ring=0; ring<RING_COUNT; ring++){
-  var phi = Math.PI * (ring + 0.5) / RING_COUNT; // latitude
-  var ringDots = Math.floor(NUM_DOTS / RING_COUNT * Math.sin(phi));
-  if(ringDots < 4) ringDots = 4;
-  for(var d=0; d<ringDots; d++){
-    var theta = (2*Math.PI*d/ringDots) + (ring%2)*0.15; // stagger
-    dots.push({
-      phi: phi,
-      theta: theta,
-      baseTheta: theta,
-      basePhi: phi,
-      size: 1.2 + Math.random()*1.2,
-      brightness: 0.3 + Math.random()*0.7,
-      pulsePhase: Math.random()*Math.PI*2,
-      ringIndex: ring,
-    });
-  }
-}
-
-// Pulse waves traveling across the orb
-var pulses = [];
-function spawnPulse(){
-  pulses.push({
-    phi: Math.random()*Math.PI,        // origin latitude
-    theta: Math.random()*Math.PI*2,     // origin longitude
-    radius: 0,                          // expanding radius on surface
-    maxRadius: 0.8 + Math.random()*1.2, // radians
-    speed: 0.6 + Math.random()*0.5,
-    life: 1.0,
-    color: isThinking ? [0,255,136] : [99,102,241],
-  });
-}
-
-// Orbital ring particles (like Saturn rings)
-var ringParticles = [];
-var NUM_RING_PARTICLES = 80;
-for(var i=0;i<NUM_RING_PARTICLES;i++){
-  var angle = (2*Math.PI*i/NUM_RING_PARTICLES) + Math.random()*0.05;
-  ringParticles.push({
-    angle: angle,
-    radius: orbRadius*1.35 + (Math.random()-0.5)*30,
-    speed: 0.15 + Math.random()*0.1,
-    size: 0.8 + Math.random()*1.0,
-    brightness: 0.2 + Math.random()*0.5,
-    yOffset: (Math.random()-0.5)*8,
-  });
-}
-
-// Secondary ring (perpendicular-ish)
-var ringParticles2 = [];
-for(var i=0;i<60;i++){
-  ringParticles2.push({
-    angle: (2*Math.PI*i/60) + Math.random()*0.08,
-    radius: orbRadius*1.2 + (Math.random()-0.5)*20,
-    speed: -0.12 + Math.random()*0.06,
-    size: 0.6 + Math.random()*0.8,
-    brightness: 0.15 + Math.random()*0.4,
-  });
-}
-
-// Project 3D point to 2D with rotation
-function project(phi, theta, rotY, rotX){
-  var x = orbRadius * Math.sin(phi) * Math.cos(theta);
-  var y = orbRadius * Math.cos(phi);
-  var z = orbRadius * Math.sin(phi) * Math.sin(theta);
-  // Rotate around Y
-  var cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-  var x2 = x*cosY - z*sinY;
-  var z2 = x*sinY + z*cosY;
-  // Rotate around X (slight tilt)
-  var cosX = Math.cos(rotX), sinX = Math.sin(rotX);
-  var y2 = y*cosX - z2*sinX;
-  var z3 = y*sinX + z2*cosX;
-  // Perspective
-  var scale = 600/(600+z3);
-  return {x: CX + x2*scale, y: CY + y2*scale, z: z3, scale: scale};
-}
-
-// Great-circle distance between two points on sphere
-function sphereDist(phi1,theta1,phi2,theta2){
-  return Math.acos(
-    Math.min(1, Math.max(-1,
-      Math.sin(phi1)*Math.sin(phi2)*Math.cos(theta1-theta2) + Math.cos(phi1)*Math.cos(phi2)
-    ))
-  );
-}
-
-function drawOrb(){
-  ctx.clearRect(0,0,W,H);
-
-  var rotY = time*0.2;
-  var rotX = 0.3 + Math.sin(time*0.1)*0.1;
-
-  // Smooth think intensity
-  var targetIntensity = isThinking ? 1 : 0;
-  thinkIntensity += (targetIntensity - thinkIntensity) * 0.03;
-
-  // Core glow
-  var coreGlow = ctx.createRadialGradient(CX, CY, 0, CX, CY, orbRadius*1.8);
-  var glowAlpha = 0.08 + thinkIntensity*0.06;
-  coreGlow.addColorStop(0, 'rgba(99,102,241,'+glowAlpha*2+')');
-  coreGlow.addColorStop(0.3, 'rgba(99,102,241,'+glowAlpha+')');
-  coreGlow.addColorStop(0.7, 'rgba(60,50,150,'+glowAlpha*0.3+')');
-  coreGlow.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = coreGlow;
-  ctx.fillRect(0,0,W,H);
-
-  // Inner orb sphere (subtle fill)
-  var innerGrad = ctx.createRadialGradient(CX-30, CY-40, orbRadius*0.1, CX, CY, orbRadius);
-  innerGrad.addColorStop(0, 'rgba(50,40,120,0.06)');
-  innerGrad.addColorStop(0.8, 'rgba(30,20,60,0.03)');
-  innerGrad.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.beginPath();
-  ctx.arc(CX, CY, orbRadius, 0, Math.PI*2);
-  ctx.fillStyle = innerGrad;
-  ctx.fill();
-
-  // Collect all drawable elements with z-depth for sorting
-  var drawList = [];
-
-  // Dots on sphere surface
-  for(var i=0;i<dots.length;i++){
-    var dot = dots[i];
-    var phi = dot.basePhi;
-    var theta = dot.baseTheta + time*(0.08 + dot.ringIndex*0.005);
-
-    // Breathing effect
-    var breathe = 1 + Math.sin(time*1.5 + dot.pulsePhase)*0.03;
-    var p = project(phi, theta, rotY, rotX);
-
-    // Check pulse proximity
-    var pulseBrightness = 0;
-    for(var pi=0;pi<pulses.length;pi++){
-      var pulse = pulses[pi];
-      var dist = sphereDist(phi, theta, pulse.phi, pulse.theta);
-      var ringWidth = 0.15;
-      var diff = Math.abs(dist - pulse.radius);
-      if(diff < ringWidth){
-        pulseBrightness = Math.max(pulseBrightness, (1 - diff/ringWidth) * pulse.life);
-      }
-    }
-
-    var alpha = (0.15 + dot.brightness*0.5 + pulseBrightness*0.8) * (0.3 + p.scale*0.7) * breathe;
-    var thinkBoost = thinkIntensity * 0.3 * Math.sin(time*3 + dot.pulsePhase);
-    alpha = Math.min(1, alpha + thinkBoost);
-
-    var sizeBase = dot.size * p.scale * breathe;
-    var size = sizeBase + pulseBrightness * 2;
-
-    var r=99, g=102, b=241;
-    if(pulseBrightness > 0.1){
-      if(isThinking){ g=255; b=136; r=0; }
-      else { r=129; g=140; b=248; }
-    }
-
-    drawList.push({z:p.z, fn:function(px,py,sz,al,cr,cg,cb){
-      return function(){
-        ctx.beginPath();
-        ctx.arc(px,py,sz,0,Math.PI*2);
-        ctx.fillStyle='rgba('+cr+','+cg+','+cb+','+al.toFixed(3)+')';
-        ctx.fill();
-        if(al>0.5){
-          ctx.beginPath();
-          ctx.arc(px,py,sz*2.5,0,Math.PI*2);
-          ctx.fillStyle='rgba('+cr+','+cg+','+cb+','+(al*0.15).toFixed(3)+')';
-          ctx.fill();
+        // Generate dots arranged in rings (latitude bands) for a sphere
+        for (var ring = 0; ring < RING_COUNT; ring++) {
+          var phi = (Math.PI * (ring + 0.5)) / RING_COUNT; // latitude
+          var ringDots = Math.floor((NUM_DOTS / RING_COUNT) * Math.sin(phi));
+          if (ringDots < 4) ringDots = 4;
+          for (var d = 0; d < ringDots; d++) {
+            var theta = (2 * Math.PI * d) / ringDots + (ring % 2) * 0.15; // stagger
+            dots.push({
+              phi: phi,
+              theta: theta,
+              baseTheta: theta,
+              basePhi: phi,
+              size: 1.2 + Math.random() * 1.2,
+              brightness: 0.3 + Math.random() * 0.7,
+              pulsePhase: Math.random() * Math.PI * 2,
+              ringIndex: ring,
+            });
+          }
         }
-      };
-    }(p.x,p.y,size,alpha,r,g,b)});
-  }
 
-  // Connection lines between nearby dots (wireframe effect)
-  var connThreshold = orbRadius * 0.45;
-  for(var i=0;i<dots.length;i+=3){
-    var dotA = dots[i];
-    var thetaA = dotA.baseTheta + time*(0.08 + dotA.ringIndex*0.005);
-    var pA = project(dotA.basePhi, thetaA, rotY, rotX);
-    if(pA.z < -orbRadius*0.3) continue; // skip back-facing
+        // Pulse waves traveling across the orb
+        var pulses = [];
+        function spawnPulse() {
+          pulses.push({
+            phi: Math.random() * Math.PI, // origin latitude
+            theta: Math.random() * Math.PI * 2, // origin longitude
+            radius: 0, // expanding radius on surface
+            maxRadius: 0.8 + Math.random() * 1.2, // radians
+            speed: 0.6 + Math.random() * 0.5,
+            life: 1.0,
+            color: isThinking ? [0, 255, 136] : [99, 102, 241],
+          });
+        }
 
-    for(var j=i+3;j<dots.length;j+=3){
-      var dotB = dots[j];
-      var thetaB = dotB.baseTheta + time*(0.08 + dotB.ringIndex*0.005);
-      var pB = project(dotB.basePhi, thetaB, rotY, rotX);
-      if(pB.z < -orbRadius*0.3) continue;
+        // Orbital ring particles (like Saturn rings)
+        var ringParticles = [];
+        var NUM_RING_PARTICLES = 80;
+        for (var i = 0; i < NUM_RING_PARTICLES; i++) {
+          var angle =
+            (2 * Math.PI * i) / NUM_RING_PARTICLES + Math.random() * 0.05;
+          ringParticles.push({
+            angle: angle,
+            radius: orbRadius * 1.35 + (Math.random() - 0.5) * 30,
+            speed: 0.15 + Math.random() * 0.1,
+            size: 0.8 + Math.random() * 1.0,
+            brightness: 0.2 + Math.random() * 0.5,
+            yOffset: (Math.random() - 0.5) * 8,
+          });
+        }
 
-      var dx = pA.x-pB.x, dy = pA.y-pB.y;
-      var dist = Math.sqrt(dx*dx+dy*dy);
-      if(dist < connThreshold){
-        var lineAlpha = (1 - dist/connThreshold) * 0.06 * (0.5+pA.scale*0.5);
-        var avgZ = (pA.z+pB.z)/2;
-        drawList.push({z:avgZ-1, fn:function(ax,ay,bx,by,la){
-          return function(){
-            ctx.beginPath();
-            ctx.moveTo(ax,ay);
-            ctx.lineTo(bx,by);
-            ctx.strokeStyle='rgba(99,102,241,'+la.toFixed(4)+')';
-            ctx.lineWidth=0.5;
-            ctx.stroke();
+        // Secondary ring (perpendicular-ish)
+        var ringParticles2 = [];
+        for (var i = 0; i < 60; i++) {
+          ringParticles2.push({
+            angle: (2 * Math.PI * i) / 60 + Math.random() * 0.08,
+            radius: orbRadius * 1.2 + (Math.random() - 0.5) * 20,
+            speed: -0.12 + Math.random() * 0.06,
+            size: 0.6 + Math.random() * 0.8,
+            brightness: 0.15 + Math.random() * 0.4,
+          });
+        }
+
+        // Project 3D point to 2D with rotation
+        function project(phi, theta, rotY, rotX) {
+          var x = orbRadius * Math.sin(phi) * Math.cos(theta);
+          var y = orbRadius * Math.cos(phi);
+          var z = orbRadius * Math.sin(phi) * Math.sin(theta);
+          // Rotate around Y
+          var cosY = Math.cos(rotY),
+            sinY = Math.sin(rotY);
+          var x2 = x * cosY - z * sinY;
+          var z2 = x * sinY + z * cosY;
+          // Rotate around X (slight tilt)
+          var cosX = Math.cos(rotX),
+            sinX = Math.sin(rotX);
+          var y2 = y * cosX - z2 * sinX;
+          var z3 = y * sinX + z2 * cosX;
+          // Perspective
+          var scale = 600 / (600 + z3);
+          return {
+            x: CX + x2 * scale,
+            y: CY + y2 * scale,
+            z: z3,
+            scale: scale,
           };
-        }(pA.x,pA.y,pB.x,pB.y,lineAlpha)});
-      }
-    }
-  }
-
-  // Orbital ring 1 (equatorial)
-  for(var i=0;i<ringParticles.length;i++){
-    var rp = ringParticles[i];
-    var angle = rp.angle + time*rp.speed;
-    var rx = CX + Math.cos(angle)*rp.radius;
-    var ry = CY + Math.sin(angle)*rp.radius*0.25 + rp.yOffset;
-    var rz = Math.sin(angle)*rp.radius;
-    var al = rp.brightness * (0.5 + 0.5*Math.sin(time*2+i));
-
-    drawList.push({z:rz, fn:function(x,y,s,a){
-      return function(){
-        ctx.beginPath();
-        ctx.arc(x,y,s,0,Math.PI*2);
-        ctx.fillStyle='rgba(99,102,241,'+a.toFixed(3)+')';
-        ctx.fill();
-      };
-    }(rx,ry,rp.size,al)});
-  }
-
-  // Orbital ring 2 (tilted)
-  for(var i=0;i<ringParticles2.length;i++){
-    var rp = ringParticles2[i];
-    var angle = rp.angle + time*rp.speed;
-    var tiltAngle = 1.1; // tilt in radians
-    var rx = Math.cos(angle)*rp.radius;
-    var ry = Math.sin(angle)*rp.radius;
-    // Rotate by tilt
-    var ry2 = ry*Math.cos(tiltAngle);
-    var rz2 = ry*Math.sin(tiltAngle);
-    var al = rp.brightness * (0.3 + 0.3*Math.sin(time*1.5+i*0.5));
-
-    drawList.push({z:rz2, fn:function(x,y,s,a){
-      return function(){
-        ctx.beginPath();
-        ctx.arc(x,y,s,0,Math.PI*2);
-        ctx.fillStyle='rgba(129,140,248,'+a.toFixed(3)+')';
-        ctx.fill();
-      };
-    }(CX+rx,CY+ry2,rp.size,al)});
-  }
-
-  // Sort by z (painter's algorithm: draw far first)
-  drawList.sort(function(a,b){return a.z - b.z});
-  for(var i=0;i<drawList.length;i++) drawList[i].fn();
-
-  // Spawn pulses
-  var pulseInterval = isThinking ? 15 : 60; // frames
-  if(Math.floor(time*60)%(pulseInterval)===0) spawnPulse();
-
-  // Update pulses
-  for(var i=pulses.length-1;i>=0;i--){
-    pulses[i].radius += pulses[i].speed * 0.016;
-    pulses[i].life -= 0.008;
-    if(pulses[i].life <= 0) pulses.splice(i,1);
-  }
-
-  time += 0.016;
-  animFrameId = requestAnimationFrame(drawOrb);
-}
-
-var animFrameId;
-document.addEventListener('visibilitychange', function(){
-  if(document.hidden){ cancelAnimationFrame(animFrameId); }
-  else { animFrameId = requestAnimationFrame(drawOrb); }
-});
-drawOrb();
-
-// ============================================================================
-// TASK TEXT CYCLING
-// ============================================================================
-var idleTasks = [
-  'Monitoring recruitment landscape...',
-  'Analyzing supply partner network...',
-  'Scanning 10,238 publisher feeds...',
-  'Processing market intelligence...',
-  'Calibrating cost benchmarks...',
-  'Indexing job board performance data...',
-  'Evaluating programmatic channels...',
-  'Synthesizing hiring trend signals...',
-  'Mapping talent supply corridors...',
-  'Cross-referencing salary databases...',
-];
-var thinkingTasks = [
-  'Analyzing context...',
-  'Searching vector space...',
-  'Querying knowledge base...',
-  'Cross-referencing data sources...',
-  'Optimizing response...',
-  'Synthesizing intelligence...',
-  'Processing query parameters...',
-  'Evaluating recruitment signals...',
-  'Generating strategic insight...',
-  'Compiling data matrix...',
-];
-
-var taskEl = document.getElementById('task-text');
-var orbStatusEl = document.getElementById('orb-status');
-var currentTaskIndex = 0;
-
-function cycleTask(){
-  var tasks = isThinking ? thinkingTasks : idleTasks;
-  taskEl.classList.add('fade');
-  setTimeout(function(){
-    currentTaskIndex = (currentTaskIndex + 1) % tasks.length;
-    taskEl.textContent = tasks[currentTaskIndex];
-    taskEl.classList.remove('fade');
-  }, 400);
-}
-function scheduleTask(){
-  setTimeout(function(){ cycleTask(); scheduleTask(); }, isThinking ? 1500 : 3000);
-}
-scheduleTask();
-
-// ============================================================================
-// HUD UPDATES
-// ============================================================================
-var startTime = Date.now();
-function updateHUD(){
-  var elapsed = Math.floor((Date.now()-startTime)/1000);
-  var h = String(Math.floor(elapsed/3600)).padStart(2,'0');
-  var m = String(Math.floor((elapsed%3600)/60)).padStart(2,'0');
-  var s = String(elapsed%60).padStart(2,'0');
-  document.getElementById('hud-uptime').textContent = 'Uptime '+h+':'+m+':'+s;
-
-  var now = new Date();
-  document.getElementById('hud-time').textContent =
-    now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' +
-    now.toLocaleTimeString('en-US',{hour12:false});
-}
-setInterval(updateHUD, 1000);
-updateHUD();
-
-// ============================================================================
-// CHAT ENGINE (reuses Nova API)
-// ============================================================================
-var API_URL = '/api/chat';
-var messages = [];
-var sessionId = 'nova-jarvis-' + Date.now() + '-' + Math.random().toString(36).substr(2,6);
-var queryCount = 0;
-var chatMessages = document.getElementById('chat-messages');
-var chatInput = document.getElementById('chat-input');
-var chatSend = document.getElementById('chat-send');
-var clearBtn = document.getElementById('clear-btn');
-
-// Session persistence
-try{
-  var stored = sessionStorage.getItem('nova_jarvis_history');
-  if(stored) messages = JSON.parse(stored);
-  var storedSid = sessionStorage.getItem('nova_jarvis_session');
-  if(storedSid) sessionId = storedSid;
-  else sessionStorage.setItem('nova_jarvis_session', sessionId);
-}catch(e){}
-
-function saveMessages(){
-  try{sessionStorage.setItem('nova_jarvis_history', JSON.stringify(messages.slice(-50)))}catch(e){}
-}
-
-// Markdown renderer
-function escapeHtml(s){
-  if(!s) return '';
-  var d=document.createElement('div');d.appendChild(document.createTextNode(String(s)));return d.innerHTML;
-}
-function renderMd(text){
-  if(!text) return '';
-  var h = escapeHtml(text);
-  // Tables
-  h = h.replace(/^(\|.+\|)\n(\|[-:\| ]+\|)\n((?:\|.+\|\n?)*)/gm, function(m,header,sep,body){
-    var hc=header.split('|').filter(function(c){return c.trim()!==''});
-    var rows=body.trim().split('\n');
-    var t='<table><thead><tr>';
-    hc.forEach(function(c){t+='<th>'+c.trim()+'</th>'});
-    t+='</tr></thead><tbody>';
-    rows.forEach(function(r){var cells=r.split('|').filter(function(c){return c.trim()!==''});t+='<tr>';cells.forEach(function(c){t+='<td>'+c.trim()+'</td>'});t+='</tr>'});
-    return t+'</tbody></table>';
-  });
-  h=h.replace(/^### (.+)$/gm,'<h3>$1</h3>');
-  h=h.replace(/^## (.+)$/gm,'<h3>$1</h3>');
-  h=h.replace(/^# (.+)$/gm,'<h3>$1</h3>');
-  h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
-  h=h.replace(/\*(.+?)\*/g,'<em>$1</em>');
-  h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
-  h=h.replace(/^- (.+)$/gm,'<li>$1</li>');
-  h=h.replace(/((?:<li>.+<\/li>\n?)+)/g,'<ul>$1</ul>');
-  h=h.replace(/\n\n/g,'</p><p>');
-  h=h.replace(/\n/g,'<br/>');
-  if(h.indexOf('<h3>')!==0&&h.indexOf('<ul>')!==0&&h.indexOf('<table>')!==0) h='<p>'+h+'</p>';
-  h=h.replace(/<p>\s*<\/p>/g,'');
-  h=h.replace(/<p>\s*<br\/>\s*<\/p>/g,'');
-  return h;
-}
-
-function appendMsg(msg, persist){
-  var el = document.createElement('div');
-  el.className = 'msg msg-'+(msg.role==='user'?'user':'assistant');
-
-  if(msg.role==='assistant'){
-    el.innerHTML = renderMd(msg.content);
-    var sources = msg.sources||[];
-    var confidence = msg.confidence;
-    if(sources.length>0||(typeof confidence==='number'&&confidence>0)){
-      var meta=document.createElement('div');meta.className='msg-meta';
-      sources.forEach(function(src){
-        var b=document.createElement('span');b.className='meta-badge';b.textContent=src;meta.appendChild(b);
-      });
-      if(typeof confidence==='number'&&confidence>0){
-        var pct=Math.round(confidence*100);
-        var cls=pct>=75?'high':(pct>=50?'medium':'low');
-        var cb=document.createElement('span');
-        cb.className='conf-badge conf-'+cls;
-        var bd=msg.confidence_breakdown;
-        if(bd&&bd.grade){
-          cb.textContent='Grade '+bd.grade+' \u2022 '+pct+'%';
-        }else{
-          cb.textContent=pct+'% confidence';
         }
-        meta.appendChild(cb);
-      }
-      el.appendChild(meta);
-    }
-  }else{
-    el.textContent=msg.content;
-  }
 
-  // Remove suggestions if present
-  var sugEl=document.getElementById('jarvis-suggestions');
-  if(sugEl&&msg.role==='user') sugEl.remove();
+        // Great-circle distance between two points on sphere
+        function sphereDist(phi1, theta1, phi2, theta2) {
+          return Math.acos(
+            Math.min(
+              1,
+              Math.max(
+                -1,
+                Math.sin(phi1) * Math.sin(phi2) * Math.cos(theta1 - theta2) +
+                  Math.cos(phi1) * Math.cos(phi2),
+              ),
+            ),
+          );
+        }
 
-  chatMessages.appendChild(el);
-  chatMessages.scrollTop=chatMessages.scrollHeight;
+        function drawOrb() {
+          ctx.clearRect(0, 0, W, H);
 
-  if(persist!==false){
-    messages.push(msg);
-    saveMessages();
-  }
-}
+          var rotY = time * 0.2;
+          var rotX = 0.3 + Math.sin(time * 0.1) * 0.1;
 
-function showThinking(){
-  var el=document.createElement('div');
-  el.className='thinking-indicator';el.id='thinking-indicator';
-  el.innerHTML='<div class="thinking-dots"><span></span><span></span><span></span></div><div class="thinking-label">Processing...</div>';
-  chatMessages.appendChild(el);
-  chatMessages.scrollTop=chatMessages.scrollHeight;
-  isThinking=true;
-  orbStatusEl.textContent='PROCESSING';
-  orbStatusEl.style.color='var(--green)';
-}
+          // Smooth think intensity
+          var targetIntensity = isThinking ? 1 : 0;
+          thinkIntensity += (targetIntensity - thinkIntensity) * 0.03;
 
-function hideThinking(){
-  var el=document.getElementById('thinking-indicator');
-  if(el) el.remove();
-  isThinking=false;
-  orbStatusEl.textContent='STANDBY';
-  orbStatusEl.style.color='';
-}
+          // Core glow
+          var coreGlow = ctx.createRadialGradient(
+            CX,
+            CY,
+            0,
+            CX,
+            CY,
+            orbRadius * 1.8,
+          );
+          var glowAlpha = 0.08 + thinkIntensity * 0.06;
+          coreGlow.addColorStop(0, "rgba(99,102,241," + glowAlpha * 2 + ")");
+          coreGlow.addColorStop(0.3, "rgba(99,102,241," + glowAlpha + ")");
+          coreGlow.addColorStop(0.7, "rgba(60,50,150," + glowAlpha * 0.3 + ")");
+          coreGlow.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = coreGlow;
+          ctx.fillRect(0, 0, W, H);
 
-function sendMessage(){
-  var text=chatInput.value.trim();
-  if(!text||chatSend.disabled) return;
+          // Inner orb sphere (subtle fill)
+          var innerGrad = ctx.createRadialGradient(
+            CX - 30,
+            CY - 40,
+            orbRadius * 0.1,
+            CX,
+            CY,
+            orbRadius,
+          );
+          innerGrad.addColorStop(0, "rgba(50,40,120,0.06)");
+          innerGrad.addColorStop(0.8, "rgba(30,20,60,0.03)");
+          innerGrad.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.beginPath();
+          ctx.arc(CX, CY, orbRadius, 0, Math.PI * 2);
+          ctx.fillStyle = innerGrad;
+          ctx.fill();
 
-  appendMsg({role:'user',content:text});
-  chatInput.value='';
-  chatInput.style.height='auto';
-  chatSend.disabled=true;
-  showThinking();
+          // Collect all drawable elements with z-depth for sorting
+          var drawList = [];
 
-  var history=[];
-  messages.forEach(function(m){
-    if(m.role==='user'||m.role==='assistant') history.push({role:m.role,content:m.content});
-  });
+          // Dots on sphere surface
+          for (var i = 0; i < dots.length; i++) {
+            var dot = dots[i];
+            var phi = dot.basePhi;
+            var theta = dot.baseTheta + time * (0.08 + dot.ringIndex * 0.005);
 
-  var abortCtrl=new AbortController();
-  var timeout=setTimeout(function(){abortCtrl.abort()},60000);
+            // Breathing effect
+            var breathe = 1 + Math.sin(time * 1.5 + dot.pulsePhase) * 0.03;
+            var p = project(phi, theta, rotY, rotX);
 
-  fetch(API_URL,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({message:text,conversation_id:sessionId,history:history.slice(-20)}),
-    signal:abortCtrl.signal,
-  })
-  .then(function(r){clearTimeout(timeout);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
-  .then(function(data){
-    hideThinking();
-    queryCount++;
-    document.getElementById('hud-queries').textContent='Queries: '+queryCount;
-    appendMsg({
-      role:'assistant',
-      content:data.response||'No response received.',
-      sources:data.sources||[],
-      confidence:data.confidence||0,
-      confidence_breakdown:data.confidence_breakdown||null,
-    });
-  })
-  .catch(function(err){
-    clearTimeout(timeout);
-    hideThinking();
-    var errorMsg=err.name==='AbortError'
-      ?'Request timed out. Try a shorter query.'
-      :'Connection error. Please try again.';
-    appendMsg({role:'assistant',content:errorMsg,sources:[],confidence:0});
-  })
-  .finally(function(){
-    chatSend.disabled=false;
-    chatInput.focus();
-  });
-}
+            // Check pulse proximity
+            var pulseBrightness = 0;
+            for (var pi = 0; pi < pulses.length; pi++) {
+              var pulse = pulses[pi];
+              var dist = sphereDist(phi, theta, pulse.phi, pulse.theta);
+              var ringWidth = 0.15;
+              var diff = Math.abs(dist - pulse.radius);
+              if (diff < ringWidth) {
+                pulseBrightness = Math.max(
+                  pulseBrightness,
+                  (1 - diff / ringWidth) * pulse.life,
+                );
+              }
+            }
 
-// Event listeners
-chatSend.addEventListener('click',sendMessage);
-chatInput.addEventListener('keydown',function(e){
-  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}
-});
-chatInput.addEventListener('input',function(){
-  this.style.height='auto';
-  this.style.height=Math.min(this.scrollHeight,120)+'px';
-});
-clearBtn.addEventListener('click',function(){
-  messages=[];saveMessages();chatMessages.innerHTML='';showWelcome();
-});
+            var alpha =
+              (0.15 + dot.brightness * 0.5 + pulseBrightness * 0.8) *
+              (0.3 + p.scale * 0.7) *
+              breathe;
+            var thinkBoost =
+              thinkIntensity * 0.3 * Math.sin(time * 3 + dot.pulsePhase);
+            alpha = Math.min(1, alpha + thinkBoost);
 
-// Welcome
-function showWelcome(){
-  var w=document.createElement('div');
-  w.className='msg welcome-msg';
-  w.innerHTML='<div class="greeting">Good '+getGreeting()+'. Nova is online.</div>'
-    +'<div class="desc">I have access to <strong>10,238+ supply partners</strong>, real-time benchmarks across '
-    +'<strong>70+ countries</strong>, salary data, demand signals, and comprehensive recruitment intelligence. '
-    +'State your query.</div>';
-  chatMessages.appendChild(w);
+            var sizeBase = dot.size * p.scale * breathe;
+            var size = sizeBase + pulseBrightness * 2;
 
-  var sg=document.createElement('div');
-  sg.className='suggestions';sg.id='jarvis-suggestions';
-  sg.innerHTML='<div class="suggestions-title">Suggested Queries</div>';
-  var qs=[
-    'What publishers work best for nursing roles?',
-    'Compare CPC benchmarks: Google vs LinkedIn vs Indeed',
-    'Recommend a $50K budget for 10 engineering hires',
-    'How difficult is it to hire software engineers right now?',
-  ];
-  qs.forEach(function(q){
-    var b=document.createElement('button');b.className='suggestion-btn';b.textContent=q;
-    b.addEventListener('click',function(){chatInput.value=q;sendMessage()});
-    sg.appendChild(b);
-  });
-  chatMessages.appendChild(sg);
-}
+            var r = 99,
+              g = 102,
+              b = 241;
+            if (pulseBrightness > 0.1) {
+              if (isThinking) {
+                g = 255;
+                b = 136;
+                r = 0;
+              } else {
+                r = 129;
+                g = 140;
+                b = 248;
+              }
+            }
 
-function getGreeting(){
-  var h=new Date().getHours();
-  return h<12?'morning':(h<17?'afternoon':'evening');
-}
+            drawList.push({
+              z: p.z,
+              fn: (function (px, py, sz, al, cr, cg, cb) {
+                return function () {
+                  ctx.beginPath();
+                  ctx.arc(px, py, sz, 0, Math.PI * 2);
+                  ctx.fillStyle =
+                    "rgba(" +
+                    cr +
+                    "," +
+                    cg +
+                    "," +
+                    cb +
+                    "," +
+                    al.toFixed(3) +
+                    ")";
+                  ctx.fill();
+                  if (al > 0.5) {
+                    ctx.beginPath();
+                    ctx.arc(px, py, sz * 2.5, 0, Math.PI * 2);
+                    ctx.fillStyle =
+                      "rgba(" +
+                      cr +
+                      "," +
+                      cg +
+                      "," +
+                      cb +
+                      "," +
+                      (al * 0.15).toFixed(3) +
+                      ")";
+                    ctx.fill();
+                  }
+                };
+              })(p.x, p.y, size, alpha, r, g, b),
+            });
+          }
 
-// Init
-if(messages.length>0){
-  messages.forEach(function(m){appendMsg(m,false)});
-}else{
-  showWelcome();
-}
-chatInput.focus();
+          // Connection lines between nearby dots (wireframe effect)
+          var connThreshold = orbRadius * 0.45;
+          for (var i = 0; i < dots.length; i += 3) {
+            var dotA = dots[i];
+            var thetaA =
+              dotA.baseTheta + time * (0.08 + dotA.ringIndex * 0.005);
+            var pA = project(dotA.basePhi, thetaA, rotY, rotX);
+            if (pA.z < -orbRadius * 0.3) continue; // skip back-facing
 
-})();
-</script>
-</body>
+            for (var j = i + 3; j < dots.length; j += 3) {
+              var dotB = dots[j];
+              var thetaB =
+                dotB.baseTheta + time * (0.08 + dotB.ringIndex * 0.005);
+              var pB = project(dotB.basePhi, thetaB, rotY, rotX);
+              if (pB.z < -orbRadius * 0.3) continue;
+
+              var dx = pA.x - pB.x,
+                dy = pA.y - pB.y;
+              var dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < connThreshold) {
+                var lineAlpha =
+                  (1 - dist / connThreshold) * 0.06 * (0.5 + pA.scale * 0.5);
+                var avgZ = (pA.z + pB.z) / 2;
+                drawList.push({
+                  z: avgZ - 1,
+                  fn: (function (ax, ay, bx, by, la) {
+                    return function () {
+                      ctx.beginPath();
+                      ctx.moveTo(ax, ay);
+                      ctx.lineTo(bx, by);
+                      ctx.strokeStyle =
+                        "rgba(99,102,241," + la.toFixed(4) + ")";
+                      ctx.lineWidth = 0.5;
+                      ctx.stroke();
+                    };
+                  })(pA.x, pA.y, pB.x, pB.y, lineAlpha),
+                });
+              }
+            }
+          }
+
+          // Orbital ring 1 (equatorial)
+          for (var i = 0; i < ringParticles.length; i++) {
+            var rp = ringParticles[i];
+            var angle = rp.angle + time * rp.speed;
+            var rx = CX + Math.cos(angle) * rp.radius;
+            var ry = CY + Math.sin(angle) * rp.radius * 0.25 + rp.yOffset;
+            var rz = Math.sin(angle) * rp.radius;
+            var al = rp.brightness * (0.5 + 0.5 * Math.sin(time * 2 + i));
+
+            drawList.push({
+              z: rz,
+              fn: (function (x, y, s, a) {
+                return function () {
+                  ctx.beginPath();
+                  ctx.arc(x, y, s, 0, Math.PI * 2);
+                  ctx.fillStyle = "rgba(99,102,241," + a.toFixed(3) + ")";
+                  ctx.fill();
+                };
+              })(rx, ry, rp.size, al),
+            });
+          }
+
+          // Orbital ring 2 (tilted)
+          for (var i = 0; i < ringParticles2.length; i++) {
+            var rp = ringParticles2[i];
+            var angle = rp.angle + time * rp.speed;
+            var tiltAngle = 1.1; // tilt in radians
+            var rx = Math.cos(angle) * rp.radius;
+            var ry = Math.sin(angle) * rp.radius;
+            // Rotate by tilt
+            var ry2 = ry * Math.cos(tiltAngle);
+            var rz2 = ry * Math.sin(tiltAngle);
+            var al =
+              rp.brightness * (0.3 + 0.3 * Math.sin(time * 1.5 + i * 0.5));
+
+            drawList.push({
+              z: rz2,
+              fn: (function (x, y, s, a) {
+                return function () {
+                  ctx.beginPath();
+                  ctx.arc(x, y, s, 0, Math.PI * 2);
+                  ctx.fillStyle = "rgba(129,140,248," + a.toFixed(3) + ")";
+                  ctx.fill();
+                };
+              })(CX + rx, CY + ry2, rp.size, al),
+            });
+          }
+
+          // Sort by z (painter's algorithm: draw far first)
+          drawList.sort(function (a, b) {
+            return a.z - b.z;
+          });
+          for (var i = 0; i < drawList.length; i++) drawList[i].fn();
+
+          // Spawn pulses
+          var pulseInterval = isThinking ? 15 : 60; // frames
+          if (Math.floor(time * 60) % pulseInterval === 0) spawnPulse();
+
+          // Update pulses
+          for (var i = pulses.length - 1; i >= 0; i--) {
+            pulses[i].radius += pulses[i].speed * 0.016;
+            pulses[i].life -= 0.008;
+            if (pulses[i].life <= 0) pulses.splice(i, 1);
+          }
+
+          time += 0.016;
+          animFrameId = requestAnimationFrame(drawOrb);
+        }
+
+        var animFrameId;
+        document.addEventListener("visibilitychange", function () {
+          if (document.hidden) {
+            cancelAnimationFrame(animFrameId);
+          } else {
+            animFrameId = requestAnimationFrame(drawOrb);
+          }
+        });
+        drawOrb();
+
+        // ============================================================================
+        // TASK TEXT CYCLING
+        // ============================================================================
+        var idleTasks = [
+          "Monitoring recruitment landscape...",
+          "Analyzing supply partner network...",
+          "Scanning 10,238 publisher feeds...",
+          "Processing market intelligence...",
+          "Calibrating cost benchmarks...",
+          "Indexing job board performance data...",
+          "Evaluating programmatic channels...",
+          "Synthesizing hiring trend signals...",
+          "Mapping talent supply corridors...",
+          "Cross-referencing salary databases...",
+        ];
+        var thinkingTasks = [
+          "Analyzing context...",
+          "Searching vector space...",
+          "Querying knowledge base...",
+          "Cross-referencing data sources...",
+          "Optimizing response...",
+          "Synthesizing intelligence...",
+          "Processing query parameters...",
+          "Evaluating recruitment signals...",
+          "Generating strategic insight...",
+          "Compiling data matrix...",
+        ];
+
+        var taskEl = document.getElementById("task-text");
+        var orbStatusEl = document.getElementById("orb-status");
+        var currentTaskIndex = 0;
+
+        function cycleTask() {
+          var tasks = isThinking ? thinkingTasks : idleTasks;
+          taskEl.classList.add("fade");
+          setTimeout(function () {
+            currentTaskIndex = (currentTaskIndex + 1) % tasks.length;
+            taskEl.textContent = tasks[currentTaskIndex];
+            taskEl.classList.remove("fade");
+          }, 400);
+        }
+        function scheduleTask() {
+          setTimeout(
+            function () {
+              cycleTask();
+              scheduleTask();
+            },
+            isThinking ? 1500 : 3000,
+          );
+        }
+        scheduleTask();
+
+        // ============================================================================
+        // HUD UPDATES
+        // ============================================================================
+        var startTime = Date.now();
+        function updateHUD() {
+          var elapsed = Math.floor((Date.now() - startTime) / 1000);
+          var h = String(Math.floor(elapsed / 3600)).padStart(2, "0");
+          var m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0");
+          var s = String(elapsed % 60).padStart(2, "0");
+          document.getElementById("hud-uptime").textContent =
+            "Uptime " + h + ":" + m + ":" + s;
+
+          var now = new Date();
+          document.getElementById("hud-time").textContent =
+            now.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }) +
+            " " +
+            now.toLocaleTimeString("en-US", { hour12: false });
+        }
+        setInterval(updateHUD, 1000);
+        updateHUD();
+
+        // ============================================================================
+        // CHAT ENGINE (reuses Nova API)
+        // ============================================================================
+        var API_URL = "/api/chat";
+        var messages = [];
+        var sessionId =
+          "nova-jarvis-" +
+          Date.now() +
+          "-" +
+          Math.random().toString(36).substr(2, 6);
+        var queryCount = 0;
+        var chatMessages = document.getElementById("chat-messages");
+        var chatInput = document.getElementById("chat-input");
+        var chatSend = document.getElementById("chat-send");
+        var clearBtn = document.getElementById("clear-btn");
+
+        // Session persistence
+        try {
+          var stored = sessionStorage.getItem("nova_jarvis_history");
+          if (stored) messages = JSON.parse(stored);
+          var storedSid = sessionStorage.getItem("nova_jarvis_session");
+          if (storedSid) sessionId = storedSid;
+          else sessionStorage.setItem("nova_jarvis_session", sessionId);
+        } catch (e) {}
+
+        function saveMessages() {
+          try {
+            sessionStorage.setItem(
+              "nova_jarvis_history",
+              JSON.stringify(messages.slice(-50)),
+            );
+          } catch (e) {}
+        }
+
+        // Markdown renderer
+        function escapeHtml(s) {
+          if (!s) return "";
+          var d = document.createElement("div");
+          d.appendChild(document.createTextNode(String(s)));
+          return d.innerHTML;
+        }
+        function renderMd(text) {
+          if (!text) return "";
+          var h = escapeHtml(text);
+          // Tables
+          h = h.replace(
+            /^(\|.+\|)\n(\|[-:\| ]+\|)\n((?:\|.+\|\n?)*)/gm,
+            function (m, header, sep, body) {
+              var hc = header.split("|").filter(function (c) {
+                return c.trim() !== "";
+              });
+              var rows = body.trim().split("\n");
+              var t = "<table><thead><tr>";
+              hc.forEach(function (c) {
+                t += "<th>" + c.trim() + "</th>";
+              });
+              t += "</tr></thead><tbody>";
+              rows.forEach(function (r) {
+                var cells = r.split("|").filter(function (c) {
+                  return c.trim() !== "";
+                });
+                t += "<tr>";
+                cells.forEach(function (c) {
+                  t += "<td>" + c.trim() + "</td>";
+                });
+                t += "</tr>";
+              });
+              return t + "</tbody></table>";
+            },
+          );
+          h = h.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+          h = h.replace(/^## (.+)$/gm, "<h3>$1</h3>");
+          h = h.replace(/^# (.+)$/gm, "<h3>$1</h3>");
+          h = h.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+          h = h.replace(/\*(.+?)\*/g, "<em>$1</em>");
+          h = h.replace(/`([^`]+)`/g, "<code>$1</code>");
+          h = h.replace(/^- (.+)$/gm, "<li>$1</li>");
+          h = h.replace(/((?:<li>.+<\/li>\n?)+)/g, "<ul>$1</ul>");
+          h = h.replace(/\n\n/g, "</p><p>");
+          h = h.replace(/\n/g, "<br/>");
+          if (
+            h.indexOf("<h3>") !== 0 &&
+            h.indexOf("<ul>") !== 0 &&
+            h.indexOf("<table>") !== 0
+          )
+            h = "<p>" + h + "</p>";
+          h = h.replace(/<p>\s*<\/p>/g, "");
+          h = h.replace(/<p>\s*<br\/>\s*<\/p>/g, "");
+          return h;
+        }
+
+        function appendMsg(msg, persist) {
+          var el = document.createElement("div");
+          el.className =
+            "msg msg-" + (msg.role === "user" ? "user" : "assistant");
+
+          if (msg.role === "assistant") {
+            el.innerHTML = renderMd(msg.content);
+            var sources = msg.sources || [];
+            var confidence = msg.confidence;
+            if (
+              sources.length > 0 ||
+              (typeof confidence === "number" && confidence > 0)
+            ) {
+              var meta = document.createElement("div");
+              meta.className = "msg-meta";
+              sources.forEach(function (src) {
+                var b = document.createElement("span");
+                b.className = "meta-badge";
+                b.textContent = src;
+                meta.appendChild(b);
+              });
+              if (typeof confidence === "number" && confidence > 0) {
+                var pct = Math.round(confidence * 100);
+                var cls = pct >= 75 ? "high" : pct >= 50 ? "medium" : "low";
+                var cb = document.createElement("span");
+                cb.className = "conf-badge conf-" + cls;
+                var bd = msg.confidence_breakdown;
+                if (bd && bd.grade) {
+                  cb.textContent = "Grade " + bd.grade + " \u2022 " + pct + "%";
+                } else {
+                  cb.textContent = pct + "% confidence";
+                }
+                meta.appendChild(cb);
+              }
+              el.appendChild(meta);
+            }
+          } else {
+            el.textContent = msg.content;
+          }
+
+          // Remove suggestions if present
+          var sugEl = document.getElementById("jarvis-suggestions");
+          if (sugEl && msg.role === "user") sugEl.remove();
+
+          chatMessages.appendChild(el);
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+
+          if (persist !== false) {
+            messages.push(msg);
+            saveMessages();
+          }
+        }
+
+        function showThinking() {
+          var el = document.createElement("div");
+          el.className = "thinking-indicator";
+          el.id = "thinking-indicator";
+          el.innerHTML =
+            '<div class="thinking-dots"><span></span><span></span><span></span></div><div class="thinking-label">Processing...</div>';
+          chatMessages.appendChild(el);
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+          isThinking = true;
+          orbStatusEl.textContent = "PROCESSING";
+          orbStatusEl.style.color = "var(--green)";
+        }
+
+        function hideThinking() {
+          var el = document.getElementById("thinking-indicator");
+          if (el) el.remove();
+          isThinking = false;
+          orbStatusEl.textContent = "STANDBY";
+          orbStatusEl.style.color = "";
+        }
+
+        function sendMessage() {
+          var text = chatInput.value.trim();
+          if (!text || chatSend.disabled) return;
+
+          appendMsg({ role: "user", content: text });
+          chatInput.value = "";
+          chatInput.style.height = "auto";
+          chatSend.disabled = true;
+          showThinking();
+
+          var history = [];
+          messages.forEach(function (m) {
+            if (m.role === "user" || m.role === "assistant")
+              history.push({ role: m.role, content: m.content });
+          });
+
+          var abortCtrl = new AbortController();
+          var timeout = setTimeout(function () {
+            abortCtrl.abort();
+          }, 60000);
+
+          fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message: text,
+              conversation_id: sessionId,
+              history: history.slice(-20),
+            }),
+            signal: abortCtrl.signal,
+          })
+            .then(function (r) {
+              clearTimeout(timeout);
+              if (!r.ok) throw new Error("HTTP " + r.status);
+              return r.json();
+            })
+            .then(function (data) {
+              hideThinking();
+              queryCount++;
+              document.getElementById("hud-queries").textContent =
+                "Queries: " + queryCount;
+              appendMsg({
+                role: "assistant",
+                content: data.response || "No response received.",
+                sources: data.sources || [],
+                confidence: data.confidence || 0,
+                confidence_breakdown: data.confidence_breakdown || null,
+              });
+            })
+            .catch(function (err) {
+              clearTimeout(timeout);
+              hideThinking();
+              var errorMsg =
+                err.name === "AbortError"
+                  ? "Request timed out. Try a shorter query."
+                  : "Connection error. Please try again.";
+              appendMsg({
+                role: "assistant",
+                content: errorMsg,
+                sources: [],
+                confidence: 0,
+              });
+            })
+            .finally(function () {
+              chatSend.disabled = false;
+              chatInput.focus();
+            });
+        }
+
+        // Event listeners
+        chatSend.addEventListener("click", sendMessage);
+        chatInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+          }
+        });
+        chatInput.addEventListener("input", function () {
+          this.style.height = "auto";
+          this.style.height = Math.min(this.scrollHeight, 120) + "px";
+        });
+        clearBtn.addEventListener("click", function () {
+          messages = [];
+          saveMessages();
+          chatMessages.innerHTML = "";
+          showWelcome();
+        });
+
+        // Welcome
+        function showWelcome() {
+          var w = document.createElement("div");
+          w.className = "msg welcome-msg";
+          w.innerHTML =
+            '<div class="greeting">Good ' +
+            getGreeting() +
+            ". Nova is online.</div>" +
+            '<div class="desc">I have access to <strong>10,238+ supply partners</strong>, real-time benchmarks across ' +
+            "<strong>70+ countries</strong>, salary data, demand signals, and comprehensive recruitment intelligence. " +
+            "State your query.</div>";
+          chatMessages.appendChild(w);
+
+          var sg = document.createElement("div");
+          sg.className = "suggestions";
+          sg.id = "jarvis-suggestions";
+          sg.innerHTML =
+            '<div class="suggestions-title">Suggested Queries</div>';
+          var qs = [
+            "What publishers work best for nursing roles?",
+            "Compare CPC benchmarks: Google vs LinkedIn vs Indeed",
+            "Recommend a $50K budget for 10 engineering hires",
+            "How difficult is it to hire software engineers right now?",
+          ];
+          qs.forEach(function (q) {
+            var b = document.createElement("button");
+            b.className = "suggestion-btn";
+            b.textContent = q;
+            b.addEventListener("click", function () {
+              chatInput.value = q;
+              sendMessage();
+            });
+            sg.appendChild(b);
+          });
+          chatMessages.appendChild(sg);
+        }
+
+        function getGreeting() {
+          var h = new Date().getHours();
+          return h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
+        }
+
+        // Init
+        if (messages.length > 0) {
+          messages.forEach(function (m) {
+            appendMsg(m, false);
+          });
+        } else {
+          showWelcome();
+        }
+        chatInput.focus();
+      })();
+
+      // Scroll reveal
+      (function () {
+        var ro = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) e.target.classList.add("visible");
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          ro.observe(el);
+        });
+      })();
+    </script>
+  </body>
 </html>

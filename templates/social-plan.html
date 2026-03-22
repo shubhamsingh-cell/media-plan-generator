@@ -1,528 +1,1423 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#000000">
-<title>Social & Search Media Planner | Nova AI Suite</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#000000;--card:rgba(17,17,17,0.8);--card-border:rgba(255,255,255,0.08);
-  --accent:#6366f1;--accent-light:#818cf8;--accent-glow:rgba(99,102,241,0.25);
-  --text:#ededed;--text-muted:#a1a1a1;--text-dim:#666666;
-  --success:#22c55e;--warning:#f59e0b;--danger:#ef4444;
-  --surface:#111111;--surface-2:#1a1a1a;
-}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
-a{color:var(--accent-light);text-decoration:none}
-a:hover{text-decoration:underline}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
+    <title>Social & Search Media Planner | Nova AI Suite</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #000000;
+        --card: rgba(17, 17, 17, 0.8);
+        --card-border: rgba(255, 255, 255, 0.08);
+        --accent: #6366f1;
+        --accent-light: #818cf8;
+        --accent-glow: rgba(99, 102, 241, 0.25);
+        --text: #ededed;
+        --text-muted: #a1a1a1;
+        --text-dim: #666666;
+        --success: #22c55e;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --surface: #111111;
+        --surface-2: #1a1a1a;
+      }
+      body {
+        font-family: "Inter", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        line-height: 1.6;
+      }
+      a {
+        color: var(--accent-light);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
 
-/* ── Nav ── */
-.nav{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--card-border);background:rgba(0,0,0,0.95);position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
-.nav-brand{font-size:1.25rem;font-weight:800;letter-spacing:2px;color:var(--accent)}
-.nav-title{font-size:0.95rem;font-weight:500;color:var(--text-muted)}
-.nav-back{font-size:0.85rem;color:var(--text-dim);transition:color .2s}
-.nav-back:hover{color:var(--accent-light);text-decoration:none}
+      /* ── Nav ── */
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem 2rem;
+        border-bottom: 1px solid var(--card-border);
+        background: rgba(0, 0, 0, 0.95);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        backdrop-filter: blur(12px);
+      }
+      .nav-brand {
+        font-size: 1.25rem;
+        font-weight: 800;
+        letter-spacing: 2px;
+        color: var(--accent);
+      }
+      .nav-title {
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: var(--text-muted);
+      }
+      .nav-back {
+        font-size: 0.85rem;
+        color: var(--text-dim);
+        transition: color 0.2s;
+      }
+      .nav-back:hover {
+        color: var(--accent-light);
+        text-decoration: none;
+      }
 
-/* ── Container ── */
-.container{max-width:1400px;margin:0 auto;padding:2rem 1.5rem}
+      /* ── Container ── */
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem;
+      }
 
-/* ── Section headings ── */
-.section-title{font-size:1.5rem;font-weight:700;margin-bottom:1rem;color:#fff;display:flex;align-items:center;gap:0.5rem}
-.section-title .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block}
-.section-sub{font-size:0.9rem;color:var(--text-muted);margin-bottom:1.5rem}
+      /* ── Section headings ── */
+      .section-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .section-title .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+        display: inline-block;
+      }
+      .section-sub {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        margin-bottom: 1.5rem;
+      }
 
-/* ── Cards ── */
-.card{background:var(--card);border:1px solid var(--card-border);border-radius:12px;padding:1.5rem;margin-bottom:1rem;transition:border-color .3s,box-shadow .3s}
-.card:hover{border-color:rgba(255,255,255,0.16);box-shadow:0 0 20px var(--accent-glow)}
+      /* ── Cards ── */
+      .card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition:
+          border-color 0.3s,
+          box-shadow 0.3s;
+      }
+      .card:hover {
+        border-color: rgba(255, 255, 255, 0.16);
+        box-shadow: 0 0 20px var(--accent-glow);
+      }
 
-/* ── Input Section ── */
-.input-section{margin-bottom:3rem}
-.input-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
-.form-group{display:flex;flex-direction:column;gap:0.4rem}
-.form-group label{font-size:0.8rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px}
-.form-group input,.form-group select{background:var(--surface);border:1px solid var(--card-border);border-radius:8px;padding:0.7rem 1rem;color:var(--text);font-family:'Inter',sans-serif;font-size:0.95rem;transition:border-color .2s}
-.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+      /* ── Input Section ── */
+      .input-section {
+        margin-bottom: 3rem;
+      }
+      .input-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .form-group label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .form-group input,
+      .form-group select {
+        background: var(--surface);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 0.7rem 1rem;
+        color: var(--text);
+        font-family: "Inter", sans-serif;
+        font-size: 0.95rem;
+        transition: border-color 0.2s;
+      }
+      .form-group input:focus,
+      .form-group select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+      }
 
-/* Goals checkboxes */
-.goals-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;margin-top:0.5rem}
-.goal-check{display:flex;align-items:center;gap:0.5rem;padding:0.6rem 0.8rem;background:var(--surface);border:1px solid var(--card-border);border-radius:8px;cursor:pointer;transition:all .2s}
-.goal-check:hover{border-color:var(--accent)}
-.goal-check.active{border-color:var(--accent);background:var(--accent-glow)}
-.goal-check input{display:none}
-.goal-check .check-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--text-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
-.goal-check.active .check-dot{border-color:var(--accent);background:var(--accent)}
-.goal-check.active .check-dot::after{content:'';width:6px;height:6px;border-radius:50%;background:#fff}
-.goal-check span{font-size:0.85rem;color:var(--text-muted)}
-.goal-check.active span{color:var(--text)}
+      /* Goals checkboxes */
+      .goals-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+      }
+      .goal-check {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 0.8rem;
+        background: var(--surface);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .goal-check:hover {
+        border-color: var(--accent);
+      }
+      .goal-check.active {
+        border-color: var(--accent);
+        background: var(--accent-glow);
+      }
+      .goal-check input {
+        display: none;
+      }
+      .goal-check .check-dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 2px solid var(--text-dim);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.2s;
+      }
+      .goal-check.active .check-dot {
+        border-color: var(--accent);
+        background: var(--accent);
+      }
+      .goal-check.active .check-dot::after {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #fff;
+      }
+      .goal-check span {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+      }
+      .goal-check.active span {
+        color: var(--text);
+      }
 
-/* Budget slider */
-.budget-display{display:flex;align-items:center;gap:1rem;margin-top:0.5rem}
-.budget-display input[type=range]{flex:1;-webkit-appearance:none;height:6px;border-radius:3px;background:var(--surface-2);outline:none}
-.budget-display input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 8px var(--accent-glow)}
-.budget-value{font-size:1.1rem;font-weight:700;color:var(--accent-light);min-width:100px;text-align:right}
-.budget-input{width:120px;background:var(--surface);border:1px solid var(--card-border);border-radius:8px;padding:0.5rem;color:var(--accent-light);font-weight:600;font-size:0.95rem;text-align:right;font-family:'Inter',sans-serif}
-.budget-input:focus{outline:none;border-color:var(--accent)}
+      /* Budget slider */
+      .budget-display {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 0.5rem;
+      }
+      .budget-display input[type="range"] {
+        flex: 1;
+        -webkit-appearance: none;
+        height: 6px;
+        border-radius: 3px;
+        background: var(--surface-2);
+        outline: none;
+      }
+      .budget-display input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: pointer;
+        box-shadow: 0 0 8px var(--accent-glow);
+      }
+      .budget-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--accent-light);
+        min-width: 100px;
+        text-align: right;
+      }
+      .budget-input {
+        width: 120px;
+        background: var(--surface);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 0.5rem;
+        color: var(--accent-light);
+        font-weight: 600;
+        font-size: 0.95rem;
+        text-align: right;
+        font-family: "Inter", sans-serif;
+      }
+      .budget-input:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
 
-/* Generate button */
-.btn-generate{display:inline-flex;align-items:center;gap:0.5rem;padding:0.9rem 2.5rem;background:linear-gradient(135deg,var(--accent),#4f46e5);color:#fff;border:none;border-radius:10px;font-size:1rem;font-weight:600;cursor:pointer;transition:all .3s;font-family:'Inter',sans-serif;margin-top:1.5rem}
-.btn-generate:hover{transform:translateY(-2px);box-shadow:0 8px 25px var(--accent-glow)}
-.btn-generate:disabled{opacity:0.5;cursor:not-allowed;transform:none}
-.btn-generate .spinner{display:none;width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite}
-.btn-generate.loading .spinner{display:inline-block}
-.btn-generate.loading .btn-text{display:none}
-@keyframes spin{to{transform:rotate(360deg)}}
+      /* Generate button */
+      .btn-generate {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.9rem 2.5rem;
+        background: linear-gradient(135deg, var(--accent), #4f46e5);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-family: "Inter", sans-serif;
+        margin-top: 1.5rem;
+      }
+      .btn-generate:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px var(--accent-glow);
+      }
+      .btn-generate:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .btn-generate .spinner {
+        display: none;
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+      .btn-generate.loading .spinner {
+        display: inline-block;
+      }
+      .btn-generate.loading .btn-text {
+        display: none;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
 
-/* ── Results ── */
-.results{display:none}
-.results.visible{display:block;animation:fadeIn 0.5s ease-out}
-@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+      /* ── Results ── */
+      .results {
+        display: none;
+      }
+      .results.visible {
+        display: block;
+        animation: fadeIn 0.5s ease-out;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
 
-/* Summary stats */
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:2rem}
-.stat-card{background:var(--card);border:1px solid var(--card-border);border-radius:10px;padding:1.2rem;text-align:center}
-.stat-value{font-size:1.8rem;font-weight:800;color:#fff;margin-bottom:0.2rem}
-.stat-value.accent{color:var(--accent-light)}
-.stat-label{font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px}
+      /* Summary stats */
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+      .stat-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        padding: 1.2rem;
+        text-align: center;
+      }
+      .stat-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #fff;
+        margin-bottom: 0.2rem;
+      }
+      .stat-value.accent {
+        color: var(--accent-light);
+      }
+      .stat-label {
+        font-size: 0.75rem;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
 
-/* Platform cards */
-.platform-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem;margin-bottom:2rem}
-.platform-card{background:var(--card);border:1px solid var(--card-border);border-radius:12px;overflow:hidden;transition:all .3s}
-.platform-card:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(0,0,0,0.3)}
-.platform-header{padding:1rem 1.2rem;display:flex;align-items:center;justify-content:space-between}
-.platform-name{font-size:1.1rem;font-weight:700;display:flex;align-items:center;gap:0.5rem}
-.platform-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.fit-badge{font-size:0.75rem;font-weight:700;padding:0.25rem 0.6rem;border-radius:20px;background:rgba(99,102,241,0.2);color:var(--accent-light)}
-.fit-high{background:rgba(34,197,94,0.2);color:var(--success)}
-.fit-med{background:rgba(245,158,11,0.2);color:var(--warning)}
-.fit-low{background:rgba(239,68,68,0.2);color:var(--danger)}
-.platform-body{padding:0 1.2rem 1.2rem}
-.platform-meta{display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.8rem}
-.platform-tag{font-size:0.7rem;padding:0.2rem 0.5rem;border-radius:4px;background:var(--surface-2);color:var(--text-dim)}
-.platform-budget{font-size:1rem;font-weight:700;color:var(--accent-light);margin-bottom:0.4rem}
-.platform-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:0.4rem;font-size:0.8rem;color:var(--text-muted)}
-.platform-stats .ps-val{font-weight:600;color:var(--text)}
-.platform-reasons{margin-top:0.6rem;font-size:0.78rem;color:var(--text-dim);line-height:1.5}
+      /* Platform cards */
+      .platform-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+      .platform-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        overflow: hidden;
+        transition: all 0.3s;
+      }
+      .platform-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+      }
+      .platform-header {
+        padding: 1rem 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .platform-name {
+        font-size: 1.1rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .platform-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .fit-badge {
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 0.25rem 0.6rem;
+        border-radius: 20px;
+        background: rgba(99, 102, 241, 0.2);
+        color: var(--accent-light);
+      }
+      .fit-high {
+        background: rgba(34, 197, 94, 0.2);
+        color: var(--success);
+      }
+      .fit-med {
+        background: rgba(245, 158, 11, 0.2);
+        color: var(--warning);
+      }
+      .fit-low {
+        background: rgba(239, 68, 68, 0.2);
+        color: var(--danger);
+      }
+      .platform-body {
+        padding: 0 1.2rem 1.2rem;
+      }
+      .platform-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 0.8rem;
+      }
+      .platform-tag {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        background: var(--surface-2);
+        color: var(--text-dim);
+      }
+      .platform-budget {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--accent-light);
+        margin-bottom: 0.4rem;
+      }
+      .platform-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.4rem;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+      }
+      .platform-stats .ps-val {
+        font-weight: 600;
+        color: var(--text);
+      }
+      .platform-reasons {
+        margin-top: 0.6rem;
+        font-size: 0.78rem;
+        color: var(--text-dim);
+        line-height: 1.5;
+      }
 
-/* Budget chart area */
-.chart-container{display:flex;gap:2rem;margin-bottom:2rem;flex-wrap:wrap}
-.chart-donut{flex:0 0 300px;height:300px;position:relative}
-.chart-donut canvas{width:100%!important;height:100%!important}
-.chart-legend{flex:1;min-width:250px}
-.legend-item{display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.05)}
-.legend-color{width:14px;height:14px;border-radius:3px;flex-shrink:0}
-.legend-name{flex:1;font-size:0.9rem;color:var(--text)}
-.legend-value{font-size:0.9rem;font-weight:600;color:var(--accent-light)}
-.legend-pct{font-size:0.8rem;color:var(--text-dim);min-width:45px;text-align:right}
+      /* Budget chart area */
+      .chart-container {
+        display: flex;
+        gap: 2rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+      }
+      .chart-donut {
+        flex: 0 0 300px;
+        height: 300px;
+        position: relative;
+      }
+      .chart-donut canvas {
+        width: 100% !important;
+        height: 100% !important;
+      }
+      .chart-legend {
+        flex: 1;
+        min-width: 250px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .legend-color {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+        flex-shrink: 0;
+      }
+      .legend-name {
+        flex: 1;
+        font-size: 0.9rem;
+        color: var(--text);
+      }
+      .legend-value {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--accent-light);
+      }
+      .legend-pct {
+        font-size: 0.8rem;
+        color: var(--text-dim);
+        min-width: 45px;
+        text-align: right;
+      }
 
-/* Tabs */
-.tabs{display:flex;gap:0.25rem;margin-bottom:1.5rem;border-bottom:1px solid var(--card-border);overflow-x:auto}
-.tab{padding:0.7rem 1.2rem;font-size:0.85rem;font-weight:500;color:var(--text-dim);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s}
-.tab:hover{color:var(--text)}
-.tab.active{color:var(--accent-light);border-bottom-color:var(--accent)}
-.tab-content{display:none}
-.tab-content.active{display:block;animation:fadeIn 0.3s}
+      /* Tabs */
+      .tabs {
+        display: flex;
+        gap: 0.25rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid var(--card-border);
+        overflow-x: auto;
+      }
+      .tab {
+        padding: 0.7rem 1.2rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-dim);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        white-space: nowrap;
+        transition: all 0.2s;
+      }
+      .tab:hover {
+        color: var(--text);
+      }
+      .tab.active {
+        color: var(--accent-light);
+        border-bottom-color: var(--accent);
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+        animation: fadeIn 0.3s;
+      }
 
-/* Targeting cards */
-.targeting-card{background:var(--card);border:1px solid var(--card-border);border-radius:10px;margin-bottom:1rem;overflow:hidden}
-.targeting-header{padding:1rem 1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .2s}
-.targeting-header:hover{background:rgba(255,255,255,0.03)}
-.targeting-header h4{font-size:1rem;font-weight:600;display:flex;align-items:center;gap:0.5rem}
-.targeting-arrow{transition:transform .3s;font-size:0.8rem;color:var(--text-dim)}
-.targeting-card.open .targeting-arrow{transform:rotate(180deg)}
-.targeting-body{padding:0 1.2rem 1.2rem;display:none}
-.targeting-card.open .targeting-body{display:block}
-.targeting-list{list-style:none;padding:0}
-.targeting-list li{padding:0.4rem 0;font-size:0.85rem;color:var(--text-muted);display:flex;align-items:flex-start;gap:0.5rem}
-.targeting-list li::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--accent);margin-top:0.45rem;flex-shrink:0}
-.targeting-section{margin-bottom:1rem}
-.targeting-section h5{font-size:0.8rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem}
+      /* Targeting cards */
+      .targeting-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        overflow: hidden;
+      }
+      .targeting-header {
+        padding: 1rem 1.2rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: background 0.2s;
+      }
+      .targeting-header:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .targeting-header h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .targeting-arrow {
+        transition: transform 0.3s;
+        font-size: 0.8rem;
+        color: var(--text-dim);
+      }
+      .targeting-card.open .targeting-arrow {
+        transform: rotate(180deg);
+      }
+      .targeting-body {
+        padding: 0 1.2rem 1.2rem;
+        display: none;
+      }
+      .targeting-card.open .targeting-body {
+        display: block;
+      }
+      .targeting-list {
+        list-style: none;
+        padding: 0;
+      }
+      .targeting-list li {
+        padding: 0.4rem 0;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+      .targeting-list li::before {
+        content: "";
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+        margin-top: 0.45rem;
+        flex-shrink: 0;
+      }
+      .targeting-section {
+        margin-bottom: 1rem;
+      }
+      .targeting-section h5 {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+      }
 
-/* Calendar */
-.calendar-week{margin-bottom:1.5rem}
-.calendar-week-header{padding:0.7rem 1rem;background:linear-gradient(135deg,var(--accent),#4f46e5);border-radius:8px 8px 0 0;font-weight:600;font-size:0.9rem}
-.calendar-table{width:100%;border-collapse:collapse}
-.calendar-table th{background:var(--surface-2);padding:0.5rem 0.7rem;font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;text-align:left;font-weight:600}
-.calendar-table td{padding:0.5rem 0.7rem;font-size:0.82rem;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text-muted)}
-.calendar-table tr:hover td{background:rgba(255,255,255,0.03)}
-.engagement-badge{font-size:0.7rem;padding:0.15rem 0.4rem;border-radius:3px;font-weight:600}
-.engagement-badge.high,.engagement-badge.very_high{background:rgba(34,197,94,0.15);color:var(--success)}
-.engagement-badge.medium{background:rgba(245,158,11,0.15);color:var(--warning)}
-.engagement-badge.low{background:rgba(239,68,68,0.15);color:var(--danger)}
+      /* Calendar */
+      .calendar-week {
+        margin-bottom: 1.5rem;
+      }
+      .calendar-week-header {
+        padding: 0.7rem 1rem;
+        background: linear-gradient(135deg, var(--accent), #4f46e5);
+        border-radius: 8px 8px 0 0;
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+      .calendar-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .calendar-table th {
+        background: var(--surface-2);
+        padding: 0.5rem 0.7rem;
+        font-size: 0.75rem;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        text-align: left;
+        font-weight: 600;
+      }
+      .calendar-table td {
+        padding: 0.5rem 0.7rem;
+        font-size: 0.82rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        color: var(--text-muted);
+      }
+      .calendar-table tr:hover td {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .engagement-badge {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+        font-weight: 600;
+      }
+      .engagement-badge.high,
+      .engagement-badge.very_high {
+        background: rgba(34, 197, 94, 0.15);
+        color: var(--success);
+      }
+      .engagement-badge.medium {
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--warning);
+      }
+      .engagement-badge.low {
+        background: rgba(239, 68, 68, 0.15);
+        color: var(--danger);
+      }
 
-/* Creative briefs */
-.brief-card{background:var(--card);border:1px solid var(--card-border);border-radius:10px;margin-bottom:1rem;overflow:hidden}
-.brief-header{padding:1rem 1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:space-between}
-.brief-header:hover{background:rgba(255,255,255,0.03)}
-.brief-body{padding:0 1.2rem 1.2rem;display:none}
-.brief-card.open .brief-body{display:block}
-.brief-card.open .brief-arrow{transform:rotate(180deg)}
-.brief-section{margin-bottom:1rem}
-.brief-section h5{font-size:0.8rem;font-weight:600;color:var(--accent-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.4rem}
-.brief-section p,.brief-section li{font-size:0.85rem;color:var(--text-muted);line-height:1.6}
-.brief-specs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.5rem}
-.brief-spec{background:var(--surface);padding:0.5rem 0.7rem;border-radius:6px;font-size:0.8rem}
-.brief-spec .spec-label{color:var(--text-dim);font-size:0.7rem;text-transform:uppercase}
-.brief-spec .spec-value{color:var(--text);font-weight:500}
-.sample-copy{background:var(--surface);border-left:3px solid var(--accent);padding:0.8rem 1rem;border-radius:0 6px 6px 0;margin-top:0.5rem;font-size:0.85rem;color:var(--text);line-height:1.6;font-style:italic}
+      /* Creative briefs */
+      .brief-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        overflow: hidden;
+      }
+      .brief-header {
+        padding: 1rem 1.2rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .brief-header:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .brief-body {
+        padding: 0 1.2rem 1.2rem;
+        display: none;
+      }
+      .brief-card.open .brief-body {
+        display: block;
+      }
+      .brief-card.open .brief-arrow {
+        transform: rotate(180deg);
+      }
+      .brief-section {
+        margin-bottom: 1rem;
+      }
+      .brief-section h5 {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--accent-light);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.4rem;
+      }
+      .brief-section p,
+      .brief-section li {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        line-height: 1.6;
+      }
+      .brief-specs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.5rem;
+      }
+      .brief-spec {
+        background: var(--surface);
+        padding: 0.5rem 0.7rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+      }
+      .brief-spec .spec-label {
+        color: var(--text-dim);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+      }
+      .brief-spec .spec-value {
+        color: var(--text);
+        font-weight: 500;
+      }
+      .sample-copy {
+        background: var(--surface);
+        border-left: 3px solid var(--accent);
+        padding: 0.8rem 1rem;
+        border-radius: 0 6px 6px 0;
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        color: var(--text);
+        line-height: 1.6;
+        font-style: italic;
+      }
 
-/* Performance table */
-.perf-table{width:100%;border-collapse:collapse;margin-bottom:1.5rem}
-.perf-table th{background:var(--surface-2);padding:0.7rem 0.8rem;font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;text-align:center;font-weight:600;letter-spacing:0.3px}
-.perf-table td{padding:0.7rem 0.8rem;text-align:center;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.88rem}
-.perf-table tr:hover td{background:rgba(255,255,255,0.03)}
-.perf-table .total-row td{background:var(--surface-2);font-weight:700;color:var(--accent-light);border-top:2px solid var(--accent)}
-.roi-bar{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;margin-top:0.2rem}
-.roi-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--success))}
+      /* Performance table */
+      .perf-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1.5rem;
+      }
+      .perf-table th {
+        background: var(--surface-2);
+        padding: 0.7rem 0.8rem;
+        font-size: 0.75rem;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        text-align: center;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+      }
+      .perf-table td {
+        padding: 0.7rem 0.8rem;
+        text-align: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        font-size: 0.88rem;
+      }
+      .perf-table tr:hover td {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .perf-table .total-row td {
+        background: var(--surface-2);
+        font-weight: 700;
+        color: var(--accent-light);
+        border-top: 2px solid var(--accent);
+      }
+      .roi-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--surface-2);
+        overflow: hidden;
+        margin-top: 0.2rem;
+      }
+      .roi-fill {
+        height: 100%;
+        border-radius: 3px;
+        background: linear-gradient(90deg, var(--accent), var(--success));
+      }
 
-/* Download buttons */
-.download-bar{display:flex;gap:1rem;margin-top:2rem;flex-wrap:wrap}
-.btn-download{display:inline-flex;align-items:center;gap:0.5rem;padding:0.7rem 1.5rem;border:1px solid var(--card-border);border-radius:8px;background:var(--surface);color:var(--text);font-size:0.9rem;font-weight:500;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif}
-.btn-download:hover{border-color:var(--accent);background:var(--accent-glow);color:#fff}
-.btn-download:disabled{opacity:0.4;cursor:not-allowed}
-.btn-download svg{width:18px;height:18px}
+      /* Download buttons */
+      .download-bar {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+        flex-wrap: wrap;
+      }
+      .btn-download {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.7rem 1.5rem;
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: "Inter", sans-serif;
+      }
+      .btn-download:hover {
+        border-color: var(--accent);
+        background: var(--accent-glow);
+        color: #fff;
+      }
+      .btn-download:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .btn-download svg {
+        width: 18px;
+        height: 18px;
+      }
 
-/* Error */
-.error-msg{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:1rem;color:var(--danger);margin-bottom:1rem;display:none}
-.error-msg.visible{display:block}
+      /* Error */
+      .error-msg {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 8px;
+        padding: 1rem;
+        color: var(--danger);
+        margin-bottom: 1rem;
+        display: none;
+      }
+      .error-msg.visible {
+        display: block;
+      }
 
-/* Responsive */
-@media(max-width:768px){
-  .nav{padding:0.8rem 1rem;flex-wrap:wrap;gap:0.5rem}
-  .container{padding:1rem}
-  .input-grid{grid-template-columns:1fr}
-  .stats-grid{grid-template-columns:repeat(2,1fr)}
-  .platform-grid{grid-template-columns:1fr}
-  .chart-container{flex-direction:column}
-  .chart-donut{flex:none;width:100%;max-width:300px;margin:0 auto}
-  .tabs{flex-wrap:nowrap}
-  .perf-table{font-size:0.75rem}
-  .perf-table th,.perf-table td{padding:0.4rem}
-}
-</style>
-</head>
-<body>
+      /* Responsive */
+      @media (max-width: 768px) {
+        .nav {
+          padding: 0.8rem 1rem;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+        .container {
+          padding: 1rem;
+        }
+        .input-grid {
+          grid-template-columns: 1fr;
+        }
+        .stats-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .platform-grid {
+          grid-template-columns: 1fr;
+        }
+        .chart-container {
+          flex-direction: column;
+        }
+        .chart-donut {
+          flex: none;
+          width: 100%;
+          max-width: 300px;
+          margin: 0 auto;
+        }
+        .tabs {
+          flex-wrap: nowrap;
+        }
+        .perf-table {
+          font-size: 0.75rem;
+        }
+        .perf-table th,
+        .perf-table td {
+          padding: 0.4rem;
+        }
+      }
 
-<!-- Nav -->
-<nav class="nav">
-  <div class="nav-brand">JOVEO</div>
-  <div class="nav-title">Social & Search Media Planner</div>
-  <a href="/" class="nav-back">Back to Dashboard</a>
-</nav>
+      /* -- Scroll reveal animations -- */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
 
-<div class="container">
+      /* -- Enhanced card/section glow -- */
+      .glow-hover {
+        transition:
+          box-shadow 0.4s ease,
+          border-color 0.3s ease;
+      }
+      .glow-hover:hover {
+        box-shadow:
+          0 0 20px rgba(99, 102, 241, 0.12),
+          0 0 50px rgba(99, 102, 241, 0.06);
+        border-color: rgba(99, 102, 241, 0.2);
+      }
 
-  <!-- Error display -->
-  <div id="errorMsg" class="error-msg"></div>
+      /* -- Reduced motion -- */
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Nav -->
+    <nav class="nav">
+      <div class="nav-brand">JOVEO</div>
+      <div class="nav-title">Social & Search Media Planner</div>
+      <a href="/" class="nav-back">Back to Dashboard</a>
+    </nav>
 
-  <!-- Input Section -->
-  <section class="input-section">
-    <h2 class="section-title"><span class="dot"></span>Campaign Parameters</h2>
-    <p class="section-sub">Define your recruitment campaign to generate a data-driven social and search media plan.</p>
+    <div class="container">
+      <!-- Error display -->
+      <div id="errorMsg" class="error-msg"></div>
 
-    <div class="card">
-      <div class="input-grid">
-        <div class="form-group">
-          <label for="role">Job Title / Role</label>
-          <input type="text" id="role" placeholder="e.g., Registered Nurse, Software Engineer" autocomplete="off">
+      <!-- Input Section -->
+      <section class="input-section">
+        <h2 class="section-title">
+          <span class="dot"></span>Campaign Parameters
+        </h2>
+        <p class="section-sub">
+          Define your recruitment campaign to generate a data-driven social and
+          search media plan.
+        </p>
+
+        <div class="card">
+          <div class="input-grid">
+            <div class="form-group">
+              <label for="role">Job Title / Role</label>
+              <input
+                type="text"
+                id="role"
+                placeholder="e.g., Registered Nurse, Software Engineer"
+                autocomplete="off"
+              />
+            </div>
+            <div class="form-group">
+              <label for="location">Target Location</label>
+              <input
+                type="text"
+                id="location"
+                placeholder="e.g., New York, NY or United States"
+                autocomplete="off"
+              />
+            </div>
+            <div class="form-group">
+              <label for="industry">Industry</label>
+              <select id="industry">
+                <option value="general_entry_level">
+                  General / Entry-Level
+                </option>
+                <option value="healthcare_medical">Healthcare & Medical</option>
+                <option value="tech_engineering">
+                  Technology & Engineering
+                </option>
+                <option value="finance_banking">Finance & Banking</option>
+                <option value="retail_consumer">Retail & Consumer</option>
+                <option value="blue_collar_trades">
+                  Blue Collar / Skilled Trades
+                </option>
+                <option value="logistics_supply_chain">
+                  Logistics & Supply Chain
+                </option>
+                <option value="hospitality_travel">Hospitality & Travel</option>
+                <option value="construction_real_estate">
+                  Construction & Real Estate
+                </option>
+                <option value="food_beverage">Food & Beverage</option>
+                <option value="pharma_biotech">Pharma & Biotech</option>
+                <option value="aerospace_defense">Aerospace & Defense</option>
+                <option value="legal_services">Legal Services</option>
+                <option value="insurance">Insurance</option>
+                <option value="telecommunications">Telecommunications</option>
+                <option value="automotive">Automotive & Manufacturing</option>
+                <option value="energy_utilities">Energy & Utilities</option>
+                <option value="education">Education</option>
+                <option value="media_entertainment">
+                  Media & Entertainment
+                </option>
+                <option value="mental_health">
+                  Mental Health & Behavioral
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="duration">Campaign Duration</label>
+              <select id="duration">
+                <option value="1">1 Week</option>
+                <option value="2">2 Weeks</option>
+                <option value="4" selected>4 Weeks</option>
+                <option value="6">6 Weeks</option>
+                <option value="8">8 Weeks</option>
+                <option value="12">12 Weeks</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Budget -->
+          <div class="form-group" style="margin-top: 1.2rem">
+            <label>Total Campaign Budget (USD)</label>
+            <div class="budget-display">
+              <input
+                type="range"
+                id="budgetSlider"
+                min="1000"
+                max="500000"
+                step="1000"
+                value="50000"
+              />
+              <span class="budget-value" id="budgetLabel">$50,000</span>
+              <input
+                type="text"
+                id="budgetInput"
+                class="budget-input"
+                value="50000"
+                title="Type exact budget"
+              />
+            </div>
+          </div>
+
+          <!-- Goals -->
+          <div class="form-group" style="margin-top: 1.2rem">
+            <label>Campaign Goals</label>
+            <div class="goals-grid">
+              <label class="goal-check active" data-goal="job_applications">
+                <input type="checkbox" checked />
+                <span class="check-dot"></span>
+                <span>Job Applications</span>
+              </label>
+              <label class="goal-check" data-goal="brand_awareness">
+                <input type="checkbox" />
+                <span class="check-dot"></span>
+                <span>Brand Awareness</span>
+              </label>
+              <label class="goal-check" data-goal="talent_pipeline">
+                <input type="checkbox" />
+                <span class="check-dot"></span>
+                <span>Talent Pipeline</span>
+              </label>
+              <label class="goal-check" data-goal="employer_brand">
+                <input type="checkbox" />
+                <span class="check-dot"></span>
+                <span>Employer Brand</span>
+              </label>
+            </div>
+          </div>
+
+          <button
+            id="generateBtn"
+            class="btn-generate"
+            onclick="generatePlan()"
+          >
+            <span class="btn-text">Generate Plan</span>
+            <span class="spinner"></span>
+          </button>
         </div>
-        <div class="form-group">
-          <label for="location">Target Location</label>
-          <input type="text" id="location" placeholder="e.g., New York, NY or United States" autocomplete="off">
+      </section>
+
+      <!-- Results Section -->
+      <section id="results" class="results">
+        <!-- Summary Stats -->
+        <div id="summaryStats" class="stats-grid"></div>
+
+        <!-- Tabs -->
+        <div class="tabs" id="mainTabs">
+          <div
+            class="tab active"
+            data-tab="platforms"
+            onclick="switchTab(this, 'platforms')"
+          >
+            Platforms
+          </div>
+          <div
+            class="tab"
+            data-tab="budget"
+            onclick="switchTab(this, 'budget')"
+          >
+            Budget Allocation
+          </div>
+          <div
+            class="tab"
+            data-tab="targeting"
+            onclick="switchTab(this, 'targeting')"
+          >
+            Audience Targeting
+          </div>
+          <div
+            class="tab"
+            data-tab="calendar"
+            onclick="switchTab(this, 'calendar')"
+          >
+            Content Calendar
+          </div>
+          <div
+            class="tab"
+            data-tab="briefs"
+            onclick="switchTab(this, 'briefs')"
+          >
+            Creative Briefs
+          </div>
+          <div
+            class="tab"
+            data-tab="performance"
+            onclick="switchTab(this, 'performance')"
+          >
+            Performance
+          </div>
         </div>
-        <div class="form-group">
-          <label for="industry">Industry</label>
-          <select id="industry">
-            <option value="general_entry_level">General / Entry-Level</option>
-            <option value="healthcare_medical">Healthcare & Medical</option>
-            <option value="tech_engineering">Technology & Engineering</option>
-            <option value="finance_banking">Finance & Banking</option>
-            <option value="retail_consumer">Retail & Consumer</option>
-            <option value="blue_collar_trades">Blue Collar / Skilled Trades</option>
-            <option value="logistics_supply_chain">Logistics & Supply Chain</option>
-            <option value="hospitality_travel">Hospitality & Travel</option>
-            <option value="construction_real_estate">Construction & Real Estate</option>
-            <option value="food_beverage">Food & Beverage</option>
-            <option value="pharma_biotech">Pharma & Biotech</option>
-            <option value="aerospace_defense">Aerospace & Defense</option>
-            <option value="legal_services">Legal Services</option>
-            <option value="insurance">Insurance</option>
-            <option value="telecommunications">Telecommunications</option>
-            <option value="automotive">Automotive & Manufacturing</option>
-            <option value="energy_utilities">Energy & Utilities</option>
-            <option value="education">Education</option>
-            <option value="media_entertainment">Media & Entertainment</option>
-            <option value="mental_health">Mental Health & Behavioral</option>
-          </select>
+
+        <!-- Tab: Platforms -->
+        <div id="tab-platforms" class="tab-content active">
+          <h3 class="section-title">
+            <span class="dot"></span>Platform Recommendations
+          </h3>
+          <p class="section-sub">
+            Ranked by fit score for your role, industry, and campaign goals.
+          </p>
+          <div id="platformGrid" class="platform-grid"></div>
         </div>
-        <div class="form-group">
-          <label for="duration">Campaign Duration</label>
-          <select id="duration">
-            <option value="1">1 Week</option>
-            <option value="2">2 Weeks</option>
-            <option value="4" selected>4 Weeks</option>
-            <option value="6">6 Weeks</option>
-            <option value="8">8 Weeks</option>
-            <option value="12">12 Weeks</option>
-          </select>
+
+        <!-- Tab: Budget Allocation -->
+        <div id="tab-budget" class="tab-content">
+          <h3 class="section-title">
+            <span class="dot"></span>Budget Allocation
+          </h3>
+          <p class="section-sub" id="budgetSplitLabel"></p>
+          <div class="chart-container">
+            <div class="chart-donut"><canvas id="budgetChart"></canvas></div>
+            <div class="chart-legend" id="budgetLegend"></div>
+          </div>
         </div>
-      </div>
 
-      <!-- Budget -->
-      <div class="form-group" style="margin-top:1.2rem">
-        <label>Total Campaign Budget (USD)</label>
-        <div class="budget-display">
-          <input type="range" id="budgetSlider" min="1000" max="500000" step="1000" value="50000">
-          <span class="budget-value" id="budgetLabel">$50,000</span>
-          <input type="text" id="budgetInput" class="budget-input" value="50000" title="Type exact budget">
+        <!-- Tab: Audience Targeting -->
+        <div id="tab-targeting" class="tab-content">
+          <h3 class="section-title">
+            <span class="dot"></span>Audience Targeting
+          </h3>
+          <p class="section-sub">
+            Platform-specific targeting criteria and suggestions.
+          </p>
+          <div id="targetingCards"></div>
         </div>
-      </div>
 
-      <!-- Goals -->
-      <div class="form-group" style="margin-top:1.2rem">
-        <label>Campaign Goals</label>
-        <div class="goals-grid">
-          <label class="goal-check active" data-goal="job_applications">
-            <input type="checkbox" checked>
-            <span class="check-dot"></span>
-            <span>Job Applications</span>
-          </label>
-          <label class="goal-check" data-goal="brand_awareness">
-            <input type="checkbox">
-            <span class="check-dot"></span>
-            <span>Brand Awareness</span>
-          </label>
-          <label class="goal-check" data-goal="talent_pipeline">
-            <input type="checkbox">
-            <span class="check-dot"></span>
-            <span>Talent Pipeline</span>
-          </label>
-          <label class="goal-check" data-goal="employer_brand">
-            <input type="checkbox">
-            <span class="check-dot"></span>
-            <span>Employer Brand</span>
-          </label>
+        <!-- Tab: Content Calendar -->
+        <div id="tab-calendar" class="tab-content">
+          <h3 class="section-title">
+            <span class="dot"></span>Content Calendar
+          </h3>
+          <p class="section-sub">Weekly posting schedule per platform.</p>
+          <div id="calendarContent"></div>
         </div>
-      </div>
 
-      <button id="generateBtn" class="btn-generate" onclick="generatePlan()">
-        <span class="btn-text">Generate Plan</span>
-        <span class="spinner"></span>
-      </button>
-    </div>
-  </section>
+        <!-- Tab: Creative Briefs -->
+        <div id="tab-briefs" class="tab-content">
+          <h3 class="section-title">
+            <span class="dot"></span>Creative Briefs
+          </h3>
+          <p class="section-sub">
+            Per-platform creative specifications, tone, and sample copy.
+          </p>
+          <div id="briefsContent"></div>
+        </div>
 
-  <!-- Results Section -->
-  <section id="results" class="results">
+        <!-- Tab: Performance -->
+        <div id="tab-performance" class="tab-content">
+          <h3 class="section-title">
+            <span class="dot"></span>Performance Projections
+          </h3>
+          <p class="section-sub">
+            Estimated reach, clicks, and applications based on industry
+            benchmarks.
+          </p>
+          <div id="perfContent"></div>
+        </div>
 
-    <!-- Summary Stats -->
-    <div id="summaryStats" class="stats-grid"></div>
-
-    <!-- Tabs -->
-    <div class="tabs" id="mainTabs">
-      <div class="tab active" data-tab="platforms" onclick="switchTab(this,'platforms')">Platforms</div>
-      <div class="tab" data-tab="budget" onclick="switchTab(this,'budget')">Budget Allocation</div>
-      <div class="tab" data-tab="targeting" onclick="switchTab(this,'targeting')">Audience Targeting</div>
-      <div class="tab" data-tab="calendar" onclick="switchTab(this,'calendar')">Content Calendar</div>
-      <div class="tab" data-tab="briefs" onclick="switchTab(this,'briefs')">Creative Briefs</div>
-      <div class="tab" data-tab="performance" onclick="switchTab(this,'performance')">Performance</div>
-    </div>
-
-    <!-- Tab: Platforms -->
-    <div id="tab-platforms" class="tab-content active">
-      <h3 class="section-title"><span class="dot"></span>Platform Recommendations</h3>
-      <p class="section-sub">Ranked by fit score for your role, industry, and campaign goals.</p>
-      <div id="platformGrid" class="platform-grid"></div>
-    </div>
-
-    <!-- Tab: Budget Allocation -->
-    <div id="tab-budget" class="tab-content">
-      <h3 class="section-title"><span class="dot"></span>Budget Allocation</h3>
-      <p class="section-sub" id="budgetSplitLabel"></p>
-      <div class="chart-container">
-        <div class="chart-donut"><canvas id="budgetChart"></canvas></div>
-        <div class="chart-legend" id="budgetLegend"></div>
-      </div>
-    </div>
-
-    <!-- Tab: Audience Targeting -->
-    <div id="tab-targeting" class="tab-content">
-      <h3 class="section-title"><span class="dot"></span>Audience Targeting</h3>
-      <p class="section-sub">Platform-specific targeting criteria and suggestions.</p>
-      <div id="targetingCards"></div>
-    </div>
-
-    <!-- Tab: Content Calendar -->
-    <div id="tab-calendar" class="tab-content">
-      <h3 class="section-title"><span class="dot"></span>Content Calendar</h3>
-      <p class="section-sub">Weekly posting schedule per platform.</p>
-      <div id="calendarContent"></div>
-    </div>
-
-    <!-- Tab: Creative Briefs -->
-    <div id="tab-briefs" class="tab-content">
-      <h3 class="section-title"><span class="dot"></span>Creative Briefs</h3>
-      <p class="section-sub">Per-platform creative specifications, tone, and sample copy.</p>
-      <div id="briefsContent"></div>
+        <!-- Downloads -->
+        <div class="download-bar">
+          <button class="btn-download" onclick="downloadExcel()">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <polyline points="9 15 12 18 15 15" />
+            </svg>
+            Download Excel
+          </button>
+          <button class="btn-download" onclick="downloadPPT()">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              />
+              <polyline points="14 2 14 8 20 8" />
+              <rect x="8" y="12" width="8" height="6" rx="1" />
+            </svg>
+            Download PPT
+          </button>
+        </div>
+      </section>
     </div>
 
-    <!-- Tab: Performance -->
-    <div id="tab-performance" class="tab-content">
-      <h3 class="section-title"><span class="dot"></span>Performance Projections</h3>
-      <p class="section-sub">Estimated reach, clicks, and applications based on industry benchmarks.</p>
-      <div id="perfContent"></div>
-    </div>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 
-    <!-- Downloads -->
-    <div class="download-bar">
-      <button class="btn-download" onclick="downloadExcel()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
-        Download Excel
-      </button>
-      <button class="btn-download" onclick="downloadPPT()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><rect x="8" y="12" width="8" height="6" rx="1"/></svg>
-        Download PPT
-      </button>
-    </div>
-  </section>
-</div>
+    <script>
+      // ── State ──
+      let currentPlan = null;
+      let budgetChartInstance = null;
 
-<!-- Chart.js CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+      // ── Budget slider/input sync ──
+      const slider = document.getElementById("budgetSlider");
+      const label = document.getElementById("budgetLabel");
+      const budgetInput = document.getElementById("budgetInput");
 
-<script>
-// ── State ──
-let currentPlan = null;
-let budgetChartInstance = null;
+      function formatBudget(v) {
+        return "$" + Number(v).toLocaleString("en-US");
+      }
 
-// ── Budget slider/input sync ──
-const slider = document.getElementById('budgetSlider');
-const label = document.getElementById('budgetLabel');
-const budgetInput = document.getElementById('budgetInput');
+      slider.addEventListener("input", () => {
+        label.textContent = formatBudget(slider.value);
+        budgetInput.value = slider.value;
+      });
+      budgetInput.addEventListener("change", () => {
+        let v = parseInt(budgetInput.value.replace(/[^0-9]/g, ""), 10) || 5000;
+        v = Math.max(1000, Math.min(500000, v));
+        slider.value = v;
+        budgetInput.value = v;
+        label.textContent = formatBudget(v);
+      });
 
-function formatBudget(v) { return '$' + Number(v).toLocaleString('en-US'); }
+      // ── Goal toggles ──
+      document.querySelectorAll(".goal-check").forEach((el) => {
+        el.addEventListener("click", () => {
+          el.classList.toggle("active");
+          el.querySelector("input").checked = el.classList.contains("active");
+        });
+      });
 
-slider.addEventListener('input', () => {
-  label.textContent = formatBudget(slider.value);
-  budgetInput.value = slider.value;
-});
-budgetInput.addEventListener('change', () => {
-  let v = parseInt(budgetInput.value.replace(/[^0-9]/g, ''), 10) || 5000;
-  v = Math.max(1000, Math.min(500000, v));
-  slider.value = v;
-  budgetInput.value = v;
-  label.textContent = formatBudget(v);
-});
+      // ── Tab switching ──
+      function switchTab(el, tabId) {
+        document
+          .querySelectorAll(".tab")
+          .forEach((t) => t.classList.remove("active"));
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((tc) => tc.classList.remove("active"));
+        el.classList.add("active");
+        document.getElementById("tab-" + tabId).classList.add("active");
+      }
 
-// ── Goal toggles ──
-document.querySelectorAll('.goal-check').forEach(el => {
-  el.addEventListener('click', () => {
-    el.classList.toggle('active');
-    el.querySelector('input').checked = el.classList.contains('active');
-  });
-});
+      // ── Generate plan ──
+      async function generatePlan() {
+        const btn = document.getElementById("generateBtn");
+        const err = document.getElementById("errorMsg");
+        err.classList.remove("visible");
+        err.textContent = "";
 
-// ── Tab switching ──
-function switchTab(el, tabId) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('tab-' + tabId).classList.add('active');
-}
+        const role = document.getElementById("role").value.trim();
+        if (!role) {
+          showError("Please enter a job title or role.");
+          return;
+        }
 
-// ── Generate plan ──
-async function generatePlan() {
-  const btn = document.getElementById('generateBtn');
-  const err = document.getElementById('errorMsg');
-  err.classList.remove('visible');
-  err.textContent = '';
+        const payload = {
+          role: role,
+          location: document.getElementById("location").value.trim(),
+          industry: document.getElementById("industry").value,
+          budget: parseInt(budgetInput.value) || 50000,
+          goals: [...document.querySelectorAll(".goal-check.active")].map(
+            (el) => el.dataset.goal,
+          ),
+          duration_weeks:
+            parseInt(document.getElementById("duration").value) || 4,
+        };
 
-  const role = document.getElementById('role').value.trim();
-  if (!role) { showError('Please enter a job title or role.'); return; }
+        btn.classList.add("loading");
+        btn.disabled = true;
 
-  const payload = {
-    role: role,
-    location: document.getElementById('location').value.trim(),
-    industry: document.getElementById('industry').value,
-    budget: parseInt(budgetInput.value) || 50000,
-    goals: [...document.querySelectorAll('.goal-check.active')].map(el => el.dataset.goal),
-    duration_weeks: parseInt(document.getElementById('duration').value) || 4
-  };
+        try {
+          const resp = await fetch("/api/social-plan/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await resp.json();
+          if (!data.success)
+            throw new Error(data.error || "Plan generation failed");
+          currentPlan = data;
+          renderResults(data);
+        } catch (e) {
+          showError(e.message || "An error occurred. Please try again.");
+        } finally {
+          btn.classList.remove("loading");
+          btn.disabled = false;
+        }
+      }
 
-  btn.classList.add('loading');
-  btn.disabled = true;
+      function showError(msg) {
+        const el = document.getElementById("errorMsg");
+        el.textContent = msg;
+        el.classList.add("visible");
+      }
 
-  try {
-    const resp = await fetch('/api/social-plan/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await resp.json();
-    if (!data.success) throw new Error(data.error || 'Plan generation failed');
-    currentPlan = data;
-    renderResults(data);
-  } catch (e) {
-    showError(e.message || 'An error occurred. Please try again.');
-  } finally {
-    btn.classList.remove('loading');
-    btn.disabled = false;
-  }
-}
+      // ── Render results ──
+      function renderResults(plan) {
+        const results = document.getElementById("results");
+        results.classList.add("visible");
 
-function showError(msg) {
-  const el = document.getElementById('errorMsg');
-  el.textContent = msg;
-  el.classList.add('visible');
-}
+        renderSummary(plan.summary);
+        renderPlatforms(plan);
+        renderBudgetChart(plan.budget_allocation);
+        renderTargeting(plan.audience_targeting);
+        renderCalendar(plan.content_calendar);
+        renderBriefs(plan.creative_briefs);
+        renderPerformance(plan.performance);
 
-// ── Render results ──
-function renderResults(plan) {
-  const results = document.getElementById('results');
-  results.classList.add('visible');
+        results.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
 
-  renderSummary(plan.summary);
-  renderPlatforms(plan);
-  renderBudgetChart(plan.budget_allocation);
-  renderTargeting(plan.audience_targeting);
-  renderCalendar(plan.content_calendar);
-  renderBriefs(plan.creative_briefs);
-  renderPerformance(plan.performance);
+      function renderSummary(s) {
+        const grid = document.getElementById("summaryStats");
+        const items = [
+          { v: formatBudget(s.total_budget), l: "Total Budget", cls: "" },
+          { v: s.platform_count, l: "Platforms", cls: "accent" },
+          {
+            v: (s.est_total_reach || 0).toLocaleString(),
+            l: "Est. Reach",
+            cls: "",
+          },
+          {
+            v: (s.est_total_impressions || 0).toLocaleString(),
+            l: "Est. Impressions",
+            cls: "",
+          },
+          {
+            v: (s.est_total_clicks || 0).toLocaleString(),
+            l: "Est. Clicks",
+            cls: "",
+          },
+          {
+            v: (s.est_total_applications || 0).toLocaleString(),
+            l: "Est. Applications",
+            cls: "accent",
+          },
+          {
+            v: "$" + (s.est_avg_cpa || 0).toFixed(2),
+            l: "Est. Avg CPA",
+            cls: "",
+          },
+          {
+            v: (s.collar_type || "")
+              .replace(/_/g, " ")
+              .replace(/\b\w/g, (c) => c.toUpperCase()),
+            l: "Collar Type",
+            cls: "",
+          },
+        ];
+        grid.innerHTML = items
+          .map(
+            (i) =>
+              `<div class="stat-card"><div class="stat-value ${i.cls}">${i.v}</div><div class="stat-label">${i.l}</div></div>`,
+          )
+          .join("");
+      }
 
-  results.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
+      function renderPlatforms(plan) {
+        const grid = document.getElementById("platformGrid");
+        const allPlatforms = [
+          ...(plan.social_platforms || []),
+          ...(plan.search_platforms || []),
+        ];
+        const allocations = plan.budget_allocation?.allocations || {};
+        const benchmarks = plan.benchmarks || {};
 
-function renderSummary(s) {
-  const grid = document.getElementById('summaryStats');
-  const items = [
-    { v: formatBudget(s.total_budget), l: 'Total Budget', cls: '' },
-    { v: s.platform_count, l: 'Platforms', cls: 'accent' },
-    { v: (s.est_total_reach || 0).toLocaleString(), l: 'Est. Reach', cls: '' },
-    { v: (s.est_total_impressions || 0).toLocaleString(), l: 'Est. Impressions', cls: '' },
-    { v: (s.est_total_clicks || 0).toLocaleString(), l: 'Est. Clicks', cls: '' },
-    { v: (s.est_total_applications || 0).toLocaleString(), l: 'Est. Applications', cls: 'accent' },
-    { v: '$' + (s.est_avg_cpa || 0).toFixed(2), l: 'Est. Avg CPA', cls: '' },
-    { v: (s.collar_type || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), l: 'Collar Type', cls: '' }
-  ];
-  grid.innerHTML = items.map(i =>
-    `<div class="stat-card"><div class="stat-value ${i.cls}">${i.v}</div><div class="stat-label">${i.l}</div></div>`
-  ).join('');
-}
-
-function renderPlatforms(plan) {
-  const grid = document.getElementById('platformGrid');
-  const allPlatforms = [...(plan.social_platforms || []), ...(plan.search_platforms || [])];
-  const allocations = plan.budget_allocation?.allocations || {};
-  const benchmarks = plan.benchmarks || {};
-
-  grid.innerHTML = allPlatforms.slice(0, 12).map(p => {
-    const alloc = allocations[p.platform_key] || {};
-    const bench = benchmarks[p.platform_key] || {};
-    const fitClass = p.fit_score >= 70 ? 'fit-high' : p.fit_score >= 40 ? 'fit-med' : 'fit-low';
-    const hasBudget = alloc.budget > 0;
-    return `
+        grid.innerHTML = allPlatforms
+          .slice(0, 12)
+          .map((p) => {
+            const alloc = allocations[p.platform_key] || {};
+            const bench = benchmarks[p.platform_key] || {};
+            const fitClass =
+              p.fit_score >= 70
+                ? "fit-high"
+                : p.fit_score >= 40
+                  ? "fit-med"
+                  : "fit-low";
+            const hasBudget = alloc.budget > 0;
+            return `
       <div class="platform-card">
         <div class="platform-header">
           <div class="platform-name">
@@ -533,7 +1428,10 @@ function renderPlatforms(plan) {
         </div>
         <div class="platform-body">
           <div class="platform-meta">
-            ${(p.ad_formats || []).slice(0, 4).map(f => `<span class="platform-tag">${f}</span>`).join('')}
+            ${(p.ad_formats || [])
+              .slice(0, 4)
+              .map((f) => `<span class="platform-tag">${f}</span>`)
+              .join("")}
           </div>
           ${hasBudget ? `<div class="platform-budget">${formatBudget(alloc.budget)} (${alloc.pct_of_total}%)</div>` : `<div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.4rem">Not allocated (below threshold)</div>`}
           <div class="platform-stats">
@@ -542,99 +1440,136 @@ function renderPlatforms(plan) {
             <div>CTR: <span class="ps-val">${((bench.avg_ctr || 0) * 100).toFixed(1)}%</span></div>
             <div>CPA: <span class="ps-val">$${(bench.avg_cpa || 0).toFixed(2)}</span></div>
           </div>
-          ${p.reasons && p.reasons.length ? `<div class="platform-reasons">${p.reasons.join(' | ')}</div>` : ''}
+          ${p.reasons && p.reasons.length ? `<div class="platform-reasons">${p.reasons.join(" | ")}</div>` : ""}
         </div>
       </div>`;
-  }).join('');
-}
-
-function renderBudgetChart(ba) {
-  if (!ba || !ba.allocations) return;
-  const label_el = document.getElementById('budgetSplitLabel');
-  label_el.textContent = `Social: ${ba.social_pct}% ($${ba.social_budget.toLocaleString()}) | Search: ${ba.search_pct}% ($${ba.search_budget.toLocaleString()})`;
-
-  const entries = Object.entries(ba.allocations);
-  const labels = entries.map(([k, v]) => v.name);
-  const data = entries.map(([k, v]) => v.budget);
-  const colors = [
-    '#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4',
-    '#a855f7', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6',
-    '#64748b', '#84cc16'
-  ];
-
-  // Destroy old chart
-  if (budgetChartInstance) { budgetChartInstance.destroy(); }
-
-  const ctx = document.getElementById('budgetChart').getContext('2d');
-  budgetChartInstance = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: labels,
-      datasets: [{
-        data: data,
-        backgroundColor: colors.slice(0, labels.length),
-        borderWidth: 0,
-        hoverOffset: 8
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: '55%',
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: function(ctx) {
-              return ctx.label + ': $' + ctx.parsed.toLocaleString();
-            }
-          }
-        }
+          })
+          .join("");
       }
-    }
-  });
 
-  // Custom legend
-  const legendEl = document.getElementById('budgetLegend');
-  legendEl.innerHTML = entries.map(([k, v], i) =>
-    `<div class="legend-item">
+      function renderBudgetChart(ba) {
+        if (!ba || !ba.allocations) return;
+        const label_el = document.getElementById("budgetSplitLabel");
+        label_el.textContent = `Social: ${ba.social_pct}% ($${ba.social_budget.toLocaleString()}) | Search: ${ba.search_pct}% ($${ba.search_budget.toLocaleString()})`;
+
+        const entries = Object.entries(ba.allocations);
+        const labels = entries.map(([k, v]) => v.name);
+        const data = entries.map(([k, v]) => v.budget);
+        const colors = [
+          "#6366f1",
+          "#22c55e",
+          "#f59e0b",
+          "#ef4444",
+          "#06b6d4",
+          "#a855f7",
+          "#ec4899",
+          "#14b8a6",
+          "#f97316",
+          "#8b5cf6",
+          "#64748b",
+          "#84cc16",
+        ];
+
+        // Destroy old chart
+        if (budgetChartInstance) {
+          budgetChartInstance.destroy();
+        }
+
+        const ctx = document.getElementById("budgetChart").getContext("2d");
+        budgetChartInstance = new Chart(ctx, {
+          type: "doughnut",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                data: data,
+                backgroundColor: colors.slice(0, labels.length),
+                borderWidth: 0,
+                hoverOffset: 8,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "55%",
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function (ctx) {
+                    return ctx.label + ": $" + ctx.parsed.toLocaleString();
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        // Custom legend
+        const legendEl = document.getElementById("budgetLegend");
+        legendEl.innerHTML = entries
+          .map(
+            ([k, v], i) =>
+              `<div class="legend-item">
       <div class="legend-color" style="background:${colors[i % colors.length]}"></div>
       <div class="legend-name">${v.name}</div>
       <div class="legend-value">$${v.budget.toLocaleString()}</div>
       <div class="legend-pct">${v.pct_of_total}%</div>
-    </div>`
-  ).join('');
-}
+    </div>`,
+          )
+          .join("");
+      }
 
-function renderTargeting(targeting) {
-  const container = document.getElementById('targetingCards');
-  if (!targeting) { container.innerHTML = '<p style="color:var(--text-dim)">No targeting data available.</p>'; return; }
+      function renderTargeting(targeting) {
+        const container = document.getElementById("targetingCards");
+        if (!targeting) {
+          container.innerHTML =
+            '<p style="color:var(--text-dim)">No targeting data available.</p>';
+          return;
+        }
 
-  container.innerHTML = Object.entries(targeting).map(([key, t]) => {
-    let body = '';
-    if (t.job_titles && t.job_titles.length) {
-      body += `<div class="targeting-section"><h5>Job Titles</h5><ul class="targeting-list">${t.job_titles.map(j => `<li>${j}</li>`).join('')}</ul></div>`;
-    }
-    if (t.interests && t.interests.length) {
-      body += `<div class="targeting-section"><h5>Interests</h5><ul class="targeting-list">${t.interests.map(j => `<li>${j}</li>`).join('')}</ul></div>`;
-    }
-    if (t.behaviors && t.behaviors.length) {
-      body += `<div class="targeting-section"><h5>Behaviors</h5><ul class="targeting-list">${t.behaviors.map(j => `<li>${j}</li>`).join('')}</ul></div>`;
-    }
-    if (t.hashtags && t.hashtags.length) {
-      body += `<div class="targeting-section"><h5>Hashtags</h5><ul class="targeting-list">${t.hashtags.map(j => `<li>${j}</li>`).join('')}</ul></div>`;
-    }
-    if (t.targeting_types && t.targeting_types.length) {
-      body += `<div class="targeting-section"><h5>Available Targeting Types</h5><ul class="targeting-list">${t.targeting_types.map(j => `<li>${j}</li>`).join('')}</ul></div>`;
-    }
-    if (t.keyword_strategy) {
-      body += `<div class="targeting-section"><h5>Keyword Strategy</h5><ul class="targeting-list">${Object.entries(t.keyword_strategy).map(([k, v]) => `<li><strong>${k.replace(/_/g,' ')}:</strong> ${v}</li>`).join('')}</ul></div>`;
-    }
-    if (t.demographics) {
-      body += `<div class="targeting-section"><h5>Demographics</h5><ul class="targeting-list">${Object.entries(t.demographics).map(([k, v]) => `<li><strong>${k}:</strong> ${v}</li>`).join('')}</ul></div>`;
-    }
-    const platformName = t.platform ? (t.platform.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())) : key;
-    return `
+        container.innerHTML = Object.entries(targeting)
+          .map(([key, t]) => {
+            let body = "";
+            if (t.job_titles && t.job_titles.length) {
+              body += `<div class="targeting-section"><h5>Job Titles</h5><ul class="targeting-list">${t.job_titles.map((j) => `<li>${j}</li>`).join("")}</ul></div>`;
+            }
+            if (t.interests && t.interests.length) {
+              body += `<div class="targeting-section"><h5>Interests</h5><ul class="targeting-list">${t.interests.map((j) => `<li>${j}</li>`).join("")}</ul></div>`;
+            }
+            if (t.behaviors && t.behaviors.length) {
+              body += `<div class="targeting-section"><h5>Behaviors</h5><ul class="targeting-list">${t.behaviors.map((j) => `<li>${j}</li>`).join("")}</ul></div>`;
+            }
+            if (t.hashtags && t.hashtags.length) {
+              body += `<div class="targeting-section"><h5>Hashtags</h5><ul class="targeting-list">${t.hashtags.map((j) => `<li>${j}</li>`).join("")}</ul></div>`;
+            }
+            if (t.targeting_types && t.targeting_types.length) {
+              body += `<div class="targeting-section"><h5>Available Targeting Types</h5><ul class="targeting-list">${t.targeting_types.map((j) => `<li>${j}</li>`).join("")}</ul></div>`;
+            }
+            if (t.keyword_strategy) {
+              body += `<div class="targeting-section"><h5>Keyword Strategy</h5><ul class="targeting-list">${Object.entries(
+                t.keyword_strategy,
+              )
+                .map(
+                  ([k, v]) =>
+                    `<li><strong>${k.replace(/_/g, " ")}:</strong> ${v}</li>`,
+                )
+                .join("")}</ul></div>`;
+            }
+            if (t.demographics) {
+              body += `<div class="targeting-section"><h5>Demographics</h5><ul class="targeting-list">${Object.entries(
+                t.demographics,
+              )
+                .map(([k, v]) => `<li><strong>${k}:</strong> ${v}</li>`)
+                .join("")}</ul></div>`;
+            }
+            const platformName = t.platform
+              ? t.platform
+                  .replace(/_/g, " ")
+                  .replace(/\b\w/g, (c) => c.toUpperCase())
+              : key;
+            return `
       <div class="targeting-card" onclick="this.classList.toggle('open')">
         <div class="targeting-header">
           <h4>${platformName}</h4>
@@ -642,22 +1577,30 @@ function renderTargeting(targeting) {
         </div>
         <div class="targeting-body">${body || '<p style="color:var(--text-dim)">Default targeting recommended.</p>'}</div>
       </div>`;
-  }).join('');
-}
+          })
+          .join("");
+      }
 
-function renderCalendar(calendar) {
-  const container = document.getElementById('calendarContent');
-  if (!calendar || !calendar.length) { container.innerHTML = '<p style="color:var(--text-dim)">No calendar data.</p>'; return; }
+      function renderCalendar(calendar) {
+        const container = document.getElementById("calendarContent");
+        if (!calendar || !calendar.length) {
+          container.innerHTML =
+            '<p style="color:var(--text-dim)">No calendar data.</p>';
+          return;
+        }
 
-  container.innerHTML = calendar.map(week => {
-    const posts = week.posts || [];
-    return `
+        container.innerHTML = calendar
+          .map((week) => {
+            const posts = week.posts || [];
+            return `
       <div class="calendar-week">
         <div class="calendar-week-header">Week ${week.week}: ${week.theme}</div>
         <table class="calendar-table">
           <thead><tr><th>Day</th><th>Platform</th><th>Content Type</th><th>Format</th><th>Engagement</th></tr></thead>
           <tbody>
-            ${posts.map(p => `
+            ${posts
+              .map(
+                (p) => `
               <tr>
                 <td>${p.day}</td>
                 <td>${p.platform_name || p.platform}</td>
@@ -665,35 +1608,53 @@ function renderCalendar(calendar) {
                 <td>${p.format}</td>
                 <td><span class="engagement-badge ${p.expected_engagement}">${p.expected_engagement}</span></td>
               </tr>
-            `).join('')}
+            `,
+              )
+              .join("")}
           </tbody>
         </table>
       </div>`;
-  }).join('');
-}
+          })
+          .join("");
+      }
 
-function renderBriefs(briefs) {
-  const container = document.getElementById('briefsContent');
-  if (!briefs || !briefs.length) { container.innerHTML = '<p style="color:var(--text-dim)">No briefs available.</p>'; return; }
+      function renderBriefs(briefs) {
+        const container = document.getElementById("briefsContent");
+        if (!briefs || !briefs.length) {
+          container.innerHTML =
+            '<p style="color:var(--text-dim)">No briefs available.</p>';
+          return;
+        }
 
-  container.innerHTML = briefs.map(b => {
-    let specsHtml = '';
-    if (b.image_specs) {
-      specsHtml = `<div class="brief-specs">${Object.entries(b.image_specs).map(([k, v]) =>
-        `<div class="brief-spec"><div class="spec-label">${k.replace(/_/g, ' ')}</div><div class="spec-value">${v}</div></div>`
-      ).join('')}</div>`;
-    }
-    let limitsHtml = '';
-    if (b.copy_limits) {
-      limitsHtml = `<div class="brief-specs">${Object.entries(b.copy_limits).map(([k, v]) =>
-        `<div class="brief-spec"><div class="spec-label">${k} limit</div><div class="spec-value">${v} chars</div></div>`
-      ).join('')}</div>`;
-    }
-    let tipsHtml = '';
-    if (b.creative_tips && b.creative_tips.length) {
-      tipsHtml = `<ul class="targeting-list">${b.creative_tips.map(t => `<li>${t}</li>`).join('')}</ul>`;
-    }
-    return `
+        container.innerHTML = briefs
+          .map((b) => {
+            let specsHtml = "";
+            if (b.image_specs) {
+              specsHtml = `<div class="brief-specs">${Object.entries(
+                b.image_specs,
+              )
+                .map(
+                  ([k, v]) =>
+                    `<div class="brief-spec"><div class="spec-label">${k.replace(/_/g, " ")}</div><div class="spec-value">${v}</div></div>`,
+                )
+                .join("")}</div>`;
+            }
+            let limitsHtml = "";
+            if (b.copy_limits) {
+              limitsHtml = `<div class="brief-specs">${Object.entries(
+                b.copy_limits,
+              )
+                .map(
+                  ([k, v]) =>
+                    `<div class="brief-spec"><div class="spec-label">${k} limit</div><div class="spec-value">${v} chars</div></div>`,
+                )
+                .join("")}</div>`;
+            }
+            let tipsHtml = "";
+            if (b.creative_tips && b.creative_tips.length) {
+              tipsHtml = `<ul class="targeting-list">${b.creative_tips.map((t) => `<li>${t}</li>`).join("")}</ul>`;
+            }
+            return `
       <div class="brief-card" onclick="this.classList.toggle('open')">
         <div class="brief-header">
           <h4 style="display:flex;align-items:center;gap:0.5rem;font-size:1rem;font-weight:600">
@@ -708,7 +1669,7 @@ function renderBriefs(briefs) {
           <div class="brief-section"><h5>Image / Video Specs</h5>${specsHtml}</div>
           <div class="brief-section"><h5>Copy Limits</h5>${limitsHtml}</div>
           <div class="brief-section"><h5>Recommended Formats</h5>
-            <div style="display:flex;flex-wrap:wrap;gap:0.4rem">${(b.recommended_formats || []).map(f => `<span class="platform-tag">${f}</span>`).join('')}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:0.4rem">${(b.recommended_formats || []).map((f) => `<span class="platform-tag">${f}</span>`).join("")}</div>
           </div>
           <div class="brief-section">
             <h5>Sample Headline</h5>
@@ -721,20 +1682,29 @@ function renderBriefs(briefs) {
           <div class="brief-section"><h5>Creative Tips</h5>${tipsHtml}</div>
         </div>
       </div>`;
-  }).join('');
-}
+          })
+          .join("");
+      }
 
-function renderPerformance(perf) {
-  const container = document.getElementById('perfContent');
-  if (!perf || !perf.platforms) { container.innerHTML = '<p style="color:var(--text-dim)">No performance data.</p>'; return; }
+      function renderPerformance(perf) {
+        const container = document.getElementById("perfContent");
+        if (!perf || !perf.platforms) {
+          container.innerHTML =
+            '<p style="color:var(--text-dim)">No performance data.</p>';
+          return;
+        }
 
-  const platforms = perf.platforms;
-  const totals = perf.totals || {};
-  const maxRoi = Math.max(...Object.values(platforms).map(p => p.roi_score || 0), 1);
+        const platforms = perf.platforms;
+        const totals = perf.totals || {};
+        const maxRoi = Math.max(
+          ...Object.values(platforms).map((p) => p.roi_score || 0),
+          1,
+        );
 
-  let rows = Object.entries(platforms).map(([key, p]) => {
-    const roiPct = Math.round((p.roi_score || 0) / maxRoi * 100);
-    return `
+        let rows = Object.entries(platforms)
+          .map(([key, p]) => {
+            const roiPct = Math.round(((p.roi_score || 0) / maxRoi) * 100);
+            return `
       <tr>
         <td style="text-align:left;font-weight:600">${p.platform}</td>
         <td>${formatBudget(p.budget)}</td>
@@ -749,9 +1719,10 @@ function renderPerformance(perf) {
           <div class="roi-bar"><div class="roi-fill" style="width:${roiPct}%"></div></div>
         </td>
       </tr>`;
-  }).join('');
+          })
+          .join("");
 
-  const totalRow = `
+        const totalRow = `
     <tr class="total-row">
       <td style="text-align:left">TOTAL</td>
       <td>${formatBudget(totals.total_spend)}</td>
@@ -764,7 +1735,7 @@ function renderPerformance(perf) {
       <td></td>
     </tr>`;
 
-  container.innerHTML = `
+        container.innerHTML = `
     <table class="perf-table">
       <thead><tr>
         <th style="text-align:left">Platform</th><th>Budget</th><th>Impressions</th><th>Reach</th>
@@ -779,42 +1750,65 @@ function renderPerformance(perf) {
         <strong>Lowest ROI:</strong> ${perf.worst_roi_platform} -- monitor closely, reduce spend if underperforming after week 2.
       </p>
     </div>`;
-}
+      }
 
-// ── Downloads ──
-async function downloadExcel() {
-  if (!currentPlan) return;
-  try {
-    const resp = await fetch('/api/social-plan/download/excel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(currentPlan)
-    });
-    if (!resp.ok) throw new Error('Download failed');
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'social_media_plan.xlsx'; a.click();
-    URL.revokeObjectURL(url);
-  } catch (e) { showError('Excel download failed: ' + e.message); }
-}
+      // ── Downloads ──
+      async function downloadExcel() {
+        if (!currentPlan) return;
+        try {
+          const resp = await fetch("/api/social-plan/download/excel", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(currentPlan),
+          });
+          if (!resp.ok) throw new Error("Download failed");
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "social_media_plan.xlsx";
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          showError("Excel download failed: " + e.message);
+        }
+      }
 
-async function downloadPPT() {
-  if (!currentPlan) return;
-  try {
-    const resp = await fetch('/api/social-plan/download/ppt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(currentPlan)
-    });
-    if (!resp.ok) throw new Error('Download failed');
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'social_media_plan.pptx'; a.click();
-    URL.revokeObjectURL(url);
-  } catch (e) { showError('PPT download failed: ' + e.message); }
-}
-</script>
-</body>
+      async function downloadPPT() {
+        if (!currentPlan) return;
+        try {
+          const resp = await fetch("/api/social-plan/download/ppt", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(currentPlan),
+          });
+          if (!resp.ok) throw new Error("Download failed");
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "social_media_plan.pptx";
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          showError("PPT download failed: " + e.message);
+        }
+      }
+
+      // Scroll reveal
+      (function () {
+        var ro = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) e.target.classList.add("visible");
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          ro.observe(el);
+        });
+      })();
+    </script>
+  </body>
 </html>

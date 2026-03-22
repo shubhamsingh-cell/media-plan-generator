@@ -1,497 +1,1181 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="SkillTarget -- Skill-Based Recruitment Channel Targeting Engine. Match required skills to the best advertising channels.">
-    <meta name="theme-color" content="#000000">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="SkillTarget -- Skill-Based Recruitment Channel Targeting Engine. Match required skills to the best advertising channels."
+    />
+    <meta name="theme-color" content="#000000" />
     <title>SkillTarget | Skill-Based Channel Targeting | Nova AI Suite</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><circle cx='16' cy='16' r='9' stroke='white' stroke-width='2' fill='none'/><circle cx='16' cy='16' r='4' fill='white' opacity='0.8'/><line x1='16' y1='3' x2='16' y2='7' stroke='white' stroke-width='2' stroke-linecap='round'/><line x1='16' y1='25' x2='16' y2='29' stroke='white' stroke-width='2' stroke-linecap='round'/></svg>">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><circle cx='16' cy='16' r='9' stroke='white' stroke-width='2' fill='none'/><circle cx='16' cy='16' r='4' fill='white' opacity='0.8'/><line x1='16' y1='3' x2='16' y2='7' stroke='white' stroke-width='2' stroke-linecap='round'/><line x1='16' y1='25' x2='16' y2='29' stroke='white' stroke-width='2' stroke-linecap='round'/></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <style>
-        :root {
-            --bg: #000000; --card: rgba(17,17,17,0.8); --card-hover: rgba(26,26,26,0.7);
-            --indigo: #6366f1; --indigo-light: #818cf8; --text: #ededed; --muted: #a1a1a1;
-            --success: #22c55e; --warning: #f59e0b; --error: #ef4444;
-            --border: rgba(255,255,255,0.08); --radius: 12px;
-            --gradient: linear-gradient(135deg, #6366f1, #818cf8);
+      :root {
+        --bg: #000000;
+        --card: rgba(17, 17, 17, 0.8);
+        --card-hover: rgba(26, 26, 26, 0.7);
+        --indigo: #6366f1;
+        --indigo-light: #818cf8;
+        --text: #ededed;
+        --muted: #a1a1a1;
+        --success: #22c55e;
+        --warning: #f59e0b;
+        --error: #ef4444;
+        --border: rgba(255, 255, 255, 0.08);
+        --radius: 12px;
+        --gradient: linear-gradient(135deg, #6366f1, #818cf8);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
         }
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
-        ::selection { background: var(--indigo); color: #fff; }
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.6;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      ::selection {
+        background: var(--indigo);
+        color: #fff;
+      }
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        line-height: 1.6;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background:
+          radial-gradient(
+            ellipse at 20% 50%,
+            rgba(99, 102, 241, 0.06) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 20%,
+            rgba(129, 140, 248, 0.04) 0%,
+            transparent 50%
+          );
+      }
+      /* Nav */
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        padding: 0.75rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border);
+      }
+      nav a {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+      nav a:hover {
+        color: var(--text);
+      }
+      .nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .nav-brand span {
+        font-weight: 700;
+        font-size: 1.1rem;
+        background: var(--gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      /* Layout */
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem;
+      }
+      /* Header */
+      .hero {
+        text-align: center;
+        margin-bottom: 2.5rem;
+      }
+      .hero h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: var(--gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+      }
+      .hero p {
+        color: var(--muted);
+        font-size: 1.1rem;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+      /* Card */
+      .card {
+        background: var(--card);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.75rem;
+        margin-bottom: 1.5rem;
+      }
+      .card-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .card-title .icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: var(--gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+      }
+      /* Form */
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .form-group.full {
+        grid-column: 1 / -1;
+      }
+      label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      input,
+      select {
+        background: rgba(17, 17, 17, 0.6);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 0.7rem 0.9rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-family: inherit;
+        transition: border-color 0.2s;
+        outline: none;
+        width: 100%;
+      }
+      input:focus,
+      select:focus {
+        border-color: var(--indigo);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+      }
+      input::placeholder {
+        color: rgba(148, 163, 184, 0.5);
+      }
+      select option {
+        background: #111111;
+      }
+      /* Tag Input */
+      .tag-input-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        padding: 0.5rem 0.7rem;
+        min-height: 44px;
+        background: rgba(17, 17, 17, 0.6);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        cursor: text;
+        transition: border-color 0.2s;
+        align-items: center;
+      }
+      .tag-input-wrap:focus-within {
+        border-color: var(--indigo);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+      }
+      .tag-input-wrap input {
+        background: none;
+        border: none;
+        padding: 0.2rem 0;
+        min-width: 120px;
+        flex: 1;
+        box-shadow: none;
+      }
+      .tag-input-wrap input:focus {
+        box-shadow: none;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        background: rgba(99, 102, 241, 0.2);
+        color: var(--indigo-light);
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .chip-remove {
+        cursor: pointer;
+        opacity: 0.7;
+        font-size: 1rem;
+        line-height: 1;
+      }
+      .chip-remove:hover {
+        opacity: 1;
+      }
+      /* Budget row */
+      .budget-row {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .budget-row select {
+        width: 90px;
+        flex-shrink: 0;
+      }
+      .budget-row input {
+        flex: 1;
+      }
+      /* Buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.75rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+      }
+      .btn-primary {
+        background: var(--gradient);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+      }
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+      .btn-secondary {
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--indigo-light);
+        border: 1px solid var(--border);
+      }
+      .btn-secondary:hover {
+        background: rgba(99, 102, 241, 0.2);
+      }
+      .btn-row {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+        flex-wrap: wrap;
+      }
+      /* Spinner */
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
         }
-        body::before {
-            content: ''; position: fixed; inset: 0; z-index: -1;
-            background: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.06) 0%, transparent 50%),
-                        radial-gradient(ellipse at 80% 20%, rgba(129,140,248,0.04) 0%, transparent 50%);
+      }
+      /* Results */
+      #results {
+        display: none;
+      }
+      .results-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+      }
+      /* Skill badges */
+      .skill-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+      .skill-badge {
+        padding: 0.3rem 0.7rem;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 600;
+      }
+      .rarity-common {
+        background: rgba(34, 197, 94, 0.15);
+        color: #4ade80;
+      }
+      .rarity-moderate {
+        background: rgba(99, 102, 241, 0.15);
+        color: var(--indigo-light);
+      }
+      .rarity-rare {
+        background: rgba(245, 158, 11, 0.15);
+        color: #fbbf24;
+      }
+      .rarity-unicorn {
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
+      }
+      /* Channel bar */
+      .channel-item {
+        margin-bottom: 1rem;
+      }
+      .channel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.3rem;
+      }
+      .channel-name {
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+      .channel-score {
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: var(--indigo-light);
+      }
+      .bar-track {
+        height: 8px;
+        background: rgba(99, 102, 241, 0.1);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        background: var(--gradient);
+        transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      /* Targeting tips */
+      .tip-item {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .tip-item:last-child {
+        border-bottom: none;
+      }
+      .tip-platform {
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: var(--indigo-light);
+        margin-bottom: 0.25rem;
+      }
+      .tip-text {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      /* Donut */
+      .donut-wrap {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+      }
+      .donut-canvas {
+        width: 160px;
+        height: 160px;
+        flex-shrink: 0;
+      }
+      .donut-legend {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+      }
+      .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      /* Big number */
+      .big-number {
+        font-size: 3rem;
+        font-weight: 800;
+        background: var(--gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        line-height: 1.1;
+      }
+      .confidence {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-top: 0.5rem;
+      }
+      .confidence-high {
+        background: rgba(34, 197, 94, 0.15);
+        color: #4ade80;
+      }
+      .confidence-medium {
+        background: rgba(245, 158, 11, 0.15);
+        color: #fbbf24;
+      }
+      .confidence-low {
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
+      }
+      /* Collar badge */
+      .collar-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.4rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-top: 0.5rem;
+      }
+      .collar-white {
+        background: rgba(226, 232, 240, 0.1);
+        color: var(--text);
+      }
+      .collar-blue {
+        background: rgba(59, 130, 246, 0.15);
+        color: #60a5fa;
+      }
+      .collar-grey {
+        background: rgba(148, 163, 184, 0.15);
+        color: var(--muted);
+      }
+      .collar-new {
+        background: rgba(168, 85, 247, 0.15);
+        color: #c084fc;
+      }
+      /* Export */
+      .export-row {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-top: 0.5rem;
+      }
+      /* Error */
+      .error-msg {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #f87171;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        margin-top: 1rem;
+        display: none;
+      }
+      /* Footer */
+      footer {
+        text-align: center;
+        padding: 2rem 1.5rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+        border-top: 1px solid var(--border);
+        margin-top: 3rem;
+      }
+      footer a {
+        color: var(--indigo-light);
+        text-decoration: none;
+      }
+      footer a:hover {
+        text-decoration: underline;
+      }
+      /* Responsive */
+      @media (max-width: 768px) {
+        .form-grid,
+        .results-grid {
+          grid-template-columns: 1fr;
         }
-        /* Nav */
-        nav { position: sticky; top: 0; z-index: 100; padding: .75rem 2rem; display: flex; align-items: center; justify-content: space-between;
-            background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
-        nav a { color: var(--muted); text-decoration: none; font-size: .875rem; font-weight: 500; transition: color .2s; }
-        nav a:hover { color: var(--text); }
-        .nav-brand { display: flex; align-items: center; gap: .5rem; }
-        .nav-brand span { font-weight: 700; font-size: 1.1rem; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        /* Layout */
-        .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
-        /* Header */
-        .hero { text-align: center; margin-bottom: 2.5rem; }
-        .hero h1 { font-size: 2.5rem; font-weight: 800; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: .5rem; }
-        .hero p { color: var(--muted); font-size: 1.1rem; max-width: 600px; margin: 0 auto; }
-        /* Card */
-        .card {
-            background: var(--card); backdrop-filter: blur(20px); border: 1px solid var(--border);
-            border-radius: var(--radius); padding: 1.75rem; margin-bottom: 1.5rem;
+        .hero h1 {
+          font-size: 1.8rem;
         }
-        .card-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem; }
-        .card-title .icon { width: 28px; height: 28px; border-radius: 8px; background: var(--gradient); display: flex; align-items: center; justify-content: center; font-size: .85rem; flex-shrink: 0; }
-        /* Form */
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
-        .form-group { display: flex; flex-direction: column; gap: .4rem; }
-        .form-group.full { grid-column: 1 / -1; }
-        label { font-size: .8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-        input, select { background: rgba(17,17,17,0.6); border: 1px solid var(--border); color: var(--text);
-            padding: .7rem .9rem; border-radius: 8px; font-size: .9rem; font-family: inherit; transition: border-color .2s; outline: none; width: 100%; }
-        input:focus, select:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
-        input::placeholder { color: rgba(148,163,184,0.5); }
-        select option { background: #111111; }
-        /* Tag Input */
-        .tag-input-wrap { display: flex; flex-wrap: wrap; gap: .4rem; padding: .5rem .7rem; min-height: 44px;
-            background: rgba(17,17,17,0.6); border: 1px solid var(--border); border-radius: 8px; cursor: text; transition: border-color .2s; align-items: center; }
-        .tag-input-wrap:focus-within { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
-        .tag-input-wrap input { background: none; border: none; padding: .2rem 0; min-width: 120px; flex: 1; box-shadow: none; }
-        .tag-input-wrap input:focus { box-shadow: none; }
-        .chip { display: inline-flex; align-items: center; gap: .3rem; background: rgba(99,102,241,0.2); color: var(--indigo-light);
-            padding: .2rem .6rem; border-radius: 20px; font-size: .8rem; font-weight: 500; white-space: nowrap; }
-        .chip-remove { cursor: pointer; opacity: .7; font-size: 1rem; line-height: 1; }
-        .chip-remove:hover { opacity: 1; }
-        /* Budget row */
-        .budget-row { display: flex; gap: .5rem; }
-        .budget-row select { width: 90px; flex-shrink: 0; }
-        .budget-row input { flex: 1; }
-        /* Buttons */
-        .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
-            padding: .75rem 1.75rem; border-radius: 8px; font-size: .9rem; font-weight: 600;
-            font-family: inherit; cursor: pointer; border: none; transition: all .2s; }
-        .btn-primary { background: var(--gradient); color: #fff; }
-        .btn-primary:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(99,102,241,0.3); }
-        .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
-        .btn-secondary { background: rgba(99,102,241,0.1); color: var(--indigo-light); border: 1px solid var(--border); }
-        .btn-secondary:hover { background: rgba(99,102,241,0.2); }
-        .btn-row { display: flex; gap: .75rem; margin-top: 1.5rem; flex-wrap: wrap; }
-        /* Spinner */
-        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        /* Results */
-        #results { display: none; }
-        .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-        /* Skill badges */
-        .skill-list { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
-        .skill-badge { padding: .3rem .7rem; border-radius: 20px; font-size: .78rem; font-weight: 600; }
-        .rarity-common { background: rgba(34,197,94,0.15); color: #4ade80; }
-        .rarity-moderate { background: rgba(99,102,241,0.15); color: var(--indigo-light); }
-        .rarity-rare { background: rgba(245,158,11,0.15); color: #fbbf24; }
-        .rarity-unicorn { background: rgba(239,68,68,0.15); color: #f87171; }
-        /* Channel bar */
-        .channel-item { margin-bottom: 1rem; }
-        .channel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .3rem; }
-        .channel-name { font-weight: 600; font-size: .9rem; }
-        .channel-score { font-weight: 700; font-size: .85rem; color: var(--indigo-light); }
-        .bar-track { height: 8px; background: rgba(99,102,241,0.1); border-radius: 4px; overflow: hidden; }
-        .bar-fill { height: 100%; border-radius: 4px; background: var(--gradient); transition: width .6s cubic-bezier(0.16,1,0.3,1); }
-        /* Targeting tips */
-        .tip-item { padding: .75rem 0; border-bottom: 1px solid var(--border); }
-        .tip-item:last-child { border-bottom: none; }
-        .tip-platform { font-weight: 700; font-size: .85rem; color: var(--indigo-light); margin-bottom: .25rem; }
-        .tip-text { font-size: .85rem; color: var(--muted); }
-        /* Donut */
-        .donut-wrap { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
-        .donut-canvas { width: 160px; height: 160px; flex-shrink: 0; }
-        .donut-legend { display: flex; flex-direction: column; gap: .5rem; }
-        .legend-item { display: flex; align-items: center; gap: .5rem; font-size: .85rem; }
-        .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-        /* Big number */
-        .big-number { font-size: 3rem; font-weight: 800; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.1; }
-        .confidence { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .8rem; border-radius: 20px; font-size: .8rem; font-weight: 600; margin-top: .5rem; }
-        .confidence-high { background: rgba(34,197,94,0.15); color: #4ade80; }
-        .confidence-medium { background: rgba(245,158,11,0.15); color: #fbbf24; }
-        .confidence-low { background: rgba(239,68,68,0.15); color: #f87171; }
-        /* Collar badge */
-        .collar-badge { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem 1rem; border-radius: 20px; font-size: .85rem; font-weight: 700; margin-top: .5rem; }
-        .collar-white { background: rgba(226,232,240,0.1); color: var(--text); }
-        .collar-blue { background: rgba(59,130,246,0.15); color: #60a5fa; }
-        .collar-grey { background: rgba(148,163,184,0.15); color: var(--muted); }
-        .collar-new { background: rgba(168,85,247,0.15); color: #c084fc; }
-        /* Export */
-        .export-row { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: .5rem; }
-        /* Error */
-        .error-msg { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #f87171;
-            padding: .75rem 1rem; border-radius: 8px; font-size: .9rem; margin-top: 1rem; display: none; }
-        /* Footer */
-        footer { text-align: center; padding: 2rem 1.5rem; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--border); margin-top: 3rem; }
-        footer a { color: var(--indigo-light); text-decoration: none; }
-        footer a:hover { text-decoration: underline; }
-        /* Responsive */
-        @media (max-width: 768px) {
-            .form-grid, .results-grid { grid-template-columns: 1fr; }
-            .hero h1 { font-size: 1.8rem; }
-            nav { padding: .75rem 1rem; }
-            .container { padding: 1.5rem 1rem; }
-            .donut-wrap { flex-direction: column; align-items: flex-start; }
+        nav {
+          padding: 0.75rem 1rem;
         }
+        .container {
+          padding: 1.5rem 1rem;
+        }
+        .donut-wrap {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+
+      /* -- Scroll reveal animations -- */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* -- Enhanced card/section glow -- */
+      .glow-hover {
+        transition:
+          box-shadow 0.4s ease,
+          border-color 0.3s ease;
+      }
+      .glow-hover:hover {
+        box-shadow:
+          0 0 20px rgba(99, 102, 241, 0.12),
+          0 0 50px rgba(99, 102, 241, 0.06);
+        border-color: rgba(99, 102, 241, 0.2);
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <nav>
-        <div class="nav-brand"><span>SkillTarget</span></div>
-        <a href="/">Home</a>
+      <div class="nav-brand"><span>SkillTarget</span></div>
+      <a href="/">Home</a>
     </nav>
 
     <div class="container">
-        <div class="hero">
-            <h1>SkillTarget</h1>
-            <p>Skill-Based Recruitment Channel Targeting. Match hard-to-find skill sets to the most effective advertising channels.</p>
-        </div>
+      <div class="hero">
+        <h1>SkillTarget</h1>
+        <p>
+          Skill-Based Recruitment Channel Targeting. Match hard-to-find skill
+          sets to the most effective advertising channels.
+        </p>
+      </div>
 
-        <!-- Input Form -->
-        <div class="card">
-            <div class="card-title"><div class="icon">&#9881;</div> Configure Analysis</div>
-            <form id="skillForm" autocomplete="off">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="jobTitle">Job Title</label>
-                        <input type="text" id="jobTitle" placeholder="e.g. Senior Data Engineer" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="industry">Industry</label>
-                        <select id="industry" required>
-                            <option value="">Select industry...</option>
-                            <option>Technology</option><option>Healthcare</option><option>Finance / Banking</option>
-                            <option>Manufacturing</option><option>Retail / E-Commerce</option><option>Education</option>
-                            <option>Government</option><option>Logistics / Supply Chain</option><option>Energy / Utilities</option>
-                            <option>Telecommunications</option><option>Media / Entertainment</option><option>Automotive</option>
-                            <option>Hospitality / Travel</option><option>Real Estate / Construction</option>
-                            <option>Pharmaceutical / Biotech</option><option>Professional Services</option><option>Other</option>
-                        </select>
-                    </div>
-                    <div class="form-group full">
-                        <label>Required Skills</label>
-                        <div class="tag-input-wrap" id="requiredWrap">
-                            <input type="text" id="requiredInput" placeholder="Type a skill and press Enter">
-                        </div>
-                    </div>
-                    <div class="form-group full">
-                        <label>Nice-to-Have Skills</label>
-                        <div class="tag-input-wrap" id="niceWrap">
-                            <input type="text" id="niceInput" placeholder="Type a skill and press Enter">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="location">Location</label>
-                        <input type="text" id="location" placeholder="e.g. San Francisco, CA" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="budget">Budget</label>
-                        <div class="budget-row">
-                            <select id="currency">
-                                <option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option>
-                                <option value="INR">INR</option><option value="CAD">CAD</option><option value="AUD">AUD</option>
-                            </select>
-                            <input type="number" id="budget" placeholder="10000" min="100" required>
-                        </div>
-                    </div>
-                </div>
-                <div class="btn-row">
-                    <button type="submit" class="btn btn-primary" id="analyzeBtn">
-                        <span id="btnText">Analyze Skills</span>
-                        <div class="spinner" id="btnSpinner" style="display:none"></div>
-                    </button>
-                </div>
-                <div class="error-msg" id="formError"></div>
-            </form>
+      <!-- Input Form -->
+      <div class="card">
+        <div class="card-title">
+          <div class="icon">&#9881;</div>
+          Configure Analysis
         </div>
-
-        <!-- Results -->
-        <div id="results">
-            <div class="results-grid">
-                <!-- Skill Analysis -->
-                <div class="card">
-                    <div class="card-title"><div class="icon">&#9733;</div> Skill Analysis</div>
-                    <div id="skillAnalysis"></div>
-                </div>
-                <!-- Channel Recommendations -->
-                <div class="card">
-                    <div class="card-title"><div class="icon">&#9776;</div> Channel Recommendations</div>
-                    <div id="channelRecs"></div>
-                </div>
-                <!-- Targeting Strategy -->
-                <div class="card">
-                    <div class="card-title"><div class="icon">&#10148;</div> Targeting Strategy</div>
-                    <div id="targetingStrategy"></div>
-                </div>
-                <!-- Budget Allocation -->
-                <div class="card">
-                    <div class="card-title"><div class="icon">&#9672;</div> Budget Allocation</div>
-                    <div class="donut-wrap">
-                        <canvas class="donut-canvas" id="donutChart" width="160" height="160"></canvas>
-                        <div class="donut-legend" id="donutLegend"></div>
-                    </div>
-                </div>
-                <!-- Talent Pool -->
-                <div class="card">
-                    <div class="card-title"><div class="icon">&#9823;</div> Talent Pool Estimate</div>
-                    <div id="talentPool"></div>
-                </div>
-                <!-- Collar Classification -->
-                <div class="card">
-                    <div class="card-title"><div class="icon">&#9878;</div> Classification</div>
-                    <div id="collarClassification"></div>
-                </div>
+        <form id="skillForm" autocomplete="off">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="jobTitle">Job Title</label>
+              <input
+                type="text"
+                id="jobTitle"
+                placeholder="e.g. Senior Data Engineer"
+                required
+              />
             </div>
-
-            <!-- Export -->
-            <div class="card" style="margin-top:1.5rem">
-                <div class="card-title"><div class="icon">&#8681;</div> Export Results</div>
-                <div class="export-row">
-                    <button class="btn btn-secondary" id="exportExcel">Download Excel</button>
-                    <button class="btn btn-secondary" id="exportPpt">Download PowerPoint</button>
-                </div>
+            <div class="form-group">
+              <label for="industry">Industry</label>
+              <select id="industry" required>
+                <option value="">Select industry...</option>
+                <option>Technology</option>
+                <option>Healthcare</option>
+                <option>Finance / Banking</option>
+                <option>Manufacturing</option>
+                <option>Retail / E-Commerce</option>
+                <option>Education</option>
+                <option>Government</option>
+                <option>Logistics / Supply Chain</option>
+                <option>Energy / Utilities</option>
+                <option>Telecommunications</option>
+                <option>Media / Entertainment</option>
+                <option>Automotive</option>
+                <option>Hospitality / Travel</option>
+                <option>Real Estate / Construction</option>
+                <option>Pharmaceutical / Biotech</option>
+                <option>Professional Services</option>
+                <option>Other</option>
+              </select>
             </div>
+            <div class="form-group full">
+              <label>Required Skills</label>
+              <div class="tag-input-wrap" id="requiredWrap">
+                <input
+                  type="text"
+                  id="requiredInput"
+                  placeholder="Type a skill and press Enter"
+                />
+              </div>
+            </div>
+            <div class="form-group full">
+              <label>Nice-to-Have Skills</label>
+              <div class="tag-input-wrap" id="niceWrap">
+                <input
+                  type="text"
+                  id="niceInput"
+                  placeholder="Type a skill and press Enter"
+                />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="location">Location</label>
+              <input
+                type="text"
+                id="location"
+                placeholder="e.g. San Francisco, CA"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="budget">Budget</label>
+              <div class="budget-row">
+                <select id="currency">
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="GBP">GBP</option>
+                  <option value="INR">INR</option>
+                  <option value="CAD">CAD</option>
+                  <option value="AUD">AUD</option>
+                </select>
+                <input
+                  type="number"
+                  id="budget"
+                  placeholder="10000"
+                  min="100"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary" id="analyzeBtn">
+              <span id="btnText">Analyze Skills</span>
+              <div class="spinner" id="btnSpinner" style="display: none"></div>
+            </button>
+          </div>
+          <div class="error-msg" id="formError"></div>
+        </form>
+      </div>
+
+      <!-- Results -->
+      <div id="results">
+        <div class="results-grid">
+          <!-- Skill Analysis -->
+          <div class="card">
+            <div class="card-title">
+              <div class="icon">&#9733;</div>
+              Skill Analysis
+            </div>
+            <div id="skillAnalysis"></div>
+          </div>
+          <!-- Channel Recommendations -->
+          <div class="card">
+            <div class="card-title">
+              <div class="icon">&#9776;</div>
+              Channel Recommendations
+            </div>
+            <div id="channelRecs"></div>
+          </div>
+          <!-- Targeting Strategy -->
+          <div class="card">
+            <div class="card-title">
+              <div class="icon">&#10148;</div>
+              Targeting Strategy
+            </div>
+            <div id="targetingStrategy"></div>
+          </div>
+          <!-- Budget Allocation -->
+          <div class="card">
+            <div class="card-title">
+              <div class="icon">&#9672;</div>
+              Budget Allocation
+            </div>
+            <div class="donut-wrap">
+              <canvas
+                class="donut-canvas"
+                id="donutChart"
+                width="160"
+                height="160"
+              ></canvas>
+              <div class="donut-legend" id="donutLegend"></div>
+            </div>
+          </div>
+          <!-- Talent Pool -->
+          <div class="card">
+            <div class="card-title">
+              <div class="icon">&#9823;</div>
+              Talent Pool Estimate
+            </div>
+            <div id="talentPool"></div>
+          </div>
+          <!-- Collar Classification -->
+          <div class="card">
+            <div class="card-title">
+              <div class="icon">&#9878;</div>
+              Classification
+            </div>
+            <div id="collarClassification"></div>
+          </div>
         </div>
+
+        <!-- Export -->
+        <div class="card" style="margin-top: 1.5rem">
+          <div class="card-title">
+            <div class="icon">&#8681;</div>
+            Export Results
+          </div>
+          <div class="export-row">
+            <button class="btn btn-secondary" id="exportExcel">
+              Download Excel
+            </button>
+            <button class="btn btn-secondary" id="exportPpt">
+              Download PowerPoint
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <footer>
-        <p>SkillTarget by <a href="https://www.linkedin.com/in/chandel13/" target="_blank" rel="noopener">Shubham Singh Chandel</a>. Precision recruitment advertising, powered by data.</p>
+      <p>
+        SkillTarget by
+        <a
+          href="https://www.linkedin.com/in/chandel13/"
+          target="_blank"
+          rel="noopener"
+          >Shubham Singh Chandel</a
+        >. Precision recruitment advertising, powered by data.
+      </p>
     </footer>
 
     <script>
-    (function() {
+      (function () {
         // --- Tag / Chip input ---
         const tagState = { required: [], nice: [] };
 
         function initTagInput(wrapId, inputId, key) {
-            const wrap = document.getElementById(wrapId);
-            const input = document.getElementById(inputId);
-            wrap.addEventListener('click', () => input.focus());
-            input.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' || e.key === ',') {
-                    e.preventDefault();
-                    const val = input.value.trim().replace(/,$/,'');
-                    if (val && !tagState[key].includes(val)) {
-                        tagState[key].push(val);
-                        renderChips(wrapId, inputId, key);
-                    }
-                    input.value = '';
-                }
-                if (e.key === 'Backspace' && !input.value && tagState[key].length) {
-                    tagState[key].pop();
-                    renderChips(wrapId, inputId, key);
-                }
-            });
+          const wrap = document.getElementById(wrapId);
+          const input = document.getElementById(inputId);
+          wrap.addEventListener("click", () => input.focus());
+          input.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              const val = input.value.trim().replace(/,$/, "");
+              if (val && !tagState[key].includes(val)) {
+                tagState[key].push(val);
+                renderChips(wrapId, inputId, key);
+              }
+              input.value = "";
+            }
+            if (e.key === "Backspace" && !input.value && tagState[key].length) {
+              tagState[key].pop();
+              renderChips(wrapId, inputId, key);
+            }
+          });
         }
 
         function renderChips(wrapId, inputId, key) {
-            const wrap = document.getElementById(wrapId);
-            const input = document.getElementById(inputId);
-            wrap.querySelectorAll('.chip').forEach(c => c.remove());
-            tagState[key].forEach((skill, i) => {
-                const chip = document.createElement('span');
-                chip.className = 'chip';
-                chip.innerHTML = skill + ' <span class="chip-remove" data-key="' + key + '" data-idx="' + i + '">&times;</span>';
-                wrap.insertBefore(chip, input);
-            });
+          const wrap = document.getElementById(wrapId);
+          const input = document.getElementById(inputId);
+          wrap.querySelectorAll(".chip").forEach((c) => c.remove());
+          tagState[key].forEach((skill, i) => {
+            const chip = document.createElement("span");
+            chip.className = "chip";
+            chip.innerHTML =
+              skill +
+              ' <span class="chip-remove" data-key="' +
+              key +
+              '" data-idx="' +
+              i +
+              '">&times;</span>';
+            wrap.insertBefore(chip, input);
+          });
         }
 
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('chip-remove')) {
-                const k = e.target.dataset.key;
-                const idx = parseInt(e.target.dataset.idx);
-                tagState[k].splice(idx, 1);
-                const wrapId = k === 'required' ? 'requiredWrap' : 'niceWrap';
-                const inputId = k === 'required' ? 'requiredInput' : 'niceInput';
-                renderChips(wrapId, inputId, k);
-            }
+        document.addEventListener("click", function (e) {
+          if (e.target.classList.contains("chip-remove")) {
+            const k = e.target.dataset.key;
+            const idx = parseInt(e.target.dataset.idx);
+            tagState[k].splice(idx, 1);
+            const wrapId = k === "required" ? "requiredWrap" : "niceWrap";
+            const inputId = k === "required" ? "requiredInput" : "niceInput";
+            renderChips(wrapId, inputId, k);
+          }
         });
 
-        initTagInput('requiredWrap', 'requiredInput', 'required');
-        initTagInput('niceWrap', 'niceInput', 'nice');
+        initTagInput("requiredWrap", "requiredInput", "required");
+        initTagInput("niceWrap", "niceInput", "nice");
 
         // --- Form Submit ---
-        const form = document.getElementById('skillForm');
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        const btnText = document.getElementById('btnText');
-        const btnSpinner = document.getElementById('btnSpinner');
-        const formError = document.getElementById('formError');
+        const form = document.getElementById("skillForm");
+        const analyzeBtn = document.getElementById("analyzeBtn");
+        const btnText = document.getElementById("btnText");
+        const btnSpinner = document.getElementById("btnSpinner");
+        const formError = document.getElementById("formError");
         let lastPayload = null;
 
-        function showError(msg) { formError.textContent = msg; formError.style.display = 'block'; }
-        function hideError() { formError.style.display = 'none'; }
+        function showError(msg) {
+          formError.textContent = msg;
+          formError.style.display = "block";
+        }
+        function hideError() {
+          formError.style.display = "none";
+        }
         function setLoading(on) {
-            analyzeBtn.disabled = on;
-            btnText.textContent = on ? 'Analyzing...' : 'Analyze Skills';
-            btnSpinner.style.display = on ? 'inline-block' : 'none';
+          analyzeBtn.disabled = on;
+          btnText.textContent = on ? "Analyzing..." : "Analyze Skills";
+          btnSpinner.style.display = on ? "inline-block" : "none";
         }
 
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            hideError();
-            if (!tagState.required.length) { showError('Please add at least one required skill.'); return; }
-            const payload = {
-                job_title: document.getElementById('jobTitle').value.trim(),
-                required_skills: tagState.required.slice(),
-                nice_to_have_skills: tagState.nice.slice(),
-                industry: document.getElementById('industry').value,
-                location: document.getElementById('location').value.trim(),
-                budget: parseFloat(document.getElementById('budget').value),
-                currency: document.getElementById('currency').value
-            };
-            lastPayload = payload;
-            setLoading(true);
-            try {
-                const res = await fetch('/api/skill-target/analyze', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                });
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    throw new Error(err.error || 'Analysis failed (' + res.status + ')');
-                }
-                const data = await res.json();
-                renderResults(data);
-            } catch (err) {
-                showError(err.message || 'Something went wrong. Please try again.');
-            } finally {
-                setLoading(false);
+        form.addEventListener("submit", async function (e) {
+          e.preventDefault();
+          hideError();
+          if (!tagState.required.length) {
+            showError("Please add at least one required skill.");
+            return;
+          }
+          const payload = {
+            job_title: document.getElementById("jobTitle").value.trim(),
+            required_skills: tagState.required.slice(),
+            nice_to_have_skills: tagState.nice.slice(),
+            industry: document.getElementById("industry").value,
+            location: document.getElementById("location").value.trim(),
+            budget: parseFloat(document.getElementById("budget").value),
+            currency: document.getElementById("currency").value,
+          };
+          lastPayload = payload;
+          setLoading(true);
+          try {
+            const res = await fetch("/api/skill-target/analyze", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(
+                err.error || "Analysis failed (" + res.status + ")",
+              );
             }
+            const data = await res.json();
+            renderResults(data);
+          } catch (err) {
+            showError(err.message || "Something went wrong. Please try again.");
+          } finally {
+            setLoading(false);
+          }
         });
 
         // --- Render Results ---
         function renderResults(d) {
-            document.getElementById('results').style.display = 'block';
-            renderSkillAnalysis(d.skill_analysis || []);
-            renderChannels(d.channel_recommendations || []);
-            renderStrategy(d.targeting_strategy || []);
-            renderDonut(d.budget_allocation || []);
-            renderTalentPool(d.talent_pool_estimate || {});
-            renderCollar(d.collar_classification || {});
-            document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+          document.getElementById("results").style.display = "block";
+          renderSkillAnalysis(d.skill_analysis || []);
+          renderChannels(d.channel_recommendations || []);
+          renderStrategy(d.targeting_strategy || []);
+          renderDonut(d.budget_allocation || []);
+          renderTalentPool(d.talent_pool_estimate || {});
+          renderCollar(d.collar_classification || {});
+          document
+            .getElementById("results")
+            .scrollIntoView({ behavior: "smooth", block: "start" });
         }
 
-        const rarityClass = r => 'rarity-' + (r || 'common').toLowerCase();
+        const rarityClass = (r) => "rarity-" + (r || "common").toLowerCase();
 
         function renderSkillAnalysis(skills) {
-            const el = document.getElementById('skillAnalysis');
-            if (!skills.length) { el.innerHTML = '<p style="color:var(--muted)">No skill data available.</p>'; return; }
-            const groups = {};
-            skills.forEach(s => {
-                const cat = s.category || 'Other';
-                if (!groups[cat]) groups[cat] = [];
-                groups[cat].push(s);
+          const el = document.getElementById("skillAnalysis");
+          if (!skills.length) {
+            el.innerHTML =
+              '<p style="color:var(--muted)">No skill data available.</p>';
+            return;
+          }
+          const groups = {};
+          skills.forEach((s) => {
+            const cat = s.category || "Other";
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(s);
+          });
+          let html = "";
+          for (const [cat, items] of Object.entries(groups)) {
+            html +=
+              '<div style="margin-bottom:.75rem"><div style="font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:.4rem">' +
+              cat +
+              '</div><div class="skill-list">';
+            items.forEach((s) => {
+              html +=
+                '<span class="skill-badge ' +
+                rarityClass(s.rarity) +
+                '">' +
+                s.name +
+                " &middot; " +
+                (s.rarity || "Common") +
+                "</span>";
             });
-            let html = '';
-            for (const [cat, items] of Object.entries(groups)) {
-                html += '<div style="margin-bottom:.75rem"><div style="font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:.4rem">' + cat + '</div><div class="skill-list">';
-                items.forEach(s => {
-                    html += '<span class="skill-badge ' + rarityClass(s.rarity) + '">' + s.name + ' &middot; ' + (s.rarity || 'Common') + '</span>';
-                });
-                html += '</div></div>';
-            }
-            el.innerHTML = html;
+            html += "</div></div>";
+          }
+          el.innerHTML = html;
         }
 
         function renderChannels(channels) {
-            const el = document.getElementById('channelRecs');
-            if (!channels.length) { el.innerHTML = '<p style="color:var(--muted)">No channel data available.</p>'; return; }
-            el.innerHTML = channels.map(c => {
-                const score = Math.round(c.match_score || 0);
-                return '<div class="channel-item"><div class="channel-header"><span class="channel-name">' + c.name + '</span><span class="channel-score">' + score + '%</span></div>' +
-                    '<div class="bar-track"><div class="bar-fill" style="width:' + score + '%"></div></div></div>';
-            }).join('');
+          const el = document.getElementById("channelRecs");
+          if (!channels.length) {
+            el.innerHTML =
+              '<p style="color:var(--muted)">No channel data available.</p>';
+            return;
+          }
+          el.innerHTML = channels
+            .map((c) => {
+              const score = Math.round(c.match_score || 0);
+              return (
+                '<div class="channel-item"><div class="channel-header"><span class="channel-name">' +
+                c.name +
+                '</span><span class="channel-score">' +
+                score +
+                "%</span></div>" +
+                '<div class="bar-track"><div class="bar-fill" style="width:' +
+                score +
+                '%"></div></div></div>'
+              );
+            })
+            .join("");
         }
 
         function renderStrategy(tips) {
-            const el = document.getElementById('targetingStrategy');
-            if (!tips.length) { el.innerHTML = '<p style="color:var(--muted)">No targeting tips available.</p>'; return; }
-            el.innerHTML = tips.map(t =>
-                '<div class="tip-item"><div class="tip-platform">' + (t.platform || '') + '</div><div class="tip-text">' + (t.tip || t.strategy || '') + '</div></div>'
-            ).join('');
+          const el = document.getElementById("targetingStrategy");
+          if (!tips.length) {
+            el.innerHTML =
+              '<p style="color:var(--muted)">No targeting tips available.</p>';
+            return;
+          }
+          el.innerHTML = tips
+            .map(
+              (t) =>
+                '<div class="tip-item"><div class="tip-platform">' +
+                (t.platform || "") +
+                '</div><div class="tip-text">' +
+                (t.tip || t.strategy || "") +
+                "</div></div>",
+            )
+            .join("");
         }
 
         function renderDonut(alloc) {
-            const canvas = document.getElementById('donutChart');
-            const legend = document.getElementById('donutLegend');
-            if (!alloc.length) { legend.innerHTML = '<p style="color:var(--muted)">No allocation data.</p>'; return; }
-            const colors = ['#6366f1','#818cf8','#22c55e','#f59e0b','#ef4444','#06b6d4','#a78bfa','#f472b6'];
-            const ctx = canvas.getContext('2d');
-            const cx = 80, cy = 80, r = 65, inner = 38;
-            ctx.clearRect(0, 0, 160, 160);
-            let start = -Math.PI / 2;
-            const total = alloc.reduce((s, a) => s + (a.percentage || 0), 0) || 1;
-            alloc.forEach((a, i) => {
-                const angle = ((a.percentage || 0) / total) * Math.PI * 2;
-                ctx.beginPath();
-                ctx.arc(cx, cy, r, start, start + angle);
-                ctx.arc(cx, cy, inner, start + angle, start, true);
-                ctx.closePath();
-                ctx.fillStyle = colors[i % colors.length];
-                ctx.fill();
-                start += angle;
-            });
-            // Center text
-            ctx.fillStyle = '#ededed'; ctx.font = '700 14px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText('Budget', cx, cy - 8); ctx.font = '500 11px Inter, sans-serif'; ctx.fillStyle = '#a1a1a1'; ctx.fillText('Allocation', cx, cy + 8);
-            legend.innerHTML = alloc.map((a, i) =>
-                '<div class="legend-item"><span class="legend-dot" style="background:' + colors[i % colors.length] + '"></span>' +
-                '<span>' + a.channel + ' &mdash; ' + Math.round(a.percentage) + '%</span></div>'
-            ).join('');
+          const canvas = document.getElementById("donutChart");
+          const legend = document.getElementById("donutLegend");
+          if (!alloc.length) {
+            legend.innerHTML =
+              '<p style="color:var(--muted)">No allocation data.</p>';
+            return;
+          }
+          const colors = [
+            "#6366f1",
+            "#818cf8",
+            "#22c55e",
+            "#f59e0b",
+            "#ef4444",
+            "#06b6d4",
+            "#a78bfa",
+            "#f472b6",
+          ];
+          const ctx = canvas.getContext("2d");
+          const cx = 80,
+            cy = 80,
+            r = 65,
+            inner = 38;
+          ctx.clearRect(0, 0, 160, 160);
+          let start = -Math.PI / 2;
+          const total = alloc.reduce((s, a) => s + (a.percentage || 0), 0) || 1;
+          alloc.forEach((a, i) => {
+            const angle = ((a.percentage || 0) / total) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, start, start + angle);
+            ctx.arc(cx, cy, inner, start + angle, start, true);
+            ctx.closePath();
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.fill();
+            start += angle;
+          });
+          // Center text
+          ctx.fillStyle = "#ededed";
+          ctx.font = "700 14px Inter, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("Budget", cx, cy - 8);
+          ctx.font = "500 11px Inter, sans-serif";
+          ctx.fillStyle = "#a1a1a1";
+          ctx.fillText("Allocation", cx, cy + 8);
+          legend.innerHTML = alloc
+            .map(
+              (a, i) =>
+                '<div class="legend-item"><span class="legend-dot" style="background:' +
+                colors[i % colors.length] +
+                '"></span>' +
+                "<span>" +
+                a.channel +
+                " &mdash; " +
+                Math.round(a.percentage) +
+                "%</span></div>",
+            )
+            .join("");
         }
 
         function renderTalentPool(tp) {
-            const el = document.getElementById('talentPool');
-            const count = tp.count != null ? tp.count : tp.estimate;
-            const conf = (tp.confidence || 'medium').toLowerCase();
-            const confClass = conf === 'high' ? 'confidence-high' : conf === 'low' ? 'confidence-low' : 'confidence-medium';
-            const formatted = count != null ? Number(count).toLocaleString() : '--';
-            el.innerHTML = '<div class="big-number">' + formatted + '</div>' +
-                '<div class="confidence ' + confClass + '">' + conf.charAt(0).toUpperCase() + conf.slice(1) + ' confidence</div>' +
-                (tp.note ? '<p style="color:var(--muted);font-size:.85rem;margin-top:.5rem">' + tp.note + '</p>' : '');
+          const el = document.getElementById("talentPool");
+          const count = tp.count != null ? tp.count : tp.estimate;
+          const conf = (tp.confidence || "medium").toLowerCase();
+          const confClass =
+            conf === "high"
+              ? "confidence-high"
+              : conf === "low"
+                ? "confidence-low"
+                : "confidence-medium";
+          const formatted =
+            count != null ? Number(count).toLocaleString() : "--";
+          el.innerHTML =
+            '<div class="big-number">' +
+            formatted +
+            "</div>" +
+            '<div class="confidence ' +
+            confClass +
+            '">' +
+            conf.charAt(0).toUpperCase() +
+            conf.slice(1) +
+            " confidence</div>" +
+            (tp.note
+              ? '<p style="color:var(--muted);font-size:.85rem;margin-top:.5rem">' +
+                tp.note +
+                "</p>"
+              : "");
         }
 
         function renderCollar(cc) {
-            const el = document.getElementById('collarClassification');
-            const type = (cc.type || 'white').toLowerCase();
-            const cls = type.includes('blue') ? 'collar-blue' : type.includes('grey') || type.includes('gray') ? 'collar-grey' : type.includes('new') ? 'collar-new' : 'collar-white';
-            el.innerHTML = '<div class="collar-badge ' + cls + '">' + (cc.label || cc.type || 'White Collar') + '</div>' +
-                (cc.description ? '<p style="color:var(--muted);font-size:.85rem;margin-top:.5rem">' + cc.description + '</p>' : '');
+          const el = document.getElementById("collarClassification");
+          const type = (cc.type || "white").toLowerCase();
+          const cls = type.includes("blue")
+            ? "collar-blue"
+            : type.includes("grey") || type.includes("gray")
+              ? "collar-grey"
+              : type.includes("new")
+                ? "collar-new"
+                : "collar-white";
+          el.innerHTML =
+            '<div class="collar-badge ' +
+            cls +
+            '">' +
+            (cc.label || cc.type || "White Collar") +
+            "</div>" +
+            (cc.description
+              ? '<p style="color:var(--muted);font-size:.85rem;margin-top:.5rem">' +
+                cc.description +
+                "</p>"
+              : "");
         }
 
         // --- Export ---
         async function doExport(endpoint, filename) {
-            if (!lastPayload) return;
-            try {
-                const res = await fetch(endpoint, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lastPayload)
-                });
-                if (!res.ok) throw new Error('Export failed');
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-            } catch (err) {
-                showError('Export failed: ' + err.message);
-            }
+          if (!lastPayload) return;
+          try {
+            const res = await fetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(lastPayload),
+            });
+            if (!res.ok) throw new Error("Export failed");
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          } catch (err) {
+            showError("Export failed: " + err.message);
+          }
         }
 
-        document.getElementById('exportExcel').addEventListener('click', () => doExport('/api/skill-target/excel', 'skill-target-analysis.xlsx'));
-        document.getElementById('exportPpt').addEventListener('click', () => doExport('/api/skill-target/ppt', 'skill-target-analysis.pptx'));
-    })();
+        document
+          .getElementById("exportExcel")
+          .addEventListener("click", () =>
+            doExport("/api/skill-target/excel", "skill-target-analysis.xlsx"),
+          );
+        document
+          .getElementById("exportPpt")
+          .addEventListener("click", () =>
+            doExport("/api/skill-target/ppt", "skill-target-analysis.pptx"),
+          );
+      })();
+
+      // Scroll reveal
+      (function () {
+        var ro = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) e.target.classList.add("visible");
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          ro.observe(el);
+        });
+      })();
     </script>
-</body>
+  </body>
 </html>

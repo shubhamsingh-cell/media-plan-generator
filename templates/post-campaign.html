@@ -1,880 +1,1124 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Post-Campaign Analysis - Generate structured post-campaign reports with performance grades and recommendations for recruitment advertising campaigns.">
-    <meta name="theme-color" content="#000000">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Post-Campaign Analysis - Generate structured post-campaign reports with performance grades and recommendations for recruitment advertising campaigns."
+    />
+    <meta name="theme-color" content="#000000" />
     <title>Post-Campaign Analysis | Nova AI Suite</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <style>
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        :root {
-            --bg: #000000;
-            --bg-secondary: #0a0a0a;
-            --card: #111111;
-            --card-hover: #1a1a1a;
-            --accent: #6366f1;
-            --accent-light: #818cf8;
-            --accent-glow: rgba(99,102,241,0.12);
-            --accent-glow-strong: rgba(99,102,241,0.25);
-            --text-primary: #ededed;
-            --text-secondary: #a1a1a1;
-            --text-muted: #666666;
-            --border: rgba(255,255,255,0.08);
-            --green: #34d399;
-            --amber: #fbbf24;
-            --red: #f87171;
-            --cyan: #22d3ee;
-            --radius: 16px;
-            --radius-sm: 10px;
-            --radius-xs: 6px;
-            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+      :root {
+        --bg: #000000;
+        --bg-secondary: #0a0a0a;
+        --card: #111111;
+        --card-hover: #1a1a1a;
+        --accent: #6366f1;
+        --accent-light: #818cf8;
+        --accent-glow: rgba(99, 102, 241, 0.12);
+        --accent-glow-strong: rgba(99, 102, 241, 0.25);
+        --text-primary: #ededed;
+        --text-secondary: #a1a1a1;
+        --text-muted: #666666;
+        --border: rgba(255, 255, 255, 0.08);
+        --green: #34d399;
+        --amber: #fbbf24;
+        --red: #f87171;
+        --cyan: #22d3ee;
+        --radius: 16px;
+        --radius-sm: 10px;
+        --radius-xs: 6px;
+        --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
 
-        html { scroll-behavior: smooth; }
+      html {
+        scroll-behavior: smooth;
+      }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg);
-            color: var(--text-primary);
-            min-height: 100vh;
-            line-height: 1.6;
-            -webkit-font-smoothing: antialiased;
-            overflow-x: hidden;
-        }
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text-primary);
+        min-height: 100vh;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
 
-        body::before {
-            content: '';
-            position: fixed;
-            top: -30%;
-            left: -10%;
-            width: 50vw;
-            height: 50vw;
-            background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
-        }
+      body::before {
+        content: "";
+        position: fixed;
+        top: -30%;
+        left: -10%;
+        width: 50vw;
+        height: 50vw;
+        background: radial-gradient(
+          circle,
+          rgba(99, 102, 241, 0.08) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+        z-index: 0;
+      }
 
-        body::after {
-            content: '';
-            position: fixed;
-            bottom: -20%;
-            right: -10%;
-            width: 40vw;
-            height: 40vw;
-            background: radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
-        }
+      body::after {
+        content: "";
+        position: fixed;
+        bottom: -20%;
+        right: -10%;
+        width: 40vw;
+        height: 40vw;
+        background: radial-gradient(
+          circle,
+          rgba(99, 102, 241, 0.05) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+        z-index: 0;
+      }
 
-        /* Nav */
+      /* Nav */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 32px;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        color: var(--text-primary);
+        font-weight: 700;
+        font-size: 15px;
+      }
+
+      .nav-brand svg {
+        flex-shrink: 0;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 8px;
+      }
+
+      .nav-links a {
+        text-decoration: none;
+        color: var(--text-secondary);
+        font-size: 13px;
+        font-weight: 500;
+        padding: 6px 14px;
+        border-radius: var(--radius-xs);
+        transition: var(--transition);
+      }
+
+      .nav-links a:hover {
+        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      /* Container */
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 40px 24px 80px;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* Header */
+      .page-header {
+        text-align: center;
+        margin-bottom: 48px;
+      }
+
+      .page-header h1 {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        margin-bottom: 12px;
+        background: linear-gradient(
+          135deg,
+          var(--text-primary) 0%,
+          var(--accent-light) 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .page-header p {
+        color: var(--text-secondary);
+        font-size: 15px;
+        max-width: 560px;
+        margin: 0 auto;
+      }
+
+      /* Cards */
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 28px;
+        margin-bottom: 24px;
+      }
+
+      .card-title {
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 20px;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .card-title .num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: white;
+        font-size: 12px;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      /* Form elements */
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .form-group.full-width {
+        grid-column: 1 / -1;
+      }
+
+      label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-secondary);
+      }
+
+      input[type="text"],
+      input[type="number"],
+      input[type="date"],
+      select {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xs);
+        padding: 10px 14px;
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 14px;
+        outline: none;
+        transition: var(--transition);
+      }
+
+      input:focus,
+      select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+      }
+
+      input::placeholder {
+        color: var(--text-muted);
+      }
+
+      /* Checkboxes */
+      .checkbox-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
+
+      .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xs);
+        cursor: pointer;
+        transition: var(--transition);
+        user-select: none;
+      }
+
+      .checkbox-item:hover {
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .checkbox-item.checked {
+        border-color: var(--accent);
+        background: var(--accent-glow);
+      }
+
+      .checkbox-item input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+
+      .checkbox-item span {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-primary);
+      }
+
+      /* Channel details form */
+      .channel-details {
+        margin-top: 20px;
+      }
+
+      .channel-detail-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 20px;
+        margin-bottom: 12px;
+      }
+
+      .channel-detail-card h4 {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--accent-light);
+        margin-bottom: 14px;
+      }
+
+      .channel-metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+      }
+
+      .channel-metrics-grid label {
+        font-size: 12px;
+      }
+
+      .channel-metrics-grid input {
+        width: 100%;
+      }
+
+      /* Button */
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: var(--radius-xs);
+        padding: 12px 28px;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+      }
+
+      .btn-primary:hover {
+        background: var(--accent-light);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px var(--accent-glow-strong);
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: transparent;
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xs);
+        padding: 10px 22px;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+      }
+
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.15);
+      }
+
+      .actions-bar {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 8px;
+      }
+
+      /* Results */
+      #results {
+        display: none;
+      }
+
+      #results.visible {
+        display: block;
+      }
+
+      /* Summary card */
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 16px;
+      }
+
+      .summary-stat {
+        text-align: center;
+        padding: 20px 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+      }
+
+      .summary-stat .stat-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 6px;
+      }
+
+      .summary-stat .stat-value {
+        font-size: 24px;
+        font-weight: 800;
+        color: var(--text-primary);
+        letter-spacing: -0.02em;
+      }
+
+      .summary-stat .stat-sub {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+      }
+
+      /* Table */
+      .table-wrap {
+        overflow-x: auto;
+        margin-top: 4px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      th {
+        text-align: left;
+        padding: 12px 14px;
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+
+      td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+        color: var(--text-secondary);
+        white-space: nowrap;
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      tr:hover td {
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .grade {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 13px;
+      }
+
+      .grade-a {
+        background: rgba(52, 211, 153, 0.15);
+        color: #34d399;
+      }
+      .grade-b {
+        background: rgba(52, 211, 153, 0.1);
+        color: #6ee7b7;
+      }
+      .grade-c {
+        background: rgba(251, 191, 36, 0.15);
+        color: #fbbf24;
+      }
+      .grade-d {
+        background: rgba(251, 146, 60, 0.15);
+        color: #fb923c;
+      }
+      .grade-f {
+        background: rgba(248, 113, 113, 0.15);
+        color: #f87171;
+      }
+
+      /* Findings & recommendations */
+      .findings-list,
+      .recs-list {
+        list-style: none;
+        padding: 0;
+      }
+
+      .findings-list li,
+      .recs-list li {
+        padding: 10px 14px;
+        margin-bottom: 8px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xs);
+        font-size: 14px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+      }
+
+      .findings-list li strong,
+      .recs-list li strong {
+        color: var(--text-primary);
+      }
+
+      .finding-label {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin-right: 8px;
+      }
+
+      .finding-positive {
+        background: rgba(52, 211, 153, 0.15);
+        color: #34d399;
+      }
+      .finding-negative {
+        background: rgba(248, 113, 113, 0.15);
+        color: #f87171;
+      }
+      .finding-neutral {
+        background: rgba(99, 102, 241, 0.15);
+        color: #818cf8;
+      }
+      .finding-insight {
+        background: rgba(251, 191, 36, 0.15);
+        color: #fbbf24;
+      }
+
+      /* Footer */
+      .footer {
+        text-align: center;
+        padding: 32px 24px;
+        border-top: 1px solid var(--border);
+        margin-top: 40px;
+      }
+
+      .footer p {
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+
+      .footer a {
+        color: var(--accent-light);
+        text-decoration: none;
+      }
+
+      .footer a:hover {
+        text-decoration: underline;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
         .nav {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 32px;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
+          padding: 12px 16px;
         }
-
-        .nav-brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-            color: var(--text-primary);
-            font-weight: 700;
-            font-size: 15px;
-        }
-
-        .nav-brand svg { flex-shrink: 0; }
-
-        .nav-links {
-            display: flex;
-            gap: 8px;
-        }
-
-        .nav-links a {
-            text-decoration: none;
-            color: var(--text-secondary);
-            font-size: 13px;
-            font-weight: 500;
-            padding: 6px 14px;
-            border-radius: var(--radius-xs);
-            transition: var(--transition);
-        }
-
-        .nav-links a:hover {
-            color: var(--text-primary);
-            background: rgba(255,255,255,0.05);
-        }
-
-        /* Container */
         .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 40px 24px 80px;
-            position: relative;
-            z-index: 1;
+          padding: 24px 16px 60px;
         }
-
-        /* Header */
-        .page-header {
-            text-align: center;
-            margin-bottom: 48px;
-        }
-
         .page-header h1 {
-            font-size: 32px;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-            margin-bottom: 12px;
-            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-light) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+          font-size: 24px;
         }
-
-        .page-header p {
-            color: var(--text-secondary);
-            font-size: 15px;
-            max-width: 560px;
-            margin: 0 auto;
-        }
-
-        /* Cards */
-        .card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 28px;
-            margin-bottom: 24px;
-        }
-
-        .card-title {
-            font-size: 16px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .card-title .num {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: var(--accent);
-            color: white;
-            font-size: 12px;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-
-        /* Form elements */
         .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
+          grid-template-columns: 1fr;
         }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .form-group.full-width {
-            grid-column: 1 / -1;
-        }
-
-        label {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-secondary);
-        }
-
-        input[type="text"],
-        input[type="number"],
-        input[type="date"],
-        select {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-xs);
-            padding: 10px 14px;
-            color: var(--text-primary);
-            font-family: inherit;
-            font-size: 14px;
-            outline: none;
-            transition: var(--transition);
-        }
-
-        input:focus, select:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-glow);
-        }
-
-        input::placeholder { color: var(--text-muted); }
-
-        /* Checkboxes */
         .checkbox-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
+          grid-template-columns: repeat(2, 1fr);
         }
-
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-xs);
-            cursor: pointer;
-            transition: var(--transition);
-            user-select: none;
-        }
-
-        .checkbox-item:hover {
-            background: rgba(255,255,255,0.06);
-        }
-
-        .checkbox-item.checked {
-            border-color: var(--accent);
-            background: var(--accent-glow);
-        }
-
-        .checkbox-item input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
-            accent-color: var(--accent);
-            cursor: pointer;
-        }
-
-        .checkbox-item span {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-primary);
-        }
-
-        /* Channel details form */
-        .channel-details {
-            margin-top: 20px;
-        }
-
-        .channel-detail-card {
-            background: rgba(255,255,255,0.02);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 20px;
-            margin-bottom: 12px;
-        }
-
-        .channel-detail-card h4 {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--accent-light);
-            margin-bottom: 14px;
-        }
-
         .channel-metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 12px;
+          grid-template-columns: repeat(2, 1fr);
         }
-
-        .channel-metrics-grid label {
-            font-size: 12px;
-        }
-
-        .channel-metrics-grid input {
-            width: 100%;
-        }
-
-        /* Button */
-        .btn-primary {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: var(--radius-xs);
-            padding: 12px 28px;
-            font-family: inherit;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .btn-primary:hover {
-            background: var(--accent-light);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 20px var(--accent-glow-strong);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-secondary {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: transparent;
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-xs);
-            padding: 10px 22px;
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255,255,255,0.05);
-            border-color: rgba(255,255,255,0.15);
-        }
-
-        .actions-bar {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-            margin-top: 8px;
-        }
-
-        /* Results */
-        #results {
-            display: none;
-        }
-
-        #results.visible {
-            display: block;
-        }
-
-        /* Summary card */
         .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 16px;
+          grid-template-columns: repeat(2, 1fr);
         }
-
-        .summary-stat {
-            text-align: center;
-            padding: 20px 12px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
+        .summary-stat:last-child {
+          grid-column: 1 / -1;
         }
-
-        .summary-stat .stat-label {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 6px;
-        }
-
-        .summary-stat .stat-value {
-            font-size: 24px;
-            font-weight: 800;
-            color: var(--text-primary);
-            letter-spacing: -0.02em;
-        }
-
-        .summary-stat .stat-sub {
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 4px;
-        }
-
-        /* Table */
-        .table-wrap {
-            overflow-x: auto;
-            margin-top: 4px;
-        }
-
         table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
+          font-size: 12px;
         }
-
-        th {
-            text-align: left;
-            padding: 12px 14px;
-            font-weight: 600;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border);
-            white-space: nowrap;
-        }
-
+        th,
         td {
-            padding: 12px 14px;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-secondary);
-            white-space: nowrap;
+          padding: 8px 10px;
         }
+      }
 
-        tr:last-child td {
-            border-bottom: none;
+      @media (max-width: 480px) {
+        .checkbox-grid {
+          grid-template-columns: 1fr;
         }
-
-        tr:hover td {
-            background: rgba(255,255,255,0.02);
+        .channel-metrics-grid {
+          grid-template-columns: 1fr;
         }
-
-        .grade {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-            border-radius: 6px;
-            font-weight: 700;
-            font-size: 13px;
+        .summary-grid {
+          grid-template-columns: 1fr;
         }
+      }
 
-        .grade-a { background: rgba(52,211,153,0.15); color: #34d399; }
-        .grade-b { background: rgba(52,211,153,0.10); color: #6ee7b7; }
-        .grade-c { background: rgba(251,191,36,0.15); color: #fbbf24; }
-        .grade-d { background: rgba(251,146,60,0.15); color: #fb923c; }
-        .grade-f { background: rgba(248,113,113,0.15); color: #f87171; }
+      /* -- Scroll reveal animations -- */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
 
-        /* Findings & recommendations */
-        .findings-list, .recs-list {
-            list-style: none;
-            padding: 0;
+      /* -- Enhanced card/section glow -- */
+      .glow-hover {
+        transition:
+          box-shadow 0.4s ease,
+          border-color 0.3s ease;
+      }
+      .glow-hover:hover {
+        box-shadow:
+          0 0 20px rgba(99, 102, 241, 0.12),
+          0 0 50px rgba(99, 102, 241, 0.06);
+        border-color: rgba(99, 102, 241, 0.2);
+      }
+
+      /* -- Reduced motion -- */
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
         }
-
-        .findings-list li, .recs-list li {
-            padding: 10px 14px;
-            margin-bottom: 8px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-xs);
-            font-size: 14px;
-            color: var(--text-secondary);
-            line-height: 1.5;
-        }
-
-        .findings-list li strong, .recs-list li strong {
-            color: var(--text-primary);
-        }
-
-        .finding-label {
-            display: inline-block;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            padding: 2px 8px;
-            border-radius: 4px;
-            margin-right: 8px;
-        }
-
-        .finding-positive { background: rgba(52,211,153,0.15); color: #34d399; }
-        .finding-negative { background: rgba(248,113,113,0.15); color: #f87171; }
-        .finding-neutral { background: rgba(99,102,241,0.15); color: #818cf8; }
-        .finding-insight { background: rgba(251,191,36,0.15); color: #fbbf24; }
-
-        /* Footer */
-        .footer {
-            text-align: center;
-            padding: 32px 24px;
-            border-top: 1px solid var(--border);
-            margin-top: 40px;
-        }
-
-        .footer p {
-            font-size: 13px;
-            color: var(--text-muted);
-        }
-
-        .footer a {
-            color: var(--accent-light);
-            text-decoration: none;
-        }
-
-        .footer a:hover {
-            text-decoration: underline;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .nav { padding: 12px 16px; }
-            .container { padding: 24px 16px 60px; }
-            .page-header h1 { font-size: 24px; }
-            .form-grid { grid-template-columns: 1fr; }
-            .checkbox-grid { grid-template-columns: repeat(2, 1fr); }
-            .channel-metrics-grid { grid-template-columns: repeat(2, 1fr); }
-            .summary-grid { grid-template-columns: repeat(2, 1fr); }
-            .summary-stat:last-child { grid-column: 1 / -1; }
-            table { font-size: 12px; }
-            th, td { padding: 8px 10px; }
-        }
-
-        @media (max-width: 480px) {
-            .checkbox-grid { grid-template-columns: 1fr; }
-            .channel-metrics-grid { grid-template-columns: 1fr; }
-            .summary-grid { grid-template-columns: 1fr; }
-        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <!-- Nav -->
     <nav class="nav">
-        <a href="/" class="nav-brand">
-            <svg width="28" height="28" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#6366F1"/><text x="16" y="22" text-anchor="middle" fill="white" font-family="Inter,sans-serif" font-weight="800" font-size="18">N</text></svg>
-            Nova AI Suite
-        </a>
-        <div class="nav-links">
-            <a href="/">Hub</a>
-            <a href="/media-plan">Media Plan</a>
-        </div>
+      <a href="/" class="nav-brand">
+        <svg width="28" height="28" viewBox="0 0 32 32">
+          <rect width="32" height="32" rx="6" fill="#6366F1" />
+          <text
+            x="16"
+            y="22"
+            text-anchor="middle"
+            fill="white"
+            font-family="Inter,sans-serif"
+            font-weight="800"
+            font-size="18"
+          >
+            N
+          </text>
+        </svg>
+        Nova AI Suite
+      </a>
+      <div class="nav-links">
+        <a href="/">Hub</a>
+        <a href="/media-plan">Media Plan</a>
+      </div>
     </nav>
 
     <div class="container">
-        <!-- Header -->
-        <div class="page-header">
-            <h1>Post-Campaign Analysis</h1>
-            <p>Generate structured post-campaign reports with channel performance grades, key findings, and data-driven recommendations.</p>
+      <!-- Header -->
+      <div class="page-header">
+        <h1>Post-Campaign Analysis</h1>
+        <p>
+          Generate structured post-campaign reports with channel performance
+          grades, key findings, and data-driven recommendations.
+        </p>
+      </div>
+
+      <!-- Input Form -->
+      <form id="campaignForm" autocomplete="off">
+        <!-- Campaign Info -->
+        <div class="card">
+          <div class="card-title">
+            <span class="num">1</span> Campaign Information
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="campaignName">Campaign Name</label>
+              <input
+                type="text"
+                id="campaignName"
+                placeholder="e.g., Q4 2025 Engineering Hiring Sprint"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="clientName">Client Name</label>
+              <input
+                type="text"
+                id="clientName"
+                placeholder="e.g., Acme Corp"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="startDate">Start Date</label>
+              <input type="date" id="startDate" required />
+            </div>
+            <div class="form-group">
+              <label for="endDate">End Date</label>
+              <input type="date" id="endDate" required />
+            </div>
+            <div class="form-group">
+              <label for="totalBudget">Total Budget Spent ($)</label>
+              <input
+                type="number"
+                id="totalBudget"
+                placeholder="e.g., 50000"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="industry">Industry</label>
+              <select id="industry" required>
+                <option value="">Select industry</option>
+                <option value="Tech">Tech</option>
+                <option value="Healthcare">Healthcare</option>
+                <option value="Finance">Finance</option>
+                <option value="Retail">Retail</option>
+                <option value="Manufacturing">Manufacturing</option>
+                <option value="Logistics">Logistics</option>
+                <option value="Hospitality">Hospitality</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        <!-- Input Form -->
-        <form id="campaignForm" autocomplete="off">
-            <!-- Campaign Info -->
-            <div class="card">
-                <div class="card-title"><span class="num">1</span> Campaign Information</div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="campaignName">Campaign Name</label>
-                        <input type="text" id="campaignName" placeholder="e.g., Q4 2025 Engineering Hiring Sprint" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="clientName">Client Name</label>
-                        <input type="text" id="clientName" placeholder="e.g., Acme Corp" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="startDate">Start Date</label>
-                        <input type="date" id="startDate" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="endDate">End Date</label>
-                        <input type="date" id="endDate" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="totalBudget">Total Budget Spent ($)</label>
-                        <input type="number" id="totalBudget" placeholder="e.g., 50000" min="0" step="0.01" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="industry">Industry</label>
-                        <select id="industry" required>
-                            <option value="">Select industry</option>
-                            <option value="Tech">Tech</option>
-                            <option value="Healthcare">Healthcare</option>
-                            <option value="Finance">Finance</option>
-                            <option value="Retail">Retail</option>
-                            <option value="Manufacturing">Manufacturing</option>
-                            <option value="Logistics">Logistics</option>
-                            <option value="Hospitality">Hospitality</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Channels -->
-            <div class="card">
-                <div class="card-title"><span class="num">2</span> Channels Used</div>
-                <div class="checkbox-grid" id="channelCheckboxes">
-                    <!-- Rendered by JS -->
-                </div>
-                <div class="channel-details" id="channelDetails">
-                    <!-- Dynamic per-channel forms -->
-                </div>
-            </div>
-
-            <!-- Actions -->
-            <div class="actions-bar">
-                <button type="submit" class="btn-primary" id="generateBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 17H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                    Generate Analysis
-                </button>
-            </div>
-        </form>
-
-        <!-- Results -->
-        <div id="results">
-            <!-- 1. Campaign Summary -->
-            <div class="card" id="summaryCard">
-                <div class="card-title"><span class="num">1</span> Campaign Summary</div>
-                <div class="summary-grid" id="summaryGrid">
-                    <!-- Filled by JS -->
-                </div>
-            </div>
-
-            <!-- 2. Channel Performance Table -->
-            <div class="card" id="performanceCard">
-                <div class="card-title"><span class="num">2</span> Channel Performance</div>
-                <div class="table-wrap">
-                    <table id="performanceTable">
-                        <thead>
-                            <tr>
-                                <th>Channel</th>
-                                <th>Spend</th>
-                                <th>Impressions</th>
-                                <th>Clicks</th>
-                                <th>Applications</th>
-                                <th>Hires</th>
-                                <th>CTR</th>
-                                <th>Apply Rate</th>
-                                <th>CPA</th>
-                                <th>CPH</th>
-                                <th>Grade</th>
-                            </tr>
-                        </thead>
-                        <tbody id="performanceBody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- 3. Key Findings -->
-            <div class="card" id="findingsCard">
-                <div class="card-title"><span class="num">3</span> Key Findings</div>
-                <ul class="findings-list" id="findingsList">
-                </ul>
-            </div>
-
-            <!-- 4. Recommendations -->
-            <div class="card" id="recsCard">
-                <div class="card-title"><span class="num">4</span> Recommendations</div>
-                <ul class="recs-list" id="recsList">
-                </ul>
-            </div>
-
-            <!-- Download -->
-            <div class="actions-bar" style="margin-top: 24px;">
-                <button type="button" class="btn-primary" id="downloadExcelBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Download as Excel
-                </button>
-                <button type="button" class="btn-secondary" id="resetBtn">
-                    Reset Form
-                </button>
-            </div>
+        <!-- Channels -->
+        <div class="card">
+          <div class="card-title"><span class="num">2</span> Channels Used</div>
+          <div class="checkbox-grid" id="channelCheckboxes">
+            <!-- Rendered by JS -->
+          </div>
+          <div class="channel-details" id="channelDetails">
+            <!-- Dynamic per-channel forms -->
+          </div>
         </div>
+
+        <!-- Actions -->
+        <div class="actions-bar">
+          <button type="submit" class="btn-primary" id="generateBtn">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path d="M9 17H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            Generate Analysis
+          </button>
+        </div>
+      </form>
+
+      <!-- Results -->
+      <div id="results">
+        <!-- 1. Campaign Summary -->
+        <div class="card" id="summaryCard">
+          <div class="card-title">
+            <span class="num">1</span> Campaign Summary
+          </div>
+          <div class="summary-grid" id="summaryGrid">
+            <!-- Filled by JS -->
+          </div>
+        </div>
+
+        <!-- 2. Channel Performance Table -->
+        <div class="card" id="performanceCard">
+          <div class="card-title">
+            <span class="num">2</span> Channel Performance
+          </div>
+          <div class="table-wrap">
+            <table id="performanceTable">
+              <thead>
+                <tr>
+                  <th>Channel</th>
+                  <th>Spend</th>
+                  <th>Impressions</th>
+                  <th>Clicks</th>
+                  <th>Applications</th>
+                  <th>Hires</th>
+                  <th>CTR</th>
+                  <th>Apply Rate</th>
+                  <th>CPA</th>
+                  <th>CPH</th>
+                  <th>Grade</th>
+                </tr>
+              </thead>
+              <tbody id="performanceBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 3. Key Findings -->
+        <div class="card" id="findingsCard">
+          <div class="card-title"><span class="num">3</span> Key Findings</div>
+          <ul class="findings-list" id="findingsList"></ul>
+        </div>
+
+        <!-- 4. Recommendations -->
+        <div class="card" id="recsCard">
+          <div class="card-title">
+            <span class="num">4</span> Recommendations
+          </div>
+          <ul class="recs-list" id="recsList"></ul>
+        </div>
+
+        <!-- Download -->
+        <div class="actions-bar" style="margin-top: 24px">
+          <button type="button" class="btn-primary" id="downloadExcelBtn">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download as Excel
+          </button>
+          <button type="button" class="btn-secondary" id="resetBtn">
+            Reset Form
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Footer -->
     <footer class="footer">
-        <p>Nova AI Suite -- Built by <a href="https://www.linkedin.com/in/chandel13/" target="_blank" rel="noopener">Shubham Singh Chandel</a></p>
+      <p>
+        Nova AI Suite -- Built by
+        <a
+          href="https://www.linkedin.com/in/chandel13/"
+          target="_blank"
+          rel="noopener"
+          >Shubham Singh Chandel</a
+        >
+      </p>
     </footer>
 
     <script>
-    (function() {
-        'use strict';
+      (function () {
+        "use strict";
 
         // ── Industry CPA Benchmarks ──
         var BENCHMARKS = {
-            'Tech': 28,
-            'Healthcare': 22,
-            'Finance': 35,
-            'Retail': 12,
-            'Manufacturing': 18,
-            'Logistics': 14,
-            'Hospitality': 10,
-            'Other': 20
+          Tech: 28,
+          Healthcare: 22,
+          Finance: 35,
+          Retail: 12,
+          Manufacturing: 18,
+          Logistics: 14,
+          Hospitality: 10,
+          Other: 20,
         };
 
         // Industry average apply rates (approximate)
         var INDUSTRY_APPLY_RATES = {
-            'Tech': 3.5,
-            'Healthcare': 4.2,
-            'Finance': 3.0,
-            'Retail': 5.8,
-            'Manufacturing': 4.5,
-            'Logistics': 5.0,
-            'Hospitality': 6.2,
-            'Other': 4.0
+          Tech: 3.5,
+          Healthcare: 4.2,
+          Finance: 3.0,
+          Retail: 5.8,
+          Manufacturing: 4.5,
+          Logistics: 5.0,
+          Hospitality: 6.2,
+          Other: 4.0,
         };
 
         var CHANNELS = [
-            'Indeed', 'LinkedIn', 'Facebook', 'Google',
-            'ZipRecruiter', 'Programmatic', 'Career Site', 'Referrals'
+          "Indeed",
+          "LinkedIn",
+          "Facebook",
+          "Google",
+          "ZipRecruiter",
+          "Programmatic",
+          "Career Site",
+          "Referrals",
         ];
 
         var selectedChannels = {};
 
         // ── Render channel checkboxes ──
-        var checkboxContainer = document.getElementById('channelCheckboxes');
-        CHANNELS.forEach(function(ch) {
-            var item = document.createElement('label');
-            item.className = 'checkbox-item';
-            item.innerHTML = '<input type="checkbox" data-channel="' + ch + '"> <span>' + ch + '</span>';
-            checkboxContainer.appendChild(item);
+        var checkboxContainer = document.getElementById("channelCheckboxes");
+        CHANNELS.forEach(function (ch) {
+          var item = document.createElement("label");
+          item.className = "checkbox-item";
+          item.innerHTML =
+            '<input type="checkbox" data-channel="' +
+            ch +
+            '"> <span>' +
+            ch +
+            "</span>";
+          checkboxContainer.appendChild(item);
 
-            var cb = item.querySelector('input');
-            cb.addEventListener('change', function() {
-                if (cb.checked) {
-                    item.classList.add('checked');
-                    selectedChannels[ch] = true;
-                } else {
-                    item.classList.remove('checked');
-                    delete selectedChannels[ch];
-                }
-                renderChannelDetails();
-            });
+          var cb = item.querySelector("input");
+          cb.addEventListener("change", function () {
+            if (cb.checked) {
+              item.classList.add("checked");
+              selectedChannels[ch] = true;
+            } else {
+              item.classList.remove("checked");
+              delete selectedChannels[ch];
+            }
+            renderChannelDetails();
+          });
         });
 
         // ── Render per-channel detail forms ──
         function renderChannelDetails() {
-            var container = document.getElementById('channelDetails');
-            container.innerHTML = '';
+          var container = document.getElementById("channelDetails");
+          container.innerHTML = "";
 
-            var channels = Object.keys(selectedChannels);
-            if (channels.length === 0) return;
+          var channels = Object.keys(selectedChannels);
+          if (channels.length === 0) return;
 
-            channels.forEach(function(ch) {
-                var safeId = ch.replace(/\s+/g, '_');
-                var card = document.createElement('div');
-                card.className = 'channel-detail-card';
-                card.innerHTML =
-                    '<h4>' + ch + '</h4>' +
-                    '<div class="channel-metrics-grid">' +
-                        '<div class="form-group">' +
-                            '<label>Spend ($)</label>' +
-                            '<input type="number" id="ch_spend_' + safeId + '" placeholder="0" min="0" step="0.01">' +
-                        '</div>' +
-                        '<div class="form-group">' +
-                            '<label>Impressions</label>' +
-                            '<input type="number" id="ch_impr_' + safeId + '" placeholder="0" min="0">' +
-                        '</div>' +
-                        '<div class="form-group">' +
-                            '<label>Clicks</label>' +
-                            '<input type="number" id="ch_clicks_' + safeId + '" placeholder="0" min="0">' +
-                        '</div>' +
-                        '<div class="form-group">' +
-                            '<label>Applications</label>' +
-                            '<input type="number" id="ch_apps_' + safeId + '" placeholder="0" min="0">' +
-                        '</div>' +
-                        '<div class="form-group">' +
-                            '<label>Hires</label>' +
-                            '<input type="number" id="ch_hires_' + safeId + '" placeholder="0" min="0">' +
-                        '</div>' +
-                    '</div>';
-                container.appendChild(card);
-            });
+          channels.forEach(function (ch) {
+            var safeId = ch.replace(/\s+/g, "_");
+            var card = document.createElement("div");
+            card.className = "channel-detail-card";
+            card.innerHTML =
+              "<h4>" +
+              ch +
+              "</h4>" +
+              '<div class="channel-metrics-grid">' +
+              '<div class="form-group">' +
+              "<label>Spend ($)</label>" +
+              '<input type="number" id="ch_spend_' +
+              safeId +
+              '" placeholder="0" min="0" step="0.01">' +
+              "</div>" +
+              '<div class="form-group">' +
+              "<label>Impressions</label>" +
+              '<input type="number" id="ch_impr_' +
+              safeId +
+              '" placeholder="0" min="0">' +
+              "</div>" +
+              '<div class="form-group">' +
+              "<label>Clicks</label>" +
+              '<input type="number" id="ch_clicks_' +
+              safeId +
+              '" placeholder="0" min="0">' +
+              "</div>" +
+              '<div class="form-group">' +
+              "<label>Applications</label>" +
+              '<input type="number" id="ch_apps_' +
+              safeId +
+              '" placeholder="0" min="0">' +
+              "</div>" +
+              '<div class="form-group">' +
+              "<label>Hires</label>" +
+              '<input type="number" id="ch_hires_' +
+              safeId +
+              '" placeholder="0" min="0">' +
+              "</div>" +
+              "</div>";
+            container.appendChild(card);
+          });
         }
 
         // ── Helpers ──
         function fmt(n) {
-            if (n === null || n === undefined || isNaN(n)) return '--';
-            if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
-            if (n >= 1000) return '$' + (n / 1000).toFixed(1) + 'K';
-            return '$' + n.toFixed(2);
+          if (n === null || n === undefined || isNaN(n)) return "--";
+          if (n >= 1000000) return "$" + (n / 1000000).toFixed(1) + "M";
+          if (n >= 1000) return "$" + (n / 1000).toFixed(1) + "K";
+          return "$" + n.toFixed(2);
         }
 
         function fmtNum(n) {
-            if (n === null || n === undefined || isNaN(n)) return '--';
-            return n.toLocaleString();
+          if (n === null || n === undefined || isNaN(n)) return "--";
+          return n.toLocaleString();
         }
 
         function fmtPct(n) {
-            if (n === null || n === undefined || isNaN(n)) return '--';
-            return n.toFixed(2) + '%';
+          if (n === null || n === undefined || isNaN(n)) return "--";
+          return n.toFixed(2) + "%";
         }
 
         function getGrade(cpa, benchmarkCpa) {
-            if (!cpa || cpa <= 0 || !benchmarkCpa) return { grade: '--', cls: '' };
-            var ratio = cpa / benchmarkCpa;
-            if (ratio <= 0.7) return { grade: 'A', cls: 'grade-a' };
-            if (ratio <= 1.0) return { grade: 'B', cls: 'grade-b' };
-            if (ratio <= 1.3) return { grade: 'C', cls: 'grade-c' };
-            if (ratio <= 1.7) return { grade: 'D', cls: 'grade-d' };
-            return { grade: 'F', cls: 'grade-f' };
+          if (!cpa || cpa <= 0 || !benchmarkCpa)
+            return { grade: "--", cls: "" };
+          var ratio = cpa / benchmarkCpa;
+          if (ratio <= 0.7) return { grade: "A", cls: "grade-a" };
+          if (ratio <= 1.0) return { grade: "B", cls: "grade-b" };
+          if (ratio <= 1.3) return { grade: "C", cls: "grade-c" };
+          if (ratio <= 1.7) return { grade: "D", cls: "grade-d" };
+          return { grade: "F", cls: "grade-f" };
         }
 
         function daysBetween(d1, d2) {
-            var ms = new Date(d2) - new Date(d1);
-            return Math.max(1, Math.ceil(ms / 86400000));
+          var ms = new Date(d2) - new Date(d1);
+          return Math.max(1, Math.ceil(ms / 86400000));
         }
 
         // ── Gather channel data ──
         function gatherChannelData() {
-            var data = [];
-            Object.keys(selectedChannels).forEach(function(ch) {
-                var safeId = ch.replace(/\s+/g, '_');
-                var spend = parseFloat(document.getElementById('ch_spend_' + safeId).value) || 0;
-                var impressions = parseInt(document.getElementById('ch_impr_' + safeId).value) || 0;
-                var clicks = parseInt(document.getElementById('ch_clicks_' + safeId).value) || 0;
-                var applications = parseInt(document.getElementById('ch_apps_' + safeId).value) || 0;
-                var hires = parseInt(document.getElementById('ch_hires_' + safeId).value) || 0;
+          var data = [];
+          Object.keys(selectedChannels).forEach(function (ch) {
+            var safeId = ch.replace(/\s+/g, "_");
+            var spend =
+              parseFloat(document.getElementById("ch_spend_" + safeId).value) ||
+              0;
+            var impressions =
+              parseInt(document.getElementById("ch_impr_" + safeId).value) || 0;
+            var clicks =
+              parseInt(document.getElementById("ch_clicks_" + safeId).value) ||
+              0;
+            var applications =
+              parseInt(document.getElementById("ch_apps_" + safeId).value) || 0;
+            var hires =
+              parseInt(document.getElementById("ch_hires_" + safeId).value) ||
+              0;
 
-                var ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-                var applyRate = clicks > 0 ? (applications / clicks) * 100 : 0;
-                var cpa = applications > 0 ? spend / applications : 0;
-                var cph = hires > 0 ? spend / hires : 0;
+            var ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+            var applyRate = clicks > 0 ? (applications / clicks) * 100 : 0;
+            var cpa = applications > 0 ? spend / applications : 0;
+            var cph = hires > 0 ? spend / hires : 0;
 
-                data.push({
-                    channel: ch,
-                    spend: spend,
-                    impressions: impressions,
-                    clicks: clicks,
-                    applications: applications,
-                    hires: hires,
-                    ctr: ctr,
-                    applyRate: applyRate,
-                    cpa: cpa,
-                    cph: cph
-                });
+            data.push({
+              channel: ch,
+              spend: spend,
+              impressions: impressions,
+              clicks: clicks,
+              applications: applications,
+              hires: hires,
+              ctr: ctr,
+              applyRate: applyRate,
+              cpa: cpa,
+              cph: cph,
             });
-            return data;
+          });
+          return data;
         }
 
         // ── Generate Analysis ──
-        document.getElementById('campaignForm').addEventListener('submit', function(e) {
+        document
+          .getElementById("campaignForm")
+          .addEventListener("submit", function (e) {
             e.preventDefault();
 
-            var campaignName = document.getElementById('campaignName').value.trim();
-            var clientName = document.getElementById('clientName').value.trim();
-            var startDate = document.getElementById('startDate').value;
-            var endDate = document.getElementById('endDate').value;
-            var totalBudget = parseFloat(document.getElementById('totalBudget').value) || 0;
-            var industry = document.getElementById('industry').value;
+            var campaignName = document
+              .getElementById("campaignName")
+              .value.trim();
+            var clientName = document.getElementById("clientName").value.trim();
+            var startDate = document.getElementById("startDate").value;
+            var endDate = document.getElementById("endDate").value;
+            var totalBudget =
+              parseFloat(document.getElementById("totalBudget").value) || 0;
+            var industry = document.getElementById("industry").value;
 
-            if (!campaignName || !clientName || !startDate || !endDate || !totalBudget || !industry) {
-                alert('Please fill in all required fields.');
-                return;
+            if (
+              !campaignName ||
+              !clientName ||
+              !startDate ||
+              !endDate ||
+              !totalBudget ||
+              !industry
+            ) {
+              alert("Please fill in all required fields.");
+              return;
             }
 
             if (Object.keys(selectedChannels).length === 0) {
-                alert('Please select at least one channel.');
-                return;
+              alert("Please select at least one channel.");
+              return;
             }
 
             var channelData = gatherChannelData();
@@ -882,245 +1126,455 @@
             var industryApplyRate = INDUSTRY_APPLY_RATES[industry] || 4.0;
 
             // Totals
-            var totalSpend = 0, totalImpressions = 0, totalClicks = 0, totalApps = 0, totalHires = 0;
-            channelData.forEach(function(c) {
-                totalSpend += c.spend;
-                totalImpressions += c.impressions;
-                totalClicks += c.clicks;
-                totalApps += c.applications;
-                totalHires += c.hires;
+            var totalSpend = 0,
+              totalImpressions = 0,
+              totalClicks = 0,
+              totalApps = 0,
+              totalHires = 0;
+            channelData.forEach(function (c) {
+              totalSpend += c.spend;
+              totalImpressions += c.impressions;
+              totalClicks += c.clicks;
+              totalApps += c.applications;
+              totalHires += c.hires;
             });
 
             var overallCpa = totalApps > 0 ? totalSpend / totalApps : 0;
             var overallCph = totalHires > 0 ? totalSpend / totalHires : 0;
-            var overallApplyRate = totalClicks > 0 ? (totalApps / totalClicks) * 100 : 0;
+            var overallApplyRate =
+              totalClicks > 0 ? (totalApps / totalClicks) * 100 : 0;
             var days = daysBetween(startDate, endDate);
 
             // ── 1. Summary Card ──
-            var summaryGrid = document.getElementById('summaryGrid');
+            var summaryGrid = document.getElementById("summaryGrid");
             summaryGrid.innerHTML =
-                '<div class="summary-stat">' +
-                    '<div class="stat-label">Duration</div>' +
-                    '<div class="stat-value">' + days + '</div>' +
-                    '<div class="stat-sub">days</div>' +
-                '</div>' +
-                '<div class="summary-stat">' +
-                    '<div class="stat-label">Total Spend</div>' +
-                    '<div class="stat-value">' + fmt(totalSpend) + '</div>' +
-                    '<div class="stat-sub">of ' + fmt(totalBudget) + ' budget</div>' +
-                '</div>' +
-                '<div class="summary-stat">' +
-                    '<div class="stat-label">Total Hires</div>' +
-                    '<div class="stat-value">' + fmtNum(totalHires) + '</div>' +
-                    '<div class="stat-sub">' + fmtNum(totalApps) + ' applications</div>' +
-                '</div>' +
-                '<div class="summary-stat">' +
-                    '<div class="stat-label">Overall CPA</div>' +
-                    '<div class="stat-value">' + fmt(overallCpa) + '</div>' +
-                    '<div class="stat-sub">benchmark: ' + fmt(benchmarkCpa) + '</div>' +
-                '</div>' +
-                '<div class="summary-stat">' +
-                    '<div class="stat-label">Overall CPH</div>' +
-                    '<div class="stat-value">' + fmt(overallCph) + '</div>' +
-                    '<div class="stat-sub">' + fmtPct(overallApplyRate) + ' apply rate</div>' +
-                '</div>';
+              '<div class="summary-stat">' +
+              '<div class="stat-label">Duration</div>' +
+              '<div class="stat-value">' +
+              days +
+              "</div>" +
+              '<div class="stat-sub">days</div>' +
+              "</div>" +
+              '<div class="summary-stat">' +
+              '<div class="stat-label">Total Spend</div>' +
+              '<div class="stat-value">' +
+              fmt(totalSpend) +
+              "</div>" +
+              '<div class="stat-sub">of ' +
+              fmt(totalBudget) +
+              " budget</div>" +
+              "</div>" +
+              '<div class="summary-stat">' +
+              '<div class="stat-label">Total Hires</div>' +
+              '<div class="stat-value">' +
+              fmtNum(totalHires) +
+              "</div>" +
+              '<div class="stat-sub">' +
+              fmtNum(totalApps) +
+              " applications</div>" +
+              "</div>" +
+              '<div class="summary-stat">' +
+              '<div class="stat-label">Overall CPA</div>' +
+              '<div class="stat-value">' +
+              fmt(overallCpa) +
+              "</div>" +
+              '<div class="stat-sub">benchmark: ' +
+              fmt(benchmarkCpa) +
+              "</div>" +
+              "</div>" +
+              '<div class="summary-stat">' +
+              '<div class="stat-label">Overall CPH</div>' +
+              '<div class="stat-value">' +
+              fmt(overallCph) +
+              "</div>" +
+              '<div class="stat-sub">' +
+              fmtPct(overallApplyRate) +
+              " apply rate</div>" +
+              "</div>";
 
             // ── 2. Performance Table ──
-            var tbody = document.getElementById('performanceBody');
-            tbody.innerHTML = '';
-            channelData.forEach(function(c) {
-                var g = getGrade(c.cpa, benchmarkCpa);
-                var tr = document.createElement('tr');
-                tr.innerHTML =
-                    '<td><strong>' + c.channel + '</strong></td>' +
-                    '<td>' + fmt(c.spend) + '</td>' +
-                    '<td>' + fmtNum(c.impressions) + '</td>' +
-                    '<td>' + fmtNum(c.clicks) + '</td>' +
-                    '<td>' + fmtNum(c.applications) + '</td>' +
-                    '<td>' + fmtNum(c.hires) + '</td>' +
-                    '<td>' + fmtPct(c.ctr) + '</td>' +
-                    '<td>' + fmtPct(c.applyRate) + '</td>' +
-                    '<td>' + (c.cpa > 0 ? fmt(c.cpa) : '--') + '</td>' +
-                    '<td>' + (c.cph > 0 ? fmt(c.cph) : '--') + '</td>' +
-                    '<td>' + (g.cls ? '<span class="grade ' + g.cls + '">' + g.grade + '</span>' : '--') + '</td>';
-                tbody.appendChild(tr);
+            var tbody = document.getElementById("performanceBody");
+            tbody.innerHTML = "";
+            channelData.forEach(function (c) {
+              var g = getGrade(c.cpa, benchmarkCpa);
+              var tr = document.createElement("tr");
+              tr.innerHTML =
+                "<td><strong>" +
+                c.channel +
+                "</strong></td>" +
+                "<td>" +
+                fmt(c.spend) +
+                "</td>" +
+                "<td>" +
+                fmtNum(c.impressions) +
+                "</td>" +
+                "<td>" +
+                fmtNum(c.clicks) +
+                "</td>" +
+                "<td>" +
+                fmtNum(c.applications) +
+                "</td>" +
+                "<td>" +
+                fmtNum(c.hires) +
+                "</td>" +
+                "<td>" +
+                fmtPct(c.ctr) +
+                "</td>" +
+                "<td>" +
+                fmtPct(c.applyRate) +
+                "</td>" +
+                "<td>" +
+                (c.cpa > 0 ? fmt(c.cpa) : "--") +
+                "</td>" +
+                "<td>" +
+                (c.cph > 0 ? fmt(c.cph) : "--") +
+                "</td>" +
+                "<td>" +
+                (g.cls
+                  ? '<span class="grade ' + g.cls + '">' + g.grade + "</span>"
+                  : "--") +
+                "</td>";
+              tbody.appendChild(tr);
             });
 
             // ── 3. Key Findings ──
-            var findingsList = document.getElementById('findingsList');
-            findingsList.innerHTML = '';
+            var findingsList = document.getElementById("findingsList");
+            findingsList.innerHTML = "";
 
             // Filter channels that have applications for CPA comparison
-            var channelsWithApps = channelData.filter(function(c) { return c.applications > 0; });
-            var channelsWithSpend = channelData.filter(function(c) { return c.spend > 0; });
+            var channelsWithApps = channelData.filter(function (c) {
+              return c.applications > 0;
+            });
+            var channelsWithSpend = channelData.filter(function (c) {
+              return c.spend > 0;
+            });
 
             if (channelsWithApps.length > 0) {
-                // Best CPA
-                var bestCpa = channelsWithApps.reduce(function(a, b) { return a.cpa < b.cpa ? a : b; });
-                addFinding(findingsList, 'positive', 'Best Performing',
-                    '<strong>' + bestCpa.channel + '</strong> delivered the lowest CPA at <strong>' + fmt(bestCpa.cpa) + '</strong> with ' + fmtNum(bestCpa.applications) + ' applications.');
+              // Best CPA
+              var bestCpa = channelsWithApps.reduce(function (a, b) {
+                return a.cpa < b.cpa ? a : b;
+              });
+              addFinding(
+                findingsList,
+                "positive",
+                "Best Performing",
+                "<strong>" +
+                  bestCpa.channel +
+                  "</strong> delivered the lowest CPA at <strong>" +
+                  fmt(bestCpa.cpa) +
+                  "</strong> with " +
+                  fmtNum(bestCpa.applications) +
+                  " applications.",
+              );
 
-                // Worst CPA
-                if (channelsWithApps.length > 1) {
-                    var worstCpa = channelsWithApps.reduce(function(a, b) { return a.cpa > b.cpa ? a : b; });
-                    addFinding(findingsList, 'negative', 'Highest CPA',
-                        '<strong>' + worstCpa.channel + '</strong> had the highest CPA at <strong>' + fmt(worstCpa.cpa) + '</strong>, ' +
-                        fmtPct((worstCpa.cpa / bestCpa.cpa - 1) * 100) + ' higher than the best channel.');
-                }
+              // Worst CPA
+              if (channelsWithApps.length > 1) {
+                var worstCpa = channelsWithApps.reduce(function (a, b) {
+                  return a.cpa > b.cpa ? a : b;
+                });
+                addFinding(
+                  findingsList,
+                  "negative",
+                  "Highest CPA",
+                  "<strong>" +
+                    worstCpa.channel +
+                    "</strong> had the highest CPA at <strong>" +
+                    fmt(worstCpa.cpa) +
+                    "</strong>, " +
+                    fmtPct((worstCpa.cpa / bestCpa.cpa - 1) * 100) +
+                    " higher than the best channel.",
+                );
+              }
             }
 
             // Highest volume
             if (channelsWithSpend.length > 0) {
-                var highestVol = channelsWithSpend.reduce(function(a, b) { return a.spend > b.spend ? a : b; });
-                var spendPct = totalSpend > 0 ? ((highestVol.spend / totalSpend) * 100).toFixed(1) : 0;
-                addFinding(findingsList, 'neutral', 'Highest Volume',
-                    '<strong>' + highestVol.channel + '</strong> accounted for <strong>' + spendPct + '%</strong> of total spend (' + fmt(highestVol.spend) + ') with ' + fmtNum(highestVol.impressions) + ' impressions.');
+              var highestVol = channelsWithSpend.reduce(function (a, b) {
+                return a.spend > b.spend ? a : b;
+              });
+              var spendPct =
+                totalSpend > 0
+                  ? ((highestVol.spend / totalSpend) * 100).toFixed(1)
+                  : 0;
+              addFinding(
+                findingsList,
+                "neutral",
+                "Highest Volume",
+                "<strong>" +
+                  highestVol.channel +
+                  "</strong> accounted for <strong>" +
+                  spendPct +
+                  "%</strong> of total spend (" +
+                  fmt(highestVol.spend) +
+                  ") with " +
+                  fmtNum(highestVol.impressions) +
+                  " impressions.",
+              );
             }
 
             // Budget utilization
-            var utilization = totalBudget > 0 ? (totalSpend / totalBudget) * 100 : 0;
-            var utilLabel = utilization > 100 ? 'negative' : (utilization >= 90 ? 'positive' : 'insight');
-            var utilText = utilization > 100
-                ? 'Campaign overspent by <strong>' + fmtPct(utilization - 100) + '</strong> (' + fmt(totalSpend) + ' of ' + fmt(totalBudget) + ' budget).'
-                : 'Budget utilization was <strong>' + fmtPct(utilization) + '</strong>. ' +
-                  (utilization < 90 ? 'Consider reallocating the remaining <strong>' + fmt(totalBudget - totalSpend) + '</strong> to top-performing channels.' : 'Near-full utilization indicates solid budget planning.');
-            addFinding(findingsList, utilLabel, 'Budget', utilText);
+            var utilization =
+              totalBudget > 0 ? (totalSpend / totalBudget) * 100 : 0;
+            var utilLabel =
+              utilization > 100
+                ? "negative"
+                : utilization >= 90
+                  ? "positive"
+                  : "insight";
+            var utilText =
+              utilization > 100
+                ? "Campaign overspent by <strong>" +
+                  fmtPct(utilization - 100) +
+                  "</strong> (" +
+                  fmt(totalSpend) +
+                  " of " +
+                  fmt(totalBudget) +
+                  " budget)."
+                : "Budget utilization was <strong>" +
+                  fmtPct(utilization) +
+                  "</strong>. " +
+                  (utilization < 90
+                    ? "Consider reallocating the remaining <strong>" +
+                      fmt(totalBudget - totalSpend) +
+                      "</strong> to top-performing channels."
+                    : "Near-full utilization indicates solid budget planning.");
+            addFinding(findingsList, utilLabel, "Budget", utilText);
 
             // Apply rate vs industry
             if (totalClicks > 0) {
-                var arDiff = overallApplyRate - industryApplyRate;
-                var arLabel = arDiff >= 0 ? 'positive' : 'negative';
-                var arDir = arDiff >= 0 ? 'above' : 'below';
-                addFinding(findingsList, arLabel, 'Apply Rate',
-                    'Overall apply rate of <strong>' + fmtPct(overallApplyRate) + '</strong> is <strong>' + arDir + '</strong> the ' + industry + ' industry average of <strong>' + fmtPct(industryApplyRate) + '</strong>.');
+              var arDiff = overallApplyRate - industryApplyRate;
+              var arLabel = arDiff >= 0 ? "positive" : "negative";
+              var arDir = arDiff >= 0 ? "above" : "below";
+              addFinding(
+                findingsList,
+                arLabel,
+                "Apply Rate",
+                "Overall apply rate of <strong>" +
+                  fmtPct(overallApplyRate) +
+                  "</strong> is <strong>" +
+                  arDir +
+                  "</strong> the " +
+                  industry +
+                  " industry average of <strong>" +
+                  fmtPct(industryApplyRate) +
+                  "</strong>.",
+              );
             }
 
             // ── 4. Recommendations ──
-            var recsList = document.getElementById('recsList');
-            recsList.innerHTML = '';
+            var recsList = document.getElementById("recsList");
+            recsList.innerHTML = "";
 
             if (channelsWithApps.length > 0) {
-                var bestCh = channelsWithApps.reduce(function(a, b) { return a.cpa < b.cpa ? a : b; });
-                if (overallCpa > 0) {
-                    var bestSaving = ((1 - bestCh.cpa / overallCpa) * 100).toFixed(1);
-                    if (parseFloat(bestSaving) > 0) {
-                        addRec(recsList, 'Increase spend on <strong>' + bestCh.channel + '</strong> which had a CPA <strong>' + bestSaving + '%</strong> lower than the campaign average. Reallocating budget here could improve overall efficiency.');
-                    }
+              var bestCh = channelsWithApps.reduce(function (a, b) {
+                return a.cpa < b.cpa ? a : b;
+              });
+              if (overallCpa > 0) {
+                var bestSaving = ((1 - bestCh.cpa / overallCpa) * 100).toFixed(
+                  1,
+                );
+                if (parseFloat(bestSaving) > 0) {
+                  addRec(
+                    recsList,
+                    "Increase spend on <strong>" +
+                      bestCh.channel +
+                      "</strong> which had a CPA <strong>" +
+                      bestSaving +
+                      "%</strong> lower than the campaign average. Reallocating budget here could improve overall efficiency.",
+                  );
                 }
+              }
 
-                if (channelsWithApps.length > 1) {
-                    var worstCh = channelsWithApps.reduce(function(a, b) { return a.cpa > b.cpa ? a : b; });
-                    var worstGrade = getGrade(worstCh.cpa, benchmarkCpa);
-                    if (worstGrade.grade === 'D' || worstGrade.grade === 'F') {
-                        addRec(recsList, 'Consider reducing <strong>' + worstCh.channel + '</strong> allocation (Grade ' + worstGrade.grade + ', CPA: ' + fmt(worstCh.cpa) + '). Test creative/targeting changes before cutting entirely.');
-                    }
+              if (channelsWithApps.length > 1) {
+                var worstCh = channelsWithApps.reduce(function (a, b) {
+                  return a.cpa > b.cpa ? a : b;
+                });
+                var worstGrade = getGrade(worstCh.cpa, benchmarkCpa);
+                if (worstGrade.grade === "D" || worstGrade.grade === "F") {
+                  addRec(
+                    recsList,
+                    "Consider reducing <strong>" +
+                      worstCh.channel +
+                      "</strong> allocation (Grade " +
+                      worstGrade.grade +
+                      ", CPA: " +
+                      fmt(worstCh.cpa) +
+                      "). Test creative/targeting changes before cutting entirely.",
+                  );
                 }
+              }
             }
 
             if (totalClicks > 0) {
-                var arDiffRec = overallApplyRate - industryApplyRate;
-                if (arDiffRec < 0) {
-                    addRec(recsList, 'Apply rate of <strong>' + fmtPct(overallApplyRate) + '</strong> is below the ' + industry + ' industry average of <strong>' + fmtPct(industryApplyRate) + '</strong>. Review job descriptions, application length, and mobile experience to improve conversion.');
-                } else {
-                    addRec(recsList, 'Apply rate of <strong>' + fmtPct(overallApplyRate) + '</strong> is above the ' + industry + ' industry average of <strong>' + fmtPct(industryApplyRate) + '</strong>. Maintain current application flow and consider scaling volume.');
-                }
+              var arDiffRec = overallApplyRate - industryApplyRate;
+              if (arDiffRec < 0) {
+                addRec(
+                  recsList,
+                  "Apply rate of <strong>" +
+                    fmtPct(overallApplyRate) +
+                    "</strong> is below the " +
+                    industry +
+                    " industry average of <strong>" +
+                    fmtPct(industryApplyRate) +
+                    "</strong>. Review job descriptions, application length, and mobile experience to improve conversion.",
+                );
+              } else {
+                addRec(
+                  recsList,
+                  "Apply rate of <strong>" +
+                    fmtPct(overallApplyRate) +
+                    "</strong> is above the " +
+                    industry +
+                    " industry average of <strong>" +
+                    fmtPct(industryApplyRate) +
+                    "</strong>. Maintain current application flow and consider scaling volume.",
+                );
+              }
             }
 
             // Overall CPA vs benchmark
             if (overallCpa > 0 && overallCpa > benchmarkCpa * 1.3) {
-                addRec(recsList, 'Overall CPA of <strong>' + fmt(overallCpa) + '</strong> exceeds the ' + industry + ' benchmark of <strong>' + fmt(benchmarkCpa) + '</strong> by <strong>' + fmtPct(((overallCpa / benchmarkCpa) - 1) * 100) + '</strong>. Prioritize channels with Grade A/B ratings for future campaigns.');
+              addRec(
+                recsList,
+                "Overall CPA of <strong>" +
+                  fmt(overallCpa) +
+                  "</strong> exceeds the " +
+                  industry +
+                  " benchmark of <strong>" +
+                  fmt(benchmarkCpa) +
+                  "</strong> by <strong>" +
+                  fmtPct((overallCpa / benchmarkCpa - 1) * 100) +
+                  "</strong>. Prioritize channels with Grade A/B ratings for future campaigns.",
+              );
             }
 
             if (utilization < 85 && totalBudget > 0) {
-                addRec(recsList, 'Only <strong>' + fmtPct(utilization) + '</strong> of budget was utilized. For future campaigns, consider front-loading spend or adding additional channels to maximize reach within the campaign window.');
+              addRec(
+                recsList,
+                "Only <strong>" +
+                  fmtPct(utilization) +
+                  "</strong> of budget was utilized. For future campaigns, consider front-loading spend or adding additional channels to maximize reach within the campaign window.",
+              );
             }
 
             // Show results
-            document.getElementById('results').classList.add('visible');
-            document.getElementById('summaryCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
+            document.getElementById("results").classList.add("visible");
+            document
+              .getElementById("summaryCard")
+              .scrollIntoView({ behavior: "smooth", block: "start" });
+          });
 
         function addFinding(list, type, label, text) {
-            var li = document.createElement('li');
-            li.innerHTML = '<span class="finding-label finding-' + type + '">' + label + '</span> ' + text;
-            list.appendChild(li);
+          var li = document.createElement("li");
+          li.innerHTML =
+            '<span class="finding-label finding-' +
+            type +
+            '">' +
+            label +
+            "</span> " +
+            text;
+          list.appendChild(li);
         }
 
         function addRec(list, text) {
-            var li = document.createElement('li');
-            li.innerHTML = text;
-            list.appendChild(li);
+          var li = document.createElement("li");
+          li.innerHTML = text;
+          list.appendChild(li);
         }
 
         // ── Download Excel ──
-        document.getElementById('downloadExcelBtn').addEventListener('click', function() {
+        document
+          .getElementById("downloadExcelBtn")
+          .addEventListener("click", function () {
             var btn = this;
             btn.disabled = true;
-            btn.textContent = 'Generating...';
+            btn.textContent = "Generating...";
 
             var channelData = gatherChannelData();
-            var industry = document.getElementById('industry').value;
+            var industry = document.getElementById("industry").value;
             var benchmarkCpa = BENCHMARKS[industry] || 20;
 
             // Add grade to each channel
-            channelData.forEach(function(c) {
-                var g = getGrade(c.cpa, benchmarkCpa);
-                c.grade = g.grade;
+            channelData.forEach(function (c) {
+              var g = getGrade(c.cpa, benchmarkCpa);
+              c.grade = g.grade;
             });
 
             var payload = {
-                campaign_name: document.getElementById('campaignName').value.trim(),
-                client_name: document.getElementById('clientName').value.trim(),
-                start_date: document.getElementById('startDate').value,
-                end_date: document.getElementById('endDate').value,
-                total_budget: parseFloat(document.getElementById('totalBudget').value) || 0,
-                industry: industry,
-                benchmark_cpa: benchmarkCpa,
-                channels: channelData
+              campaign_name: document
+                .getElementById("campaignName")
+                .value.trim(),
+              client_name: document.getElementById("clientName").value.trim(),
+              start_date: document.getElementById("startDate").value,
+              end_date: document.getElementById("endDate").value,
+              total_budget:
+                parseFloat(document.getElementById("totalBudget").value) || 0,
+              industry: industry,
+              benchmark_cpa: benchmarkCpa,
+              channels: channelData,
             };
 
-            fetch('/api/post-campaign/download/excel', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+            fetch("/api/post-campaign/download/excel", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
             })
-            .then(function(resp) {
-                if (!resp.ok) throw new Error('Download failed');
+              .then(function (resp) {
+                if (!resp.ok) throw new Error("Download failed");
                 return resp.blob();
-            })
-            .then(function(blob) {
+              })
+              .then(function (blob) {
                 var url = URL.createObjectURL(blob);
-                var a = document.createElement('a');
+                var a = document.createElement("a");
                 a.href = url;
-                a.download = 'post_campaign_analysis.xlsx';
+                a.download = "post_campaign_analysis.xlsx";
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-            })
-            .catch(function(err) {
-                alert('Failed to download Excel file: ' + err.message);
-            })
-            .finally(function() {
+              })
+              .catch(function (err) {
+                alert("Failed to download Excel file: " + err.message);
+              })
+              .finally(function () {
                 btn.disabled = false;
-                btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download as Excel';
-            });
-        });
+                btn.innerHTML =
+                  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download as Excel';
+              });
+          });
 
         // ── Reset ──
-        document.getElementById('resetBtn').addEventListener('click', function() {
-            document.getElementById('campaignForm').reset();
+        document
+          .getElementById("resetBtn")
+          .addEventListener("click", function () {
+            document.getElementById("campaignForm").reset();
             selectedChannels = {};
-            document.querySelectorAll('.checkbox-item').forEach(function(item) {
-                item.classList.remove('checked');
-                item.querySelector('input').checked = false;
-            });
-            document.getElementById('channelDetails').innerHTML = '';
-            document.getElementById('results').classList.remove('visible');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
+            document
+              .querySelectorAll(".checkbox-item")
+              .forEach(function (item) {
+                item.classList.remove("checked");
+                item.querySelector("input").checked = false;
+              });
+            document.getElementById("channelDetails").innerHTML = "";
+            document.getElementById("results").classList.remove("visible");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          });
+      })();
 
-    })();
+      // Scroll reveal
+      (function () {
+        var ro = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) e.target.classList.add("visible");
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          ro.observe(el);
+        });
+      })();
     </script>
-</body>
+  </body>
 </html>

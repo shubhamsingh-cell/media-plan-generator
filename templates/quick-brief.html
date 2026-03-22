@@ -1,667 +1,826 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Quick Brief - Describe your hiring need in plain text and get a structured media plan brief auto-generated. Powered by Nova AI Suite.">
-    <meta name="theme-color" content="#000000">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Quick Brief - Describe your hiring need in plain text and get a structured media plan brief auto-generated. Powered by Nova AI Suite."
+    />
+    <meta name="theme-color" content="#000000" />
     <title>Quick Brief | Nova AI Suite</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-        :root {
-            --bg-primary: #000000;
-            --bg-card: #111111;
-            --bg-card-hover: #1a1a1a;
-            --surface: #1a1a1a;
-            --accent: #6366f1;
-            --accent-light: #818cf8;
-            --accent-glow: rgba(99, 102, 241, 0.12);
-            --accent-glow-strong: rgba(99, 102, 241, 0.25);
-            --text-primary: #ededed;
-            --text-secondary: #a1a1a1;
-            --text-muted: #666666;
-            --border: rgba(255, 255, 255, 0.08);
-            --border-hover: rgba(255, 255, 255, 0.14);
-            --green: #22c55e;
-            --green-bg: rgba(34, 197, 94, 0.10);
-            --yellow: #eab308;
-            --yellow-bg: rgba(234, 179, 8, 0.10);
-            --red: #ef4444;
-            --red-bg: rgba(239, 68, 68, 0.10);
-            --radius-sm: 8px;
-            --radius-md: 12px;
-            --radius-lg: 16px;
-            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
-            --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+      :root {
+        --bg-primary: #000000;
+        --bg-card: #111111;
+        --bg-card-hover: #1a1a1a;
+        --surface: #1a1a1a;
+        --accent: #6366f1;
+        --accent-light: #818cf8;
+        --accent-glow: rgba(99, 102, 241, 0.12);
+        --accent-glow-strong: rgba(99, 102, 241, 0.25);
+        --text-primary: #ededed;
+        --text-secondary: #a1a1a1;
+        --text-muted: #666666;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-hover: rgba(255, 255, 255, 0.14);
+        --green: #22c55e;
+        --green-bg: rgba(34, 197, 94, 0.1);
+        --yellow: #eab308;
+        --yellow-bg: rgba(234, 179, 8, 0.1);
+        --red: #ef4444;
+        --red-bg: rgba(239, 68, 68, 0.1);
+        --radius-sm: 8px;
+        --radius-md: 12px;
+        --radius-lg: 16px;
+        --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+        --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
         }
-
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                transition-duration: 0.01ms !important;
-            }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
         }
+      }
 
-        html {
-            font-size: 16px;
-            line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
+      html {
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ── NAV ── */
+      .qb-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 32px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+
+      .qb-nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        color: var(--text-primary);
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
+
+      .qb-nav-brand svg {
+        width: 28px;
+        height: 28px;
+      }
+
+      .qb-nav-links {
+        display: flex;
+        gap: 24px;
+        align-items: center;
+      }
+
+      .qb-nav-link {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: color var(--transition);
+      }
+
+      .qb-nav-link:hover {
+        color: var(--text-primary);
+      }
+
+      /* ── MAIN ── */
+      .qb-main {
+        flex: 1;
+        max-width: 880px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 48px 24px 64px;
+      }
+
+      .qb-header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      .qb-header h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        margin-bottom: 12px;
+      }
+
+      .qb-header h1 span {
+        background: linear-gradient(135deg, var(--accent), var(--accent-light));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .qb-header p {
+        font-size: 1rem;
+        color: var(--text-secondary);
+        max-width: 560px;
+        margin: 0 auto;
+      }
+
+      /* ── INPUT CARD ── */
+      .qb-input-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 32px;
+        margin-bottom: 32px;
+      }
+
+      .qb-input-card label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .qb-textarea {
+        width: 100%;
+        min-height: 140px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 16px;
+        font-family: "Inter", sans-serif;
+        font-size: 1rem;
+        color: var(--text-primary);
+        resize: vertical;
+        transition:
+          border-color var(--transition),
+          box-shadow var(--transition);
+        line-height: 1.6;
+      }
+
+      .qb-textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+      }
+
+      .qb-textarea::placeholder {
+        color: var(--text-muted);
+      }
+
+      .qb-examples {
+        margin-top: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .qb-example-chip {
+        background: var(--accent-glow);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 20px;
+        padding: 6px 14px;
+        font-size: 0.78rem;
+        color: var(--accent-light);
+        cursor: pointer;
+        transition: all var(--transition);
+        white-space: nowrap;
+      }
+
+      .qb-example-chip:hover {
+        background: var(--accent-glow-strong);
+        border-color: var(--accent);
+      }
+
+      .qb-generate-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 20px;
+        padding: 12px 28px;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-family: "Inter", sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all var(--transition);
+      }
+
+      .qb-generate-btn:hover {
+        background: var(--accent-light);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px var(--accent-glow-strong);
+      }
+
+      .qb-generate-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .qb-generate-btn svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      /* ── RESULTS ── */
+      .qb-results {
+        display: none;
+      }
+
+      .qb-results.visible {
+        display: block;
+        animation: fadeInUp 0.4s ease-out;
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(16px);
         }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
+      }
 
-        /* ── NAV ── */
+      .qb-results-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 32px;
+        margin-bottom: 24px;
+      }
+
+      .qb-results-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .qb-results-title svg {
+        width: 20px;
+        height: 20px;
+        color: var(--accent);
+      }
+
+      .qb-field-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .qb-field {
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 16px;
+        transition: border-color var(--transition);
+      }
+
+      .qb-field:hover {
+        border-color: var(--border-hover);
+      }
+
+      .qb-field-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+
+      .qb-field-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .qb-confidence {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 10px;
+      }
+
+      .qb-confidence.high {
+        color: var(--green);
+        background: var(--green-bg);
+      }
+
+      .qb-confidence.medium {
+        color: var(--yellow);
+        background: var(--yellow-bg);
+      }
+
+      .qb-confidence.low {
+        color: var(--red);
+        background: var(--red-bg);
+      }
+
+      .qb-confidence-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .qb-field-value {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        word-break: break-word;
+      }
+
+      .qb-field-value.accent {
+        color: var(--accent-light);
+      }
+
+      /* ── CHANNELS SECTION ── */
+      .qb-channels-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 32px;
+        margin-bottom: 24px;
+      }
+
+      .qb-channels-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 12px;
+      }
+
+      .qb-channel {
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .qb-channel-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        font-weight: 700;
+        flex-shrink: 0;
+        background: var(--accent-glow);
+        color: var(--accent-light);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+      }
+
+      .qb-channel-name {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .qb-channel-type {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      /* ── FULL PLAN BUTTON ── */
+      .qb-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .qb-full-plan-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 32px;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-family: "Inter", sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all var(--transition);
+      }
+
+      .qb-full-plan-btn:hover {
+        background: var(--accent-light);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px var(--accent-glow-strong);
+      }
+
+      .qb-full-plan-btn svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .qb-reset-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 14px 24px;
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: "Inter", sans-serif;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all var(--transition);
+      }
+
+      .qb-reset-btn:hover {
+        color: var(--text-primary);
+        border-color: var(--border-hover);
+        background: var(--bg-card);
+      }
+
+      /* ── FOOTER ── */
+      .qb-footer {
+        text-align: center;
+        padding: 32px 24px;
+        border-top: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: 0.8rem;
+      }
+
+      .qb-footer a {
+        color: var(--accent-light);
+        text-decoration: none;
+      }
+
+      .qb-footer a:hover {
+        text-decoration: underline;
+      }
+
+      /* ── RESPONSIVE ── */
+      @media (max-width: 640px) {
         .qb-nav {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 32px;
-            border-bottom: 1px solid var(--border);
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .qb-nav-brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-            color: var(--text-primary);
-            font-weight: 700;
-            font-size: 0.95rem;
-        }
-
-        .qb-nav-brand svg {
-            width: 28px;
-            height: 28px;
+          padding: 12px 16px;
         }
 
         .qb-nav-links {
-            display: flex;
-            gap: 24px;
-            align-items: center;
+          gap: 16px;
         }
 
-        .qb-nav-link {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.85rem;
-            font-weight: 500;
-            transition: color var(--transition);
-        }
-
-        .qb-nav-link:hover {
-            color: var(--text-primary);
-        }
-
-        /* ── MAIN ── */
         .qb-main {
-            flex: 1;
-            max-width: 880px;
-            width: 100%;
-            margin: 0 auto;
-            padding: 48px 24px 64px;
-        }
-
-        .qb-header {
-            text-align: center;
-            margin-bottom: 40px;
+          padding: 32px 16px 48px;
         }
 
         .qb-header h1 {
-            font-size: 2rem;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-            margin-bottom: 12px;
+          font-size: 1.5rem;
         }
 
-        .qb-header h1 span {
-            background: linear-gradient(135deg, var(--accent), var(--accent-light));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .qb-header p {
-            font-size: 1rem;
-            color: var(--text-secondary);
-            max-width: 560px;
-            margin: 0 auto;
-        }
-
-        /* ── INPUT CARD ── */
-        .qb-input-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            padding: 32px;
-            margin-bottom: 32px;
-        }
-
-        .qb-input-card label {
-            display: block;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .qb-textarea {
-            width: 100%;
-            min-height: 140px;
-            background: var(--bg-primary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 16px;
-            font-family: 'Inter', sans-serif;
-            font-size: 1rem;
-            color: var(--text-primary);
-            resize: vertical;
-            transition: border-color var(--transition), box-shadow var(--transition);
-            line-height: 1.6;
-        }
-
-        .qb-textarea:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-glow);
-        }
-
-        .qb-textarea::placeholder {
-            color: var(--text-muted);
-        }
-
-        .qb-examples {
-            margin-top: 16px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .qb-example-chip {
-            background: var(--accent-glow);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 20px;
-            padding: 6px 14px;
-            font-size: 0.78rem;
-            color: var(--accent-light);
-            cursor: pointer;
-            transition: all var(--transition);
-            white-space: nowrap;
-        }
-
-        .qb-example-chip:hover {
-            background: var(--accent-glow-strong);
-            border-color: var(--accent);
-        }
-
-        .qb-generate-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 20px;
-            padding: 12px 28px;
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            border-radius: var(--radius-sm);
-            font-family: 'Inter', sans-serif;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all var(--transition);
-        }
-
-        .qb-generate-btn:hover {
-            background: var(--accent-light);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 20px var(--accent-glow-strong);
-        }
-
-        .qb-generate-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .qb-generate-btn svg {
-            width: 18px;
-            height: 18px;
-        }
-
-        /* ── RESULTS ── */
-        .qb-results {
-            display: none;
-        }
-
-        .qb-results.visible {
-            display: block;
-            animation: fadeInUp 0.4s ease-out;
-        }
-
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(16px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .qb-results-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            padding: 32px;
-            margin-bottom: 24px;
-        }
-
-        .qb-results-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin-bottom: 24px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .qb-results-title svg {
-            width: 20px;
-            height: 20px;
-            color: var(--accent);
+        .qb-input-card,
+        .qb-results-card,
+        .qb-channels-card {
+          padding: 20px;
         }
 
         .qb-field-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-
-        .qb-field {
-            background: var(--bg-primary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 16px;
-            transition: border-color var(--transition);
-        }
-
-        .qb-field:hover {
-            border-color: var(--border-hover);
-        }
-
-        .qb-field-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 8px;
-        }
-
-        .qb-field-label {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-        }
-
-        .qb-confidence {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 10px;
-        }
-
-        .qb-confidence.high {
-            color: var(--green);
-            background: var(--green-bg);
-        }
-
-        .qb-confidence.medium {
-            color: var(--yellow);
-            background: var(--yellow-bg);
-        }
-
-        .qb-confidence.low {
-            color: var(--red);
-            background: var(--red-bg);
-        }
-
-        .qb-confidence-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: currentColor;
-        }
-
-        .qb-field-value {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            word-break: break-word;
-        }
-
-        .qb-field-value.accent {
-            color: var(--accent-light);
-        }
-
-        /* ── CHANNELS SECTION ── */
-        .qb-channels-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            padding: 32px;
-            margin-bottom: 24px;
+          grid-template-columns: 1fr;
         }
 
         .qb-channels-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 12px;
+          grid-template-columns: 1fr;
         }
 
-        .qb-channel {
-            background: var(--bg-primary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 14px 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        .qb-examples {
+          gap: 6px;
         }
 
-        .qb-channel-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.85rem;
-            font-weight: 700;
-            flex-shrink: 0;
-            background: var(--accent-glow);
-            color: var(--accent-light);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-        }
-
-        .qb-channel-name {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .qb-channel-type {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            margin-top: 2px;
-        }
-
-        /* ── FULL PLAN BUTTON ── */
         .qb-actions {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            flex-wrap: wrap;
+          flex-direction: column;
         }
 
-        .qb-full-plan-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 14px 32px;
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            border-radius: var(--radius-sm);
-            font-family: 'Inter', sans-serif;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            transition: all var(--transition);
-        }
-
-        .qb-full-plan-btn:hover {
-            background: var(--accent-light);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 20px var(--accent-glow-strong);
-        }
-
-        .qb-full-plan-btn svg {
-            width: 18px;
-            height: 18px;
-        }
-
+        .qb-full-plan-btn,
         .qb-reset-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 14px 24px;
-            background: transparent;
-            color: var(--text-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-family: 'Inter', sans-serif;
-            font-size: 0.85rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all var(--transition);
+          width: 100%;
+          justify-content: center;
         }
+      }
 
-        .qb-reset-btn:hover {
-            color: var(--text-primary);
-            border-color: var(--border-hover);
-            background: var(--bg-card);
-        }
+      /* -- Scroll reveal animations -- */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
 
-        /* ── FOOTER ── */
-        .qb-footer {
-            text-align: center;
-            padding: 32px 24px;
-            border-top: 1px solid var(--border);
-            color: var(--text-muted);
-            font-size: 0.8rem;
-        }
-
-        .qb-footer a {
-            color: var(--accent-light);
-            text-decoration: none;
-        }
-
-        .qb-footer a:hover {
-            text-decoration: underline;
-        }
-
-        /* ── RESPONSIVE ── */
-        @media (max-width: 640px) {
-            .qb-nav {
-                padding: 12px 16px;
-            }
-
-            .qb-nav-links {
-                gap: 16px;
-            }
-
-            .qb-main {
-                padding: 32px 16px 48px;
-            }
-
-            .qb-header h1 {
-                font-size: 1.5rem;
-            }
-
-            .qb-input-card, .qb-results-card, .qb-channels-card {
-                padding: 20px;
-            }
-
-            .qb-field-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .qb-channels-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .qb-examples {
-                gap: 6px;
-            }
-
-            .qb-actions {
-                flex-direction: column;
-            }
-
-            .qb-full-plan-btn, .qb-reset-btn {
-                width: 100%;
-                justify-content: center;
-            }
-        }
+      /* -- Enhanced card/section glow -- */
+      .glow-hover {
+        transition:
+          box-shadow 0.4s ease,
+          border-color 0.3s ease;
+      }
+      .glow-hover:hover {
+        box-shadow:
+          0 0 20px rgba(99, 102, 241, 0.12),
+          0 0 50px rgba(99, 102, 241, 0.06);
+        border-color: rgba(99, 102, 241, 0.2);
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <!-- NAV -->
     <nav class="qb-nav" role="navigation" aria-label="Main navigation">
-        <a href="/" class="qb-nav-brand" aria-label="Nova AI Suite Home">
-            <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#6366F1"/><text x="16" y="22" text-anchor="middle" fill="white" font-family="Inter,sans-serif" font-weight="800" font-size="18">N</text></svg>
-            Nova AI Suite
-        </a>
-        <div class="qb-nav-links">
-            <a href="/" class="qb-nav-link">Hub</a>
-            <a href="/media-plan" class="qb-nav-link">Media Plan</a>
-        </div>
+      <a href="/" class="qb-nav-brand" aria-label="Nova AI Suite Home">
+        <svg viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="6" fill="#6366F1" />
+          <text
+            x="16"
+            y="22"
+            text-anchor="middle"
+            fill="white"
+            font-family="Inter,sans-serif"
+            font-weight="800"
+            font-size="18"
+          >
+            N
+          </text>
+        </svg>
+        Nova AI Suite
+      </a>
+      <div class="qb-nav-links">
+        <a href="/" class="qb-nav-link">Hub</a>
+        <a href="/media-plan" class="qb-nav-link">Media Plan</a>
+      </div>
     </nav>
 
     <!-- MAIN -->
     <main class="qb-main">
-        <header class="qb-header">
-            <h1><span>Quick Brief</span></h1>
-            <p>Describe your hiring need in plain English. We will parse it into a structured media plan brief in seconds.</p>
-        </header>
+      <header class="qb-header">
+        <h1><span>Quick Brief</span></h1>
+        <p>
+          Describe your hiring need in plain English. We will parse it into a
+          structured media plan brief in seconds.
+        </p>
+      </header>
 
-        <!-- INPUT -->
-        <section class="qb-input-card">
-            <label for="qb-input">Your Hiring Need</label>
-            <textarea id="qb-input" class="qb-textarea" placeholder="Describe your hiring need... e.g., 'I need to hire 50 warehouse workers in Dallas within 30 days on a $10K budget'" aria-label="Describe your hiring need"></textarea>
+      <!-- INPUT -->
+      <section class="qb-input-card">
+        <label for="qb-input">Your Hiring Need</label>
+        <textarea
+          id="qb-input"
+          class="qb-textarea"
+          placeholder="Describe your hiring need... e.g., 'I need to hire 50 warehouse workers in Dallas within 30 days on a $10K budget'"
+          aria-label="Describe your hiring need"
+        ></textarea>
 
-            <div class="qb-examples" aria-label="Example prompts">
-                <span class="qb-example-chip" data-text="We need to hire 50 warehouse workers in Dallas, TX within 30 days. Budget is $10,000.">50 warehouse workers, Dallas</span>
-                <span class="qb-example-chip" data-text="Hiring 15 registered nurses for our Chicago hospital by next month. We have a $25K recruitment budget.">15 nurses, Chicago, $25K</span>
-                <span class="qb-example-chip" data-text="Need 200 CDL truck drivers nationwide ASAP. Budget around $80K for Q2.">200 CDL drivers, nationwide</span>
-                <span class="qb-example-chip" data-text="Looking to recruit 5 senior software engineers in San Francisco. Remote-friendly. Budget $30,000, timeline 60 days.">5 engineers, SF, remote</span>
-                <span class="qb-example-chip" data-text="Hiring 100 retail associates across New York, Los Angeles, and Miami for holiday season. $40K budget, need them within 6 weeks.">100 retail, multi-city</span>
-            </div>
+        <div class="qb-examples" aria-label="Example prompts">
+          <span
+            class="qb-example-chip"
+            data-text="We need to hire 50 warehouse workers in Dallas, TX within 30 days. Budget is $10,000."
+            >50 warehouse workers, Dallas</span
+          >
+          <span
+            class="qb-example-chip"
+            data-text="Hiring 15 registered nurses for our Chicago hospital by next month. We have a $25K recruitment budget."
+            >15 nurses, Chicago, $25K</span
+          >
+          <span
+            class="qb-example-chip"
+            data-text="Need 200 CDL truck drivers nationwide ASAP. Budget around $80K for Q2."
+            >200 CDL drivers, nationwide</span
+          >
+          <span
+            class="qb-example-chip"
+            data-text="Looking to recruit 5 senior software engineers in San Francisco. Remote-friendly. Budget $30,000, timeline 60 days."
+            >5 engineers, SF, remote</span
+          >
+          <span
+            class="qb-example-chip"
+            data-text="Hiring 100 retail associates across New York, Los Angeles, and Miami for holiday season. $40K budget, need them within 6 weeks."
+            >100 retail, multi-city</span
+          >
+        </div>
 
-            <button id="qb-generate" class="qb-generate-btn" disabled>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                Generate Brief
-            </button>
-        </section>
+        <button id="qb-generate" class="qb-generate-btn" disabled>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+          Generate Brief
+        </button>
+      </section>
 
-        <!-- RESULTS -->
-        <section id="qb-results" class="qb-results" aria-live="polite">
-            <div class="qb-results-card">
-                <div class="qb-results-title">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                    Parsed Brief
-                </div>
-                <div class="qb-field-grid" id="qb-field-grid">
-                    <!-- Filled by JS -->
-                </div>
-            </div>
+      <!-- RESULTS -->
+      <section id="qb-results" class="qb-results" aria-live="polite">
+        <div class="qb-results-card">
+          <div class="qb-results-title">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <polyline points="10 9 9 9 8 9" />
+            </svg>
+            Parsed Brief
+          </div>
+          <div class="qb-field-grid" id="qb-field-grid">
+            <!-- Filled by JS -->
+          </div>
+        </div>
 
-            <div class="qb-channels-card">
-                <div class="qb-results-title">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                    Suggested Channels
-                </div>
-                <div class="qb-channels-grid" id="qb-channels-grid">
-                    <!-- Filled by JS -->
-                </div>
-            </div>
+        <div class="qb-channels-card">
+          <div class="qb-results-title">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
+            </svg>
+            Suggested Channels
+          </div>
+          <div class="qb-channels-grid" id="qb-channels-grid">
+            <!-- Filled by JS -->
+          </div>
+        </div>
 
-            <div class="qb-actions">
-                <a id="qb-full-plan-link" href="/media-plan" class="qb-full-plan-btn">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-                    Generate Full Plan
-                </a>
-                <button id="qb-reset" class="qb-reset-btn">Start Over</button>
-            </div>
-        </section>
+        <div class="qb-actions">
+          <a id="qb-full-plan-link" href="/media-plan" class="qb-full-plan-btn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M5 12h14" />
+              <path d="M12 5l7 7-7 7" />
+            </svg>
+            Generate Full Plan
+          </a>
+          <button id="qb-reset" class="qb-reset-btn">Start Over</button>
+        </div>
+      </section>
     </main>
 
     <!-- FOOTER -->
     <footer class="qb-footer" role="contentinfo">
-        <p>Nova AI Suite &mdash; Built by <a href="https://www.linkedin.com/in/chandel13/" target="_blank" rel="noopener">Shubham Singh Chandel</a></p>
+      <p>
+        Nova AI Suite &mdash; Built by
+        <a
+          href="https://www.linkedin.com/in/chandel13/"
+          target="_blank"
+          rel="noopener"
+          >Shubham Singh Chandel</a
+        >
+      </p>
     </footer>
 
     <script>
-    (function() {
-        'use strict';
+      (function () {
+        "use strict";
 
         /* ── DOM REFS ── */
-        var textarea = document.getElementById('qb-input');
-        var generateBtn = document.getElementById('qb-generate');
-        var resultsSection = document.getElementById('qb-results');
-        var fieldGrid = document.getElementById('qb-field-grid');
-        var channelsGrid = document.getElementById('qb-channels-grid');
-        var fullPlanLink = document.getElementById('qb-full-plan-link');
-        var resetBtn = document.getElementById('qb-reset');
-        var exampleChips = document.querySelectorAll('.qb-example-chip');
+        var textarea = document.getElementById("qb-input");
+        var generateBtn = document.getElementById("qb-generate");
+        var resultsSection = document.getElementById("qb-results");
+        var fieldGrid = document.getElementById("qb-field-grid");
+        var channelsGrid = document.getElementById("qb-channels-grid");
+        var fullPlanLink = document.getElementById("qb-full-plan-link");
+        var resetBtn = document.getElementById("qb-reset");
+        var exampleChips = document.querySelectorAll(".qb-example-chip");
 
         /* ── ENABLE/DISABLE BUTTON ── */
-        textarea.addEventListener('input', function() {
-            generateBtn.disabled = textarea.value.trim().length < 10;
+        textarea.addEventListener("input", function () {
+          generateBtn.disabled = textarea.value.trim().length < 10;
         });
 
         /* ── EXAMPLE CHIPS ── */
-        exampleChips.forEach(function(chip) {
-            chip.addEventListener('click', function() {
-                textarea.value = chip.getAttribute('data-text');
-                textarea.dispatchEvent(new Event('input'));
-                textarea.focus();
-            });
+        exampleChips.forEach(function (chip) {
+          chip.addEventListener("click", function () {
+            textarea.value = chip.getAttribute("data-text");
+            textarea.dispatchEvent(new Event("input"));
+            textarea.focus();
+          });
         });
 
         /* ── GENERATE BUTTON ── */
-        generateBtn.addEventListener('click', function() {
-            var text = textarea.value.trim();
-            if (text.length < 10) return;
-            var brief = parseBrief(text);
-            renderResults(brief);
+        generateBtn.addEventListener("click", function () {
+          var text = textarea.value.trim();
+          if (text.length < 10) return;
+          var brief = parseBrief(text);
+          renderResults(brief);
         });
 
         /* ── RESET ── */
-        resetBtn.addEventListener('click', function() {
-            textarea.value = '';
-            generateBtn.disabled = true;
-            resultsSection.classList.remove('visible');
-            fieldGrid.innerHTML = '';
-            channelsGrid.innerHTML = '';
+        resetBtn.addEventListener("click", function () {
+          textarea.value = "";
+          generateBtn.disabled = true;
+          resultsSection.classList.remove("visible");
+          fieldGrid.innerHTML = "";
+          channelsGrid.innerHTML = "";
         });
 
         /* ── KEYBOARD SHORTCUT ── */
-        textarea.addEventListener('keydown', function(e) {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                e.preventDefault();
-                if (!generateBtn.disabled) generateBtn.click();
-            }
+        textarea.addEventListener("keydown", function (e) {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+            e.preventDefault();
+            if (!generateBtn.disabled) generateBtn.click();
+          }
         });
 
         /* ================================================================
@@ -670,469 +829,856 @@
 
         /* -- BUDGET -- */
         function extractBudget(text) {
-            var t = text.toLowerCase();
-            // Match $XX,XXX or $XXK patterns
-            var m = text.match(/\$\s*([\d,]+(?:\.\d+)?)\s*(k|K|m|M)?/);
-            if (m) {
-                var num = parseFloat(m[1].replace(/,/g, ''));
-                var mult = (m[2] || '').toLowerCase();
-                if (mult === 'k') num *= 1000;
-                if (mult === 'm') num *= 1000000;
-                return { value: '$' + num.toLocaleString(), confidence: 'high', raw: num };
-            }
-            // "budget of 10000" or "10k budget"
-            var m2 = t.match(/([\d,]+(?:\.\d+)?)\s*(k|m)?\s*(?:budget|dollar|usd)/);
-            if (!m2) m2 = t.match(/budget\s*(?:of|is|:)?\s*\$?([\d,]+(?:\.\d+)?)\s*(k|m)?/);
-            if (m2) {
-                var num2 = parseFloat(m2[1].replace(/,/g, ''));
-                var mult2 = (m2[2] || '').toLowerCase();
-                if (mult2 === 'k') num2 *= 1000;
-                if (mult2 === 'm') num2 *= 1000000;
-                return { value: '$' + num2.toLocaleString(), confidence: 'high', raw: num2 };
-            }
-            return { value: 'Not specified', confidence: 'low', raw: 0 };
+          var t = text.toLowerCase();
+          // Match $XX,XXX or $XXK patterns
+          var m = text.match(/\$\s*([\d,]+(?:\.\d+)?)\s*(k|K|m|M)?/);
+          if (m) {
+            var num = parseFloat(m[1].replace(/,/g, ""));
+            var mult = (m[2] || "").toLowerCase();
+            if (mult === "k") num *= 1000;
+            if (mult === "m") num *= 1000000;
+            return {
+              value: "$" + num.toLocaleString(),
+              confidence: "high",
+              raw: num,
+            };
+          }
+          // "budget of 10000" or "10k budget"
+          var m2 = t.match(
+            /([\d,]+(?:\.\d+)?)\s*(k|m)?\s*(?:budget|dollar|usd)/,
+          );
+          if (!m2)
+            m2 = t.match(
+              /budget\s*(?:of|is|:)?\s*\$?([\d,]+(?:\.\d+)?)\s*(k|m)?/,
+            );
+          if (m2) {
+            var num2 = parseFloat(m2[1].replace(/,/g, ""));
+            var mult2 = (m2[2] || "").toLowerCase();
+            if (mult2 === "k") num2 *= 1000;
+            if (mult2 === "m") num2 *= 1000000;
+            return {
+              value: "$" + num2.toLocaleString(),
+              confidence: "high",
+              raw: num2,
+            };
+          }
+          return { value: "Not specified", confidence: "low", raw: 0 };
         }
 
         /* -- ROLES -- */
         var ROLE_KEYWORDS = [
-            'software engineer', 'software developer', 'frontend engineer', 'backend engineer', 'full stack',
-            'data scientist', 'data analyst', 'data engineer', 'machine learning', 'ml engineer', 'ai engineer',
-            'product manager', 'project manager', 'program manager', 'scrum master',
-            'registered nurse', 'nurse', 'rn', 'lpn', 'cna', 'physician', 'doctor', 'pharmacist', 'therapist',
-            'warehouse worker', 'warehouse associate', 'forklift operator', 'picker', 'packer',
-            'truck driver', 'cdl driver', 'delivery driver', 'driver', 'courier',
-            'retail associate', 'retail worker', 'cashier', 'store manager', 'store associate',
-            'customer service', 'call center', 'support representative', 'support agent',
-            'accountant', 'financial analyst', 'bookkeeper', 'controller',
-            'marketing manager', 'digital marketer', 'content writer', 'copywriter', 'seo specialist',
-            'sales representative', 'account executive', 'sales manager', 'business development',
-            'electrician', 'plumber', 'hvac technician', 'carpenter', 'welder', 'mechanic',
-            'teacher', 'instructor', 'professor', 'tutor',
-            'security guard', 'security officer',
-            'restaurant worker', 'cook', 'chef', 'server', 'bartender', 'barista',
-            'cleaner', 'janitor', 'housekeeper', 'maintenance worker',
-            'recruiter', 'hr manager', 'hr coordinator', 'talent acquisition',
-            'designer', 'graphic designer', 'ux designer', 'ui designer', 'web designer',
-            'devops engineer', 'site reliability', 'sre', 'cloud engineer', 'systems administrator',
-            'qa engineer', 'test engineer', 'quality assurance',
-            'construction worker', 'laborer', 'heavy equipment operator',
-            'medical assistant', 'dental hygienist', 'physical therapist',
-            'engineer', 'developer', 'analyst', 'manager', 'associate', 'specialist', 'coordinator', 'technician', 'worker', 'operator'
+          "software engineer",
+          "software developer",
+          "frontend engineer",
+          "backend engineer",
+          "full stack",
+          "data scientist",
+          "data analyst",
+          "data engineer",
+          "machine learning",
+          "ml engineer",
+          "ai engineer",
+          "product manager",
+          "project manager",
+          "program manager",
+          "scrum master",
+          "registered nurse",
+          "nurse",
+          "rn",
+          "lpn",
+          "cna",
+          "physician",
+          "doctor",
+          "pharmacist",
+          "therapist",
+          "warehouse worker",
+          "warehouse associate",
+          "forklift operator",
+          "picker",
+          "packer",
+          "truck driver",
+          "cdl driver",
+          "delivery driver",
+          "driver",
+          "courier",
+          "retail associate",
+          "retail worker",
+          "cashier",
+          "store manager",
+          "store associate",
+          "customer service",
+          "call center",
+          "support representative",
+          "support agent",
+          "accountant",
+          "financial analyst",
+          "bookkeeper",
+          "controller",
+          "marketing manager",
+          "digital marketer",
+          "content writer",
+          "copywriter",
+          "seo specialist",
+          "sales representative",
+          "account executive",
+          "sales manager",
+          "business development",
+          "electrician",
+          "plumber",
+          "hvac technician",
+          "carpenter",
+          "welder",
+          "mechanic",
+          "teacher",
+          "instructor",
+          "professor",
+          "tutor",
+          "security guard",
+          "security officer",
+          "restaurant worker",
+          "cook",
+          "chef",
+          "server",
+          "bartender",
+          "barista",
+          "cleaner",
+          "janitor",
+          "housekeeper",
+          "maintenance worker",
+          "recruiter",
+          "hr manager",
+          "hr coordinator",
+          "talent acquisition",
+          "designer",
+          "graphic designer",
+          "ux designer",
+          "ui designer",
+          "web designer",
+          "devops engineer",
+          "site reliability",
+          "sre",
+          "cloud engineer",
+          "systems administrator",
+          "qa engineer",
+          "test engineer",
+          "quality assurance",
+          "construction worker",
+          "laborer",
+          "heavy equipment operator",
+          "medical assistant",
+          "dental hygienist",
+          "physical therapist",
+          "engineer",
+          "developer",
+          "analyst",
+          "manager",
+          "associate",
+          "specialist",
+          "coordinator",
+          "technician",
+          "worker",
+          "operator",
         ];
 
         function extractRoles(text) {
-            var t = text.toLowerCase();
-            var found = [];
-            // Sort by length descending so longer matches take priority
-            var sorted = ROLE_KEYWORDS.slice().sort(function(a, b) { return b.length - a.length; });
-            var consumed = '';
-            sorted.forEach(function(role) {
-                if (t.indexOf(role) !== -1 && consumed.indexOf(role) === -1) {
-                    // Check it's not a substring of an already-found role
-                    var isSubstr = found.some(function(f) { return f.toLowerCase().indexOf(role) !== -1; });
-                    if (!isSubstr) {
-                        found.push(role.split(' ').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' '));
-                        consumed += ' ' + role;
-                    }
-                }
-            });
-            if (found.length === 0) {
-                // Fallback: look for words after "hire" or "recruit" or "need"
-                var m = t.match(/(?:hire|recruit|hiring|need|looking for)\s+(?:\d+\s+)?(.+?)(?:\s+in\s|\s+for\s|\s+within|\s+across|\s+by\s|\.|\,|$)/);
-                if (m) {
-                    found.push(m[1].trim().split(' ').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' '));
-                }
+          var t = text.toLowerCase();
+          var found = [];
+          // Sort by length descending so longer matches take priority
+          var sorted = ROLE_KEYWORDS.slice().sort(function (a, b) {
+            return b.length - a.length;
+          });
+          var consumed = "";
+          sorted.forEach(function (role) {
+            if (t.indexOf(role) !== -1 && consumed.indexOf(role) === -1) {
+              // Check it's not a substring of an already-found role
+              var isSubstr = found.some(function (f) {
+                return f.toLowerCase().indexOf(role) !== -1;
+              });
+              if (!isSubstr) {
+                found.push(
+                  role
+                    .split(" ")
+                    .map(function (w) {
+                      return w.charAt(0).toUpperCase() + w.slice(1);
+                    })
+                    .join(" "),
+                );
+                consumed += " " + role;
+              }
             }
-            return {
-                value: found.length > 0 ? found.join(', ') : 'Not identified',
-                confidence: found.length > 0 ? 'high' : 'low',
-                raw: found
-            };
+          });
+          if (found.length === 0) {
+            // Fallback: look for words after "hire" or "recruit" or "need"
+            var m = t.match(
+              /(?:hire|recruit|hiring|need|looking for)\s+(?:\d+\s+)?(.+?)(?:\s+in\s|\s+for\s|\s+within|\s+across|\s+by\s|\.|\,|$)/,
+            );
+            if (m) {
+              found.push(
+                m[1]
+                  .trim()
+                  .split(" ")
+                  .map(function (w) {
+                    return w.charAt(0).toUpperCase() + w.slice(1);
+                  })
+                  .join(" "),
+              );
+            }
+          }
+          return {
+            value: found.length > 0 ? found.join(", ") : "Not identified",
+            confidence: found.length > 0 ? "high" : "low",
+            raw: found,
+          };
         }
 
         /* -- LOCATIONS -- */
         var US_CITIES = [
-            'new york', 'los angeles', 'chicago', 'houston', 'phoenix', 'philadelphia', 'san antonio',
-            'san diego', 'dallas', 'san jose', 'austin', 'jacksonville', 'fort worth', 'columbus',
-            'charlotte', 'indianapolis', 'san francisco', 'seattle', 'denver', 'washington', 'nashville',
-            'oklahoma city', 'el paso', 'boston', 'portland', 'las vegas', 'memphis', 'louisville',
-            'baltimore', 'milwaukee', 'albuquerque', 'tucson', 'fresno', 'sacramento', 'mesa',
-            'kansas city', 'atlanta', 'omaha', 'colorado springs', 'raleigh', 'long beach', 'virginia beach',
-            'miami', 'oakland', 'minneapolis', 'tulsa', 'tampa', 'arlington', 'new orleans',
-            'cleveland', 'detroit', 'pittsburgh', 'orlando', 'st. louis', 'st louis',
-            'cincinnati', 'riverside', 'irvine', 'anaheim', 'santa ana', 'plano', 'henderson',
-            'stockton', 'newark', 'greensboro', 'jersey city', 'anchorage', 'honolulu', 'boise',
-            'salt lake city', 'birmingham', 'buffalo', 'richmond', 'rochester', 'des moines',
-            'madison', 'hartford', 'providence', 'charleston', 'savannah', 'columbia', 'lexington',
-            'knoxville', 'tallahassee', 'springfield', 'little rock', 'jackson', 'baton rouge'
+          "new york",
+          "los angeles",
+          "chicago",
+          "houston",
+          "phoenix",
+          "philadelphia",
+          "san antonio",
+          "san diego",
+          "dallas",
+          "san jose",
+          "austin",
+          "jacksonville",
+          "fort worth",
+          "columbus",
+          "charlotte",
+          "indianapolis",
+          "san francisco",
+          "seattle",
+          "denver",
+          "washington",
+          "nashville",
+          "oklahoma city",
+          "el paso",
+          "boston",
+          "portland",
+          "las vegas",
+          "memphis",
+          "louisville",
+          "baltimore",
+          "milwaukee",
+          "albuquerque",
+          "tucson",
+          "fresno",
+          "sacramento",
+          "mesa",
+          "kansas city",
+          "atlanta",
+          "omaha",
+          "colorado springs",
+          "raleigh",
+          "long beach",
+          "virginia beach",
+          "miami",
+          "oakland",
+          "minneapolis",
+          "tulsa",
+          "tampa",
+          "arlington",
+          "new orleans",
+          "cleveland",
+          "detroit",
+          "pittsburgh",
+          "orlando",
+          "st. louis",
+          "st louis",
+          "cincinnati",
+          "riverside",
+          "irvine",
+          "anaheim",
+          "santa ana",
+          "plano",
+          "henderson",
+          "stockton",
+          "newark",
+          "greensboro",
+          "jersey city",
+          "anchorage",
+          "honolulu",
+          "boise",
+          "salt lake city",
+          "birmingham",
+          "buffalo",
+          "richmond",
+          "rochester",
+          "des moines",
+          "madison",
+          "hartford",
+          "providence",
+          "charleston",
+          "savannah",
+          "columbia",
+          "lexington",
+          "knoxville",
+          "tallahassee",
+          "springfield",
+          "little rock",
+          "jackson",
+          "baton rouge",
         ];
 
         var US_STATES = [
-            'alabama', 'alaska', 'arizona', 'arkansas', 'california', 'colorado', 'connecticut',
-            'delaware', 'florida', 'georgia', 'hawaii', 'idaho', 'illinois', 'indiana', 'iowa',
-            'kansas', 'kentucky', 'louisiana', 'maine', 'maryland', 'massachusetts', 'michigan',
-            'minnesota', 'mississippi', 'missouri', 'montana', 'nebraska', 'nevada', 'new hampshire',
-            'new jersey', 'new mexico', 'new york', 'north carolina', 'north dakota', 'ohio',
-            'oklahoma', 'oregon', 'pennsylvania', 'rhode island', 'south carolina', 'south dakota',
-            'tennessee', 'texas', 'utah', 'vermont', 'virginia', 'washington', 'west virginia',
-            'wisconsin', 'wyoming'
+          "alabama",
+          "alaska",
+          "arizona",
+          "arkansas",
+          "california",
+          "colorado",
+          "connecticut",
+          "delaware",
+          "florida",
+          "georgia",
+          "hawaii",
+          "idaho",
+          "illinois",
+          "indiana",
+          "iowa",
+          "kansas",
+          "kentucky",
+          "louisiana",
+          "maine",
+          "maryland",
+          "massachusetts",
+          "michigan",
+          "minnesota",
+          "mississippi",
+          "missouri",
+          "montana",
+          "nebraska",
+          "nevada",
+          "new hampshire",
+          "new jersey",
+          "new mexico",
+          "new york",
+          "north carolina",
+          "north dakota",
+          "ohio",
+          "oklahoma",
+          "oregon",
+          "pennsylvania",
+          "rhode island",
+          "south carolina",
+          "south dakota",
+          "tennessee",
+          "texas",
+          "utah",
+          "vermont",
+          "virginia",
+          "washington",
+          "west virginia",
+          "wisconsin",
+          "wyoming",
         ];
 
         var STATE_ABBR = [
-            'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
-            'KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
-            'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT',
-            'VA','WA','WV','WI','WY','DC'
+          "AL",
+          "AK",
+          "AZ",
+          "AR",
+          "CA",
+          "CO",
+          "CT",
+          "DE",
+          "FL",
+          "GA",
+          "HI",
+          "ID",
+          "IL",
+          "IN",
+          "IA",
+          "KS",
+          "KY",
+          "LA",
+          "ME",
+          "MD",
+          "MA",
+          "MI",
+          "MN",
+          "MS",
+          "MO",
+          "MT",
+          "NE",
+          "NV",
+          "NH",
+          "NJ",
+          "NM",
+          "NY",
+          "NC",
+          "ND",
+          "OH",
+          "OK",
+          "OR",
+          "PA",
+          "RI",
+          "SC",
+          "SD",
+          "TN",
+          "TX",
+          "UT",
+          "VT",
+          "VA",
+          "WA",
+          "WV",
+          "WI",
+          "WY",
+          "DC",
         ];
 
         function extractLocations(text) {
-            var t = text.toLowerCase();
-            var found = [];
+          var t = text.toLowerCase();
+          var found = [];
 
-            // Check for "remote" or "nationwide"
-            if (/\bremote\b/.test(t)) found.push('Remote');
-            if (/\bnationwide\b/.test(t) || /\bnational\b/.test(t) || /\bacross the (us|country|nation)\b/.test(t)) found.push('Nationwide');
+          // Check for "remote" or "nationwide"
+          if (/\bremote\b/.test(t)) found.push("Remote");
+          if (
+            /\bnationwide\b/.test(t) ||
+            /\bnational\b/.test(t) ||
+            /\bacross the (us|country|nation)\b/.test(t)
+          )
+            found.push("Nationwide");
 
-            // Check state abbreviations (e.g., "TX", "CA") -- must be uppercase in original
-            STATE_ABBR.forEach(function(abbr) {
-                var re = new RegExp('\\b' + abbr + '\\b');
-                if (re.test(text)) {
-                    if (found.indexOf(abbr) === -1) found.push(abbr);
-                }
-            });
+          // Check state abbreviations (e.g., "TX", "CA") -- must be uppercase in original
+          STATE_ABBR.forEach(function (abbr) {
+            var re = new RegExp("\\b" + abbr + "\\b");
+            if (re.test(text)) {
+              if (found.indexOf(abbr) === -1) found.push(abbr);
+            }
+          });
 
-            // Check city names
-            US_CITIES.sort(function(a, b) { return b.length - a.length; });
-            US_CITIES.forEach(function(city) {
-                if (t.indexOf(city) !== -1) {
-                    var cap = city.split(' ').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
-                    // Avoid duplicates (e.g., "New York" state abbr already added)
-                    var alreadyHave = found.some(function(f) { return f.toLowerCase() === city; });
-                    if (!alreadyHave) found.push(cap);
-                }
-            });
+          // Check city names
+          US_CITIES.sort(function (a, b) {
+            return b.length - a.length;
+          });
+          US_CITIES.forEach(function (city) {
+            if (t.indexOf(city) !== -1) {
+              var cap = city
+                .split(" ")
+                .map(function (w) {
+                  return w.charAt(0).toUpperCase() + w.slice(1);
+                })
+                .join(" ");
+              // Avoid duplicates (e.g., "New York" state abbr already added)
+              var alreadyHave = found.some(function (f) {
+                return f.toLowerCase() === city;
+              });
+              if (!alreadyHave) found.push(cap);
+            }
+          });
 
-            // Check state names
-            US_STATES.forEach(function(state) {
-                if (t.indexOf(state) !== -1) {
-                    var cap = state.split(' ').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
-                    var alreadyHave = found.some(function(f) { return f.toLowerCase() === state; });
-                    if (!alreadyHave) found.push(cap);
-                }
-            });
+          // Check state names
+          US_STATES.forEach(function (state) {
+            if (t.indexOf(state) !== -1) {
+              var cap = state
+                .split(" ")
+                .map(function (w) {
+                  return w.charAt(0).toUpperCase() + w.slice(1);
+                })
+                .join(" ");
+              var alreadyHave = found.some(function (f) {
+                return f.toLowerCase() === state;
+              });
+              if (!alreadyHave) found.push(cap);
+            }
+          });
 
-            return {
-                value: found.length > 0 ? found.join(', ') : 'Not specified',
-                confidence: found.length > 0 ? 'high' : 'low',
-                raw: found
-            };
+          return {
+            value: found.length > 0 ? found.join(", ") : "Not specified",
+            confidence: found.length > 0 ? "high" : "low",
+            raw: found,
+          };
         }
 
         /* -- TIMELINE -- */
         function extractTimeline(text) {
-            var t = text.toLowerCase();
+          var t = text.toLowerCase();
 
-            // "within X days/weeks/months"
-            var m = t.match(/within\s+(\d+)\s+(day|week|month|year)s?/);
-            if (m) return { value: 'Within ' + m[1] + ' ' + m[2] + (parseInt(m[1]) > 1 ? 's' : ''), confidence: 'high', raw: m[0] };
+          // "within X days/weeks/months"
+          var m = t.match(/within\s+(\d+)\s+(day|week|month|year)s?/);
+          if (m)
+            return {
+              value:
+                "Within " + m[1] + " " + m[2] + (parseInt(m[1]) > 1 ? "s" : ""),
+              confidence: "high",
+              raw: m[0],
+            };
 
-            // "by next month/week"
-            var m2 = t.match(/by\s+(next\s+)?(month|week|quarter|year)/);
-            if (m2) return { value: 'By ' + (m2[1] || '') + m2[2], confidence: 'high', raw: m2[0] };
+          // "by next month/week"
+          var m2 = t.match(/by\s+(next\s+)?(month|week|quarter|year)/);
+          if (m2)
+            return {
+              value: "By " + (m2[1] || "") + m2[2],
+              confidence: "high",
+              raw: m2[0],
+            };
 
-            // "by [date]"
-            var m3 = t.match(/by\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s*\d{0,2},?\s*\d{0,4}/i);
-            if (m3) return { value: 'By ' + m3[0].replace(/^by\s+/i, ''), confidence: 'high', raw: m3[0] };
+          // "by [date]"
+          var m3 = t.match(
+            /by\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s*\d{0,2},?\s*\d{0,4}/i,
+          );
+          if (m3)
+            return {
+              value: "By " + m3[0].replace(/^by\s+/i, ""),
+              confidence: "high",
+              raw: m3[0],
+            };
 
-            // "in X days/weeks/months"
-            var m4 = t.match(/in\s+(\d+)\s+(day|week|month|year)s?/);
-            if (m4) return { value: 'In ' + m4[1] + ' ' + m4[2] + (parseInt(m4[1]) > 1 ? 's' : ''), confidence: 'high', raw: m4[0] };
+          // "in X days/weeks/months"
+          var m4 = t.match(/in\s+(\d+)\s+(day|week|month|year)s?/);
+          if (m4)
+            return {
+              value:
+                "In " + m4[1] + " " + m4[2] + (parseInt(m4[1]) > 1 ? "s" : ""),
+              confidence: "high",
+              raw: m4[0],
+            };
 
-            // "Q1/Q2/Q3/Q4"
-            var m5 = t.match(/\b(q[1-4])\b/i);
-            if (m5) return { value: m5[1].toUpperCase(), confidence: 'medium', raw: m5[0] };
+          // "Q1/Q2/Q3/Q4"
+          var m5 = t.match(/\b(q[1-4])\b/i);
+          if (m5)
+            return {
+              value: m5[1].toUpperCase(),
+              confidence: "medium",
+              raw: m5[0],
+            };
 
-            // ASAP / urgent / immediately
-            if (/\basap\b/.test(t) || /\burgent\b/.test(t) || /\bimmediately\b/.test(t)) {
-                return { value: 'ASAP', confidence: 'high', raw: 'asap' };
-            }
+          // ASAP / urgent / immediately
+          if (
+            /\basap\b/.test(t) ||
+            /\burgent\b/.test(t) ||
+            /\bimmediately\b/.test(t)
+          ) {
+            return { value: "ASAP", confidence: "high", raw: "asap" };
+          }
 
-            // "X days/weeks" without "within/in"
-            var m6 = t.match(/(\d+)\s*(day|week|month)s?\s*(timeline|timeframe|deadline|turnaround)?/);
-            if (m6) return { value: m6[1] + ' ' + m6[2] + (parseInt(m6[1]) > 1 ? 's' : ''), confidence: 'medium', raw: m6[0] };
+          // "X days/weeks" without "within/in"
+          var m6 = t.match(
+            /(\d+)\s*(day|week|month)s?\s*(timeline|timeframe|deadline|turnaround)?/,
+          );
+          if (m6)
+            return {
+              value: m6[1] + " " + m6[2] + (parseInt(m6[1]) > 1 ? "s" : ""),
+              confidence: "medium",
+              raw: m6[0],
+            };
 
-            // "holiday season" / "summer"
-            if (/\bholiday\s*season\b/.test(t)) return { value: 'Holiday season', confidence: 'medium', raw: 'holiday season' };
-            if (/\bsummer\b/.test(t)) return { value: 'Summer', confidence: 'medium', raw: 'summer' };
+          // "holiday season" / "summer"
+          if (/\bholiday\s*season\b/.test(t))
+            return {
+              value: "Holiday season",
+              confidence: "medium",
+              raw: "holiday season",
+            };
+          if (/\bsummer\b/.test(t))
+            return { value: "Summer", confidence: "medium", raw: "summer" };
 
-            return { value: 'Not specified', confidence: 'low', raw: '' };
+          return { value: "Not specified", confidence: "low", raw: "" };
         }
 
         /* -- VOLUME -- */
         function extractVolume(text) {
-            var t = text.toLowerCase();
+          var t = text.toLowerCase();
 
-            // "hire/recruit/need XX [role words]"
-            var m = t.match(/(?:hire|recruit|hiring|need|looking for|fill)\s+(\d+)/);
-            if (m) return { value: parseInt(m[1]).toLocaleString(), confidence: 'high', raw: parseInt(m[1]) };
+          // "hire/recruit/need XX [role words]"
+          var m = t.match(
+            /(?:hire|recruit|hiring|need|looking for|fill)\s+(\d+)/,
+          );
+          if (m)
+            return {
+              value: parseInt(m[1]).toLocaleString(),
+              confidence: "high",
+              raw: parseInt(m[1]),
+            };
 
-            // "XX [role words]" -- number directly before a role-like word
-            var m2 = t.match(/(\d+)\s+(?:people|workers|employees|staff|positions|roles|openings|hires|candidates|engineers|developers|nurses|drivers|associates|specialists|analysts|managers|technicians|operators|reps)/);
-            if (m2) return { value: parseInt(m2[1]).toLocaleString(), confidence: 'high', raw: parseInt(m2[1]) };
+          // "XX [role words]" -- number directly before a role-like word
+          var m2 = t.match(
+            /(\d+)\s+(?:people|workers|employees|staff|positions|roles|openings|hires|candidates|engineers|developers|nurses|drivers|associates|specialists|analysts|managers|technicians|operators|reps)/,
+          );
+          if (m2)
+            return {
+              value: parseInt(m2[1]).toLocaleString(),
+              confidence: "high",
+              raw: parseInt(m2[1]),
+            };
 
-            // Any number before a known role keyword
-            for (var i = 0; i < ROLE_KEYWORDS.length; i++) {
-                var rk = ROLE_KEYWORDS[i];
-                var re = new RegExp('(\\d+)\\s+' + rk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-                var m3 = t.match(re);
-                if (m3) return { value: parseInt(m3[1]).toLocaleString(), confidence: 'high', raw: parseInt(m3[1]) };
-            }
+          // Any number before a known role keyword
+          for (var i = 0; i < ROLE_KEYWORDS.length; i++) {
+            var rk = ROLE_KEYWORDS[i];
+            var re = new RegExp(
+              "(\\d+)\\s+" + rk.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+            );
+            var m3 = t.match(re);
+            if (m3)
+              return {
+                value: parseInt(m3[1]).toLocaleString(),
+                confidence: "high",
+                raw: parseInt(m3[1]),
+              };
+          }
 
-            return { value: 'Not specified', confidence: 'low', raw: 0 };
+          return { value: "Not specified", confidence: "low", raw: 0 };
         }
 
         /* -- INDUSTRY INFERENCE -- */
         var ROLE_INDUSTRY_MAP = {
-            'warehouse': 'Logistics & Supply Chain',
-            'forklift': 'Logistics & Supply Chain',
-            'picker': 'Logistics & Supply Chain',
-            'packer': 'Logistics & Supply Chain',
-            'truck driver': 'Transportation & Logistics',
-            'cdl driver': 'Transportation & Logistics',
-            'delivery driver': 'Transportation & Logistics',
-            'driver': 'Transportation & Logistics',
-            'courier': 'Transportation & Logistics',
-            'nurse': 'Healthcare',
-            'registered nurse': 'Healthcare',
-            'rn': 'Healthcare',
-            'lpn': 'Healthcare',
-            'cna': 'Healthcare',
-            'physician': 'Healthcare',
-            'doctor': 'Healthcare',
-            'pharmacist': 'Healthcare',
-            'therapist': 'Healthcare',
-            'medical assistant': 'Healthcare',
-            'dental': 'Healthcare',
-            'software engineer': 'Technology',
-            'software developer': 'Technology',
-            'frontend': 'Technology',
-            'backend': 'Technology',
-            'full stack': 'Technology',
-            'data scientist': 'Technology',
-            'data analyst': 'Technology',
-            'data engineer': 'Technology',
-            'machine learning': 'Technology',
-            'ml engineer': 'Technology',
-            'ai engineer': 'Technology',
-            'devops': 'Technology',
-            'sre': 'Technology',
-            'cloud engineer': 'Technology',
-            'qa engineer': 'Technology',
-            'developer': 'Technology',
-            'retail associate': 'Retail',
-            'retail worker': 'Retail',
-            'cashier': 'Retail',
-            'store manager': 'Retail',
-            'store associate': 'Retail',
-            'cook': 'Hospitality & Food Service',
-            'chef': 'Hospitality & Food Service',
-            'server': 'Hospitality & Food Service',
-            'bartender': 'Hospitality & Food Service',
-            'barista': 'Hospitality & Food Service',
-            'restaurant': 'Hospitality & Food Service',
-            'electrician': 'Skilled Trades',
-            'plumber': 'Skilled Trades',
-            'hvac': 'Skilled Trades',
-            'carpenter': 'Skilled Trades',
-            'welder': 'Skilled Trades',
-            'mechanic': 'Skilled Trades',
-            'construction': 'Construction',
-            'laborer': 'Construction',
-            'heavy equipment': 'Construction',
-            'teacher': 'Education',
-            'instructor': 'Education',
-            'professor': 'Education',
-            'accountant': 'Finance',
-            'financial analyst': 'Finance',
-            'bookkeeper': 'Finance',
-            'security guard': 'Security',
-            'security officer': 'Security',
-            'cleaner': 'Facilities & Maintenance',
-            'janitor': 'Facilities & Maintenance',
-            'housekeeper': 'Hospitality',
-            'maintenance': 'Facilities & Maintenance',
-            'customer service': 'Customer Service',
-            'call center': 'Customer Service',
-            'support representative': 'Customer Service',
-            'sales': 'Sales',
-            'account executive': 'Sales',
-            'business development': 'Sales',
-            'marketing': 'Marketing',
-            'recruiter': 'Human Resources',
-            'hr': 'Human Resources',
-            'talent acquisition': 'Human Resources',
-            'designer': 'Design & Creative',
-            'graphic designer': 'Design & Creative',
-            'ux designer': 'Design & Creative'
+          warehouse: "Logistics & Supply Chain",
+          forklift: "Logistics & Supply Chain",
+          picker: "Logistics & Supply Chain",
+          packer: "Logistics & Supply Chain",
+          "truck driver": "Transportation & Logistics",
+          "cdl driver": "Transportation & Logistics",
+          "delivery driver": "Transportation & Logistics",
+          driver: "Transportation & Logistics",
+          courier: "Transportation & Logistics",
+          nurse: "Healthcare",
+          "registered nurse": "Healthcare",
+          rn: "Healthcare",
+          lpn: "Healthcare",
+          cna: "Healthcare",
+          physician: "Healthcare",
+          doctor: "Healthcare",
+          pharmacist: "Healthcare",
+          therapist: "Healthcare",
+          "medical assistant": "Healthcare",
+          dental: "Healthcare",
+          "software engineer": "Technology",
+          "software developer": "Technology",
+          frontend: "Technology",
+          backend: "Technology",
+          "full stack": "Technology",
+          "data scientist": "Technology",
+          "data analyst": "Technology",
+          "data engineer": "Technology",
+          "machine learning": "Technology",
+          "ml engineer": "Technology",
+          "ai engineer": "Technology",
+          devops: "Technology",
+          sre: "Technology",
+          "cloud engineer": "Technology",
+          "qa engineer": "Technology",
+          developer: "Technology",
+          "retail associate": "Retail",
+          "retail worker": "Retail",
+          cashier: "Retail",
+          "store manager": "Retail",
+          "store associate": "Retail",
+          cook: "Hospitality & Food Service",
+          chef: "Hospitality & Food Service",
+          server: "Hospitality & Food Service",
+          bartender: "Hospitality & Food Service",
+          barista: "Hospitality & Food Service",
+          restaurant: "Hospitality & Food Service",
+          electrician: "Skilled Trades",
+          plumber: "Skilled Trades",
+          hvac: "Skilled Trades",
+          carpenter: "Skilled Trades",
+          welder: "Skilled Trades",
+          mechanic: "Skilled Trades",
+          construction: "Construction",
+          laborer: "Construction",
+          "heavy equipment": "Construction",
+          teacher: "Education",
+          instructor: "Education",
+          professor: "Education",
+          accountant: "Finance",
+          "financial analyst": "Finance",
+          bookkeeper: "Finance",
+          "security guard": "Security",
+          "security officer": "Security",
+          cleaner: "Facilities & Maintenance",
+          janitor: "Facilities & Maintenance",
+          housekeeper: "Hospitality",
+          maintenance: "Facilities & Maintenance",
+          "customer service": "Customer Service",
+          "call center": "Customer Service",
+          "support representative": "Customer Service",
+          sales: "Sales",
+          "account executive": "Sales",
+          "business development": "Sales",
+          marketing: "Marketing",
+          recruiter: "Human Resources",
+          hr: "Human Resources",
+          "talent acquisition": "Human Resources",
+          designer: "Design & Creative",
+          "graphic designer": "Design & Creative",
+          "ux designer": "Design & Creative",
         };
 
         function inferIndustry(text, roles) {
-            var t = text.toLowerCase();
-            // Check role-to-industry mapping
-            var keys = Object.keys(ROLE_INDUSTRY_MAP).sort(function(a, b) { return b.length - a.length; });
-            for (var i = 0; i < keys.length; i++) {
-                if (t.indexOf(keys[i]) !== -1) {
-                    return { value: ROLE_INDUSTRY_MAP[keys[i]], confidence: 'high' };
-                }
+          var t = text.toLowerCase();
+          // Check role-to-industry mapping
+          var keys = Object.keys(ROLE_INDUSTRY_MAP).sort(function (a, b) {
+            return b.length - a.length;
+          });
+          for (var i = 0; i < keys.length; i++) {
+            if (t.indexOf(keys[i]) !== -1) {
+              return { value: ROLE_INDUSTRY_MAP[keys[i]], confidence: "high" };
             }
-            // Check extracted roles against mapping
-            if (roles && roles.length > 0) {
-                for (var j = 0; j < roles.length; j++) {
-                    var r = roles[j].toLowerCase();
-                    for (var k = 0; k < keys.length; k++) {
-                        if (r.indexOf(keys[k]) !== -1) {
-                            return { value: ROLE_INDUSTRY_MAP[keys[k]], confidence: 'medium' };
-                        }
-                    }
+          }
+          // Check extracted roles against mapping
+          if (roles && roles.length > 0) {
+            for (var j = 0; j < roles.length; j++) {
+              var r = roles[j].toLowerCase();
+              for (var k = 0; k < keys.length; k++) {
+                if (r.indexOf(keys[k]) !== -1) {
+                  return {
+                    value: ROLE_INDUSTRY_MAP[keys[k]],
+                    confidence: "medium",
+                  };
                 }
+              }
             }
-            return { value: 'General', confidence: 'low' };
+          }
+          return { value: "General", confidence: "low" };
         }
 
         /* -- CLIENT NAME -- */
         function extractClientName(text) {
-            var t = text.toLowerCase();
-            // "for [Company Name]" or "at [Company Name]" or "[Company] is hiring"
-            var m = text.match(/(?:for|at)\s+(?:our\s+)?([A-Z][A-Za-z0-9&\s]{1,30}?)(?:\s+in\s|\s+across|\s+by\s|\.\s|,\s|$)/);
-            if (m) {
-                var name = m[1].trim();
-                // Filter out location-like matches
-                var nameLower = name.toLowerCase();
-                var isLocation = US_CITIES.some(function(c) { return nameLower === c; }) || US_STATES.some(function(s) { return nameLower === s; });
-                if (!isLocation && name.length > 2) {
-                    return { value: name, confidence: 'medium' };
-                }
+          var t = text.toLowerCase();
+          // "for [Company Name]" or "at [Company Name]" or "[Company] is hiring"
+          var m = text.match(
+            /(?:for|at)\s+(?:our\s+)?([A-Z][A-Za-z0-9&\s]{1,30}?)(?:\s+in\s|\s+across|\s+by\s|\.\s|,\s|$)/,
+          );
+          if (m) {
+            var name = m[1].trim();
+            // Filter out location-like matches
+            var nameLower = name.toLowerCase();
+            var isLocation =
+              US_CITIES.some(function (c) {
+                return nameLower === c;
+              }) ||
+              US_STATES.some(function (s) {
+                return nameLower === s;
+              });
+            if (!isLocation && name.length > 2) {
+              return { value: name, confidence: "medium" };
             }
-            return { value: 'Your Company', confidence: 'low' };
+          }
+          return { value: "Your Company", confidence: "low" };
         }
 
         /* -- CHANNEL SUGGESTIONS -- */
         var CHANNEL_MAP = {
-            'Logistics & Supply Chain': [
-                { name: 'Indeed', type: 'Job Board', icon: 'IN' },
-                { name: 'Snagajob', type: 'Hourly Jobs', icon: 'SJ' },
-                { name: 'Facebook Jobs', type: 'Social', icon: 'FB' },
-                { name: 'Programmatic Display', type: 'Programmatic', icon: 'PD' },
-                { name: 'Google Ads', type: 'Search', icon: 'GA' },
-                { name: 'Craigslist', type: 'Classifieds', icon: 'CL' }
-            ],
-            'Transportation & Logistics': [
-                { name: 'Indeed', type: 'Job Board', icon: 'IN' },
-                { name: 'CDLjobs.com', type: 'Niche Board', icon: 'CD' },
-                { name: 'TruckersReport', type: 'Niche Board', icon: 'TR' },
-                { name: 'Facebook Jobs', type: 'Social', icon: 'FB' },
-                { name: 'Google Ads', type: 'Search', icon: 'GA' },
-                { name: 'Programmatic Display', type: 'Programmatic', icon: 'PD' }
-            ],
-            'Healthcare': [
-                { name: 'Indeed', type: 'Job Board', icon: 'IN' },
-                { name: 'Health eCareers', type: 'Niche Board', icon: 'HC' },
-                { name: 'Nurse.com', type: 'Niche Board', icon: 'NC' },
-                { name: 'LinkedIn', type: 'Professional', icon: 'LI' },
-                { name: 'Google Ads', type: 'Search', icon: 'GA' },
-                { name: 'Programmatic Display', type: 'Programmatic', icon: 'PD' }
-            ],
-            'Technology': [
-                { name: 'LinkedIn', type: 'Professional', icon: 'LI' },
-                { name: 'Indeed', type: 'Job Board', icon: 'IN' },
-                { name: 'Dice', type: 'Tech Board', icon: 'DI' },
-                { name: 'Stack Overflow', type: 'Niche Board', icon: 'SO' },
-                { name: 'GitHub Jobs', type: 'Niche Board', icon: 'GH' },
-                { name: 'Google Ads', type: 'Search', icon: 'GA' }
-            ],
-            'Retail': [
-                { name: 'Indeed', type: 'Job Board', icon: 'IN' },
-                { name: 'Snagajob', type: 'Hourly Jobs', icon: 'SJ' },
-                { name: 'Facebook Jobs', type: 'Social', icon: 'FB' },
-                { name: 'Google Ads', type: 'Search', icon: 'GA' },
-                { name: 'Programmatic Display', type: 'Programmatic', icon: 'PD' },
-                { name: 'ZipRecruiter', type: 'Job Board', icon: 'ZR' }
-            ],
-            'Hospitality & Food Service': [
-                { name: 'Indeed', type: 'Job Board', icon: 'IN' },
-                { name: 'Snagajob', type: 'Hourly Jobs', icon: 'SJ' },
-                { name: 'Poached Jobs', type: 'Niche Board', icon: 'PJ' },
-                { name: 'Facebook Jobs', type: 'Social', icon: 'FB' },
-                { name: 'Craigslist', type: 'Classifieds', icon: 'CL' },
-                { name: 'Google Ads', type: 'Search', icon: 'GA' }
-            ],
-            'Skilled Trades': [
-                { name: 'Indeed', type: 'Job Board', icon: 'IN' },
-                { name: 'Facebook Jobs', type: 'Social', icon: 'FB' },
-                { name: 'Craigslist', type: 'Classifieds', icon: 'CL' },
-                { name: 'Google Ads', type: 'Search', icon: 'GA' },
-                { name: 'Programmatic Display', type: 'Programmatic', icon: 'PD' },
-                { name: 'ZipRecruiter', type: 'Job Board', icon: 'ZR' }
-            ],
-            'Construction': [
-                { name: 'Indeed', type: 'Job Board', icon: 'IN' },
-                { name: 'iHireConstruction', type: 'Niche Board', icon: 'IH' },
-                { name: 'Facebook Jobs', type: 'Social', icon: 'FB' },
-                { name: 'Craigslist', type: 'Classifieds', icon: 'CL' },
-                { name: 'Google Ads', type: 'Search', icon: 'GA' },
-                { name: 'Programmatic Display', type: 'Programmatic', icon: 'PD' }
-            ],
-            'Education': [
-                { name: 'Indeed', type: 'Job Board', icon: 'IN' },
-                { name: 'HigherEdJobs', type: 'Niche Board', icon: 'HE' },
-                { name: 'SchoolSpring', type: 'Niche Board', icon: 'SS' },
-                { name: 'LinkedIn', type: 'Professional', icon: 'LI' },
-                { name: 'Google Ads', type: 'Search', icon: 'GA' },
-                { name: 'Programmatic Display', type: 'Programmatic', icon: 'PD' }
-            ],
-            'Finance': [
-                { name: 'LinkedIn', type: 'Professional', icon: 'LI' },
-                { name: 'Indeed', type: 'Job Board', icon: 'IN' },
-                { name: 'eFinancialCareers', type: 'Niche Board', icon: 'EF' },
-                { name: 'Google Ads', type: 'Search', icon: 'GA' },
-                { name: 'Programmatic Display', type: 'Programmatic', icon: 'PD' },
-                { name: 'ZipRecruiter', type: 'Job Board', icon: 'ZR' }
-            ],
-            'General': [
-                { name: 'Indeed', type: 'Job Board', icon: 'IN' },
-                { name: 'LinkedIn', type: 'Professional', icon: 'LI' },
-                { name: 'ZipRecruiter', type: 'Job Board', icon: 'ZR' },
-                { name: 'Google Ads', type: 'Search', icon: 'GA' },
-                { name: 'Facebook Jobs', type: 'Social', icon: 'FB' },
-                { name: 'Programmatic Display', type: 'Programmatic', icon: 'PD' }
-            ]
+          "Logistics & Supply Chain": [
+            { name: "Indeed", type: "Job Board", icon: "IN" },
+            { name: "Snagajob", type: "Hourly Jobs", icon: "SJ" },
+            { name: "Facebook Jobs", type: "Social", icon: "FB" },
+            { name: "Programmatic Display", type: "Programmatic", icon: "PD" },
+            { name: "Google Ads", type: "Search", icon: "GA" },
+            { name: "Craigslist", type: "Classifieds", icon: "CL" },
+          ],
+          "Transportation & Logistics": [
+            { name: "Indeed", type: "Job Board", icon: "IN" },
+            { name: "CDLjobs.com", type: "Niche Board", icon: "CD" },
+            { name: "TruckersReport", type: "Niche Board", icon: "TR" },
+            { name: "Facebook Jobs", type: "Social", icon: "FB" },
+            { name: "Google Ads", type: "Search", icon: "GA" },
+            { name: "Programmatic Display", type: "Programmatic", icon: "PD" },
+          ],
+          Healthcare: [
+            { name: "Indeed", type: "Job Board", icon: "IN" },
+            { name: "Health eCareers", type: "Niche Board", icon: "HC" },
+            { name: "Nurse.com", type: "Niche Board", icon: "NC" },
+            { name: "LinkedIn", type: "Professional", icon: "LI" },
+            { name: "Google Ads", type: "Search", icon: "GA" },
+            { name: "Programmatic Display", type: "Programmatic", icon: "PD" },
+          ],
+          Technology: [
+            { name: "LinkedIn", type: "Professional", icon: "LI" },
+            { name: "Indeed", type: "Job Board", icon: "IN" },
+            { name: "Dice", type: "Tech Board", icon: "DI" },
+            { name: "Stack Overflow", type: "Niche Board", icon: "SO" },
+            { name: "GitHub Jobs", type: "Niche Board", icon: "GH" },
+            { name: "Google Ads", type: "Search", icon: "GA" },
+          ],
+          Retail: [
+            { name: "Indeed", type: "Job Board", icon: "IN" },
+            { name: "Snagajob", type: "Hourly Jobs", icon: "SJ" },
+            { name: "Facebook Jobs", type: "Social", icon: "FB" },
+            { name: "Google Ads", type: "Search", icon: "GA" },
+            { name: "Programmatic Display", type: "Programmatic", icon: "PD" },
+            { name: "ZipRecruiter", type: "Job Board", icon: "ZR" },
+          ],
+          "Hospitality & Food Service": [
+            { name: "Indeed", type: "Job Board", icon: "IN" },
+            { name: "Snagajob", type: "Hourly Jobs", icon: "SJ" },
+            { name: "Poached Jobs", type: "Niche Board", icon: "PJ" },
+            { name: "Facebook Jobs", type: "Social", icon: "FB" },
+            { name: "Craigslist", type: "Classifieds", icon: "CL" },
+            { name: "Google Ads", type: "Search", icon: "GA" },
+          ],
+          "Skilled Trades": [
+            { name: "Indeed", type: "Job Board", icon: "IN" },
+            { name: "Facebook Jobs", type: "Social", icon: "FB" },
+            { name: "Craigslist", type: "Classifieds", icon: "CL" },
+            { name: "Google Ads", type: "Search", icon: "GA" },
+            { name: "Programmatic Display", type: "Programmatic", icon: "PD" },
+            { name: "ZipRecruiter", type: "Job Board", icon: "ZR" },
+          ],
+          Construction: [
+            { name: "Indeed", type: "Job Board", icon: "IN" },
+            { name: "iHireConstruction", type: "Niche Board", icon: "IH" },
+            { name: "Facebook Jobs", type: "Social", icon: "FB" },
+            { name: "Craigslist", type: "Classifieds", icon: "CL" },
+            { name: "Google Ads", type: "Search", icon: "GA" },
+            { name: "Programmatic Display", type: "Programmatic", icon: "PD" },
+          ],
+          Education: [
+            { name: "Indeed", type: "Job Board", icon: "IN" },
+            { name: "HigherEdJobs", type: "Niche Board", icon: "HE" },
+            { name: "SchoolSpring", type: "Niche Board", icon: "SS" },
+            { name: "LinkedIn", type: "Professional", icon: "LI" },
+            { name: "Google Ads", type: "Search", icon: "GA" },
+            { name: "Programmatic Display", type: "Programmatic", icon: "PD" },
+          ],
+          Finance: [
+            { name: "LinkedIn", type: "Professional", icon: "LI" },
+            { name: "Indeed", type: "Job Board", icon: "IN" },
+            { name: "eFinancialCareers", type: "Niche Board", icon: "EF" },
+            { name: "Google Ads", type: "Search", icon: "GA" },
+            { name: "Programmatic Display", type: "Programmatic", icon: "PD" },
+            { name: "ZipRecruiter", type: "Job Board", icon: "ZR" },
+          ],
+          General: [
+            { name: "Indeed", type: "Job Board", icon: "IN" },
+            { name: "LinkedIn", type: "Professional", icon: "LI" },
+            { name: "ZipRecruiter", type: "Job Board", icon: "ZR" },
+            { name: "Google Ads", type: "Search", icon: "GA" },
+            { name: "Facebook Jobs", type: "Social", icon: "FB" },
+            { name: "Programmatic Display", type: "Programmatic", icon: "PD" },
+          ],
         };
 
         function getChannels(industry) {
-            return CHANNEL_MAP[industry] || CHANNEL_MAP['General'];
+          return CHANNEL_MAP[industry] || CHANNEL_MAP["General"];
         }
 
         /* ── MAIN PARSE FUNCTION ── */
         function parseBrief(text) {
-            var budget = extractBudget(text);
-            var roles = extractRoles(text);
-            var locations = extractLocations(text);
-            var timeline = extractTimeline(text);
-            var volume = extractVolume(text);
-            var industry = inferIndustry(text, roles.raw);
-            var client = extractClientName(text);
-            var channels = getChannels(industry.value);
+          var budget = extractBudget(text);
+          var roles = extractRoles(text);
+          var locations = extractLocations(text);
+          var timeline = extractTimeline(text);
+          var volume = extractVolume(text);
+          var industry = inferIndustry(text, roles.raw);
+          var client = extractClientName(text);
+          var channels = getChannels(industry.value);
 
-            return {
-                client: client,
-                roles: roles,
-                locations: locations,
-                budget: budget,
-                timeline: timeline,
-                volume: volume,
-                industry: industry,
-                channels: channels
-            };
+          return {
+            client: client,
+            roles: roles,
+            locations: locations,
+            budget: budget,
+            timeline: timeline,
+            volume: volume,
+            industry: industry,
+            channels: channels,
+          };
         }
 
         /* ================================================================
@@ -1140,80 +1686,149 @@
            ================================================================ */
 
         function renderField(label, value, confidence) {
-            var confLabel = confidence === 'high' ? 'High' : confidence === 'medium' ? 'Medium' : 'Low';
-            return '<div class="qb-field">' +
-                '<div class="qb-field-header">' +
-                    '<span class="qb-field-label">' + label + '</span>' +
-                    '<span class="qb-confidence ' + confidence + '"><span class="qb-confidence-dot"></span> ' + confLabel + '</span>' +
-                '</div>' +
-                '<div class="qb-field-value">' + escapeHtml(value) + '</div>' +
-            '</div>';
+          var confLabel =
+            confidence === "high"
+              ? "High"
+              : confidence === "medium"
+                ? "Medium"
+                : "Low";
+          return (
+            '<div class="qb-field">' +
+            '<div class="qb-field-header">' +
+            '<span class="qb-field-label">' +
+            label +
+            "</span>" +
+            '<span class="qb-confidence ' +
+            confidence +
+            '"><span class="qb-confidence-dot"></span> ' +
+            confLabel +
+            "</span>" +
+            "</div>" +
+            '<div class="qb-field-value">' +
+            escapeHtml(value) +
+            "</div>" +
+            "</div>"
+          );
         }
 
         function escapeHtml(text) {
-            var div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+          var div = document.createElement("div");
+          div.textContent = text;
+          return div.innerHTML;
         }
 
         function renderResults(brief) {
-            // Build field grid
-            var html = '';
-            html += renderField('Client Name', brief.client.value, brief.client.confidence);
-            html += renderField('Target Roles', brief.roles.value, brief.roles.confidence);
-            html += renderField('Locations', brief.locations.value, brief.locations.confidence);
-            html += renderField('Budget', brief.budget.value, brief.budget.confidence);
-            html += renderField('Timeline', brief.timeline.value, brief.timeline.confidence);
-            html += renderField('Hire Volume', brief.volume.value, brief.volume.confidence);
-            html += renderField('Industry', brief.industry.value, brief.industry.confidence);
-            fieldGrid.innerHTML = html;
+          // Build field grid
+          var html = "";
+          html += renderField(
+            "Client Name",
+            brief.client.value,
+            brief.client.confidence,
+          );
+          html += renderField(
+            "Target Roles",
+            brief.roles.value,
+            brief.roles.confidence,
+          );
+          html += renderField(
+            "Locations",
+            brief.locations.value,
+            brief.locations.confidence,
+          );
+          html += renderField(
+            "Budget",
+            brief.budget.value,
+            brief.budget.confidence,
+          );
+          html += renderField(
+            "Timeline",
+            brief.timeline.value,
+            brief.timeline.confidence,
+          );
+          html += renderField(
+            "Hire Volume",
+            brief.volume.value,
+            brief.volume.confidence,
+          );
+          html += renderField(
+            "Industry",
+            brief.industry.value,
+            brief.industry.confidence,
+          );
+          fieldGrid.innerHTML = html;
 
-            // Build channels
-            var chHtml = '';
-            brief.channels.forEach(function(ch) {
-                chHtml += '<div class="qb-channel">' +
-                    '<div class="qb-channel-icon">' + ch.icon + '</div>' +
-                    '<div>' +
-                        '<div class="qb-channel-name">' + escapeHtml(ch.name) + '</div>' +
-                        '<div class="qb-channel-type">' + escapeHtml(ch.type) + '</div>' +
-                    '</div>' +
-                '</div>';
-            });
-            channelsGrid.innerHTML = chHtml;
+          // Build channels
+          var chHtml = "";
+          brief.channels.forEach(function (ch) {
+            chHtml +=
+              '<div class="qb-channel">' +
+              '<div class="qb-channel-icon">' +
+              ch.icon +
+              "</div>" +
+              "<div>" +
+              '<div class="qb-channel-name">' +
+              escapeHtml(ch.name) +
+              "</div>" +
+              '<div class="qb-channel-type">' +
+              escapeHtml(ch.type) +
+              "</div>" +
+              "</div>" +
+              "</div>";
+          });
+          channelsGrid.innerHTML = chHtml;
 
-            // Build "Generate Full Plan" link with query params
-            var params = [];
-            if (brief.roles.raw && brief.roles.raw.length > 0) {
-                params.push('roles=' + encodeURIComponent(brief.roles.raw.join(', ')));
-            }
-            if (brief.locations.raw && brief.locations.raw.length > 0) {
-                params.push('locations=' + encodeURIComponent(brief.locations.raw.join(', ')));
-            }
-            if (brief.budget.raw > 0) {
-                params.push('budget=' + encodeURIComponent(brief.budget.raw));
-            }
-            if (brief.volume.raw > 0) {
-                params.push('hires=' + encodeURIComponent(brief.volume.raw));
-            }
-            if (brief.timeline.raw) {
-                params.push('timeline=' + encodeURIComponent(brief.timeline.raw));
-            }
-            if (brief.industry.value !== 'General') {
-                params.push('industry=' + encodeURIComponent(brief.industry.value));
-            }
-            if (brief.client.value !== 'Your Company') {
-                params.push('client=' + encodeURIComponent(brief.client.value));
-            }
+          // Build "Generate Full Plan" link with query params
+          var params = [];
+          if (brief.roles.raw && brief.roles.raw.length > 0) {
+            params.push(
+              "roles=" + encodeURIComponent(brief.roles.raw.join(", ")),
+            );
+          }
+          if (brief.locations.raw && brief.locations.raw.length > 0) {
+            params.push(
+              "locations=" + encodeURIComponent(brief.locations.raw.join(", ")),
+            );
+          }
+          if (brief.budget.raw > 0) {
+            params.push("budget=" + encodeURIComponent(brief.budget.raw));
+          }
+          if (brief.volume.raw > 0) {
+            params.push("hires=" + encodeURIComponent(brief.volume.raw));
+          }
+          if (brief.timeline.raw) {
+            params.push("timeline=" + encodeURIComponent(brief.timeline.raw));
+          }
+          if (brief.industry.value !== "General") {
+            params.push("industry=" + encodeURIComponent(brief.industry.value));
+          }
+          if (brief.client.value !== "Your Company") {
+            params.push("client=" + encodeURIComponent(brief.client.value));
+          }
 
-            var href = '/media-plan' + (params.length > 0 ? '?' + params.join('&') : '');
-            fullPlanLink.href = href;
+          var href =
+            "/media-plan" + (params.length > 0 ? "?" + params.join("&") : "");
+          fullPlanLink.href = href;
 
-            // Show results
-            resultsSection.classList.add('visible');
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Show results
+          resultsSection.classList.add("visible");
+          resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
         }
+      })();
 
-    })();
+      // Scroll reveal
+      (function () {
+        var ro = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) e.target.classList.add("visible");
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          ro.observe(el);
+        });
+      })();
     </script>
-</body>
+  </body>
 </html>

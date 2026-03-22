@@ -1,562 +1,1129 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Observability Dashboard - Nova AI Suite</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <style>
-        :root {
-            --navy: #111111;
-            --purple: #6366F1;
-            --teal: #22D3EE;
-            --pink: #F472B6;
-            --bronze: #FBBF24;
-            --bg: #000000;
-            --card-bg: rgba(17,17,17,0.6);
-            --border: rgba(255,255,255,0.06);
-            --text: #ededed;
-            --text-secondary: #a1a1a1;
-            --text-muted: #555555;
-            --green: #34D399;
-            --amber: #FBBF24;
-            --red: #F87171;
-            --radius: 10px;
-            --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+      :root {
+        --navy: #111111;
+        --purple: #6366f1;
+        --teal: #22d3ee;
+        --pink: #f472b6;
+        --bronze: #fbbf24;
+        --bg: #000000;
+        --card-bg: rgba(17, 17, 17, 0.6);
+        --border: rgba(255, 255, 255, 0.06);
+        --text: #ededed;
+        --text-secondary: #a1a1a1;
+        --text-muted: #555555;
+        --green: #34d399;
+        --amber: #fbbf24;
+        --red: #f87171;
+        --radius: 10px;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 14px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Top bar */
+      .topbar {
+        background: var(--navy);
+        color: white;
+        padding: 16px 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .topbar h1 {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .topbar-meta {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.7);
+      }
+      .topbar-meta a {
+        color: var(--teal);
+        text-decoration: none;
+      }
+      .topbar-meta a:hover {
+        text-decoration: underline;
+      }
+
+      /* Layout */
+      .container {
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      /* Section */
+      .section {
+        margin-bottom: 28px;
+      }
+      .section-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .section-title .badge {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 6px;
+        background: var(--purple);
+        color: white;
+      }
+
+      /* Stat cards row */
+      .stat-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+        margin-bottom: 24px;
+      }
+      .stat-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        box-shadow: var(--shadow);
+      }
+      .stat-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+      }
+      .stat-value {
+        font-size: 28px;
+        font-weight: 800;
+        color: var(--text);
+        letter-spacing: -0.02em;
+      }
+      .stat-sub {
+        font-size: 11px;
+        color: var(--text-secondary);
+        margin-top: 2px;
+      }
+
+      /* Tables */
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--card-bg);
+        box-shadow: var(--shadow);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th {
+        background: rgba(99, 102, 241, 0.08);
+        color: var(--text);
+        font-weight: 700;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 10px 14px;
+        text-align: left;
+        border-bottom: 2px solid var(--border);
+      }
+      td {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      tr:hover {
+        background: rgba(99, 102, 241, 0.04);
+      }
+
+      /* Status dots & badges */
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+        vertical-align: middle;
+      }
+      .dot-ok {
+        background: var(--green);
+      }
+      .dot-warn {
+        background: var(--amber);
+      }
+      .dot-err {
+        background: var(--red);
+      }
+      .dot-off {
+        background: var(--text-muted);
+      }
+      .badge-sm {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 6px;
+        color: white;
+      }
+      .badge-green {
+        background: var(--green);
+      }
+      .badge-amber {
+        background: var(--amber);
+      }
+      .badge-red {
+        background: var(--red);
+      }
+      .badge-gray {
+        background: var(--text-muted);
+      }
+      .badge-purple {
+        background: var(--purple);
+      }
+
+      /* Integration cards */
+      .int-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 14px;
+      }
+      .int-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px;
+        box-shadow: var(--shadow);
+        position: relative;
+        overflow: hidden;
+      }
+      .int-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+      }
+      .int-card.active::before {
+        background: var(--green);
+      }
+      .int-card.disabled::before {
+        background: var(--text-muted);
+      }
+      .int-card.error::before {
+        background: var(--red);
+      }
+      .int-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .int-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .int-detail {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+        line-height: 1.5;
+      }
+      .int-meta {
+        font-size: 11px;
+        color: var(--text-muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .int-meta span {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      /* Category section within integrations */
+      .cat-section {
+        margin-bottom: 20px;
+      }
+      .cat-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .cat-count {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--purple);
+        color: white;
+      }
+      .int-grid-compact {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 10px;
+      }
+      .int-chip {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 14px;
+        box-shadow: var(--shadow);
+        position: relative;
+        overflow: hidden;
+      }
+      .int-chip::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+      }
+      .int-chip.active::before {
+        background: var(--green);
+      }
+      .int-chip.available::before {
+        background: var(--teal);
+      }
+      .int-chip.disabled::before,
+      .int-chip.no_key::before {
+        background: var(--text-muted);
+      }
+      .int-chip.error::before {
+        background: var(--red);
+      }
+      .int-chip-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+      }
+      .int-chip-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .int-chip-host {
+        font-size: 10px;
+        color: var(--text-muted);
+        font-family: monospace;
+      }
+      .int-chip-value {
+        font-size: 11px;
+        color: var(--text-secondary);
+        line-height: 1.4;
+      }
+      .badge-teal {
+        background: var(--teal);
+      }
+      .badge-no-key {
+        background: var(--amber);
+        color: #000000;
+      }
+
+      /* Cache layers */
+      .cache-layers {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+      }
+      .cache-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        box-shadow: var(--shadow);
+        text-align: center;
+      }
+      .cache-layer {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--purple);
+        margin-bottom: 4px;
+      }
+      .cache-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .cache-val {
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--text);
+        margin: 6px 0;
+      }
+      .cache-sub {
+        font-size: 11px;
+        color: var(--text-secondary);
+      }
+
+      /* Progress bar */
+      .pbar {
+        height: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 6px;
+      }
+      .pbar-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.5s ease;
+      }
+
+      /* Loading */
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+      .spinner-sm {
+        width: 20px;
+        height: 20px;
+        border: 2.5px solid var(--border);
+        border-top-color: var(--purple);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 8px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+      }
 
-        /* Top bar */
-        .topbar { background: var(--navy); color: white; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
-        .topbar h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
-        .topbar-meta { display: flex; align-items: center; gap: 16px; font-size: 12px; color: rgba(255,255,255,0.7); }
-        .topbar-meta a { color: var(--teal); text-decoration: none; }
-        .topbar-meta a:hover { text-decoration: underline; }
+      /* SLO cards */
+      .slo-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+      }
+      .slo-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        box-shadow: var(--shadow);
+      }
+      .slo-name {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .slo-values {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin: 6px 0;
+      }
+      .slo-actual {
+        font-size: 24px;
+        font-weight: 800;
+      }
+      .slo-target {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
 
-        /* Layout */
-        .container { max-width: 1440px; margin: 0 auto; padding: 24px; }
-
-        /* Section */
-        .section { margin-bottom: 28px; }
-        .section-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-        .section-title .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--purple); color: white; }
-
-        /* Stat cards row */
-        .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
-        .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
-        .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px; }
-        .stat-value { font-size: 28px; font-weight: 800; color: var(--text); letter-spacing: -0.02em; }
-        .stat-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
-
-        /* Tables */
-        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card-bg); box-shadow: var(--shadow); }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { background: rgba(99,102,241,0.08); color: var(--text); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 14px; text-align: left; border-bottom: 2px solid var(--border); }
-        td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
-        tr:last-child td { border-bottom: none; }
-        tr:hover { background: rgba(99,102,241,0.04); }
-
-        /* Status dots & badges */
-        .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
-        .dot-ok { background: var(--green); }
-        .dot-warn { background: var(--amber); }
-        .dot-err { background: var(--red); }
-        .dot-off { background: var(--text-muted); }
-        .badge-sm { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; color: white; }
-        .badge-green { background: var(--green); }
-        .badge-amber { background: var(--amber); }
-        .badge-red { background: var(--red); }
-        .badge-gray { background: var(--text-muted); }
-        .badge-purple { background: var(--purple); }
-
-        /* Integration cards */
-        .int-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
-        .int-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
-        .int-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
-        .int-card.active::before { background: var(--green); }
-        .int-card.disabled::before { background: var(--text-muted); }
-        .int-card.error::before { background: var(--red); }
-        .int-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-        .int-name { font-size: 15px; font-weight: 700; color: var(--text); }
-        .int-detail { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; line-height: 1.5; }
-        .int-meta { font-size: 11px; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 12px; }
-        .int-meta span { display: flex; align-items: center; gap: 4px; }
-
-        /* Category section within integrations */
-        .cat-section { margin-bottom: 20px; }
-        .cat-title { font-size: 13px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
-        .cat-count { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: var(--purple); color: white; }
-        .int-grid-compact { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
-        .int-chip { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
-        .int-chip::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
-        .int-chip.active::before { background: var(--green); }
-        .int-chip.available::before { background: var(--teal); }
-        .int-chip.disabled::before, .int-chip.no_key::before { background: var(--text-muted); }
-        .int-chip.error::before { background: var(--red); }
-        .int-chip-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-        .int-chip-name { font-size: 13px; font-weight: 700; color: var(--text); }
-        .int-chip-host { font-size: 10px; color: var(--text-muted); font-family: monospace; }
-        .int-chip-value { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
-        .badge-teal { background: var(--teal); }
-        .badge-no-key { background: var(--amber); color: #000000; }
-
-        /* Cache layers */
-        .cache-layers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-        .cache-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); text-align: center; }
-        .cache-layer { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--purple); margin-bottom: 4px; }
-        .cache-name { font-size: 13px; font-weight: 700; color: var(--text); }
-        .cache-val { font-size: 22px; font-weight: 800; color: var(--text); margin: 6px 0; }
-        .cache-sub { font-size: 11px; color: var(--text-secondary); }
-
-        /* Progress bar */
-        .pbar { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-top: 6px; }
-        .pbar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
-
-        /* Loading */
-        .loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
-        .spinner-sm { width: 20px; height: 20px; border: 2.5px solid var(--border); border-top-color: var(--purple); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* SLO cards */
-        .slo-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
-        .slo-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
-        .slo-name { font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
-        .slo-values { display: flex; align-items: baseline; gap: 8px; margin: 6px 0; }
-        .slo-actual { font-size: 24px; font-weight: 800; }
-        .slo-target { font-size: 12px; color: var(--text-muted); }
-
-        @media (max-width: 768px) {
-            .stat-row { grid-template-columns: repeat(2, 1fr); }
-            .int-grid { grid-template-columns: 1fr; }
-            .cache-layers { grid-template-columns: repeat(2, 1fr); }
-            .container { padding: 12px; }
+      @media (max-width: 768px) {
+        .stat-row {
+          grid-template-columns: repeat(2, 1fr);
         }
-
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
+        .int-grid {
+          grid-template-columns: 1fr;
         }
+        .cache-layers {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .container {
+          padding: 12px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
+      /* -- Scroll reveal animations -- */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* -- Enhanced card/section glow -- */
+      .glow-hover {
+        transition:
+          box-shadow 0.4s ease,
+          border-color 0.3s ease;
+      }
+      .glow-hover:hover {
+        box-shadow:
+          0 0 20px rgba(99, 102, 241, 0.12),
+          0 0 50px rgba(99, 102, 241, 0.06);
+        border-color: rgba(99, 102, 241, 0.2);
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="topbar">
-        <h1>Observability Dashboard</h1>
-        <div class="topbar-meta">
-            <span id="lastUpdated">Loading...</span>
-            <a href="/dashboard" id="dashLink">Main Dashboard</a>
-        </div>
+      <h1>Observability Dashboard</h1>
+      <div class="topbar-meta">
+        <span id="lastUpdated">Loading...</span>
+        <a href="/dashboard" id="dashLink">Main Dashboard</a>
+      </div>
     </div>
 
     <div class="container">
-        <!-- Section 1: System Overview -->
-        <div class="section">
-            <div class="section-title">System Overview <span class="badge">LIVE</span></div>
-            <div class="stat-row" id="systemStats">
-                <div class="loading"><span class="spinner-sm"></span>Loading system metrics...</div>
-            </div>
+      <!-- Section 1: System Overview -->
+      <div class="section">
+        <div class="section-title">
+          System Overview <span class="badge">LIVE</span>
         </div>
+        <div class="stat-row" id="systemStats">
+          <div class="loading">
+            <span class="spinner-sm"></span>Loading system metrics...
+          </div>
+        </div>
+      </div>
 
-        <!-- Section 2: All Integrations & APIs -->
-        <div class="section">
-            <div class="section-title">All Integrations & APIs <span class="badge" id="intSummary">--</span></div>
-            <div id="integrationsAll">
-                <div class="loading"><span class="spinner-sm"></span>Checking integrations...</div>
-            </div>
+      <!-- Section 2: All Integrations & APIs -->
+      <div class="section">
+        <div class="section-title">
+          All Integrations & APIs <span class="badge" id="intSummary">--</span>
         </div>
+        <div id="integrationsAll">
+          <div class="loading">
+            <span class="spinner-sm"></span>Checking integrations...
+          </div>
+        </div>
+      </div>
 
-        <!-- Section 3: Cache Performance -->
-        <div class="section">
-            <div class="section-title">Cache Performance <span class="badge">4 LAYERS</span></div>
-            <div class="cache-layers" id="cacheLayers">
-                <div class="loading" style="grid-column:1/-1;"><span class="spinner-sm"></span>Loading cache stats...</div>
-            </div>
+      <!-- Section 3: Cache Performance -->
+      <div class="section">
+        <div class="section-title">
+          Cache Performance <span class="badge">4 LAYERS</span>
         </div>
+        <div class="cache-layers" id="cacheLayers">
+          <div class="loading" style="grid-column: 1/-1">
+            <span class="spinner-sm"></span>Loading cache stats...
+          </div>
+        </div>
+      </div>
 
-        <!-- Section 4: LLM Provider Matrix -->
-        <div class="section">
-            <div class="section-title">LLM Provider Matrix <span class="badge" id="providerCount">--</span></div>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Provider</th>
-                            <th>Model</th>
-                            <th>Status</th>
-                            <th>Total Calls</th>
-                            <th>Failures</th>
-                            <th>Calls/min</th>
-                            <th>Calls Today</th>
-                            <th>Avg Latency</th>
-                            <th>Circuit</th>
-                        </tr>
-                    </thead>
-                    <tbody id="llmBody">
-                        <tr><td colspan="9" class="loading"><span class="spinner-sm"></span>Loading LLM providers...</td></tr>
-                    </tbody>
-                </table>
-            </div>
+      <!-- Section 4: LLM Provider Matrix -->
+      <div class="section">
+        <div class="section-title">
+          LLM Provider Matrix <span class="badge" id="providerCount">--</span>
         </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Model</th>
+                <th>Status</th>
+                <th>Total Calls</th>
+                <th>Failures</th>
+                <th>Calls/min</th>
+                <th>Calls Today</th>
+                <th>Avg Latency</th>
+                <th>Circuit</th>
+              </tr>
+            </thead>
+            <tbody id="llmBody">
+              <tr>
+                <td colspan="9" class="loading">
+                  <span class="spinner-sm"></span>Loading LLM providers...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-        <!-- Section 5: Nova Chatbot Metrics -->
-        <div class="section">
-            <div class="section-title">Nova Chatbot Performance</div>
-            <div class="stat-row" id="novaStats">
-                <div class="loading"><span class="spinner-sm"></span>Loading chatbot metrics...</div>
-            </div>
-            <div class="stat-row" id="novaRouting" style="margin-top:14px;"></div>
+      <!-- Section 5: Nova Chatbot Metrics -->
+      <div class="section">
+        <div class="section-title">Nova Chatbot Performance</div>
+        <div class="stat-row" id="novaStats">
+          <div class="loading">
+            <span class="spinner-sm"></span>Loading chatbot metrics...
+          </div>
         </div>
+        <div class="stat-row" id="novaRouting" style="margin-top: 14px"></div>
+      </div>
 
-        <!-- Section 6: API Enrichment -->
-        <div class="section">
-            <div class="section-title">API Enrichment Performance</div>
-            <div class="stat-row" id="enrichStats">
-                <div class="loading"><span class="spinner-sm"></span>Loading enrichment metrics...</div>
-            </div>
+      <!-- Section 6: API Enrichment -->
+      <div class="section">
+        <div class="section-title">API Enrichment Performance</div>
+        <div class="stat-row" id="enrichStats">
+          <div class="loading">
+            <span class="spinner-sm"></span>Loading enrichment metrics...
+          </div>
         </div>
+      </div>
 
-        <!-- Section 7: SLO Compliance -->
-        <div class="section">
-            <div class="section-title">SLO Compliance</div>
-            <div class="slo-row" id="sloCards">
-                <div class="loading"><span class="spinner-sm"></span>Loading SLOs...</div>
-            </div>
+      <!-- Section 7: SLO Compliance -->
+      <div class="section">
+        <div class="section-title">SLO Compliance</div>
+        <div class="slo-row" id="sloCards">
+          <div class="loading">
+            <span class="spinner-sm"></span>Loading SLOs...
+          </div>
         </div>
+      </div>
 
-        <!-- Section 8: Endpoint Latency Breakdown -->
-        <div class="section">
-            <div class="section-title">Endpoint Latency Breakdown</div>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr><th>Endpoint</th><th>Requests</th><th>Avg (ms)</th><th>P95 (ms)</th></tr>
-                    </thead>
-                    <tbody id="endpointBody">
-                        <tr><td colspan="4" class="loading"><span class="spinner-sm"></span>Loading endpoints...</td></tr>
-                    </tbody>
-                </table>
-            </div>
+      <!-- Section 8: Endpoint Latency Breakdown -->
+      <div class="section">
+        <div class="section-title">Endpoint Latency Breakdown</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Endpoint</th>
+                <th>Requests</th>
+                <th>Avg (ms)</th>
+                <th>P95 (ms)</th>
+              </tr>
+            </thead>
+            <tbody id="endpointBody">
+              <tr>
+                <td colspan="4" class="loading">
+                  <span class="spinner-sm"></span>Loading endpoints...
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </div>
 
-        <!-- Section 9: Recent Heal Actions -->
-        <div class="section">
-            <div class="section-title">Recent Self-Healing Actions</div>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr><th>Timestamp</th><th>Source</th><th>Component</th><th>Action</th><th>Result</th></tr>
-                    </thead>
-                    <tbody id="healBody">
-                        <tr><td colspan="5" class="loading"><span class="spinner-sm"></span>Loading heal log...</td></tr>
-                    </tbody>
-                </table>
-            </div>
+      <!-- Section 9: Recent Heal Actions -->
+      <div class="section">
+        <div class="section-title">Recent Self-Healing Actions</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Source</th>
+                <th>Component</th>
+                <th>Action</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody id="healBody">
+              <tr>
+                <td colspan="5" class="loading">
+                  <span class="spinner-sm"></span>Loading heal log...
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </div>
     </div>
 
-<script>
-// Auth: extract admin key from URL
-const params = new URLSearchParams(window.location.search);
-const adminKey = params.get('key') || '';
-document.getElementById('dashLink').href = '/dashboard?key=' + adminKey;
+    <script>
+      // Auth: extract admin key from URL
+      const params = new URLSearchParams(window.location.search);
+      const adminKey = params.get("key") || "";
+      document.getElementById("dashLink").href = "/dashboard?key=" + adminKey;
 
-function authFetch(url, opts = {}) {
-    opts.headers = { ...(opts.headers || {}), 'Authorization': 'Bearer ' + adminKey };
-    return fetch(url, opts);
-}
-function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function fmt(n, dec=0) { return n != null ? Number(n).toLocaleString(undefined, {maximumFractionDigits:dec}) : '--'; }
-function fmtMs(ms) { return ms != null ? (ms < 1000 ? Math.round(ms) + 'ms' : (ms/1000).toFixed(1) + 's') : '--'; }
-function fmtPct(p) { return p != null ? Number(p).toFixed(1) + '%' : '--'; }
-function fmtCost(c) { return c != null ? '$' + Number(c).toFixed(4) : '--'; }
-function fmtTime(sec) {
-    if (!sec && sec !== 0) return '--';
-    if (sec < 60) return Math.round(sec) + 's';
-    if (sec < 3600) return Math.floor(sec/60) + 'm ' + Math.round(sec%60) + 's';
-    const h = Math.floor(sec/3600), m = Math.round((sec%3600)/60);
-    return h + 'h ' + m + 'm';
-}
-function statusDot(s) { return s==='ok'?'dot-ok':s==='partial'||s==='warn'?'dot-warn':s==='disabled'||s==='off'?'dot-off':'dot-err'; }
-function statusBadge(s) {
-    const cls = s==='ok'||s==='active'?'badge-green':s==='disabled'?'badge-gray':s==='partial'?'badge-amber':'badge-red';
-    const lbl = s==='ok'?'Active':s==='disabled'?'Off':s==='partial'?'Partial':'Error';
-    return '<span class="badge-sm '+cls+'">'+lbl+'</span>';
-}
+      function authFetch(url, opts = {}) {
+        opts.headers = {
+          ...(opts.headers || {}),
+          Authorization: "Bearer " + adminKey,
+        };
+        return fetch(url, opts);
+      }
+      function esc(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+      function fmt(n, dec = 0) {
+        return n != null
+          ? Number(n).toLocaleString(undefined, { maximumFractionDigits: dec })
+          : "--";
+      }
+      function fmtMs(ms) {
+        return ms != null
+          ? ms < 1000
+            ? Math.round(ms) + "ms"
+            : (ms / 1000).toFixed(1) + "s"
+          : "--";
+      }
+      function fmtPct(p) {
+        return p != null ? Number(p).toFixed(1) + "%" : "--";
+      }
+      function fmtCost(c) {
+        return c != null ? "$" + Number(c).toFixed(4) : "--";
+      }
+      function fmtTime(sec) {
+        if (!sec && sec !== 0) return "--";
+        if (sec < 60) return Math.round(sec) + "s";
+        if (sec < 3600)
+          return Math.floor(sec / 60) + "m " + Math.round(sec % 60) + "s";
+        const h = Math.floor(sec / 3600),
+          m = Math.round((sec % 3600) / 60);
+        return h + "h " + m + "m";
+      }
+      function statusDot(s) {
+        return s === "ok"
+          ? "dot-ok"
+          : s === "partial" || s === "warn"
+            ? "dot-warn"
+            : s === "disabled" || s === "off"
+              ? "dot-off"
+              : "dot-err";
+      }
+      function statusBadge(s) {
+        const cls =
+          s === "ok" || s === "active"
+            ? "badge-green"
+            : s === "disabled"
+              ? "badge-gray"
+              : s === "partial"
+                ? "badge-amber"
+                : "badge-red";
+        const lbl =
+          s === "ok"
+            ? "Active"
+            : s === "disabled"
+              ? "Off"
+              : s === "partial"
+                ? "Partial"
+                : "Error";
+        return '<span class="badge-sm ' + cls + '">' + lbl + "</span>";
+      }
 
-let metrics=null, nova=null, slos=null, integrations=null, matrix=null, qc=null, orchestrator=null;
+      let metrics = null,
+        nova = null,
+        slos = null,
+        integrations = null,
+        matrix = null,
+        qc = null,
+        orchestrator = null;
 
-async function fetchAll() {
-    const endpoints = [
-        ['/api/metrics', 'metrics'],
-        ['/api/nova/metrics', 'nova'],
-        ['/api/health/slos', 'slos'],
-        ['/api/health/integrations', 'integrations'],
-        ['/api/health/data-matrix', 'matrix'],
-        ['/api/health/auto-qc', 'qc'],
-        ['/api/health/orchestrator', 'orchestrator'],
-    ];
-    const results = await Promise.allSettled(endpoints.map(async ([url]) => {
-        const c = new AbortController();
-        const t = setTimeout(() => c.abort(), 15000);
-        try {
-            const r = await authFetch(url, { signal: c.signal });
-            clearTimeout(t);
-            const ct = (r.headers.get('content-type') || '');
-            if (ct.includes('application/json')) {
+      async function fetchAll() {
+        const endpoints = [
+          ["/api/metrics", "metrics"],
+          ["/api/nova/metrics", "nova"],
+          ["/api/health/slos", "slos"],
+          ["/api/health/integrations", "integrations"],
+          ["/api/health/data-matrix", "matrix"],
+          ["/api/health/auto-qc", "qc"],
+          ["/api/health/orchestrator", "orchestrator"],
+        ];
+        const results = await Promise.allSettled(
+          endpoints.map(async ([url]) => {
+            const c = new AbortController();
+            const t = setTimeout(() => c.abort(), 15000);
+            try {
+              const r = await authFetch(url, { signal: c.signal });
+              clearTimeout(t);
+              const ct = r.headers.get("content-type") || "";
+              if (ct.includes("application/json")) {
                 const body = await r.json();
                 if (body && !body.error) return body;
                 return null; // JSON with error field -- don't attempt second .json()
+              }
+              if (!r.ok) return null;
+              return null; // Non-JSON response -- nothing useful to parse
+            } catch {
+              clearTimeout(t);
+              return null;
             }
-            if (!r.ok) return null;
-            return null; // Non-JSON response -- nothing useful to parse
-        } catch { clearTimeout(t); return null; }
-    }));
-    [metrics, nova, slos, integrations, matrix, qc, orchestrator] =
-        results.map(r => r.status === 'fulfilled' ? r.value : null);
+          }),
+        );
+        [metrics, nova, slos, integrations, matrix, qc, orchestrator] =
+          results.map((r) => (r.status === "fulfilled" ? r.value : null));
 
-    renderAll();
-    document.getElementById('lastUpdated').textContent = 'Updated: ' + new Date().toLocaleTimeString();
-}
+        renderAll();
+        document.getElementById("lastUpdated").textContent =
+          "Updated: " + new Date().toLocaleTimeString();
+      }
 
-function renderAll() {
-    renderSystemStats();
-    renderIntegrations();
-    renderCacheLayers();
-    renderLLMProviders();
-    renderNovaStats();
-    renderEnrichStats();
-    renderSLOs();
-    renderEndpoints();
-    renderHealLog();
-}
+      function renderAll() {
+        renderSystemStats();
+        renderIntegrations();
+        renderCacheLayers();
+        renderLLMProviders();
+        renderNovaStats();
+        renderEnrichStats();
+        renderSLOs();
+        renderEndpoints();
+        renderHealLog();
+      }
 
-function renderSystemStats() {
-    const el = document.getElementById('systemStats');
-    if (!metrics) { el.innerHTML = '<div class="stat-card"><div class="stat-label">Status</div><div class="stat-value" style="font-size:16px;color:var(--text-muted);">Metrics unavailable</div></div>'; return; }
-    el.innerHTML = `
+      function renderSystemStats() {
+        const el = document.getElementById("systemStats");
+        if (!metrics) {
+          el.innerHTML =
+            '<div class="stat-card"><div class="stat-label">Status</div><div class="stat-value" style="font-size:16px;color:var(--text-muted);">Metrics unavailable</div></div>';
+          return;
+        }
+        el.innerHTML = `
         <div class="stat-card"><div class="stat-label">Uptime</div><div class="stat-value">${esc(metrics.uptime_human || fmtTime(metrics.uptime_seconds))}</div></div>
-        <div class="stat-card"><div class="stat-label">Total Requests</div><div class="stat-value">${fmt(metrics.total_requests)}</div><div class="stat-sub">${fmt(metrics.requests_per_minute,1)} req/min</div></div>
-        <div class="stat-card"><div class="stat-label">Generations</div><div class="stat-value">${fmt(metrics.total_generations)}</div><div class="stat-sub">Avg ${(metrics.generation_time_seconds||{}).avg ? ((metrics.generation_time_seconds.avg).toFixed(1)+'s') : '--'}</div></div>
+        <div class="stat-card"><div class="stat-label">Total Requests</div><div class="stat-value">${fmt(metrics.total_requests)}</div><div class="stat-sub">${fmt(metrics.requests_per_minute, 1)} req/min</div></div>
+        <div class="stat-card"><div class="stat-label">Generations</div><div class="stat-value">${fmt(metrics.total_generations)}</div><div class="stat-sub">Avg ${(metrics.generation_time_seconds || {}).avg ? metrics.generation_time_seconds.avg.toFixed(1) + "s" : "--"}</div></div>
         <div class="stat-card"><div class="stat-label">Chat Requests</div><div class="stat-value">${fmt(metrics.total_chat_requests)}</div></div>
-        <div class="stat-card"><div class="stat-label">Error Rate</div><div class="stat-value" style="color:${(metrics.error_rate_pct||0)>1?'var(--red)':'var(--green)'};">${fmtPct(metrics.error_rate_pct)}</div><div class="stat-sub">${fmt(metrics.total_errors)} total errors</div></div>
-        <div class="stat-card"><div class="stat-label">P99 Latency</div><div class="stat-value">${fmtMs((metrics.latency_ms||{}).p99)}</div><div class="stat-sub">P50: ${fmtMs((metrics.latency_ms||{}).p50)} | P95: ${fmtMs((metrics.latency_ms||{}).p95)}</div></div>
+        <div class="stat-card"><div class="stat-label">Error Rate</div><div class="stat-value" style="color:${(metrics.error_rate_pct || 0) > 1 ? "var(--red)" : "var(--green)"};">${fmtPct(metrics.error_rate_pct)}</div><div class="stat-sub">${fmt(metrics.total_errors)} total errors</div></div>
+        <div class="stat-card"><div class="stat-label">P99 Latency</div><div class="stat-value">${fmtMs((metrics.latency_ms || {}).p99)}</div><div class="stat-sub">P50: ${fmtMs((metrics.latency_ms || {}).p50)} | P95: ${fmtMs((metrics.latency_ms || {}).p95)}</div></div>
         <div class="stat-card"><div class="stat-label">Active / Peak</div><div class="stat-value">${fmt(metrics.active_requests)}<span style="font-size:16px;color:var(--text-muted);"> / ${fmt(metrics.peak_concurrent)}</span></div></div>
         <div class="stat-card"><div class="stat-label">Slack Events</div><div class="stat-value">${fmt(metrics.total_slack_events)}</div></div>
     `;
-}
+      }
 
-function renderIntegrations() {
-    const el = document.getElementById('integrationsAll');
-    const sumEl = document.getElementById('intSummary');
-    if (!integrations) { el.innerHTML = '<div class="loading">Integrations data unavailable</div>'; return; }
+      function renderIntegrations() {
+        const el = document.getElementById("integrationsAll");
+        const sumEl = document.getElementById("intSummary");
+        if (!integrations) {
+          el.innerHTML =
+            '<div class="loading">Integrations data unavailable</div>';
+          return;
+        }
 
-    // New API returns categorized data with summary
-    const cats = [
-        ['infrastructure', 'Infrastructure & Monitoring', true],
-        ['free_data_apis', 'Free Data APIs', false],
-        ['free_llm_providers', 'Free LLM Providers', false],
-        ['paid_llm_providers', 'Paid LLM Providers', false],
-        ['ad_platform_apis', 'Ad Platform APIs', false],
-        ['communication', 'Communication', false],
-    ];
+        // New API returns categorized data with summary
+        const cats = [
+          ["infrastructure", "Infrastructure & Monitoring", true],
+          ["free_data_apis", "Free Data APIs", false],
+          ["free_llm_providers", "Free LLM Providers", false],
+          ["paid_llm_providers", "Paid LLM Providers", false],
+          ["ad_platform_apis", "Ad Platform APIs", false],
+          ["communication", "Communication", false],
+        ];
 
-    // Summary badge
-    const s = integrations.summary;
-    if (s) sumEl.textContent = `${s.active} active / ${s.total_integrations} total`;
+        // Summary badge
+        const s = integrations.summary;
+        if (s)
+          sumEl.textContent = `${s.active} active / ${s.total_integrations} total`;
 
-    function chipBadge(status) {
-        if (status === 'ok') return '<span class="badge-sm badge-green">Active</span>';
-        if (status === 'available') return '<span class="badge-sm badge-teal">Free</span>';
-        if (status === 'no_key') return '<span class="badge-sm badge-no-key">No Key</span>';
-        if (status === 'disabled') return '<span class="badge-sm badge-gray">Off</span>';
-        return '<span class="badge-sm badge-red">Error</span>';
-    }
+        function chipBadge(status) {
+          if (status === "ok")
+            return '<span class="badge-sm badge-green">Active</span>';
+          if (status === "available")
+            return '<span class="badge-sm badge-teal">Free</span>';
+          if (status === "no_key")
+            return '<span class="badge-sm badge-no-key">No Key</span>';
+          if (status === "disabled")
+            return '<span class="badge-sm badge-gray">Off</span>';
+          return '<span class="badge-sm badge-red">Error</span>';
+        }
 
-    let html = '';
-    for (const [catKey, catLabel, expanded] of cats) {
-        const items = integrations[catKey];
-        if (!items || typeof items !== 'object') continue;
-        const entries = Object.entries(items);
-        if (entries.length === 0) continue;
-        const activeCount = entries.filter(([,v]) => v.status === 'ok' || v.status === 'available').length;
+        let html = "";
+        for (const [catKey, catLabel, expanded] of cats) {
+          const items = integrations[catKey];
+          if (!items || typeof items !== "object") continue;
+          const entries = Object.entries(items);
+          if (entries.length === 0) continue;
+          const activeCount = entries.filter(
+            ([, v]) => v.status === "ok" || v.status === "available",
+          ).length;
 
-        html += `<div class="cat-section">`;
-        html += `<div class="cat-title">${esc(catLabel)} <span class="cat-count">${activeCount}/${entries.length}</span></div>`;
+          html += `<div class="cat-section">`;
+          html += `<div class="cat-title">${esc(catLabel)} <span class="cat-count">${activeCount}/${entries.length}</span></div>`;
 
-        if (expanded) {
+          if (expanded) {
             // Full card view for infrastructure (same as old style)
             html += `<div class="int-grid">`;
             for (const [k, d] of entries) {
-                const cls = d.status==='ok'?'active':d.status==='disabled'?'disabled':'error';
-                html += `<div class="int-card ${cls}">
-                    <div class="int-header"><span class="int-name">${esc(d.name||k)}</span>${chipBadge(d.status)}</div>
-                    <div class="int-detail">${esc(d.detail || '')}</div>
-                    <div class="int-detail" style="color:var(--text);font-weight:500;">${esc(d.value || '')}</div>
+              const cls =
+                d.status === "ok"
+                  ? "active"
+                  : d.status === "disabled"
+                    ? "disabled"
+                    : "error";
+              html += `<div class="int-card ${cls}">
+                    <div class="int-header"><span class="int-name">${esc(d.name || k)}</span>${chipBadge(d.status)}</div>
+                    <div class="int-detail">${esc(d.detail || "")}</div>
+                    <div class="int-detail" style="color:var(--text);font-weight:500;">${esc(d.value || "")}</div>
                     <div class="int-meta">
-                        ${d.sdk_version ? '<span>SDK v'+esc(d.sdk_version)+'</span>' : ''}
-                        ${d.keys != null ? '<span>'+fmt(d.keys)+' cached keys</span>' : ''}
+                        ${d.sdk_version ? "<span>SDK v" + esc(d.sdk_version) + "</span>" : ""}
+                        ${d.keys != null ? "<span>" + fmt(d.keys) + " cached keys</span>" : ""}
                     </div>
                 </div>`;
             }
             html += `</div>`;
-        } else {
+          } else {
             // Compact chip view for APIs and LLMs
             html += `<div class="int-grid-compact">`;
             for (const [k, d] of entries) {
-                const cls = d.status || 'disabled';
-                html += `<div class="int-chip ${cls}">
+              const cls = d.status || "disabled";
+              html += `<div class="int-chip ${cls}">
                     <div class="int-chip-head">
-                        <span class="int-chip-name">${esc(d.name||k)}</span>
+                        <span class="int-chip-name">${esc(d.name || k)}</span>
                         ${chipBadge(d.status)}
                     </div>
-                    ${d.host ? '<div class="int-chip-host">'+esc(d.host)+'</div>' : ''}
-                    ${d.provider ? '<div class="int-chip-host">'+esc(d.provider)+'</div>' : ''}
-                    <div class="int-chip-value">${esc(d.value || d.detail || '')}</div>
+                    ${d.host ? '<div class="int-chip-host">' + esc(d.host) + "</div>" : ""}
+                    ${d.provider ? '<div class="int-chip-host">' + esc(d.provider) + "</div>" : ""}
+                    <div class="int-chip-value">${esc(d.value || d.detail || "")}</div>
                 </div>`;
             }
             html += `</div>`;
+          }
+          html += `</div>`;
         }
-        html += `</div>`;
-    }
-    el.innerHTML = html || '<div class="loading">No integrations configured</div>';
-}
+        el.innerHTML =
+          html || '<div class="loading">No integrations configured</div>';
+      }
 
-function renderCacheLayers() {
-    const el = document.getElementById('cacheLayers');
-    const orch = orchestrator || {};
-    const cs = orch.cache_stats || {};
-    const infra = integrations ? (integrations.infrastructure || {}) : {};
-    const upstash = infra.upstash_redis || null;
-    const supa = infra.supabase || null;
+      function renderCacheLayers() {
+        const el = document.getElementById("cacheLayers");
+        const orch = orchestrator || {};
+        const cs = orch.cache_stats || {};
+        const infra = integrations ? integrations.infrastructure || {} : {};
+        const upstash = infra.upstash_redis || null;
+        const supa = infra.supabase || null;
 
-    el.innerHTML = `
+        el.innerHTML = `
         <div class="cache-card">
             <div class="cache-layer">L1 -- Memory</div>
             <div class="cache-name">In-Process Dict</div>
             <div class="cache-val">${fmt(cs.active_entries || 0)}</div>
             <div class="cache-sub">of ${fmt(cs.max_entries || 500)} max slots</div>
-            <div class="pbar"><div class="pbar-fill" style="width:${Math.min(100,((cs.active_entries||0)/(cs.max_entries||500))*100)}%;background:var(--purple);"></div></div>
+            <div class="pbar"><div class="pbar-fill" style="width:${Math.min(100, ((cs.active_entries || 0) / (cs.max_entries || 500)) * 100)}%;background:var(--purple);"></div></div>
         </div>
         <div class="cache-card">
             <div class="cache-layer">L2 -- Disk</div>
             <div class="cache-name">JSON Files</div>
             <div class="cache-val">${fmt(cs.total_entries || 0)}</div>
             <div class="cache-sub">${fmt(cs.total_accesses || 0)} total accesses</div>
-            <div class="pbar"><div class="pbar-fill" style="width:${Math.min(100,((cs.total_entries||0)/1000)*100)}%;background:var(--teal);"></div></div>
+            <div class="pbar"><div class="pbar-fill" style="width:${Math.min(100, ((cs.total_entries || 0) / 1000) * 100)}%;background:var(--teal);"></div></div>
         </div>
         <div class="cache-card">
             <div class="cache-layer">L3 -- Supabase</div>
             <div class="cache-name">Persistent DB</div>
-            <div class="cache-val"><span class="dot ${supa && supa.status==='ok'?'dot-ok':'dot-off'}"></span>${supa ? (supa.status==='ok'?'Connected':'Off') : 'N/A'}</div>
-            <div class="cache-sub">${supa ? esc(supa.detail) : 'Not configured'}</div>
+            <div class="cache-val"><span class="dot ${supa && supa.status === "ok" ? "dot-ok" : "dot-off"}"></span>${supa ? (supa.status === "ok" ? "Connected" : "Off") : "N/A"}</div>
+            <div class="cache-sub">${supa ? esc(supa.detail) : "Not configured"}</div>
         </div>
         <div class="cache-card">
             <div class="cache-layer">L4 -- Upstash Redis</div>
             <div class="cache-name">Redis REST</div>
-            <div class="cache-val">${upstash && upstash.keys != null ? fmt(upstash.keys) : '<span class="dot '+(upstash && upstash.status==='ok'?'dot-ok':'dot-off')+'"></span>'+(upstash ? (upstash.status==='ok'?'Connected':'Off') : 'N/A')}</div>
-            <div class="cache-sub">${upstash ? esc(upstash.detail) : 'Not configured'}</div>
+            <div class="cache-val">${upstash && upstash.keys != null ? fmt(upstash.keys) : '<span class="dot ' + (upstash && upstash.status === "ok" ? "dot-ok" : "dot-off") + '"></span>' + (upstash ? (upstash.status === "ok" ? "Connected" : "Off") : "N/A")}</div>
+            <div class="cache-sub">${upstash ? esc(upstash.detail) : "Not configured"}</div>
         </div>
     `;
 
-    // Fallback telemetry below cache cards (remove previous to prevent duplication on refresh)
-    const ft = orch.fallback_telemetry;
-    const prevFt = document.getElementById('fallbackTelemetry');
-    if (prevFt) prevFt.remove();
-    if (ft) {
-        const ftEl = document.createElement('div');
-        ftEl.id = 'fallbackTelemetry';
-        ftEl.style.cssText = 'margin-top:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;';
-        ftEl.innerHTML = `
-            <div class="stat-card"><div class="stat-label">Orchestrator Hit Ratio</div><div class="stat-value">${cs.cache_hit_ratio != null ? fmtPct(cs.cache_hit_ratio*100) : '--'}</div></div>
+        // Fallback telemetry below cache cards (remove previous to prevent duplication on refresh)
+        const ft = orch.fallback_telemetry;
+        const prevFt = document.getElementById("fallbackTelemetry");
+        if (prevFt) prevFt.remove();
+        if (ft) {
+          const ftEl = document.createElement("div");
+          ftEl.id = "fallbackTelemetry";
+          ftEl.style.cssText =
+            "margin-top:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;";
+          ftEl.innerHTML = `
+            <div class="stat-card"><div class="stat-label">Orchestrator Hit Ratio</div><div class="stat-value">${cs.cache_hit_ratio != null ? fmtPct(cs.cache_hit_ratio * 100) : "--"}</div></div>
             <div class="stat-card"><div class="stat-label">Total Fallbacks</div><div class="stat-value">${fmt(ft.total_fallbacks)}</div><div class="stat-sub">${fmt(ft.unique_queries)} unique queries</div></div>
             <div class="stat-card"><div class="stat-label">Expired Entries</div><div class="stat-value">${fmt(cs.expired_entries || 0)}</div></div>
         `;
-        el.parentElement.appendChild(ftEl);
-    }
-}
-
-function renderLLMProviders() {
-    const tbody = document.getElementById('llmBody');
-    const countEl = document.getElementById('providerCount');
-    // Try to get detailed provider data from the data matrix extended health
-    let providers = {};
-    if (matrix && matrix.extended_health && matrix.extended_health.llm_providers && matrix.extended_health.llm_providers.providers) {
-        // Basic view from data_matrix: just available/not
-        const basic = matrix.extended_health.llm_providers.providers;
-        for (const [k, v] of Object.entries(basic)) {
-            providers[k] = { name: k, available: v, total_calls: '--', total_failures: '--', calls_this_minute: '--', calls_today: '--', avg_latency_ms: '--', circuit_open: false, model: '' };
+          el.parentElement.appendChild(ftEl);
         }
-    }
-    const keys = Object.keys(providers);
-    if (keys.length === 0) { tbody.innerHTML = '<tr><td colspan="9" class="loading">LLM provider data unavailable. Will populate after first API call.</td></tr>'; countEl.textContent = '--'; return; }
+      }
 
-    countEl.textContent = keys.length + ' PROVIDERS';
-    let rows = '';
-    // Separate free (first 9) and paid (last 4)
-    const freeProviders = ['gemini','groq','cerebras','mistral','openrouter','xai','sambanova','nvidia_nim','cloudflare'];
-    const paidProviders = ['claude_haiku','gpt4o','claude','claude_opus'];
-    const order = [...freeProviders, ...paidProviders].filter(p => p in providers);
-    const extra = keys.filter(k => !order.includes(k));
-    const allOrdered = [...order, ...extra];
+      function renderLLMProviders() {
+        const tbody = document.getElementById("llmBody");
+        const countEl = document.getElementById("providerCount");
+        // Try to get detailed provider data from the data matrix extended health
+        let providers = {};
+        if (
+          matrix &&
+          matrix.extended_health &&
+          matrix.extended_health.llm_providers &&
+          matrix.extended_health.llm_providers.providers
+        ) {
+          // Basic view from data_matrix: just available/not
+          const basic = matrix.extended_health.llm_providers.providers;
+          for (const [k, v] of Object.entries(basic)) {
+            providers[k] = {
+              name: k,
+              available: v,
+              total_calls: "--",
+              total_failures: "--",
+              calls_this_minute: "--",
+              calls_today: "--",
+              avg_latency_ms: "--",
+              circuit_open: false,
+              model: "",
+            };
+          }
+        }
+        const keys = Object.keys(providers);
+        if (keys.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="9" class="loading">LLM provider data unavailable. Will populate after first API call.</td></tr>';
+          countEl.textContent = "--";
+          return;
+        }
 
-    for (const k of allOrdered) {
-        const p = providers[k];
-        const isFree = freeProviders.includes(k);
-        const avail = p.available;
-        const dotCls = avail ? 'dot-ok' : 'dot-err';
-        const tierBadge = isFree ? '<span class="badge-sm badge-purple">Free</span>' : '<span class="badge-sm badge-amber">Paid</span>';
-        rows += `<tr>
+        countEl.textContent = keys.length + " PROVIDERS";
+        let rows = "";
+        // Separate free (first 9) and paid (last 4)
+        const freeProviders = [
+          "gemini",
+          "groq",
+          "cerebras",
+          "mistral",
+          "openrouter",
+          "xai",
+          "sambanova",
+          "nvidia_nim",
+          "cloudflare",
+        ];
+        const paidProviders = [
+          "claude_haiku",
+          "gpt4o",
+          "claude",
+          "claude_opus",
+        ];
+        const order = [...freeProviders, ...paidProviders].filter(
+          (p) => p in providers,
+        );
+        const extra = keys.filter((k) => !order.includes(k));
+        const allOrdered = [...order, ...extra];
+
+        for (const k of allOrdered) {
+          const p = providers[k];
+          const isFree = freeProviders.includes(k);
+          const avail = p.available;
+          const dotCls = avail ? "dot-ok" : "dot-err";
+          const tierBadge = isFree
+            ? '<span class="badge-sm badge-purple">Free</span>'
+            : '<span class="badge-sm badge-amber">Paid</span>';
+          rows += `<tr>
             <td><span class="dot ${dotCls}"></span><strong>${esc(p.name || k)}</strong> ${tierBadge}</td>
-            <td style="font-size:11px;color:var(--text-muted);font-family:monospace;">${esc(p.model || '--')}</td>
+            <td style="font-size:11px;color:var(--text-muted);font-family:monospace;">${esc(p.model || "--")}</td>
             <td>${avail ? '<span class="badge-sm badge-green">Ready</span>' : '<span class="badge-sm badge-red">Down</span>'}</td>
-            <td>${p.total_calls !== '--' ? fmt(p.total_calls) : '--'}</td>
-            <td>${p.total_failures !== '--' ? fmt(p.total_failures) : '--'}</td>
-            <td>${p.calls_this_minute !== '--' ? fmt(p.calls_this_minute) : '--'}</td>
-            <td>${p.calls_today !== '--' ? fmt(p.calls_today) : '--'}</td>
-            <td>${p.avg_latency_ms !== '--' ? fmtMs(p.avg_latency_ms) : '--'}</td>
+            <td>${p.total_calls !== "--" ? fmt(p.total_calls) : "--"}</td>
+            <td>${p.total_failures !== "--" ? fmt(p.total_failures) : "--"}</td>
+            <td>${p.calls_this_minute !== "--" ? fmt(p.calls_this_minute) : "--"}</td>
+            <td>${p.calls_today !== "--" ? fmt(p.calls_today) : "--"}</td>
+            <td>${p.avg_latency_ms !== "--" ? fmtMs(p.avg_latency_ms) : "--"}</td>
             <td>${p.circuit_open ? '<span class="badge-sm badge-red">OPEN</span>' : '<span class="badge-sm badge-green">Closed</span>'}</td>
         </tr>`;
-    }
-    tbody.innerHTML = rows;
-}
+        }
+        tbody.innerHTML = rows;
+      }
 
-function renderNovaStats() {
-    const el = document.getElementById('novaStats');
-    const routeEl = document.getElementById('novaRouting');
-    if (!nova) { el.innerHTML = '<div class="stat-card"><div class="stat-label">Status</div><div class="stat-value" style="font-size:16px;color:var(--text-muted);">Nova metrics unavailable</div></div>'; routeEl.innerHTML=''; return; }
-    const tok = nova.tokens || {};
-    const lat = nova.latency_ms || {};
-    const routing = nova.chat_routing || {};
-    const total = (routing.conversational||0) + (routing.tool||0) + (routing.claude||0) + (routing.suppressed||0);
+      function renderNovaStats() {
+        const el = document.getElementById("novaStats");
+        const routeEl = document.getElementById("novaRouting");
+        if (!nova) {
+          el.innerHTML =
+            '<div class="stat-card"><div class="stat-label">Status</div><div class="stat-value" style="font-size:16px;color:var(--text-muted);">Nova metrics unavailable</div></div>';
+          routeEl.innerHTML = "";
+          return;
+        }
+        const tok = nova.tokens || {};
+        const lat = nova.latency_ms || {};
+        const routing = nova.chat_routing || {};
+        const total =
+          (routing.conversational || 0) +
+          (routing.tool || 0) +
+          (routing.claude || 0) +
+          (routing.suppressed || 0);
 
-    el.innerHTML = `
+        el.innerHTML = `
         <div class="stat-card"><div class="stat-label">Total Chat Requests</div><div class="stat-value">${fmt(nova.total_requests)}</div></div>
         <div class="stat-card"><div class="stat-label">Estimated Cost</div><div class="stat-value">${fmtCost(nova.estimated_cost_usd)}</div><div class="stat-sub">Haiku + Sonnet combined</div></div>
         <div class="stat-card"><div class="stat-label">Tokens (In / Out)</div><div class="stat-value" style="font-size:18px;">${fmt(tok.total_input)} / ${fmt(tok.total_output)}</div><div class="stat-sub">Cache read: ${fmt(tok.total_cache_read)}</div></div>
         <div class="stat-card"><div class="stat-label">Avg Latency</div><div class="stat-value">${fmtMs(lat.avg)}</div><div class="stat-sub">P95: ${fmtMs(lat.p95)}</div></div>
         <div class="stat-card"><div class="stat-label">Cache Hit Rate</div><div class="stat-value">${fmtPct(nova.cache_hit_rate_pct)}</div></div>
-        <div class="stat-card"><div class="stat-label">API Errors</div><div class="stat-value" style="color:${(nova.api_errors||0)>0?'var(--red)':'var(--green)'};">${fmt(nova.api_errors)}</div></div>
+        <div class="stat-card"><div class="stat-label">API Errors</div><div class="stat-value" style="color:${(nova.api_errors || 0) > 0 ? "var(--red)" : "var(--green)"};">${fmt(nova.api_errors)}</div></div>
     `;
 
-    // Routing breakdown
-    if (total > 0) {
-        const pctConv = ((routing.conversational||0)/total*100).toFixed(1);
-        const pctTool = ((routing.tool||0)/total*100).toFixed(1);
-        const pctClaude = ((routing.claude||0)/total*100).toFixed(1);
-        const pctSupp = ((routing.suppressed||0)/total*100).toFixed(1);
-        routeEl.innerHTML = `
+        // Routing breakdown
+        if (total > 0) {
+          const pctConv = (
+            ((routing.conversational || 0) / total) *
+            100
+          ).toFixed(1);
+          const pctTool = (((routing.tool || 0) / total) * 100).toFixed(1);
+          const pctClaude = (((routing.claude || 0) / total) * 100).toFixed(1);
+          const pctSupp = (((routing.suppressed || 0) / total) * 100).toFixed(
+            1,
+          );
+          routeEl.innerHTML = `
             <div class="stat-card" style="grid-column:1/-1;">
                 <div class="stat-label">Chat Routing Breakdown (${fmt(total)} total)</div>
                 <div style="display:flex;height:28px;border-radius:6px;overflow:hidden;margin:8px 0;">
-                    <div style="width:${pctConv}%;background:var(--teal);min-width:${routing.conversational?'2px':'0'};" title="Conversational: ${pctConv}%"></div>
-                    <div style="width:${pctTool}%;background:var(--purple);min-width:${routing.tool?'2px':'0'};" title="Tool: ${pctTool}%"></div>
-                    <div style="width:${pctClaude}%;background:var(--bronze);min-width:${routing.claude?'2px':'0'};" title="Claude: ${pctClaude}%"></div>
-                    <div style="width:${pctSupp}%;background:var(--text-muted);min-width:${routing.suppressed?'2px':'0'};" title="Suppressed: ${pctSupp}%"></div>
+                    <div style="width:${pctConv}%;background:var(--teal);min-width:${routing.conversational ? "2px" : "0"};" title="Conversational: ${pctConv}%"></div>
+                    <div style="width:${pctTool}%;background:var(--purple);min-width:${routing.tool ? "2px" : "0"};" title="Tool: ${pctTool}%"></div>
+                    <div style="width:${pctClaude}%;background:var(--bronze);min-width:${routing.claude ? "2px" : "0"};" title="Claude: ${pctClaude}%"></div>
+                    <div style="width:${pctSupp}%;background:var(--text-muted);min-width:${routing.suppressed ? "2px" : "0"};" title="Suppressed: ${pctSupp}%"></div>
                 </div>
                 <div style="display:flex;gap:16px;font-size:12px;flex-wrap:wrap;">
                     <span><span class="dot dot-ok" style="background:var(--teal);"></span>Conversational ${pctConv}% (${fmt(routing.conversational)})</span>
@@ -566,80 +1133,151 @@ function renderNovaStats() {
                 </div>
             </div>
         `;
-    }
-}
+        }
+      }
 
-function renderEnrichStats() {
-    const el = document.getElementById('enrichStats');
-    if (!metrics || !metrics.api_enrichment) { el.innerHTML = '<div class="stat-card"><div class="stat-label">Status</div><div class="stat-value" style="font-size:16px;color:var(--text-muted);">Enrichment stats unavailable</div></div>'; return; }
-    const ae = metrics.api_enrichment;
-    el.innerHTML = `
+      function renderEnrichStats() {
+        const el = document.getElementById("enrichStats");
+        if (!metrics || !metrics.api_enrichment) {
+          el.innerHTML =
+            '<div class="stat-card"><div class="stat-label">Status</div><div class="stat-value" style="font-size:16px;color:var(--text-muted);">Enrichment stats unavailable</div></div>';
+          return;
+        }
+        const ae = metrics.api_enrichment;
+        el.innerHTML = `
         <div class="stat-card"><div class="stat-label">API Calls (Success)</div><div class="stat-value" style="color:var(--green);">${fmt(ae.success_count)}</div></div>
-        <div class="stat-card"><div class="stat-label">API Calls (Failed)</div><div class="stat-value" style="color:${(ae.failure_count||0)>0?'var(--red)':'var(--green)'};">${fmt(ae.failure_count)}</div></div>
+        <div class="stat-card"><div class="stat-label">API Calls (Failed)</div><div class="stat-value" style="color:${(ae.failure_count || 0) > 0 ? "var(--red)" : "var(--green)"};">${fmt(ae.failure_count)}</div></div>
         <div class="stat-card"><div class="stat-label">Success Rate</div><div class="stat-value">${fmtPct(ae.success_rate_pct)}</div>
-            <div class="pbar"><div class="pbar-fill" style="width:${ae.success_rate_pct||0}%;background:${(ae.success_rate_pct||0)>90?'var(--green)':'var(--amber)'};"></div></div>
+            <div class="pbar"><div class="pbar-fill" style="width:${ae.success_rate_pct || 0}%;background:${(ae.success_rate_pct || 0) > 90 ? "var(--green)" : "var(--amber)"};"></div></div>
         </div>
         <div class="stat-card"><div class="stat-label">Avg Latency</div><div class="stat-value">${fmtMs(ae.avg_latency_ms)}</div></div>
     `;
-}
+      }
 
-function renderSLOs() {
-    const el = document.getElementById('sloCards');
-    if (!slos || !slos.slos) { el.innerHTML = '<div class="slo-card"><div class="slo-name">Status</div><div class="slo-values"><span class="slo-actual" style="font-size:16px;color:var(--text-muted);">SLO data unavailable</span></div></div>'; return; }
-    const labels = {
-        generate_p99_ms: { name:'Generate P99', unit:'ms', fmt: v => fmtMs(v) },
-        chat_p99_ms: { name:'Chat P99', unit:'ms', fmt: v => fmtMs(v) },
-        error_rate_pct: { name:'Error Rate', unit:'%', fmt: v => fmtPct(v) },
-        availability_pct: { name:'Availability', unit:'%', fmt: v => fmtPct(v) },
-    };
-    let html = '';
-    for (const [k, d] of Object.entries(slos.slos)) {
-        const m = labels[k] || { name:k, unit:'', fmt: v => v };
-        const color = d.compliant ? 'var(--green)' : 'var(--red)';
-        const badge = d.compliant ? '<span class="badge-sm badge-green">Compliant</span>' : '<span class="badge-sm badge-red">Breached</span>';
-        html += `<div class="slo-card">
+      function renderSLOs() {
+        const el = document.getElementById("sloCards");
+        if (!slos || !slos.slos) {
+          el.innerHTML =
+            '<div class="slo-card"><div class="slo-name">Status</div><div class="slo-values"><span class="slo-actual" style="font-size:16px;color:var(--text-muted);">SLO data unavailable</span></div></div>';
+          return;
+        }
+        const labels = {
+          generate_p99_ms: {
+            name: "Generate P99",
+            unit: "ms",
+            fmt: (v) => fmtMs(v),
+          },
+          chat_p99_ms: { name: "Chat P99", unit: "ms", fmt: (v) => fmtMs(v) },
+          error_rate_pct: {
+            name: "Error Rate",
+            unit: "%",
+            fmt: (v) => fmtPct(v),
+          },
+          availability_pct: {
+            name: "Availability",
+            unit: "%",
+            fmt: (v) => fmtPct(v),
+          },
+        };
+        let html = "";
+        for (const [k, d] of Object.entries(slos.slos)) {
+          const m = labels[k] || { name: k, unit: "", fmt: (v) => v };
+          const color = d.compliant ? "var(--green)" : "var(--red)";
+          const badge = d.compliant
+            ? '<span class="badge-sm badge-green">Compliant</span>'
+            : '<span class="badge-sm badge-red">Breached</span>';
+          html += `<div class="slo-card">
             <div class="slo-name">${esc(m.name)} ${badge}</div>
             <div class="slo-values">
                 <span class="slo-actual" style="color:${color};">${m.fmt(d.actual)}</span>
                 <span class="slo-target">target: ${m.fmt(d.target)}</span>
             </div>
-            ${d.budget_remaining_pct != null ? '<div style="font-size:11px;color:var(--text-muted);">Budget remaining: '+fmtPct(d.budget_remaining_pct)+'</div>' : ''}
-            ${d.sample_size != null ? '<div style="font-size:11px;color:var(--text-muted);">Samples: '+fmt(d.sample_size)+'</div>' : ''}
+            ${d.budget_remaining_pct != null ? '<div style="font-size:11px;color:var(--text-muted);">Budget remaining: ' + fmtPct(d.budget_remaining_pct) + "</div>" : ""}
+            ${d.sample_size != null ? '<div style="font-size:11px;color:var(--text-muted);">Samples: ' + fmt(d.sample_size) + "</div>" : ""}
         </div>`;
-    }
-    el.innerHTML = html;
-}
+        }
+        el.innerHTML = html;
+      }
 
-function renderEndpoints() {
-    const tbody = document.getElementById('endpointBody');
-    if (!metrics || !metrics.endpoints) { tbody.innerHTML = '<tr><td colspan="4" class="loading">Endpoint data unavailable</td></tr>'; return; }
-    const sorted = Object.entries(metrics.endpoints).sort((a,b) => (b[1].count||0) - (a[1].count||0));
-    if (sorted.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="loading">No endpoint traffic yet</td></tr>'; return; }
-    tbody.innerHTML = sorted.map(([ep, d]) =>
-        `<tr><td><code style="font-size:12px;">${esc(ep)}</code></td><td>${fmt(d.count)}</td><td>${fmtMs(d.avg_ms)}</td><td>${fmtMs(d.p95_ms)}</td></tr>`
-    ).join('');
-}
+      function renderEndpoints() {
+        const tbody = document.getElementById("endpointBody");
+        if (!metrics || !metrics.endpoints) {
+          tbody.innerHTML =
+            '<tr><td colspan="4" class="loading">Endpoint data unavailable</td></tr>';
+          return;
+        }
+        const sorted = Object.entries(metrics.endpoints).sort(
+          (a, b) => (b[1].count || 0) - (a[1].count || 0),
+        );
+        if (sorted.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="4" class="loading">No endpoint traffic yet</td></tr>';
+          return;
+        }
+        tbody.innerHTML = sorted
+          .map(
+            ([ep, d]) =>
+              `<tr><td><code style="font-size:12px;">${esc(ep)}</code></td><td>${fmt(d.count)}</td><td>${fmtMs(d.avg_ms)}</td><td>${fmtMs(d.p95_ms)}</td></tr>`,
+          )
+          .join("");
+      }
 
-function renderHealLog() {
-    const tbody = document.getElementById('healBody');
-    let heals = [];
-    if (qc && qc.recent_heals) heals.push(...qc.recent_heals.map(h => ({ ...h, source: 'AutoQC' })));
-    if (matrix && matrix.recent_heal_actions) heals.push(...matrix.recent_heal_actions.map(h => ({ ...h, source: 'DataMatrix' })));
-    heals.sort((a,b) => (b.timestamp||'').localeCompare(a.timestamp||''));
-    heals = heals.slice(0, 15);
-    if (heals.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="loading">No heal actions recorded yet</td></tr>'; return; }
-    tbody.innerHTML = heals.map(h => {
-        const ts = h.timestamp ? new Date(h.timestamp).toLocaleString() : '--';
-        const badge = (h.result||h.status||'')?.includes?.('success') || (h.result||h.status||'')?.includes?.('healed')
-            ? '<span class="badge-sm badge-green">Success</span>'
-            : '<span class="badge-sm badge-red">Failed</span>';
-        return `<tr><td style="font-size:12px;">${esc(ts)}</td><td>${esc(h.source||'--')}</td><td>${esc(h.component||h.test_name||h.layer||'--')}</td><td style="font-size:12px;">${esc(h.action||h.description||'--')}</td><td>${badge}</td></tr>`;
-    }).join('');
-}
+      function renderHealLog() {
+        const tbody = document.getElementById("healBody");
+        let heals = [];
+        if (qc && qc.recent_heals)
+          heals.push(
+            ...qc.recent_heals.map((h) => ({ ...h, source: "AutoQC" })),
+          );
+        if (matrix && matrix.recent_heal_actions)
+          heals.push(
+            ...matrix.recent_heal_actions.map((h) => ({
+              ...h,
+              source: "DataMatrix",
+            })),
+          );
+        heals.sort((a, b) =>
+          (b.timestamp || "").localeCompare(a.timestamp || ""),
+        );
+        heals = heals.slice(0, 15);
+        if (heals.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="5" class="loading">No heal actions recorded yet</td></tr>';
+          return;
+        }
+        tbody.innerHTML = heals
+          .map((h) => {
+            const ts = h.timestamp
+              ? new Date(h.timestamp).toLocaleString()
+              : "--";
+            const badge =
+              (h.result || h.status || "")?.includes?.("success") ||
+              (h.result || h.status || "")?.includes?.("healed")
+                ? '<span class="badge-sm badge-green">Success</span>'
+                : '<span class="badge-sm badge-red">Failed</span>';
+            return `<tr><td style="font-size:12px;">${esc(ts)}</td><td>${esc(h.source || "--")}</td><td>${esc(h.component || h.test_name || h.layer || "--")}</td><td style="font-size:12px;">${esc(h.action || h.description || "--")}</td><td>${badge}</td></tr>`;
+          })
+          .join("");
+      }
 
-// Initial fetch + auto-refresh every 30s
-fetchAll();
-setInterval(fetchAll, 30000);
-</script>
-</body>
+      // Initial fetch + auto-refresh every 30s
+      fetchAll();
+      setInterval(fetchAll, 30000);
+
+      // Scroll reveal
+      (function () {
+        var ro = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) e.target.classList.add("visible");
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          ro.observe(el);
+        });
+      })();
+    </script>
+  </body>
 </html>

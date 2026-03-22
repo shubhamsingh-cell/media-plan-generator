@@ -1,553 +1,1133 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="A/B Test Lab -- Generate A/B test configurations and variant ad copy for recruitment campaigns.">
-    <meta name="theme-color" content="#000000">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="A/B Test Lab -- Generate A/B test configurations and variant ad copy for recruitment campaigns."
+    />
+    <meta name="theme-color" content="#000000" />
     <title>A/B Test Lab | Recruitment Ad Testing | Nova AI Suite</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <style>
-        :root {
-            --bg: #000000; --card: rgba(17,17,17,0.8); --card-solid: #111111;
-            --indigo: #6366f1; --indigo-light: #818cf8; --text: #ededed; --muted: #a1a1a1;
-            --success: #22c55e; --warning: #f59e0b; --error: #ef4444;
-            --border: rgba(255,255,255,0.08); --radius: 12px;
-            --gradient: linear-gradient(135deg, #6366f1, #818cf8);
+      :root {
+        --bg: #000000;
+        --card: rgba(17, 17, 17, 0.8);
+        --card-solid: #111111;
+        --indigo: #6366f1;
+        --indigo-light: #818cf8;
+        --text: #ededed;
+        --muted: #a1a1a1;
+        --success: #22c55e;
+        --warning: #f59e0b;
+        --error: #ef4444;
+        --border: rgba(255, 255, 255, 0.08);
+        --radius: 12px;
+        --gradient: linear-gradient(135deg, #6366f1, #818cf8);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
         }
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
-        ::selection { background: var(--indigo); color: #fff; }
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.6;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      ::selection {
+        background: var(--indigo);
+        color: #fff;
+      }
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        line-height: 1.6;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background:
+          radial-gradient(
+            ellipse at 20% 50%,
+            rgba(99, 102, 241, 0.06) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 20%,
+            rgba(129, 140, 248, 0.04) 0%,
+            transparent 50%
+          );
+      }
+      /* Nav */
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        padding: 0.75rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border);
+      }
+      nav a {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+      nav a:hover {
+        color: var(--text);
+      }
+      .nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .nav-brand span {
+        font-weight: 700;
+        font-size: 1.1rem;
+        background: var(--gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .nav-links {
+        display: flex;
+        gap: 1.25rem;
+        align-items: center;
+      }
+      /* Layout */
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem;
+      }
+      /* Header */
+      .hero {
+        text-align: center;
+        margin-bottom: 2.5rem;
+      }
+      .hero h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: var(--gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+      }
+      .hero p {
+        color: var(--muted);
+        font-size: 1.1rem;
+        max-width: 640px;
+        margin: 0 auto;
+      }
+      /* Card */
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        backdrop-filter: blur(10px);
+      }
+      .card-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .card-title .icon {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(99, 102, 241, 0.12);
+        border-radius: 8px;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+      }
+      /* Form */
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1rem;
+      }
+      label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--muted);
+        margin-bottom: 0.35rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      input,
+      select {
+        width: 100%;
+        padding: 0.65rem 0.85rem;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        font-size: 0.9rem;
+        font-family: inherit;
+        transition: border-color 0.2s;
+      }
+      input:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--indigo);
+      }
+      select option {
+        background: #111;
+        color: var(--text);
+      }
+      .btn {
+        padding: 0.7rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: inherit;
+      }
+      .btn-primary {
+        background: var(--gradient);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+      }
+      .btn-primary:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .btn-row {
+        display: flex;
+        justify-content: center;
+        margin-top: 1.25rem;
+      }
+      /* Results */
+      #results {
+        display: none;
+      }
+      .variants-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+      }
+      .variant-card {
+        background: var(--card-solid);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .variant-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+      }
+      .variant-a::before {
+        background: var(--indigo);
+      }
+      .variant-b::before {
+        background: var(--success);
+      }
+      .variant-label {
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding: 0.25rem 0.6rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+      }
+      .variant-a .variant-label {
+        background: rgba(99, 102, 241, 0.15);
+        color: var(--indigo-light);
+      }
+      .variant-b .variant-label {
+        background: rgba(34, 197, 94, 0.15);
+        color: var(--success);
+      }
+      .variant-approach {
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-bottom: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+      }
+      .ad-field {
+        margin-bottom: 1rem;
+      }
+      .ad-field-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.3rem;
+      }
+      .ad-headline {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--text);
+        line-height: 1.3;
+      }
+      .ad-description {
+        font-size: 0.9rem;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .ad-cta {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.45rem 1rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .variant-a .ad-cta {
+        background: rgba(99, 102, 241, 0.15);
+        color: var(--indigo-light);
+      }
+      .variant-b .ad-cta {
+        background: rgba(34, 197, 94, 0.15);
+        color: var(--success);
+      }
+      /* Config panel */
+      .config-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+      }
+      .config-item {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+      }
+      .config-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+      }
+      .config-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .config-note {
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-top: 0.25rem;
+      }
+      /* Metrics */
+      .metrics-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 0.75rem;
+      }
+      .metric-badge {
+        padding: 0.35rem 0.75rem;
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--indigo-light);
+      }
+      /* Tips */
+      .tips-list {
+        list-style: none;
+      }
+      .tips-list li {
+        padding: 0.65rem 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.9rem;
+        color: var(--muted);
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+      .tips-list li:last-child {
+        border-bottom: none;
+      }
+      .tip-bullet {
+        color: var(--indigo-light);
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      /* VS badge */
+      .vs-divider {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .vs-badge {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 0.8rem;
+        color: var(--muted);
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 2;
+      }
+      .variants-wrapper {
+        position: relative;
+      }
+      /* Footer */
+      footer {
+        text-align: center;
+        padding: 2rem 1.5rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+        border-top: 1px solid var(--border);
+        margin-top: 3rem;
+      }
+      footer a {
+        color: var(--indigo-light);
+        text-decoration: none;
+      }
+      footer a:hover {
+        text-decoration: underline;
+      }
+      /* Responsive */
+      @media (max-width: 768px) {
+        .hero h1 {
+          font-size: 1.75rem;
         }
-        body::before {
-            content: ''; position: fixed; inset: 0; z-index: -1;
-            background: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.06) 0%, transparent 50%),
-                        radial-gradient(ellipse at 80% 20%, rgba(129,140,248,0.04) 0%, transparent 50%);
+        .variants-grid {
+          grid-template-columns: 1fr;
         }
-        /* Nav */
-        nav { position: sticky; top: 0; z-index: 100; padding: .75rem 2rem; display: flex; align-items: center; justify-content: space-between;
-            background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
-        nav a { color: var(--muted); text-decoration: none; font-size: .875rem; font-weight: 500; transition: color .2s; }
-        nav a:hover { color: var(--text); }
-        .nav-brand { display: flex; align-items: center; gap: .5rem; }
-        .nav-brand span { font-weight: 700; font-size: 1.1rem; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .nav-links { display: flex; gap: 1.25rem; align-items: center; }
-        /* Layout */
-        .container { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
-        /* Header */
-        .hero { text-align: center; margin-bottom: 2.5rem; }
-        .hero h1 { font-size: 2.5rem; font-weight: 800; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: .5rem; }
-        .hero p { color: var(--muted); font-size: 1.1rem; max-width: 640px; margin: 0 auto; }
-        /* Card */
-        .card {
-            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-            padding: 1.5rem; margin-bottom: 1.5rem; backdrop-filter: blur(10px);
+        .form-grid {
+          grid-template-columns: 1fr;
         }
-        .card-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem; }
-        .card-title .icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
-            background: rgba(99,102,241,0.12); border-radius: 8px; font-size: .85rem; flex-shrink: 0; }
-        /* Form */
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
-        label { display: block; font-size: .8rem; font-weight: 600; color: var(--muted); margin-bottom: .35rem; text-transform: uppercase; letter-spacing: .5px; }
-        input, select {
-            width: 100%; padding: .65rem .85rem; background: rgba(255,255,255,0.04); border: 1px solid var(--border);
-            border-radius: 8px; color: var(--text); font-size: .9rem; font-family: inherit; transition: border-color .2s;
+        .config-grid {
+          grid-template-columns: 1fr 1fr;
         }
-        input:focus, select:focus { outline: none; border-color: var(--indigo); }
-        select option { background: #111; color: var(--text); }
-        .btn {
-            padding: .7rem 1.5rem; border: none; border-radius: 8px; font-weight: 600; font-size: .9rem;
-            cursor: pointer; transition: all .2s; font-family: inherit;
+        nav {
+          padding: 0.75rem 1rem;
         }
-        .btn-primary { background: var(--gradient); color: #fff; }
-        .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
-        .btn-primary:disabled { opacity: .4; cursor: not-allowed; transform: none; }
-        .btn-row { display: flex; justify-content: center; margin-top: 1.25rem; }
-        /* Results */
-        #results { display: none; }
-        .variants-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-        .variant-card {
-            background: var(--card-solid); border: 1px solid var(--border); border-radius: var(--radius);
-            padding: 1.5rem; position: relative; overflow: hidden;
-        }
-        .variant-card::before {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-        }
-        .variant-a::before { background: var(--indigo); }
-        .variant-b::before { background: var(--success); }
-        .variant-label {
-            display: inline-block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
-            padding: .25rem .6rem; border-radius: 4px; margin-bottom: 1rem;
-        }
-        .variant-a .variant-label { background: rgba(99,102,241,0.15); color: var(--indigo-light); }
-        .variant-b .variant-label { background: rgba(34,197,94,0.15); color: var(--success); }
-        .variant-approach { font-size: .75rem; color: var(--muted); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
-        .ad-field { margin-bottom: 1rem; }
-        .ad-field-label { font-size: .7rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .3rem; }
-        .ad-headline { font-size: 1.15rem; font-weight: 700; color: var(--text); line-height: 1.3; }
-        .ad-description { font-size: .9rem; color: var(--muted); line-height: 1.5; }
-        .ad-cta {
-            display: inline-block; margin-top: .5rem; padding: .45rem 1rem; border-radius: 6px;
-            font-size: .85rem; font-weight: 600;
-        }
-        .variant-a .ad-cta { background: rgba(99,102,241,0.15); color: var(--indigo-light); }
-        .variant-b .ad-cta { background: rgba(34,197,94,0.15); color: var(--success); }
-        /* Config panel */
-        .config-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
-        .config-item { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
-        .config-label { font-size: .7rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .25rem; }
-        .config-value { font-size: 1.25rem; font-weight: 700; color: var(--text); }
-        .config-note { font-size: .75rem; color: var(--muted); margin-top: .25rem; }
-        /* Metrics */
-        .metrics-row { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .75rem; }
-        .metric-badge {
-            padding: .35rem .75rem; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2);
-            border-radius: 6px; font-size: .8rem; font-weight: 500; color: var(--indigo-light);
-        }
-        /* Tips */
-        .tips-list { list-style: none; }
-        .tips-list li { padding: .65rem 0; border-bottom: 1px solid var(--border); font-size: .9rem; color: var(--muted);
-            display: flex; align-items: flex-start; gap: .5rem; }
-        .tips-list li:last-child { border-bottom: none; }
-        .tip-bullet { color: var(--indigo-light); font-weight: 700; flex-shrink: 0; }
-        /* VS badge */
-        .vs-divider { display: flex; align-items: center; justify-content: center; }
         .vs-badge {
-            width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.06); border: 1px solid var(--border);
-            display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .8rem; color: var(--muted);
-            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2;
+          display: none;
         }
-        .variants-wrapper { position: relative; }
-        /* Footer */
-        footer { text-align: center; padding: 2rem 1.5rem; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--border); margin-top: 3rem; }
-        footer a { color: var(--indigo-light); text-decoration: none; }
-        footer a:hover { text-decoration: underline; }
-        /* Responsive */
-        @media (max-width: 768px) {
-            .hero h1 { font-size: 1.75rem; }
-            .variants-grid { grid-template-columns: 1fr; }
-            .form-grid { grid-template-columns: 1fr; }
-            .config-grid { grid-template-columns: 1fr 1fr; }
-            nav { padding: .75rem 1rem; }
-            .vs-badge { display: none; }
+      }
+      @media (max-width: 480px) {
+        .config-grid {
+          grid-template-columns: 1fr;
         }
-        @media (max-width: 480px) {
-            .config-grid { grid-template-columns: 1fr; }
-        }
+      }
+
+      /* -- Scroll reveal animations -- */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* -- Enhanced card/section glow -- */
+      .glow-hover {
+        transition:
+          box-shadow 0.4s ease,
+          border-color 0.3s ease;
+      }
+      .glow-hover:hover {
+        box-shadow:
+          0 0 20px rgba(99, 102, 241, 0.12),
+          0 0 50px rgba(99, 102, 241, 0.06);
+        border-color: rgba(99, 102, 241, 0.2);
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <nav>
-        <div class="nav-brand"><span>A/B Test Lab</span></div>
-        <div class="nav-links">
-            <a href="/">Hub</a>
-            <a href="/media-plan">Media Plan</a>
-        </div>
+      <div class="nav-brand"><span>A/B Test Lab</span></div>
+      <div class="nav-links">
+        <a href="/">Hub</a>
+        <a href="/media-plan">Media Plan</a>
+      </div>
     </nav>
 
     <div class="container">
-        <div class="hero">
-            <h1>A/B Test Lab</h1>
-            <p>Generate A/B test configurations and variant ad copy for recruitment campaigns. Compare benefits-focused vs. culture-focused approaches.</p>
+      <div class="hero">
+        <h1>A/B Test Lab</h1>
+        <p>
+          Generate A/B test configurations and variant ad copy for recruitment
+          campaigns. Compare benefits-focused vs. culture-focused approaches.
+        </p>
+      </div>
+
+      <!-- Input Form -->
+      <div class="card">
+        <div class="card-title">
+          <div class="icon">&#9881;</div>
+          Test Configuration
+        </div>
+        <form id="abForm" autocomplete="off">
+          <div class="form-grid">
+            <div>
+              <label for="jobTitle">Job Title</label>
+              <input
+                type="text"
+                id="jobTitle"
+                placeholder="e.g. Warehouse Associate"
+                required
+              />
+            </div>
+            <div>
+              <label for="industry">Industry</label>
+              <select id="industry" required>
+                <option value="">Select industry</option>
+                <option value="Technology">Technology</option>
+                <option value="Healthcare">Healthcare</option>
+                <option value="Finance">Finance</option>
+                <option value="Retail">Retail</option>
+                <option value="Manufacturing">Manufacturing</option>
+                <option value="Logistics">Logistics</option>
+                <option value="Hospitality">Hospitality</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label for="audience">Target Audience</label>
+              <select id="audience" required>
+                <option value="">Select audience</option>
+                <option value="Blue Collar">Blue Collar</option>
+                <option value="White Collar">White Collar</option>
+                <option value="Grey Collar">Grey Collar</option>
+                <option value="Pink Collar">Pink Collar</option>
+              </select>
+            </div>
+            <div>
+              <label for="channel">Channel</label>
+              <select id="channel" required>
+                <option value="">Select channel</option>
+                <option value="Indeed">Indeed</option>
+                <option value="LinkedIn">LinkedIn</option>
+                <option value="Facebook">Facebook</option>
+                <option value="Google">Google</option>
+                <option value="ZipRecruiter">ZipRecruiter</option>
+                <option value="Programmatic">Programmatic</option>
+              </select>
+            </div>
+            <div>
+              <label for="budget">Monthly Budget ($)</label>
+              <input
+                type="number"
+                id="budget"
+                placeholder="e.g. 5000"
+                min="100"
+                required
+              />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary" id="generateBtn">
+              Generate A/B Test
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Results -->
+      <div id="results">
+        <!-- Variants -->
+        <div class="variants-wrapper">
+          <div class="variants-grid">
+            <div class="variant-card variant-a" id="variantA"></div>
+            <div class="variant-card variant-b" id="variantB"></div>
+          </div>
+          <div class="vs-badge">VS</div>
         </div>
 
-        <!-- Input Form -->
+        <!-- Test Configuration -->
+        <div class="card" style="margin-top: 1.5rem">
+          <div class="card-title">
+            <div class="icon">&#9878;</div>
+            Test Configuration
+          </div>
+          <div class="config-grid" id="configGrid"></div>
+          <div style="margin-top: 1rem">
+            <div class="config-label">Key Metrics to Track</div>
+            <div class="metrics-row" id="metricsRow"></div>
+          </div>
+        </div>
+
+        <!-- Channel Tips -->
         <div class="card">
-            <div class="card-title"><div class="icon">&#9881;</div> Test Configuration</div>
-            <form id="abForm" autocomplete="off">
-                <div class="form-grid">
-                    <div>
-                        <label for="jobTitle">Job Title</label>
-                        <input type="text" id="jobTitle" placeholder="e.g. Warehouse Associate" required>
-                    </div>
-                    <div>
-                        <label for="industry">Industry</label>
-                        <select id="industry" required>
-                            <option value="">Select industry</option>
-                            <option value="Technology">Technology</option>
-                            <option value="Healthcare">Healthcare</option>
-                            <option value="Finance">Finance</option>
-                            <option value="Retail">Retail</option>
-                            <option value="Manufacturing">Manufacturing</option>
-                            <option value="Logistics">Logistics</option>
-                            <option value="Hospitality">Hospitality</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="audience">Target Audience</label>
-                        <select id="audience" required>
-                            <option value="">Select audience</option>
-                            <option value="Blue Collar">Blue Collar</option>
-                            <option value="White Collar">White Collar</option>
-                            <option value="Grey Collar">Grey Collar</option>
-                            <option value="Pink Collar">Pink Collar</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="channel">Channel</label>
-                        <select id="channel" required>
-                            <option value="">Select channel</option>
-                            <option value="Indeed">Indeed</option>
-                            <option value="LinkedIn">LinkedIn</option>
-                            <option value="Facebook">Facebook</option>
-                            <option value="Google">Google</option>
-                            <option value="ZipRecruiter">ZipRecruiter</option>
-                            <option value="Programmatic">Programmatic</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="budget">Monthly Budget ($)</label>
-                        <input type="number" id="budget" placeholder="e.g. 5000" min="100" required>
-                    </div>
-                </div>
-                <div class="btn-row">
-                    <button type="submit" class="btn btn-primary" id="generateBtn">Generate A/B Test</button>
-                </div>
-            </form>
+          <div class="card-title">
+            <div class="icon">&#9733;</div>
+            Channel-Specific Best Practices
+          </div>
+          <ul class="tips-list" id="tipsList"></ul>
         </div>
-
-        <!-- Results -->
-        <div id="results">
-            <!-- Variants -->
-            <div class="variants-wrapper">
-                <div class="variants-grid">
-                    <div class="variant-card variant-a" id="variantA"></div>
-                    <div class="variant-card variant-b" id="variantB"></div>
-                </div>
-                <div class="vs-badge">VS</div>
-            </div>
-
-            <!-- Test Configuration -->
-            <div class="card" style="margin-top: 1.5rem;">
-                <div class="card-title"><div class="icon">&#9878;</div> Test Configuration</div>
-                <div class="config-grid" id="configGrid"></div>
-                <div style="margin-top: 1rem;">
-                    <div class="config-label">Key Metrics to Track</div>
-                    <div class="metrics-row" id="metricsRow"></div>
-                </div>
-            </div>
-
-            <!-- Channel Tips -->
-            <div class="card">
-                <div class="card-title"><div class="icon">&#9733;</div> Channel-Specific Best Practices</div>
-                <ul class="tips-list" id="tipsList"></ul>
-            </div>
-        </div>
+      </div>
     </div>
 
     <footer>
-        <p>Nova AI Suite -- Built by <a href="https://www.linkedin.com/in/chandel13/" target="_blank" rel="noopener">Shubham Singh Chandel</a></p>
+      <p>
+        Nova AI Suite -- Built by
+        <a
+          href="https://www.linkedin.com/in/chandel13/"
+          target="_blank"
+          rel="noopener"
+          >Shubham Singh Chandel</a
+        >
+      </p>
     </footer>
 
     <script>
-    (function() {
+      (function () {
         // ── Data Arrays ──
 
         var headlines = {
-            benefits: {
-                'Blue Collar': [
-                    'Earn Top Pay as a {job} -- Weekly Paychecks + Benefits',
-                    'Now Hiring: {job} -- Competitive Wages, Day-One Benefits',
-                    '{job} Wanted -- Premium Pay + Overtime Opportunities',
-                    'Join Our Team as {job} -- Great Pay, Immediate Start',
-                    'Hiring {job} Now -- $X/hr + Health Insurance from Day 1'
-                ],
-                'White Collar': [
-                    '{job}: Accelerate Your Career with Industry-Leading Compensation',
-                    'Senior {job} -- Competitive Salary, Equity, and Full Benefits',
-                    '{job} Role -- Top-Tier Comp Package + Professional Development',
-                    'Unlock Your Potential as {job} -- Premium Benefits + 401(k) Match',
-                    '{job}: Compensation That Matches Your Expertise'
-                ],
-                'Grey Collar': [
-                    '{job}: Skilled Trade, Premium Pay + Certification Support',
-                    'Experienced {job} Wanted -- Above-Market Wages + Full Benefits',
-                    '{job} -- Strong Pay, Signing Bonus, Career Advancement',
-                    'Join as {job} -- Competitive Rates + Tools Provided',
-                    '{job}: Earn What You Deserve -- Benefits from Day One'
-                ],
-                'Pink Collar': [
-                    '{job}: Rewarding Career with Excellent Benefits Package',
-                    'Caring {job} Needed -- Competitive Pay + Flexible Scheduling',
-                    '{job} -- Meaningful Work with Great Compensation',
-                    'Join Our {job} Team -- Competitive Salary + Growth Path',
-                    '{job}: Make a Difference and Earn What You Deserve'
-                ]
-            },
-            culture: {
-                'Blue Collar': [
-                    'Be Part of a Winning Team -- {job} Positions Available',
-                    '{job}: Where Your Work Matters and Your Team Has Your Back',
-                    'Join a Crew That Values You -- {job} Openings',
-                    '{job} -- Supportive Team Environment, Stable Schedule',
-                    'Great People, Great Work -- {job} Positions Open Now'
-                ],
-                'White Collar': [
-                    '{job}: Shape the Future at a Mission-Driven Company',
-                    'Innovative {job} Team Seeks Collaborative Problem-Solver',
-                    '{job} -- Build Meaningful Products with Exceptional People',
-                    'Join a Culture of Excellence -- {job} Opening',
-                    '{job}: Work With Purpose at an Award-Winning Workplace'
-                ],
-                'Grey Collar': [
-                    '{job}: Join a Team That Respects the Craft',
-                    'Skilled {job} -- Collaborative Shop, Modern Equipment',
-                    '{job} -- Work With Experts Who Take Pride in Quality',
-                    'Be Valued for Your Skills -- {job} Team Growing',
-                    '{job}: A Workplace Where Craftsmanship Is Celebrated'
-                ],
-                'Pink Collar': [
-                    '{job}: Join a Team That Truly Cares About People',
-                    'Compassionate {job} Team -- Where Kindness Drives Everything',
-                    '{job} -- Make Real Impact in a Supportive Environment',
-                    'Join Our {job} Family -- Purpose-Driven, People-First',
-                    '{job}: Work Somewhere That Shares Your Values'
-                ]
-            }
+          benefits: {
+            "Blue Collar": [
+              "Earn Top Pay as a {job} -- Weekly Paychecks + Benefits",
+              "Now Hiring: {job} -- Competitive Wages, Day-One Benefits",
+              "{job} Wanted -- Premium Pay + Overtime Opportunities",
+              "Join Our Team as {job} -- Great Pay, Immediate Start",
+              "Hiring {job} Now -- $X/hr + Health Insurance from Day 1",
+            ],
+            "White Collar": [
+              "{job}: Accelerate Your Career with Industry-Leading Compensation",
+              "Senior {job} -- Competitive Salary, Equity, and Full Benefits",
+              "{job} Role -- Top-Tier Comp Package + Professional Development",
+              "Unlock Your Potential as {job} -- Premium Benefits + 401(k) Match",
+              "{job}: Compensation That Matches Your Expertise",
+            ],
+            "Grey Collar": [
+              "{job}: Skilled Trade, Premium Pay + Certification Support",
+              "Experienced {job} Wanted -- Above-Market Wages + Full Benefits",
+              "{job} -- Strong Pay, Signing Bonus, Career Advancement",
+              "Join as {job} -- Competitive Rates + Tools Provided",
+              "{job}: Earn What You Deserve -- Benefits from Day One",
+            ],
+            "Pink Collar": [
+              "{job}: Rewarding Career with Excellent Benefits Package",
+              "Caring {job} Needed -- Competitive Pay + Flexible Scheduling",
+              "{job} -- Meaningful Work with Great Compensation",
+              "Join Our {job} Team -- Competitive Salary + Growth Path",
+              "{job}: Make a Difference and Earn What You Deserve",
+            ],
+          },
+          culture: {
+            "Blue Collar": [
+              "Be Part of a Winning Team -- {job} Positions Available",
+              "{job}: Where Your Work Matters and Your Team Has Your Back",
+              "Join a Crew That Values You -- {job} Openings",
+              "{job} -- Supportive Team Environment, Stable Schedule",
+              "Great People, Great Work -- {job} Positions Open Now",
+            ],
+            "White Collar": [
+              "{job}: Shape the Future at a Mission-Driven Company",
+              "Innovative {job} Team Seeks Collaborative Problem-Solver",
+              "{job} -- Build Meaningful Products with Exceptional People",
+              "Join a Culture of Excellence -- {job} Opening",
+              "{job}: Work With Purpose at an Award-Winning Workplace",
+            ],
+            "Grey Collar": [
+              "{job}: Join a Team That Respects the Craft",
+              "Skilled {job} -- Collaborative Shop, Modern Equipment",
+              "{job} -- Work With Experts Who Take Pride in Quality",
+              "Be Valued for Your Skills -- {job} Team Growing",
+              "{job}: A Workplace Where Craftsmanship Is Celebrated",
+            ],
+            "Pink Collar": [
+              "{job}: Join a Team That Truly Cares About People",
+              "Compassionate {job} Team -- Where Kindness Drives Everything",
+              "{job} -- Make Real Impact in a Supportive Environment",
+              "Join Our {job} Family -- Purpose-Driven, People-First",
+              "{job}: Work Somewhere That Shares Your Values",
+            ],
+          },
         };
 
         var benefitPhrases = {
-            'Technology': ['stock options and equity grants', 'remote/hybrid flexibility', 'cutting-edge tech stack', 'conference and learning budget', 'home office stipend'],
-            'Healthcare': ['tuition reimbursement', 'comprehensive health coverage', 'shift differentials', 'continuing education support', 'employee wellness programs'],
-            'Finance': ['performance bonuses', 'retirement matching up to 6%', 'professional certification sponsorship', 'competitive base salary', 'annual merit increases'],
-            'Retail': ['employee discounts up to 40%', 'flexible scheduling', 'rapid advancement opportunities', 'paid training programs', 'holiday bonus pay'],
-            'Manufacturing': ['overtime availability', 'safety bonuses', 'tool allowances', 'on-the-job training', 'shift premium pay'],
-            'Logistics': ['sign-on bonuses', 'route flexibility', 'fuel reimbursement', 'performance incentives', 'CDL training programs'],
-            'Hospitality': ['tips and gratuity sharing', 'meal benefits', 'travel perks and discounts', 'flexible shift options', 'seasonal bonus programs'],
-            'Other': ['competitive benefits package', 'professional development budget', 'flexible work arrangements', 'performance-based bonuses', 'comprehensive insurance']
+          Technology: [
+            "stock options and equity grants",
+            "remote/hybrid flexibility",
+            "cutting-edge tech stack",
+            "conference and learning budget",
+            "home office stipend",
+          ],
+          Healthcare: [
+            "tuition reimbursement",
+            "comprehensive health coverage",
+            "shift differentials",
+            "continuing education support",
+            "employee wellness programs",
+          ],
+          Finance: [
+            "performance bonuses",
+            "retirement matching up to 6%",
+            "professional certification sponsorship",
+            "competitive base salary",
+            "annual merit increases",
+          ],
+          Retail: [
+            "employee discounts up to 40%",
+            "flexible scheduling",
+            "rapid advancement opportunities",
+            "paid training programs",
+            "holiday bonus pay",
+          ],
+          Manufacturing: [
+            "overtime availability",
+            "safety bonuses",
+            "tool allowances",
+            "on-the-job training",
+            "shift premium pay",
+          ],
+          Logistics: [
+            "sign-on bonuses",
+            "route flexibility",
+            "fuel reimbursement",
+            "performance incentives",
+            "CDL training programs",
+          ],
+          Hospitality: [
+            "tips and gratuity sharing",
+            "meal benefits",
+            "travel perks and discounts",
+            "flexible shift options",
+            "seasonal bonus programs",
+          ],
+          Other: [
+            "competitive benefits package",
+            "professional development budget",
+            "flexible work arrangements",
+            "performance-based bonuses",
+            "comprehensive insurance",
+          ],
         };
 
         var culturePhrases = {
-            'Technology': ['a fast-paced innovation lab', 'a collaborative engineering culture', 'a team that ships products users love', 'an environment that values technical excellence'],
-            'Healthcare': ['a patient-first care philosophy', 'a compassionate and supportive team', 'a mission to improve lives every day', 'a community built on trust and empathy'],
-            'Finance': ['a results-driven team with integrity', 'an environment of analytical rigor and mentorship', 'a firm that values precision and accountability', 'a culture of continuous professional growth'],
-            'Retail': ['a customer-obsessed team', 'a high-energy, collaborative store environment', 'a brand that values every team member', 'a fun and dynamic workplace culture'],
-            'Manufacturing': ['a safety-first, team-oriented shop floor', 'a culture built on craftsmanship and precision', 'a crew that takes pride in what they build', 'a modern facility with strong team values'],
-            'Logistics': ['a logistics team that runs like clockwork', 'a fleet family that supports one another', 'a company that values reliability and hustle', 'a network of professionals who get it done'],
-            'Hospitality': ['a guest-first culture of excellence', 'a warm, welcoming team environment', 'a hospitality family that lifts each other up', 'a workplace where every interaction matters'],
-            'Other': ['a team-first culture that values every voice', 'an inclusive workplace built on mutual respect', 'a company where your contributions truly matter', 'a mission-driven organization with strong values']
+          Technology: [
+            "a fast-paced innovation lab",
+            "a collaborative engineering culture",
+            "a team that ships products users love",
+            "an environment that values technical excellence",
+          ],
+          Healthcare: [
+            "a patient-first care philosophy",
+            "a compassionate and supportive team",
+            "a mission to improve lives every day",
+            "a community built on trust and empathy",
+          ],
+          Finance: [
+            "a results-driven team with integrity",
+            "an environment of analytical rigor and mentorship",
+            "a firm that values precision and accountability",
+            "a culture of continuous professional growth",
+          ],
+          Retail: [
+            "a customer-obsessed team",
+            "a high-energy, collaborative store environment",
+            "a brand that values every team member",
+            "a fun and dynamic workplace culture",
+          ],
+          Manufacturing: [
+            "a safety-first, team-oriented shop floor",
+            "a culture built on craftsmanship and precision",
+            "a crew that takes pride in what they build",
+            "a modern facility with strong team values",
+          ],
+          Logistics: [
+            "a logistics team that runs like clockwork",
+            "a fleet family that supports one another",
+            "a company that values reliability and hustle",
+            "a network of professionals who get it done",
+          ],
+          Hospitality: [
+            "a guest-first culture of excellence",
+            "a warm, welcoming team environment",
+            "a hospitality family that lifts each other up",
+            "a workplace where every interaction matters",
+          ],
+          Other: [
+            "a team-first culture that values every voice",
+            "an inclusive workplace built on mutual respect",
+            "a company where your contributions truly matter",
+            "a mission-driven organization with strong values",
+          ],
         };
 
         var ctaBenefits = [
-            'Apply Now -- See Full Benefits',
-            'View Compensation Details',
-            'Apply Today -- Start Earning',
-            'See the Full Pay Package',
-            'Explore This Opportunity'
+          "Apply Now -- See Full Benefits",
+          "View Compensation Details",
+          "Apply Today -- Start Earning",
+          "See the Full Pay Package",
+          "Explore This Opportunity",
         ];
 
         var ctaCulture = [
-            'Meet the Team -- Apply Now',
-            'Learn About Our Culture',
-            'Join Our Mission Today',
-            'Discover What Makes Us Different',
-            'See Why People Stay With Us'
+          "Meet the Team -- Apply Now",
+          "Learn About Our Culture",
+          "Join Our Mission Today",
+          "Discover What Makes Us Different",
+          "See Why People Stay With Us",
         ];
 
         var descriptionsBenefits = [
-            'We are hiring a {job} in the {industry} space. This role comes with {benefit1}, {benefit2}, and {benefit3}. Join a growing organization that invests in its people from day one.',
-            'Looking for your next {job} role? We offer {benefit1}, {benefit2}, and {benefit3}. Our compensation philosophy is simple: reward great work with great pay and benefits.',
-            'Open {job} position with a total rewards package including {benefit1}, {benefit2}, and {benefit3}. Competitive starting rates with clear paths to increased earnings.'
+          "We are hiring a {job} in the {industry} space. This role comes with {benefit1}, {benefit2}, and {benefit3}. Join a growing organization that invests in its people from day one.",
+          "Looking for your next {job} role? We offer {benefit1}, {benefit2}, and {benefit3}. Our compensation philosophy is simple: reward great work with great pay and benefits.",
+          "Open {job} position with a total rewards package including {benefit1}, {benefit2}, and {benefit3}. Competitive starting rates with clear paths to increased earnings.",
         ];
 
         var descriptionsCulture = [
-            'We are seeking a {job} to join {culture}. You will be part of {culture2}, working alongside dedicated professionals who share a commitment to excellence.',
-            'This {job} role puts you at the heart of {culture}. We believe in {culture2}, and every team member plays a vital role in our collective success.',
-            'As a {job}, you will thrive in {culture}. Our team embodies {culture2}, creating a workplace people genuinely look forward to each day.'
+          "We are seeking a {job} to join {culture}. You will be part of {culture2}, working alongside dedicated professionals who share a commitment to excellence.",
+          "This {job} role puts you at the heart of {culture}. We believe in {culture2}, and every team member plays a vital role in our collective success.",
+          "As a {job}, you will thrive in {culture}. Our team embodies {culture2}, creating a workplace people genuinely look forward to each day.",
         ];
 
         var channelTips = {
-            'Indeed': [
-                'Use salary information in the title -- Indeed prioritizes listings with transparent pay, improving visibility by up to 30%.',
-                'Keep job descriptions between 700-2,000 characters for optimal apply rates. Shorter listings lose credibility; longer ones lose attention.',
-                'Sponsor listings for the first 7 days to capture the highest-intent applicants during the freshness window.',
-                'Add screening questions (3 max) to filter unqualified applicants early and reduce cost-per-qualified-application.'
-            ],
-            'LinkedIn': [
-                'Target by skills rather than job titles -- LinkedIn skill-based targeting reaches 3x more qualified candidates than title-based.',
-                'Use Conversation Ads for white-collar roles -- they see 4x higher engagement than standard InMail.',
-                'Post organic content from the hiring manager\'s profile alongside paid campaigns to build credibility.',
-                'Set up LinkedIn Talent Insights before launching to validate your target audience size and competitive landscape.'
-            ],
-            'Facebook': [
-                'Use carousel ad format with 3-5 cards showing: the role, the team, the workspace, benefits, and a clear CTA.',
-                'Target lookalike audiences based on your best-performing hires for higher quality applications.',
-                'Schedule ads between 6-9 AM and 5-8 PM when job seekers are most active on the platform.',
-                'Lead Gen forms with auto-fill reduce friction -- expect 2-3x higher conversion vs. landing page redirects.'
-            ],
-            'Google': [
-                'Bid on long-tail keywords like "{job title} jobs near me hiring now" to capture high-intent candidates at lower CPC.',
-                'Use responsive search ads with at least 10 headlines and 4 descriptions to let Google optimize combinations.',
-                'Set up location-based bid adjustments -- increase bids 20-30% in talent-dense areas for the target role.',
-                'Enable call extensions for blue-collar roles -- many hourly candidates prefer to call rather than fill out forms.'
-            ],
-            'ZipRecruiter': [
-                'Leverage TrafficBoost to syndicate listings across 100+ partner sites for maximum reach.',
-                'Respond to AI-matched candidates within 24 hours -- ZipRecruiter\'s algorithm rewards fast responders with better matches.',
-                'Use the "Great Match" feature proactively to invite strong candidates before competitors see them.',
-                'Write titles under 60 characters and avoid internal jargon -- ZipRecruiter\'s search algorithm favors standard titles.'
-            ],
-            'Programmatic': [
-                'Set CPA targets 10-15% below your actual goal to give the algorithm room to optimize without overspending.',
-                'Run a minimum 14-day learning phase before evaluating performance -- premature changes reset the optimization.',
-                'Use rule-based bidding to increase spend on high-converting job categories and suppress low performers automatically.',
-                'Implement cross-channel frequency capping at 5-7 impressions per user per week to avoid ad fatigue.'
-            ]
+          Indeed: [
+            "Use salary information in the title -- Indeed prioritizes listings with transparent pay, improving visibility by up to 30%.",
+            "Keep job descriptions between 700-2,000 characters for optimal apply rates. Shorter listings lose credibility; longer ones lose attention.",
+            "Sponsor listings for the first 7 days to capture the highest-intent applicants during the freshness window.",
+            "Add screening questions (3 max) to filter unqualified applicants early and reduce cost-per-qualified-application.",
+          ],
+          LinkedIn: [
+            "Target by skills rather than job titles -- LinkedIn skill-based targeting reaches 3x more qualified candidates than title-based.",
+            "Use Conversation Ads for white-collar roles -- they see 4x higher engagement than standard InMail.",
+            "Post organic content from the hiring manager's profile alongside paid campaigns to build credibility.",
+            "Set up LinkedIn Talent Insights before launching to validate your target audience size and competitive landscape.",
+          ],
+          Facebook: [
+            "Use carousel ad format with 3-5 cards showing: the role, the team, the workspace, benefits, and a clear CTA.",
+            "Target lookalike audiences based on your best-performing hires for higher quality applications.",
+            "Schedule ads between 6-9 AM and 5-8 PM when job seekers are most active on the platform.",
+            "Lead Gen forms with auto-fill reduce friction -- expect 2-3x higher conversion vs. landing page redirects.",
+          ],
+          Google: [
+            'Bid on long-tail keywords like "{job title} jobs near me hiring now" to capture high-intent candidates at lower CPC.',
+            "Use responsive search ads with at least 10 headlines and 4 descriptions to let Google optimize combinations.",
+            "Set up location-based bid adjustments -- increase bids 20-30% in talent-dense areas for the target role.",
+            "Enable call extensions for blue-collar roles -- many hourly candidates prefer to call rather than fill out forms.",
+          ],
+          ZipRecruiter: [
+            "Leverage TrafficBoost to syndicate listings across 100+ partner sites for maximum reach.",
+            "Respond to AI-matched candidates within 24 hours -- ZipRecruiter's algorithm rewards fast responders with better matches.",
+            'Use the "Great Match" feature proactively to invite strong candidates before competitors see them.',
+            "Write titles under 60 characters and avoid internal jargon -- ZipRecruiter's search algorithm favors standard titles.",
+          ],
+          Programmatic: [
+            "Set CPA targets 10-15% below your actual goal to give the algorithm room to optimize without overspending.",
+            "Run a minimum 14-day learning phase before evaluating performance -- premature changes reset the optimization.",
+            "Use rule-based bidding to increase spend on high-converting job categories and suppress low performers automatically.",
+            "Implement cross-channel frequency capping at 5-7 impressions per user per week to avoid ad fatigue.",
+          ],
         };
 
         // ── Utility ──
 
-        function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+        function pick(arr) {
+          return arr[Math.floor(Math.random() * arr.length)];
+        }
         function pickN(arr, n) {
-            var copy = arr.slice();
-            var out = [];
-            for (var i = 0; i < Math.min(n, copy.length); i++) {
-                var idx = Math.floor(Math.random() * copy.length);
-                out.push(copy.splice(idx, 1)[0]);
-            }
-            return out;
+          var copy = arr.slice();
+          var out = [];
+          for (var i = 0; i < Math.min(n, copy.length); i++) {
+            var idx = Math.floor(Math.random() * copy.length);
+            out.push(copy.splice(idx, 1)[0]);
+          }
+          return out;
         }
 
         function fillTemplate(tpl, vars) {
-            var result = tpl;
-            for (var k in vars) { result = result.split('{' + k + '}').join(vars[k]); }
-            return result;
+          var result = tpl;
+          for (var k in vars) {
+            result = result.split("{" + k + "}").join(vars[k]);
+          }
+          return result;
         }
 
         // ── Generation Logic ──
 
         function generateTest(jobTitle, industry, audience, channel, budget) {
-            // --- Variant A: Benefits-focused ---
-            var headlineA = pick(headlines.benefits[audience]).split('{job}').join(jobTitle);
-            var benefits = pickN(benefitPhrases[industry], 3);
-            var descA = fillTemplate(pick(descriptionsBenefits), {
-                job: jobTitle, industry: industry,
-                benefit1: benefits[0], benefit2: benefits[1], benefit3: benefits[2]
-            });
-            var ctaA = pick(ctaBenefits);
+          // --- Variant A: Benefits-focused ---
+          var headlineA = pick(headlines.benefits[audience])
+            .split("{job}")
+            .join(jobTitle);
+          var benefits = pickN(benefitPhrases[industry], 3);
+          var descA = fillTemplate(pick(descriptionsBenefits), {
+            job: jobTitle,
+            industry: industry,
+            benefit1: benefits[0],
+            benefit2: benefits[1],
+            benefit3: benefits[2],
+          });
+          var ctaA = pick(ctaBenefits);
 
-            // --- Variant B: Culture-focused ---
-            var headlineB = pick(headlines.culture[audience]).split('{job}').join(jobTitle);
-            var cultures = pickN(culturePhrases[industry], 2);
-            var descB = fillTemplate(pick(descriptionsCulture), {
-                job: jobTitle, industry: industry,
-                culture: cultures[0], culture2: cultures[1]
-            });
-            var ctaB = pick(ctaCulture);
+          // --- Variant B: Culture-focused ---
+          var headlineB = pick(headlines.culture[audience])
+            .split("{job}")
+            .join(jobTitle);
+          var cultures = pickN(culturePhrases[industry], 2);
+          var descB = fillTemplate(pick(descriptionsCulture), {
+            job: jobTitle,
+            industry: industry,
+            culture: cultures[0],
+            culture2: cultures[1],
+          });
+          var ctaB = pick(ctaCulture);
 
-            // --- Test Configuration ---
-            var split = budget >= 3000 ? '50 / 50' : '60 / 40';
-            var splitNote = budget >= 3000
-                ? 'Budget supports equal split for statistically balanced comparison'
-                : 'Lean toward the control variant (60%) with limited budget to reduce risk';
+          // --- Test Configuration ---
+          var split = budget >= 3000 ? "50 / 50" : "60 / 40";
+          var splitNote =
+            budget >= 3000
+              ? "Budget supports equal split for statistically balanced comparison"
+              : "Lean toward the control variant (60%) with limited budget to reduce risk";
 
-            // Minimum sample size: 16 * p * (1-p) / MDE^2
-            var p = 0.05; // assumed apply rate
-            var mde = 0.02; // minimum detectable effect
-            var minSample = Math.ceil(16 * p * (1 - p) / (mde * mde));
+          // Minimum sample size: 16 * p * (1-p) / MDE^2
+          var p = 0.05; // assumed apply rate
+          var mde = 0.02; // minimum detectable effect
+          var minSample = Math.ceil((16 * p * (1 - p)) / (mde * mde));
 
-            // Estimated daily applications (rough model based on budget and channel)
-            var cpaEstimates = { 'Indeed': 25, 'LinkedIn': 45, 'Facebook': 20, 'Google': 30, 'ZipRecruiter': 28, 'Programmatic': 22 };
-            var estCpa = cpaEstimates[channel] || 25;
-            var dailyApps = Math.max(1, Math.round((budget / 30) / estCpa));
-            var daysNeeded = Math.ceil(minSample / dailyApps);
-            var testDuration = Math.max(7, Math.min(daysNeeded, 90));
-            var durationNote = testDuration <= 14 ? 'Adequate budget for a quick test cycle'
-                             : testDuration <= 30 ? 'Moderate timeline -- allow the full duration for significance'
-                             : 'Extended test needed due to lower expected volume -- consider increasing budget';
+          // Estimated daily applications (rough model based on budget and channel)
+          var cpaEstimates = {
+            Indeed: 25,
+            LinkedIn: 45,
+            Facebook: 20,
+            Google: 30,
+            ZipRecruiter: 28,
+            Programmatic: 22,
+          };
+          var estCpa = cpaEstimates[channel] || 25;
+          var dailyApps = Math.max(1, Math.round(budget / 30 / estCpa));
+          var daysNeeded = Math.ceil(minSample / dailyApps);
+          var testDuration = Math.max(7, Math.min(daysNeeded, 90));
+          var durationNote =
+            testDuration <= 14
+              ? "Adequate budget for a quick test cycle"
+              : testDuration <= 30
+                ? "Moderate timeline -- allow the full duration for significance"
+                : "Extended test needed due to lower expected volume -- consider increasing budget";
 
-            // Metrics
-            var metrics = [
-                { name: 'CTR', desc: 'Click-Through Rate' },
-                { name: 'Apply Rate', desc: 'Applications per Click' },
-                { name: 'CPA', desc: 'Cost per Application' },
-                { name: 'Quality Score', desc: 'Qualified Applicant Ratio' }
-            ];
+          // Metrics
+          var metrics = [
+            { name: "CTR", desc: "Click-Through Rate" },
+            { name: "Apply Rate", desc: "Applications per Click" },
+            { name: "CPA", desc: "Cost per Application" },
+            { name: "Quality Score", desc: "Qualified Applicant Ratio" },
+          ];
 
-            return {
-                variantA: { headline: headlineA, description: descA, cta: ctaA },
-                variantB: { headline: headlineB, description: descB, cta: ctaB },
-                config: {
-                    split: split,
-                    splitNote: splitNote,
-                    duration: testDuration + ' days',
-                    durationNote: durationNote,
-                    minSample: minSample.toLocaleString() + ' applications per variant',
-                    sampleNote: 'Based on ' + (p * 100) + '% baseline apply rate, ' + (mde * 100) + '% MDE',
-                    estCpa: '$' + estCpa,
-                    cpaNote: 'Estimated CPA for ' + channel
-                },
-                metrics: metrics,
-                tips: channelTips[channel] || channelTips['Indeed']
-            };
+          return {
+            variantA: { headline: headlineA, description: descA, cta: ctaA },
+            variantB: { headline: headlineB, description: descB, cta: ctaB },
+            config: {
+              split: split,
+              splitNote: splitNote,
+              duration: testDuration + " days",
+              durationNote: durationNote,
+              minSample:
+                minSample.toLocaleString() + " applications per variant",
+              sampleNote:
+                "Based on " +
+                p * 100 +
+                "% baseline apply rate, " +
+                mde * 100 +
+                "% MDE",
+              estCpa: "$" + estCpa,
+              cpaNote: "Estimated CPA for " + channel,
+            },
+            metrics: metrics,
+            tips: channelTips[channel] || channelTips["Indeed"],
+          };
         }
 
         // ── Render ──
 
         function renderVariant(el, variant, label, approach) {
-            el.innerHTML =
-                '<div class="variant-label">' + label + '</div>' +
-                '<div class="variant-approach">' + approach + '</div>' +
-                '<div class="ad-field"><div class="ad-field-label">Headline</div><div class="ad-headline">' + variant.headline + '</div></div>' +
-                '<div class="ad-field"><div class="ad-field-label">Description</div><div class="ad-description">' + variant.description + '</div></div>' +
-                '<div class="ad-field"><div class="ad-field-label">Call to Action</div><div class="ad-cta">' + variant.cta + '</div></div>';
+          el.innerHTML =
+            '<div class="variant-label">' +
+            label +
+            "</div>" +
+            '<div class="variant-approach">' +
+            approach +
+            "</div>" +
+            '<div class="ad-field"><div class="ad-field-label">Headline</div><div class="ad-headline">' +
+            variant.headline +
+            "</div></div>" +
+            '<div class="ad-field"><div class="ad-field-label">Description</div><div class="ad-description">' +
+            variant.description +
+            "</div></div>" +
+            '<div class="ad-field"><div class="ad-field-label">Call to Action</div><div class="ad-cta">' +
+            variant.cta +
+            "</div></div>";
         }
 
         function renderConfig(data) {
-            var grid = document.getElementById('configGrid');
-            grid.innerHTML =
-                '<div class="config-item"><div class="config-label">Traffic Split</div><div class="config-value">' + data.config.split + '</div><div class="config-note">' + data.config.splitNote + '</div></div>' +
-                '<div class="config-item"><div class="config-label">Test Duration</div><div class="config-value">' + data.config.duration + '</div><div class="config-note">' + data.config.durationNote + '</div></div>' +
-                '<div class="config-item"><div class="config-label">Min. Sample Size</div><div class="config-value">' + data.config.minSample + '</div><div class="config-note">' + data.config.sampleNote + '</div></div>' +
-                '<div class="config-item"><div class="config-label">Est. CPA</div><div class="config-value">' + data.config.estCpa + '</div><div class="config-note">' + data.config.cpaNote + '</div></div>';
+          var grid = document.getElementById("configGrid");
+          grid.innerHTML =
+            '<div class="config-item"><div class="config-label">Traffic Split</div><div class="config-value">' +
+            data.config.split +
+            '</div><div class="config-note">' +
+            data.config.splitNote +
+            "</div></div>" +
+            '<div class="config-item"><div class="config-label">Test Duration</div><div class="config-value">' +
+            data.config.duration +
+            '</div><div class="config-note">' +
+            data.config.durationNote +
+            "</div></div>" +
+            '<div class="config-item"><div class="config-label">Min. Sample Size</div><div class="config-value">' +
+            data.config.minSample +
+            '</div><div class="config-note">' +
+            data.config.sampleNote +
+            "</div></div>" +
+            '<div class="config-item"><div class="config-label">Est. CPA</div><div class="config-value">' +
+            data.config.estCpa +
+            '</div><div class="config-note">' +
+            data.config.cpaNote +
+            "</div></div>";
 
-            var metricsRow = document.getElementById('metricsRow');
-            metricsRow.innerHTML = data.metrics.map(function(m) {
-                return '<span class="metric-badge" title="' + m.desc + '">' + m.name + '</span>';
-            }).join('');
+          var metricsRow = document.getElementById("metricsRow");
+          metricsRow.innerHTML = data.metrics
+            .map(function (m) {
+              return (
+                '<span class="metric-badge" title="' +
+                m.desc +
+                '">' +
+                m.name +
+                "</span>"
+              );
+            })
+            .join("");
         }
 
         function renderTips(tips) {
-            var list = document.getElementById('tipsList');
-            list.innerHTML = tips.map(function(t) {
-                return '<li><span class="tip-bullet">--</span> ' + t + '</li>';
-            }).join('');
+          var list = document.getElementById("tipsList");
+          list.innerHTML = tips
+            .map(function (t) {
+              return '<li><span class="tip-bullet">--</span> ' + t + "</li>";
+            })
+            .join("");
         }
 
         // ── Event ──
 
-        document.getElementById('abForm').addEventListener('submit', function(e) {
+        document
+          .getElementById("abForm")
+          .addEventListener("submit", function (e) {
             e.preventDefault();
-            var jobTitle = document.getElementById('jobTitle').value.trim();
-            var industry = document.getElementById('industry').value;
-            var audience = document.getElementById('audience').value;
-            var channel = document.getElementById('channel').value;
-            var budget = parseFloat(document.getElementById('budget').value);
+            var jobTitle = document.getElementById("jobTitle").value.trim();
+            var industry = document.getElementById("industry").value;
+            var audience = document.getElementById("audience").value;
+            var channel = document.getElementById("channel").value;
+            var budget = parseFloat(document.getElementById("budget").value);
 
-            if (!jobTitle || !industry || !audience || !channel || !budget) return;
+            if (!jobTitle || !industry || !audience || !channel || !budget)
+              return;
 
-            var data = generateTest(jobTitle, industry, audience, channel, budget);
+            var data = generateTest(
+              jobTitle,
+              industry,
+              audience,
+              channel,
+              budget,
+            );
 
-            renderVariant(document.getElementById('variantA'), data.variantA, 'Variant A', 'Benefits-Focused Approach');
-            renderVariant(document.getElementById('variantB'), data.variantB, 'Variant B', 'Culture-Focused Approach');
+            renderVariant(
+              document.getElementById("variantA"),
+              data.variantA,
+              "Variant A",
+              "Benefits-Focused Approach",
+            );
+            renderVariant(
+              document.getElementById("variantB"),
+              data.variantB,
+              "Variant B",
+              "Culture-Focused Approach",
+            );
             renderConfig(data);
             renderTips(data.tips);
 
-            var results = document.getElementById('results');
-            results.style.display = 'block';
-            results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            var results = document.getElementById("results");
+            results.style.display = "block";
+            results.scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+      })();
+
+      // Scroll reveal
+      (function () {
+        var ro = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) e.target.classList.add("visible");
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          ro.observe(el);
         });
-    })();
+      })();
     </script>
-</body>
+  </body>
 </html>

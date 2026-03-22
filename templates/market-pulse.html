@@ -1,999 +1,1241 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Weekly hiring market intelligence reports with CPC trends, industry spotlights, and platform comparisons. Powered by Nova AI Suite.">
-    <meta name="theme-color" content="#000000">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Weekly hiring market intelligence reports with CPC trends, industry spotlights, and platform comparisons. Powered by Nova AI Suite."
+    />
+    <meta name="theme-color" content="#000000" />
     <title>Market Intelligence Pulse | Nova AI Suite</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>"
+    />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
 
     <style>
-        /* ============================================
+      /* ============================================
            Design System: Deep Obsidian + Electric Indigo
            Matching index.html theme
            ============================================ */
 
-        :root {
-            --obsidian: #000000;
-            --obsidian-light: #111111;
-            --navy: #1a1a1a;
-            --indigo: #6366F1;
-            --indigo-light: #818CF8;
-            --indigo-pale: rgba(99,102,241,0.08);
-            --indigo-glow: rgba(99,102,241,0.15);
-            --cyan-accent: #22D3EE;
-            --green-success: #34D399;
-            --amber-warning: #FBBF24;
-            --red-error: #F87171;
+      :root {
+        --obsidian: #000000;
+        --obsidian-light: #111111;
+        --navy: #1a1a1a;
+        --indigo: #6366f1;
+        --indigo-light: #818cf8;
+        --indigo-pale: rgba(99, 102, 241, 0.08);
+        --indigo-glow: rgba(99, 102, 241, 0.15);
+        --cyan-accent: #22d3ee;
+        --green-success: #34d399;
+        --amber-warning: #fbbf24;
+        --red-error: #f87171;
 
-            --bg: #000000;
-            --bg-dark: #000000;
-            --surface-1: rgba(17,17,17,0.8);
-            --surface-2: rgba(26,26,26,0.5);
-            --surface-3: rgba(26,26,26,0.4);
-            --card: rgba(17,17,17,0.8);
-            --card-solid: #111111;
-            --card-hover: rgba(26,26,26,0.7);
+        --bg: #000000;
+        --bg-dark: #000000;
+        --surface-1: rgba(17, 17, 17, 0.8);
+        --surface-2: rgba(26, 26, 26, 0.5);
+        --surface-3: rgba(26, 26, 26, 0.4);
+        --card: rgba(17, 17, 17, 0.8);
+        --card-solid: #111111;
+        --card-hover: rgba(26, 26, 26, 0.7);
 
-            --glass-blur: blur(40px) saturate(1.5);
-            --glass-blur-md: blur(24px) saturate(1.3);
-            --glass-border: rgba(255,255,255,0.08);
-            --glass-border-hover: rgba(255,255,255,0.16);
+        --glass-blur: blur(40px) saturate(1.5);
+        --glass-blur-md: blur(24px) saturate(1.3);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-border-hover: rgba(255, 255, 255, 0.16);
 
-            --text: #ededed;
-            --text-secondary: #a1a1a1;
-            --text-muted: #666666;
+        --text: #ededed;
+        --text-secondary: #a1a1a1;
+        --text-muted: #666666;
 
-            --border: rgba(255,255,255,0.08);
-            --border-accent: rgba(99,102,241,0.3);
+        --border: rgba(255, 255, 255, 0.08);
+        --border-accent: rgba(99, 102, 241, 0.3);
 
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3);
-            --shadow-lg: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
-            --shadow-glow: 0 0 20px rgba(99,102,241,0.15);
+        --shadow-md:
+          0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+        --shadow-lg:
+          0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+        --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
 
-            --radius: 12px;
-            --radius-sm: 8px;
-            --radius-lg: 16px;
+        --radius: 12px;
+        --radius-sm: 8px;
+        --radius-lg: 16px;
 
-            --gradient-primary: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);
-            --gradient-accent: linear-gradient(135deg, #6366F1 0%, #22D3EE 100%);
+        --gradient-primary: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+        --gradient-accent: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      /* Ambient background glow */
+      body::before {
+        content: "";
+        position: fixed;
+        top: -20%;
+        left: -10%;
+        width: 60%;
+        height: 60%;
+        background: radial-gradient(
+          ellipse,
+          rgba(99, 102, 241, 0.06) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+        z-index: 0;
+      }
+      body::after {
+        content: "";
+        position: fixed;
+        bottom: -20%;
+        right: -10%;
+        width: 50%;
+        height: 50%;
+        background: radial-gradient(
+          ellipse,
+          rgba(34, 211, 238, 0.04) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px 20px 60px;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* ── Header ── */
+      .header {
+        text-align: center;
+        padding: 48px 24px 40px;
+        margin-bottom: 32px;
+        position: relative;
+      }
+      .header::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80px;
+        height: 3px;
+        background: var(--gradient-primary);
+        border-radius: 2px;
+      }
+      .header-brand {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 4px;
+        color: var(--indigo);
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+      .header-title {
+        font-size: 36px;
+        font-weight: 800;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+      }
+      .header-subtitle {
+        font-size: 15px;
+        color: var(--text-secondary);
+      }
+
+      /* ── Section ── */
+      .section {
+        background: var(--card);
+        backdrop-filter: var(--glass-blur-md);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-lg);
+        padding: 28px;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow-md);
+        transition: border-color 0.3s;
+      }
+      .section:hover {
+        border-color: var(--glass-border-hover);
+      }
+      .section-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .section-title .icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+      .section-title .icon.indigo {
+        background: var(--indigo-pale);
+        color: var(--indigo);
+      }
+      .section-title .icon.cyan {
+        background: rgba(34, 211, 238, 0.1);
+        color: var(--cyan-accent);
+      }
+      .section-title .icon.green {
+        background: rgba(52, 211, 153, 0.1);
+        color: var(--green-success);
+      }
+      .section-title .icon.amber {
+        background: rgba(251, 191, 36, 0.1);
+        color: var(--amber-warning);
+      }
+      .section-title .icon.pink {
+        background: rgba(244, 114, 182, 0.1);
+        color: #f472b6;
+      }
+
+      /* ── Takeaway Cards ── */
+      .takeaway-card {
+        background: var(--indigo-pale);
+        border: 1px solid var(--border-accent);
+        border-radius: var(--radius-sm);
+        padding: 16px 20px;
+        margin-bottom: 12px;
+        font-size: 14px;
+        line-height: 1.7;
+        color: var(--text);
+      }
+      .takeaway-card::before {
+        content: "\2022";
+        color: var(--indigo);
+        font-weight: 700;
+        margin-right: 10px;
+      }
+
+      /* ── CPC Bar Chart ── */
+      .bar-row {
+        margin-bottom: 16px;
+      }
+      .bar-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+        font-size: 13px;
+      }
+      .bar-name {
+        font-weight: 600;
+        color: var(--text);
+      }
+      .bar-value {
+        font-weight: 700;
+        color: var(--text);
+      }
+      .bar-change {
+        font-size: 12px;
+        margin-left: 8px;
+        font-weight: 600;
+      }
+      .bar-change.up {
+        color: var(--red-error);
+      }
+      .bar-change.down {
+        color: var(--green-success);
+      }
+      .bar-change.flat {
+        color: var(--text-muted);
+      }
+      .bar-track {
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 4px;
+        height: 24px;
+        overflow: hidden;
+        position: relative;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.6s ease;
+        min-width: 2px;
+      }
+      .bar-fill.c0 {
+        background: linear-gradient(90deg, #6366f1, #818cf8);
+      }
+      .bar-fill.c1 {
+        background: linear-gradient(90deg, #22d3ee, #67e8f9);
+      }
+      .bar-fill.c2 {
+        background: linear-gradient(90deg, #f472b6, #fb7185);
+      }
+      .bar-fill.c3 {
+        background: linear-gradient(90deg, #fbbf24, #fcd34d);
+      }
+      .bar-fill.c4 {
+        background: linear-gradient(90deg, #34d399, #6ee7b7);
+      }
+      .bar-fill.c5 {
+        background: linear-gradient(90deg, #a78bfa, #c4b5fd);
+      }
+
+      /* ── Industry Cards ── */
+      .industry-card {
+        background: var(--surface-2);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+        padding: 18px 20px;
+        margin-bottom: 12px;
+        transition: border-color 0.2s;
+      }
+      .industry-card:hover {
+        border-color: var(--glass-border-hover);
+      }
+      .industry-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .industry-name {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .industry-badge {
+        font-size: 14px;
+        font-weight: 700;
+        padding: 2px 10px;
+        border-radius: 20px;
+      }
+      .industry-badge.up {
+        background: rgba(248, 113, 113, 0.15);
+        color: var(--red-error);
+      }
+      .industry-badge.down {
+        background: rgba(52, 211, 153, 0.15);
+        color: var(--green-success);
+      }
+      .industry-badge.flat {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-muted);
+      }
+      .industry-metrics {
+        display: flex;
+        gap: 20px;
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+      .industry-metrics strong {
+        color: var(--text);
+      }
+      .industry-rec {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+      }
+
+      /* ── Platform Table ── */
+      .platform-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .platform-table thead th {
+        padding: 12px 14px;
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+      }
+      .platform-table thead th.num {
+        text-align: right;
+      }
+      .platform-table tbody tr {
+        border-bottom: 1px solid var(--border);
+        transition: background 0.15s;
+      }
+      .platform-table tbody tr:hover {
+        background: var(--indigo-pale);
+      }
+      .platform-table tbody td {
+        padding: 12px 14px;
+        color: var(--text);
+      }
+      .platform-table tbody td.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .platform-table .rank-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .rank-badge.r1 {
+        background: var(--indigo-pale);
+        color: var(--indigo);
+      }
+      .rank-badge.r2 {
+        background: rgba(34, 211, 238, 0.1);
+        color: var(--cyan-accent);
+      }
+      .rank-badge.r3 {
+        background: rgba(52, 211, 153, 0.1);
+        color: var(--green-success);
+      }
+      .rank-badge.rn {
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-muted);
+      }
+
+      /* ── Metric Cards (Demand Section) ── */
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+      .metric-card {
+        background: var(--surface-2);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+        padding: 18px 16px;
+        text-align: center;
+      }
+      .metric-value {
+        font-size: 26px;
+        font-weight: 800;
+        margin-bottom: 4px;
+      }
+      .metric-value.indigo {
+        color: var(--indigo);
+      }
+      .metric-value.cyan {
+        color: var(--cyan-accent);
+      }
+      .metric-value.amber {
+        color: var(--amber-warning);
+      }
+      .metric-value.pink {
+        color: #f472b6;
+      }
+      .metric-label {
+        font-size: 11px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .tightness-bar {
+        background: var(--surface-2);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+        padding: 14px 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .tightness-label {
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
+      .tightness-value {
+        font-weight: 700;
+        color: var(--indigo);
+      }
+
+      /* ── Seasonal Section ── */
+      .seasonal-narrative {
+        background: var(--indigo-pale);
+        border: 1px solid var(--border-accent);
+        border-radius: var(--radius-sm);
+        padding: 16px 20px;
+        font-size: 14px;
+        line-height: 1.7;
+        color: var(--text);
+        margin-bottom: 16px;
+      }
+      .collar-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .collar-row:last-child {
+        border-bottom: none;
+      }
+      .collar-label {
+        font-weight: 600;
+        color: var(--text);
+        min-width: 120px;
+      }
+      .collar-intensity {
+        color: var(--text-secondary);
+      }
+      .collar-cpc {
+        color: var(--text-secondary);
+      }
+      .collar-forecast {
+        color: var(--indigo-light);
+        font-size: 12px;
+      }
+
+      /* ── Config Section ── */
+      .config-toggle {
+        background: var(--surface-2);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+        padding: 14px 20px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2px;
+        transition: background 0.15s;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      .config-toggle:hover {
+        background: var(--card-hover);
+      }
+      .config-toggle .chevron {
+        transition: transform 0.3s;
+        color: var(--text-muted);
+      }
+      .config-toggle.open .chevron {
+        transform: rotate(180deg);
+      }
+      .config-body {
+        background: var(--surface-2);
+        border: 1px solid var(--glass-border);
+        border-top: none;
+        border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+        padding: 0 20px;
+        max-height: 0;
+        overflow: hidden;
+        transition:
+          max-height 0.4s ease,
+          padding 0.4s ease;
+      }
+      .config-body.open {
+        max-height: 600px;
+        padding: 20px;
+      }
+
+      .form-group {
+        margin-bottom: 18px;
+      }
+      .form-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+      }
+      .form-input {
+        width: 100%;
+        padding: 10px 14px;
+        background: var(--card-solid);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        font-size: 14px;
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .form-input:focus {
+        border-color: var(--indigo);
+        box-shadow: 0 0 0 2px var(--indigo-pale);
+      }
+      .form-input::placeholder {
+        color: var(--text-muted);
+      }
+      .form-select {
+        width: 100%;
+        padding: 10px 14px;
+        background: var(--card-solid);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        font-size: 14px;
+        font-family: inherit;
+        outline: none;
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23818CF8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+      }
+      .form-select:focus {
+        border-color: var(--indigo);
+      }
+      .btn-row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 20px;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+      }
+      .btn-primary {
+        background: var(--gradient-primary);
+        color: white;
+        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+      }
+      .btn-primary:hover {
+        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+        transform: translateY(-1px);
+      }
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .btn-secondary {
+        background: var(--surface-3);
+        color: var(--text);
+        border: 1px solid var(--glass-border);
+      }
+      .btn-secondary:hover {
+        background: var(--card-hover);
+        border-color: var(--glass-border-hover);
+      }
+      .btn-secondary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* ── Status Badge ── */
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 4px 12px;
+        border-radius: 20px;
+      }
+      .status-badge.running {
+        background: rgba(52, 211, 153, 0.12);
+        color: var(--green-success);
+      }
+      .status-badge.stopped {
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-muted);
+      }
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+      .status-dot.on {
+        background: var(--green-success);
+        box-shadow: 0 0 6px var(--green-success);
+      }
+      .status-dot.off {
+        background: var(--text-muted);
+      }
+
+      /* ── History ── */
+      .history-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border);
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .history-item:last-child {
+        border-bottom: none;
+      }
+      .history-date {
+        font-weight: 600;
+        color: var(--text);
+        font-size: 14px;
+        min-width: 120px;
+      }
+      .history-period {
+        color: var(--text-secondary);
+        font-size: 13px;
+        flex: 1;
+      }
+      .history-link {
+        color: var(--indigo);
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .history-link:hover {
+        text-decoration: underline;
+      }
+
+      /* ── Loading & Empty States ── */
+      .loading {
+        text-align: center;
+        padding: 48px 24px;
+        color: var(--text-muted);
+      }
+      .loading .spinner {
+        display: inline-block;
+        width: 32px;
+        height: 32px;
+        border: 3px solid var(--border);
+        border-top-color: var(--indigo);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-bottom: 12px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
         }
+      }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+      .empty-state {
+        text-align: center;
+        padding: 40px 24px;
+        color: var(--text-muted);
+        font-size: 14px;
+      }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
+      /* ── Toast Notification ── */
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: var(--card-solid);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+        padding: 14px 20px;
+        font-size: 13px;
+        color: var(--text);
+        box-shadow: var(--shadow-lg);
+        z-index: 1000;
+        transform: translateY(100px);
+        opacity: 0;
+        transition: all 0.3s ease;
+      }
+      .toast.show {
+        transform: translateY(0);
+        opacity: 1;
+      }
+      .toast.success {
+        border-left: 4px solid var(--green-success);
+      }
+      .toast.error {
+        border-left: 4px solid var(--red-error);
+      }
+      .toast.info {
+        border-left: 4px solid var(--indigo);
+      }
 
-        /* Ambient background glow */
-        body::before {
-            content: '';
-            position: fixed;
-            top: -20%;
-            left: -10%;
-            width: 60%;
-            height: 60%;
-            background: radial-gradient(ellipse, rgba(99,102,241,0.06) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
-        }
-        body::after {
-            content: '';
-            position: fixed;
-            bottom: -20%;
-            right: -10%;
-            width: 50%;
-            height: 50%;
-            background: radial-gradient(ellipse, rgba(34,211,238,0.04) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
-        }
+      /* ── Report Embed ── */
+      .report-iframe-container {
+        background: #fff;
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        margin-top: 16px;
+      }
+      .report-iframe-container iframe {
+        width: 100%;
+        height: 800px;
+        border: none;
+      }
 
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 24px 20px 60px;
-            position: relative;
-            z-index: 1;
-        }
+      /* ── Footer ── */
+      .footer {
+        text-align: center;
+        padding: 32px 24px;
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+      .footer a {
+        color: var(--indigo);
+        text-decoration: none;
+      }
 
-        /* ── Header ── */
-        .header {
-            text-align: center;
-            padding: 48px 24px 40px;
-            margin-bottom: 32px;
-            position: relative;
-        }
-        .header::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80px;
-            height: 3px;
-            background: var(--gradient-primary);
-            border-radius: 2px;
-        }
-        .header-brand {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 4px;
-            color: var(--indigo);
-            font-weight: 700;
-            margin-bottom: 12px;
-        }
+      /* ── Responsive ── */
+      @media (max-width: 768px) {
         .header-title {
-            font-size: 36px;
-            font-weight: 800;
-            background: var(--gradient-primary);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 8px;
+          font-size: 28px;
         }
-        .header-subtitle {
-            font-size: 15px;
-            color: var(--text-secondary);
-        }
-
-        /* ── Section ── */
         .section {
-            background: var(--card);
-            backdrop-filter: var(--glass-blur-md);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-lg);
-            padding: 28px;
-            margin-bottom: 24px;
-            box-shadow: var(--shadow-md);
-            transition: border-color 0.3s;
+          padding: 20px 16px;
         }
-        .section:hover {
-            border-color: var(--glass-border-hover);
-        }
-        .section-title {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .section-title .icon {
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            flex-shrink: 0;
-        }
-        .section-title .icon.indigo { background: var(--indigo-pale); color: var(--indigo); }
-        .section-title .icon.cyan { background: rgba(34,211,238,0.1); color: var(--cyan-accent); }
-        .section-title .icon.green { background: rgba(52,211,153,0.1); color: var(--green-success); }
-        .section-title .icon.amber { background: rgba(251,191,36,0.1); color: var(--amber-warning); }
-        .section-title .icon.pink { background: rgba(244,114,182,0.1); color: #F472B6; }
-
-        /* ── Takeaway Cards ── */
-        .takeaway-card {
-            background: var(--indigo-pale);
-            border: 1px solid var(--border-accent);
-            border-radius: var(--radius-sm);
-            padding: 16px 20px;
-            margin-bottom: 12px;
-            font-size: 14px;
-            line-height: 1.7;
-            color: var(--text);
-        }
-        .takeaway-card::before {
-            content: '\2022';
-            color: var(--indigo);
-            font-weight: 700;
-            margin-right: 10px;
-        }
-
-        /* ── CPC Bar Chart ── */
-        .bar-row {
-            margin-bottom: 16px;
-        }
-        .bar-label {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 6px;
-            font-size: 13px;
-        }
-        .bar-name {
-            font-weight: 600;
-            color: var(--text);
-        }
-        .bar-value {
-            font-weight: 700;
-            color: var(--text);
-        }
-        .bar-change {
-            font-size: 12px;
-            margin-left: 8px;
-            font-weight: 600;
-        }
-        .bar-change.up { color: var(--red-error); }
-        .bar-change.down { color: var(--green-success); }
-        .bar-change.flat { color: var(--text-muted); }
-        .bar-track {
-            background: rgba(255,255,255,0.04);
-            border-radius: 4px;
-            height: 24px;
-            overflow: hidden;
-            position: relative;
-        }
-        .bar-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.6s ease;
-            min-width: 2px;
-        }
-        .bar-fill.c0 { background: linear-gradient(90deg, #6366F1, #818CF8); }
-        .bar-fill.c1 { background: linear-gradient(90deg, #22D3EE, #67E8F9); }
-        .bar-fill.c2 { background: linear-gradient(90deg, #F472B6, #FB7185); }
-        .bar-fill.c3 { background: linear-gradient(90deg, #FBBF24, #FCD34D); }
-        .bar-fill.c4 { background: linear-gradient(90deg, #34D399, #6EE7B7); }
-        .bar-fill.c5 { background: linear-gradient(90deg, #A78BFA, #C4B5FD); }
-
-        /* ── Industry Cards ── */
-        .industry-card {
-            background: var(--surface-2);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-sm);
-            padding: 18px 20px;
-            margin-bottom: 12px;
-            transition: border-color 0.2s;
-        }
-        .industry-card:hover {
-            border-color: var(--glass-border-hover);
-        }
-        .industry-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .industry-name {
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--text);
-        }
-        .industry-badge {
-            font-size: 14px;
-            font-weight: 700;
-            padding: 2px 10px;
-            border-radius: 20px;
-        }
-        .industry-badge.up { background: rgba(248,113,113,0.15); color: var(--red-error); }
-        .industry-badge.down { background: rgba(52,211,153,0.15); color: var(--green-success); }
-        .industry-badge.flat { background: rgba(255,255,255,0.06); color: var(--text-muted); }
-        .industry-metrics {
-            display: flex;
-            gap: 20px;
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-        }
-        .industry-metrics strong {
-            color: var(--text);
-        }
-        .industry-rec {
-            font-size: 12px;
-            color: var(--text-secondary);
-            line-height: 1.6;
-            padding-top: 8px;
-            border-top: 1px solid var(--border);
-        }
-
-        /* ── Platform Table ── */
-        .platform-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-        .platform-table thead th {
-            padding: 12px 14px;
-            text-align: left;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border);
-            font-weight: 600;
-        }
-        .platform-table thead th.num {
-            text-align: right;
-        }
-        .platform-table tbody tr {
-            border-bottom: 1px solid var(--border);
-            transition: background 0.15s;
-        }
-        .platform-table tbody tr:hover {
-            background: var(--indigo-pale);
-        }
-        .platform-table tbody td {
-            padding: 12px 14px;
-            color: var(--text);
-        }
-        .platform-table tbody td.num {
-            text-align: right;
-            font-variant-numeric: tabular-nums;
-        }
-        .platform-table .rank-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 24px;
-            height: 24px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 700;
-        }
-        .rank-badge.r1 { background: var(--indigo-pale); color: var(--indigo); }
-        .rank-badge.r2 { background: rgba(34,211,238,0.1); color: var(--cyan-accent); }
-        .rank-badge.r3 { background: rgba(52,211,153,0.1); color: var(--green-success); }
-        .rank-badge.rn { background: rgba(255,255,255,0.04); color: var(--text-muted); }
-
-        /* ── Metric Cards (Demand Section) ── */
         .metric-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 14px;
-            margin-bottom: 18px;
-        }
-        .metric-card {
-            background: var(--surface-2);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-sm);
-            padding: 18px 16px;
-            text-align: center;
-        }
-        .metric-value {
-            font-size: 26px;
-            font-weight: 800;
-            margin-bottom: 4px;
-        }
-        .metric-value.indigo { color: var(--indigo); }
-        .metric-value.cyan { color: var(--cyan-accent); }
-        .metric-value.amber { color: var(--amber-warning); }
-        .metric-value.pink { color: #F472B6; }
-        .metric-label {
-            font-size: 11px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .tightness-bar {
-            background: var(--surface-2);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-sm);
-            padding: 14px 18px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        .tightness-label {
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-        .tightness-value {
-            font-weight: 700;
-            color: var(--indigo);
-        }
-
-        /* ── Seasonal Section ── */
-        .seasonal-narrative {
-            background: var(--indigo-pale);
-            border: 1px solid var(--border-accent);
-            border-radius: var(--radius-sm);
-            padding: 16px 20px;
-            font-size: 14px;
-            line-height: 1.7;
-            color: var(--text);
-            margin-bottom: 16px;
+          grid-template-columns: repeat(2, 1fr);
         }
         .collar-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--border);
-            font-size: 13px;
-            flex-wrap: wrap;
-            gap: 8px;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
         }
-        .collar-row:last-child { border-bottom: none; }
-        .collar-label { font-weight: 600; color: var(--text); min-width: 120px; }
-        .collar-intensity { color: var(--text-secondary); }
-        .collar-cpc { color: var(--text-secondary); }
-        .collar-forecast { color: var(--indigo-light); font-size: 12px; }
-
-        /* ── Config Section ── */
-        .config-toggle {
-            background: var(--surface-2);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-sm);
-            padding: 14px 20px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2px;
-            transition: background 0.15s;
-            -webkit-user-select: none;
-            user-select: none;
+        .platform-table {
+          font-size: 12px;
         }
-        .config-toggle:hover {
-            background: var(--card-hover);
-        }
-        .config-toggle .chevron {
-            transition: transform 0.3s;
-            color: var(--text-muted);
-        }
-        .config-toggle.open .chevron {
-            transform: rotate(180deg);
-        }
-        .config-body {
-            background: var(--surface-2);
-            border: 1px solid var(--glass-border);
-            border-top: none;
-            border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-            padding: 0 20px;
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.4s ease, padding 0.4s ease;
-        }
-        .config-body.open {
-            max-height: 600px;
-            padding: 20px;
-        }
-
-        .form-group {
-            margin-bottom: 18px;
-        }
-        .form-label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 6px;
-        }
-        .form-input {
-            width: 100%;
-            padding: 10px 14px;
-            background: var(--card-solid);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-sm);
-            color: var(--text);
-            font-size: 14px;
-            font-family: inherit;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .form-input:focus {
-            border-color: var(--indigo);
-            box-shadow: 0 0 0 2px var(--indigo-pale);
-        }
-        .form-input::placeholder {
-            color: var(--text-muted);
-        }
-        .form-select {
-            width: 100%;
-            padding: 10px 14px;
-            background: var(--card-solid);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-sm);
-            color: var(--text);
-            font-size: 14px;
-            font-family: inherit;
-            outline: none;
-            cursor: pointer;
-            -webkit-appearance: none;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23818CF8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-        }
-        .form-select:focus {
-            border-color: var(--indigo);
+        .platform-table thead th,
+        .platform-table tbody td {
+          padding: 8px 6px;
         }
         .btn-row {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
+          flex-direction: column;
         }
         .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 10px 20px;
-            border: none;
-            border-radius: var(--radius-sm);
-            font-size: 13px;
-            font-weight: 600;
-            font-family: inherit;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-decoration: none;
+          width: 100%;
+          justify-content: center;
         }
-        .btn-primary {
-            background: var(--gradient-primary);
-            color: white;
-            box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+      }
+      @media (max-width: 480px) {
+        .container {
+          padding: 16px 12px 40px;
         }
-        .btn-primary:hover {
-            box-shadow: 0 4px 16px rgba(99,102,241,0.4);
-            transform: translateY(-1px);
+        .metric-grid {
+          grid-template-columns: 1fr 1fr;
         }
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
+        .header {
+          padding: 32px 16px 28px;
         }
-        .btn-secondary {
-            background: var(--surface-3);
-            color: var(--text);
-            border: 1px solid var(--glass-border);
+        .header-title {
+          font-size: 24px;
         }
-        .btn-secondary:hover {
-            background: var(--card-hover);
-            border-color: var(--glass-border-hover);
-        }
-        .btn-secondary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+      }
 
-        /* ── Status Badge ── */
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            padding: 4px 12px;
-            border-radius: 20px;
-        }
-        .status-badge.running {
-            background: rgba(52,211,153,0.12);
-            color: var(--green-success);
-        }
-        .status-badge.stopped {
-            background: rgba(255,255,255,0.04);
-            color: var(--text-muted);
-        }
-        .status-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-        }
-        .status-dot.on { background: var(--green-success); box-shadow: 0 0 6px var(--green-success); }
-        .status-dot.off { background: var(--text-muted); }
+      /* -- Scroll reveal animations -- */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
 
-        /* ── History ── */
-        .history-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--border);
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        .history-item:last-child { border-bottom: none; }
-        .history-date {
-            font-weight: 600;
-            color: var(--text);
-            font-size: 14px;
-            min-width: 120px;
-        }
-        .history-period {
-            color: var(--text-secondary);
-            font-size: 13px;
-            flex: 1;
-        }
-        .history-link {
-            color: var(--indigo);
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-        }
-        .history-link:hover {
-            text-decoration: underline;
-        }
+      /* -- Enhanced card/section glow -- */
+      .glow-hover {
+        transition:
+          box-shadow 0.4s ease,
+          border-color 0.3s ease;
+      }
+      .glow-hover:hover {
+        box-shadow:
+          0 0 20px rgba(99, 102, 241, 0.12),
+          0 0 50px rgba(99, 102, 241, 0.06);
+        border-color: rgba(99, 102, 241, 0.2);
+      }
 
-        /* ── Loading & Empty States ── */
-        .loading {
-            text-align: center;
-            padding: 48px 24px;
-            color: var(--text-muted);
+      /* -- Reduced motion -- */
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
         }
-        .loading .spinner {
-            display: inline-block;
-            width: 32px;
-            height: 32px;
-            border: 3px solid var(--border);
-            border-top-color: var(--indigo);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-bottom: 12px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px 24px;
-            color: var(--text-muted);
-            font-size: 14px;
-        }
-
-        /* ── Toast Notification ── */
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: var(--card-solid);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-sm);
-            padding: 14px 20px;
-            font-size: 13px;
-            color: var(--text);
-            box-shadow: var(--shadow-lg);
-            z-index: 1000;
-            transform: translateY(100px);
-            opacity: 0;
-            transition: all 0.3s ease;
-        }
-        .toast.show {
-            transform: translateY(0);
-            opacity: 1;
-        }
-        .toast.success { border-left: 4px solid var(--green-success); }
-        .toast.error { border-left: 4px solid var(--red-error); }
-        .toast.info { border-left: 4px solid var(--indigo); }
-
-        /* ── Report Embed ── */
-        .report-iframe-container {
-            background: #fff;
-            border-radius: var(--radius-sm);
-            overflow: hidden;
-            margin-top: 16px;
-        }
-        .report-iframe-container iframe {
-            width: 100%;
-            height: 800px;
-            border: none;
-        }
-
-        /* ── Footer ── */
-        .footer {
-            text-align: center;
-            padding: 32px 24px;
-            color: var(--text-muted);
-            font-size: 12px;
-        }
-        .footer a {
-            color: var(--indigo);
-            text-decoration: none;
-        }
-
-        /* ── Responsive ── */
-        @media (max-width: 768px) {
-            .header-title { font-size: 28px; }
-            .section { padding: 20px 16px; }
-            .metric-grid { grid-template-columns: repeat(2, 1fr); }
-            .collar-row { flex-direction: column; align-items: flex-start; gap: 4px; }
-            .platform-table { font-size: 12px; }
-            .platform-table thead th, .platform-table tbody td { padding: 8px 6px; }
-            .btn-row { flex-direction: column; }
-            .btn { width: 100%; justify-content: center; }
-        }
-        @media (max-width: 480px) {
-            .container { padding: 16px 12px 40px; }
-            .metric-grid { grid-template-columns: 1fr 1fr; }
-            .header { padding: 32px 16px 28px; }
-            .header-title { font-size: 24px; }
-        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-brand">Nova AI Suite</div>
-            <h1 class="header-title">Market Intelligence Pulse</h1>
-            <p class="header-subtitle" id="headerSubtitle">Weekly hiring market intelligence powered by proprietary benchmark data</p>
-        </header>
+      <!-- Header -->
+      <header class="header">
+        <div class="header-brand">Nova AI Suite</div>
+        <h1 class="header-title">Market Intelligence Pulse</h1>
+        <p class="header-subtitle" id="headerSubtitle">
+          Weekly hiring market intelligence powered by proprietary benchmark
+          data
+        </p>
+      </header>
 
-        <!-- Loading State -->
-        <div id="loadingState" class="section loading">
-            <div class="spinner"></div>
-            <p>Loading latest market intelligence...</p>
+      <!-- Loading State -->
+      <div id="loadingState" class="section loading">
+        <div class="spinner"></div>
+        <p>Loading latest market intelligence...</p>
+      </div>
+
+      <!-- Report Content (hidden until loaded) -->
+      <div id="reportContent" style="display: none">
+        <!-- Report Date & Period -->
+        <div class="section" style="text-align: center; padding: 16px 28px">
+          <span
+            style="font-size: 13px; color: var(--text-secondary)"
+            id="reportPeriod"
+          ></span>
+          <span style="margin: 0 12px; color: var(--border)">|</span>
+          <span
+            style="font-size: 12px; color: var(--text-muted)"
+            id="reportVintage"
+          ></span>
         </div>
 
-        <!-- Report Content (hidden until loaded) -->
-        <div id="reportContent" style="display:none;">
-
-            <!-- Report Date & Period -->
-            <div class="section" style="text-align:center;padding:16px 28px;">
-                <span style="font-size:13px;color:var(--text-secondary);" id="reportPeriod"></span>
-                <span style="margin:0 12px;color:var(--border);">|</span>
-                <span style="font-size:12px;color:var(--text-muted);" id="reportVintage"></span>
-            </div>
-
-            <!-- Executive Summary / Key Takeaways -->
-            <div class="section">
-                <h2 class="section-title">
-                    <span class="icon indigo">&#9733;</span>
-                    Key Takeaways
-                </h2>
-                <div id="takeawaysContainer"></div>
-            </div>
-
-            <!-- Labor Market Demand -->
-            <div class="section" id="demandSection" style="display:none;">
-                <h2 class="section-title">
-                    <span class="icon cyan">&#9862;</span>
-                    Labor Market Demand
-                </h2>
-                <div class="metric-grid" id="demandMetrics"></div>
-                <div class="tightness-bar" id="tightnessBar"></div>
-                <p style="font-size:11px;color:var(--text-muted);margin-top:10px;" id="demandSource"></p>
-            </div>
-
-            <!-- CPC Trends Dashboard -->
-            <div class="section" id="cpcSection" style="display:none;">
-                <h2 class="section-title">
-                    <span class="icon indigo">&#9650;</span>
-                    CPC Trend Dashboard
-                </h2>
-                <p style="font-size:12px;color:var(--text-muted);margin-bottom:20px;" id="cpcComparison"></p>
-                <div id="cpcBarsContainer"></div>
-            </div>
-
-            <!-- Industry Spotlight -->
-            <div class="section" id="industrySection" style="display:none;">
-                <h2 class="section-title">
-                    <span class="icon pink">&#9670;</span>
-                    Industry Spotlight
-                </h2>
-                <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;" id="industrySubtitle"></p>
-                <div id="industryCards"></div>
-            </div>
-
-            <!-- Platform Comparison -->
-            <div class="section" id="platformSection" style="display:none;">
-                <h2 class="section-title">
-                    <span class="icon green">&#9654;</span>
-                    Platform Comparison
-                </h2>
-                <div style="overflow-x:auto;">
-                    <table class="platform-table" id="platformTable">
-                        <thead>
-                            <tr>
-                                <th>Rank</th>
-                                <th>Platform</th>
-                                <th class="num">Avg CPC</th>
-                                <th class="num">Avg CPA</th>
-                                <th class="num">Avg CTR</th>
-                                <th class="num">Avg CVR</th>
-                                <th class="num">CPC YoY</th>
-                            </tr>
-                        </thead>
-                        <tbody id="platformTableBody"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Seasonal Outlook -->
-            <div class="section" id="seasonalSection" style="display:none;">
-                <h2 class="section-title">
-                    <span class="icon amber">&#9788;</span>
-                    <span id="seasonalTitle">Seasonal Outlook</span>
-                </h2>
-                <div class="seasonal-narrative" id="seasonalNarrative"></div>
-                <div id="collarInsights"></div>
-            </div>
-
+        <!-- Executive Summary / Key Takeaways -->
+        <div class="section">
+          <h2 class="section-title">
+            <span class="icon indigo">&#9733;</span>
+            Key Takeaways
+          </h2>
+          <div id="takeawaysContainer"></div>
         </div>
 
-        <!-- Configuration Section -->
-        <div style="margin-top:8px;">
-            <div class="config-toggle" id="configToggle" onclick="toggleConfig()">
-                <span style="font-weight:600;font-size:14px;">
-                    <span style="margin-right:8px;">&#9881;</span>
-                    Report Configuration
-                </span>
-                <span>
-                    <span class="status-badge" id="schedulerBadge">
-                        <span class="status-dot off" id="schedulerDot"></span>
-                        <span id="schedulerStatusText">Stopped</span>
-                    </span>
-                    <span class="chevron" style="margin-left:12px;">&#9660;</span>
-                </span>
-            </div>
-            <div class="config-body" id="configBody">
-                <div class="form-group">
-                    <label class="form-label">Email Recipients (comma-separated)</label>
-                    <input type="text" class="form-input" id="recipientsInput" placeholder="team@company.com, manager@company.com">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Report Frequency</label>
-                    <select class="form-select" id="frequencySelect">
-                        <option value="168">Weekly (every 7 days)</option>
-                        <option value="336">Biweekly (every 14 days)</option>
-                        <option value="720">Monthly (every 30 days)</option>
-                    </select>
-                </div>
-                <div class="form-group" id="schedulerInfo" style="display:none;">
-                    <p style="font-size:12px;color:var(--text-secondary);">
-                        <strong>Last Run:</strong> <span id="lastRunTime">Never</span><br>
-                        <strong>Next Run:</strong> <span id="nextRunTime">Not scheduled</span>
-                    </p>
-                </div>
-                <div class="btn-row">
-                    <button class="btn btn-primary" id="btnSendNow" onclick="sendNow()">
-                        &#9993; Send Now
-                    </button>
-                    <button class="btn btn-secondary" id="btnGeneratePreview" onclick="generatePreview()">
-                        &#128196; Generate Preview
-                    </button>
-                    <button class="btn btn-secondary" id="btnToggleScheduler" onclick="toggleScheduler()">
-                        &#9654; Start Scheduler
-                    </button>
-                </div>
-            </div>
+        <!-- Labor Market Demand -->
+        <div class="section" id="demandSection" style="display: none">
+          <h2 class="section-title">
+            <span class="icon cyan">&#9862;</span>
+            Labor Market Demand
+          </h2>
+          <div class="metric-grid" id="demandMetrics"></div>
+          <div class="tightness-bar" id="tightnessBar"></div>
+          <p
+            style="font-size: 11px; color: var(--text-muted); margin-top: 10px"
+            id="demandSource"
+          ></p>
         </div>
 
-        <!-- Report History -->
-        <div class="section" style="margin-top:24px;">
-            <h2 class="section-title">
-                <span class="icon indigo">&#128197;</span>
-                Report History
-            </h2>
-            <div id="historyContainer">
-                <div class="empty-state">No reports generated yet. Click "Generate Preview" to create your first report.</div>
-            </div>
+        <!-- CPC Trends Dashboard -->
+        <div class="section" id="cpcSection" style="display: none">
+          <h2 class="section-title">
+            <span class="icon indigo">&#9650;</span>
+            CPC Trend Dashboard
+          </h2>
+          <p
+            style="
+              font-size: 12px;
+              color: var(--text-muted);
+              margin-bottom: 20px;
+            "
+            id="cpcComparison"
+          ></p>
+          <div id="cpcBarsContainer"></div>
         </div>
 
-        <!-- Full Report Preview (hidden iframe) -->
-        <div class="section" id="previewSection" style="display:none;margin-top:24px;">
-            <h2 class="section-title">
-                <span class="icon cyan">&#128196;</span>
-                Full Report Preview
-            </h2>
-            <div class="report-iframe-container">
-                <iframe id="reportIframe" title="Full Report Preview"></iframe>
-            </div>
+        <!-- Industry Spotlight -->
+        <div class="section" id="industrySection" style="display: none">
+          <h2 class="section-title">
+            <span class="icon pink">&#9670;</span>
+            Industry Spotlight
+          </h2>
+          <p
+            style="
+              font-size: 12px;
+              color: var(--text-muted);
+              margin-bottom: 16px;
+            "
+            id="industrySubtitle"
+          ></p>
+          <div id="industryCards"></div>
         </div>
 
-        <!-- Footer -->
-        <footer class="footer">
-            Powered by <strong><a href="https://www.linkedin.com/in/chandel13/">Shubham Singh Chandel</a></strong> &middot; Nova AI Suite<br>
-            Data from 6 ad platforms across 22 industries
-        </footer>
+        <!-- Platform Comparison -->
+        <div class="section" id="platformSection" style="display: none">
+          <h2 class="section-title">
+            <span class="icon green">&#9654;</span>
+            Platform Comparison
+          </h2>
+          <div style="overflow-x: auto">
+            <table class="platform-table" id="platformTable">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Platform</th>
+                  <th class="num">Avg CPC</th>
+                  <th class="num">Avg CPA</th>
+                  <th class="num">Avg CTR</th>
+                  <th class="num">Avg CVR</th>
+                  <th class="num">CPC YoY</th>
+                </tr>
+              </thead>
+              <tbody id="platformTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Seasonal Outlook -->
+        <div class="section" id="seasonalSection" style="display: none">
+          <h2 class="section-title">
+            <span class="icon amber">&#9788;</span>
+            <span id="seasonalTitle">Seasonal Outlook</span>
+          </h2>
+          <div class="seasonal-narrative" id="seasonalNarrative"></div>
+          <div id="collarInsights"></div>
+        </div>
+      </div>
+
+      <!-- Configuration Section -->
+      <div style="margin-top: 8px">
+        <div class="config-toggle" id="configToggle" onclick="toggleConfig()">
+          <span style="font-weight: 600; font-size: 14px">
+            <span style="margin-right: 8px">&#9881;</span>
+            Report Configuration
+          </span>
+          <span>
+            <span class="status-badge" id="schedulerBadge">
+              <span class="status-dot off" id="schedulerDot"></span>
+              <span id="schedulerStatusText">Stopped</span>
+            </span>
+            <span class="chevron" style="margin-left: 12px">&#9660;</span>
+          </span>
+        </div>
+        <div class="config-body" id="configBody">
+          <div class="form-group">
+            <label class="form-label">Email Recipients (comma-separated)</label>
+            <input
+              type="text"
+              class="form-input"
+              id="recipientsInput"
+              placeholder="team@company.com, manager@company.com"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Report Frequency</label>
+            <select class="form-select" id="frequencySelect">
+              <option value="168">Weekly (every 7 days)</option>
+              <option value="336">Biweekly (every 14 days)</option>
+              <option value="720">Monthly (every 30 days)</option>
+            </select>
+          </div>
+          <div class="form-group" id="schedulerInfo" style="display: none">
+            <p style="font-size: 12px; color: var(--text-secondary)">
+              <strong>Last Run:</strong> <span id="lastRunTime">Never</span
+              ><br />
+              <strong>Next Run:</strong>
+              <span id="nextRunTime">Not scheduled</span>
+            </p>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btnSendNow" onclick="sendNow()">
+              &#9993; Send Now
+            </button>
+            <button
+              class="btn btn-secondary"
+              id="btnGeneratePreview"
+              onclick="generatePreview()"
+            >
+              &#128196; Generate Preview
+            </button>
+            <button
+              class="btn btn-secondary"
+              id="btnToggleScheduler"
+              onclick="toggleScheduler()"
+            >
+              &#9654; Start Scheduler
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Report History -->
+      <div class="section" style="margin-top: 24px">
+        <h2 class="section-title">
+          <span class="icon indigo">&#128197;</span>
+          Report History
+        </h2>
+        <div id="historyContainer">
+          <div class="empty-state">
+            No reports generated yet. Click "Generate Preview" to create your
+            first report.
+          </div>
+        </div>
+      </div>
+
+      <!-- Full Report Preview (hidden iframe) -->
+      <div
+        class="section"
+        id="previewSection"
+        style="display: none; margin-top: 24px"
+      >
+        <h2 class="section-title">
+          <span class="icon cyan">&#128196;</span>
+          Full Report Preview
+        </h2>
+        <div class="report-iframe-container">
+          <iframe id="reportIframe" title="Full Report Preview"></iframe>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer class="footer">
+        Powered by
+        <strong
+          ><a href="https://www.linkedin.com/in/chandel13/"
+            >Shubham Singh Chandel</a
+          ></strong
+        >
+        &middot; Nova AI Suite<br />
+        Data from 6 ad platforms across 22 industries
+      </footer>
     </div>
 
     <!-- Toast Notification -->
     <div class="toast" id="toast"></div>
 
     <script>
-    /* ──────────────────────────────────────────────
+      /* ──────────────────────────────────────────────
        Market Pulse Frontend Controller
        ────────────────────────────────────────────── */
 
-    const API_BASE = '';  // Same origin
+      const API_BASE = ""; // Same origin
 
-    let currentReport = null;
-    let schedulerRunning = false;
+      let currentReport = null;
+      let schedulerRunning = false;
 
-    // ── Initialization ──
-    document.addEventListener('DOMContentLoaded', () => {
+      // ── Initialization ──
+      document.addEventListener("DOMContentLoaded", () => {
         loadLatestReport();
         loadSchedulerStatus();
         loadHistory();
-    });
+      });
 
-    // ── Toast Notification ──
-    function showToast(message, type) {
-        type = type || 'info';
-        const toast = document.getElementById('toast');
+      // ── Toast Notification ──
+      function showToast(message, type) {
+        type = type || "info";
+        const toast = document.getElementById("toast");
         toast.textContent = message;
-        toast.className = 'toast ' + type + ' show';
-        setTimeout(() => { toast.className = 'toast'; }, 4000);
-    }
+        toast.className = "toast " + type + " show";
+        setTimeout(() => {
+          toast.className = "toast";
+        }, 4000);
+      }
 
-    // ── Config Toggle ──
-    function toggleConfig() {
-        const toggle = document.getElementById('configToggle');
-        const body = document.getElementById('configBody');
-        toggle.classList.toggle('open');
-        body.classList.toggle('open');
-    }
+      // ── Config Toggle ──
+      function toggleConfig() {
+        const toggle = document.getElementById("configToggle");
+        const body = document.getElementById("configBody");
+        toggle.classList.toggle("open");
+        body.classList.toggle("open");
+      }
 
-    // ── Trend helpers ──
-    function getChangeClass(pct) {
-        if (pct > 2) return 'up';
-        if (pct < -2) return 'down';
-        return 'flat';
-    }
+      // ── Trend helpers ──
+      function getChangeClass(pct) {
+        if (pct > 2) return "up";
+        if (pct < -2) return "down";
+        return "flat";
+      }
 
-    function getRankClass(rank) {
-        if (rank === 1) return 'r1';
-        if (rank === 2) return 'r2';
-        if (rank === 3) return 'r3';
-        return 'rn';
-    }
+      function getRankClass(rank) {
+        if (rank === 1) return "r1";
+        if (rank === 2) return "r2";
+        if (rank === 3) return "r3";
+        return "rn";
+      }
 
-    function escHtml(str) {
-        if (!str) return '';
-        const d = document.createElement('div');
+      function escHtml(str) {
+        if (!str) return "";
+        const d = document.createElement("div");
         d.textContent = String(str);
         return d.innerHTML;
-    }
+      }
 
-    // ── Load Latest Report ──
-    async function loadLatestReport() {
+      // ── Load Latest Report ──
+      async function loadLatestReport() {
         try {
-            const res = await fetch(API_BASE + '/api/pulse/latest');
-            const data = await res.json();
-            if (data.ok && data.report) {
-                currentReport = data.report;
-                renderReport(data.report);
-            } else {
-                document.getElementById('loadingState').innerHTML =
-                    '<div class="empty-state">No reports available yet. Click "Generate Preview" below to create your first report.</div>';
-            }
+          const res = await fetch(API_BASE + "/api/pulse/latest");
+          const data = await res.json();
+          if (data.ok && data.report) {
+            currentReport = data.report;
+            renderReport(data.report);
+          } else {
+            document.getElementById("loadingState").innerHTML =
+              '<div class="empty-state">No reports available yet. Click "Generate Preview" below to create your first report.</div>';
+          }
         } catch (err) {
-            document.getElementById('loadingState').innerHTML =
-                '<div class="empty-state">Could not load report. The server may be unavailable.</div>';
+          document.getElementById("loadingState").innerHTML =
+            '<div class="empty-state">Could not load report. The server may be unavailable.</div>';
         }
-    }
+      }
 
-    // ── Render Report ──
-    function renderReport(report) {
-        document.getElementById('loadingState').style.display = 'none';
-        document.getElementById('reportContent').style.display = 'block';
+      // ── Render Report ──
+      function renderReport(report) {
+        document.getElementById("loadingState").style.display = "none";
+        document.getElementById("reportContent").style.display = "block";
 
         // Period & Vintage
-        document.getElementById('reportPeriod').textContent = report.period || '';
-        document.getElementById('reportVintage').textContent =
-            report.data_vintage ? 'Data vintage: ' + report.data_vintage : '';
-        document.getElementById('headerSubtitle').textContent =
-            'Report for ' + (report.report_date_display || report.report_date || '');
+        document.getElementById("reportPeriod").textContent =
+          report.period || "";
+        document.getElementById("reportVintage").textContent =
+          report.data_vintage ? "Data vintage: " + report.data_vintage : "";
+        document.getElementById("headerSubtitle").textContent =
+          "Report for " +
+          (report.report_date_display || report.report_date || "");
 
         // Key Takeaways
-        const takeawaysEl = document.getElementById('takeawaysContainer');
-        takeawaysEl.innerHTML = '';
-        (report.key_takeaways || []).forEach(t => {
-            const div = document.createElement('div');
-            div.className = 'takeaway-card';
-            div.textContent = t;
-            takeawaysEl.appendChild(div);
+        const takeawaysEl = document.getElementById("takeawaysContainer");
+        takeawaysEl.innerHTML = "";
+        (report.key_takeaways || []).forEach((t) => {
+          const div = document.createElement("div");
+          div.className = "takeaway-card";
+          div.textContent = t;
+          takeawaysEl.appendChild(div);
         });
         if (!report.key_takeaways || report.key_takeaways.length === 0) {
-            takeawaysEl.innerHTML = '<div class="empty-state">No takeaways available.</div>';
+          takeawaysEl.innerHTML =
+            '<div class="empty-state">No takeaways available.</div>';
         }
 
         // Market Demand
@@ -1010,401 +1252,552 @@
 
         // Seasonal Outlook
         renderSeasonal(report.seasonal_insights || {});
-    }
+      }
 
-    function renderDemand(md) {
-        const section = document.getElementById('demandSection');
-        if (!md.available) { section.style.display = 'none'; return; }
-        section.style.display = 'block';
+      function renderDemand(md) {
+        const section = document.getElementById("demandSection");
+        if (!md.available) {
+          section.style.display = "none";
+          return;
+        }
+        section.style.display = "block";
 
         const metrics = [
-            { value: md.job_openings || 'N/A', label: 'Job Openings', color: 'indigo' },
-            { value: md.hires || 'N/A', label: 'Monthly Hires', color: 'cyan' },
-            { value: md.quits || 'N/A', label: 'Voluntary Quits', color: 'amber' },
-            { value: md.unemployment_rate || 'N/A', label: 'Unemployment', color: 'pink' },
+          {
+            value: md.job_openings || "N/A",
+            label: "Job Openings",
+            color: "indigo",
+          },
+          { value: md.hires || "N/A", label: "Monthly Hires", color: "cyan" },
+          {
+            value: md.quits || "N/A",
+            label: "Voluntary Quits",
+            color: "amber",
+          },
+          {
+            value: md.unemployment_rate || "N/A",
+            label: "Unemployment",
+            color: "pink",
+          },
         ];
 
-        const grid = document.getElementById('demandMetrics');
-        grid.innerHTML = metrics.map(m =>
-            '<div class="metric-card">' +
-                '<div class="metric-value ' + m.color + '">' + escHtml(m.value) + '</div>' +
-                '<div class="metric-label">' + escHtml(m.label) + '</div>' +
-            '</div>'
-        ).join('');
+        const grid = document.getElementById("demandMetrics");
+        grid.innerHTML = metrics
+          .map(
+            (m) =>
+              '<div class="metric-card">' +
+              '<div class="metric-value ' +
+              m.color +
+              '">' +
+              escHtml(m.value) +
+              "</div>" +
+              '<div class="metric-label">' +
+              escHtml(m.label) +
+              "</div>" +
+              "</div>",
+          )
+          .join("");
 
-        document.getElementById('tightnessBar').innerHTML =
-            '<strong style="color:var(--text);font-size:13px;">Market Tightness:</strong>' +
-            '<span class="tightness-label">' + escHtml(md.tightness_label || 'N/A') + '</span>' +
-            '<span class="tightness-value">Ratio: ' + escHtml(md.tightness_index || 'N/A') + '</span>';
+        document.getElementById("tightnessBar").innerHTML =
+          '<strong style="color:var(--text);font-size:13px;">Market Tightness:</strong>' +
+          '<span class="tightness-label">' +
+          escHtml(md.tightness_label || "N/A") +
+          "</span>" +
+          '<span class="tightness-value">Ratio: ' +
+          escHtml(md.tightness_index || "N/A") +
+          "</span>";
 
-        document.getElementById('demandSource').textContent = 'Source: ' + (md.source || 'N/A');
-    }
+        document.getElementById("demandSource").textContent =
+          "Source: " + (md.source || "N/A");
+      }
 
-    function renderCpcTrends(cpc) {
-        const section = document.getElementById('cpcSection');
-        if (!cpc.available) { section.style.display = 'none'; return; }
-        section.style.display = 'block';
+      function renderCpcTrends(cpc) {
+        const section = document.getElementById("cpcSection");
+        if (!cpc.available) {
+          section.style.display = "none";
+          return;
+        }
+        section.style.display = "block";
 
-        document.getElementById('cpcComparison').textContent =
-            'Average CPC across 22 industries \u00B7 ' + (cpc.comparison || '');
+        document.getElementById("cpcComparison").textContent =
+          "Average CPC across 22 industries \u00B7 " + (cpc.comparison || "");
 
-        const container = document.getElementById('cpcBarsContainer');
-        container.innerHTML = '';
+        const container = document.getElementById("cpcBarsContainer");
+        container.innerHTML = "";
 
         const platforms = cpc.platforms || {};
         const keys = Object.keys(platforms);
         let maxCpc = 0;
-        keys.forEach(k => {
-            const v = platforms[k].avg_cpc_current || 0;
-            if (v > maxCpc) maxCpc = v;
+        keys.forEach((k) => {
+          const v = platforms[k].avg_cpc_current || 0;
+          if (v > maxCpc) maxCpc = v;
         });
         if (maxCpc === 0) maxCpc = 1;
 
         keys.forEach((k, i) => {
-            const p = platforms[k];
-            const pctW = Math.min(100, (p.avg_cpc_current / maxCpc) * 100);
-            const change = p.avg_cpc_change_pct || 0;
-            const cls = getChangeClass(change);
+          const p = platforms[k];
+          const pctW = Math.min(100, (p.avg_cpc_current / maxCpc) * 100);
+          const change = p.avg_cpc_change_pct || 0;
+          const cls = getChangeClass(change);
 
-            container.innerHTML +=
-                '<div class="bar-row">' +
-                    '<div class="bar-label">' +
-                        '<span class="bar-name">' + escHtml(p.label || k) + '</span>' +
-                        '<span>' +
-                            '<span class="bar-value">$' + (p.avg_cpc_current || 0).toFixed(2) + '</span>' +
-                            '<span class="bar-change ' + cls + '">' +
-                                (change > 0 ? '\u2191' : change < 0 ? '\u2193' : '\u2192') +
-                                ' ' + (change > 0 ? '+' : '') + change.toFixed(1) + '%' +
-                            '</span>' +
-                        '</span>' +
-                    '</div>' +
-                    '<div class="bar-track">' +
-                        '<div class="bar-fill c' + (i % 6) + '" style="width:' + pctW.toFixed(0) + '%;"></div>' +
-                    '</div>' +
-                '</div>';
+          container.innerHTML +=
+            '<div class="bar-row">' +
+            '<div class="bar-label">' +
+            '<span class="bar-name">' +
+            escHtml(p.label || k) +
+            "</span>" +
+            "<span>" +
+            '<span class="bar-value">$' +
+            (p.avg_cpc_current || 0).toFixed(2) +
+            "</span>" +
+            '<span class="bar-change ' +
+            cls +
+            '">' +
+            (change > 0 ? "\u2191" : change < 0 ? "\u2193" : "\u2192") +
+            " " +
+            (change > 0 ? "+" : "") +
+            change.toFixed(1) +
+            "%" +
+            "</span>" +
+            "</span>" +
+            "</div>" +
+            '<div class="bar-track">' +
+            '<div class="bar-fill c' +
+            (i % 6) +
+            '" style="width:' +
+            pctW.toFixed(0) +
+            '%;"></div>' +
+            "</div>" +
+            "</div>";
         });
-    }
+      }
 
-    function renderIndustrySpotlight(ind) {
-        const section = document.getElementById('industrySection');
-        if (!ind.available) { section.style.display = 'none'; return; }
-        section.style.display = 'block';
+      function renderIndustrySpotlight(ind) {
+        const section = document.getElementById("industrySection");
+        if (!ind.available) {
+          section.style.display = "none";
+          return;
+        }
+        section.style.display = "block";
 
-        document.getElementById('industrySubtitle').textContent =
-            'Top 5 by CPC movement across ' + (ind.total_industries_analyzed || 22) + ' industries';
+        document.getElementById("industrySubtitle").textContent =
+          "Top 5 by CPC movement across " +
+          (ind.total_industries_analyzed || 22) +
+          " industries";
 
-        const container = document.getElementById('industryCards');
-        container.innerHTML = '';
+        const container = document.getElementById("industryCards");
+        container.innerHTML = "";
 
-        (ind.industries || []).forEach(item => {
-            const change = item.avg_change_pct || 0;
-            const cls = getChangeClass(change);
+        (ind.industries || []).forEach((item) => {
+          const change = item.avg_change_pct || 0;
+          const cls = getChangeClass(change);
 
-            container.innerHTML +=
-                '<div class="industry-card">' +
-                    '<div class="industry-header">' +
-                        '<span class="industry-name">' + escHtml(item.label) + '</span>' +
-                        '<span class="industry-badge ' + cls + '">' +
-                            item.arrow + ' ' + (change > 0 ? '+' : '') + change.toFixed(1) + '%' +
-                        '</span>' +
-                    '</div>' +
-                    '<div class="industry-metrics">' +
-                        '<span>Avg CPC: <strong>$' + (item.avg_cpc || 0).toFixed(2) + '</strong></span>' +
-                        '<span>Avg CPA: <strong>$' + (item.avg_cpa || 0).toFixed(2) + '</strong></span>' +
-                        '<span>Trend: <strong>' + escHtml(item.trend) + '</strong></span>' +
-                    '</div>' +
-                    '<div class="industry-rec">' + escHtml(item.recommendation) + '</div>' +
-                '</div>';
+          container.innerHTML +=
+            '<div class="industry-card">' +
+            '<div class="industry-header">' +
+            '<span class="industry-name">' +
+            escHtml(item.label) +
+            "</span>" +
+            '<span class="industry-badge ' +
+            cls +
+            '">' +
+            item.arrow +
+            " " +
+            (change > 0 ? "+" : "") +
+            change.toFixed(1) +
+            "%" +
+            "</span>" +
+            "</div>" +
+            '<div class="industry-metrics">' +
+            "<span>Avg CPC: <strong>$" +
+            (item.avg_cpc || 0).toFixed(2) +
+            "</strong></span>" +
+            "<span>Avg CPA: <strong>$" +
+            (item.avg_cpa || 0).toFixed(2) +
+            "</strong></span>" +
+            "<span>Trend: <strong>" +
+            escHtml(item.trend) +
+            "</strong></span>" +
+            "</div>" +
+            '<div class="industry-rec">' +
+            escHtml(item.recommendation) +
+            "</div>" +
+            "</div>";
         });
-    }
+      }
 
-    function renderPlatformTable(plat) {
-        const section = document.getElementById('platformSection');
-        if (!plat.available) { section.style.display = 'none'; return; }
-        section.style.display = 'block';
+      function renderPlatformTable(plat) {
+        const section = document.getElementById("platformSection");
+        if (!plat.available) {
+          section.style.display = "none";
+          return;
+        }
+        section.style.display = "block";
 
-        const tbody = document.getElementById('platformTableBody');
-        tbody.innerHTML = '';
+        const tbody = document.getElementById("platformTableBody");
+        tbody.innerHTML = "";
 
-        (plat.platforms || []).forEach(p => {
-            const change = p.cpc_change_pct || 0;
-            const cls = getChangeClass(change);
-            const rCls = getRankClass(p.rank);
+        (plat.platforms || []).forEach((p) => {
+          const change = p.cpc_change_pct || 0;
+          const cls = getChangeClass(change);
+          const rCls = getRankClass(p.rank);
 
-            tbody.innerHTML +=
-                '<tr>' +
-                    '<td><span class="rank-badge ' + rCls + '">' + p.rank + '</span></td>' +
-                    '<td style="font-weight:500;">' + escHtml(p.label) + '</td>' +
-                    '<td class="num">$' + (p.avg_cpc || 0).toFixed(2) + '</td>' +
-                    '<td class="num">$' + (p.avg_cpa || 0).toFixed(2) + '</td>' +
-                    '<td class="num">' + (p.avg_ctr || 0).toFixed(2) + '%</td>' +
-                    '<td class="num">' + (p.avg_cvr || 0).toFixed(2) + '%</td>' +
-                    '<td class="num" style="font-weight:600;">' +
-                        '<span class="bar-change ' + cls + '">' +
-                            p.arrow + ' ' + (change > 0 ? '+' : '') + change.toFixed(1) + '%' +
-                        '</span>' +
-                    '</td>' +
-                '</tr>';
+          tbody.innerHTML +=
+            "<tr>" +
+            '<td><span class="rank-badge ' +
+            rCls +
+            '">' +
+            p.rank +
+            "</span></td>" +
+            '<td style="font-weight:500;">' +
+            escHtml(p.label) +
+            "</td>" +
+            '<td class="num">$' +
+            (p.avg_cpc || 0).toFixed(2) +
+            "</td>" +
+            '<td class="num">$' +
+            (p.avg_cpa || 0).toFixed(2) +
+            "</td>" +
+            '<td class="num">' +
+            (p.avg_ctr || 0).toFixed(2) +
+            "%</td>" +
+            '<td class="num">' +
+            (p.avg_cvr || 0).toFixed(2) +
+            "%</td>" +
+            '<td class="num" style="font-weight:600;">' +
+            '<span class="bar-change ' +
+            cls +
+            '">' +
+            p.arrow +
+            " " +
+            (change > 0 ? "+" : "") +
+            change.toFixed(1) +
+            "%" +
+            "</span>" +
+            "</td>" +
+            "</tr>";
         });
-    }
+      }
 
-    function renderSeasonal(s) {
-        const section = document.getElementById('seasonalSection');
-        if (!s.available) { section.style.display = 'none'; return; }
-        section.style.display = 'block';
+      function renderSeasonal(s) {
+        const section = document.getElementById("seasonalSection");
+        if (!s.available) {
+          section.style.display = "none";
+          return;
+        }
+        section.style.display = "block";
 
-        document.getElementById('seasonalTitle').textContent =
-            'Seasonal Outlook: ' + (s.current_month || '') + ' \u2192 ' + (s.next_month || '');
+        document.getElementById("seasonalTitle").textContent =
+          "Seasonal Outlook: " +
+          (s.current_month || "") +
+          " \u2192 " +
+          (s.next_month || "");
 
-        document.getElementById('seasonalNarrative').textContent = s.narrative || '';
+        document.getElementById("seasonalNarrative").textContent =
+          s.narrative || "";
 
-        const container = document.getElementById('collarInsights');
-        container.innerHTML = '';
+        const container = document.getElementById("collarInsights");
+        container.innerHTML = "";
 
-        const collarOrder = ['white_collar', 'blue_collar', 'grey_collar', 'mixed'];
+        const collarOrder = [
+          "white_collar",
+          "blue_collar",
+          "grey_collar",
+          "mixed",
+        ];
         const insights = s.collar_insights || {};
 
-        collarOrder.forEach(key => {
-            const c = insights[key];
-            if (!c) return;
-            container.innerHTML +=
-                '<div class="collar-row">' +
-                    '<span class="collar-label">' + escHtml(c.label) + '</span>' +
-                    '<span class="collar-intensity">' + escHtml(c.intensity) + '</span>' +
-                    '<span class="collar-cpc">' + escHtml(c.cpc_impact) + '</span>' +
-                    '<span class="collar-forecast">' + escHtml(c.forecast) + '</span>' +
-                '</div>';
+        collarOrder.forEach((key) => {
+          const c = insights[key];
+          if (!c) return;
+          container.innerHTML +=
+            '<div class="collar-row">' +
+            '<span class="collar-label">' +
+            escHtml(c.label) +
+            "</span>" +
+            '<span class="collar-intensity">' +
+            escHtml(c.intensity) +
+            "</span>" +
+            '<span class="collar-cpc">' +
+            escHtml(c.cpc_impact) +
+            "</span>" +
+            '<span class="collar-forecast">' +
+            escHtml(c.forecast) +
+            "</span>" +
+            "</div>";
         });
-    }
+      }
 
-    // ── Load Scheduler Status ──
-    async function loadSchedulerStatus() {
+      // ── Load Scheduler Status ──
+      async function loadSchedulerStatus() {
         try {
-            const res = await fetch(API_BASE + '/api/pulse/status');
-            const data = await res.json();
-            if (data.ok) {
-                updateSchedulerUI(data);
-            }
+          const res = await fetch(API_BASE + "/api/pulse/status");
+          const data = await res.json();
+          if (data.ok) {
+            updateSchedulerUI(data);
+          }
         } catch (err) {
-            // Scheduler endpoint may not exist yet
+          // Scheduler endpoint may not exist yet
         }
-    }
+      }
 
-    function updateSchedulerUI(data) {
+      function updateSchedulerUI(data) {
         schedulerRunning = !!data.running;
 
-        const dot = document.getElementById('schedulerDot');
-        const text = document.getElementById('schedulerStatusText');
-        const badge = document.getElementById('schedulerBadge');
-        const btn = document.getElementById('btnToggleScheduler');
-        const info = document.getElementById('schedulerInfo');
+        const dot = document.getElementById("schedulerDot");
+        const text = document.getElementById("schedulerStatusText");
+        const badge = document.getElementById("schedulerBadge");
+        const btn = document.getElementById("btnToggleScheduler");
+        const info = document.getElementById("schedulerInfo");
 
         if (schedulerRunning) {
-            dot.className = 'status-dot on';
-            text.textContent = 'Running';
-            badge.className = 'status-badge running';
-            btn.innerHTML = '&#9632; Stop Scheduler';
-            info.style.display = 'block';
-            document.getElementById('lastRunTime').textContent = data.last_run
-                ? new Date(data.last_run).toLocaleString() : 'Never';
-            document.getElementById('nextRunTime').textContent = data.next_run
-                ? new Date(data.next_run).toLocaleString() : 'Not scheduled';
+          dot.className = "status-dot on";
+          text.textContent = "Running";
+          badge.className = "status-badge running";
+          btn.innerHTML = "&#9632; Stop Scheduler";
+          info.style.display = "block";
+          document.getElementById("lastRunTime").textContent = data.last_run
+            ? new Date(data.last_run).toLocaleString()
+            : "Never";
+          document.getElementById("nextRunTime").textContent = data.next_run
+            ? new Date(data.next_run).toLocaleString()
+            : "Not scheduled";
         } else {
-            dot.className = 'status-dot off';
-            text.textContent = 'Stopped';
-            badge.className = 'status-badge stopped';
-            btn.innerHTML = '&#9654; Start Scheduler';
-            info.style.display = 'none';
+          dot.className = "status-dot off";
+          text.textContent = "Stopped";
+          badge.className = "status-badge stopped";
+          btn.innerHTML = "&#9654; Start Scheduler";
+          info.style.display = "none";
         }
 
         // Populate recipients if available
         if (data.recipients && data.recipients.length > 0) {
-            document.getElementById('recipientsInput').value = data.recipients.join(', ');
+          document.getElementById("recipientsInput").value =
+            data.recipients.join(", ");
         }
 
         // Set frequency select
-        const freqSelect = document.getElementById('frequencySelect');
+        const freqSelect = document.getElementById("frequencySelect");
         if (data.interval_hours) {
-            for (let i = 0; i < freqSelect.options.length; i++) {
-                if (parseInt(freqSelect.options[i].value) === data.interval_hours) {
-                    freqSelect.selectedIndex = i;
-                    break;
-                }
+          for (let i = 0; i < freqSelect.options.length; i++) {
+            if (parseInt(freqSelect.options[i].value) === data.interval_hours) {
+              freqSelect.selectedIndex = i;
+              break;
             }
+          }
         }
-    }
+      }
 
-    // ── Load History ──
-    async function loadHistory() {
+      // ── Load History ──
+      async function loadHistory() {
         try {
-            const res = await fetch(API_BASE + '/api/pulse/history');
-            const data = await res.json();
-            if (data.ok && data.history && data.history.length > 0) {
-                renderHistory(data.history);
-            }
+          const res = await fetch(API_BASE + "/api/pulse/history");
+          const data = await res.json();
+          if (data.ok && data.history && data.history.length > 0) {
+            renderHistory(data.history);
+          }
         } catch (err) {
-            // History not available
+          // History not available
         }
-    }
+      }
 
-    function renderHistory(history) {
-        const container = document.getElementById('historyContainer');
+      function renderHistory(history) {
+        const container = document.getElementById("historyContainer");
         if (!history || history.length === 0) {
-            container.innerHTML = '<div class="empty-state">No reports generated yet.</div>';
-            return;
+          container.innerHTML =
+            '<div class="empty-state">No reports generated yet.</div>';
+          return;
         }
 
-        container.innerHTML = '';
-        history.forEach(h => {
-            const takeaway = h.key_takeaways && h.key_takeaways.length > 0
-                ? h.key_takeaways[0] : '';
+        container.innerHTML = "";
+        history.forEach((h) => {
+          const takeaway =
+            h.key_takeaways && h.key_takeaways.length > 0
+              ? h.key_takeaways[0]
+              : "";
 
-            container.innerHTML +=
-                '<div class="history-item">' +
-                    '<span class="history-date">' + escHtml(h.report_date) + '</span>' +
-                    '<span class="history-period">' + escHtml(h.period) +
-                        (takeaway ? ' \u2014 ' + escHtml(takeaway).substring(0, 80) + '...' : '') +
-                    '</span>' +
-                    '<a class="history-link" href="#" onclick="viewReport(\'' + escHtml(h.report_id) + '\');return false;">View Report</a>' +
-                '</div>';
+          container.innerHTML +=
+            '<div class="history-item">' +
+            '<span class="history-date">' +
+            escHtml(h.report_date) +
+            "</span>" +
+            '<span class="history-period">' +
+            escHtml(h.period) +
+            (takeaway
+              ? " \u2014 " + escHtml(takeaway).substring(0, 80) + "..."
+              : "") +
+            "</span>" +
+            '<a class="history-link" href="#" onclick="viewReport(\'' +
+            escHtml(h.report_id) +
+            "');return false;\">View Report</a>" +
+            "</div>";
         });
-    }
+      }
 
-    // ── View Specific Report ──
-    async function viewReport(reportId) {
+      // ── View Specific Report ──
+      async function viewReport(reportId) {
         try {
-            const res = await fetch(API_BASE + '/api/pulse/report/' + reportId);
-            const data = await res.json();
-            if (data.ok && data.report) {
-                currentReport = data.report;
-                renderReport(data.report);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                showToast('Loaded report from ' + data.report.report_date, 'info');
-            } else {
-                showToast('Report not found', 'error');
-            }
+          const res = await fetch(API_BASE + "/api/pulse/report/" + reportId);
+          const data = await res.json();
+          if (data.ok && data.report) {
+            currentReport = data.report;
+            renderReport(data.report);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            showToast("Loaded report from " + data.report.report_date, "info");
+          } else {
+            showToast("Report not found", "error");
+          }
         } catch (err) {
-            showToast('Failed to load report', 'error');
+          showToast("Failed to load report", "error");
         }
-    }
+      }
 
-    // ── Generate Preview ──
-    async function generatePreview() {
-        const btn = document.getElementById('btnGeneratePreview');
+      // ── Generate Preview ──
+      async function generatePreview() {
+        const btn = document.getElementById("btnGeneratePreview");
         btn.disabled = true;
-        btn.innerHTML = '&#8987; Generating...';
-        showToast('Generating report...', 'info');
+        btn.innerHTML = "&#8987; Generating...";
+        showToast("Generating report...", "info");
 
         try {
-            const res = await fetch(API_BASE + '/api/pulse/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
-            });
-            const data = await res.json();
-            if (data.ok && data.report) {
-                currentReport = data.report;
-                renderReport(data.report);
-                loadHistory();
-                showToast('Report generated successfully', 'success');
+          const res = await fetch(API_BASE + "/api/pulse/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          });
+          const data = await res.json();
+          if (data.ok && data.report) {
+            currentReport = data.report;
+            renderReport(data.report);
+            loadHistory();
+            showToast("Report generated successfully", "success");
 
-                // Also load the full HTML preview
-                loadFullPreview();
-            } else {
-                showToast('Failed to generate report: ' + (data.error || ''), 'error');
-            }
+            // Also load the full HTML preview
+            loadFullPreview();
+          } else {
+            showToast(
+              "Failed to generate report: " + (data.error || ""),
+              "error",
+            );
+          }
         } catch (err) {
-            showToast('Error generating report: ' + err.message, 'error');
+          showToast("Error generating report: " + err.message, "error");
         } finally {
-            btn.disabled = false;
-            btn.innerHTML = '&#128196; Generate Preview';
+          btn.disabled = false;
+          btn.innerHTML = "&#128196; Generate Preview";
         }
-    }
+      }
 
-    async function loadFullPreview() {
+      async function loadFullPreview() {
         try {
-            const res = await fetch(API_BASE + '/api/pulse/latest/html');
-            const data = await res.json();
-            if (data.ok && data.html) {
-                const previewSection = document.getElementById('previewSection');
-                previewSection.style.display = 'block';
-                const iframe = document.getElementById('reportIframe');
-                iframe.srcdoc = data.html;
-            }
+          const res = await fetch(API_BASE + "/api/pulse/latest/html");
+          const data = await res.json();
+          if (data.ok && data.html) {
+            const previewSection = document.getElementById("previewSection");
+            previewSection.style.display = "block";
+            const iframe = document.getElementById("reportIframe");
+            iframe.srcdoc = data.html;
+          }
         } catch (err) {
-            // Non-critical
+          // Non-critical
         }
-    }
+      }
 
-    // ── Send Now ──
-    async function sendNow() {
-        const recipientsInput = document.getElementById('recipientsInput').value.trim();
+      // ── Send Now ──
+      async function sendNow() {
+        const recipientsInput = document
+          .getElementById("recipientsInput")
+          .value.trim();
         if (!recipientsInput) {
-            showToast('Please enter at least one email address', 'error');
-            return;
+          showToast("Please enter at least one email address", "error");
+          return;
         }
 
-        const btn = document.getElementById('btnSendNow');
+        const btn = document.getElementById("btnSendNow");
         btn.disabled = true;
-        btn.innerHTML = '&#8987; Sending...';
+        btn.innerHTML = "&#8987; Sending...";
 
         try {
-            const res = await fetch(API_BASE + '/api/pulse/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ recipients: recipientsInput }),
-            });
-            const data = await res.json();
-            if (data.ok && data.sent) {
-                showToast('Report sent to ' + (data.recipients_sent || []).join(', '), 'success');
-            } else if (data.ok && !data.sent) {
-                const errors = (data.errors || []).join('; ');
-                showToast('Could not send: ' + errors, 'error');
-            } else {
-                showToast('Failed: ' + (data.error || ''), 'error');
-            }
+          const res = await fetch(API_BASE + "/api/pulse/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ recipients: recipientsInput }),
+          });
+          const data = await res.json();
+          if (data.ok && data.sent) {
+            showToast(
+              "Report sent to " + (data.recipients_sent || []).join(", "),
+              "success",
+            );
+          } else if (data.ok && !data.sent) {
+            const errors = (data.errors || []).join("; ");
+            showToast("Could not send: " + errors, "error");
+          } else {
+            showToast("Failed: " + (data.error || ""), "error");
+          }
         } catch (err) {
-            showToast('Error sending report: ' + err.message, 'error');
+          showToast("Error sending report: " + err.message, "error");
         } finally {
-            btn.disabled = false;
-            btn.innerHTML = '&#9993; Send Now';
+          btn.disabled = false;
+          btn.innerHTML = "&#9993; Send Now";
         }
-    }
+      }
 
-    // ── Toggle Scheduler ──
-    async function toggleScheduler() {
-        const btn = document.getElementById('btnToggleScheduler');
+      // ── Toggle Scheduler ──
+      async function toggleScheduler() {
+        const btn = document.getElementById("btnToggleScheduler");
         btn.disabled = true;
 
-        const action = schedulerRunning ? 'stop' : 'start';
+        const action = schedulerRunning ? "stop" : "start";
         const payload = { action: action };
 
-        if (action === 'start') {
-            const freq = parseInt(document.getElementById('frequencySelect').value) || 168;
-            const recipients = document.getElementById('recipientsInput').value.trim();
-            payload.interval_hours = freq;
-            payload.recipients = recipients;
+        if (action === "start") {
+          const freq =
+            parseInt(document.getElementById("frequencySelect").value) || 168;
+          const recipients = document
+            .getElementById("recipientsInput")
+            .value.trim();
+          payload.interval_hours = freq;
+          payload.recipients = recipients;
         }
 
         try {
-            const res = await fetch(API_BASE + '/api/pulse/scheduler', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-            const data = await res.json();
-            if (data.ok) {
-                updateSchedulerUI(data);
-                showToast('Scheduler ' + (data.status || action) + ' successfully', 'success');
-            } else {
-                showToast('Failed: ' + (data.error || ''), 'error');
-            }
+          const res = await fetch(API_BASE + "/api/pulse/scheduler", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            updateSchedulerUI(data);
+            showToast(
+              "Scheduler " + (data.status || action) + " successfully",
+              "success",
+            );
+          } else {
+            showToast("Failed: " + (data.error || ""), "error");
+          }
         } catch (err) {
-            showToast('Error: ' + err.message, 'error');
+          showToast("Error: " + err.message, "error");
         } finally {
-            btn.disabled = false;
+          btn.disabled = false;
         }
-    }
+      }
+
+      // Scroll reveal
+      (function () {
+        var ro = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) e.target.classList.add("visible");
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          ro.observe(el);
+        });
+      })();
     </script>
-</body>
+  </body>
 </html>
