@@ -230,7 +230,9 @@
       }
       .form-input:focus {
         border-color: var(--accent);
-        box-shadow: 0 0 0 3px var(--accent-dim);
+        box-shadow:
+          0 0 0 3px var(--accent-dim),
+          0 0 20px rgba(99, 102, 241, 0.05);
       }
       .form-input::placeholder {
         color: var(--text-muted);

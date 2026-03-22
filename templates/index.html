@@ -622,10 +622,10 @@
         content: "";
         position: fixed;
         inset: 0;
-        background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
+        z-index: 9999;
         pointer-events: none;
-        z-index: 0;
-        opacity: 0.4;
+        opacity: 0.03;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
       }
 
       /* ============================================
@@ -897,7 +897,9 @@
       .form-group select:focus {
         outline: none;
         border-color: rgba(99, 102, 241, 0.5);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        box-shadow:
+          0 0 0 3px rgba(99, 102, 241, 0.1),
+          0 0 20px rgba(99, 102, 241, 0.05);
         background: rgba(99, 102, 241, 0.04);
       }
 
@@ -3097,7 +3099,7 @@
         border-color: rgba(99, 102, 241, 0.6);
         box-shadow:
           0 0 0 3px rgba(99, 102, 241, 0.12),
-          0 0 16px rgba(99, 102, 241, 0.06);
+          0 0 20px rgba(99, 102, 241, 0.05);
       }
 
       .form-group label {
@@ -4784,25 +4786,19 @@
         <div class="gen-steps">
           <div class="gen-step" id="genStep1">
             <div class="gen-step-icon"><span class="gen-spinner"></span></div>
-            <span>Enriching data: BLS, Adzuna, Google Ads, salary APIs...</span>
+            <span>Understanding role requirements...</span>
           </div>
           <div class="gen-step" id="genStep2">
             <div class="gen-step-icon"><span class="gen-spinner"></span></div>
-            <span
-              >Synthesizing market intelligence &amp; running budget
-              engine...</span
-            >
+            <span>Analyzing 91+ job boards...</span>
           </div>
           <div class="gen-step" id="genStep3">
             <div class="gen-step-icon"><span class="gen-spinner"></span></div>
-            <span
-              >Building Excel workbook (8+ sheets) &amp; Strategy PPT
-              deck...</span
-            >
+            <span>Optimizing budget allocation...</span>
           </div>
           <div class="gen-step" id="genStep4">
             <div class="gen-step-icon"><span class="gen-spinner"></span></div>
-            <span>Final QC &amp; packaging deliverable...</span>
+            <span>Generating your plan...</span>
           </div>
         </div>
         <div class="gen-progress-bar">
@@ -5383,10 +5379,9 @@
           }, 6000);
         }
 
-        // Animate steps with timing aligned to actual server pipeline:
-        // Step 1: API enrichment (0-10s), Step 2: Synthesis + budget (10-20s),
-        // Step 3: Excel + PPT generation (20-35s), Step 4: QC + packaging (35s+)
-        const stepDelays = [0, 10000, 20000, 35000];
+        // Animate steps: quick initial visual feedback, then real server work
+        // Step 1: Understanding (0s), Step 2: Analyzing (1s), Step 3: Optimizing (3s), Step 4: Generating (6s)
+        const stepDelays = [0, 1000, 3000, 6000];
         stepDelays.forEach((delay, idx) => {
           const timer = setTimeout(() => {
             // Complete previous step

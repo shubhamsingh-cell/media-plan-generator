@@ -191,8 +191,8 @@
         inset: 0;
         z-index: 0;
         pointer-events: none;
-        opacity: 0.025;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        opacity: 0.03;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
       }
 
       /* ── Navigation ── */
@@ -346,6 +346,24 @@
         overflow: hidden;
         max-width: 1400px;
         margin: 0 auto;
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        width: 800px;
+        height: 800px;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: radial-gradient(
+          circle,
+          rgba(99, 102, 241, 0.12) 0%,
+          rgba(6, 182, 212, 0.06) 40%,
+          transparent 70%
+        );
+        pointer-events: none;
+        z-index: 0;
       }
 
       .hero .ambient-glow {
@@ -947,7 +965,19 @@
 
       .search-input:focus {
         border-color: var(--accent);
-        box-shadow: 0 0 0 3px var(--accent-glow);
+        box-shadow:
+          0 0 0 3px var(--accent-glow),
+          0 0 20px rgba(99, 102, 241, 0.05);
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: none;
+        border-color: rgba(99, 102, 241, 0.5);
+        box-shadow:
+          0 0 0 3px rgba(99, 102, 241, 0.1),
+          0 0 20px rgba(99, 102, 241, 0.05);
       }
 
       /* Tab bar */
@@ -1042,14 +1072,15 @@
               rgba(90, 84, 189, 0.5)
             )
             border-box;
-        transform: translateY(-4px);
+        transform: translateY(-6px);
         will-change: transform;
         box-shadow:
           0 20px 40px rgba(0, 0, 0, 0.3),
           0 8px 16px rgba(32, 32, 88, 0.08),
           0 4px 8px rgba(90, 84, 189, 0.06),
           0 1px 3px rgba(90, 84, 189, 0.1),
-          0 0 1px rgba(90, 84, 189, 0.12);
+          0 0 1px rgba(90, 84, 189, 0.12),
+          0 0 30px rgba(99, 102, 241, 0.08);
       }
 
       .product-card::after {
@@ -1763,6 +1794,17 @@
           animation: none;
           stroke-dasharray: none;
           stroke-dashoffset: 0;
+        }
+        .product-card {
+          transition: none;
+        }
+        .product-card:hover {
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        input,
+        textarea,
+        select {
+          transition: none;
         }
       }
     </style>
@@ -4343,6 +4385,7 @@
                 var decimals = parseInt(el.dataset.decimals, 10) || 0;
                 var startTime = null;
                 var duration = 1200;
+                var startVal = target >= 10 ? Math.floor(target * 0.8) : 0;
 
                 function animateCount(timestamp) {
                   if (!startTime) startTime = timestamp;
@@ -4351,7 +4394,7 @@
                     1,
                   );
                   var eased = 1 - Math.pow(1 - progress, 3);
-                  var current = eased * target;
+                  var current = startVal + eased * (target - startVal);
                   if (decimals > 0) {
                     el.textContent =
                       prefix + current.toFixed(decimals) + suffix;
@@ -4396,6 +4439,7 @@
                 }
                 var startTime = null;
                 var duration = 1600;
+                var heroStart = target >= 10 ? Math.floor(target * 0.8) : 0;
                 function animateHeroCount(timestamp) {
                   if (!startTime) startTime = timestamp;
                   var progress = Math.min(
@@ -4403,7 +4447,9 @@
                     1,
                   );
                   var eased = 1 - Math.pow(1 - progress, 3);
-                  el.textContent = Math.floor(eased * target);
+                  el.textContent = Math.floor(
+                    heroStart + eased * (target - heroStart),
+                  );
                   if (progress < 1) {
                     requestAnimationFrame(animateHeroCount);
                   } else {
