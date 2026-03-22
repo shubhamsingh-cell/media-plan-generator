@@ -24,7 +24,7 @@
         --accent: #6366f1;
         --accent-light: #818cf8;
         --accent-glow: rgba(99, 102, 241, 0.25);
-        --text: #ededed;
+        --text: #d4d4d8;
         --text-muted: #a1a1a1;
         --text-dim: #666666;
         --success: #22c55e;
@@ -891,13 +891,16 @@
       .reveal-on-scroll {
         opacity: 0;
         transform: translateY(24px);
+        filter: hue-rotate(40deg) saturate(0.5) brightness(0.8);
         transition:
           opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          filter 0.8s cubic-bezier(0.4, 0, 0.2, 1);
       }
       .reveal-on-scroll.visible {
         opacity: 1;
         transform: translateY(0);
+        filter: none;
       }
       /* -- Reduced motion -- */
       @media (prefers-reduced-motion: reduce) {
@@ -905,6 +908,7 @@
           opacity: 1;
           transform: none;
           transition: none;
+          filter: none;
         }
       }
     </style>

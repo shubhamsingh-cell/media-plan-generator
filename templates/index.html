@@ -339,7 +339,7 @@
         --glass-inset: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
 
         /* Typography -- Clean grays */
-        --text: #ededed;
+        --text: #d4d4d8;
         --text-secondary: #a1a1a1;
         --text-light: #888888;
         --text-muted: #666666;
@@ -358,10 +358,10 @@
           0 8px 32px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
         --shadow-xl:
           0 16px 48px rgba(0, 0, 0, 0.7), 0 4px 16px rgba(0, 0, 0, 0.5);
-        --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.1);
+        --shadow-glow: 0 0 20px rgba(90, 84, 189, 0.1);
         --shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
         --shadow-accent:
-          0 0 30px rgba(99, 102, 241, 0.08), 0 0 60px rgba(99, 102, 241, 0.04);
+          0 0 30px rgba(90, 84, 189, 0.08), 0 0 60px rgba(90, 84, 189, 0.04);
 
         /* Radius */
         --radius: 12px;
@@ -402,6 +402,116 @@
 
         /* Focus ring -- indigo */
         --focus-ring: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent);
+
+        /* Brand colors for Phase 4 effects */
+        --brand-violet: #5a54bd;
+        --brand-teal: #6bb3cd;
+        --brand-port-gore: #202058;
+      }
+
+      /* ── Phase 4 Effect 2: Ambient glow spots ── */
+      .ambient-glow {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(80px);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .ambient-glow--violet {
+        width: 350px;
+        height: 350px;
+        background: rgba(90, 84, 189, 0.1);
+        top: -5%;
+        left: 15%;
+        animation: glow-drift-1 20s ease-in-out infinite alternate;
+      }
+
+      .ambient-glow--teal {
+        width: 300px;
+        height: 300px;
+        background: rgba(107, 179, 205, 0.08);
+        top: 5%;
+        right: 10%;
+        animation: glow-drift-2 24s ease-in-out infinite alternate;
+      }
+
+      @keyframes glow-drift-1 {
+        0% {
+          transform: translate(0, 0);
+        }
+        100% {
+          transform: translate(25px, -15px);
+        }
+      }
+
+      @keyframes glow-drift-2 {
+        0% {
+          transform: translate(0, 0);
+        }
+        100% {
+          transform: translate(-20px, 12px);
+        }
+      }
+
+      /* ── Phase 4 Effect 5: Text blur halo ── */
+      .hero-halo {
+        position: relative;
+      }
+
+      .hero-halo::before {
+        content: "";
+        position: absolute;
+        inset: -25px;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(90, 84, 189, 0.2),
+          transparent 70%
+        );
+        filter: blur(25px);
+        z-index: -1;
+        pointer-events: none;
+      }
+
+      /* ── Phase 4 Effect 7: Scanning line ── */
+      @keyframes scan-line {
+        0% {
+          top: -2px;
+          opacity: 0;
+        }
+        5% {
+          opacity: 1;
+        }
+        90% {
+          opacity: 0.6;
+        }
+        100% {
+          top: 100%;
+          opacity: 0;
+        }
+      }
+
+      .hero-scan {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .hero-scan::after {
+        content: "";
+        position: absolute;
+        left: 10%;
+        right: 10%;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(107, 179, 205, 0.3),
+          rgba(90, 84, 189, 0.3),
+          transparent
+        );
+        animation: scan-line 6s ease-in-out infinite;
+        pointer-events: none;
+        z-index: 3;
       }
 
       * {
@@ -2756,6 +2866,14 @@
         .form-group:focus-within label {
           transform: none;
         }
+        /* Phase 4 reduced motion */
+        .ambient-glow {
+          animation: none !important;
+        }
+        .hero-scan::after {
+          animation: none !important;
+          display: none;
+        }
       }
 
       /* ============================================
@@ -3098,16 +3216,19 @@
       <div class="page-progress-fill" style="width: 20%"></div>
     </div>
 
-    <header class="app-header" role="banner">
+    <header class="app-header hero-scan" role="banner">
       <!-- Animated gradient orbs -->
       <div class="header-orb header-orb-1" aria-hidden="true"></div>
       <div class="header-orb header-orb-2" aria-hidden="true"></div>
       <div class="header-orb header-orb-3" aria-hidden="true"></div>
       <div class="header-orb header-orb-4" aria-hidden="true"></div>
+      <!-- Phase 4: Ambient glow spots -->
+      <div class="ambient-glow ambient-glow--violet" aria-hidden="true"></div>
+      <div class="ambient-glow ambient-glow--teal" aria-hidden="true"></div>
       <div class="header-content">
         <div class="logo" aria-hidden="true">&#9965;</div>
         <div>
-          <h1 class="streaming-text" data-streaming>
+          <h1 class="streaming-text hero-halo" data-streaming>
             Nova AI Media Plan Generator
           </h1>
           <p>Enterprise AI-powered recruitment media planning platform</p>

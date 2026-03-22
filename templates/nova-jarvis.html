@@ -33,7 +33,7 @@
         --bg: #000000;
         --surface: rgba(17, 17, 17, 0.8);
         --border: rgba(99, 102, 241, 0.12);
-        --text: #ededed;
+        --text: #d4d4d8;
         --text-dim: #666666;
       }
       html,
@@ -647,6 +647,7 @@
           opacity: 1;
           transform: none;
           transition: none;
+          filter: none;
         }
         *,
         *::before,
@@ -661,13 +662,16 @@
       .reveal-on-scroll {
         opacity: 0;
         transform: translateY(24px);
+        filter: hue-rotate(40deg) saturate(0.5) brightness(0.8);
         transition:
           opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          filter 0.8s cubic-bezier(0.4, 0, 0.2, 1);
       }
       .reveal-on-scroll.visible {
         opacity: 1;
         transform: translateY(0);
+        filter: none;
       }
     </style>
   </head>

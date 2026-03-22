@@ -54,7 +54,7 @@
         --glass-border: rgba(255, 255, 255, 0.08);
         --glass-border-hover: rgba(255, 255, 255, 0.16);
 
-        --text: #ededed;
+        --text: #d4d4d8;
         --text-secondary: #a1a1a1;
         --text-muted: #666666;
 
@@ -870,13 +870,16 @@
       .reveal-on-scroll {
         opacity: 0;
         transform: translateY(24px);
+        filter: hue-rotate(40deg) saturate(0.5) brightness(0.8);
         transition:
           opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          filter 0.8s cubic-bezier(0.4, 0, 0.2, 1);
       }
       .reveal-on-scroll.visible {
         opacity: 1;
         transform: translateY(0);
+        filter: none;
       }
       /* -- Reduced motion -- */
       @media (prefers-reduced-motion: reduce) {
@@ -884,6 +887,7 @@
           opacity: 1;
           transform: none;
           transition: none;
+          filter: none;
         }
       }
     </style>

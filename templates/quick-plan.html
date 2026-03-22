@@ -42,7 +42,7 @@
         --indigo-pale: rgba(99, 102, 241, 0.08);
         --indigo-glow: rgba(99, 102, 241, 0.15);
         --indigo-border: rgba(255, 255, 255, 0.16);
-        --text-primary: #ededed;
+        --text-primary: #d4d4d8;
         --text-secondary: #94a3b8;
         --text-tertiary: #64748b;
         --border: rgba(255, 255, 255, 0.06);
@@ -75,6 +75,7 @@
           opacity: 1;
           transform: none;
           transition: none;
+          filter: none;
         }
         *,
         *::before,
@@ -445,7 +446,7 @@
       }
       .qp-collar-badge.white_collar {
         background: rgba(255, 255, 255, 0.1);
-        color: #ededed;
+        color: #d4d4d8;
       }
       .qp-collar-badge.grey_collar {
         background: rgba(148, 163, 184, 0.15);
@@ -882,13 +883,16 @@
       .reveal-on-scroll {
         opacity: 0;
         transform: translateY(24px);
+        filter: hue-rotate(40deg) saturate(0.5) brightness(0.8);
         transition:
           opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          filter 0.8s cubic-bezier(0.4, 0, 0.2, 1);
       }
       .reveal-on-scroll.visible {
         opacity: 1;
         transform: translateY(0);
+        filter: none;
       }
     </style>
   </head>
@@ -1436,7 +1440,7 @@
         function collarDot(type) {
           var colors = {
             blue_collar: "#3B82F6",
-            white_collar: "#ededed",
+            white_collar: "#d4d4d8",
             grey_collar: "#94A3B8",
             pink_collar: "#EC4899",
           };

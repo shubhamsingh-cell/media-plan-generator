@@ -40,7 +40,7 @@
         --accent-light: #818cf8;
         --accent-glow: rgba(99, 102, 241, 0.12);
         --accent-glow-strong: rgba(99, 102, 241, 0.25);
-        --text-primary: #ededed;
+        --text-primary: #d4d4d8;
         --text-secondary: #a1a1a1;
         --text-muted: #666666;
         --border: rgba(255, 255, 255, 0.08);
@@ -49,9 +49,207 @@
         --warning: #f59e0b;
         --cyan: #06b6d4;
         --rose: #f43f5e;
-        --radius: 16px;
+        /* Brand colors for new effects */
+        --brand-violet: #5a54bd;
+        --brand-teal: #6bb3cd;
+        --brand-port-gore: #202058;
+        --radius: 12px;
         --radius-sm: 10px;
         --radius-xs: 6px;
+      }
+
+      /* ── Effect 1: Gradient border shimmer ── */
+      @property --border-angle {
+        syntax: "<angle>";
+        initial-value: 0deg;
+        inherits: false;
+      }
+
+      @keyframes border-rotate {
+        to {
+          --border-angle: 360deg;
+        }
+      }
+
+      /* ── Effect 2: Ambient glow spots ── */
+      .ambient-glow {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(80px);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .ambient-glow--violet {
+        width: 420px;
+        height: 420px;
+        background: rgba(90, 84, 189, 0.12);
+        top: 8%;
+        left: 18%;
+        animation: glow-drift-1 20s ease-in-out infinite alternate;
+      }
+
+      .ambient-glow--teal {
+        width: 360px;
+        height: 360px;
+        background: rgba(107, 179, 205, 0.1);
+        top: 25%;
+        right: 12%;
+        animation: glow-drift-2 24s ease-in-out infinite alternate;
+      }
+
+      .ambient-glow--deep {
+        width: 300px;
+        height: 300px;
+        background: rgba(32, 32, 88, 0.15);
+        bottom: 10%;
+        left: 40%;
+        animation: glow-drift-3 18s ease-in-out infinite alternate;
+      }
+
+      @keyframes glow-drift-1 {
+        0% {
+          transform: translate(0, 0);
+        }
+        100% {
+          transform: translate(30px, -20px);
+        }
+      }
+
+      @keyframes glow-drift-2 {
+        0% {
+          transform: translate(0, 0);
+        }
+        100% {
+          transform: translate(-25px, 15px);
+        }
+      }
+
+      @keyframes glow-drift-3 {
+        0% {
+          transform: translate(0, 0);
+        }
+        100% {
+          transform: translate(20px, 25px);
+        }
+      }
+
+      /* ── Effect 3: Section edge fades ── */
+      .section-fade {
+        position: relative;
+      }
+
+      .section-fade::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 60px;
+        background: linear-gradient(to bottom, #000000, transparent);
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      .section-fade::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 60px;
+        background: linear-gradient(to top, #000000, transparent);
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      /* ── Effect 5: Text blur halo ── */
+      .hero-halo {
+        position: relative;
+      }
+
+      .hero-halo::before {
+        content: "";
+        position: absolute;
+        inset: -30px;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(90, 84, 189, 0.2),
+          transparent 70%
+        );
+        filter: blur(30px);
+        z-index: -1;
+        pointer-events: none;
+      }
+
+      /* ── Effect 7: Scanning line ── */
+      @keyframes scan-line {
+        0% {
+          top: -2px;
+          opacity: 0;
+        }
+        5% {
+          opacity: 1;
+        }
+        90% {
+          opacity: 0.6;
+        }
+        100% {
+          top: 100%;
+          opacity: 0;
+        }
+      }
+
+      .hero-scan {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .hero-scan::after {
+        content: "";
+        position: absolute;
+        left: 10%;
+        right: 10%;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(107, 179, 205, 0.35),
+          rgba(90, 84, 189, 0.35),
+          transparent
+        );
+        animation: scan-line 5s ease-in-out infinite;
+        pointer-events: none;
+        z-index: 3;
+      }
+
+      /* ── Effect 9: Dot-grid background ── */
+      .dot-grid-bg {
+        position: relative;
+      }
+
+      .dot-grid-bg::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(
+          circle,
+          rgba(90, 84, 189, 0.1) 1px,
+          transparent 1px
+        );
+        background-size: 24px 24px;
+        pointer-events: none;
+        z-index: 0;
+        mask-image: radial-gradient(
+          ellipse at center,
+          black 30%,
+          transparent 75%
+        );
+        -webkit-mask-image: radial-gradient(
+          ellipse at center,
+          black 30%,
+          transparent 75%
+        );
       }
 
       html {
@@ -423,7 +621,7 @@
         padding: 48px;
         background: var(--bg-card);
         border: 1px solid var(--border);
-        border-radius: 20px;
+        border-radius: 16px;
         overflow: hidden;
         backdrop-filter: blur(20px);
         transition:
@@ -432,11 +630,18 @@
         text-decoration: none;
         color: inherit;
         cursor: pointer;
+        box-shadow:
+          0 2px 8px rgba(0, 0, 0, 0.2),
+          0 0 1px rgba(90, 84, 189, 0.08);
       }
 
       .flagship-card:hover {
         border-color: var(--border-hover);
-        box-shadow: 0 0 60px rgba(99, 102, 241, 0.08);
+        box-shadow:
+          0 20px 40px rgba(0, 0, 0, 0.25),
+          0 8px 16px rgba(32, 32, 88, 0.08),
+          0 4px 8px rgba(90, 84, 189, 0.06),
+          0 0 1px rgba(90, 84, 189, 0.12);
       }
 
       .flagship-card::before {
@@ -538,9 +743,28 @@
 
       /* ── Product grid ── */
       .products-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .product-grid-row {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 20px;
+        position: sticky;
+        top: 72px;
+        z-index: 1;
+        transition:
+          transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+          opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+          filter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .product-grid-row.scrolled-past {
+        transform: scale(0.97);
+        opacity: 0.4;
+        filter: blur(1px);
       }
 
       .product-card {
@@ -548,25 +772,47 @@
         display: flex;
         flex-direction: column;
         padding: 28px;
-        background: var(--bg-card);
-        border: 1px solid var(--border);
+        background:
+          linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+          conic-gradient(
+              from var(--border-angle),
+              rgba(90, 84, 189, 0.3),
+              rgba(107, 179, 205, 0.3),
+              rgba(90, 84, 189, 0.3)
+            )
+            border-box;
+        border: 1px solid transparent;
         border-radius: var(--radius);
         backdrop-filter: blur(16px);
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         text-decoration: none;
         color: inherit;
         overflow: hidden;
+        animation: border-rotate 4s linear infinite;
+        box-shadow:
+          0 2px 8px rgba(0, 0, 0, 0.2),
+          0 0 1px rgba(90, 84, 189, 0.08);
       }
 
       .product-card:hover {
-        border-color: rgba(99, 102, 241, 0.25);
-        background: var(--bg-card-hover);
+        border-color: transparent;
+        background:
+          linear-gradient(var(--bg-card-hover), var(--bg-card-hover))
+            padding-box,
+          conic-gradient(
+              from var(--border-angle),
+              rgba(90, 84, 189, 0.5),
+              rgba(107, 179, 205, 0.5),
+              rgba(90, 84, 189, 0.5)
+            )
+            border-box;
         transform: translateY(-4px);
         box-shadow:
           0 20px 40px rgba(0, 0, 0, 0.3),
-          0 0 30px rgba(99, 102, 241, 0.1),
-          0 0 60px rgba(99, 102, 241, 0.05),
-          inset 0 0 30px rgba(99, 102, 241, 0.02);
+          0 8px 16px rgba(32, 32, 88, 0.08),
+          0 4px 8px rgba(90, 84, 189, 0.06),
+          0 1px 3px rgba(90, 84, 189, 0.1),
+          0 0 1px rgba(90, 84, 189, 0.12);
       }
 
       .product-card::after {
@@ -745,7 +991,7 @@
           rgba(6, 182, 212, 0.04)
         );
         border: 1px solid var(--border);
-        border-radius: 20px;
+        border-radius: 16px;
         backdrop-filter: blur(20px);
       }
 
@@ -921,8 +1167,14 @@
 
       /* ── Responsive ── */
       @media (max-width: 1024px) {
-        .products-grid {
+        .product-grid-row {
           grid-template-columns: repeat(2, 1fr);
+          position: static;
+        }
+        .product-grid-row.scrolled-past {
+          transform: none;
+          opacity: 1;
+          filter: none;
         }
         .flagship-card {
           grid-template-columns: 1fr;
@@ -933,7 +1185,7 @@
       }
 
       @media (max-width: 640px) {
-        .products-grid {
+        .product-grid-row {
           grid-template-columns: 1fr;
         }
         .hero {
@@ -969,6 +1221,14 @@
         .product-card:hover {
           transform: none;
         }
+        .product-card {
+          animation: none;
+          border: 1px solid var(--border);
+          background: var(--bg-card);
+        }
+        .product-card:hover {
+          background: var(--bg-card-hover);
+        }
         .cta-btn:hover {
           transform: none;
         }
@@ -1001,6 +1261,22 @@
         .page-enter {
           opacity: 1 !important;
           transform: none !important;
+        }
+        /* Phase 4 reduced motion */
+        .ambient-glow {
+          animation: none;
+        }
+        .hero-scan::after {
+          animation: none;
+          display: none;
+        }
+        .product-grid-row {
+          position: static;
+        }
+        .product-grid-row.scrolled-past {
+          transform: none;
+          opacity: 1;
+          filter: none;
         }
       }
 
@@ -1231,12 +1507,17 @@
     </nav>
 
     <!-- Hero -->
-    <section class="hero">
+    <section class="hero hero-scan">
+      <!-- Effect 2: Ambient glow spots -->
+      <div class="ambient-glow ambient-glow--violet" aria-hidden="true"></div>
+      <div class="ambient-glow ambient-glow--teal" aria-hidden="true"></div>
+      <div class="ambient-glow ambient-glow--deep" aria-hidden="true"></div>
+
       <div class="hero-badge fade-in">
         <span class="dot"></span>
         All systems operational
       </div>
-      <h1 class="fade-in stagger-1 streaming-text" data-streaming>
+      <h1 class="fade-in stagger-1 streaming-text hero-halo" data-streaming>
         The Recruitment Intelligence Platform
       </h1>
       <p class="fade-in stagger-2">
@@ -1312,7 +1593,7 @@
     </div>
 
     <!-- Capability Marquee -->
-    <div class="capabilities">
+    <div class="capabilities section-fade">
       <div class="marquee">
         <div class="marquee-item">
           <span class="mi-icon"></span>Programmatic Advertising
@@ -1391,7 +1672,7 @@
     </div>
 
     <!-- Products Section -->
-    <section class="section" id="products">
+    <section class="section dot-grid-bg" id="products">
       <div class="section-header fade-in">
         <div class="section-label">Product Suite</div>
         <div class="section-title">
@@ -1419,686 +1700,711 @@
       </div>
 
       <div class="products-grid" id="productsGrid">
-        <!-- 1. Budget Simulator -->
-        <a
-          href="/simulator"
-          class="product-card fade-in stagger-1"
-          data-category="planning"
-          data-keywords="budget simulator forecast scenario"
-        >
-          <span class="card-status live">Live</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(34, 197, 94, 0.1);
-              --icon-border: rgba(34, 197, 94, 0.15);
-            "
+        <div class="product-grid-row">
+          <!-- 1. Budget Simulator -->
+          <a
+            href="/simulator"
+            class="product-card fade-in stagger-1"
+            data-category="planning"
+            data-keywords="budget simulator forecast scenario"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#22c55e"
-              stroke-width="2"
-              stroke-linecap="round"
+            <span class="card-status live">Live</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(34, 197, 94, 0.1);
+                --icon-border: rgba(34, 197, 94, 0.15);
+              "
             >
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
-            </svg>
-          </div>
-          <div class="card-title">Budget Simulator</div>
-          <div class="card-desc">
-            Model recruitment budget scenarios with AI-driven forecasting.
-            Simulate spend allocation across channels and predict outcomes.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Planning</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#22c55e"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path
+                  d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"
+                />
+              </svg>
+            </div>
+            <div class="card-title">Budget Simulator</div>
+            <div class="card-desc">
+              Model recruitment budget scenarios with AI-driven forecasting.
+              Simulate spend allocation across channels and predict outcomes.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Planning</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
 
-        <!-- 2. Performance Tracker -->
-        <a
-          href="/tracker"
-          class="product-card fade-in stagger-2"
-          data-category="analytics"
-          data-keywords="performance tracker campaign kpi metrics"
-        >
-          <span class="card-status live">Live</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(6, 182, 212, 0.1);
-              --icon-border: rgba(6, 182, 212, 0.15);
-            "
+          <!-- 2. Performance Tracker -->
+          <a
+            href="/tracker"
+            class="product-card fade-in stagger-2"
+            data-category="analytics"
+            data-keywords="performance tracker campaign kpi metrics"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#06b6d4"
-              stroke-width="2"
-              stroke-linecap="round"
+            <span class="card-status live">Live</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(6, 182, 212, 0.1);
+                --icon-border: rgba(6, 182, 212, 0.15);
+              "
             >
-              <path d="M3 3v18h18" />
-              <path d="M18 9l-5 5-2-2-4 4" />
-            </svg>
-          </div>
-          <div class="card-title">Performance Tracker</div>
-          <div class="card-desc">
-            Upload campaign data and get AI-powered performance analysis. Track
-            CPA, CPC, conversion rates, and budget utilization across platforms.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Analytics</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#06b6d4"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path d="M3 3v18h18" />
+                <path d="M18 9l-5 5-2-2-4 4" />
+              </svg>
+            </div>
+            <div class="card-title">Performance Tracker</div>
+            <div class="card-desc">
+              Upload campaign data and get AI-powered performance analysis.
+              Track CPA, CPC, conversion rates, and budget utilization across
+              platforms.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Analytics</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
 
-        <!-- 3. Competitive Intel -->
-        <a
-          href="/competitive"
-          class="product-card fade-in stagger-3"
-          data-category="intelligence"
-          data-keywords="competitive intelligence analysis competitor"
-        >
-          <span class="card-status live">Live</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(244, 63, 94, 0.1);
-              --icon-border: rgba(244, 63, 94, 0.15);
-            "
+          <!-- 3. Competitive Intel -->
+          <a
+            href="/competitive"
+            class="product-card fade-in stagger-3"
+            data-category="intelligence"
+            data-keywords="competitive intelligence analysis competitor"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#f43f5e"
-              stroke-width="2"
-              stroke-linecap="round"
+            <span class="card-status live">Live</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(244, 63, 94, 0.1);
+                --icon-border: rgba(244, 63, 94, 0.15);
+              "
             >
-              <circle cx="11" cy="11" r="8" />
-              <path d="M21 21l-4.35-4.35" />
-            </svg>
-          </div>
-          <div class="card-title">Competitive Intel</div>
-          <div class="card-desc">
-            Deep competitive analysis of hiring strategies, platform presence,
-            and market positioning. Benchmark against your competitors.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Intelligence</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#f43f5e"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
+            </div>
+            <div class="card-title">Competitive Intel</div>
+            <div class="card-desc">
+              Deep competitive analysis of hiring strategies, platform presence,
+              and market positioning. Benchmark against your competitors.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Intelligence</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
+        </div>
+        <!-- end row 1 -->
+        <div class="product-grid-row">
+          <!-- 4. Quick Plan -->
+          <a
+            href="/quick-plan"
+            class="product-card fade-in stagger-4"
+            data-category="planning"
+            data-keywords="quick plan fast instant media"
+          >
+            <span class="card-status live">Live</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(245, 158, 11, 0.1);
+                --icon-border: rgba(245, 158, 11, 0.15);
+              "
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#f59e0b"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+            </div>
+            <div class="card-title">Quick Plan</div>
+            <div class="card-desc">
+              Generate a recruitment media plan in under 60 seconds. Minimal
+              inputs, maximum intelligence. Perfect for rapid proposals.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Planning</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
 
-        <!-- 4. Quick Plan -->
-        <a
-          href="/quick-plan"
-          class="product-card fade-in stagger-4"
-          data-category="planning"
-          data-keywords="quick plan fast instant media"
-        >
-          <span class="card-status live">Live</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(245, 158, 11, 0.1);
-              --icon-border: rgba(245, 158, 11, 0.15);
-            "
+          <!-- 5. Media Plan Audit -->
+          <a
+            href="/audit"
+            class="product-card fade-in stagger-5"
+            data-category="analytics"
+            data-keywords="audit review check existing media plan"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#f59e0b"
-              stroke-width="2"
-              stroke-linecap="round"
+            <span class="card-status live">Live</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(168, 85, 247, 0.1);
+                --icon-border: rgba(168, 85, 247, 0.15);
+              "
             >
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-          </div>
-          <div class="card-title">Quick Plan</div>
-          <div class="card-desc">
-            Generate a recruitment media plan in under 60 seconds. Minimal
-            inputs, maximum intelligence. Perfect for rapid proposals.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Planning</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#a855f7"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path d="M9 11l3 3 8-8" />
+                <path
+                  d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"
+                />
+              </svg>
+            </div>
+            <div class="card-title">Media Plan Audit</div>
+            <div class="card-desc">
+              Upload an existing media plan and get AI-powered audit with
+              scoring, gap analysis, and optimization recommendations.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Analytics</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
 
-        <!-- 5. Media Plan Audit -->
-        <a
-          href="/audit"
-          class="product-card fade-in stagger-5"
-          data-category="analytics"
-          data-keywords="audit review check existing media plan"
-        >
-          <span class="card-status live">Live</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(168, 85, 247, 0.1);
-              --icon-border: rgba(168, 85, 247, 0.15);
-            "
+          <!-- 6. Market Pulse -->
+          <a
+            href="/market-pulse"
+            class="product-card fade-in stagger-6"
+            data-category="intelligence"
+            data-keywords="market pulse trends real-time hiring"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#a855f7"
-              stroke-width="2"
-              stroke-linecap="round"
+            <span class="card-status live">Live</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(255, 255, 255, 0.05);
+                --icon-border: rgba(255, 255, 255, 0.06);
+              "
             >
-              <path d="M9 11l3 3 8-8" />
-              <path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9" />
-            </svg>
-          </div>
-          <div class="card-title">Media Plan Audit</div>
-          <div class="card-desc">
-            Upload an existing media plan and get AI-powered audit with scoring,
-            gap analysis, and optimization recommendations.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Analytics</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#6366f1"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path d="M2 12h4l3-9 4 18 3-9h4" />
+              </svg>
+            </div>
+            <div class="card-title">Market Pulse</div>
+            <div class="card-desc">
+              Real-time recruitment market monitoring. Track hiring trends,
+              salary movements, and platform performance across industries.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Intelligence</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
+        </div>
+        <!-- end row 2 -->
+        <div class="product-grid-row">
+          <!-- 7. Social Plan -->
+          <a
+            href="/social-plan"
+            class="product-card fade-in stagger-7"
+            data-category="planning"
+            data-keywords="social media plan facebook linkedin instagram tiktok"
+          >
+            <span class="card-status new">New</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(59, 130, 246, 0.1);
+                --icon-border: rgba(59, 130, 246, 0.15);
+              "
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#3b82f6"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path
+                  d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                />
+                <path d="M22 6l-10 7L2 6" />
+              </svg>
+            </div>
+            <div class="card-title">Social Plan Generator</div>
+            <div class="card-desc">
+              Create targeted social media recruitment campaigns across 9
+              platforms and 3 search engines. Collar-aware budget allocation.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Planning</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
 
-        <!-- 6. Market Pulse -->
-        <a
-          href="/market-pulse"
-          class="product-card fade-in stagger-6"
-          data-category="intelligence"
-          data-keywords="market pulse trends real-time hiring"
-        >
-          <span class="card-status live">Live</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(255, 255, 255, 0.05);
-              --icon-border: rgba(255, 255, 255, 0.06);
-            "
+          <!-- 8. HireSignal -->
+          <a
+            href="/hire-signal"
+            class="product-card fade-in stagger-8"
+            data-category="analytics"
+            data-keywords="hire signal quality source qoh retention"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#6366f1"
-              stroke-width="2"
-              stroke-linecap="round"
+            <span class="card-status new">New</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(16, 185, 129, 0.1);
+                --icon-border: rgba(16, 185, 129, 0.15);
+              "
             >
-              <path d="M2 12h4l3-9 4 18 3-9h4" />
-            </svg>
-          </div>
-          <div class="card-title">Market Pulse</div>
-          <div class="card-desc">
-            Real-time recruitment market monitoring. Track hiring trends, salary
-            movements, and platform performance across industries.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Intelligence</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#10b981"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 00-3-3.87" />
+                <path d="M16 3.13a4 4 0 010 7.75" />
+              </svg>
+            </div>
+            <div class="card-title">HireSignal</div>
+            <div class="card-desc">
+              Quality of hire analytics by source. Composite QoH scoring, funnel
+              analysis, retention tracking, and cost-per-quality-hire.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Analytics</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
 
-        <!-- 7. Social Plan -->
-        <a
-          href="/social-plan"
-          class="product-card fade-in stagger-7"
-          data-category="planning"
-          data-keywords="social media plan facebook linkedin instagram tiktok"
-        >
-          <span class="card-status new">New</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(59, 130, 246, 0.1);
-              --icon-border: rgba(59, 130, 246, 0.15);
-            "
+          <!-- 9. ApplyFlow -->
+          <a
+            href="/applyflow"
+            class="product-card fade-in stagger-9"
+            data-category="tools"
+            data-keywords="applyflow application tracking chatbot conversational"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#3b82f6"
-              stroke-width="2"
-              stroke-linecap="round"
+            <span class="card-status new">New</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(236, 72, 153, 0.1);
+                --icon-border: rgba(236, 72, 153, 0.15);
+              "
             >
-              <path
-                d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-              />
-              <path d="M22 6l-10 7L2 6" />
-            </svg>
-          </div>
-          <div class="card-title">Social Plan Generator</div>
-          <div class="card-desc">
-            Create targeted social media recruitment campaigns across 9
-            platforms and 3 search engines. Collar-aware budget allocation.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Planning</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#ec4899"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path
+                  d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+                />
+              </svg>
+            </div>
+            <div class="card-title">ApplyFlow</div>
+            <div class="card-desc">
+              Conversational application experience. AI-powered chat interface
+              that guides candidates through the apply process seamlessly.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Tools</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
+        </div>
+        <!-- end row 3 -->
+        <div class="product-grid-row">
+          <!-- 10. API Portal -->
+          <a
+            href="/api-portal"
+            class="product-card fade-in stagger-10"
+            data-category="tools"
+            data-keywords="api portal developer key management endpoint"
+          >
+            <span class="card-status new">New</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(14, 165, 233, 0.1);
+                --icon-border: rgba(14, 165, 233, 0.15);
+              "
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#0ea5e9"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path d="M4 17l6-6-6-6" />
+                <path d="M12 19h8" />
+              </svg>
+            </div>
+            <div class="card-title">API Portal</div>
+            <div class="card-desc">
+              Developer portal with API key management, usage analytics, and
+              OpenAPI 3.0 documentation. Three-tier access control.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Tools</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
 
-        <!-- 8. HireSignal -->
-        <a
-          href="/hire-signal"
-          class="product-card fade-in stagger-8"
-          data-category="analytics"
-          data-keywords="hire signal quality source qoh retention"
-        >
-          <span class="card-status new">New</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(16, 185, 129, 0.1);
-              --icon-border: rgba(16, 185, 129, 0.15);
-            "
+          <!-- 11. Talent Heat Map -->
+          <a
+            href="/talent-heatmap"
+            class="product-card fade-in stagger-11"
+            data-category="intelligence"
+            data-keywords="talent heatmap geography salary supply heat map"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#10b981"
-              stroke-width="2"
-              stroke-linecap="round"
+            <span class="card-status new">New</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(239, 68, 68, 0.1);
+                --icon-border: rgba(239, 68, 68, 0.15);
+              "
             >
-              <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M22 21v-2a4 4 0 00-3-3.87" />
-              <path d="M16 3.13a4 4 0 010 7.75" />
-            </svg>
-          </div>
-          <div class="card-title">HireSignal</div>
-          <div class="card-desc">
-            Quality of hire analytics by source. Composite QoH scoring, funnel
-            analysis, retention tracking, and cost-per-quality-hire.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Analytics</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#ef4444"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+            </div>
+            <div class="card-title">Talent Heat Map</div>
+            <div class="card-desc">
+              Visualize hiring difficulty, salary benchmarks, and talent supply
+              across 60+ metros. Competition index and cost-of-living factors.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Intelligence</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
 
-        <!-- 9. ApplyFlow -->
-        <a
-          href="/applyflow"
-          class="product-card fade-in stagger-9"
-          data-category="tools"
-          data-keywords="applyflow application tracking chatbot conversational"
-        >
-          <span class="card-status new">New</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(236, 72, 153, 0.1);
-              --icon-border: rgba(236, 72, 153, 0.15);
-            "
+          <!-- 12. Market Intel Reports -->
+          <a
+            href="/market-intel"
+            class="product-card fade-in stagger-12"
+            data-category="intelligence"
+            data-keywords="market intelligence reports research industry"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#ec4899"
-              stroke-width="2"
-              stroke-linecap="round"
+            <span class="card-status beta">Beta</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(251, 191, 36, 0.1);
+                --icon-border: rgba(251, 191, 36, 0.15);
+              "
             >
-              <path
-                d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
-              />
-            </svg>
-          </div>
-          <div class="card-title">ApplyFlow</div>
-          <div class="card-desc">
-            Conversational application experience. AI-powered chat interface
-            that guides candidates through the apply process seamlessly.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Tools</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#fbbf24"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path
+                  d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+                />
+                <path d="M14 2v6h6" />
+                <path d="M16 13H8" />
+                <path d="M16 17H8" />
+                <path d="M10 9H8" />
+              </svg>
+            </div>
+            <div class="card-title">Market Intel Reports</div>
+            <div class="card-desc">
+              Comprehensive market intelligence reports with salary benchmarks,
+              talent supply analysis, and strategic recommendations by industry.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Intelligence</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
+        </div>
+        <!-- end row 4 -->
+        <div class="product-grid-row">
+          <!-- 13. SkillTarget -->
+          <a
+            href="/skill-target"
+            class="product-card fade-in stagger-13"
+            data-category="planning"
+            data-keywords="skill target targeting channel recommendation"
+          >
+            <span class="card-status beta">Beta</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(139, 92, 246, 0.1);
+                --icon-border: rgba(139, 92, 246, 0.15);
+              "
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#8b5cf6"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <circle cx="12" cy="12" r="6" />
+                <circle cx="12" cy="12" r="2" />
+              </svg>
+            </div>
+            <div class="card-title">SkillTarget</div>
+            <div class="card-desc">
+              Skill-based channel targeting engine. Map required skills to
+              optimal recruitment platforms with rarity scoring and budget
+              allocation.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Planning</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
 
-        <!-- 10. API Portal -->
-        <a
-          href="/api-portal"
-          class="product-card fade-in stagger-10"
-          data-category="tools"
-          data-keywords="api portal developer key management endpoint"
-        >
-          <span class="card-status new">New</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(14, 165, 233, 0.1);
-              --icon-border: rgba(14, 165, 233, 0.15);
-            "
+          <a
+            href="/roi-calculator"
+            class="product-card fade-in stagger-14"
+            data-category="analytics"
+            data-keywords="roi calculator return investment cost per hire savings projection"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#0ea5e9"
-              stroke-width="2"
-              stroke-linecap="round"
+            <span class="card-status new">New</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(34, 197, 94, 0.1);
+                --icon-border: rgba(34, 197, 94, 0.15);
+              "
             >
-              <path d="M4 17l6-6-6-6" />
-              <path d="M12 19h8" />
-            </svg>
-          </div>
-          <div class="card-title">API Portal</div>
-          <div class="card-desc">
-            Developer portal with API key management, usage analytics, and
-            OpenAPI 3.0 documentation. Three-tier access control.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Tools</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#22c55e"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path
+                  d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"
+                />
+                <path d="M3 3v18h18" />
+              </svg>
+            </div>
+            <div class="card-title">ROI Calculator</div>
+            <div class="card-desc">
+              Estimate recruitment advertising ROI with industry benchmarks.
+              Project cost-per-hire savings, time-to-fill improvements, and
+              annual returns.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Analytics</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
 
-        <!-- 11. Talent Heat Map -->
-        <a
-          href="/talent-heatmap"
-          class="product-card fade-in stagger-11"
-          data-category="intelligence"
-          data-keywords="talent heatmap geography salary supply heat map"
-        >
-          <span class="card-status new">New</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(239, 68, 68, 0.1);
-              --icon-border: rgba(239, 68, 68, 0.15);
-            "
+          <!-- A/B Test Lab -->
+          <a
+            href="/ab-testing"
+            class="product-card fade-in stagger-15"
+            data-category="intelligence"
+            data-keywords="ab test lab variant ad copy recruitment campaign testing"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#ef4444"
-              stroke-width="2"
-              stroke-linecap="round"
+            <span class="card-status new">New</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(99, 102, 241, 0.1);
+                --icon-border: rgba(99, 102, 241, 0.15);
+              "
             >
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-          </div>
-          <div class="card-title">Talent Heat Map</div>
-          <div class="card-desc">
-            Visualize hiring difficulty, salary benchmarks, and talent supply
-            across 60+ metros. Competition index and cost-of-living factors.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Intelligence</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#6366f1"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path d="M16 3h5v5" />
+                <path d="M8 3H3v5" />
+                <path d="M12 22v-6" />
+                <path d="M21 3l-9 9" />
+                <path d="M3 3l9 9" />
+              </svg>
+            </div>
+            <div class="card-title">A/B Test Lab</div>
+            <div class="card-desc">
+              Generate A/B test configurations and variant ad copy for
+              recruitment campaigns. Compare benefits-focused vs.
+              culture-focused approaches.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Intelligence</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
+        </div>
+        <!-- end row 5 -->
+        <div class="product-grid-row">
+          <!-- 16. Quick Brief -->
+          <a
+            href="/quick-brief"
+            class="product-card fade-in stagger-16"
+            data-category="intelligence"
+            data-keywords="quick brief natural language plain text hiring need parse structured"
+          >
+            <span class="card-status new">New</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(99, 102, 241, 0.1);
+                --icon-border: rgba(99, 102, 241, 0.15);
+              "
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#6366f1"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+            </div>
+            <div class="card-title">Quick Brief</div>
+            <div class="card-desc">
+              Describe your hiring need in plain text and get a structured media
+              plan brief with role, location, budget, and channel
+              recommendations.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Intelligence</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
 
-        <!-- 12. Market Intel Reports -->
-        <a
-          href="/market-intel"
-          class="product-card fade-in stagger-12"
-          data-category="intelligence"
-          data-keywords="market intelligence reports research industry"
-        >
-          <span class="card-status beta">Beta</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(251, 191, 36, 0.1);
-              --icon-border: rgba(251, 191, 36, 0.15);
-            "
+          <!-- 17. Post-Campaign Analysis -->
+          <a
+            href="/post-campaign"
+            class="product-card fade-in stagger-17"
+            data-category="analytics"
+            data-keywords="post campaign analysis report performance grade recommendation cpa cph"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#fbbf24"
-              stroke-width="2"
-              stroke-linecap="round"
+            <span class="card-status new">New</span>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(244, 114, 182, 0.1);
+                --icon-border: rgba(244, 114, 182, 0.15);
+              "
             >
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-              <path d="M14 2v6h6" />
-              <path d="M16 13H8" />
-              <path d="M16 17H8" />
-              <path d="M10 9H8" />
-            </svg>
-          </div>
-          <div class="card-title">Market Intel Reports</div>
-          <div class="card-desc">
-            Comprehensive market intelligence reports with salary benchmarks,
-            talent supply analysis, and strategic recommendations by industry.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Intelligence</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
-
-        <!-- 13. SkillTarget -->
-        <a
-          href="/skill-target"
-          class="product-card fade-in stagger-13"
-          data-category="planning"
-          data-keywords="skill target targeting channel recommendation"
-        >
-          <span class="card-status beta">Beta</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(139, 92, 246, 0.1);
-              --icon-border: rgba(139, 92, 246, 0.15);
-            "
-          >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#8b5cf6"
-              stroke-width="2"
-              stroke-linecap="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="12" r="6" />
-              <circle cx="12" cy="12" r="2" />
-            </svg>
-          </div>
-          <div class="card-title">SkillTarget</div>
-          <div class="card-desc">
-            Skill-based channel targeting engine. Map required skills to optimal
-            recruitment platforms with rarity scoring and budget allocation.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Planning</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
-
-        <a
-          href="/roi-calculator"
-          class="product-card fade-in stagger-14"
-          data-category="analytics"
-          data-keywords="roi calculator return investment cost per hire savings projection"
-        >
-          <span class="card-status new">New</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(34, 197, 94, 0.1);
-              --icon-border: rgba(34, 197, 94, 0.15);
-            "
-          >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#22c55e"
-              stroke-width="2"
-              stroke-linecap="round"
-            >
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
-              <path d="M3 3v18h18" />
-            </svg>
-          </div>
-          <div class="card-title">ROI Calculator</div>
-          <div class="card-desc">
-            Estimate recruitment advertising ROI with industry benchmarks.
-            Project cost-per-hire savings, time-to-fill improvements, and annual
-            returns.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Analytics</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
-
-        <!-- A/B Test Lab -->
-        <a
-          href="/ab-testing"
-          class="product-card fade-in stagger-15"
-          data-category="intelligence"
-          data-keywords="ab test lab variant ad copy recruitment campaign testing"
-        >
-          <span class="card-status new">New</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(99, 102, 241, 0.1);
-              --icon-border: rgba(99, 102, 241, 0.15);
-            "
-          >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#6366f1"
-              stroke-width="2"
-              stroke-linecap="round"
-            >
-              <path d="M16 3h5v5" />
-              <path d="M8 3H3v5" />
-              <path d="M12 22v-6" />
-              <path d="M21 3l-9 9" />
-              <path d="M3 3l9 9" />
-            </svg>
-          </div>
-          <div class="card-title">A/B Test Lab</div>
-          <div class="card-desc">
-            Generate A/B test configurations and variant ad copy for recruitment
-            campaigns. Compare benefits-focused vs. culture-focused approaches.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Intelligence</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
-
-        <!-- 16. Quick Brief -->
-        <a
-          href="/quick-brief"
-          class="product-card fade-in stagger-16"
-          data-category="intelligence"
-          data-keywords="quick brief natural language plain text hiring need parse structured"
-        >
-          <span class="card-status new">New</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(99, 102, 241, 0.1);
-              --icon-border: rgba(99, 102, 241, 0.15);
-            "
-          >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#6366f1"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path
-                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-              />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-              <polyline points="10 9 9 9 8 9" />
-            </svg>
-          </div>
-          <div class="card-title">Quick Brief</div>
-          <div class="card-desc">
-            Describe your hiring need in plain text and get a structured media
-            plan brief with role, location, budget, and channel recommendations.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Intelligence</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
-
-        <!-- 17. Post-Campaign Analysis -->
-        <a
-          href="/post-campaign"
-          class="product-card fade-in stagger-17"
-          data-category="analytics"
-          data-keywords="post campaign analysis report performance grade recommendation cpa cph"
-        >
-          <span class="card-status new">New</span>
-          <div
-            class="card-icon"
-            style="
-              --icon-bg: rgba(244, 114, 182, 0.1);
-              --icon-border: rgba(244, 114, 182, 0.15);
-            "
-          >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#f472b6"
-              stroke-width="2"
-              stroke-linecap="round"
-            >
-              <path d="M9 17H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-              <path d="M15 3h4a2 2 0 012 2v10a2 2 0 01-2 2h-4" />
-              <path d="M12 15l-3 3 3 3" />
-              <path d="M12 9l3-3-3-3" />
-              <line x1="3" y1="21" x2="21" y2="21" />
-            </svg>
-          </div>
-          <div class="card-title">Post-Campaign Analysis</div>
-          <div class="card-desc">
-            Generate structured post-campaign reports with performance grades
-            and recommendations for recruitment advertising campaigns.
-          </div>
-          <div class="card-footer">
-            <span class="card-category">Analytics</span>
-            <span class="card-arrow">&rarr;</span>
-          </div>
-        </a>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#f472b6"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path d="M9 17H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                <path d="M15 3h4a2 2 0 012 2v10a2 2 0 01-2 2h-4" />
+                <path d="M12 15l-3 3 3 3" />
+                <path d="M12 9l3-3-3-3" />
+                <line x1="3" y1="21" x2="21" y2="21" />
+              </svg>
+            </div>
+            <div class="card-title">Post-Campaign Analysis</div>
+            <div class="card-desc">
+              Generate structured post-campaign reports with performance grades
+              and recommendations for recruitment advertising campaigns.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Analytics</span>
+              <span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
+        </div>
+        <!-- end row 6 -->
       </div>
     </section>
 
@@ -2197,6 +2503,18 @@
               card.style.display = "none";
             }
           });
+
+          // Show/hide empty rows
+          document
+            .querySelectorAll(".product-grid-row")
+            .forEach(function (row) {
+              var hasVisible = Array.from(
+                row.querySelectorAll(".product-card"),
+              ).some(function (c) {
+                return c.style.display !== "none";
+              });
+              row.style.display = hasVisible ? "" : "none";
+            });
 
           // Show/hide no results
           var existing = grid.querySelector(".no-results");
@@ -2382,6 +2700,38 @@
 
         // ── Phase 2/3: Page enter transition ──
         document.body.classList.add("page-enter");
+
+        // ── Phase 4: Sticky-stack product rows ──
+        if (
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
+          window.innerWidth > 1024
+        ) {
+          var rows = document.querySelectorAll(".product-grid-row");
+          rows.forEach(function (row, i) {
+            row.style.zIndex = rows.length - i;
+          });
+
+          var stackObserver = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                var row = entry.target;
+                var prevRow = row.previousElementSibling;
+                if (prevRow && prevRow.classList.contains("product-grid-row")) {
+                  if (entry.isIntersecting) {
+                    prevRow.classList.add("scrolled-past");
+                  } else if (entry.boundingClientRect.top > 0) {
+                    prevRow.classList.remove("scrolled-past");
+                  }
+                }
+              });
+            },
+            { threshold: 0.3, rootMargin: "-60px 0px 0px 0px" },
+          );
+
+          rows.forEach(function (row, i) {
+            if (i > 0) stackObserver.observe(row);
+          });
+        }
       })();
     </script>
   </body>

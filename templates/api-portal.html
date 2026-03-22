@@ -48,7 +48,7 @@
         --glass-blur-md: blur(24px) saturate(1.3);
         --glass-border: rgba(255, 255, 255, 0.08);
         --glass-border-hover: rgba(255, 255, 255, 0.16);
-        --text: #ededed;
+        --text: #d4d4d8;
         --text-secondary: #a1a1a1;
         --text-light: #a1a1a1;
         --text-muted: #666666;
@@ -93,6 +93,7 @@
           opacity: 1;
           transform: none;
           transition: none;
+          filter: none;
         }
         *,
         *::before,
@@ -636,6 +637,35 @@
         overflow-x: auto;
         margin: 0.75rem 0;
       }
+
+      /* Phase 4 Effect 10: Code typing animation */
+      .code-block pre[data-type-code] {
+        visibility: hidden;
+      }
+
+      .code-block pre[data-type-code].typed {
+        visibility: visible;
+      }
+
+      .code-cursor {
+        display: inline-block;
+        width: 2px;
+        height: 1em;
+        background: var(--cyan-accent);
+        animation: cursor-blink 0.7s step-end infinite;
+        vertical-align: text-bottom;
+        margin-left: 1px;
+      }
+
+      @keyframes cursor-blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0;
+        }
+      }
       .code-block pre {
         font-family: "JetBrains Mono", monospace;
         font-size: 0.8125rem;
@@ -868,13 +898,16 @@
       .reveal-on-scroll {
         opacity: 0;
         transform: translateY(24px);
+        filter: hue-rotate(40deg) saturate(0.5) brightness(0.8);
         transition:
           opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+          filter 0.8s cubic-bezier(0.4, 0, 0.2, 1);
       }
       .reveal-on-scroll.visible {
         opacity: 1;
         transform: translateY(0);
+        filter: none;
       }
       .stagger-1 {
         transition-delay: 0.05s;
@@ -1172,7 +1205,7 @@
                   header to all API requests.
                 </p>
                 <div class="code-block">
-                  <pre>
+                  <pre data-type-code>
 curl -X POST https://media-plan-generator.onrender.com/api/generate \
   -H "Content-Type: application/json" \
   -H "X-API-Key: mpg_your_key_here" \
@@ -1244,7 +1277,7 @@ curl -X POST https://media-plan-generator.onrender.com/api/generate \
             and are hashed before storage for security.
           </p>
           <div class="code-block" style="margin-top: 1rem">
-            <pre>
+            <pre data-type-code>
 # Python example
 import requests
 
@@ -1289,7 +1322,7 @@ print(response.json())</pre
             timestamp.
           </p>
           <div class="code-block">
-            <pre>
+            <pre data-type-code>
 # Rate limit exceeded response (HTTP 429)
 {
     "error": "Rate limit exceeded",
@@ -1911,6 +1944,61 @@ print(response.json())</pre
         );
         document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
           ro.observe(el);
+        });
+      })();
+
+      // Phase 4 Effect 10: Code block typing animation
+      (function () {
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          document
+            .querySelectorAll("pre[data-type-code]")
+            .forEach(function (el) {
+              el.style.visibility = "visible";
+              el.classList.add("typed");
+            });
+          return;
+        }
+
+        var codeObserver = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                var el = entry.target;
+                codeObserver.unobserve(el);
+                var fullText = el.textContent;
+                el.textContent = "";
+                el.style.visibility = "visible";
+                el.classList.add("typed");
+
+                var cursor = document.createElement("span");
+                cursor.className = "code-cursor";
+                el.appendChild(cursor);
+
+                var i = 0;
+                var speed = 12;
+                function typeNext() {
+                  if (i < fullText.length) {
+                    el.insertBefore(
+                      document.createTextNode(fullText[i]),
+                      cursor,
+                    );
+                    i++;
+                    setTimeout(typeNext, fullText[i - 1] === "\n" ? 80 : speed);
+                  } else {
+                    setTimeout(function () {
+                      cursor.remove();
+                    }, 1500);
+                  }
+                }
+                typeNext();
+              }
+            });
+          },
+          { threshold: 0.3 },
+        );
+
+        document.querySelectorAll("pre[data-type-code]").forEach(function (el) {
+          codeObserver.observe(el);
         });
       })();
     </script>
