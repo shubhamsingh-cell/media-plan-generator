@@ -900,7 +900,7 @@
     <script>
       // ── CSRF token fetch (auto-included in POST requests) ──
       window.__csrfToken = "";
-      fetch("/api/csrf-token")
+      window.__csrfReady = fetch("/api/csrf-token")
         .then(function (r) {
           return r.json();
         })
