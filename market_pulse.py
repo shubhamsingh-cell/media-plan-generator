@@ -81,10 +81,12 @@ _scheduler_recipients: List[str] = []
 # LAZY IMPORTS -- avoid circular dependencies, load only when needed
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _lazy_trend_engine():
     """Lazy import trend_engine to avoid circular imports."""
     try:
         import trend_engine
+
         return trend_engine
     except ImportError:
         logger.warning("market_pulse: trend_engine not available")
@@ -95,6 +97,7 @@ def _lazy_research():
     """Lazy import research module."""
     try:
         import research
+
         return research
     except ImportError:
         logger.warning("market_pulse: research module not available")
@@ -105,6 +108,7 @@ def _lazy_api_enrichment():
     """Lazy import api_enrichment for optional live data."""
     try:
         import api_enrichment
+
         return api_enrichment
     except ImportError:
         logger.warning("market_pulse: api_enrichment not available")
@@ -115,6 +119,7 @@ def _lazy_shared_utils():
     """Lazy import shared_utils."""
     try:
         import shared_utils
+
         return shared_utils
     except ImportError:
         return None
@@ -124,6 +129,7 @@ def _lazy_collar_intelligence():
     """Lazy import collar_intelligence."""
     try:
         import collar_intelligence
+
         return collar_intelligence
     except ImportError:
         return None
@@ -132,6 +138,7 @@ def _lazy_collar_intelligence():
 # ═══════════════════════════════════════════════════════════════════════════════
 # UTILITY HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _safe(value: Any) -> str:
     """HTML-escape any value."""
@@ -166,11 +173,11 @@ def _fmt_pct(value: Any, decimals: int = 1) -> str:
 def _trend_arrow(pct_change: float) -> str:
     """Return a unicode trend arrow based on direction."""
     if pct_change > 2.0:
-        return "\u2191"   # up arrow
+        return "\u2191"  # up arrow
     elif pct_change < -2.0:
-        return "\u2193"   # down arrow
+        return "\u2193"  # down arrow
     else:
-        return "\u2192"   # right arrow (flat)
+        return "\u2192"  # right arrow (flat)
 
 
 def _trend_word(pct_change: float) -> str:
@@ -204,6 +211,7 @@ def _industry_label(key: str) -> str:
 # 1. DATA COLLECTION FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def collect_cpc_trends() -> Dict[str, Any]:
     """Pull CPC/CPA trends across all 6 platforms x 22 industries.
 
@@ -215,7 +223,8 @@ def collect_cpc_trends() -> Dict[str, Any]:
         return {"available": False, "error": "trend_engine not loaded"}
 
     now = _get_current_date()
-    current_year = now.year
+    current_year = min(now.year, 2025)
+    prior_year = current_year - 1
     current_month = now.month
 
     platform_summaries = {}
@@ -241,20 +250,30 @@ def collect_cpc_trends() -> Dict[str, Any]:
         for ind in te.INDUSTRIES:
             try:
                 current = te.get_benchmark(
-                    platform=plat, industry=ind, metric="cpc",
-                    month=current_month, year=min(current_year, 2025),
+                    platform=plat,
+                    industry=ind,
+                    metric="cpc",
+                    month=current_month,
+                    year=current_year,
                 )
                 prior = te.get_benchmark(
-                    platform=plat, industry=ind, metric="cpc",
-                    year=min(current_year - 1, 2025),
+                    platform=plat,
+                    industry=ind,
+                    metric="cpc",
+                    year=prior_year,
                 )
                 cpa_current = te.get_benchmark(
-                    platform=plat, industry=ind, metric="cpa",
-                    month=current_month, year=min(current_year, 2025),
+                    platform=plat,
+                    industry=ind,
+                    metric="cpa",
+                    month=current_month,
+                    year=current_year,
                 )
                 cpa_prior = te.get_benchmark(
-                    platform=plat, industry=ind, metric="cpa",
-                    year=min(current_year - 1, 2025),
+                    platform=plat,
+                    industry=ind,
+                    metric="cpa",
+                    year=prior_year,
                 )
 
                 cpc_now = current.get("value", 0)
@@ -307,8 +326,12 @@ def collect_cpc_trends() -> Dict[str, Any]:
             plat_data["avg_cpa_prior"] = round(cpa_sum_prior / count, 2)
             if plat_data["avg_cpc_prior"] > 0:
                 plat_data["avg_cpc_change_pct"] = round(
-                    ((plat_data["avg_cpc_current"] - plat_data["avg_cpc_prior"])
-                     / plat_data["avg_cpc_prior"]) * 100, 1
+                    (
+                        (plat_data["avg_cpc_current"] - plat_data["avg_cpc_prior"])
+                        / plat_data["avg_cpc_prior"]
+                    )
+                    * 100,
+                    1,
                 )
             else:
                 plat_data["avg_cpc_change_pct"] = 0.0
@@ -362,10 +385,18 @@ def collect_market_demand() -> Dict[str, Any]:
     api = _lazy_api_enrichment()
     if api and hasattr(api, "fetch_bls_jolts"):
         try:
-            jo_data = api.fetch_bls_jolts(industry_code="000000", data_element="JO", years=2)
-            hi_data = api.fetch_bls_jolts(industry_code="000000", data_element="HI", years=2)
-            qu_data = api.fetch_bls_jolts(industry_code="000000", data_element="QU", years=2)
-            ld_data = api.fetch_bls_jolts(industry_code="000000", data_element="LD", years=2)
+            jo_data = api.fetch_bls_jolts(
+                industry_code="000000", data_element="JO", years=2
+            )
+            hi_data = api.fetch_bls_jolts(
+                industry_code="000000", data_element="HI", years=2
+            )
+            qu_data = api.fetch_bls_jolts(
+                industry_code="000000", data_element="QU", years=2
+            )
+            ld_data = api.fetch_bls_jolts(
+                industry_code="000000", data_element="LD", years=2
+            )
 
             if jo_data and jo_data.get("latest_value"):
                 result["job_openings"] = jo_data.get("latest_value")
@@ -390,14 +421,24 @@ def collect_market_demand() -> Dict[str, Any]:
         try:
             fred = api.fetch_fred_indicators()
             if fred and fred.get("unemployment_rate"):
-                result["unemployment_rate"] = fred["unemployment_rate"]
+                unemp = fred.get("unemployment_rate")
+                if isinstance(unemp, dict):
+                    result["unemployment_rate"] = f"{unemp.get('value', 'N/A')}%"
+                else:
+                    result["unemployment_rate"] = unemp or "N/A"
                 if not result["available"]:
                     result["source"] = "FRED (live)"
                     result["available"] = True
         except Exception as exc:
             logger.debug("market_pulse: FRED fetch error: %s", exc)
 
-    # Fallback to research.py embedded data
+    # Fallback to research.py embedded data for any missing fields
+    jolts_fallbacks: Dict[str, str] = {
+        "job_openings": "8.1M",
+        "hires": "5.6M",
+        "quits": "3.4M",
+        "layoffs": "1.6M",
+    }
     if not result["available"]:
         res = _lazy_research()
         if res and hasattr(res, "COUNTRY_DATA"):
@@ -407,27 +448,36 @@ def collect_market_demand() -> Dict[str, Any]:
                 result["available"] = True
                 result["source"] = "embedded (research.py)"
 
-        # Provide curated JOLTS estimates from published BLS data
-        result["job_openings"] = "8.1M"
-        result["hires"] = "5.6M"
-        result["quits"] = "3.4M"
-        result["layoffs"] = "1.6M"
+        # Fill all JOLTS fields from curated estimates
+        for field, fallback_val in jolts_fallbacks.items():
+            result[field] = fallback_val
         result["available"] = True
+    else:
+        # BLS partially succeeded -- fill any individual fields still None
+        for field, fallback_val in jolts_fallbacks.items():
+            if result.get(field) is None:
+                result[field] = fallback_val
 
     # Calculate tightness index
     try:
         openings_val = result.get("job_openings")
         if isinstance(openings_val, str):
-            openings_val = float(openings_val.replace("M", "").replace("m", "").replace(",", ""))
+            openings_val = float(
+                openings_val.replace("M", "").replace("m", "").replace(",", "")
+            )
         hires_val = result.get("hires")
         if isinstance(hires_val, str):
-            hires_val = float(hires_val.replace("M", "").replace("m", "").replace(",", ""))
+            hires_val = float(
+                hires_val.replace("M", "").replace("m", "").replace(",", "")
+            )
 
         if openings_val and hires_val and hires_val > 0:
             tightness = openings_val / hires_val
             result["tightness_index"] = round(tightness, 2)
             if tightness > 1.8:
-                result["tightness_label"] = "Very Tight (employer's market is challenging)"
+                result["tightness_label"] = (
+                    "Very Tight (employer's market is challenging)"
+                )
             elif tightness > 1.4:
                 result["tightness_label"] = "Tight (competitive hiring landscape)"
             elif tightness > 1.0:
@@ -453,7 +503,7 @@ def collect_industry_spotlight() -> Dict[str, Any]:
 
     now = _get_current_date()
     current_year = min(now.year, 2025)
-    prior_year = min(now.year - 1, 2025)
+    prior_year = current_year - 1
 
     industry_scores = []
 
@@ -467,15 +517,21 @@ def collect_industry_spotlight() -> Dict[str, Any]:
 
             for plat in te.PLATFORMS:
                 current = te.get_benchmark(
-                    platform=plat, industry=ind, metric="cpc",
+                    platform=plat,
+                    industry=ind,
+                    metric="cpc",
                     year=current_year,
                 )
                 prior = te.get_benchmark(
-                    platform=plat, industry=ind, metric="cpc",
+                    platform=plat,
+                    industry=ind,
+                    metric="cpc",
                     year=prior_year,
                 )
                 cpa_now = te.get_benchmark(
-                    platform=plat, industry=ind, metric="cpa",
+                    platform=plat,
+                    industry=ind,
+                    metric="cpa",
                     year=current_year,
                 )
 
@@ -498,29 +554,39 @@ def collect_industry_spotlight() -> Dict[str, Any]:
 
             # Generate recommendation based on trend
             if avg_change > 5:
-                rec = (f"CPCs rising {avg_change:.0f}% YoY. Consider shifting budget to "
-                       f"programmatic or lower-cost platforms. Optimize ad copy for higher CTR.")
+                rec = (
+                    f"CPCs rising {avg_change:.0f}% YoY. Consider shifting budget to "
+                    f"programmatic or lower-cost platforms. Optimize ad copy for higher CTR."
+                )
             elif avg_change > 0:
-                rec = (f"Moderate CPC increase of {avg_change:.0f}% YoY. Maintain current "
-                       f"strategy but monitor for further escalation.")
+                rec = (
+                    f"Moderate CPC increase of {avg_change:.0f}% YoY. Maintain current "
+                    f"strategy but monitor for further escalation."
+                )
             elif avg_change > -3:
-                rec = (f"CPCs stable. Good time to expand reach or test new channels "
-                       f"while costs remain predictable.")
+                rec = (
+                    f"CPCs stable. Good time to expand reach or test new channels "
+                    f"while costs remain predictable."
+                )
             else:
-                rec = (f"CPCs declining {abs(avg_change):.0f}% YoY. Opportunity to capture "
-                       f"more volume at lower cost. Increase investment now.")
+                rec = (
+                    f"CPCs declining {abs(avg_change):.0f}% YoY. Opportunity to capture "
+                    f"more volume at lower cost. Increase investment now."
+                )
 
-            industry_scores.append({
-                "key": ind,
-                "label": _industry_label(ind),
-                "avg_cpc": round(avg_cpc, 2),
-                "avg_cpa": round(avg_cpa, 2),
-                "avg_change_pct": round(avg_change, 1),
-                "trend": _trend_word(avg_change),
-                "arrow": _trend_arrow(avg_change),
-                "recommendation": rec,
-                "activity_score": abs(avg_change),  # For sorting by magnitude
-            })
+            industry_scores.append(
+                {
+                    "key": ind,
+                    "label": _industry_label(ind),
+                    "avg_cpc": round(avg_cpc, 2),
+                    "avg_cpa": round(avg_cpa, 2),
+                    "avg_change_pct": round(avg_change, 1),
+                    "trend": _trend_word(avg_change),
+                    "arrow": _trend_arrow(avg_change),
+                    "recommendation": rec,
+                    "activity_score": abs(avg_change),  # For sorting by magnitude
+                }
+            )
 
         except Exception as exc:
             logger.debug("market_pulse: industry spotlight error %s: %s", ind, exc)
@@ -548,6 +614,7 @@ def collect_platform_shifts() -> Dict[str, Any]:
 
     now = _get_current_date()
     current_year = min(now.year, 2025)
+    prior_year = current_year - 1
     current_month = now.month
 
     platform_perf = []
@@ -563,24 +630,36 @@ def collect_platform_shifts() -> Dict[str, Any]:
 
             for ind in te.INDUSTRIES:
                 bm_cpc = te.get_benchmark(
-                    platform=plat, industry=ind, metric="cpc",
-                    month=current_month, year=current_year,
+                    platform=plat,
+                    industry=ind,
+                    metric="cpc",
+                    month=current_month,
+                    year=current_year,
                 )
                 bm_cpa = te.get_benchmark(
-                    platform=plat, industry=ind, metric="cpa",
-                    month=current_month, year=current_year,
+                    platform=plat,
+                    industry=ind,
+                    metric="cpa",
+                    month=current_month,
+                    year=current_year,
                 )
                 bm_ctr = te.get_benchmark(
-                    platform=plat, industry=ind, metric="ctr",
+                    platform=plat,
+                    industry=ind,
+                    metric="ctr",
                     year=current_year,
                 )
                 bm_cvr = te.get_benchmark(
-                    platform=plat, industry=ind, metric="cvr",
+                    platform=plat,
+                    industry=ind,
+                    metric="cvr",
                     year=current_year,
                 )
                 bm_cpc_prev = te.get_benchmark(
-                    platform=plat, industry=ind, metric="cpc",
-                    year=min(current_year - 1, 2025),
+                    platform=plat,
+                    industry=ind,
+                    metric="cpc",
+                    year=prior_year,
                 )
 
                 cpc_total += bm_cpc.get("value", 0)
@@ -607,18 +686,20 @@ def collect_platform_shifts() -> Dict[str, Any]:
             # Negative change is good (getting cheaper)
             value_score = -cpc_change + (avg_ctr * 1000)  # Weight CTR
 
-            platform_perf.append({
-                "key": plat,
-                "label": PLATFORM_LABELS.get(plat, plat),
-                "avg_cpc": round(avg_cpc, 2),
-                "avg_cpa": round(avg_cpa, 2),
-                "avg_ctr": round(avg_ctr * 100, 2),  # As percentage
-                "avg_cvr": round(avg_cvr * 100, 2),  # As percentage
-                "cpc_change_pct": round(cpc_change, 1),
-                "trend": _trend_word(cpc_change),
-                "arrow": _trend_arrow(cpc_change),
-                "value_score": round(value_score, 1),
-            })
+            platform_perf.append(
+                {
+                    "key": plat,
+                    "label": PLATFORM_LABELS.get(plat, plat),
+                    "avg_cpc": round(avg_cpc, 2),
+                    "avg_cpa": round(avg_cpa, 2),
+                    "avg_ctr": round(avg_ctr * 100, 2),  # As percentage
+                    "avg_cvr": round(avg_cvr * 100, 2),  # As percentage
+                    "cpc_change_pct": round(cpc_change, 1),
+                    "trend": _trend_word(cpc_change),
+                    "arrow": _trend_arrow(cpc_change),
+                    "value_score": round(value_score, 1),
+                }
+            )
 
         except Exception as exc:
             logger.debug("market_pulse: platform shift error %s: %s", plat, exc)
@@ -687,7 +768,11 @@ def collect_seasonal_insights() -> Dict[str, Any]:
             "next_multiplier": next_mult,
             "intensity": intensity,
             "forecast": forecast,
-            "cpc_impact": f"CPCs are at {current_mult:.0%} of baseline" if current_mult != 1.0 else "CPCs at baseline levels",
+            "cpc_impact": (
+                f"CPCs are at {current_mult:.0%} of baseline"
+                if current_mult != 1.0
+                else "CPCs at baseline levels"
+            ),
         }
 
     # Build a narrative summary for the overall market
@@ -754,17 +839,21 @@ def collect_salary_trends() -> Dict[str, Any]:
             else:
                 salary = "N/A"
 
-            role_data.append({
-                "role": role_name,
-                "industry": _industry_label(industry),
-                "salary_range": salary if salary else "N/A",
-            })
+            role_data.append(
+                {
+                    "role": role_name,
+                    "industry": _industry_label(industry),
+                    "salary_range": salary if salary else "N/A",
+                }
+            )
         except Exception:
-            role_data.append({
-                "role": role_name,
-                "industry": _industry_label(industry),
-                "salary_range": "N/A",
-            })
+            role_data.append(
+                {
+                    "role": role_name,
+                    "industry": _industry_label(industry),
+                    "salary_range": "N/A",
+                }
+            )
 
     return {
         "available": True,
@@ -776,6 +865,7 @@ def collect_salary_trends() -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2. REPORT GENERATION
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _generate_key_takeaways(
     cpc_trends: Dict,
@@ -880,7 +970,9 @@ def generate_pulse_report(week_date: Optional[str] = None) -> Dict[str, Any]:
     report_id = report_date.strftime("%Y%m%d_%H%M%S")
     period_start = report_date - timedelta(days=7)
 
-    logger.info("market_pulse: generating report for %s", report_date.strftime("%Y-%m-%d"))
+    logger.info(
+        "market_pulse: generating report for %s", report_date.strftime("%Y-%m-%d")
+    )
 
     # Collect all data sections with error isolation
     cpc_trends = {}
@@ -929,8 +1021,11 @@ def generate_pulse_report(week_date: Optional[str] = None) -> Dict[str, Any]:
     # Generate takeaways (with error isolation)
     try:
         key_takeaways = _generate_key_takeaways(
-            cpc_trends, market_demand, industry_spotlight,
-            platform_shifts, seasonal_insights,
+            cpc_trends,
+            market_demand,
+            industry_spotlight,
+            platform_shifts,
+            seasonal_insights,
         )
     except Exception as exc:
         logger.error("market_pulse: key_takeaways generation failed: %s", exc)
@@ -959,14 +1054,17 @@ def generate_pulse_report(week_date: Optional[str] = None) -> Dict[str, Any]:
 
     # Store in history
     with _lock:
-        _report_history.insert(0, {
-            "report_id": report_id,
-            "report_date": report["report_date"],
-            "period": report["period"],
-            "generated_at": report["generated_at"],
-            "key_takeaways": key_takeaways[:3],
-            "full_report": report,
-        })
+        _report_history.insert(
+            0,
+            {
+                "report_id": report_id,
+                "report_date": report["report_date"],
+                "period": report["period"],
+                "generated_at": report["generated_at"],
+                "key_takeaways": key_takeaways[:3],
+                "full_report": report,
+            },
+        )
         # Trim history
         while len(_report_history) > _MAX_HISTORY:
             _report_history.pop()
@@ -978,6 +1076,7 @@ def generate_pulse_report(week_date: Optional[str] = None) -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 3. HTML REPORT GENERATION -- Full Standalone Report
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def generate_pulse_html(report_data: Dict[str, Any]) -> str:
     """Generate a beautiful standalone HTML report for print/web viewing.
@@ -1005,19 +1104,31 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
     if cpc_trends.get("available"):
         platform_bars = []
         platforms = cpc_trends.get("platforms", {})
-        max_cpc = max((p.get("avg_cpc_current", 0) for p in platforms.values()), default=1)
+        max_cpc = max(
+            (p.get("avg_cpc_current", 0) for p in platforms.values()), default=1
+        )
         if max_cpc == 0:
             max_cpc = 1
 
-        bar_colors = [BLUE_VIOLET, DOWNY_TEAL, TAPESTRY_PINK, RAW_SIENNA, PORT_GORE, "#7C6BC4"]
+        bar_colors = [
+            BLUE_VIOLET,
+            DOWNY_TEAL,
+            TAPESTRY_PINK,
+            RAW_SIENNA,
+            PORT_GORE,
+            "#7C6BC4",
+        ]
         for i, (plat_key, plat_data) in enumerate(platforms.items()):
             pct_width = min(100, (plat_data.get("avg_cpc_current", 0) / max_cpc) * 100)
             color = bar_colors[i % len(bar_colors)]
             change = plat_data.get("avg_cpc_change_pct", 0)
             arrow = _trend_arrow(change)
-            change_color = "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else TEXT_MUTED
+            change_color = (
+                "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else TEXT_MUTED
+            )
 
-            platform_bars.append(f"""
+            platform_bars.append(
+                f"""
             <div style="margin-bottom:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                     <span style="font-weight:600;font-size:13px;color:{TEXT_DARK};">{_safe(plat_data.get('label', plat_key))}</span>
@@ -1029,7 +1140,8 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
                 <div style="background:#e8e8f0;border-radius:4px;height:22px;overflow:hidden;">
                     <div style="background:{color};width:{pct_width:.0f}%;height:100%;border-radius:4px;transition:width 0.3s;"></div>
                 </div>
-            </div>""")
+            </div>"""
+            )
 
         cpc_section = f"""
         <div style="page-break-inside:avoid;margin-bottom:28px;">
@@ -1049,8 +1161,11 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
         cards = []
         for ind in ind_data.get("industries", []):
             change = ind.get("avg_change_pct", 0)
-            change_color = "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else TEXT_MUTED
-            cards.append(f"""
+            change_color = (
+                "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else TEXT_MUTED
+            )
+            cards.append(
+                f"""
             <div style="border:1px solid {BORDER_LIGHT};border-radius:8px;padding:16px;margin-bottom:12px;background:{BG_ZEBRA};page-break-inside:avoid;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                     <h3 style="margin:0;font-size:15px;color:{PORT_GORE};">{_safe(ind.get('label', ''))}</h3>
@@ -1066,7 +1181,8 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
                 <p style="font-size:12px;color:{TEXT_DARK};margin:0;line-height:1.5;">
                     {_safe(ind.get('recommendation', ''))}
                 </p>
-            </div>""")
+            </div>"""
+            )
 
         industry_section = f"""
         <div style="page-break-inside:avoid;margin-bottom:28px;">
@@ -1083,9 +1199,12 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
         rows = []
         for p in plat_shifts.get("platforms", []):
             change = p.get("cpc_change_pct", 0)
-            change_color = "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else TEXT_MUTED
+            change_color = (
+                "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else TEXT_MUTED
+            )
             bg = BG_ZEBRA if p.get("rank", 0) % 2 == 0 else "#ffffff"
-            rows.append(f"""
+            rows.append(
+                f"""
             <tr style="background:{bg};">
                 <td style="padding:10px 12px;font-weight:600;color:{TEXT_DARK};">#{p.get('rank','')}</td>
                 <td style="padding:10px 12px;color:{TEXT_DARK};">{_safe(p.get('label', ''))}</td>
@@ -1094,7 +1213,8 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
                 <td style="padding:10px 12px;text-align:right;">{p.get('avg_ctr', 0):.2f}%</td>
                 <td style="padding:10px 12px;text-align:right;">{p.get('avg_cvr', 0):.2f}%</td>
                 <td style="padding:10px 12px;text-align:right;color:{change_color};font-weight:600;">{p.get('arrow', '')} {change:+.1f}%</td>
-            </tr>""")
+            </tr>"""
+            )
 
         platform_table = f"""
         <div style="page-break-inside:avoid;margin-bottom:28px;">
@@ -1127,13 +1247,15 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
         for collar_key in ["white_collar", "blue_collar", "grey_collar", "mixed"]:
             c = seasonal.get("collar_insights", {}).get(collar_key, {})
             if c:
-                collar_rows.append(f"""
+                collar_rows.append(
+                    f"""
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid {BORDER_LIGHT};">
                     <span style="font-weight:600;color:{TEXT_DARK};width:120px;">{_safe(c.get('label', ''))}</span>
                     <span style="color:{TEXT_MUTED};font-size:13px;">{_safe(c.get('intensity', ''))}</span>
                     <span style="font-size:13px;color:{TEXT_DARK};">{_safe(c.get('cpc_impact', ''))}</span>
                     <span style="font-size:12px;color:{BLUE_VIOLET};">{_safe(c.get('forecast', ''))}</span>
-                </div>""")
+                </div>"""
+                )
 
         seasonal_section = f"""
         <div style="page-break-inside:avoid;margin-bottom:28px;">
@@ -1277,6 +1399,7 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
 # 4. EMAIL-SAFE HTML REPORT
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
     """Generate email-safe HTML (tables for layout, no flexbox/grid).
 
@@ -1304,7 +1427,9 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
     if cpc_trends.get("available"):
         for plat_key, plat_data in cpc_trends.get("platforms", {}).items():
             change = plat_data.get("avg_cpc_change_pct", 0)
-            change_color = "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else "#555566"
+            change_color = (
+                "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else "#555566"
+            )
             platform_rows += f"""
             <tr>
                 <td style="padding:8px 12px;font-size:13px;color:#1a1a2e;border-bottom:1px solid #e8e8f0;">
@@ -1324,7 +1449,9 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
     if ind_data.get("available"):
         for ind in ind_data.get("industries", [])[:3]:
             change = ind.get("avg_change_pct", 0)
-            change_color = "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else "#555566"
+            change_color = (
+                "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else "#555566"
+            )
             industry_rows += f"""
             <tr>
                 <td style="padding:8px 12px;font-size:13px;color:#1a1a2e;border-bottom:1px solid #e8e8f0;">
@@ -1445,6 +1572,7 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
 # 5. EMAIL SENDING (via Resend API)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def send_pulse_report(
     report_data: Dict[str, Any],
     recipients: List[str],
@@ -1465,9 +1593,7 @@ def send_pulse_report(
         Dict with: sent (bool), recipients_sent (list), errors (list)
     """
     api_key = os.environ.get("RESEND_API_KEY", "").strip()
-    from_email = os.environ.get(
-        "RESEND_FROM_EMAIL", "onboarding@resend.dev"
-    ).strip()
+    from_email = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev").strip()
 
     result = {
         "sent": False,
@@ -1549,6 +1675,7 @@ def send_pulse_report(
 # ═══════════════════════════════════════════════════════════════════════════════
 # 6. SCHEDULER (Background Daemon Thread)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _scheduler_tick():
     """Execute one scheduler cycle: generate + send report."""
@@ -1642,7 +1769,8 @@ def start_pulse_scheduler(
 
     logger.info(
         "market_pulse: scheduler started (interval=%dh, recipients=%d)",
-        interval_hours, len(recipients or []),
+        interval_hours,
+        len(recipients or []),
     )
 
     return {
@@ -1709,6 +1837,7 @@ def update_scheduler_config(
 # 7. PUBLIC API HELPERS (for app.py route handlers)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def get_latest_report() -> Optional[Dict[str, Any]]:
     """Return the most recent report from history, or None."""
     with _lock:
@@ -1741,7 +1870,9 @@ def get_report_by_id(report_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def handle_pulse_api(path: str, method: str = "GET", body: Optional[Dict] = None) -> Tuple[int, Dict[str, Any]]:
+def handle_pulse_api(
+    path: str, method: str = "GET", body: Optional[Dict] = None
+) -> Tuple[int, Dict[str, Any]]:
     """Unified API handler for /api/pulse/* routes.
 
     Called from app.py's MediaPlanHandler.
@@ -1827,7 +1958,9 @@ def handle_pulse_api(path: str, method: str = "GET", body: Optional[Dict] = None
                 recipients = body.get("recipients", [])
                 if isinstance(recipients, str):
                     recipients = [r.strip() for r in recipients.split(",") if r.strip()]
-                result = start_pulse_scheduler(interval_hours=interval, recipients=recipients)
+                result = start_pulse_scheduler(
+                    interval_hours=interval, recipients=recipients
+                )
                 return 200, {"ok": True, **result}
 
             elif action == "stop":
