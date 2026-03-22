@@ -759,19 +759,6 @@
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 20px;
-        position: sticky;
-        top: 72px;
-        z-index: 1;
-        transition:
-          transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-          opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-          filter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-
-      .product-grid-row.scrolled-past {
-        transform: scale(0.97);
-        opacity: 0.4;
-        filter: blur(1px);
       }
 
       .product-card {
@@ -1193,12 +1180,6 @@
       @media (max-width: 1024px) {
         .product-grid-row {
           grid-template-columns: repeat(2, 1fr);
-          position: static;
-        }
-        .product-grid-row.scrolled-past {
-          transform: none;
-          opacity: 1;
-          filter: none;
         }
         .flagship-card {
           grid-template-columns: 1fr;
@@ -1299,14 +1280,6 @@
         .hero-scan::after {
           animation: none;
           display: none;
-        }
-        .product-grid-row {
-          position: static;
-        }
-        .product-grid-row.scrolled-past {
-          transform: none;
-          opacity: 1;
-          filter: none;
         }
       }
 
@@ -2943,38 +2916,6 @@
 
         // ── Phase 2/3: Page enter transition ──
         document.body.classList.add("page-enter");
-
-        // ── Phase 4: Sticky-stack product rows ──
-        if (
-          !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
-          window.innerWidth > 1024
-        ) {
-          var rows = document.querySelectorAll(".product-grid-row");
-          rows.forEach(function (row, i) {
-            row.style.zIndex = rows.length - i;
-          });
-
-          var stackObserver = new IntersectionObserver(
-            function (entries) {
-              entries.forEach(function (entry) {
-                var row = entry.target;
-                var prevRow = row.previousElementSibling;
-                if (prevRow && prevRow.classList.contains("product-grid-row")) {
-                  if (entry.isIntersecting) {
-                    prevRow.classList.add("scrolled-past");
-                  } else if (entry.boundingClientRect.top > 0) {
-                    prevRow.classList.remove("scrolled-past");
-                  }
-                }
-              });
-            },
-            { threshold: 0.3, rootMargin: "-60px 0px 0px 0px" },
-          );
-
-          rows.forEach(function (row, i) {
-            if (i > 0) stackObserver.observe(row);
-          });
-        }
 
         // ── Parallax scroll on aurora background layers ──
         if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
