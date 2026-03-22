@@ -109,6 +109,7 @@ class RequestContext:
 # Structured JSON Log Formatter
 # ---------------------------------------------------------------------------
 
+
 class StructuredJsonFormatter(logging.Formatter):
     """Emit log records as single-line JSON objects.
 
@@ -122,7 +123,10 @@ class StructuredJsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         entry: Dict[str, Any] = {
-            "ts": datetime.fromtimestamp(record.created, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+            "ts": datetime.fromtimestamp(record.created, tz=timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%S.%f"
+            )[:-3]
+            + "Z",
             "level": record.levelname,
             "logger": record.name,
             "msg": record.getMessage(),
@@ -140,14 +144,32 @@ class StructuredJsonFormatter(logging.Formatter):
 
         # Include any extra fields set via logger.info("msg", extra={...})
         standard_attrs = {
-            "name", "msg", "args", "created", "relativeCreated", "exc_info",
-            "exc_text", "stack_info", "lineno", "funcName", "pathname",
-            "filename", "module", "levelno", "levelname", "msecs",
-            "thread", "threadName", "process", "processName", "message",
+            "name",
+            "msg",
+            "args",
+            "created",
+            "relativeCreated",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "lineno",
+            "funcName",
+            "pathname",
+            "filename",
+            "module",
+            "levelno",
+            "levelname",
+            "msecs",
+            "thread",
+            "threadName",
+            "process",
+            "processName",
+            "message",
             "taskName",
         }
         extras = {
-            k: v for k, v in record.__dict__.items()
+            k: v
+            for k, v in record.__dict__.items()
             if k not in standard_attrs and not k.startswith("_")
         }
         if extras:
@@ -156,7 +178,13 @@ class StructuredJsonFormatter(logging.Formatter):
         try:
             return json.dumps(entry, default=str, ensure_ascii=False)
         except (TypeError, ValueError):
-            return json.dumps({"ts": entry.get("ts", ""), "level": "ERROR", "msg": f"Log serialization failed: {record.getMessage()}"})
+            return json.dumps(
+                {
+                    "ts": entry.get("ts") or "",
+                    "level": "ERROR",
+                    "msg": f"Log serialization failed: {record.getMessage()}",
+                }
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +216,7 @@ SLO_TARGETS: Dict[str, Dict[str, Any]] = {
 # ---------------------------------------------------------------------------
 # Singleton Metrics Collector
 # ---------------------------------------------------------------------------
+
 
 class MetricsCollector:
     """Thread-safe singleton for collecting application metrics.
@@ -222,9 +251,9 @@ class MetricsCollector:
         self.total_slack_events: int = 0
         # v3.5 routing metrics
         self.chat_conversational_count: int = 0  # Path A (no tools)
-        self.chat_tool_count: int = 0             # Path B (free tools)
-        self.chat_claude_count: int = 0           # Path C (paid fallback)
-        self.chat_suppressed_count: int = 0       # Suppression gate triggered
+        self.chat_tool_count: int = 0  # Path B (free tools)
+        self.chat_claude_count: int = 0  # Path C (paid fallback)
+        self.chat_suppressed_count: int = 0  # Suppression gate triggered
         # Rolling window for rate calculations
         self._recent_requests: deque = deque()
         self._recent_errors: deque = deque()
@@ -242,8 +271,9 @@ class MetricsCollector:
         self._api_failure_count: int = 0
         self._api_latencies: deque = deque(maxlen=200)
 
-    def record_request(self, endpoint: str, method: str, status_code: int,
-                       latency_ms: float) -> None:
+    def record_request(
+        self, endpoint: str, method: str, status_code: int, latency_ms: float
+    ) -> None:
         """Record a completed HTTP request."""
         now = time.time()
         with self._req_lock:
@@ -316,7 +346,9 @@ class MetricsCollector:
             window_errors = len(self._recent_errors)
             window_duration = min(uptime, METRICS_WINDOW)
             rpm = (window_requests / window_duration * 60) if window_duration > 0 else 0
-            error_rate = (window_errors / window_requests * 100) if window_requests > 0 else 0
+            error_rate = (
+                (window_errors / window_requests * 100) if window_requests > 0 else 0
+            )
 
             # Latency percentiles across all endpoints
             all_latencies = []
@@ -339,7 +371,9 @@ class MetricsCollector:
                 lat_list = sorted(lats)
                 endpoint_stats[ep] = {
                     "count": len(lat_list),
-                    "avg_ms": round(sum(lat_list) / len(lat_list), 1) if lat_list else 0,
+                    "avg_ms": (
+                        round(sum(lat_list) / len(lat_list), 1) if lat_list else 0
+                    ),
                     "p95_ms": round(_percentile(lat_list, 95), 1),
                 }
 
@@ -371,11 +405,19 @@ class MetricsCollector:
                     "success_count": self._api_success_count,
                     "failure_count": self._api_failure_count,
                     "success_rate_pct": round(
-                        self._api_success_count / max(1, self._api_success_count + self._api_failure_count) * 100, 1
+                        self._api_success_count
+                        / max(1, self._api_success_count + self._api_failure_count)
+                        * 100,
+                        1,
                     ),
-                    "avg_latency_ms": round(
-                        sum(self._api_latencies) / max(1, len(self._api_latencies)), 1
-                    ) if self._api_latencies else 0,
+                    "avg_latency_ms": (
+                        round(
+                            sum(self._api_latencies) / max(1, len(self._api_latencies)),
+                            1,
+                        )
+                        if self._api_latencies
+                        else 0
+                    ),
                 },
                 # v3.5 routing breakdown
                 "chat_routing": {
@@ -387,11 +429,11 @@ class MetricsCollector:
                         self.chat_tool_count / max(1, self.total_chat_requests) * 100, 1
                     ),
                     "claude_pct": round(
-                        self.chat_claude_count / max(1, self.total_chat_requests) * 100, 1
+                        self.chat_claude_count / max(1, self.total_chat_requests) * 100,
+                        1,
                     ),
                 },
             }
-
 
     def check_slo_compliance(self) -> Dict[str, Dict[str, Any]]:
         """Check current metrics against SLO targets.
@@ -437,8 +479,7 @@ class MetricsCollector:
             # Availability (based on uptime -- simple heuristic)
             # If we're running, we're available. Track non-5xx as available.
             total_5xx = sum(
-                count for code, count in self._status_codes.items()
-                if 500 <= code < 600
+                count for code, count in self._status_codes.items() if 500 <= code < 600
             )
             avail = ((total - total_5xx) / total) * 100 if total > 0 else 100.0
             target_avail = SLO_TARGETS["availability_pct"]["target"]
@@ -467,6 +508,7 @@ def get_metrics() -> MetricsCollector:
 # ---------------------------------------------------------------------------
 # Health Checks
 # ---------------------------------------------------------------------------
+
 
 def health_check_liveness() -> Dict[str, Any]:
     """Lightweight liveness probe -- confirms the process is alive.
@@ -539,7 +581,9 @@ def health_check_readiness() -> Dict[str, Any]:
         docs_dir = DOCS_DIR
         if docs_dir.exists():
             doc_count = len(list(docs_dir.glob("*.zip")))
-            total_size_mb = sum(f.stat().st_size for f in docs_dir.glob("*.zip")) / (1024 * 1024)
+            total_size_mb = sum(f.stat().st_size for f in docs_dir.glob("*.zip")) / (
+                1024 * 1024
+            )
             checks["document_storage"] = {
                 "status": "ok" if doc_count < 500 else "warning",
                 "document_count": doc_count,
@@ -555,7 +599,9 @@ def health_check_readiness() -> Dict[str, Any]:
         cache_dir = CACHE_DIR
         if cache_dir.exists():
             cache_count = len(list(cache_dir.glob("*.json")))
-            cache_size_mb = sum(f.stat().st_size for f in cache_dir.glob("*.json")) / (1024 * 1024)
+            cache_size_mb = sum(f.stat().st_size for f in cache_dir.glob("*.json")) / (
+                1024 * 1024
+            )
             checks["api_cache"] = {
                 "status": "ok",
                 "cached_responses": cache_count,
@@ -611,11 +657,14 @@ def health_check_readiness() -> Dict[str, Any]:
     # 8. Orchestrator health
     try:
         import data_orchestrator
+
         orch_stats = {}
-        if hasattr(data_orchestrator, 'get_cache_stats'):
+        if hasattr(data_orchestrator, "get_cache_stats"):
             orch_stats["cache"] = data_orchestrator.get_cache_stats()
-        if hasattr(data_orchestrator, 'get_fallback_telemetry'):
-            orch_stats["fallback_telemetry"] = data_orchestrator.get_fallback_telemetry()
+        if hasattr(data_orchestrator, "get_fallback_telemetry"):
+            orch_stats["fallback_telemetry"] = (
+                data_orchestrator.get_fallback_telemetry()
+            )
         checks["orchestrator"] = {"status": "ok", **orch_stats}
     except Exception as e:
         checks["orchestrator"] = {"status": "degraded", "detail": str(e)}
@@ -633,6 +682,7 @@ def health_check_readiness() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Structured Logging
 # ---------------------------------------------------------------------------
+
 
 def configure_logging(level: str = "INFO", json_format: bool = True) -> None:
     """Configure structured logging for production.
@@ -671,14 +721,17 @@ def configure_logging(level: str = "INFO", json_format: bool = True) -> None:
 
     logger.info(
         "Logging configured: level=%s, format=%s, python=%s, pid=%d",
-        level, "json" if json_format else "text",
-        platform.python_version(), os.getpid()
+        level,
+        "json" if json_format else "text",
+        platform.python_version(),
+        os.getpid(),
     )
 
 
 # ---------------------------------------------------------------------------
 # Graceful Shutdown
 # ---------------------------------------------------------------------------
+
 
 class GracefulShutdown:
     """Coordinates graceful server shutdown.
@@ -730,7 +783,8 @@ class GracefulShutdown:
             time.sleep(0.5)
         logger.warning(
             "Shutdown timeout after %.1fs with %d active requests",
-            self._timeout, self._active_count
+            self._timeout,
+            self._active_count,
         )
         return False
 
@@ -738,6 +792,7 @@ class GracefulShutdown:
 # ---------------------------------------------------------------------------
 # Helper Functions
 # ---------------------------------------------------------------------------
+
 
 def _percentile(sorted_data: list, pct: float) -> float:
     """Calculate percentile from pre-sorted list."""
@@ -793,9 +848,7 @@ def check_disk_health() -> Dict[str, Any]:
                     size_before = lf.stat().st_size
                     if size_before > 1024 * 1024:  # only if > 1MB
                         lf.write_text("")  # truncate
-                        actions.append(
-                            f"truncated {lf.name} ({size_before // 1024}KB)"
-                        )
+                        actions.append(f"truncated {lf.name} ({size_before // 1024}KB)")
             except Exception as e:
                 logger.debug("Disk heal: log rotation failed: %s", e)
 
@@ -817,8 +870,9 @@ def check_disk_health() -> Dict[str, Any]:
                 logger.debug("Disk heal: cache clear failed: %s", e)
 
         if actions:
-            logger.warning("Disk health recovery (free=%.0fMB): %s",
-                          free_mb, "; ".join(actions))
+            logger.warning(
+                "Disk health recovery (free=%.0fMB): %s", free_mb, "; ".join(actions)
+            )
 
         return {
             "status": status,
@@ -853,6 +907,7 @@ def _get_memory_usage() -> Dict[str, Any]:
     # Try resource module (Unix)
     try:
         import resource
+
         usage = resource.getrusage(resource.RUSAGE_SELF)
         # maxrss is in KB on Linux, bytes on macOS
         rss = usage.ru_maxrss
@@ -866,8 +921,8 @@ def _get_memory_usage() -> Dict[str, Any]:
     # Fallback: use gc stats
     gc_stats = gc.get_stats()
     result["rss_mb"] = -1  # Unknown
-    result["gc_collections"] = sum(s.get("collections", 0) for s in gc_stats)
-    result["gc_collected"] = sum(s.get("collected", 0) for s in gc_stats)
+    result["gc_collections"] = sum(s.get("collections") or 0 for s in gc_stats)
+    result["gc_collected"] = sum(s.get("collected") or 0 for s in gc_stats)
     return result
 
 
@@ -887,6 +942,7 @@ def get_system_info() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Audit Trail Logger
 # ---------------------------------------------------------------------------
+
 
 class AuditLogger:
     """Records data transformation decisions for traceability.
@@ -945,7 +1001,7 @@ class AuditLogger:
                 with open(self._audit_path, "r") as f:
                     data = json.load(f)
                 if isinstance(data, list):
-                    for entry in data[-self._MAX_ENTRIES:]:
+                    for entry in data[-self._MAX_ENTRIES :]:
                         self._entries.append(entry)
         except (json.JSONDecodeError, OSError, TypeError):
             pass  # Start fresh if file is corrupted
@@ -1033,7 +1089,9 @@ def _safe_serialize(obj: Any, max_depth: int = 3) -> Any:
         return obj[:500] if len(obj) > 500 else obj
     if isinstance(obj, (list, tuple)):
         if len(obj) > 20:
-            return [_safe_serialize(v, max_depth - 1) for v in obj[:20]] + [f"... ({len(obj)} total)"]
+            return [_safe_serialize(v, max_depth - 1) for v in obj[:20]] + [
+                f"... ({len(obj)} total)"
+            ]
         return [_safe_serialize(v, max_depth - 1) for v in obj]
     if isinstance(obj, dict):
         if len(obj) > 30:

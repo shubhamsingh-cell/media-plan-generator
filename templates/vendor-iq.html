@@ -292,6 +292,13 @@
         font-size: 1.4rem;
         flex-shrink: 0;
       }
+      .vendor-card .vendor-emoji img,
+      .radar-card img {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        object-fit: contain;
+      }
       .vendor-card .vendor-info {
         min-width: 0;
       }
@@ -917,7 +924,7 @@
         var VENDOR_DATABASE = {
           indeed: {
             name: "Indeed",
-            logo: "🔵",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=indeed.com&sz=64" width="24" height="24" alt="Indeed" style="border-radius:4px">',
             category: "major",
             bestFor: "High-volume hourly & entry-level hiring",
             strengths: {
@@ -1142,7 +1149,7 @@
           },
           linkedin: {
             name: "LinkedIn",
-            logo: "🟦",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=linkedin.com&sz=64" width="24" height="24" alt="LinkedIn" style="border-radius:4px">',
             category: "major",
             bestFor: "Professional & executive recruiting",
             strengths: {
@@ -1367,7 +1374,7 @@
           },
           ziprecruiter: {
             name: "ZipRecruiter",
-            logo: "🟢",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=ziprecruiter.com&sz=64" width="24" height="24" alt="ZipRecruiter" style="border-radius:4px">',
             category: "major",
             bestFor: "SMB hiring with AI matching",
             strengths: {
@@ -1592,7 +1599,7 @@
           },
           glassdoor: {
             name: "Glassdoor",
-            logo: "🟩",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=glassdoor.com&sz=64" width="24" height="24" alt="Glassdoor" style="border-radius:4px">',
             category: "major",
             bestFor: "Employer branding + quality applicants",
             strengths: {
@@ -1817,7 +1824,7 @@
           },
           monster: {
             name: "Monster",
-            logo: "🟣",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=monster.com&sz=64" width="24" height="24" alt="Monster" style="border-radius:4px">',
             category: "major",
             bestFor: "Resume database mining + mid-market",
             strengths: {
@@ -2042,7 +2049,7 @@
           },
           careerbuilder: {
             name: "CareerBuilder",
-            logo: "🔶",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=careerbuilder.com&sz=64" width="24" height="24" alt="CareerBuilder" style="border-radius:4px">',
             category: "major",
             bestFor: "Enterprise ATS integrations",
             strengths: {
@@ -2267,7 +2274,7 @@
           },
           appcast: {
             name: "Appcast",
-            logo: "🚀",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=appcast.io&sz=64" width="24" height="24" alt="Appcast" style="border-radius:4px">',
             category: "programmatic",
             bestFor: "Programmatic CPA optimization at scale",
             strengths: {
@@ -2492,7 +2499,7 @@
           },
           pandologic: {
             name: "PandoLogic",
-            logo: "🤖",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=pandologic.com&sz=64" width="24" height="24" alt="PandoLogic" style="border-radius:4px">',
             category: "programmatic",
             bestFor: "AI-driven bid optimization",
             strengths: {
@@ -2717,7 +2724,7 @@
           },
           joveo: {
             name: "Joveo",
-            logo: "⚡",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=joveo.com&sz=64" width="24" height="24" alt="Joveo" style="border-radius:4px">',
             category: "programmatic",
             bestFor: "Data-driven programmatic with real-time optimization",
             strengths: {
@@ -2942,7 +2949,7 @@
           },
           recruitics: {
             name: "Recruitics",
-            logo: "📈",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=recruitics.com&sz=64" width="24" height="24" alt="Recruitics" style="border-radius:4px">',
             category: "programmatic",
             bestFor: "Analytics-first programmatic media buying",
             strengths: {
@@ -3167,7 +3174,7 @@
           },
           facebook: {
             name: "Facebook Jobs",
-            logo: "📘",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=facebook.com&sz=64" width="24" height="24" alt="Facebook Jobs" style="border-radius:4px">',
             category: "social",
             bestFor: "Local & hourly hiring with social targeting",
             strengths: {
@@ -3392,7 +3399,7 @@
           },
           instagram: {
             name: "Instagram",
-            logo: "📸",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=instagram.com&sz=64" width="24" height="24" alt="Instagram" style="border-radius:4px">',
             category: "social",
             bestFor: "Employer branding + Gen-Z outreach",
             strengths: {
@@ -3617,7 +3624,7 @@
           },
           tiktok: {
             name: "TikTok",
-            logo: "🎵",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=tiktok.com&sz=64" width="24" height="24" alt="TikTok" style="border-radius:4px">',
             category: "social",
             bestFor: "Gen-Z hiring with viral reach",
             strengths: {
@@ -3842,7 +3849,7 @@
           },
           twitter: {
             name: "Twitter/X",
-            logo: "🐦",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=x.com&sz=64" width="24" height="24" alt="X / Twitter" style="border-radius:4px">',
             category: "social",
             bestFor: "Tech community engagement recruiting",
             strengths: {
@@ -4067,7 +4074,7 @@
           },
           dice: {
             name: "Dice",
-            logo: "🎲",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=dice.com&sz=64" width="24" height="24" alt="Dice" style="border-radius:4px">',
             category: "niche",
             bestFor: "Tech & IT-specific recruiting",
             strengths: {
@@ -4292,7 +4299,7 @@
           },
           github_jobs: {
             name: "GitHub Jobs",
-            logo: "🐙",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=github.com&sz=64" width="24" height="24" alt="GitHub Jobs" style="border-radius:4px">',
             category: "niche",
             bestFor: "Developer & engineering hiring",
             strengths: {
@@ -4517,7 +4524,7 @@
           },
           angellist: {
             name: "AngelList",
-            logo: "😇",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=wellfound.com&sz=64" width="24" height="24" alt="Wellfound" style="border-radius:4px">',
             category: "niche",
             bestFor: "Startup & venture-backed hiring",
             strengths: {
@@ -4742,7 +4749,7 @@
           },
           stackoverflow: {
             name: "Stack Overflow",
-            logo: "📚",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=stackoverflow.com&sz=64" width="24" height="24" alt="Stack Overflow" style="border-radius:4px">',
             category: "niche",
             bestFor: "Senior developer & DevOps hiring",
             strengths: {
@@ -4967,7 +4974,7 @@
           },
           google_jobs: {
             name: "Google for Jobs",
-            logo: "🔍",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=google.com&sz=64" width="24" height="24" alt="Google for Jobs" style="border-radius:4px">',
             category: "search",
             bestFor: "Organic reach through search aggregation",
             strengths: {
@@ -5192,7 +5199,7 @@
           },
           bing_jobs: {
             name: "Bing Jobs",
-            logo: "🔷",
+            logo: '<img src="https://www.google.com/s2/favicons?domain=bing.com&sz=64" width="24" height="24" alt="Bing Jobs" style="border-radius:4px">',
             category: "search",
             bestFor: "Supplemental search reach at low CPC",
             strengths: {

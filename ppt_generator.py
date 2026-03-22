@@ -38,12 +38,14 @@ except ImportError:
 
 try:
     import trend_engine as _trend_engine
+
     _HAS_TREND_ENGINE = True
 except ImportError:
     _HAS_TREND_ENGINE = False
 
 try:
     import collar_intelligence as _collar_intel
+
     _HAS_COLLAR_INTEL = True
 except ImportError:
     _HAS_COLLAR_INTEL = False
@@ -55,39 +57,39 @@ except ImportError:
 # Accents: Teal #6BB3CD  |  Pink #B5669C  |  Bronze #CE9047
 # ---------------------------------------------------------------------------
 
-NAVY = RGBColor(0x20, 0x20, 0x58)          # Port Gore -- primary dark / headings
-BLUE = RGBColor(0x5A, 0x54, 0xBD)          # Blue Violet -- primary accent
-MEDIUM_BLUE = RGBColor(0x48, 0x43, 0x9E)   # Deeper purple accent
-LIGHT_BLUE = RGBColor(0xDD, 0xDB, 0xFF)    # Light purple background
-PALE_BLUE = RGBColor(0xB8, 0xB4, 0xF7)     # Medium purple accent fill
-SKY_BLUE = RGBColor(0xB3, 0xE0, 0xF0)      # Light blue (chart elements)
+NAVY = RGBColor(0x20, 0x20, 0x58)  # Port Gore -- primary dark / headings
+BLUE = RGBColor(0x5A, 0x54, 0xBD)  # Blue Violet -- primary accent
+MEDIUM_BLUE = RGBColor(0x48, 0x43, 0x9E)  # Deeper purple accent
+LIGHT_BLUE = RGBColor(0xDD, 0xDB, 0xFF)  # Light purple background
+PALE_BLUE = RGBColor(0xB8, 0xB4, 0xF7)  # Medium purple accent fill
+SKY_BLUE = RGBColor(0xB3, 0xE0, 0xF0)  # Light blue (chart elements)
 
-TEAL = RGBColor(0x6B, 0xB3, 0xCD)          # Downy teal -- primary chart accent
-LIGHT_TEAL = RGBColor(0xB3, 0xE0, 0xF0)    # Light blue-teal
-PALE_TEAL = RGBColor(0xDA, 0xF5, 0xFF)     # Pale teal background
+TEAL = RGBColor(0x6B, 0xB3, 0xCD)  # Downy teal -- primary chart accent
+LIGHT_TEAL = RGBColor(0xB3, 0xE0, 0xF0)  # Light blue-teal
+PALE_TEAL = RGBColor(0xDA, 0xF5, 0xFF)  # Pale teal background
 
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-OFF_WHITE = RGBColor(0xFF, 0xFD, 0xF9)     # Floral White (page bg)
-WARM_WHITE = RGBColor(0xFF, 0xFD, 0xF9)    # Card backgrounds
-WARM_GRAY = RGBColor(0xEB, 0xE6, 0xE0)     # Borders, dividers
-MEDIUM_GRAY = RGBColor(0xD6, 0xCF, 0xC2)   # Subtle separators
+OFF_WHITE = RGBColor(0xFF, 0xFD, 0xF9)  # Floral White (page bg)
+WARM_WHITE = RGBColor(0xFF, 0xFD, 0xF9)  # Card backgrounds
+WARM_GRAY = RGBColor(0xEB, 0xE6, 0xE0)  # Borders, dividers
+MEDIUM_GRAY = RGBColor(0xD6, 0xCF, 0xC2)  # Subtle separators
 
-DARK_TEXT = RGBColor(0x20, 0x20, 0x58)      # Port Gore for body text
-MUTED_TEXT = RGBColor(0x59, 0x67, 0x80)     # Secondary text
-LIGHT_MUTED = RGBColor(0x8C, 0x96, 0xA8)   # Tertiary text
+DARK_TEXT = RGBColor(0x20, 0x20, 0x58)  # Port Gore for body text
+MUTED_TEXT = RGBColor(0x59, 0x67, 0x80)  # Secondary text
+LIGHT_MUTED = RGBColor(0x8C, 0x96, 0xA8)  # Tertiary text
 
-GREEN = RGBColor(0x33, 0x87, 0x21)          # Positive / beating benchmark
-LIGHT_GREEN = RGBColor(0xE6, 0xF2, 0xE0)   # Green background
-AMBER = RGBColor(0xCE, 0x90, 0x47)         # Bronze -- trailing benchmark
-LIGHT_AMBER = RGBColor(0xFD, 0xDB, 0xB2)   # Light bronze background
-RED_ACCENT = RGBColor(0xB5, 0x66, 0x9C)     # Pink -- underperformance accent
+GREEN = RGBColor(0x33, 0x87, 0x21)  # Positive / beating benchmark
+LIGHT_GREEN = RGBColor(0xE6, 0xF2, 0xE0)  # Green background
+AMBER = RGBColor(0xCE, 0x90, 0x47)  # Bronze -- trailing benchmark
+LIGHT_AMBER = RGBColor(0xFD, 0xDB, 0xB2)  # Light bronze background
+RED_ACCENT = RGBColor(0xB5, 0x66, 0x9C)  # Pink -- underperformance accent
 
 # Extended palette (used in specific places)
 JOVEO_BRONZE = RGBColor(0xCE, 0x90, 0x47)  # Bronze accent / CTAs
-JOVEO_PINK = RGBColor(0xB5, 0x66, 0x9C)    # Pink / magenta accent
+JOVEO_PINK = RGBColor(0xB5, 0x66, 0x9C)  # Pink / magenta accent
 
-FONT_FAMILY = "Poppins"                     # Brand title font
-FONT_BODY = "Inter"                         # Brand body font
+FONT_FAMILY = "Poppins"  # Brand title font
+FONT_BODY = "Inter"  # Brand body font
 
 # Slide dimensions (16:9 widescreen)
 SLIDE_WIDTH = Inches(13.333)
@@ -225,14 +227,54 @@ COMPLICATIONS: Dict[str, List[str]] = {
 
 # Default allocation (used as fallback)
 CHANNEL_ALLOC: Dict[str, Dict[str, Any]] = {
-    "programmatic_dsp":  {"label": "Programmatic DSP",       "pct": 35, "color": NAVY,        "category": "Programmatic"},
-    "global_boards":     {"label": "Global Job Boards",      "pct": 20, "color": BLUE,        "category": "Job Boards"},
-    "niche_boards":      {"label": "Niche / Industry Boards", "pct": 15, "color": MEDIUM_BLUE, "category": "Job Boards"},
-    "social_media":      {"label": "Social Media",           "pct": 12, "color": SKY_BLUE,    "category": "Social"},
-    "regional_boards":   {"label": "Regional Boards",        "pct": 8,  "color": PALE_BLUE,   "category": "Job Boards"},
-    "employer_branding": {"label": "Employer Branding",      "pct": 5,  "color": TEAL,        "category": "Employer Brand"},
-    "apac_regional":     {"label": "APAC Regional",          "pct": 3,  "color": LIGHT_TEAL,  "category": "Job Boards"},
-    "emea_regional":     {"label": "EMEA Regional",          "pct": 2,  "color": PALE_TEAL,   "category": "Job Boards"},
+    "programmatic_dsp": {
+        "label": "Programmatic DSP",
+        "pct": 35,
+        "color": NAVY,
+        "category": "Programmatic",
+    },
+    "global_boards": {
+        "label": "Global Job Boards",
+        "pct": 20,
+        "color": BLUE,
+        "category": "Job Boards",
+    },
+    "niche_boards": {
+        "label": "Niche / Industry Boards",
+        "pct": 15,
+        "color": MEDIUM_BLUE,
+        "category": "Job Boards",
+    },
+    "social_media": {
+        "label": "Social Media",
+        "pct": 12,
+        "color": SKY_BLUE,
+        "category": "Social",
+    },
+    "regional_boards": {
+        "label": "Regional Boards",
+        "pct": 8,
+        "color": PALE_BLUE,
+        "category": "Job Boards",
+    },
+    "employer_branding": {
+        "label": "Employer Branding",
+        "pct": 5,
+        "color": TEAL,
+        "category": "Employer Brand",
+    },
+    "apac_regional": {
+        "label": "APAC Regional",
+        "pct": 3,
+        "color": LIGHT_TEAL,
+        "category": "Job Boards",
+    },
+    "emea_regional": {
+        "label": "EMEA Regional",
+        "pct": 2,
+        "color": PALE_TEAL,
+        "category": "Job Boards",
+    },
 }
 
 # ── Industry-specific allocation profiles ──
@@ -241,110 +283,196 @@ CHANNEL_ALLOC: Dict[str, Dict[str, Any]] = {
 INDUSTRY_ALLOC_PROFILES: Dict[str, Dict[str, int]] = {
     # Healthcare: heavier on niche medical boards, less programmatic
     "healthcare_medical": {
-        "programmatic_dsp": 22, "global_boards": 15, "niche_boards": 30,
-        "social_media": 10, "regional_boards": 10, "employer_branding": 8,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 22,
+        "global_boards": 15,
+        "niche_boards": 30,
+        "social_media": 10,
+        "regional_boards": 10,
+        "employer_branding": 8,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
     # Tech: heavier on programmatic/digital and social, moderate niche
     "tech_engineering": {
-        "programmatic_dsp": 30, "global_boards": 15, "niche_boards": 20,
-        "social_media": 18, "regional_boards": 5, "employer_branding": 7,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 30,
+        "global_boards": 15,
+        "niche_boards": 20,
+        "social_media": 18,
+        "regional_boards": 5,
+        "employer_branding": 7,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
     # Finance: balanced with strong niche and employer branding
     "finance_banking": {
-        "programmatic_dsp": 25, "global_boards": 18, "niche_boards": 25,
-        "social_media": 10, "regional_boards": 7, "employer_branding": 10,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 25,
+        "global_boards": 18,
+        "niche_boards": 25,
+        "social_media": 10,
+        "regional_boards": 7,
+        "employer_branding": 10,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
     # Retail/consumer & hospitality: high-volume programmatic + social
     "retail_consumer": {
-        "programmatic_dsp": 38, "global_boards": 22, "niche_boards": 8,
-        "social_media": 20, "regional_boards": 7, "employer_branding": 3,
-        "apac_regional": 1, "emea_regional": 1,
+        "programmatic_dsp": 38,
+        "global_boards": 22,
+        "niche_boards": 8,
+        "social_media": 20,
+        "regional_boards": 7,
+        "employer_branding": 3,
+        "apac_regional": 1,
+        "emea_regional": 1,
     },
     "hospitality_travel": {
-        "programmatic_dsp": 38, "global_boards": 22, "niche_boards": 8,
-        "social_media": 20, "regional_boards": 7, "employer_branding": 3,
-        "apac_regional": 1, "emea_regional": 1,
+        "programmatic_dsp": 38,
+        "global_boards": 22,
+        "niche_boards": 8,
+        "social_media": 20,
+        "regional_boards": 7,
+        "employer_branding": 3,
+        "apac_regional": 1,
+        "emea_regional": 1,
     },
     # General / entry-level: programmatic-heavy, broad reach
     "general_entry_level": {
-        "programmatic_dsp": 40, "global_boards": 22, "niche_boards": 8,
-        "social_media": 15, "regional_boards": 10, "employer_branding": 3,
-        "apac_regional": 1, "emea_regional": 1,
+        "programmatic_dsp": 40,
+        "global_boards": 22,
+        "niche_boards": 8,
+        "social_media": 15,
+        "regional_boards": 10,
+        "employer_branding": 3,
+        "apac_regional": 1,
+        "emea_regional": 1,
     },
     # Blue-collar/trades: programmatic + regional, less niche digital
     "blue_collar_trades": {
-        "programmatic_dsp": 35, "global_boards": 20, "niche_boards": 10,
-        "social_media": 15, "regional_boards": 15, "employer_branding": 3,
-        "apac_regional": 1, "emea_regional": 1,
+        "programmatic_dsp": 35,
+        "global_boards": 20,
+        "niche_boards": 10,
+        "social_media": 15,
+        "regional_boards": 15,
+        "employer_branding": 3,
+        "apac_regional": 1,
+        "emea_regional": 1,
     },
     # Aerospace/defense: niche-heavy, security-cleared boards matter
     "aerospace_defense": {
-        "programmatic_dsp": 20, "global_boards": 15, "niche_boards": 30,
-        "social_media": 8, "regional_boards": 10, "employer_branding": 12,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 20,
+        "global_boards": 15,
+        "niche_boards": 30,
+        "social_media": 8,
+        "regional_boards": 10,
+        "employer_branding": 12,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
     # Pharma/biotech: niche scientific boards + employer branding
     "pharma_biotech": {
-        "programmatic_dsp": 22, "global_boards": 15, "niche_boards": 28,
-        "social_media": 10, "regional_boards": 8, "employer_branding": 12,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 22,
+        "global_boards": 15,
+        "niche_boards": 28,
+        "social_media": 10,
+        "regional_boards": 8,
+        "employer_branding": 12,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
     # Education: niche-heavy (HigherEdJobs etc.), moderate social
     "education": {
-        "programmatic_dsp": 20, "global_boards": 18, "niche_boards": 28,
-        "social_media": 12, "regional_boards": 10, "employer_branding": 7,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 20,
+        "global_boards": 18,
+        "niche_boards": 28,
+        "social_media": 12,
+        "regional_boards": 10,
+        "employer_branding": 7,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
     # Legal services: niche + employer brand focused
     "legal_services": {
-        "programmatic_dsp": 22, "global_boards": 18, "niche_boards": 28,
-        "social_media": 8, "regional_boards": 8, "employer_branding": 11,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 22,
+        "global_boards": 18,
+        "niche_boards": 28,
+        "social_media": 8,
+        "regional_boards": 8,
+        "employer_branding": 11,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
     # Manufacturing/automotive: programmatic + regional + niche trade
     "automotive": {
-        "programmatic_dsp": 30, "global_boards": 18, "niche_boards": 18,
-        "social_media": 10, "regional_boards": 15, "employer_branding": 5,
-        "apac_regional": 2, "emea_regional": 2,
+        "programmatic_dsp": 30,
+        "global_boards": 18,
+        "niche_boards": 18,
+        "social_media": 10,
+        "regional_boards": 15,
+        "employer_branding": 5,
+        "apac_regional": 2,
+        "emea_regional": 2,
     },
     # Energy/utilities: niche trade boards + regional
     "energy_utilities": {
-        "programmatic_dsp": 25, "global_boards": 15, "niche_boards": 25,
-        "social_media": 8, "regional_boards": 15, "employer_branding": 7,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 25,
+        "global_boards": 15,
+        "niche_boards": 25,
+        "social_media": 8,
+        "regional_boards": 15,
+        "employer_branding": 7,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
     # Mental health: niche clinical + employer brand
     "mental_health": {
-        "programmatic_dsp": 22, "global_boards": 18, "niche_boards": 28,
-        "social_media": 10, "regional_boards": 8, "employer_branding": 9,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 22,
+        "global_boards": 18,
+        "niche_boards": 28,
+        "social_media": 10,
+        "regional_boards": 8,
+        "employer_branding": 9,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
     # Logistics/supply chain: programmatic + regional, moderate niche
     "logistics_supply_chain": {
-        "programmatic_dsp": 35, "global_boards": 20, "niche_boards": 12,
-        "social_media": 10, "regional_boards": 15, "employer_branding": 5,
-        "apac_regional": 2, "emea_regional": 1,
+        "programmatic_dsp": 35,
+        "global_boards": 20,
+        "niche_boards": 12,
+        "social_media": 10,
+        "regional_boards": 15,
+        "employer_branding": 5,
+        "apac_regional": 2,
+        "emea_regional": 1,
     },
     # Insurance: niche + professional boards
     "insurance": {
-        "programmatic_dsp": 25, "global_boards": 18, "niche_boards": 25,
-        "social_media": 10, "regional_boards": 7, "employer_branding": 10,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 25,
+        "global_boards": 18,
+        "niche_boards": 25,
+        "social_media": 10,
+        "regional_boards": 7,
+        "employer_branding": 10,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
     # Maritime/marine: niche-heavy, regional
     "maritime_marine": {
-        "programmatic_dsp": 20, "global_boards": 15, "niche_boards": 30,
-        "social_media": 8, "regional_boards": 15, "employer_branding": 7,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 20,
+        "global_boards": 15,
+        "niche_boards": 30,
+        "social_media": 8,
+        "regional_boards": 15,
+        "employer_branding": 7,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
 }
 
 
-def _get_industry_alloc(industry: str, budget_str: str = "",
-                        num_roles: int = 0, roles: list = None) -> Dict[str, Dict[str, Any]]:
+def _get_industry_alloc(
+    industry: str, budget_str: str = "", num_roles: int = 0, roles: list = None
+) -> Dict[str, Dict[str, Any]]:
     """Return a copy of CHANNEL_ALLOC with percentages adjusted for industry, budget, roles."""
     # Use manual dict copy to avoid deepcopy issues with RGBColor objects
     base = {k: dict(v) for k, v in CHANNEL_ALLOC.items()}
@@ -361,7 +489,9 @@ def _get_industry_alloc(industry: str, budget_str: str = "",
     if budget_val is not None:
         if budget_val < 50000:
             # Small budget: concentrate on top 3-4 channels, cut low-impact ones
-            base["employer_branding"]["pct"] = max(1, base["employer_branding"]["pct"] - 3)
+            base["employer_branding"]["pct"] = max(
+                1, base["employer_branding"]["pct"] - 3
+            )
             base["apac_regional"]["pct"] = max(0, base["apac_regional"]["pct"] - 2)
             base["emea_regional"]["pct"] = max(0, base["emea_regional"]["pct"] - 1)
             base["programmatic_dsp"]["pct"] += 4
@@ -383,12 +513,41 @@ def _get_industry_alloc(industry: str, budget_str: str = "",
 
     # Step 4: Adjust for seniority mix (if roles provided)
     if roles:
-        _role_strs = [r if isinstance(r, str) else (r.get("title", r.get("role", str(r))) if isinstance(r, dict) else str(r)) for r in roles]
+        _role_strs = [
+            (
+                r
+                if isinstance(r, str)
+                else (
+                    r.get("title", r.get("role", str(r)))
+                    if isinstance(r, dict)
+                    else str(r)
+                )
+            )
+            for r in roles
+        ]
         roles_lower = " ".join(r.lower() for r in _role_strs)
-        senior_keywords = ["executive", "director", "vp", "chief", "president",
-                           "c-suite", "senior", "head of", "principal", "fellow"]
-        junior_keywords = ["intern", "entry", "junior", "associate", "trainee",
-                           "assistant", "coordinator", "clerk"]
+        senior_keywords = [
+            "executive",
+            "director",
+            "vp",
+            "chief",
+            "president",
+            "c-suite",
+            "senior",
+            "head of",
+            "principal",
+            "fellow",
+        ]
+        junior_keywords = [
+            "intern",
+            "entry",
+            "junior",
+            "associate",
+            "trainee",
+            "assistant",
+            "coordinator",
+            "clerk",
+        ]
         senior_count = sum(1 for kw in senior_keywords if kw in roles_lower)
         junior_count = sum(1 for kw in junior_keywords if kw in roles_lower)
 
@@ -423,6 +582,7 @@ def _get_industry_alloc(industry: str, budget_str: str = "",
 
     return base
 
+
 # Human-readable goal labels
 GOAL_LABELS: Dict[str, str] = {
     "brand_awareness": "Brand Awareness",
@@ -448,40 +608,76 @@ WORK_ENV_LABELS: Dict[str, str] = {
 # Industry benchmark comparison data for side-by-side panel
 INDUSTRY_BENCHMARKS_COMPARISON: Dict[str, Dict[str, Any]] = {
     "healthcare_medical": {
-        "avg_channels": 4, "avg_budget_pct_programmatic": 28, "avg_apply_rate": 3.8,
-        "avg_time_to_fill": 42, "avg_cpa": 60, "estimated_reach_multiplier": 1.0,
+        "avg_channels": 4,
+        "avg_budget_pct_programmatic": 28,
+        "avg_apply_rate": 3.8,
+        "avg_time_to_fill": 42,
+        "avg_cpa": 60,
+        "estimated_reach_multiplier": 1.0,
     },
     "tech_engineering": {
-        "avg_channels": 5, "avg_budget_pct_programmatic": 32, "avg_apply_rate": 6.4,
-        "avg_time_to_fill": 35, "avg_cpa": 50, "estimated_reach_multiplier": 1.1,
+        "avg_channels": 5,
+        "avg_budget_pct_programmatic": 32,
+        "avg_apply_rate": 6.4,
+        "avg_time_to_fill": 35,
+        "avg_cpa": 50,
+        "estimated_reach_multiplier": 1.1,
     },
     "retail_consumer": {
-        "avg_channels": 3, "avg_budget_pct_programmatic": 25, "avg_apply_rate": 5.1,
-        "avg_time_to_fill": 28, "avg_cpa": 14, "estimated_reach_multiplier": 0.9,
+        "avg_channels": 3,
+        "avg_budget_pct_programmatic": 25,
+        "avg_apply_rate": 5.1,
+        "avg_time_to_fill": 28,
+        "avg_cpa": 14,
+        "estimated_reach_multiplier": 0.9,
     },
     "general_entry_level": {
-        "avg_channels": 4, "avg_budget_pct_programmatic": 30, "avg_apply_rate": 5.8,
-        "avg_time_to_fill": 30, "avg_cpa": 18, "estimated_reach_multiplier": 1.0,
+        "avg_channels": 4,
+        "avg_budget_pct_programmatic": 30,
+        "avg_apply_rate": 5.8,
+        "avg_time_to_fill": 30,
+        "avg_cpa": 18,
+        "estimated_reach_multiplier": 1.0,
     },
     "finance_banking": {
-        "avg_channels": 4, "avg_budget_pct_programmatic": 30, "avg_apply_rate": 5.5,
-        "avg_time_to_fill": 38, "avg_cpa": 43, "estimated_reach_multiplier": 1.0,
+        "avg_channels": 4,
+        "avg_budget_pct_programmatic": 30,
+        "avg_apply_rate": 5.5,
+        "avg_time_to_fill": 38,
+        "avg_cpa": 43,
+        "estimated_reach_multiplier": 1.0,
     },
     "logistics_supply_chain": {
-        "avg_channels": 4, "avg_budget_pct_programmatic": 30, "avg_apply_rate": 4.6,
-        "avg_time_to_fill": 32, "avg_cpa": 34, "estimated_reach_multiplier": 1.0,
+        "avg_channels": 4,
+        "avg_budget_pct_programmatic": 30,
+        "avg_apply_rate": 4.6,
+        "avg_time_to_fill": 32,
+        "avg_cpa": 34,
+        "estimated_reach_multiplier": 1.0,
     },
     "hospitality_travel": {
-        "avg_channels": 3, "avg_budget_pct_programmatic": 22, "avg_apply_rate": 4.5,
-        "avg_time_to_fill": 25, "avg_cpa": 16, "estimated_reach_multiplier": 0.9,
+        "avg_channels": 3,
+        "avg_budget_pct_programmatic": 22,
+        "avg_apply_rate": 4.5,
+        "avg_time_to_fill": 25,
+        "avg_cpa": 16,
+        "estimated_reach_multiplier": 0.9,
     },
     "blue_collar_trades": {
-        "avg_channels": 3, "avg_budget_pct_programmatic": 26, "avg_apply_rate": 4.8,
-        "avg_time_to_fill": 30, "avg_cpa": 24, "estimated_reach_multiplier": 0.9,
+        "avg_channels": 3,
+        "avg_budget_pct_programmatic": 26,
+        "avg_apply_rate": 4.8,
+        "avg_time_to_fill": 30,
+        "avg_cpa": 24,
+        "estimated_reach_multiplier": 0.9,
     },
     "pharma_biotech": {
-        "avg_channels": 5, "avg_budget_pct_programmatic": 35, "avg_apply_rate": 4.5,
-        "avg_time_to_fill": 55, "avg_cpa": 75, "estimated_reach_multiplier": 1.1,
+        "avg_channels": 5,
+        "avg_budget_pct_programmatic": 35,
+        "avg_apply_rate": 4.5,
+        "avg_time_to_fill": 55,
+        "avg_cpa": 75,
+        "estimated_reach_multiplier": 1.1,
     },
 }
 
@@ -604,11 +800,14 @@ def _add_textbox(
     txBox.text_frame.paragraphs[0].space_before = Pt(0)
     txBox.text_frame.paragraphs[0].space_after = Pt(0)
     try:
-        txBox.text_frame._txBody.bodyPr.set("anchor", {
-            MSO_ANCHOR.TOP: "t",
-            MSO_ANCHOR.MIDDLE: "ctr",
-            MSO_ANCHOR.BOTTOM: "b",
-        }.get(anchor, "t"))
+        txBox.text_frame._txBody.bodyPr.set(
+            "anchor",
+            {
+                MSO_ANCHOR.TOP: "t",
+                MSO_ANCHOR.MIDDLE: "ctr",
+                MSO_ANCHOR.BOTTOM: "b",
+            }.get(anchor, "t"),
+        )
     except Exception:
         pass
 
@@ -633,7 +832,9 @@ def _add_filled_rect(slide, left, top, width, height, fill_color: RGBColor):
 
 def _add_rounded_rect(slide, left, top, width, height, fill_color: RGBColor):
     """Add a rounded rectangle shape with a solid fill and no border."""
-    shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
+    shape = slide.shapes.add_shape(
+        MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height
+    )
     shape.fill.solid()
     shape.fill.fore_color.rgb = fill_color
     shape.line.fill.background()
@@ -664,8 +865,17 @@ def _add_rule_line(slide, left_inches, top_inches, width_inches, color_hex="2020
     return shape
 
 
-def _add_paragraph(tf, text, font_size=10, bold=False, italic=False, color=DARK_TEXT,
-                   alignment=PP_ALIGN.LEFT, space_before=0, space_after=2):
+def _add_paragraph(
+    tf,
+    text,
+    font_size=10,
+    bold=False,
+    italic=False,
+    color=DARK_TEXT,
+    alignment=PP_ALIGN.LEFT,
+    space_before=0,
+    space_after=2,
+):
     """Append a paragraph to an existing text frame."""
     p = tf.add_paragraph()
     p.alignment = alignment
@@ -677,8 +887,9 @@ def _add_paragraph(tf, text, font_size=10, bold=False, italic=False, color=DARK_
     return p
 
 
-def _add_multi_run_paragraph(tf, runs_data: List[Tuple], alignment=PP_ALIGN.LEFT,
-                             space_before=0, space_after=2):
+def _add_multi_run_paragraph(
+    tf, runs_data: List[Tuple], alignment=PP_ALIGN.LEFT, space_before=0, space_after=2
+):
     """Add a paragraph with multiple styled runs.
     runs_data: list of (text, font_size, bold, color) tuples.
     """
@@ -714,10 +925,14 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
             campaign_month = 0
             if data:
                 try:
-                    campaign_month = int(data.get("campaign_start_month", 0) or 0)
+                    campaign_month = int(data.get("campaign_start_month") or 0 or 0)
                 except (ValueError, TypeError):
                     campaign_month = 0
-            current_month = campaign_month if (campaign_month and 1 <= campaign_month <= 12) else datetime.datetime.now().month
+            current_month = (
+                campaign_month
+                if (campaign_month and 1 <= campaign_month <= 12)
+                else datetime.datetime.now().month
+            )
             # Get CPC across platforms
             cpc_vals = []
             cpa_vals = []
@@ -725,44 +940,62 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
             trend_yoys = []
             for plat in ["google", "meta_fb", "indeed", "linkedin", "programmatic"]:
                 cpc_result = _trend_engine.get_benchmark(
-                    platform=plat, industry=industry or "general",
-                    metric="cpc", collar_type="both",
-                    location="", month=current_month,
+                    platform=plat,
+                    industry=industry or "general",
+                    metric="cpc",
+                    collar_type="both",
+                    location="",
+                    month=current_month,
                 )
                 if cpc_result and isinstance(cpc_result, dict):
-                    v = cpc_result.get("value", 0)
+                    v = cpc_result.get("value") or 0
                     if isinstance(v, (int, float)) and v > 0:
                         cpc_vals.append(v)
                         td = cpc_result.get("trend_direction", "stable")
-                        ty = cpc_result.get("trend_pct_yoy", 0)
+                        ty = cpc_result.get("trend_pct_yoy") or 0
                         trend_dirs.append(td)
                         trend_yoys.append(ty)
                 cpa_result = _trend_engine.get_benchmark(
-                    platform=plat, industry=industry or "general",
-                    metric="cpa", collar_type="both",
-                    location="", month=current_month,
+                    platform=plat,
+                    industry=industry or "general",
+                    metric="cpa",
+                    collar_type="both",
+                    location="",
+                    month=current_month,
                 )
                 if cpa_result and isinstance(cpa_result, dict):
-                    v = cpa_result.get("value", 0)
+                    v = cpa_result.get("value") or 0
                     if isinstance(v, (int, float)) and v > 0:
                         cpa_vals.append(v)
 
             if cpc_vals:
                 min_cpc = min(cpc_vals)
                 max_cpc = max(cpc_vals)
-                result["cpc"] = f"${min_cpc:.2f} - ${max_cpc:.2f}" if len(cpc_vals) > 1 else f"${min_cpc:.2f}"
+                result["cpc"] = (
+                    f"${min_cpc:.2f} - ${max_cpc:.2f}"
+                    if len(cpc_vals) > 1
+                    else f"${min_cpc:.2f}"
+                )
                 result["confidence"] = "trend_engine"
                 # Trend annotation
                 if trend_yoys:
                     avg_yoy = sum(trend_yoys) / len(trend_yoys)
                     arrow = "+" if avg_yoy > 0 else ""
-                    dom_trend = max(set(trend_dirs), key=trend_dirs.count) if trend_dirs else "stable"
+                    dom_trend = (
+                        max(set(trend_dirs), key=trend_dirs.count)
+                        if trend_dirs
+                        else "stable"
+                    )
                     result["cpc_trend"] = f"{arrow}{avg_yoy:.1f}% YoY"
                     result["cpc_trend_direction"] = dom_trend
             if cpa_vals:
                 min_cpa = min(cpa_vals)
                 max_cpa = max(cpa_vals)
-                result["cpa"] = f"${min_cpa:.0f} - ${max_cpa:.0f}" if len(cpa_vals) > 1 else f"${min_cpa:.0f}"
+                result["cpa"] = (
+                    f"${min_cpa:.0f} - ${max_cpa:.0f}"
+                    if len(cpa_vals) > 1
+                    else f"${min_cpa:.0f}"
+                )
         except Exception:
             pass  # Fall through to synthesized or static
 
@@ -786,12 +1019,20 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                 if live_cpcs:
                     min_cpc = min(live_cpcs)
                     max_cpc = max(live_cpcs)
-                    result["cpc"] = f"${min_cpc:.2f} - ${max_cpc:.2f}" if min_cpc != max_cpc else f"${min_cpc:.2f}"
+                    result["cpc"] = (
+                        f"${min_cpc:.2f} - ${max_cpc:.2f}"
+                        if min_cpc != max_cpc
+                        else f"${min_cpc:.2f}"
+                    )
                     result["confidence"] = "live_api"
                 if live_cpas:
                     min_cpa = min(live_cpas)
                     max_cpa = max(live_cpas)
-                    result["cpa"] = f"${min_cpa:.0f} - ${max_cpa:.0f}" if min_cpa != max_cpa else f"${min_cpa:.0f}"
+                    result["cpa"] = (
+                        f"${min_cpa:.0f} - ${max_cpa:.0f}"
+                        if min_cpa != max_cpa
+                        else f"${min_cpa:.0f}"
+                    )
                     result["confidence"] = "live_api"
 
     # Layer 0: Budget engine CPH and apply_rate overrides
@@ -809,7 +1050,9 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                     high_cph = live_cph * 1.2
                     result["cph"] = f"${low_cph:,.0f} - ${high_cph:,.0f}"
                 # Apply rate from budget engine
-                live_apply_rate = total_proj.get("apply_rate") or total_proj.get("conversion_rate")
+                live_apply_rate = total_proj.get("apply_rate") or total_proj.get(
+                    "conversion_rate"
+                )
                 if isinstance(live_apply_rate, (int, float)) and live_apply_rate > 0:
                     # Apply rate might be 0-1 or 0-100; normalize
                     if live_apply_rate < 1:
@@ -822,11 +1065,15 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
         # but ONLY if the budget engine didn't already set it (budget engine
         # computes CPH from actual budget/projections -- higher quality).
         synthesized = data.get("_synthesized", {})
-        _budget_set_cph = isinstance(budget_alloc, dict) and budget_alloc  # budget engine ran
+        _budget_set_cph = (
+            isinstance(budget_alloc, dict) and budget_alloc
+        )  # budget engine ran
         if not _budget_set_cph and isinstance(synthesized, dict):
             salary_intel = synthesized.get("salary_intelligence", {})
             if isinstance(salary_intel, dict):
-                synth_cph = salary_intel.get("estimated_cost_per_hire") or salary_intel.get("cph")
+                synth_cph = salary_intel.get(
+                    "estimated_cost_per_hire"
+                ) or salary_intel.get("cph")
                 if isinstance(synth_cph, (int, float)) and synth_cph > 0:
                     low_cph = synth_cph * 0.8
                     high_cph = synth_cph * 1.2
@@ -838,24 +1085,34 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
     if result.get("confidence") == "curated":
         try:
             _PPT_APPCAST_MAP = {
-                "healthcare": "healthcare", "healthcare_medical": "healthcare",
-                "technology": "technology", "tech_engineering": "technology",
-                "retail": "retail", "retail_consumer": "retail",
-                "finance": "finance", "finance_banking": "finance",
+                "healthcare": "healthcare",
+                "healthcare_medical": "healthcare",
+                "technology": "technology",
+                "tech_engineering": "technology",
+                "retail": "retail",
+                "retail_consumer": "retail",
+                "finance": "finance",
+                "finance_banking": "finance",
                 "insurance": "insurance",
-                "logistics": "warehousing_logistics", "logistics_supply_chain": "warehousing_logistics",
+                "logistics": "warehousing_logistics",
+                "logistics_supply_chain": "warehousing_logistics",
                 "transportation": "transportation",
-                "hospitality": "hospitality", "hospitality_travel": "hospitality",
+                "hospitality": "hospitality",
+                "hospitality_travel": "hospitality",
                 "food_beverage": "food_service",
                 "blue_collar_trades": "construction_skilled_trades",
-                "construction": "construction_skilled_trades", "construction_real_estate": "construction_skilled_trades",
-                "pharma_biotech": "science_engineering", "energy_utilities": "science_engineering",
-                "general": "administration", "general_entry_level": "administration",
+                "construction": "construction_skilled_trades",
+                "construction_real_estate": "construction_skilled_trades",
+                "pharma_biotech": "science_engineering",
+                "energy_utilities": "science_engineering",
+                "general": "administration",
+                "general_entry_level": "administration",
                 "government_utilities": "administration",
                 "manufacturing": "manufacturing",
                 "education": "education",
                 "legal_services": "legal",
-                "marketing": "marketing_advertising", "media_entertainment": "marketing_advertising",
+                "marketing": "marketing_advertising",
+                "media_entertainment": "marketing_advertising",
                 "professional_services": "consulting",
             }
             _app_key = _PPT_APPCAST_MAP.get(industry, "")
@@ -864,15 +1121,26 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                 if not _kb:
                     try:
                         from kb_loader import load_knowledge_base
+
                         _kb = load_knowledge_base()
                     except Exception:
                         _kb = {}
                 _wp = _kb.get("white_papers", {})
-                _appcast_bm = _wp.get("reports", {}).get("appcast_benchmark_2026", {}).get("benchmarks", {})
+                _appcast_bm = (
+                    _wp.get("reports", {})
+                    .get("appcast_benchmark_2026", {})
+                    .get("benchmarks", {})
+                )
                 if _appcast_bm:
-                    _occ_cpa = _appcast_bm.get("cpa_by_occupation_2025", {}).get(_app_key)
-                    _occ_cph = _appcast_bm.get("cph_by_occupation_2025", {}).get(_app_key)
-                    _occ_ar = _appcast_bm.get("apply_rate_by_occupation_2025", {}).get(_app_key)
+                    _occ_cpa = _appcast_bm.get("cpa_by_occupation_2025", {}).get(
+                        _app_key
+                    )
+                    _occ_cph = _appcast_bm.get("cph_by_occupation_2025", {}).get(
+                        _app_key
+                    )
+                    _occ_ar = _appcast_bm.get("apply_rate_by_occupation_2025", {}).get(
+                        _app_key
+                    )
                     if _occ_cpa:
                         result["cpa"] = _occ_cpa
                         result["cpa_source"] = "Appcast 2026 (302M clicks)"
@@ -904,45 +1172,62 @@ def _get_complications(industry: str) -> List[str]:
 
     # Get the apply rate for this industry and frame appropriately
     benchmarks = BENCHMARKS.get(industry, BENCHMARKS.get("general_entry_level", {}))
-    apply_rate_str = benchmarks.get("apply_rate", "")
+    apply_rate_str = benchmarks.get("apply_rate") or ""
     if apply_rate_str:
         # Parse apply rate - handle ranges like "3.2% - 4.5%" or single values like "6.41%"
         import re as _re
-        rates = _re.findall(r'[\d.]+', apply_rate_str)
+
+        rates = _re.findall(r"[\d.]+", apply_rate_str)
         if rates:
             avg_rate = sum(float(r) for r in rates) / len(rates)
             # Only add apply rate as complication if it's genuinely low (below 2%)
             if avg_rate < 2.0:
                 base = list(base)  # make mutable copy
-                base.append(f"Low {apply_rate_str} apply rate indicates competitive market pressure")
+                base.append(
+                    f"Low {apply_rate_str} apply rate indicates competitive market pressure"
+                )
 
     return base
 
 
-def _get_industry_comparison(industry: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+def _get_industry_comparison(
+    industry: str, data: Optional[Dict] = None
+) -> Dict[str, Any]:
     """Return industry benchmark comparison data.
 
     v3.4.1: overlay dynamic data from budget engine / synthesized data
     on top of the hardcoded base, so live API values take precedence.
     """
-    result = dict(INDUSTRY_BENCHMARKS_COMPARISON.get(
-        industry, INDUSTRY_BENCHMARKS_COMPARISON["general_entry_level"]
-    ))
+    result = dict(
+        INDUSTRY_BENCHMARKS_COMPARISON.get(
+            industry, INDUSTRY_BENCHMARKS_COMPARISON["general_entry_level"]
+        )
+    )
 
     if data:
         budget_alloc = data.get("_budget_allocation", {})
         if isinstance(budget_alloc, dict) and budget_alloc:
             total_proj = budget_alloc.get("total_projected", {})
             if isinstance(total_proj, dict):
-                live_cpa = total_proj.get("cpa") or total_proj.get("cost_per_application")
+                live_cpa = total_proj.get("cpa") or total_proj.get(
+                    "cost_per_application"
+                )
                 if isinstance(live_cpa, (int, float)) and live_cpa > 0:
                     result["avg_cpa"] = f"${live_cpa * 0.8:.0f} - ${live_cpa * 1.2:.0f}"
                 live_cph = total_proj.get("cost_per_hire") or total_proj.get("cph")
                 if isinstance(live_cph, (int, float)) and live_cph > 0:
-                    result["avg_cph"] = f"${live_cph * 0.8:,.0f} - ${live_cph * 1.2:,.0f}"
+                    result["avg_cph"] = (
+                        f"${live_cph * 0.8:,.0f} - ${live_cph * 1.2:,.0f}"
+                    )
             ch_allocs = budget_alloc.get("channel_allocations", {})
             if isinstance(ch_allocs, dict) and ch_allocs:
-                n_ch = len([c for c in ch_allocs.values() if isinstance(c, dict) and c.get("percentage", 0) > 0])
+                n_ch = len(
+                    [
+                        c
+                        for c in ch_allocs.values()
+                        if isinstance(c, dict) and c.get("percentage") or 0 > 0
+                    ]
+                )
                 if n_ch > 0:
                     # Keep as int -- used in arithmetic comparisons downstream
                     result["avg_channels"] = n_ch
@@ -959,7 +1244,7 @@ def _selected_channels(data: Dict) -> Dict[str, Dict[str, Any]]:
 
     # Get industry-aware base allocation
     industry = data.get("industry", "general_entry_level")
-    budget_str = data.get("budget", "")
+    budget_str = data.get("budget") or ""
     roles = data.get("roles", [])
     num_roles = len(roles) if roles else 0
     alloc_base = _get_industry_alloc(industry, budget_str, num_roles, roles)
@@ -1028,9 +1313,15 @@ def _add_footer(slide, today: str):
     footer_top = Inches(6.95)
     _add_filled_rect(slide, Inches(0), footer_top, SLIDE_WIDTH, Inches(0.03), NAVY)
     _add_textbox(
-        slide, Inches(0.55), footer_top + Inches(0.08), Inches(12.2), Inches(0.3),
+        slide,
+        Inches(0.55),
+        footer_top + Inches(0.08),
+        Inches(12.2),
+        Inches(0.3),
         text=f"Powered by Nova AI Suite  |  AI Media Planner  |  {today}",
-        font_size=7, color=MUTED_TEXT, alignment=PP_ALIGN.CENTER,
+        font_size=7,
+        color=MUTED_TEXT,
+        alignment=PP_ALIGN.CENTER,
     )
 
 
@@ -1039,12 +1330,26 @@ def _add_top_band(slide, left_text: str, right_text: str, band_color=NAVY):
     band_h = Inches(0.72)
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, band_h, band_color)
     _add_textbox(
-        slide, Inches(0.45), Inches(0.15), Inches(7), Inches(0.45),
-        text=left_text, font_size=14, bold=True, color=WHITE,
+        slide,
+        Inches(0.45),
+        Inches(0.15),
+        Inches(7),
+        Inches(0.45),
+        text=left_text,
+        font_size=14,
+        bold=True,
+        color=WHITE,
     )
     _add_textbox(
-        slide, Inches(9), Inches(0.15), Inches(4), Inches(0.45),
-        text=right_text, font_size=12, bold=False, color=RGBColor(0xA0, 0xB0, 0xCC),
+        slide,
+        Inches(9),
+        Inches(0.15),
+        Inches(4),
+        Inches(0.45),
+        text=right_text,
+        font_size=12,
+        bold=False,
+        color=RGBColor(0xA0, 0xB0, 0xCC),
         alignment=PP_ALIGN.RIGHT,
     )
     return band_h
@@ -1075,7 +1380,9 @@ def _add_enrichment_badge(slide, enriched):
     if not apis:
         return
     # Small text at bottom-right
-    txBox = slide.shapes.add_textbox(Inches(10.5), Inches(7.1), Inches(2.5), Inches(0.3))
+    txBox = slide.shapes.add_textbox(
+        Inches(10.5), Inches(7.1), Inches(2.5), Inches(0.3)
+    )
     tf = txBox.text_frame
     tf.word_wrap = True
     p = tf.paragraphs[0]
@@ -1104,18 +1411,34 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
             sources_parts.extend(apis[:3])
 
     # Thin ruled line
-    _add_filled_rect(slide, Inches(0.55), Inches(7.0), Inches(12.2), Inches(0.01), WARM_GRAY)
+    _add_filled_rect(
+        slide, Inches(0.55), Inches(7.0), Inches(12.2), Inches(0.01), WARM_GRAY
+    )
     # Source text
     source_text = "Data Sources: " + " | ".join(sources_parts)
     _add_textbox(
-        slide, Inches(0.55), Inches(7.02), Inches(10), Inches(0.2),
-        text=source_text, font_size=6, italic=True, color=LIGHT_MUTED,
+        slide,
+        Inches(0.55),
+        Inches(7.02),
+        Inches(10),
+        Inches(0.2),
+        text=source_text,
+        font_size=6,
+        italic=True,
+        color=LIGHT_MUTED,
     )
     # Confidence badge
     conf_color, conf_label = _confidence_color(conf)
     _add_textbox(
-        slide, Inches(11.0), Inches(7.02), Inches(2), Inches(0.2),
-        text=conf_label, font_size=7, bold=True, color=conf_color,
+        slide,
+        Inches(11.0),
+        Inches(7.02),
+        Inches(2),
+        Inches(0.2),
+        text=conf_label,
+        font_size=7,
+        bold=True,
+        color=conf_color,
         alignment=PP_ALIGN.RIGHT,
     )
 
@@ -1133,13 +1456,14 @@ def _format_salary(amount):
 # SLIDE 1 - Cover / Section Divider: Title Slide
 # ===================================================================
 
+
 def _build_slide_cover(prs: Presentation, data: Dict):
     """Build a premium full-bleed cover slide with LinkedIn-style section divider pattern."""
     slide_layout = prs.slide_layouts[6]  # blank
     slide = prs.slides.add_slide(slide_layout)
 
     client = data.get("client_name", "Client")
-    industry_label = data.get("industry_label", "")
+    industry_label = data.get("industry_label") or ""
     today = datetime.date.today().strftime("%B %d, %Y")
 
     # Full dark navy background
@@ -1155,33 +1479,63 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     _logo_path = os.path.join(os.path.dirname(__file__), "assets", "joveo-logo.png")
     if os.path.exists(_logo_path):
         try:
-            slide.shapes.add_picture(_logo_path, Inches(0.6), Inches(0.4), height=Inches(0.5))
+            slide.shapes.add_picture(
+                _logo_path, Inches(0.6), Inches(0.4), height=Inches(0.5)
+            )
         except Exception:
             pass  # Graceful fallback -- text label below still shows
 
     # "AI MEDIA PLANNER" small label top-left (below logo)
     _add_textbox(
-        slide, Inches(0.6), Inches(1.1), Inches(5), Inches(0.4),
-        text="AI MEDIA PLANNER", font_size=14, bold=True, color=TEAL,
+        slide,
+        Inches(0.6),
+        Inches(1.1),
+        Inches(5),
+        Inches(0.4),
+        text="AI MEDIA PLANNER",
+        font_size=14,
+        bold=True,
+        color=TEAL,
     )
 
     # Main title - client name large
     _add_textbox(
-        slide, Inches(0.6), Inches(2.1), Inches(10), Inches(1.2),
-        text=f"Media Plan", font_size=52, bold=True, color=WHITE,
+        slide,
+        Inches(0.6),
+        Inches(2.1),
+        Inches(10),
+        Inches(1.2),
+        text=f"Media Plan",
+        font_size=52,
+        bold=True,
+        color=WHITE,
     )
 
     # Client name as hero element
     _add_textbox(
-        slide, Inches(0.6), Inches(3.2), Inches(11), Inches(1.0),
-        text=client, font_size=44, bold=True, color=LIGHT_TEAL,
+        slide,
+        Inches(0.6),
+        Inches(3.2),
+        Inches(11),
+        Inches(1.0),
+        text=client,
+        font_size=44,
+        bold=True,
+        color=LIGHT_TEAL,
     )
 
     # Industry subtitle
     if industry_label:
         _add_textbox(
-            slide, Inches(0.6), Inches(4.2), Inches(10), Inches(0.5),
-            text=industry_label, font_size=20, bold=False, color=LIGHT_BLUE,
+            slide,
+            Inches(0.6),
+            Inches(4.2),
+            Inches(10),
+            Inches(0.5),
+            text=industry_label,
+            font_size=20,
+            bold=False,
+            color=LIGHT_BLUE,
         )
 
     # Company tagline from enrichment data (Wikipedia description)
@@ -1192,12 +1546,19 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         desc = company_info["description"]
         first_sentence_end = desc.find(".")
         if 0 < first_sentence_end < 120:
-            tagline = desc[:first_sentence_end + 1]
+            tagline = desc[: first_sentence_end + 1]
         else:
             tagline = desc[:120].rsplit(" ", 1)[0] + "..." if len(desc) > 120 else desc
         _add_textbox(
-            slide, Inches(0.6), Inches(4.7), Inches(9), Inches(0.4),
-            text=tagline, font_size=11, italic=True, color=LIGHT_MUTED,
+            slide,
+            Inches(0.6),
+            Inches(4.7),
+            Inches(9),
+            Inches(0.4),
+            text=tagline,
+            font_size=11,
+            italic=True,
+            color=LIGHT_MUTED,
         )
 
     # Teal accent line under title area
@@ -1205,13 +1566,25 @@ def _build_slide_cover(prs: Presentation, data: Dict):
 
     # Date and branding at bottom
     _add_textbox(
-        slide, Inches(0.6), Inches(5.4), Inches(6), Inches(0.4),
-        text=today, font_size=14, color=LIGHT_MUTED,
+        slide,
+        Inches(0.6),
+        Inches(5.4),
+        Inches(6),
+        Inches(0.4),
+        text=today,
+        font_size=14,
+        color=LIGHT_MUTED,
     )
     _add_textbox(
-        slide, Inches(0.6), Inches(5.8), Inches(6), Inches(0.4),
-        text="Powered by Nova AI Suite", font_size=11,
-        italic=True, color=LIGHT_MUTED,
+        slide,
+        Inches(0.6),
+        Inches(5.8),
+        Inches(6),
+        Inches(0.4),
+        text="Powered by Nova AI Suite",
+        font_size=11,
+        italic=True,
+        color=LIGHT_MUTED,
     )
 
     # Right-side decorative element: large subtle circle
@@ -1238,12 +1611,15 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     )
 
     # Bottom teal bar
-    _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.06), SLIDE_WIDTH, Inches(0.06), TEAL)
+    _add_filled_rect(
+        slide, Inches(0), SLIDE_HEIGHT - Inches(0.06), SLIDE_WIDTH, Inches(0.06), TEAL
+    )
 
 
 # ===================================================================
 # SLIDE 2 - Executive Summary with Hero Stat
 # ===================================================================
+
 
 def _build_slide_executive_summary(prs: Presentation, data: Dict):
     """Build the Executive Summary slide with hero stat pattern and SCR framework."""
@@ -1294,14 +1670,18 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # Action title
     role_summary = ", ".join(roles[:3]) if roles else "key roles"
     loc_count = len(locations)
-    loc_text = f"{loc_count} location{'s' if loc_count != 1 else ''}" if loc_count > 0 else "multiple locations"
+    loc_text = (
+        f"{loc_count} location{'s' if loc_count != 1 else ''}"
+        if loc_count > 0
+        else "multiple locations"
+    )
 
     # Enhance action text with market temperature if available
     market_temp_str = ""
     try:
         for _role_key, _role_demand in job_market.items():
             if isinstance(_role_demand, dict):
-                _temp = _role_demand.get("market_temperature", "")
+                _temp = _role_demand.get("market_temperature") or ""
                 if _temp:
                     market_temp_str = _temp
                     break
@@ -1318,8 +1698,15 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         f"{client}'s recruitment spend in {industry_label}{temp_qualifier}"
     )
     _add_textbox(
-        slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.55),
-        text=action_text, font_size=15, bold=True, color=NAVY,
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.55),
+        text=action_text,
+        font_size=15,
+        bold=True,
+        color=NAVY,
     )
 
     # ---- THREE-COLUMN SCR BODY ----
@@ -1341,8 +1728,17 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     sit_left = col1_left + Inches(0.2)
     sit_w = col_w - Inches(0.25)
 
-    _add_textbox(slide, sit_left, col_top + Inches(0.08), sit_w, Inches(0.35),
-                 text="SITUATION", font_size=11, bold=True, color=BLUE)
+    _add_textbox(
+        slide,
+        sit_left,
+        col_top + Inches(0.08),
+        sit_w,
+        Inches(0.35),
+        text="SITUATION",
+        font_size=11,
+        bold=True,
+        color=BLUE,
+    )
 
     body_top = col_top + Inches(0.45)
     work_label = WORK_ENV_LABELS.get(work_env, work_env.replace("_", " ").title())
@@ -1351,14 +1747,21 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         role_display += f" (+{len(roles) - 5} more)"
 
     # Use total budget from budget engine metadata if available
-    total_budget_val = ba_metadata.get("total_budget", 0)
+    total_budget_val = ba_metadata.get("total_budget") or 0
     budget_display_sit = budget
     if total_budget_val and total_budget_val > 0:
         budget_display_sit = _fmt_currency(total_budget_val, compact=True)
 
     sit_items = [
         ("Industry", industry_label),
-        ("Locations", f"{loc_count} market{'s' if loc_count != 1 else ''}" if loc_count > 0 else "Multiple markets"),
+        (
+            "Locations",
+            (
+                f"{loc_count} market{'s' if loc_count != 1 else ''}"
+                if loc_count > 0
+                else "Multiple markets"
+            ),
+        ),
         ("Target Roles", role_display),
         ("Work Model", work_label),
         ("Budget", budget_display_sit),
@@ -1366,8 +1769,18 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     # Add market temperature from job_market_demand
     if market_temp_str:
-        temp_colors = {"hot": "High demand", "warm": "Moderate demand", "cool": "Balanced", "cold": "Low demand"}
-        sit_items.append(("Market Temp.", f"{market_temp_str.title()} ({temp_colors.get(market_temp_str, 'N/A')})"))
+        temp_colors = {
+            "hot": "High demand",
+            "warm": "Moderate demand",
+            "cool": "Balanced",
+            "cold": "Low demand",
+        }
+        sit_items.append(
+            (
+                "Market Temp.",
+                f"{market_temp_str.title()} ({temp_colors.get(market_temp_str, 'N/A')})",
+            )
+        )
 
     # v3: Add collar type classification from collar_intelligence
     if _HAS_COLLAR_INTEL and roles:
@@ -1384,7 +1797,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
                 dom_pct = collar_counts[dominant] / total_c * 100
                 collar_label = dominant.replace("_", " ").title()
                 if dom_pct > 75:
-                    sit_items.append(("Talent Profile", f"{collar_label} dominant ({dom_pct:.0f}%)"))
+                    sit_items.append(
+                        ("Talent Profile", f"{collar_label} dominant ({dom_pct:.0f}%)")
+                    )
                 elif len(collar_counts) > 1:
                     mix = " / ".join(k.replace("_", " ").title() for k in collar_counts)
                     sit_items.append(("Talent Profile", f"Mixed ({mix})"))
@@ -1395,24 +1810,35 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     benchmarks = _get_benchmarks(industry, data)
 
     # v3: Add CPC trend direction if available from trend engine
-    cpc_trend_str = benchmarks.get("cpc_trend", "")
-    cpc_trend_dir = benchmarks.get("cpc_trend_direction", "")
+    cpc_trend_str = benchmarks.get("cpc_trend") or ""
+    cpc_trend_dir = benchmarks.get("cpc_trend_direction") or ""
     if cpc_trend_str:
-        trend_label = {"rising": "Rising", "falling": "Declining", "stable": "Stable"}.get(cpc_trend_dir, "")
+        trend_label = {
+            "rising": "Rising",
+            "falling": "Declining",
+            "stable": "Stable",
+        }.get(cpc_trend_dir, "")
         sit_items.append(("CPC Trend", f"{trend_label} {cpc_trend_str}"))
 
-    apply_rate_str = benchmarks.get("apply_rate", "")
+    apply_rate_str = benchmarks.get("apply_rate") or ""
     if apply_rate_str:
         import re as _re_ar
-        rates = _re_ar.findall(r'[\d.]+', apply_rate_str)
+
+        rates = _re_ar.findall(r"[\d.]+", apply_rate_str)
         if rates:
             avg_rate = sum(float(r) for r in rates) / len(rates)
             if avg_rate > 5.0:
-                sit_items.append(("Apply Rate", f"{apply_rate_str} (above average - strength)"))
+                sit_items.append(
+                    ("Apply Rate", f"{apply_rate_str} (above average - strength)")
+                )
             elif avg_rate >= 2.0:
-                sit_items.append(("Apply Rate", f"{apply_rate_str} (at industry average)"))
+                sit_items.append(
+                    ("Apply Rate", f"{apply_rate_str} (at industry average)")
+                )
             else:
-                sit_items.append(("Apply Rate", f"{apply_rate_str} (below average - challenge)"))
+                sit_items.append(
+                    ("Apply Rate", f"{apply_rate_str} (below average - challenge)")
+                )
 
     # Add salary benchmark from salary_intelligence (synthesized) first,
     # fall back to enriched salary_data
@@ -1423,15 +1849,20 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         try:
             for _si_role, _si_data in salary_intel.items():
                 if isinstance(_si_data, dict):
-                    _si_median = _si_data.get("median", 0)
-                    _si_min = _si_data.get("min", 0)
-                    _si_max = _si_data.get("max", 0)
+                    _si_median = _si_data.get("median") or 0
+                    _si_min = _si_data.get("min") or 0
+                    _si_max = _si_data.get("max") or 0
                     if _si_median and _si_median > 0:
                         salary_str = _format_salary(_si_median)
                         range_str = ""
                         if _si_min > 0 and _si_max > 0:
                             range_str = f" ({_format_salary(_si_min)}-{_format_salary(_si_max)})"
-                        sit_items.append(("Salary Range", f"{salary_str} median{range_str} - {_si_role}"))
+                        sit_items.append(
+                            (
+                                "Salary Range",
+                                f"{salary_str} median{range_str} - {_si_role}",
+                            )
+                        )
                         _salary_added = True
                         break
         except (AttributeError, TypeError):
@@ -1439,10 +1870,12 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     if not _salary_added and salary_data:
         try:
             first_role = list(salary_data.keys())[0]
-            median = salary_data[first_role].get("median", 0)
+            median = salary_data[first_role].get("median") or 0
             if median > 0:
                 salary_str = _format_salary(median)
-                sit_items.append(("Salary Benchmark", f"{salary_str} median ({first_role})"))
+                sit_items.append(
+                    ("Salary Benchmark", f"{salary_str} median ({first_role})")
+                )
         except (IndexError, KeyError, TypeError):
             pass
 
@@ -1476,11 +1909,22 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     comp_left = col2_left + Inches(0.2)
     comp_w = col_w - Inches(0.25)
 
-    _add_textbox(slide, comp_left, col_top + Inches(0.08), comp_w, Inches(0.35),
-                 text="COMPLICATION", font_size=11, bold=True, color=TEAL)
+    _add_textbox(
+        slide,
+        comp_left,
+        col_top + Inches(0.08),
+        comp_w,
+        Inches(0.35),
+        text="COMPLICATION",
+        font_size=11,
+        bold=True,
+        color=TEAL,
+    )
 
     complications = _get_complications(industry)
-    box3, tf3 = _add_textbox(slide, comp_left, body_top, comp_w, col_height - Inches(0.5))
+    box3, tf3 = _add_textbox(
+        slide, comp_left, body_top, comp_w, col_height - Inches(0.5)
+    )
     tf3.paragraphs[0].space_before = Pt(0)
     tf3.paragraphs[0].space_after = Pt(0)
 
@@ -1494,7 +1938,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         p.alignment = PP_ALIGN.LEFT
 
         run_bullet = p.add_run()
-        run_bullet.text = "\u25B8  "
+        run_bullet.text = "\u25b8  "
         _set_font(run_bullet, size=10, bold=False, color=TEAL)
 
         run_text = p.add_run()
@@ -1508,8 +1952,17 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     res_left = col3_left + Inches(0.2)
     res_w = col_w - Inches(0.25)
 
-    _add_textbox(slide, res_left, col_top + Inches(0.08), res_w, Inches(0.35),
-                 text="RESOLUTION", font_size=11, bold=True, color=GREEN)
+    _add_textbox(
+        slide,
+        res_left,
+        col_top + Inches(0.08),
+        res_w,
+        Inches(0.35),
+        text="RESOLUTION",
+        font_size=11,
+        bold=True,
+        color=GREEN,
+    )
 
     box4, tf4 = _add_textbox(slide, res_left, body_top, res_w, col_height - Inches(0.5))
     tf4.paragraphs[0].space_before = Pt(0)
@@ -1532,19 +1985,34 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         rt.text = ch["label"]
         _set_font(rt, size=9, bold=False, color=DARK_TEXT)
 
-    _total_pubs = data.get("_joveo_publishers", {}).get("total_active_publishers", 10238)
-    _add_paragraph(tf4, f"\u2713  ML-optimized bidding across {_total_pubs:,}+ publishers",
-                   font_size=9, color=DARK_TEXT, space_before=1, space_after=4)
+    _total_pubs = data.get("_joveo_publishers", {}).get(
+        "total_active_publishers", 10238
+    )
+    _add_paragraph(
+        tf4,
+        f"\u2713  ML-optimized bidding across {_total_pubs:,}+ publishers",
+        font_size=9,
+        color=DARK_TEXT,
+        space_before=1,
+        space_after=4,
+    )
 
     if goals:
-        _add_paragraph(tf4, "Campaign Goals:", font_size=9, bold=True, color=NAVY,
-                       space_before=4, space_after=2)
+        _add_paragraph(
+            tf4,
+            "Campaign Goals:",
+            font_size=9,
+            bold=True,
+            color=NAVY,
+            space_before=4,
+            space_after=2,
+        )
         for g in goals[:3]:
             p = tf4.add_paragraph()
             p.space_before = Pt(1)
             p.space_after = Pt(3)
             rb = p.add_run()
-            rb.text = "\u25CF  "
+            rb.text = "\u25cf  "
             _set_font(rb, size=8, color=BLUE)
             rt = p.add_run()
             rt.text = g
@@ -1567,32 +2035,53 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     # Hero stat on the left
     _add_textbox(
-        slide, Inches(0.85), bar_top + Inches(0.12), Inches(3.2), Inches(0.65),
-        text=hero_value, font_size=36, bold=True, color=TEAL,
-        alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+        slide,
+        Inches(0.85),
+        bar_top + Inches(0.12),
+        Inches(3.2),
+        Inches(0.65),
+        text=hero_value,
+        font_size=36,
+        bold=True,
+        color=TEAL,
+        alignment=PP_ALIGN.CENTER,
+        anchor=MSO_ANCHOR.MIDDLE,
     )
     _add_textbox(
-        slide, Inches(0.85), bar_top + Inches(0.72), Inches(3.2), Inches(0.3),
-        text=hero_label, font_size=9, bold=False, color=LIGHT_MUTED,
+        slide,
+        Inches(0.85),
+        bar_top + Inches(0.72),
+        Inches(3.2),
+        Inches(0.3),
+        text=hero_label,
+        font_size=9,
+        bold=False,
+        color=LIGHT_MUTED,
         alignment=PP_ALIGN.CENTER,
     )
 
     # Divider
-    _add_filled_rect(slide, Inches(4.2), bar_top + Inches(0.2), Inches(0.02), Inches(0.75), TEAL)
+    _add_filled_rect(
+        slide, Inches(4.2), bar_top + Inches(0.2), Inches(0.02), Inches(0.75), TEAL
+    )
 
     # Secondary metrics - include salary data from enrichment if available
-    secondary_metrics = [m for m in [
-        (str(len(channels)), "Channels"),
-        (str(loc_count), "Locations") if loc_count > 0 else None,
-        (str(len(roles)), "Target Roles") if roles else None,
-        (str(len(goals)), "Campaign Goals") if goals else None,
-    ] if m is not None]
+    secondary_metrics = [
+        m
+        for m in [
+            (str(len(channels)), "Channels"),
+            (str(loc_count), "Locations") if loc_count > 0 else None,
+            (str(len(roles)), "Target Roles") if roles else None,
+            (str(len(goals)), "Campaign Goals") if goals else None,
+        ]
+        if m is not None
+    ]
 
     # Replace last metric with salary benchmark if available
     if salary_data:
         try:
             first_role = list(salary_data.keys())[0]
-            median = salary_data[first_role].get("median", 0)
+            median = salary_data[first_role].get("median") or 0
             if median > 0:
                 salary_str = _format_salary(median)
                 secondary_metrics.append((salary_str, "Median Salary"))
@@ -1601,15 +2090,17 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     # Add budget allocation metrics if available (projected hires, avg CPA)
     if ba_total_projected:
-        projected_hires = ba_total_projected.get("hires", 0)
-        avg_cpa_val = ba_total_projected.get("cost_per_application", 0)
-        avg_cph_val = ba_total_projected.get("cost_per_hire", 0)
+        projected_hires = ba_total_projected.get("hires") or 0
+        avg_cpa_val = ba_total_projected.get("cost_per_application") or 0
+        avg_cph_val = ba_total_projected.get("cost_per_hire") or 0
         if projected_hires and projected_hires > 0:
             secondary_metrics.append((str(int(projected_hires)), "Projected Hires"))
         if avg_cpa_val and avg_cpa_val > 0:
             secondary_metrics.append((_fmt_currency(avg_cpa_val), "Avg CPA"))
         elif avg_cph_val and avg_cph_val > 0:
-            secondary_metrics.append((_fmt_currency(avg_cph_val, compact=True), "Cost/Hire"))
+            secondary_metrics.append(
+                (_fmt_currency(avg_cph_val, compact=True), "Cost/Hire")
+            )
 
     # Add market temperature badge if available
     if market_temp_str and len(secondary_metrics) < 5:
@@ -1622,21 +2113,42 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         mx = metric_start + i * metric_w
 
         _add_textbox(
-            slide, mx, bar_top + Inches(0.12), metric_w, Inches(0.55),
-            text=value, font_size=24, bold=True, color=WHITE,
-            alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+            slide,
+            mx,
+            bar_top + Inches(0.12),
+            metric_w,
+            Inches(0.55),
+            text=value,
+            font_size=24,
+            bold=True,
+            color=WHITE,
+            alignment=PP_ALIGN.CENTER,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
         _add_textbox(
-            slide, mx, bar_top + Inches(0.72), metric_w, Inches(0.3),
-            text=label, font_size=8, bold=False, color=LIGHT_MUTED,
+            slide,
+            mx,
+            bar_top + Inches(0.72),
+            metric_w,
+            Inches(0.3),
+            text=label,
+            font_size=8,
+            bold=False,
+            color=LIGHT_MUTED,
             alignment=PP_ALIGN.CENTER,
         )
 
     # Thin dividers between secondary metrics
     for i in range(1, 4):
         div_x = metric_start + i * metric_w
-        _add_filled_rect(slide, div_x, bar_top + Inches(0.25), Inches(0.015), Inches(0.65),
-                         RGBColor(0x1A, 0x45, 0x70))
+        _add_filled_rect(
+            slide,
+            div_x,
+            bar_top + Inches(0.25),
+            Inches(0.015),
+            Inches(0.65),
+            RGBColor(0x1A, 0x45, 0x70),
+        )
 
     # Enrichment badge
     _add_enrichment_badge(slide, enriched)
@@ -1648,6 +2160,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 # ===================================================================
 # SLIDE 3 - Section Divider: "Channel Strategy"
 # ===================================================================
+
 
 def _build_slide_divider_channel_strategy(prs: Presentation, data: Dict):
     """Build a full-bleed section divider slide for Channel Strategy."""
@@ -1665,36 +2178,71 @@ def _build_slide_divider_channel_strategy(prs: Presentation, data: Dict):
 
     # Section number
     _add_textbox(
-        slide, Inches(0.6), Inches(2.2), Inches(3), Inches(0.5),
-        text="02", font_size=18, bold=True, color=LIGHT_TEAL,
+        slide,
+        Inches(0.6),
+        Inches(2.2),
+        Inches(3),
+        Inches(0.5),
+        text="02",
+        font_size=18,
+        bold=True,
+        color=LIGHT_TEAL,
     )
 
     # Large section title
     _add_textbox(
-        slide, Inches(0.6), Inches(3.1), Inches(10), Inches(1.5),
-        text="Channel Strategy\n& Investment", font_size=48, bold=True, color=WHITE,
+        slide,
+        Inches(0.6),
+        Inches(3.1),
+        Inches(10),
+        Inches(1.5),
+        text="Channel Strategy\n& Investment",
+        font_size=48,
+        bold=True,
+        color=WHITE,
     )
 
     # Subtitle
     _add_textbox(
-        slide, Inches(0.6), Inches(5.0), Inches(8), Inches(0.5),
+        slide,
+        Inches(0.6),
+        Inches(5.0),
+        Inches(8),
+        Inches(0.5),
         text="Optimized channel mix with programmatic intelligence",
-        font_size=16, italic=True, color=PALE_BLUE,
+        font_size=16,
+        italic=True,
+        color=PALE_BLUE,
     )
 
     # Bottom teal bar
-    _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.06), SLIDE_WIDTH, Inches(0.06), TEAL)
+    _add_filled_rect(
+        slide, Inches(0), SLIDE_HEIGHT - Inches(0.06), SLIDE_WIDTH, Inches(0.06), TEAL
+    )
 
     # Decorative shapes right side
-    _add_oval(slide, Inches(10.5), Inches(1.0), Inches(3.5), Inches(3.5),
-              RGBColor(0x09, 0x58, 0xB0))
-    _add_oval(slide, Inches(11.5), Inches(3.5), Inches(2.5), Inches(2.5),
-              RGBColor(0x08, 0x50, 0xA0))
+    _add_oval(
+        slide,
+        Inches(10.5),
+        Inches(1.0),
+        Inches(3.5),
+        Inches(3.5),
+        RGBColor(0x09, 0x58, 0xB0),
+    )
+    _add_oval(
+        slide,
+        Inches(11.5),
+        Inches(3.5),
+        Inches(2.5),
+        Inches(2.5),
+        RGBColor(0x08, 0x50, 0xA0),
+    )
 
 
 # ===================================================================
 # SLIDE 4 - Channel Strategy & Investment with Attribution Diagram
 # ===================================================================
+
 
 def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     """Build the Channel Strategy slide with channel mix bars, benchmarks, and attribution."""
@@ -1725,8 +2273,15 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         f"reach for {client}'s {industry_label} hiring priorities"
     )
     _add_textbox(
-        slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.5),
-        text=action_text, font_size=15, bold=True, color=NAVY,
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.5),
+        text=action_text,
+        font_size=15,
+        bold=True,
+        color=NAVY,
     )
 
     # ==== LEFT: Channel Mix with horizontal bars ====
@@ -1735,11 +2290,24 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
 
     # Section header with teal underline
     _add_textbox(
-        slide, left_col_left, section_top, Inches(4), Inches(0.35),
-        text="CHANNEL MIX", font_size=11, bold=True, color=NAVY,
+        slide,
+        left_col_left,
+        section_top,
+        Inches(4),
+        Inches(0.35),
+        text="CHANNEL MIX",
+        font_size=11,
+        bold=True,
+        color=NAVY,
     )
-    _add_filled_rect(slide, left_col_left, section_top + Inches(0.33),
-                     Inches(1.3), Inches(0.03), TEAL)
+    _add_filled_rect(
+        slide,
+        left_col_left,
+        section_top + Inches(0.33),
+        Inches(1.3),
+        Inches(0.03),
+        TEAL,
+    )
 
     bar_area_top = section_top + Inches(0.5)
     bar_max_w = Inches(3.5)
@@ -1748,25 +2316,30 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     label_w = Inches(2.3)
 
     # Override channel percentages with real budget allocation if available
-    ba_channel_alloc = budget_alloc.get("channel_allocations", {}) if budget_alloc else {}
+    ba_channel_alloc = (
+        budget_alloc.get("channel_allocations", {}) if budget_alloc else {}
+    )
     if ba_channel_alloc:
         # Map budget engine channel names to display channels
-        ba_total_budget = budget_alloc.get("metadata", {}).get("total_budget", 0)
+        ba_total_budget = budget_alloc.get("metadata", {}).get("total_budget") or 0
         for ch_key, ch_data in channels.items():
             # Try exact key match, then fuzzy label match
             ba_match = ba_channel_alloc.get(ch_key)
             if not ba_match:
                 # Try matching by label (case-insensitive)
-                ch_label_lower = ch_data.get("label", "").lower()
+                ch_label_lower = ch_data.get("label") or "".lower()
                 for ba_key, ba_val in ba_channel_alloc.items():
                     if isinstance(ba_val, dict):
                         ba_label = ba_val.get("label", ba_key).lower()
-                        if ba_label == ch_label_lower or ba_key.lower() == ch_key.lower():
+                        if (
+                            ba_label == ch_label_lower
+                            or ba_key.lower() == ch_key.lower()
+                        ):
                             ba_match = ba_val
                             break
             if ba_match and isinstance(ba_match, dict):
-                real_pct = ba_match.get("percentage", 0)
-                real_dollar = ba_match.get("dollar_amount", 0)
+                real_pct = ba_match.get("percentage") or 0
+                real_dollar = ba_match.get("dollar_amount") or 0
                 if real_pct > 0:
                     ch_data["pct"] = round(real_pct)
                 if real_dollar > 0:
@@ -1780,12 +2353,22 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         # Category label (include dollar amount if available from budget engine)
         label_text = ch["label"]
         if ch.get("_dollar_amount"):
-            label_text = f"{ch['label']} ({_fmt_currency(ch['_dollar_amount'], compact=True)})"
+            label_text = (
+                f"{ch['label']} ({_fmt_currency(ch['_dollar_amount'], compact=True)})"
+            )
 
         _add_textbox(
-            slide, left_col_left, row_y, label_w, bar_h,
-            text=label_text, font_size=9, bold=True, color=DARK_TEXT,
-            alignment=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE,
+            slide,
+            left_col_left,
+            row_y,
+            label_w,
+            bar_h,
+            text=label_text,
+            font_size=9,
+            bold=True,
+            color=DARK_TEXT,
+            alignment=PP_ALIGN.RIGHT,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
 
         # Bar
@@ -1796,13 +2379,26 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
 
         bar_left = left_col_left + label_w + Inches(0.15)
         bar_color = ch.get("color", BLUE)
-        _add_rounded_rect(slide, bar_left, row_y + Inches(0.04),
-                          bar_w_val, bar_h - Inches(0.08), bar_color)
+        _add_rounded_rect(
+            slide,
+            bar_left,
+            row_y + Inches(0.04),
+            bar_w_val,
+            bar_h - Inches(0.08),
+            bar_color,
+        )
 
         # Percentage
         _add_textbox(
-            slide, bar_left + bar_w_val + Inches(0.08), row_y, Inches(0.6), bar_h,
-            text=f"{pct}%", font_size=10, bold=True, color=NAVY,
+            slide,
+            bar_left + bar_w_val + Inches(0.08),
+            row_y,
+            Inches(0.6),
+            bar_h,
+            text=f"{pct}%",
+            font_size=10,
+            bold=True,
+            color=NAVY,
             anchor=MSO_ANCHOR.MIDDLE,
         )
 
@@ -1811,11 +2407,24 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     right_col_w = Inches(5.3)
 
     _add_textbox(
-        slide, right_col_left, section_top, right_col_w, Inches(0.35),
-        text="INDUSTRY BENCHMARKS", font_size=11, bold=True, color=NAVY,
+        slide,
+        right_col_left,
+        section_top,
+        right_col_w,
+        Inches(0.35),
+        text="INDUSTRY BENCHMARKS",
+        font_size=11,
+        bold=True,
+        color=NAVY,
     )
-    _add_filled_rect(slide, right_col_left, section_top + Inches(0.33),
-                     Inches(2.0), Inches(0.03), TEAL)
+    _add_filled_rect(
+        slide,
+        right_col_left,
+        section_top + Inches(0.33),
+        Inches(2.0),
+        Inches(0.03),
+        TEAL,
+    )
 
     table_top = section_top + Inches(0.5)
     table_left = right_col_left
@@ -1825,7 +2434,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     # Build benchmark rows with trend annotations (v3)
     cpc_val = benchmarks["cpc"]
     cpa_val = benchmarks["cpa"]
-    cpc_trend = benchmarks.get("cpc_trend", "")
+    cpc_trend = benchmarks.get("cpc_trend") or ""
     if cpc_trend:
         cpc_val = f"{cpc_val}  ({cpc_trend})"
     bench_rows = [
@@ -1836,7 +2445,11 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     ]
 
     # Add real job market data -- prefer synthesized over raw enrichment
-    job_market = synthesized.get("job_market_demand", {}) if isinstance(synthesized, dict) and synthesized else {}
+    job_market = (
+        synthesized.get("job_market_demand", {})
+        if isinstance(synthesized, dict) and synthesized
+        else {}
+    )
     if not job_market:
         enriched = data.get("_enriched", {})
         job_market = enriched.get("job_market", {}) if enriched else {}
@@ -1846,18 +2459,23 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 if not isinstance(jm_data, dict) or role_name.startswith("_"):
                     continue
                 # Handle both synthesized (total_postings) and raw enriched (posting_count) keys
-                posting_count = jm_data.get("total_postings", jm_data.get("posting_count", 0))
-                avg_sal = jm_data.get("avg_salary", 0)
+                posting_count = jm_data.get(
+                    "total_postings", jm_data.get("posting_count") or 0
+                )
+                avg_sal = jm_data.get("avg_salary") or 0
                 if posting_count and posting_count > 0:
                     bench_rows.append(
-                        (f"Live Postings: {role_name}", f"{posting_count:,} active jobs")
+                        (
+                            f"Live Postings: {role_name}",
+                            f"{posting_count:,} active jobs",
+                        )
                     )
                 if avg_sal and avg_sal > 0:
                     bench_rows.append(
                         (f"Avg Salary: {role_name}", _format_salary(avg_sal))
                     )
                 # Synthesized data may have market_temperature
-                market_temp = jm_data.get("market_temperature", "")
+                market_temp = jm_data.get("market_temperature") or ""
                 if market_temp and isinstance(market_temp, str):
                     bench_rows.append(
                         (f"Market Temp: {role_name}", market_temp.title())
@@ -1872,23 +2490,19 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             for plat_name, plat_data in list(ad_plat.items())[:5]:
                 if not isinstance(plat_data, dict) or plat_name.startswith("_"):
                     continue
-                plat_label = plat_data.get("platform_name", plat_name.replace("_", " ").title())
-                plat_cpc = plat_data.get("CPC", plat_data.get("cpc", 0))
-                plat_cpa = plat_data.get("CPA", plat_data.get("cpa", 0))
-                plat_reach = plat_data.get("estimated_reach", 0)
-                fit_score = plat_data.get("fit_score", 0)
+                plat_label = plat_data.get(
+                    "platform_name", plat_name.replace("_", " ").title()
+                )
+                plat_cpc = plat_data.get("CPC", plat_data.get("cpc") or 0)
+                plat_cpa = plat_data.get("CPA", plat_data.get("cpa") or 0)
+                plat_reach = plat_data.get("estimated_reach") or 0
+                fit_score = plat_data.get("fit_score") or 0
                 if plat_cpc and plat_cpc > 0:
-                    bench_rows.append(
-                        (f"{plat_label} CPC", _fmt_currency(plat_cpc))
-                    )
+                    bench_rows.append((f"{plat_label} CPC", _fmt_currency(plat_cpc)))
                 if plat_cpa and plat_cpa > 0:
-                    bench_rows.append(
-                        (f"{plat_label} CPA", _fmt_currency(plat_cpa))
-                    )
+                    bench_rows.append((f"{plat_label} CPA", _fmt_currency(plat_cpa)))
                 if plat_reach and plat_reach > 0:
-                    bench_rows.append(
-                        (f"{plat_label} Est. Reach", f"{plat_reach:,}")
-                    )
+                    bench_rows.append((f"{plat_label} Est. Reach", f"{plat_reach:,}"))
                 if fit_score and fit_score > 0:
                     bench_rows.append(
                         (f"{plat_label} Fit Score", _fmt_pct(fit_score, decimals=0))
@@ -1904,7 +2518,10 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                     best_for = deep.get("best_for", [])
                     if isinstance(best_for, list) and best_for:
                         bench_rows.append(
-                            (f"{plat_label} Best For", ", ".join(str(b) for b in best_for[:3]))
+                            (
+                                f"{plat_label} Best For",
+                                ", ".join(str(b) for b in best_for[:3]),
+                            )
                         )
         except (TypeError, AttributeError):
             pass
@@ -1918,7 +2535,9 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                     for bk, bv in list(bidding.items())[:2]:
                         label = str(bk).replace("_", " ").title()
                         if isinstance(bv, dict):
-                            desc = bv.get("description", str(next(iter(bv.values()), "")))
+                            desc = bv.get(
+                                "description", str(next(iter(bv.values()), ""))
+                            )
                         else:
                             desc = str(bv)
                         bench_rows.append((f"Bidding: {label}", str(desc)[:40]))
@@ -1931,12 +2550,27 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     # Table header
     _add_filled_rect(slide, table_left, table_top, table_w, row_h, NAVY)
     _add_textbox(
-        slide, table_left + Inches(0.15), table_top, Inches(2.2), row_h,
-        text="Metric", font_size=9, bold=True, color=WHITE, anchor=MSO_ANCHOR.MIDDLE,
+        slide,
+        table_left + Inches(0.15),
+        table_top,
+        Inches(2.2),
+        row_h,
+        text="Metric",
+        font_size=9,
+        bold=True,
+        color=WHITE,
+        anchor=MSO_ANCHOR.MIDDLE,
     )
     _add_textbox(
-        slide, table_left + Inches(2.4), table_top, Inches(2.5), row_h,
-        text=f"{industry_label} Range", font_size=9, bold=True, color=WHITE,
+        slide,
+        table_left + Inches(2.4),
+        table_top,
+        Inches(2.5),
+        row_h,
+        text=f"{industry_label} Range",
+        font_size=9,
+        bold=True,
+        color=WHITE,
         anchor=MSO_ANCHOR.MIDDLE,
     )
 
@@ -1949,19 +2583,40 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         bg = WHITE if i % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
         _add_filled_rect(slide, table_left, ry, table_w, row_h, bg)
         # Thin ruled line between rows (McKinsey/Bain style)
-        _add_filled_rect(slide, table_left, ry + row_h - Inches(0.01),
-                         table_w, Inches(0.01), WARM_GRAY)
+        _add_filled_rect(
+            slide,
+            table_left,
+            ry + row_h - Inches(0.01),
+            table_w,
+            Inches(0.01),
+            WARM_GRAY,
+        )
 
         _add_textbox(
-            slide, table_left + Inches(0.15), ry, Inches(2.2), row_h,
-            text=metric, font_size=9, bold=True, color=DARK_TEXT, anchor=MSO_ANCHOR.MIDDLE,
+            slide,
+            table_left + Inches(0.15),
+            ry,
+            Inches(2.2),
+            row_h,
+            text=metric,
+            font_size=9,
+            bold=True,
+            color=DARK_TEXT,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
         # Use confidence-colored text for industry benchmark rows (first 4)
         # Live API rows use green, trend engine uses blue, curated uses navy
         val_color = conf_value_color if i < 4 else NAVY
         _add_textbox(
-            slide, table_left + Inches(2.4), ry, Inches(2.5), row_h,
-            text=str(value), font_size=10, bold=True, color=val_color,
+            slide,
+            table_left + Inches(2.4),
+            ry,
+            Inches(2.5),
+            row_h,
+            text=str(value),
+            font_size=10,
+            bold=True,
+            color=val_color,
             anchor=MSO_ANCHOR.MIDDLE,
         )
 
@@ -1973,19 +2628,33 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     if ad_plat:
         source_text += ", Nova AI Suite Ad Platform Intelligence"
     _add_textbox(
-        slide, table_left, source_top, table_w, Inches(0.2),
+        slide,
+        table_left,
+        source_top,
+        table_w,
+        Inches(0.2),
         text=source_text,
-        font_size=7, italic=True, color=MUTED_TEXT,
+        font_size=7,
+        italic=True,
+        color=MUTED_TEXT,
     )
 
     # ==== CHANNEL ATTRIBUTION DIAGRAM (bottom area) ====
     attrib_top = Inches(4.85)
     _add_textbox(
-        slide, Inches(0.55), attrib_top, Inches(12.2), Inches(0.35),
-        text="CHANNEL CATEGORY ATTRIBUTION", font_size=11, bold=True, color=NAVY,
+        slide,
+        Inches(0.55),
+        attrib_top,
+        Inches(12.2),
+        Inches(0.35),
+        text="CHANNEL CATEGORY ATTRIBUTION",
+        font_size=11,
+        bold=True,
+        color=NAVY,
     )
-    _add_filled_rect(slide, Inches(0.55), attrib_top + Inches(0.33),
-                     Inches(2.8), Inches(0.03), TEAL)
+    _add_filled_rect(
+        slide, Inches(0.55), attrib_top + Inches(0.33), Inches(2.8), Inches(0.03), TEAL
+    )
 
     # Build category groups
     cat_groups = _channel_categories_grouped(channels)
@@ -2006,7 +2675,11 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
 
     if n_groups > 0:
         box_gap = Inches(0.15)
-        box_w = (total_available_w - box_gap * (n_groups - 1)) / n_groups if n_groups > 1 else total_available_w
+        box_w = (
+            (total_available_w - box_gap * (n_groups - 1)) / n_groups
+            if n_groups > 1
+            else total_available_w
+        )
         overlap_w = Inches(0.3)  # visual overlap zone
 
         for gi, (cat_name, cat_channels) in enumerate(cat_groups.items()):
@@ -2018,27 +2691,49 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
 
             # Category name
             _add_textbox(
-                slide, bx + Inches(0.15), box_top + Inches(0.08), box_w - Inches(0.3), Inches(0.3),
-                text=cat_name.upper(), font_size=10, bold=True, color=text_color,
+                slide,
+                bx + Inches(0.15),
+                box_top + Inches(0.08),
+                box_w - Inches(0.3),
+                Inches(0.3),
+                text=cat_name.upper(),
+                font_size=10,
+                bold=True,
+                color=text_color,
             )
 
             # Total percentage for this category
             cat_pct = sum(c["pct"] for c in cat_channels)
             _add_textbox(
-                slide, bx + Inches(0.15), box_top + Inches(0.35), box_w - Inches(0.3), Inches(0.35),
-                text=f"{cat_pct}%", font_size=22, bold=True, color=text_color,
+                slide,
+                bx + Inches(0.15),
+                box_top + Inches(0.35),
+                box_w - Inches(0.3),
+                Inches(0.35),
+                text=f"{cat_pct}%",
+                font_size=22,
+                bold=True,
+                color=text_color,
             )
 
             # Channel list
             ch_list = ", ".join(c["label"] for c in cat_channels)
             _add_textbox(
-                slide, bx + Inches(0.15), box_top + Inches(0.72), box_w - Inches(0.3), Inches(0.42),
-                text=ch_list, font_size=7, color=text_color,
+                slide,
+                bx + Inches(0.15),
+                box_top + Inches(0.72),
+                box_w - Inches(0.3),
+                Inches(0.42),
+                text=ch_list,
+                font_size=7,
+                color=text_color,
             )
 
         # Overlap connectors between categories (teal diamonds)
         for gi in range(n_groups - 1):
-            connector_x = Inches(0.55) + (gi + 1) * (box_w + box_gap) - box_gap / 2 - Inches(0.12)
+            connector_x = (
+                Inches(0.55) + (gi + 1) * (box_w + box_gap) - box_gap / 2 - Inches(0.12)
+            )
             connector_y = box_top + box_h / 2 - Inches(0.12)
             diamond = slide.shapes.add_shape(
                 MSO_SHAPE.DIAMOND, connector_x, connector_y, Inches(0.24), Inches(0.24)
@@ -2057,6 +2752,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
 # ===================================================================
 # SLIDE 5 - Quality & ROI Outcomes Grid
 # ===================================================================
+
 
 def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     """Build the Quality Outcomes grid slide with 4-quadrant metrics."""
@@ -2088,8 +2784,15 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         f"for {client}'s programmatic media plan"
     )
     _add_textbox(
-        slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.5),
-        text=action_text, font_size=15, bold=True, color=NAVY,
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.5),
+        text=action_text,
+        font_size=15,
+        bold=True,
+        color=NAVY,
     )
 
     # ---- HERO STAT at top center ----
@@ -2103,16 +2806,33 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     # Hero number
     budget_display = _format_budget_display(budget)
     _add_textbox(
-        slide, Inches(3.5), hero_top + Inches(0.12), Inches(6.33), Inches(0.75),
+        slide,
+        Inches(3.5),
+        hero_top + Inches(0.12),
+        Inches(6.33),
+        Inches(0.75),
         text=budget_display if budget_display != budget else f"{n_channels} Channels",
-        font_size=44, bold=True, color=BLUE,
-        alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+        font_size=44,
+        bold=True,
+        color=BLUE,
+        alignment=PP_ALIGN.CENTER,
+        anchor=MSO_ANCHOR.MIDDLE,
     )
-    hero_subtitle = "Total Campaign Investment" if budget_display != budget else "Selected for Maximum Impact"
+    hero_subtitle = (
+        "Total Campaign Investment"
+        if budget_display != budget
+        else "Selected for Maximum Impact"
+    )
     _add_textbox(
-        slide, Inches(3.5), hero_top + Inches(0.85), Inches(6.33), Inches(0.35),
+        slide,
+        Inches(3.5),
+        hero_top + Inches(0.85),
+        Inches(6.33),
+        Inches(0.35),
         text=hero_subtitle,
-        font_size=12, bold=False, color=MUTED_TEXT,
+        font_size=12,
+        bold=False,
+        color=MUTED_TEXT,
         alignment=PP_ALIGN.CENTER,
     )
 
@@ -2124,17 +2844,19 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     if not isinstance(ba_metadata_qo, dict):
         ba_metadata_qo = {}
 
-    proj_clicks = ba_total_proj.get("clicks", 0)
-    proj_apps = ba_total_proj.get("applications", 0)
-    projected_hires = ba_total_proj.get("hires", 0)
-    real_avg_cpa = ba_total_proj.get("cost_per_application", 0)
-    ba_avg_cph = ba_total_proj.get("cost_per_hire", 0)
+    proj_clicks = ba_total_proj.get("clicks") or 0
+    proj_apps = ba_total_proj.get("applications") or 0
+    projected_hires = ba_total_proj.get("hires") or 0
+    real_avg_cpa = ba_total_proj.get("cost_per_application") or 0
+    ba_avg_cph = ba_total_proj.get("cost_per_hire") or 0
 
     benchmarks = _get_benchmarks(industry, data)
     cpa_str = benchmarks.get("cpa", "$25")
     try:
-        cpa_nums = re.findall(r'[\d.]+', cpa_str.replace(",", ""))
-        benchmark_avg_cpa = sum(float(x) for x in cpa_nums) / len(cpa_nums) if cpa_nums else 25
+        cpa_nums = re.findall(r"[\d.]+", cpa_str.replace(",", ""))
+        benchmark_avg_cpa = (
+            sum(float(x) for x in cpa_nums) / len(cpa_nums) if cpa_nums else 25
+        )
     except Exception:
         benchmark_avg_cpa = 25
     avg_cpa = real_avg_cpa if real_avg_cpa and real_avg_cpa > 0 else benchmark_avg_cpa
@@ -2145,8 +2867,15 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
 
     # Section label
     _add_textbox(
-        slide, Inches(0.55), Inches(1.5), Inches(5), Inches(0.28),
-        text="CAMPAIGN PROJECTIONS SUMMARY", font_size=10, bold=True, color=BLUE,
+        slide,
+        Inches(0.55),
+        Inches(1.5),
+        Inches(5),
+        Inches(0.28),
+        text="CAMPAIGN PROJECTIONS SUMMARY",
+        font_size=10,
+        bold=True,
+        color=BLUE,
     )
     _add_filled_rect(slide, Inches(0.55), Inches(1.76), Inches(2.5), Inches(0.03), TEAL)
 
@@ -2190,13 +2919,28 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         _add_rounded_rect(slide, sx, summary_top, card_w, summary_h, WHITE)
         _add_filled_rect(slide, sx, summary_top, card_w, Inches(0.04), sm["accent"])
         _add_textbox(
-            slide, sx, summary_top + Inches(0.1), card_w, Inches(0.5),
-            text=sm["value"], font_size=26, bold=True, color=sm["accent"],
-            alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+            slide,
+            sx,
+            summary_top + Inches(0.1),
+            card_w,
+            Inches(0.5),
+            text=sm["value"],
+            font_size=26,
+            bold=True,
+            color=sm["accent"],
+            alignment=PP_ALIGN.CENTER,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
         _add_textbox(
-            slide, sx, summary_top + Inches(0.65), card_w, Inches(0.25),
-            text=sm["label"], font_size=9, bold=False, color=MUTED_TEXT,
+            slide,
+            sx,
+            summary_top + Inches(0.65),
+            card_w,
+            Inches(0.25),
+            text=sm["label"],
+            font_size=9,
+            bold=False,
+            color=MUTED_TEXT,
             alignment=PP_ALIGN.CENTER,
         )
 
@@ -2207,12 +2951,21 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
 
     # Section label
     _add_textbox(
-        slide, ch_table_left, ch_table_top, Inches(5), Inches(0.28),
-        text="CHANNEL-BY-CHANNEL PROJECTIONS", font_size=10, bold=True, color=BLUE,
+        slide,
+        ch_table_left,
+        ch_table_top,
+        Inches(5),
+        Inches(0.28),
+        text="CHANNEL-BY-CHANNEL PROJECTIONS",
+        font_size=10,
+        bold=True,
+        color=BLUE,
     )
 
     # Get channel allocations
-    ba_channel_alloc_qo = budget_alloc.get("channel_allocations", {}) if budget_alloc else {}
+    ba_channel_alloc_qo = (
+        budget_alloc.get("channel_allocations", {}) if budget_alloc else {}
+    )
     if not isinstance(ba_channel_alloc_qo, dict):
         ba_channel_alloc_qo = {}
 
@@ -2221,49 +2974,77 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     for ch_key, ch_data in ba_channel_alloc_qo.items():
         if not isinstance(ch_data, dict):
             continue
-        ch_display_list.append({
-            "label": ch_key.replace("_", " ").title(),
-            "budget": ch_data.get("dollar_amount", ch_data.get("dollars", 0)),
-            "clicks": ch_data.get("projected_clicks", 0),
-            "apps": ch_data.get("projected_applications", 0),
-            "hires": ch_data.get("projected_hires", 0),
-            "cpa": ch_data.get("cpa", ch_data.get("cost_per_application", 0)),
-        })
+        ch_display_list.append(
+            {
+                "label": ch_key.replace("_", " ").title(),
+                "budget": ch_data.get("dollar_amount", ch_data.get("dollars") or 0),
+                "clicks": ch_data.get("projected_clicks") or 0,
+                "apps": ch_data.get("projected_applications") or 0,
+                "hires": ch_data.get("projected_hires") or 0,
+                "cpa": ch_data.get("cpa", ch_data.get("cost_per_application") or 0),
+            }
+        )
 
     # If no budget engine data, try to build from channels dict
     if not ch_display_list:
-        ba_total_budget_qo = ba_metadata_qo.get("total_budget", 0)
+        ba_total_budget_qo = ba_metadata_qo.get("total_budget") or 0
         for ch_key, ch_data in channels.items():
-            ch_pct = ch_data.get("pct", 0)
-            ch_dollars = ba_total_budget_qo * ch_pct / 100.0 if ba_total_budget_qo > 0 else 0
-            ch_display_list.append({
-                "label": ch_data.get("label", ch_key.replace("_", " ").title()),
-                "budget": ch_dollars,
-                "clicks": 0,
-                "apps": 0,
-                "hires": 0,
-                "cpa": 0,
-            })
+            ch_pct = ch_data.get("pct") or 0
+            ch_dollars = (
+                ba_total_budget_qo * ch_pct / 100.0 if ba_total_budget_qo > 0 else 0
+            )
+            ch_display_list.append(
+                {
+                    "label": ch_data.get("label", ch_key.replace("_", " ").title()),
+                    "budget": ch_dollars,
+                    "clicks": 0,
+                    "apps": 0,
+                    "hires": 0,
+                    "cpa": 0,
+                }
+            )
 
     # Sort by budget descending, take top 5
-    ch_display_list.sort(key=lambda c: c.get("budget", 0), reverse=True)
+    ch_display_list.sort(key=lambda c: c.get("budget") or 0, reverse=True)
     ch_display_top5 = ch_display_list[:5]
 
     # Table header row
     header_y = ch_table_top + Inches(0.32)
     row_h = Inches(0.34)
-    col_widths_qo = [Inches(3.0), Inches(2.0), Inches(1.8), Inches(1.8), Inches(1.8), Inches(1.8)]
+    col_widths_qo = [
+        Inches(3.0),
+        Inches(2.0),
+        Inches(1.8),
+        Inches(1.8),
+        Inches(1.8),
+        Inches(1.8),
+    ]
     col_headers_qo = ["Channel", "Budget", "Clicks", "Applications", "Hires", "CPA"]
-    col_aligns_qo = [PP_ALIGN.LEFT, PP_ALIGN.CENTER, PP_ALIGN.CENTER, PP_ALIGN.CENTER, PP_ALIGN.CENTER, PP_ALIGN.CENTER]
+    col_aligns_qo = [
+        PP_ALIGN.LEFT,
+        PP_ALIGN.CENTER,
+        PP_ALIGN.CENTER,
+        PP_ALIGN.CENTER,
+        PP_ALIGN.CENTER,
+        PP_ALIGN.CENTER,
+    ]
 
     # Header background
     _add_filled_rect(slide, ch_table_left, header_y, ch_table_w, row_h, NAVY)
     cx = ch_table_left
     for ci, (header, cw) in enumerate(zip(col_headers_qo, col_widths_qo)):
         _add_textbox(
-            slide, cx + Inches(0.1), header_y, cw - Inches(0.1), row_h,
-            text=header, font_size=9, bold=True, color=WHITE,
-            alignment=col_aligns_qo[ci], anchor=MSO_ANCHOR.MIDDLE,
+            slide,
+            cx + Inches(0.1),
+            header_y,
+            cw - Inches(0.1),
+            row_h,
+            text=header,
+            font_size=9,
+            bold=True,
+            color=WHITE,
+            alignment=col_aligns_qo[ci],
+            anchor=MSO_ANCHOR.MIDDLE,
         )
         cx += cw
 
@@ -2286,11 +3067,17 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         for ci, (val, cw) in enumerate(zip(row_values, col_widths_qo)):
             left_pad = Inches(0.15) if ci == 0 else Inches(0.1)
             _add_textbox(
-                slide, cx + left_pad, row_y, cw - left_pad, row_h,
-                text=val, font_size=9,
+                slide,
+                cx + left_pad,
+                row_y,
+                cw - left_pad,
+                row_h,
+                text=val,
+                font_size=9,
                 bold=(ci == 0),
                 color=DARK_TEXT,
-                alignment=col_aligns_qo[ci], anchor=MSO_ANCHOR.MIDDLE,
+                alignment=col_aligns_qo[ci],
+                anchor=MSO_ANCHOR.MIDDLE,
             )
             cx += cw
 
@@ -2298,7 +3085,9 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     _suff_data = budget_alloc.get("sufficiency", {}) if budget_alloc else {}
     if not isinstance(_suff_data, dict):
         _suff_data = {}
-    _budget_reality = budget_alloc.get("budget_reality_check", {}) if budget_alloc else {}
+    _budget_reality = (
+        budget_alloc.get("budget_reality_check", {}) if budget_alloc else {}
+    )
     if not isinstance(_budget_reality, dict):
         _budget_reality = {}
 
@@ -2307,28 +3096,30 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
 
     # Check budget_reality_check first (if another agent added it)
     if _budget_reality:
-        _feas_tier = _budget_reality.get("feasibility_tier", "")
+        _feas_tier = _budget_reality.get("feasibility_tier") or ""
         if _feas_tier in ("impossible", "severely_underfunded"):
             _is_critical = True
-            _reality_message = _budget_reality.get("feasibility_message", "")
+            _reality_message = _budget_reality.get("feasibility_message") or ""
             if not _reality_message:
                 _reality_message = (
                     f"Budget is {_budget_reality.get('feasibility_label', 'severely underfunded')}. "
-                    f"Budget per hire: ${_budget_reality.get('budget_per_hire', 0):,.0f} vs. "
-                    f"industry avg: ${_budget_reality.get('industry_avg_cph', 0):,.0f}."
+                    f"Budget per hire: ${_budget_reality.get('budget_per_hire') or 0:,.0f} vs. "
+                    f"industry avg: ${_budget_reality.get('industry_avg_cph') or 0:,.0f}."
                 )
     # Fall back to sufficiency data
     elif _suff_data and not _suff_data.get("sufficient", True):
         _is_critical = True
-        _gap = _suff_data.get("gap_amount", 0)
-        _avg_cph_suff = _suff_data.get("industry_avg_cost_per_hire", 0)
-        _bpo = _suff_data.get("budget_per_opening", 0)
+        _gap = _suff_data.get("gap_amount") or 0
+        _avg_cph_suff = _suff_data.get("industry_avg_cost_per_hire") or 0
+        _bpo = _suff_data.get("budget_per_opening") or 0
         _reality_message = (
             f"Budget per opening (${_bpo:,.0f}) is below industry average "
             f"cost-per-hire (${_avg_cph_suff:,.0f}). "
         )
         if _gap > 0:
-            _reality_message += f"An additional ${_gap:,.0f} is recommended to meet all hiring targets."
+            _reality_message += (
+                f"An additional ${_gap:,.0f} is recommended to meet all hiring targets."
+            )
 
     # Position for reality check or insight callout
     bottom_section_top = Inches(5.15)
@@ -2339,20 +3130,46 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         reality_h = Inches(0.7)
         RED_BG = RGBColor(0xFD, 0xE8, 0xE8)
         RED_ACCENT = RGBColor(0xC6, 0x28, 0x28)
-        _add_rounded_rect(slide, Inches(0.55), reality_top, Inches(12.2), reality_h, RED_BG)
-        _add_filled_rect(slide, Inches(0.55), reality_top, Inches(0.06), reality_h, RED_ACCENT)
+        _add_rounded_rect(
+            slide, Inches(0.55), reality_top, Inches(12.2), reality_h, RED_BG
+        )
+        _add_filled_rect(
+            slide, Inches(0.55), reality_top, Inches(0.06), reality_h, RED_ACCENT
+        )
 
         # Badge
-        _add_rounded_rect(slide, Inches(0.85), reality_top + Inches(0.17), Inches(2.0), Inches(0.35), RED_ACCENT)
+        _add_rounded_rect(
+            slide,
+            Inches(0.85),
+            reality_top + Inches(0.17),
+            Inches(2.0),
+            Inches(0.35),
+            RED_ACCENT,
+        )
         _add_textbox(
-            slide, Inches(0.85), reality_top + Inches(0.17), Inches(2.0), Inches(0.35),
-            text="BUDGET REALITY CHECK", font_size=8, bold=True, color=WHITE,
-            alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+            slide,
+            Inches(0.85),
+            reality_top + Inches(0.17),
+            Inches(2.0),
+            Inches(0.35),
+            text="BUDGET REALITY CHECK",
+            font_size=8,
+            bold=True,
+            color=WHITE,
+            alignment=PP_ALIGN.CENTER,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
 
         _add_textbox(
-            slide, Inches(3.1), reality_top + Inches(0.1), Inches(9.4), reality_h - Inches(0.15),
-            text=_reality_message, font_size=10, bold=False, color=RGBColor(0xC6, 0x28, 0x28),
+            slide,
+            Inches(3.1),
+            reality_top + Inches(0.1),
+            Inches(9.4),
+            reality_h - Inches(0.15),
+            text=_reality_message,
+            font_size=10,
+            bold=False,
+            color=RGBColor(0xC6, 0x28, 0x28),
         )
 
         # Shift insight callout below
@@ -2362,15 +3179,27 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
 
     # ---- KEY INSIGHT CALLOUT BOX ----
     insight_h = Inches(0.85)
-    _add_rounded_rect(slide, Inches(0.55), insight_top, Inches(12.2), insight_h, PALE_TEAL)
+    _add_rounded_rect(
+        slide, Inches(0.55), insight_top, Inches(12.2), insight_h, PALE_TEAL
+    )
     _add_filled_rect(slide, Inches(0.55), insight_top, Inches(0.06), insight_h, TEAL)
 
     # Insight icon/badge
-    _add_rounded_rect(slide, Inches(0.85), insight_top + Inches(0.15), Inches(1.0), Inches(0.35), TEAL)
+    _add_rounded_rect(
+        slide, Inches(0.85), insight_top + Inches(0.15), Inches(1.0), Inches(0.35), TEAL
+    )
     _add_textbox(
-        slide, Inches(0.85), insight_top + Inches(0.15), Inches(1.0), Inches(0.35),
-        text="KEY INSIGHT", font_size=8, bold=True, color=WHITE,
-        alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+        slide,
+        Inches(0.85),
+        insight_top + Inches(0.15),
+        Inches(1.0),
+        Inches(0.35),
+        text="KEY INSIGHT",
+        font_size=8,
+        bold=True,
+        color=WHITE,
+        alignment=PP_ALIGN.CENTER,
+        anchor=MSO_ANCHOR.MIDDLE,
     )
 
     # Build insight text using real data when available
@@ -2393,7 +3222,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
 
     # Append projected hires if available from budget allocation
     if projected_hires and projected_hires > 0:
-        total_apps_insight = ba_total_proj.get("applications", 0)
+        total_apps_insight = ba_total_proj.get("applications") or 0
         if total_apps_insight and total_apps_insight > 0:
             insight_text += (
                 f" Budget engine projects {int(total_apps_insight):,} applications and "
@@ -2409,7 +3238,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     if salary_data:
         try:
             first_role = list(salary_data.keys())[0]
-            median = salary_data[first_role].get("median", 0)
+            median = salary_data[first_role].get("median") or 0
             source = salary_data[first_role].get("source", "BLS")
             if median > 0:
                 insight_text += (
@@ -2420,8 +3249,14 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
             pass
 
     _add_textbox(
-        slide, Inches(2.1), insight_top + Inches(0.08), Inches(10.4), insight_h - Inches(0.15),
-        text=insight_text, font_size=9, color=DARK_TEXT,
+        slide,
+        Inches(2.1),
+        insight_top + Inches(0.08),
+        Inches(10.4),
+        insight_h - Inches(0.15),
+        text=insight_text,
+        font_size=9,
+        color=DARK_TEXT,
     )
 
     # Enrichment badge
@@ -2434,6 +3269,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
 # ===================================================================
 # SLIDE 6 - Budget Allocation & Projections
 # ===================================================================
+
 
 def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     """Build a dedicated Budget Allocation slide showing dollar breakdown per channel,
@@ -2463,7 +3299,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     ba_metadata = budget_alloc.get("metadata", {})
     if not isinstance(ba_metadata, dict):
         ba_metadata = {}
-    ba_total_budget = ba_metadata.get("total_budget", 0)
+    ba_total_budget = ba_metadata.get("total_budget") or 0
 
     enriched = data.get("_enriched", {})
 
@@ -2480,8 +3316,15 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         f"with projected outcomes for {client}"
     )
     _add_textbox(
-        slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.45),
-        text=action_text, font_size=15, bold=True, color=NAVY,
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.45),
+        text=action_text,
+        font_size=15,
+        bold=True,
+        color=NAVY,
     )
 
     # ---- HERO STATS ROW (3 cards) ----
@@ -2492,14 +3335,18 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     hero_start_x = Inches(0.55)
 
     # Total Investment
-    total_display = f"${ba_total_budget:,.0f}" if ba_total_budget > 0 else _format_budget_display(budget)
+    total_display = (
+        f"${ba_total_budget:,.0f}"
+        if ba_total_budget > 0
+        else _format_budget_display(budget)
+    )
 
     # Projected Applications
-    proj_apps = ba_total_proj.get("applications", 0)
+    proj_apps = ba_total_proj.get("applications") or 0
     apps_display = f"{int(proj_apps):,}" if proj_apps and proj_apps > 0 else "--"
 
     # Projected Hires
-    proj_hires = ba_total_proj.get("hires", 0)
+    proj_hires = ba_total_proj.get("hires") or 0
     hires_display = f"{int(proj_hires):,}" if proj_hires and proj_hires > 0 else "--"
 
     hero_cards = [
@@ -2513,13 +3360,28 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         _add_rounded_rect(slide, hx, hero_top, hero_w, hero_h, WHITE)
         _add_filled_rect(slide, hx, hero_top, hero_w, Inches(0.05), hc["accent"])
         _add_textbox(
-            slide, hx, hero_top + Inches(0.12), hero_w, Inches(0.6),
-            text=hc["value"], font_size=34, bold=True, color=hc["accent"],
-            alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+            slide,
+            hx,
+            hero_top + Inches(0.12),
+            hero_w,
+            Inches(0.6),
+            text=hc["value"],
+            font_size=34,
+            bold=True,
+            color=hc["accent"],
+            alignment=PP_ALIGN.CENTER,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
         _add_textbox(
-            slide, hx, hero_top + Inches(0.72), hero_w, Inches(0.3),
-            text=hc["label"], font_size=11, bold=False, color=MUTED_TEXT,
+            slide,
+            hx,
+            hero_top + Inches(0.72),
+            hero_w,
+            Inches(0.3),
+            text=hc["label"],
+            font_size=11,
+            bold=False,
+            color=MUTED_TEXT,
             alignment=PP_ALIGN.CENTER,
         )
 
@@ -2530,8 +3392,15 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
 
     # Section label
     _add_textbox(
-        slide, table_left, table_top, Inches(5), Inches(0.3),
-        text="CHANNEL-BY-CHANNEL BREAKDOWN", font_size=10, bold=True, color=BLUE,
+        slide,
+        table_left,
+        table_top,
+        Inches(5),
+        Inches(0.3),
+        text="CHANNEL-BY-CHANNEL BREAKDOWN",
+        font_size=10,
+        bold=True,
+        color=BLUE,
     )
 
     # Map budget engine channel data onto our display channels
@@ -2539,7 +3408,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     for ch_key, ch_data in channels.items():
         entry = {
             "label": ch_data.get("label", ch_key.replace("_", " ").title()),
-            "pct": ch_data.get("pct", 0),
+            "pct": ch_data.get("pct") or 0,
             "color": ch_data.get("color", BLUE),
             "dollar": 0,
             "projected_apps": 0,
@@ -2549,7 +3418,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         # Match with budget engine data
         ba_match = ba_channel_alloc.get(ch_key)
         if not ba_match:
-            ch_label_lower = ch_data.get("label", "").lower()
+            ch_label_lower = ch_data.get("label") or "".lower()
             for ba_key, ba_val in ba_channel_alloc.items():
                 if isinstance(ba_val, dict):
                     ba_label = ba_val.get("label", ba_key).lower()
@@ -2557,11 +3426,11 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
                         ba_match = ba_val
                         break
         if ba_match and isinstance(ba_match, dict):
-            entry["dollar"] = ba_match.get("dollar_amount", 0)
-            entry["projected_apps"] = ba_match.get("projected_applications", 0)
-            entry["projected_hires"] = ba_match.get("projected_hires", 0)
-            entry["cpa"] = ba_match.get("cpa", 0)
-            real_pct = ba_match.get("percentage", 0)
+            entry["dollar"] = ba_match.get("dollar_amount") or 0
+            entry["projected_apps"] = ba_match.get("projected_applications") or 0
+            entry["projected_hires"] = ba_match.get("projected_hires") or 0
+            entry["cpa"] = ba_match.get("cpa") or 0
+            real_pct = ba_match.get("percentage") or 0
             if real_pct > 0:
                 entry["pct"] = round(real_pct)
         # Fallback: compute dollar from percentage if budget engine didn't provide it
@@ -2576,9 +3445,30 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     # Table header row
     header_y = table_top + Inches(0.35)
     row_h = Inches(0.38)
-    col_widths = [Inches(3.0), Inches(1.8), Inches(2.2), Inches(1.8), Inches(1.8), Inches(1.5)]
-    col_headers = ["Channel", "Allocation %", "Investment", "Proj. Apps", "Proj. Hires", "CPA"]
-    col_aligns = [PP_ALIGN.LEFT, PP_ALIGN.CENTER, PP_ALIGN.CENTER, PP_ALIGN.CENTER, PP_ALIGN.CENTER, PP_ALIGN.CENTER]
+    col_widths = [
+        Inches(3.0),
+        Inches(1.8),
+        Inches(2.2),
+        Inches(1.8),
+        Inches(1.8),
+        Inches(1.5),
+    ]
+    col_headers = [
+        "Channel",
+        "Allocation %",
+        "Investment",
+        "Proj. Apps",
+        "Proj. Hires",
+        "CPA",
+    ]
+    col_aligns = [
+        PP_ALIGN.LEFT,
+        PP_ALIGN.CENTER,
+        PP_ALIGN.CENTER,
+        PP_ALIGN.CENTER,
+        PP_ALIGN.CENTER,
+        PP_ALIGN.CENTER,
+    ]
 
     # Header background
     _add_filled_rect(slide, table_left, header_y, table_w, row_h, NAVY)
@@ -2586,9 +3476,17 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     cx = table_left
     for ci, (header, cw) in enumerate(zip(col_headers, col_widths)):
         _add_textbox(
-            slide, cx + Inches(0.1), header_y, cw - Inches(0.1), row_h,
-            text=header, font_size=9, bold=True, color=WHITE,
-            alignment=col_aligns[ci], anchor=MSO_ANCHOR.MIDDLE,
+            slide,
+            cx + Inches(0.1),
+            header_y,
+            cw - Inches(0.1),
+            row_h,
+            text=header,
+            font_size=9,
+            bold=True,
+            color=WHITE,
+            alignment=col_aligns[ci],
+            anchor=MSO_ANCHOR.MIDDLE,
         )
         cx += cw
 
@@ -2606,8 +3504,9 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             slide,
             table_left + Inches(0.12),
             row_y + (row_h - dot_size) / 2,
-            dot_size, dot_size,
-            ch["color"]
+            dot_size,
+            dot_size,
+            ch["color"],
         )
 
         row_values = [
@@ -2623,23 +3522,31 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         for ci, (val, cw) in enumerate(zip(row_values, col_widths)):
             left_pad = Inches(0.3) if ci == 0 else Inches(0.1)
             _add_textbox(
-                slide, cx + left_pad, row_y, cw - left_pad, row_h,
-                text=val, font_size=9,
+                slide,
+                cx + left_pad,
+                row_y,
+                cw - left_pad,
+                row_h,
+                text=val,
+                font_size=9,
                 bold=(ci == 0),
                 color=DARK_TEXT,
-                alignment=col_aligns[ci], anchor=MSO_ANCHOR.MIDDLE,
+                alignment=col_aligns[ci],
+                anchor=MSO_ANCHOR.MIDDLE,
             )
             cx += cw
 
     # ---- ROI INSIGHT CALLOUT ----
     insight_top = Inches(6.05)
     insight_h = Inches(0.65)
-    _add_rounded_rect(slide, Inches(0.55), insight_top, Inches(12.2), insight_h, PALE_TEAL)
+    _add_rounded_rect(
+        slide, Inches(0.55), insight_top, Inches(12.2), insight_h, PALE_TEAL
+    )
     _add_filled_rect(slide, Inches(0.55), insight_top, Inches(0.06), insight_h, TEAL)
 
     # Build insight text
-    avg_cpa = ba_total_proj.get("cost_per_application", 0)
-    avg_cph = ba_total_proj.get("cost_per_hire", 0)
+    avg_cpa = ba_total_proj.get("cost_per_application") or 0
+    avg_cph = ba_total_proj.get("cost_per_hire") or 0
 
     if avg_cpa and avg_cpa > 0 and proj_hires and proj_hires > 0:
         insight_text = (
@@ -2666,8 +3573,14 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         )
 
     _add_textbox(
-        slide, Inches(0.8), insight_top + Inches(0.08), Inches(11.7), insight_h - Inches(0.15),
-        text=insight_text, font_size=10, color=DARK_TEXT,
+        slide,
+        Inches(0.8),
+        insight_top + Inches(0.08),
+        Inches(11.7),
+        insight_h - Inches(0.15),
+        text=insight_text,
+        font_size=10,
+        color=DARK_TEXT,
     )
 
     # Enrichment badge
@@ -2680,6 +3593,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
 # ===================================================================
 # SLIDE 7 - Side-by-Side Comparison Panel + Implementation Timeline
 # ===================================================================
+
 
 def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     """Build comparison panel (Client Plan vs Industry Average) and implementation timeline."""
@@ -2711,8 +3625,15 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         f"with phased implementation roadmap"
     )
     _add_textbox(
-        slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.45),
-        text=action_text, font_size=15, bold=True, color=NAVY,
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.45),
+        text=action_text,
+        font_size=15,
+        bold=True,
+        color=NAVY,
     )
 
     # ---- SIDE-BY-SIDE COMPARISON ----
@@ -2751,7 +3672,8 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             "metric": "Programmatic Allocation",
             "client_val": f"{programmatic_pct}%",
             "industry_val": f"{ind_benchmarks.get('avg_budget_pct_programmatic', 30)}%",
-            "is_better": programmatic_pct >= ind_benchmarks.get("avg_budget_pct_programmatic", 30),
+            "is_better": programmatic_pct
+            >= ind_benchmarks.get("avg_budget_pct_programmatic", 30),
         },
         {
             "metric": "Channel Diversity Score",
@@ -2777,47 +3699,57 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     ba_total_proj_comp = budget_alloc.get("total_projected", {}) if budget_alloc else {}
     if not isinstance(ba_total_proj_comp, dict):
         ba_total_proj_comp = {}
-    ba_channel_alloc = budget_alloc.get("channel_allocations", {}) if budget_alloc else {}
+    ba_channel_alloc = (
+        budget_alloc.get("channel_allocations", {}) if budget_alloc else {}
+    )
     ba_metadata_comp = budget_alloc.get("metadata", {}) if budget_alloc else {}
     if not isinstance(ba_metadata_comp, dict):
         ba_metadata_comp = {}
-    ba_total_budget = ba_metadata_comp.get("total_budget", 0)
+    ba_total_budget = ba_metadata_comp.get("total_budget") or 0
 
     if ba_total_proj_comp:
-        proj_cpa = ba_total_proj_comp.get("cost_per_application", 0)
-        proj_hires = ba_total_proj_comp.get("hires", 0)
-        proj_apps = ba_total_proj_comp.get("applications", 0)
+        proj_cpa = ba_total_proj_comp.get("cost_per_application") or 0
+        proj_hires = ba_total_proj_comp.get("hires") or 0
+        proj_apps = ba_total_proj_comp.get("applications") or 0
 
         # Get industry benchmark CPA for comparison
         bench = _get_benchmarks(industry, data)
         cpa_str = bench.get("cpa", "$25")
         try:
-            cpa_nums = re.findall(r'[\d.]+', cpa_str.replace(",", ""))
-            ind_avg_cpa = sum(float(x) for x in cpa_nums) / len(cpa_nums) if cpa_nums else 25
+            cpa_nums = re.findall(r"[\d.]+", cpa_str.replace(",", ""))
+            ind_avg_cpa = (
+                sum(float(x) for x in cpa_nums) / len(cpa_nums) if cpa_nums else 25
+            )
         except Exception:
             ind_avg_cpa = 25
 
         if proj_cpa and proj_cpa > 0:
-            all_comparison_rows.append({
-                "metric": "Projected CPA",
-                "client_val": f"${proj_cpa:,.0f}",
-                "industry_val": cpa_str,
-                "is_better": proj_cpa <= ind_avg_cpa,
-            })
+            all_comparison_rows.append(
+                {
+                    "metric": "Projected CPA",
+                    "client_val": f"${proj_cpa:,.0f}",
+                    "industry_val": cpa_str,
+                    "is_better": proj_cpa <= ind_avg_cpa,
+                }
+            )
         if proj_hires and proj_hires > 0:
-            all_comparison_rows.append({
-                "metric": "Projected Hires",
-                "client_val": f"{int(proj_hires):,}",
-                "industry_val": "N/A",
-                "is_better": True,
-            })
+            all_comparison_rows.append(
+                {
+                    "metric": "Projected Hires",
+                    "client_val": f"{int(proj_hires):,}",
+                    "industry_val": "N/A",
+                    "is_better": True,
+                }
+            )
         if ba_total_budget and ba_total_budget > 0:
-            all_comparison_rows.append({
-                "metric": "Total Investment",
-                "client_val": f"${ba_total_budget:,.0f}",
-                "industry_val": "Varies",
-                "is_better": True,
-            })
+            all_comparison_rows.append(
+                {
+                    "metric": "Total Investment",
+                    "client_val": f"${ba_total_budget:,.0f}",
+                    "industry_val": "Varies",
+                    "is_better": True,
+                }
+            )
 
     # Reframe trailing metrics with improvement targets to build confidence
     # Count how many are beating vs trailing
@@ -2841,8 +3773,15 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     # Header bar
     _add_filled_rect(slide, left_panel_x, comp_top, panel_w, Inches(0.45), NAVY)
     _add_textbox(
-        slide, left_panel_x + Inches(0.2), comp_top + Inches(0.05), panel_w - Inches(0.4), Inches(0.35),
-        text=f"\u2B22  {client}'s Plan", font_size=12, bold=True, color=WHITE,
+        slide,
+        left_panel_x + Inches(0.2),
+        comp_top + Inches(0.05),
+        panel_w - Inches(0.4),
+        Inches(0.35),
+        text=f"\u2b22  {client}'s Plan",
+        font_size=12,
+        bold=True,
+        color=WHITE,
         anchor=MSO_ANCHOR.MIDDLE,
     )
 
@@ -2850,22 +3789,39 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     for ri, row in enumerate(comparison_rows):
         ry = comp_top + Inches(0.5) + ri * row_h_comp
         bg = WHITE if ri % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
-        _add_filled_rect(slide, left_panel_x + Inches(0.05), ry,
-                         panel_w - Inches(0.1), row_h_comp, bg)
+        _add_filled_rect(
+            slide,
+            left_panel_x + Inches(0.05),
+            ry,
+            panel_w - Inches(0.1),
+            row_h_comp,
+            bg,
+        )
 
         # Metric label
         _add_textbox(
-            slide, left_panel_x + Inches(0.2), ry, Inches(2.8), row_h_comp,
-            text=row["metric"], font_size=9, bold=True, color=DARK_TEXT,
+            slide,
+            left_panel_x + Inches(0.2),
+            ry,
+            Inches(2.8),
+            row_h_comp,
+            text=row["metric"],
+            font_size=9,
+            bold=True,
+            color=DARK_TEXT,
             anchor=MSO_ANCHOR.MIDDLE,
         )
 
         # Value with status indicator
         status_color = GREEN if row["is_better"] else AMBER
-        indicator = "\u25B2" if row["is_better"] else "\u25BC"
+        indicator = "\u25b2" if row["is_better"] else "\u25bc"
 
         val_box, val_tf = _add_textbox(
-            slide, left_panel_x + Inches(3.2), ry, Inches(2.5), row_h_comp,
+            slide,
+            left_panel_x + Inches(3.2),
+            ry,
+            Inches(2.5),
+            row_h_comp,
             anchor=MSO_ANCHOR.MIDDLE,
         )
         p = val_tf.paragraphs[0]
@@ -2881,44 +3837,75 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     _add_rounded_rect(slide, right_panel_x, comp_top, panel_w, panel_h, WHITE)
     _add_filled_rect(slide, right_panel_x, comp_top, panel_w, Inches(0.45), MUTED_TEXT)
     _add_textbox(
-        slide, right_panel_x + Inches(0.2), comp_top + Inches(0.05),
-        panel_w - Inches(0.4), Inches(0.35),
-        text=f"\u25CB  {industry_label} Average", font_size=12, bold=True, color=WHITE,
+        slide,
+        right_panel_x + Inches(0.2),
+        comp_top + Inches(0.05),
+        panel_w - Inches(0.4),
+        Inches(0.35),
+        text=f"\u25cb  {industry_label} Average",
+        font_size=12,
+        bold=True,
+        color=WHITE,
         anchor=MSO_ANCHOR.MIDDLE,
     )
 
     for ri, row in enumerate(comparison_rows):
         ry = comp_top + Inches(0.5) + ri * row_h_comp
         bg = WHITE if ri % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
-        _add_filled_rect(slide, right_panel_x + Inches(0.05), ry,
-                         panel_w - Inches(0.1), row_h_comp, bg)
+        _add_filled_rect(
+            slide,
+            right_panel_x + Inches(0.05),
+            ry,
+            panel_w - Inches(0.1),
+            row_h_comp,
+            bg,
+        )
 
         _add_textbox(
-            slide, right_panel_x + Inches(0.2), ry, Inches(2.8), row_h_comp,
-            text=row["metric"], font_size=9, bold=True, color=DARK_TEXT,
+            slide,
+            right_panel_x + Inches(0.2),
+            ry,
+            Inches(2.8),
+            row_h_comp,
+            text=row["metric"],
+            font_size=9,
+            bold=True,
+            color=DARK_TEXT,
             anchor=MSO_ANCHOR.MIDDLE,
         )
 
         _add_textbox(
-            slide, right_panel_x + Inches(3.2), ry, Inches(2.5), row_h_comp,
-            text=row["industry_val"], font_size=12, bold=True, color=MUTED_TEXT,
-            alignment=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE,
+            slide,
+            right_panel_x + Inches(3.2),
+            ry,
+            Inches(2.5),
+            row_h_comp,
+            text=row["industry_val"],
+            font_size=12,
+            bold=True,
+            color=MUTED_TEXT,
+            alignment=PP_ALIGN.RIGHT,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
 
     # ---- Legend ----
     legend_y = comp_top + panel_h + Inches(0.1)
     leg_box, leg_tf = _add_textbox(
-        slide, Inches(0.55), legend_y, Inches(6), Inches(0.25),
+        slide,
+        Inches(0.55),
+        legend_y,
+        Inches(6),
+        Inches(0.25),
     )
     p = leg_tf.paragraphs[0]
     r1 = p.add_run()
-    r1.text = "\u25B2 "
+    r1.text = "\u25b2 "
     _set_font(r1, size=8, bold=True, color=GREEN)
     r2 = p.add_run()
     r2.text = "Beating benchmark    "
     _set_font(r2, size=8, color=MUTED_TEXT)
     r3 = p.add_run()
-    r3.text = "\u25BC "
+    r3.text = "\u25bc "
     _set_font(r3, size=8, bold=True, color=AMBER)
     r4 = p.add_run()
     r4.text = "Trailing benchmark"
@@ -2928,11 +3915,19 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     timeline_top = Inches(4.8)
 
     _add_textbox(
-        slide, Inches(0.55), timeline_top, Inches(12.2), Inches(0.32),
-        text="IMPLEMENTATION TIMELINE", font_size=11, bold=True, color=NAVY,
+        slide,
+        Inches(0.55),
+        timeline_top,
+        Inches(12.2),
+        Inches(0.32),
+        text="IMPLEMENTATION TIMELINE",
+        font_size=11,
+        bold=True,
+        color=NAVY,
     )
-    _add_filled_rect(slide, Inches(0.55), timeline_top + Inches(0.3),
-                     Inches(2.2), Inches(0.03), TEAL)
+    _add_filled_rect(
+        slide, Inches(0.55), timeline_top + Inches(0.3), Inches(2.2), Inches(0.03), TEAL
+    )
 
     # Build timeline phases based on actual campaign_weeks from input
     cw = data.get("campaign_weeks", 12)
@@ -3074,29 +4069,61 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         # Phase number badge
         badge_w = Inches(0.9)
         badge_h = Inches(0.25)
-        _add_rounded_rect(slide, px + Inches(0.12), phase_top + Inches(0.15),
-                          badge_w, badge_h, ph["accent_bg"])
+        _add_rounded_rect(
+            slide,
+            px + Inches(0.12),
+            phase_top + Inches(0.15),
+            badge_w,
+            badge_h,
+            ph["accent_bg"],
+        )
         _add_textbox(
-            slide, px + Inches(0.12), phase_top + Inches(0.15), badge_w, badge_h,
-            text=ph["phase"], font_size=7, bold=True, color=ph["color"],
-            alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+            slide,
+            px + Inches(0.12),
+            phase_top + Inches(0.15),
+            badge_w,
+            badge_h,
+            text=ph["phase"],
+            font_size=7,
+            bold=True,
+            color=ph["color"],
+            alignment=PP_ALIGN.CENTER,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
 
         # Weeks
         _add_textbox(
-            slide, px + Inches(1.1), phase_top + Inches(0.15), Inches(1.5), badge_h,
-            text=ph["weeks"], font_size=8, color=MUTED_TEXT, anchor=MSO_ANCHOR.MIDDLE,
+            slide,
+            px + Inches(1.1),
+            phase_top + Inches(0.15),
+            Inches(1.5),
+            badge_h,
+            text=ph["weeks"],
+            font_size=8,
+            color=MUTED_TEXT,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
 
         # Title
         _add_textbox(
-            slide, px + Inches(0.12), phase_top + Inches(0.48), phase_w - Inches(0.24), Inches(0.25),
-            text=ph["title"], font_size=11, bold=True, color=DARK_TEXT,
+            slide,
+            px + Inches(0.12),
+            phase_top + Inches(0.48),
+            phase_w - Inches(0.24),
+            Inches(0.25),
+            text=ph["title"],
+            font_size=11,
+            bold=True,
+            color=DARK_TEXT,
         )
 
         # Bullets
         bx, btf = _add_textbox(
-            slide, px + Inches(0.12), phase_top + Inches(0.78), phase_w - Inches(0.24), Inches(0.85),
+            slide,
+            px + Inches(0.12),
+            phase_top + Inches(0.78),
+            phase_w - Inches(0.24),
+            Inches(0.85),
         )
         btf.paragraphs[0].space_before = Pt(0)
         btf.paragraphs[0].space_after = Pt(0)
@@ -3119,11 +4146,20 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
 
     # Arrow connectors between phases
     for i in range(2):
-        ax = Inches(0.55) + (i + 1) * (phase_w + phase_gap) - phase_gap / 2 - Inches(0.1)
+        ax = (
+            Inches(0.55) + (i + 1) * (phase_w + phase_gap) - phase_gap / 2 - Inches(0.1)
+        )
         ay = phase_top + phase_h / 2 - Inches(0.1)
         _add_textbox(
-            slide, ax, ay, Inches(0.2), Inches(0.2),
-            text="\u25B6", font_size=12, bold=True, color=TEAL,
+            slide,
+            ax,
+            ay,
+            Inches(0.2),
+            Inches(0.2),
+            text="\u25b6",
+            font_size=12,
+            bold=True,
+            color=TEAL,
             alignment=PP_ALIGN.CENTER,
         )
 
@@ -3134,6 +4170,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
 # ===================================================================
 # SLIDE - Market & Workforce Analysis (NEW)
 # ===================================================================
+
 
 def _build_slide_market_analysis(prs: Presentation, data: Dict):
     """Build the Market & Workforce Analysis slide.
@@ -3167,7 +4204,9 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
             salary_intel = {}
 
         # Off-white background
-        _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+        _add_filled_rect(
+            slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE
+        )
 
         # Top band
         _add_top_band(slide, "MARKET & WORKFORCE ANALYSIS", today)
@@ -3178,8 +4217,15 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
             f"{client}'s {industry_label} hiring strategy"
         )
         _add_textbox(
-            slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.5),
-            text=action_text, font_size=15, bold=True, color=NAVY,
+            slide,
+            Inches(0.55),
+            Inches(0.92),
+            Inches(12.2),
+            Inches(0.5),
+            text=action_text,
+            font_size=15,
+            bold=True,
+            color=NAVY,
         )
 
         # ---- LEFT COLUMN: Market Demand by Role ----
@@ -3188,11 +4234,24 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
         left_col_w = Inches(6.0)
 
         _add_textbox(
-            slide, left_col_left, section_top, left_col_w, Inches(0.35),
-            text="JOB MARKET DEMAND BY ROLE", font_size=11, bold=True, color=NAVY,
+            slide,
+            left_col_left,
+            section_top,
+            left_col_w,
+            Inches(0.35),
+            text="JOB MARKET DEMAND BY ROLE",
+            font_size=11,
+            bold=True,
+            color=NAVY,
         )
-        _add_filled_rect(slide, left_col_left, section_top + Inches(0.33),
-                         Inches(2.5), Inches(0.03), TEAL)
+        _add_filled_rect(
+            slide,
+            left_col_left,
+            section_top + Inches(0.33),
+            Inches(2.5),
+            Inches(0.03),
+            TEAL,
+        )
 
         # Market demand table
         table_top = section_top + Inches(0.5)
@@ -3205,8 +4264,15 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
         cx = left_col_left
         for ci, (header, cw) in enumerate(zip(col_headers, col_widths)):
             _add_textbox(
-                slide, cx + Inches(0.08), table_top, cw, row_h,
-                text=header, font_size=8, bold=True, color=WHITE,
+                slide,
+                cx + Inches(0.08),
+                table_top,
+                cw,
+                row_h,
+                text=header,
+                font_size=8,
+                bold=True,
+                color=WHITE,
                 anchor=MSO_ANCHOR.MIDDLE,
             )
             cx += cw
@@ -3216,17 +4282,29 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
         for role_name, role_data in list(job_market.items())[:6]:
             if not isinstance(role_data, dict):
                 continue
-            postings = role_data.get("total_postings", role_data.get("posting_count", 0))
+            postings = role_data.get(
+                "total_postings", role_data.get("posting_count") or 0
+            )
             temp = role_data.get("market_temperature", "N/A")
             trend = role_data.get("trend_direction", "stable")
-            comp_idx = role_data.get("competition_index", 0)
-            market_rows.append((
-                str(role_name)[:25],
-                f"{postings:,}" if isinstance(postings, (int, float)) and postings > 0 else "N/A",
-                temp.title() if temp else "N/A",
-                trend.title() if trend else "Stable",
-                f"{comp_idx:.2f}" if isinstance(comp_idx, (int, float)) and comp_idx > 0 else "N/A",
-            ))
+            comp_idx = role_data.get("competition_index") or 0
+            market_rows.append(
+                (
+                    str(role_name)[:25],
+                    (
+                        f"{postings:,}"
+                        if isinstance(postings, (int, float)) and postings > 0
+                        else "N/A"
+                    ),
+                    temp.title() if temp else "N/A",
+                    trend.title() if trend else "Stable",
+                    (
+                        f"{comp_idx:.2f}"
+                        if isinstance(comp_idx, (int, float)) and comp_idx > 0
+                        else "N/A"
+                    ),
+                )
+            )
 
         if not market_rows:
             market_rows = [("Market data not available", "-", "-", "-", "-")]
@@ -3249,8 +4327,15 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
                     elif val.lower() == "cold":
                         val_color = MEDIUM_BLUE
                 _add_textbox(
-                    slide, cx + Inches(0.08), ry, cw, row_h,
-                    text=val, font_size=8, bold=(ci == 0), color=val_color,
+                    slide,
+                    cx + Inches(0.08),
+                    ry,
+                    cw,
+                    row_h,
+                    text=val,
+                    font_size=8,
+                    bold=(ci == 0),
+                    color=val_color,
                     anchor=MSO_ANCHOR.MIDDLE,
                 )
                 cx += cw
@@ -3258,11 +4343,24 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
         # ---- Macro-Economic Context (below market table) ----
         macro_top = table_top + row_h * (len(market_rows) + 1) + Inches(0.25)
         _add_textbox(
-            slide, left_col_left, macro_top, left_col_w, Inches(0.3),
-            text="MACRO-ECONOMIC CONTEXT", font_size=10, bold=True, color=NAVY,
+            slide,
+            left_col_left,
+            macro_top,
+            left_col_w,
+            Inches(0.3),
+            text="MACRO-ECONOMIC CONTEXT",
+            font_size=10,
+            bold=True,
+            color=NAVY,
         )
-        _add_filled_rect(slide, left_col_left, macro_top + Inches(0.28),
-                         Inches(2.0), Inches(0.03), TEAL)
+        _add_filled_rect(
+            slide,
+            left_col_left,
+            macro_top + Inches(0.28),
+            Inches(2.0),
+            Inches(0.03),
+            TEAL,
+        )
 
         # Extract macro data from first role's data
         macro_data = {}
@@ -3275,13 +4373,28 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
         if macro_data:
             unemp = macro_data.get("unemployment_rate")
             if unemp is not None:
-                macro_items.append(("Unemployment Rate", f"{unemp}%" if isinstance(unemp, (int, float)) else str(unemp)))
+                macro_items.append(
+                    (
+                        "Unemployment Rate",
+                        f"{unemp}%" if isinstance(unemp, (int, float)) else str(unemp),
+                    )
+                )
             lfpr = macro_data.get("labor_force_participation")
             if lfpr is not None:
-                macro_items.append(("Labor Force Participation", f"{lfpr}%" if isinstance(lfpr, (int, float)) else str(lfpr)))
+                macro_items.append(
+                    (
+                        "Labor Force Participation",
+                        f"{lfpr}%" if isinstance(lfpr, (int, float)) else str(lfpr),
+                    )
+                )
             jolts = macro_data.get("job_openings_rate")
             if jolts is not None:
-                macro_items.append(("Job Openings Rate", f"{jolts}%" if isinstance(jolts, (int, float)) else str(jolts)))
+                macro_items.append(
+                    (
+                        "Job Openings Rate",
+                        f"{jolts}%" if isinstance(jolts, (int, float)) else str(jolts),
+                    )
+                )
 
         if not macro_items:
             macro_items = [
@@ -3299,13 +4412,27 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
             _add_rounded_rect(slide, mx, macro_card_top, card_w, card_h, WHITE)
             _add_filled_rect(slide, mx, macro_card_top, card_w, Inches(0.04), TEAL)
             _add_textbox(
-                slide, mx + Inches(0.1), macro_card_top + Inches(0.08), card_w - Inches(0.2), Inches(0.35),
-                text=m_val, font_size=16, bold=True, color=NAVY,
-                alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+                slide,
+                mx + Inches(0.1),
+                macro_card_top + Inches(0.08),
+                card_w - Inches(0.2),
+                Inches(0.35),
+                text=m_val,
+                font_size=16,
+                bold=True,
+                color=NAVY,
+                alignment=PP_ALIGN.CENTER,
+                anchor=MSO_ANCHOR.MIDDLE,
             )
             _add_textbox(
-                slide, mx + Inches(0.1), macro_card_top + Inches(0.42), card_w - Inches(0.2), Inches(0.22),
-                text=m_label, font_size=7, color=MUTED_TEXT,
+                slide,
+                mx + Inches(0.1),
+                macro_card_top + Inches(0.42),
+                card_w - Inches(0.2),
+                Inches(0.22),
+                text=m_label,
+                font_size=7,
+                color=MUTED_TEXT,
                 alignment=PP_ALIGN.CENTER,
             )
 
@@ -3314,11 +4441,24 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
         right_col_w = Inches(5.8)
 
         _add_textbox(
-            slide, right_col_left, section_top, right_col_w, Inches(0.35),
-            text="SALARY INTELLIGENCE", font_size=11, bold=True, color=NAVY,
+            slide,
+            right_col_left,
+            section_top,
+            right_col_w,
+            Inches(0.35),
+            text="SALARY INTELLIGENCE",
+            font_size=11,
+            bold=True,
+            color=NAVY,
         )
-        _add_filled_rect(slide, right_col_left, section_top + Inches(0.33),
-                         Inches(2.0), Inches(0.03), TEAL)
+        _add_filled_rect(
+            slide,
+            right_col_left,
+            section_top + Inches(0.33),
+            Inches(2.0),
+            Inches(0.03),
+            TEAL,
+        )
 
         salary_card_top = section_top + Inches(0.5)
         sal_card_h = Inches(1.1)
@@ -3329,7 +4469,7 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
         for role_name, role_sal in list(salary_intel.items())[:4]:
             if not isinstance(role_sal, dict):
                 continue
-            median = role_sal.get("median", 0)
+            median = role_sal.get("median") or 0
             if not median or median <= 0:
                 continue
 
@@ -3339,16 +4479,22 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
 
             # Role name
             _add_textbox(
-                slide, right_col_left + Inches(0.2), sy + Inches(0.06),
-                sal_card_w - Inches(0.3), Inches(0.25),
-                text=str(role_name)[:35], font_size=10, bold=True, color=DARK_TEXT,
+                slide,
+                right_col_left + Inches(0.2),
+                sy + Inches(0.06),
+                sal_card_w - Inches(0.3),
+                Inches(0.25),
+                text=str(role_name)[:35],
+                font_size=10,
+                bold=True,
+                color=DARK_TEXT,
             )
 
             # Salary bar visualization
             sal_min = role_sal.get("min", role_sal.get("p25", median * 0.7))
             sal_max = role_sal.get("max", role_sal.get("p75", median * 1.3))
-            sources = role_sal.get("source_count", 0)
-            confidence = role_sal.get("confidence", "")
+            sources = role_sal.get("source_count") or 0
+            confidence = role_sal.get("confidence") or ""
 
             bar_left = right_col_left + Inches(0.2)
             bar_top_y = sy + Inches(0.38)
@@ -3360,27 +4506,53 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
 
             # Median marker (proportional position)
             if sal_max > sal_min and sal_max > 0:
-                median_pct = min(1.0, max(0.0, (median - sal_min) / (sal_max - sal_min)))
+                median_pct = min(
+                    1.0, max(0.0, (median - sal_min) / (sal_max - sal_min))
+                )
                 marker_x = bar_left + bar_w * median_pct - Inches(0.05)
-                _add_filled_rect(slide, marker_x, bar_top_y - Inches(0.02),
-                                 Inches(0.1), bar_h_sal + Inches(0.04), BLUE)
+                _add_filled_rect(
+                    slide,
+                    marker_x,
+                    bar_top_y - Inches(0.02),
+                    Inches(0.1),
+                    bar_h_sal + Inches(0.04),
+                    BLUE,
+                )
 
             # Labels
             label_y = sy + Inches(0.65)
             _add_textbox(
-                slide, bar_left, label_y, Inches(1.5), Inches(0.2),
+                slide,
+                bar_left,
+                label_y,
+                Inches(1.5),
+                Inches(0.2),
                 text=f"Min: {_format_salary(sal_min)}" if sal_min > 0 else "",
-                font_size=7, color=MUTED_TEXT,
+                font_size=7,
+                color=MUTED_TEXT,
             )
             _add_textbox(
-                slide, bar_left + Inches(1.8), label_y, Inches(1.8), Inches(0.2),
-                text=f"Median: {_format_salary(median)}", font_size=8, bold=True, color=NAVY,
+                slide,
+                bar_left + Inches(1.8),
+                label_y,
+                Inches(1.8),
+                Inches(0.2),
+                text=f"Median: {_format_salary(median)}",
+                font_size=8,
+                bold=True,
+                color=NAVY,
                 alignment=PP_ALIGN.CENTER,
             )
             _add_textbox(
-                slide, bar_left + Inches(3.5), label_y, Inches(1.5), Inches(0.2),
+                slide,
+                bar_left + Inches(3.5),
+                label_y,
+                Inches(1.5),
+                Inches(0.2),
                 text=f"Max: {_format_salary(sal_max)}" if sal_max > 0 else "",
-                font_size=7, color=MUTED_TEXT, alignment=PP_ALIGN.RIGHT,
+                font_size=7,
+                color=MUTED_TEXT,
+                alignment=PP_ALIGN.RIGHT,
             )
 
             # Source/confidence badge
@@ -3391,9 +4563,15 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
                 badge_text += f" | {confidence}" if badge_text else str(confidence)
             if badge_text:
                 _add_textbox(
-                    slide, right_col_left + sal_card_w - Inches(1.8), sy + Inches(0.06),
-                    Inches(1.6), Inches(0.2),
-                    text=badge_text, font_size=7, italic=True, color=MUTED_TEXT,
+                    slide,
+                    right_col_left + sal_card_w - Inches(1.8),
+                    sy + Inches(0.06),
+                    Inches(1.6),
+                    Inches(0.2),
+                    text=badge_text,
+                    font_size=7,
+                    italic=True,
+                    color=MUTED_TEXT,
                     alignment=PP_ALIGN.RIGHT,
                 )
 
@@ -3401,19 +4579,43 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
 
         if sal_count == 0:
             _add_textbox(
-                slide, right_col_left, salary_card_top, sal_card_w, Inches(0.4),
+                slide,
+                right_col_left,
+                salary_card_top,
+                sal_card_w,
+                Inches(0.4),
                 text="Salary data not available for selected roles",
-                font_size=10, italic=True, color=MUTED_TEXT,
+                font_size=10,
+                italic=True,
+                color=MUTED_TEXT,
             )
 
         # ---- Workforce Trend Highlights (bottom right) ----
-        wf_top = section_top + Inches(0.5) + max(sal_count, 1) * (sal_card_h + sal_card_gap) + Inches(0.15)
-        _add_textbox(
-            slide, right_col_left, wf_top, right_col_w, Inches(0.3),
-            text="WORKFORCE TREND HIGHLIGHTS", font_size=10, bold=True, color=NAVY,
+        wf_top = (
+            section_top
+            + Inches(0.5)
+            + max(sal_count, 1) * (sal_card_h + sal_card_gap)
+            + Inches(0.15)
         )
-        _add_filled_rect(slide, right_col_left, wf_top + Inches(0.28),
-                         Inches(2.2), Inches(0.03), TEAL)
+        _add_textbox(
+            slide,
+            right_col_left,
+            wf_top,
+            right_col_w,
+            Inches(0.3),
+            text="WORKFORCE TREND HIGHLIGHTS",
+            font_size=10,
+            bold=True,
+            color=NAVY,
+        )
+        _add_filled_rect(
+            slide,
+            right_col_left,
+            wf_top + Inches(0.28),
+            Inches(2.2),
+            Inches(0.03),
+            TEAL,
+        )
 
         wf_bullet_top = wf_top + Inches(0.4)
         wf_bullets = []
@@ -3428,7 +4630,9 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
             if isinstance(platforms, dict) and platforms:
                 top_platform = next(iter(platforms.items()), (None, None))
                 if top_platform[0]:
-                    wf_bullets.append(f"Top Gen-Z job search: {top_platform[0]} ({top_platform[1]})")
+                    wf_bullets.append(
+                        f"Top Gen-Z job search: {top_platform[0]} ({top_platform[1]})"
+                    )
 
         # Employer branding
         eb = workforce.get("employer_branding", {})
@@ -3437,23 +4641,28 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
             if isinstance(roi, dict) and roi:
                 cost_reduction = roi.get("cost_per_hire_reduction")
                 if cost_reduction:
-                    wf_bullets.append(f"Strong employer brand reduces cost-per-hire by {cost_reduction}")
+                    wf_bullets.append(
+                        f"Strong employer brand reduces cost-per-hire by {cost_reduction}"
+                    )
 
         # Research highlights
         research = workforce.get("relevant_research", [])
         if isinstance(research, list):
             for rr in research[:2]:
                 if isinstance(rr, dict):
-                    title = rr.get("title", "")
-                    publisher = rr.get("publisher", "")
+                    title = rr.get("title") or ""
+                    publisher = rr.get("publisher") or ""
                     if title:
-                        wf_bullets.append(f"Research: {title[:50]}{'...' if len(title) > 50 else ''} ({publisher})")
+                        wf_bullets.append(
+                            f"Research: {title[:50]}{'...' if len(title) > 50 else ''} ({publisher})"
+                        )
 
         if not wf_bullets:
             wf_bullets = ["Workforce trend data not available for this industry"]
 
-        box_wf, tf_wf = _add_textbox(slide, right_col_left, wf_bullet_top,
-                                      right_col_w, Inches(1.2))
+        box_wf, tf_wf = _add_textbox(
+            slide, right_col_left, wf_bullet_top, right_col_w, Inches(1.2)
+        )
         tf_wf.paragraphs[0].space_before = Pt(0)
         tf_wf.paragraphs[0].space_after = Pt(0)
 
@@ -3465,7 +4674,7 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
             p.space_before = Pt(2)
             p.space_after = Pt(4)
             rb = p.add_run()
-            rb.text = "\u25B8  "
+            rb.text = "\u25b8  "
             _set_font(rb, size=9, color=TEAL)
             rt = p.add_run()
             rt.text = str(bullet)
@@ -3473,9 +4682,15 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
 
         # Source line
         _add_textbox(
-            slide, Inches(0.55), Inches(6.7), Inches(12.2), Inches(0.2),
+            slide,
+            Inches(0.55),
+            Inches(6.7),
+            Inches(12.2),
+            Inches(0.2),
             text="Sources: BLS OES, O*NET, FRED, Google Trends, Adzuna, Industry Knowledge Base",
-            font_size=7, italic=True, color=MUTED_TEXT,
+            font_size=7,
+            italic=True,
+            color=MUTED_TEXT,
         )
 
         # Footer
@@ -3484,12 +4699,14 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
     except Exception as exc:
         # If slide generation fails, log but don't crash the whole deck
         import logging
+
         logging.getLogger(__name__).warning("Market analysis slide failed: %s", exc)
 
 
 # ===================================================================
 # SLIDE - Location Analysis (NEW)
 # ===================================================================
+
 
 def _build_slide_location_analysis(prs: Presentation, data: Dict):
     """Build Location Analysis slide using location_profiles data.
@@ -3523,20 +4740,28 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
                 if country_name and country_name in research.COUNTRY_DATA:
                     cd = research.COUNTRY_DATA[country_name]
                     # Build a profile matching the expected location_profiles schema
-                    pop_str = cd.get("population", "")
+                    pop_str = cd.get("population") or ""
                     try:
-                        pop_val = int(re.sub(r'[^\d]', '', str(pop_str).replace("M", "000000").replace("B", "000000000")))
+                        pop_val = int(
+                            re.sub(
+                                r"[^\d]",
+                                "",
+                                str(pop_str)
+                                .replace("M", "000000")
+                                .replace("B", "000000000"),
+                            )
+                        )
                     except (ValueError, TypeError):
                         pop_val = 0
                     loc_profiles[country_name] = {
                         "population": pop_val,
-                        "median_household_income": cd.get("median_salary", 0),
-                        "cost_of_living_index": cd.get("coli", 0),
-                        "currency": cd.get("currency", ""),
+                        "median_household_income": cd.get("median_salary") or 0,
+                        "cost_of_living_index": cd.get("coli") or 0,
+                        "currency": cd.get("currency") or "",
                         "timezone": "",
-                        "top_job_boards": cd.get("top_boards", ""),
-                        "unemployment_rate": cd.get("unemployment", ""),
-                        "top_industries": cd.get("top_industries", ""),
+                        "top_job_boards": cd.get("top_boards") or "",
+                        "unemployment_rate": cd.get("unemployment") or "",
+                        "top_industries": cd.get("top_industries") or "",
                     }
                 elif not country_name:
                     # US location -- add a basic "United States" card if not already added
@@ -3544,17 +4769,21 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
                         us_data = research.COUNTRY_DATA.get("United States", {})
                         loc_profiles[loc_str] = {
                             "population": 333000000,
-                            "median_household_income": us_data.get("median_salary", 65000),
+                            "median_household_income": us_data.get(
+                                "median_salary", 65000
+                            ),
                             "cost_of_living_index": us_data.get("coli", 100),
                             "currency": "USD",
                             "timezone": "",
-                            "top_job_boards": us_data.get("top_boards", ""),
-                            "unemployment_rate": us_data.get("unemployment", ""),
-                            "top_industries": us_data.get("top_industries", ""),
+                            "top_job_boards": us_data.get("top_boards") or "",
+                            "unemployment_rate": us_data.get("unemployment") or "",
+                            "top_industries": us_data.get("top_industries") or "",
                         }
 
         # Off-white background
-        _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+        _add_filled_rect(
+            slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE
+        )
 
         # Top band
         _add_top_band(slide, "LOCATION ANALYSIS", today)
@@ -3565,8 +4794,15 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
             f"for {client}'s recruitment strategy"
         )
         _add_textbox(
-            slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.5),
-            text=action_text, font_size=15, bold=True, color=NAVY,
+            slide,
+            Inches(0.55),
+            Inches(0.92),
+            Inches(12.2),
+            Inches(0.5),
+            text=action_text,
+            font_size=15,
+            bold=True,
+            color=NAVY,
         )
 
         # ---- Location Cards ----
@@ -3577,19 +4813,31 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
         if max_cards == 0:
             # No location data -- show placeholder
             _add_textbox(
-                slide, Inches(0.55), card_top, total_w, Inches(1.0),
+                slide,
+                Inches(0.55),
+                card_top,
+                total_w,
+                Inches(1.0),
                 text="Location profile data not yet available. API enrichment in progress.",
-                font_size=14, italic=True, color=MUTED_TEXT,
+                font_size=14,
+                italic=True,
+                color=MUTED_TEXT,
                 alignment=PP_ALIGN.CENTER,
             )
             _add_footer(slide, today)
             return
 
         card_gap = Inches(0.2)
-        card_w = (total_w - card_gap * (max_cards - 1)) / max_cards if max_cards > 1 else total_w
+        card_w = (
+            (total_w - card_gap * (max_cards - 1)) / max_cards
+            if max_cards > 1
+            else total_w
+        )
         card_h = Inches(4.8)
 
-        for li, (loc_name, loc_data) in enumerate(list(loc_profiles.items())[:max_cards]):
+        for li, (loc_name, loc_data) in enumerate(
+            list(loc_profiles.items())[:max_cards]
+        ):
             if not isinstance(loc_data, dict):
                 continue
 
@@ -3601,9 +4849,15 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
             # Location name header
             _add_filled_rect(slide, cx, card_top, card_w, Inches(0.45), NAVY)
             _add_textbox(
-                slide, cx + Inches(0.15), card_top + Inches(0.05),
-                card_w - Inches(0.3), Inches(0.35),
-                text=str(loc_name)[:30], font_size=11, bold=True, color=WHITE,
+                slide,
+                cx + Inches(0.15),
+                card_top + Inches(0.05),
+                card_w - Inches(0.3),
+                Inches(0.35),
+                text=str(loc_name)[:30],
+                font_size=11,
+                bold=True,
+                color=WHITE,
                 anchor=MSO_ANCHOR.MIDDLE,
             )
 
@@ -3613,33 +4867,34 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
 
             # Demographics section
             items = []
-            pop = loc_data.get("population", 0)
+            pop = loc_data.get("population") or 0
             if pop and pop > 0:
                 items.append(("Population", f"{pop:,}"))
-            income = loc_data.get("median_household_income", 0)
+            income = loc_data.get("median_household_income") or 0
             if income and income > 0:
                 items.append(("Median Income", f"${income:,}"))
-            col_index = loc_data.get("cost_of_living_index", 0)
+            col_index = loc_data.get("cost_of_living_index") or 0
             if col_index and col_index > 0:
                 items.append(("Cost of Living", f"{col_index:.0f}/100"))
-            talent_density = loc_data.get("talent_density", 0)
+            talent_density = loc_data.get("talent_density") or 0
             if talent_density and talent_density > 0:
                 items.append(("Talent Density", f"{talent_density:.1%}"))
-            unemployment = loc_data.get("unemployment_rate", "")
+            unemployment = loc_data.get("unemployment_rate") or ""
             if unemployment:
                 items.append(("Unemployment", str(unemployment)))
-            currency = loc_data.get("currency", "")
+            currency = loc_data.get("currency") or ""
             if currency:
                 items.append(("Currency", str(currency)))
-            timezone = loc_data.get("timezone", "")
+            timezone = loc_data.get("timezone") or ""
             if timezone:
                 items.append(("Timezone", str(timezone)[:18]))
-            top_boards = loc_data.get("top_job_boards", "")
+            top_boards = loc_data.get("top_job_boards") or ""
             if top_boards:
                 items.append(("Top Boards", str(top_boards)[:60]))
 
-            box_loc, tf_loc = _add_textbox(slide, content_left, content_top,
-                                            content_w, Inches(1.8))
+            box_loc, tf_loc = _add_textbox(
+                slide, content_left, content_top, content_w, Inches(1.8)
+            )
             tf_loc.paragraphs[0].space_before = Pt(0)
             tf_loc.paragraphs[0].space_after = Pt(0)
 
@@ -3663,11 +4918,20 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
             reg_intel = loc_data.get("regional_intelligence", {})
             if isinstance(reg_intel, dict) and reg_intel:
                 ri_top = content_top + Inches(1.9)
-                _add_filled_rect(slide, content_left, ri_top, content_w, Inches(0.03), TEAL)
+                _add_filled_rect(
+                    slide, content_left, ri_top, content_w, Inches(0.03), TEAL
+                )
 
                 _add_textbox(
-                    slide, content_left, ri_top + Inches(0.08), content_w, Inches(0.2),
-                    text="REGIONAL INTEL", font_size=7, bold=True, color=TEAL,
+                    slide,
+                    content_left,
+                    ri_top + Inches(0.08),
+                    content_w,
+                    Inches(0.2),
+                    text="REGIONAL INTEL",
+                    font_size=7,
+                    bold=True,
+                    color=TEAL,
                 )
 
                 ri_items = []
@@ -3675,40 +4939,42 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
                 # Top job boards
                 boards = reg_intel.get("top_job_boards", [])
                 if isinstance(boards, list) and boards:
-                    board_names = [b.get("name", str(b)) if isinstance(b, dict) else str(b)
-                                   for b in boards[:3]]
+                    board_names = [
+                        b.get("name", str(b)) if isinstance(b, dict) else str(b)
+                        for b in boards[:3]
+                    ]
                     ri_items.append(("Top Boards", ", ".join(board_names)))
 
                 # Hiring regulations
                 regs = reg_intel.get("hiring_regulations", {})
                 if isinstance(regs, dict) and regs:
-                    notice_period = regs.get("notice_period", "")
+                    notice_period = regs.get("notice_period") or ""
                     if notice_period:
                         ri_items.append(("Notice Period", str(notice_period)))
-                    probation = regs.get("probation_period", "")
+                    probation = regs.get("probation_period") or ""
                     if probation:
                         ri_items.append(("Probation", str(probation)))
 
                 # Cultural norms
                 norms = reg_intel.get("cultural_norms", {})
                 if isinstance(norms, dict) and norms:
-                    lang = norms.get("primary_language", norms.get("language", ""))
+                    lang = norms.get("primary_language", norms.get("language") or "")
                     if lang:
                         ri_items.append(("Language", str(lang)))
-                    comm = norms.get("communication_style", "")
+                    comm = norms.get("communication_style") or ""
                     if comm:
                         ri_items.append(("Comm. Style", str(comm)[:20]))
 
                 # CPA benchmark
                 cpa_bench = reg_intel.get("cpa_benchmark", {})
                 if isinstance(cpa_bench, dict):
-                    cpa_range = cpa_bench.get("range", cpa_bench.get("typical", ""))
+                    cpa_range = cpa_bench.get("range", cpa_bench.get("typical") or "")
                     if cpa_range:
                         ri_items.append(("CPA Range", str(cpa_range)))
 
-                box_ri, tf_ri = _add_textbox(slide, content_left,
-                                              ri_top + Inches(0.32),
-                                              content_w, Inches(1.8))
+                box_ri, tf_ri = _add_textbox(
+                    slide, content_left, ri_top + Inches(0.32), content_w, Inches(1.8)
+                )
                 tf_ri.paragraphs[0].space_before = Pt(0)
                 tf_ri.paragraphs[0].space_after = Pt(0)
 
@@ -3722,7 +4988,7 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
                     p.space_before = Pt(1)
                     p.space_after = Pt(3)
                     rl_run = p.add_run()
-                    rl_run.text = f"\u25B8 {rl_label}: "
+                    rl_run.text = f"\u25b8 {rl_label}: "
                     _set_font(rl_run, size=7, bold=True, color=TEAL)
                     rv_run = p.add_run()
                     rv_run.text = str(rl_val)
@@ -3730,9 +4996,15 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
 
         # Source line
         _add_textbox(
-            slide, Inches(0.55), Inches(6.7), Inches(12.2), Inches(0.2),
+            slide,
+            Inches(0.55),
+            Inches(6.7),
+            Inches(12.2),
+            Inches(0.2),
             text="Sources: US Census Bureau, GeoNames, Teleport, DataUSA, World Bank, IMF",
-            font_size=7, italic=True, color=MUTED_TEXT,
+            font_size=7,
+            italic=True,
+            color=MUTED_TEXT,
         )
 
         # Footer
@@ -3740,12 +5012,14 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
 
     except Exception as exc:
         import logging
+
         logging.getLogger(__name__).warning("Location analysis slide failed: %s", exc)
 
 
 # ===================================================================
 # SLIDE - Competitive Landscape (NEW)
 # ===================================================================
+
 
 def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
     """Build the Competitive Landscape slide.
@@ -3759,7 +5033,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         slide = prs.slides.add_slide(slide_layout)
 
         client = data.get("client_name", "Client")
-        industry_label = data.get("industry_label", "")
+        industry_label = data.get("industry_label") or ""
         today = datetime.date.today().strftime("%B %d, %Y")
 
         synthesized = data.get("_synthesized", {})
@@ -3788,19 +5062,29 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                         # Build a minimal comp_intel from KB benchmarks
                         hiring_trends_fb = {}
                         if ind_bench.get("time_to_fill"):
-                            hiring_trends_fb["avg_time_to_fill"] = ind_bench["time_to_fill"]
+                            hiring_trends_fb["avg_time_to_fill"] = ind_bench[
+                                "time_to_fill"
+                            ]
                         if ind_bench.get("offer_acceptance_rate"):
-                            hiring_trends_fb["offer_acceptance_rate"] = ind_bench["offer_acceptance_rate"]
+                            hiring_trends_fb["offer_acceptance_rate"] = ind_bench[
+                                "offer_acceptance_rate"
+                            ]
                         if ind_bench.get("quality_of_hire"):
-                            hiring_trends_fb["quality_metrics"] = ind_bench["quality_of_hire"]
+                            hiring_trends_fb["quality_metrics"] = ind_bench[
+                                "quality_of_hire"
+                            ]
                         if ind_bench.get("source_of_hire"):
-                            hiring_trends_fb["top_sources"] = ind_bench["source_of_hire"]
+                            hiring_trends_fb["top_sources"] = ind_bench[
+                                "source_of_hire"
+                            ]
                         if hiring_trends_fb:
                             comp_intel["hiring_trends"] = hiring_trends_fb
                             comp_intel["company_profile"] = {"name": client}
 
         # Off-white background
-        _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+        _add_filled_rect(
+            slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE
+        )
 
         # Top band
         _add_top_band(slide, "COMPETITIVE LANDSCAPE", today)
@@ -3810,8 +5094,15 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             f"{client}'s talent acquisition strategy in {industry_label}"
         )
         _add_textbox(
-            slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.5),
-            text=action_text, font_size=15, bold=True, color=NAVY,
+            slide,
+            Inches(0.55),
+            Inches(0.92),
+            Inches(12.2),
+            Inches(0.5),
+            text=action_text,
+            font_size=15,
+            bold=True,
+            color=NAVY,
         )
 
         # ---- LEFT: Company Profile ----
@@ -3819,11 +5110,24 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         left_w = Inches(5.5)
 
         _add_textbox(
-            slide, Inches(0.55), section_top, left_w, Inches(0.35),
-            text="COMPANY PROFILE", font_size=11, bold=True, color=NAVY,
+            slide,
+            Inches(0.55),
+            section_top,
+            left_w,
+            Inches(0.35),
+            text="COMPANY PROFILE",
+            font_size=11,
+            bold=True,
+            color=NAVY,
         )
-        _add_filled_rect(slide, Inches(0.55), section_top + Inches(0.33),
-                         Inches(1.8), Inches(0.03), TEAL)
+        _add_filled_rect(
+            slide,
+            Inches(0.55),
+            section_top + Inches(0.33),
+            Inches(1.8),
+            Inches(0.03),
+            TEAL,
+        )
 
         company = comp_intel.get("company_profile", {})
         if not isinstance(company, dict):
@@ -3831,33 +5135,47 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
 
         profile_top = section_top + Inches(0.5)
         _add_rounded_rect(slide, Inches(0.55), profile_top, left_w, Inches(2.2), WHITE)
-        _add_filled_rect(slide, Inches(0.55), profile_top, Inches(0.06), Inches(2.2), BLUE)
+        _add_filled_rect(
+            slide, Inches(0.55), profile_top, Inches(0.06), Inches(2.2), BLUE
+        )
 
         profile_items = [
             ("Company", company.get("name", client)),
         ]
-        desc = company.get("description", "")
+        desc = company.get("description") or ""
         if desc:
-            profile_items.append(("Description", str(desc)[:100] + ("..." if len(str(desc)) > 100 else "")))
-        domain = company.get("domain", "")
+            profile_items.append(
+                (
+                    "Description",
+                    str(desc)[:100] + ("..." if len(str(desc)) > 100 else ""),
+                )
+            )
+        domain = company.get("domain") or ""
         if domain:
             profile_items.append(("Domain", str(domain)))
         is_public = company.get("is_public", False)
         if is_public:
-            ticker = company.get("sec_ticker", "")
-            profile_items.append(("Public Company", f"Ticker: {ticker}" if ticker else "Yes"))
-            filings = company.get("recent_filings_count", 0)
+            ticker = company.get("sec_ticker") or ""
+            profile_items.append(
+                ("Public Company", f"Ticker: {ticker}" if ticker else "Yes")
+            )
+            filings = company.get("recent_filings_count") or 0
             if filings and filings > 0:
                 profile_items.append(("SEC Filings", f"{filings} recent filings"))
-        sic_desc = company.get("sec_sic_description", "")
+        sic_desc = company.get("sec_sic_description") or ""
         if sic_desc:
             profile_items.append(("SIC Industry", str(sic_desc)[:50]))
         tags = company.get("clearbit_tags", [])
         if isinstance(tags, list) and tags:
             profile_items.append(("Tags", ", ".join(str(t) for t in tags[:4])))
 
-        box_p, tf_p = _add_textbox(slide, Inches(0.8), profile_top + Inches(0.15),
-                                    left_w - Inches(0.4), Inches(2.0))
+        box_p, tf_p = _add_textbox(
+            slide,
+            Inches(0.8),
+            profile_top + Inches(0.15),
+            left_w - Inches(0.4),
+            Inches(2.0),
+        )
         tf_p.paragraphs[0].space_before = Pt(0)
         tf_p.paragraphs[0].space_after = Pt(0)
 
@@ -3880,11 +5198,24 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         # ---- Industry Hiring Trends (below company profile) ----
         trends_top = profile_top + Inches(2.4)
         _add_textbox(
-            slide, Inches(0.55), trends_top, left_w, Inches(0.3),
-            text="INDUSTRY HIRING TRENDS", font_size=10, bold=True, color=NAVY,
+            slide,
+            Inches(0.55),
+            trends_top,
+            left_w,
+            Inches(0.3),
+            text="INDUSTRY HIRING TRENDS",
+            font_size=10,
+            bold=True,
+            color=NAVY,
         )
-        _add_filled_rect(slide, Inches(0.55), trends_top + Inches(0.28),
-                         Inches(2.0), Inches(0.03), TEAL)
+        _add_filled_rect(
+            slide,
+            Inches(0.55),
+            trends_top + Inches(0.28),
+            Inches(2.0),
+            Inches(0.03),
+            TEAL,
+        )
 
         hiring_trends = comp_intel.get("hiring_trends", {})
         if not isinstance(hiring_trends, dict):
@@ -3901,18 +5232,24 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         if avg_wage and isinstance(avg_wage, (int, float)) and avg_wage > 0:
             trend_items.append(f"Avg weekly wage: ${avg_wage:,.0f}")
         establishments = hiring_trends.get("establishments")
-        if establishments and isinstance(establishments, (int, float)) and establishments > 0:
+        if (
+            establishments
+            and isinstance(establishments, (int, float))
+            and establishments > 0
+        ):
             trend_items.append(f"Establishments: {int(establishments):,}")
 
         # KB-derived trends
         kb_insights = hiring_trends.get("kb_insights", {})
         if isinstance(kb_insights, dict):
-            outlook = kb_insights.get("outlook", "")
+            outlook = kb_insights.get("outlook") or ""
             if outlook:
                 trend_items.append(f"Outlook: {outlook}")
             demand_drivers = kb_insights.get("demand_drivers", [])
             if isinstance(demand_drivers, list) and demand_drivers:
-                trend_items.append(f"Drivers: {', '.join(str(d) for d in demand_drivers[:3])}")
+                trend_items.append(
+                    f"Drivers: {', '.join(str(d) for d in demand_drivers[:3])}"
+                )
 
         # KB benchmark fallback data (from _knowledge_base)
         ttf = hiring_trends.get("avg_time_to_fill")
@@ -3929,8 +5266,9 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         if not trend_items:
             trend_items = ["Industry trend data not available"]
 
-        box_t, tf_t = _add_textbox(slide, Inches(0.55), trends_top + Inches(0.4),
-                                    left_w, Inches(1.5))
+        box_t, tf_t = _add_textbox(
+            slide, Inches(0.55), trends_top + Inches(0.4), left_w, Inches(1.5)
+        )
         tf_t.paragraphs[0].space_before = Pt(0)
         tf_t.paragraphs[0].space_after = Pt(0)
 
@@ -3942,7 +5280,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             p.space_before = Pt(1)
             p.space_after = Pt(4)
             rb = p.add_run()
-            rb.text = "\u25B8  "
+            rb.text = "\u25b8  "
             _set_font(rb, size=9, color=TEAL)
             rt = p.add_run()
             rt.text = str(item)
@@ -3953,11 +5291,24 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         right_w = Inches(6.3)
 
         _add_textbox(
-            slide, right_left, section_top, right_w, Inches(0.35),
-            text="COMPETITOR LANDSCAPE", font_size=11, bold=True, color=NAVY,
+            slide,
+            right_left,
+            section_top,
+            right_w,
+            Inches(0.35),
+            text="COMPETITOR LANDSCAPE",
+            font_size=11,
+            bold=True,
+            color=NAVY,
         )
-        _add_filled_rect(slide, right_left, section_top + Inches(0.33),
-                         Inches(2.2), Inches(0.03), TEAL)
+        _add_filled_rect(
+            slide,
+            right_left,
+            section_top + Inches(0.33),
+            Inches(2.2),
+            Inches(0.03),
+            TEAL,
+        )
 
         competitors = comp_intel.get("competitors", {})
         if not isinstance(competitors, dict):
@@ -3969,9 +5320,15 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
 
         if not competitors:
             _add_textbox(
-                slide, right_left, comp_card_top, right_w, Inches(0.4),
+                slide,
+                right_left,
+                comp_card_top,
+                right_w,
+                Inches(0.4),
                 text="No competitor data available. Add competitors to your request.",
-                font_size=10, italic=True, color=MUTED_TEXT,
+                font_size=10,
+                italic=True,
+                color=MUTED_TEXT,
             )
         else:
             for ci, (comp_name, comp_data) in enumerate(list(competitors.items())[:5]):
@@ -3984,49 +5341,78 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 # Competitor name with color accent
                 accent_colors = [BLUE, TEAL, NAVY, GREEN, AMBER]
                 accent = accent_colors[ci % len(accent_colors)]
-                _add_filled_rect(slide, right_left, cy, Inches(0.06), comp_card_h, accent)
+                _add_filled_rect(
+                    slide, right_left, cy, Inches(0.06), comp_card_h, accent
+                )
 
                 _add_textbox(
-                    slide, right_left + Inches(0.2), cy + Inches(0.08),
-                    Inches(3.0), Inches(0.3),
-                    text=str(comp_name), font_size=11, bold=True, color=DARK_TEXT,
+                    slide,
+                    right_left + Inches(0.2),
+                    cy + Inches(0.08),
+                    Inches(3.0),
+                    Inches(0.3),
+                    text=str(comp_name),
+                    font_size=11,
+                    bold=True,
+                    color=DARK_TEXT,
                 )
 
                 # Competitor details
                 details = []
-                comp_domain = comp_data.get("domain", "")
+                comp_domain = comp_data.get("domain") or ""
                 if comp_domain:
                     details.append(f"Domain: {comp_domain}")
-                comp_logo = comp_data.get("logo_url", "")
+                comp_logo = comp_data.get("logo_url") or ""
                 if comp_logo:
                     details.append("Logo available")
 
                 detail_text = "  |  ".join(details) if details else "Basic profile"
                 _add_textbox(
-                    slide, right_left + Inches(0.2), cy + Inches(0.4),
-                    right_w - Inches(0.4), Inches(0.3),
-                    text=detail_text, font_size=8, color=MUTED_TEXT,
+                    slide,
+                    right_left + Inches(0.2),
+                    cy + Inches(0.4),
+                    right_w - Inches(0.4),
+                    Inches(0.3),
+                    text=detail_text,
+                    font_size=8,
+                    color=MUTED_TEXT,
                 )
 
         # Market positioning insight
         positioning = comp_intel.get("market_positioning", {})
         if isinstance(positioning, dict) and positioning:
             pos_top = Inches(5.8)
-            _add_rounded_rect(slide, Inches(0.55), pos_top, Inches(12.2), Inches(0.7), PALE_TEAL)
-            _add_filled_rect(slide, Inches(0.55), pos_top, Inches(0.06), Inches(0.7), TEAL)
+            _add_rounded_rect(
+                slide, Inches(0.55), pos_top, Inches(12.2), Inches(0.7), PALE_TEAL
+            )
+            _add_filled_rect(
+                slide, Inches(0.55), pos_top, Inches(0.06), Inches(0.7), TEAL
+            )
 
-            pos_text = positioning.get("summary", positioning.get("insight", ""))
+            pos_text = positioning.get("summary", positioning.get("insight") or "")
             if pos_text:
                 _add_textbox(
-                    slide, Inches(0.8), pos_top + Inches(0.1), Inches(11.7), Inches(0.5),
-                    text=str(pos_text)[:200], font_size=9, color=DARK_TEXT,
+                    slide,
+                    Inches(0.8),
+                    pos_top + Inches(0.1),
+                    Inches(11.7),
+                    Inches(0.5),
+                    text=str(pos_text)[:200],
+                    font_size=9,
+                    color=DARK_TEXT,
                 )
 
         # Source line
         _add_textbox(
-            slide, Inches(0.55), Inches(6.7), Inches(12.2), Inches(0.2),
+            slide,
+            Inches(0.55),
+            Inches(6.7),
+            Inches(12.2),
+            Inches(0.2),
             text="Sources: Wikipedia, Clearbit, SEC EDGAR, BLS QCEW, Industry Knowledge Base",
-            font_size=7, italic=True, color=MUTED_TEXT,
+            font_size=7,
+            italic=True,
+            color=MUTED_TEXT,
         )
 
         # Footer
@@ -4034,12 +5420,16 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
 
     except Exception as exc:
         import logging
-        logging.getLogger(__name__).warning("Competitive landscape slide failed: %s", exc)
+
+        logging.getLogger(__name__).warning(
+            "Competitive landscape slide failed: %s", exc
+        )
 
 
 # ===================================================================
 # SLIDE - Workforce Trends (NEW)
 # ===================================================================
+
 
 def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
     """Build the Geopolitical Risk Assessment slide.
@@ -4063,12 +5453,16 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
 
         risk_level = geo.get("risk_level", "low")
         overall_score = geo.get("overall_risk_score", 1.0)
-        summary_text = geo.get("summary", "No significant geopolitical risks identified.")
+        summary_text = geo.get(
+            "summary", "No significant geopolitical risks identified."
+        )
         recommendations = geo.get("recommendations", [])
         loc_data = geo.get("locations", {})
 
         # Background
-        _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+        _add_filled_rect(
+            slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE
+        )
 
         # Top band - use red for high/critical, amber for moderate
         band_color = NAVY
@@ -4076,30 +5470,63 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
             band_color = RED_ACCENT
         elif risk_level == "moderate":
             band_color = AMBER
-        _add_top_band(slide, "GEOPOLITICAL RISK ASSESSMENT", today, band_color=band_color)
+        _add_top_band(
+            slide, "GEOPOLITICAL RISK ASSESSMENT", today, band_color=band_color
+        )
 
         # Action text
         _add_textbox(
-            slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.5),
+            slide,
+            Inches(0.55),
+            Inches(0.92),
+            Inches(12.2),
+            Inches(0.5),
             text=f"Market risk factors impacting {client}'s recruitment campaigns",
-            font_size=15, bold=True, color=NAVY,
+            font_size=15,
+            bold=True,
+            color=NAVY,
         )
 
         # Risk score badge (top right area)
-        badge_color = GREEN if overall_score <= 3 else (AMBER if overall_score <= 6 else RED_ACCENT)
-        badge_bg = LIGHT_GREEN if overall_score <= 3 else (LIGHT_AMBER if overall_score <= 6 else RGBColor(0xFD, 0xE2, 0xE2))
-        _add_rounded_rect(slide, Inches(10.5), Inches(0.85), Inches(2.2), Inches(0.6), badge_bg)
+        badge_color = (
+            GREEN
+            if overall_score <= 3
+            else (AMBER if overall_score <= 6 else RED_ACCENT)
+        )
+        badge_bg = (
+            LIGHT_GREEN
+            if overall_score <= 3
+            else (LIGHT_AMBER if overall_score <= 6 else RGBColor(0xFD, 0xE2, 0xE2))
+        )
+        _add_rounded_rect(
+            slide, Inches(10.5), Inches(0.85), Inches(2.2), Inches(0.6), badge_bg
+        )
         _add_textbox(
-            slide, Inches(10.5), Inches(0.88), Inches(2.2), Inches(0.55),
+            slide,
+            Inches(10.5),
+            Inches(0.88),
+            Inches(2.2),
+            Inches(0.55),
             text=f"Risk: {risk_level.upper()} ({overall_score:.1f}/10)",
-            font_size=12, bold=True, color=badge_color, alignment=PP_ALIGN.CENTER,
+            font_size=12,
+            bold=True,
+            color=badge_color,
+            alignment=PP_ALIGN.CENTER,
         )
 
         # Summary section
-        _add_rounded_rect(slide, Inches(0.55), Inches(1.6), Inches(12.2), Inches(0.9), WHITE)
+        _add_rounded_rect(
+            slide, Inches(0.55), Inches(1.6), Inches(12.2), Inches(0.9), WHITE
+        )
         _add_textbox(
-            slide, Inches(0.75), Inches(1.65), Inches(11.8), Inches(0.8),
-            text=summary_text[:300], font_size=11, color=DARK_TEXT,
+            slide,
+            Inches(0.75),
+            Inches(1.65),
+            Inches(11.8),
+            Inches(0.8),
+            text=summary_text[:300],
+            font_size=11,
+            color=DARK_TEXT,
         )
 
         # Per-location cards
@@ -4118,23 +5545,46 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
                 loc_adj = loc_info.get("budget_adjustment_factor", 1.0)
 
                 # Card background
-                card_bg = LIGHT_GREEN if loc_score <= 3 else (LIGHT_AMBER if loc_score <= 6 else RGBColor(0xFD, 0xE2, 0xE2))
-                _add_rounded_rect(slide, card_left, card_top, card_w, Inches(2.8), WHITE)
+                card_bg = (
+                    LIGHT_GREEN
+                    if loc_score <= 3
+                    else (LIGHT_AMBER if loc_score <= 6 else RGBColor(0xFD, 0xE2, 0xE2))
+                )
+                _add_rounded_rect(
+                    slide, card_left, card_top, card_w, Inches(2.8), WHITE
+                )
                 # Top accent bar
-                accent = GREEN if loc_score <= 3 else (AMBER if loc_score <= 6 else RED_ACCENT)
-                _add_filled_rect(slide, card_left, card_top, card_w, Inches(0.05), accent)
+                accent = (
+                    GREEN
+                    if loc_score <= 3
+                    else (AMBER if loc_score <= 6 else RED_ACCENT)
+                )
+                _add_filled_rect(
+                    slide, card_left, card_top, card_w, Inches(0.05), accent
+                )
 
                 # Location name + score
                 _add_textbox(
-                    slide, card_left + Inches(0.1), card_top + Inches(0.1),
-                    card_w - Inches(0.2), Inches(0.3),
-                    text=str(loc_name)[:30], font_size=11, bold=True, color=NAVY,
+                    slide,
+                    card_left + Inches(0.1),
+                    card_top + Inches(0.1),
+                    card_w - Inches(0.2),
+                    Inches(0.3),
+                    text=str(loc_name)[:30],
+                    font_size=11,
+                    bold=True,
+                    color=NAVY,
                 )
                 _add_textbox(
-                    slide, card_left + Inches(0.1), card_top + Inches(0.38),
-                    card_w - Inches(0.2), Inches(0.25),
+                    slide,
+                    card_left + Inches(0.1),
+                    card_top + Inches(0.38),
+                    card_w - Inches(0.2),
+                    Inches(0.25),
                     text=f"Risk: {loc_score:.1f}/10  |  Budget adj: {loc_adj:.2f}x",
-                    font_size=9, color=accent, bold=True,
+                    font_size=9,
+                    color=accent,
+                    bold=True,
                 )
 
                 # Events list
@@ -4142,13 +5592,23 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
                 for ev in loc_events[:3]:
                     if not isinstance(ev, dict):
                         continue
-                    ev_text = ev.get("event", "")[:80]
+                    ev_text = ev.get("event") or ""[:80]
                     severity = ev.get("severity", "low")
-                    sev_icon = {"low": " ", "moderate": " ", "high": " ", "critical": " "}.get(severity, " ")
+                    sev_icon = {
+                        "low": " ",
+                        "moderate": " ",
+                        "high": " ",
+                        "critical": " ",
+                    }.get(severity, " ")
                     _add_textbox(
-                        slide, card_left + Inches(0.1), event_y,
-                        card_w - Inches(0.2), Inches(0.45),
-                        text=f"{sev_icon}{ev_text}", font_size=8, color=DARK_TEXT,
+                        slide,
+                        card_left + Inches(0.1),
+                        event_y,
+                        card_w - Inches(0.2),
+                        Inches(0.45),
+                        text=f"{sev_icon}{ev_text}",
+                        font_size=8,
+                        color=DARK_TEXT,
                     )
                     event_y += Inches(0.42)
 
@@ -4156,21 +5616,40 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
         rec_top = Inches(5.7)
         if recommendations:
             _add_textbox(
-                slide, Inches(0.55), rec_top, Inches(12.2), Inches(0.3),
-                text="RECOMMENDATIONS", font_size=10, bold=True, color=BLUE,
+                slide,
+                Inches(0.55),
+                rec_top,
+                Inches(12.2),
+                Inches(0.3),
+                text="RECOMMENDATIONS",
+                font_size=10,
+                bold=True,
+                color=BLUE,
             )
             rec_text = " | ".join(str(r)[:100] for r in recommendations[:4])
             _add_textbox(
-                slide, Inches(0.55), rec_top + Inches(0.3), Inches(12.2), Inches(0.6),
-                text=rec_text, font_size=9, color=DARK_TEXT,
+                slide,
+                Inches(0.55),
+                rec_top + Inches(0.3),
+                Inches(12.2),
+                Inches(0.6),
+                text=rec_text,
+                font_size=9,
+                color=DARK_TEXT,
             )
 
         # Source attribution
         source = geo.get("source", "LLM Analysis")
         _add_textbox(
-            slide, Inches(0.55), Inches(6.8), Inches(12.2), Inches(0.3),
-            text=f"Source: {source} | Confidence: {geo.get('confidence', 0):.0%}",
-            font_size=7, italic=True, color=MUTED_TEXT,
+            slide,
+            Inches(0.55),
+            Inches(6.8),
+            Inches(12.2),
+            Inches(0.3),
+            text=f"Source: {source} | Confidence: {geo.get('confidence') or 0:.0%}",
+            font_size=7,
+            italic=True,
+            color=MUTED_TEXT,
         )
 
     except Exception as exc:
@@ -4189,7 +5668,7 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
         slide = prs.slides.add_slide(slide_layout)
 
         client = data.get("client_name", "Client")
-        industry_label = data.get("industry_label", "")
+        industry_label = data.get("industry_label") or ""
         today = datetime.date.today().strftime("%B %d, %Y")
 
         synthesized = data.get("_synthesized", {})
@@ -4200,7 +5679,9 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
             workforce = {}
 
         # Off-white background
-        _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+        _add_filled_rect(
+            slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE
+        )
 
         # Top band
         _add_top_band(slide, "WORKFORCE TRENDS & INSIGHTS", today)
@@ -4210,8 +5691,15 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
             f"strategy in {industry_label}"
         )
         _add_textbox(
-            slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.5),
-            text=action_text, font_size=15, bold=True, color=NAVY,
+            slide,
+            Inches(0.55),
+            Inches(0.92),
+            Inches(12.2),
+            Inches(0.5),
+            text=action_text,
+            font_size=15,
+            bold=True,
+            color=NAVY,
         )
 
         # ---- THREE-COLUMN LAYOUT ----
@@ -4228,9 +5716,15 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
         _add_filled_rect(slide, col1_left, section_top, col_w, Inches(0.05), BLUE)
 
         _add_textbox(
-            slide, col1_left + Inches(0.15), section_top + Inches(0.12),
-            col_w - Inches(0.3), Inches(0.3),
-            text="GEN-Z WORKFORCE TRENDS", font_size=10, bold=True, color=BLUE,
+            slide,
+            col1_left + Inches(0.15),
+            section_top + Inches(0.12),
+            col_w - Inches(0.3),
+            Inches(0.3),
+            text="GEN-Z WORKFORCE TRENDS",
+            font_size=10,
+            bold=True,
+            color=BLUE,
         )
 
         gen_z = workforce.get("gen_z_insights", {})
@@ -4252,7 +5746,7 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
         # Mobile vs desktop
         mobile = gen_z.get("mobile_vs_desktop", {})
         if isinstance(mobile, dict):
-            mobile_pct = mobile.get("mobile", mobile.get("mobile_first", ""))
+            mobile_pct = mobile.get("mobile", mobile.get("mobile_first") or "")
             if mobile_pct:
                 gz_items.append(("Mobile Usage", str(mobile_pct)))
 
@@ -4267,24 +5761,26 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
         if isinstance(expectations, dict):
             flex = expectations.get("flexibility", {})
             if isinstance(flex, dict):
-                remote_pref = flex.get("remote_preference", flex.get("flexible_work", ""))
+                remote_pref = flex.get(
+                    "remote_preference", flex.get("flexible_work") or ""
+                )
                 if remote_pref:
                     gz_items.append(("Flexibility", str(remote_pref)))
             dei = expectations.get("dei", {})
             if isinstance(dei, dict):
-                dei_imp = dei.get("importance", dei.get("priority", ""))
+                dei_imp = dei.get("importance", dei.get("priority") or "")
                 if dei_imp:
                     gz_items.append(("DEI Expectations", str(dei_imp)))
             mh = expectations.get("mental_health", {})
             if isinstance(mh, dict):
-                mh_priority = mh.get("priority", mh.get("importance", ""))
+                mh_priority = mh.get("priority", mh.get("importance") or "")
                 if mh_priority:
                     gz_items.append(("Mental Health", str(mh_priority)))
 
         # Tenure
         tenure = gen_z.get("tenure", {})
         if isinstance(tenure, dict):
-            avg_tenure = tenure.get("average", tenure.get("median", ""))
+            avg_tenure = tenure.get("average", tenure.get("median") or "")
             if avg_tenure:
                 gz_items.append(("Avg Tenure", str(avg_tenure)))
 
@@ -4292,8 +5788,11 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
             gz_items = [("Status", "Gen-Z data not available")]
 
         box_gz, tf_gz = _add_textbox(
-            slide, col1_left + Inches(0.15), section_top + Inches(0.5),
-            col_w - Inches(0.3), col_h - Inches(0.6),
+            slide,
+            col1_left + Inches(0.15),
+            section_top + Inches(0.5),
+            col_w - Inches(0.3),
+            col_h - Inches(0.6),
         )
         tf_gz.paragraphs[0].space_before = Pt(0)
         tf_gz.paragraphs[0].space_after = Pt(0)
@@ -4317,9 +5816,15 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
         _add_filled_rect(slide, col2_left, section_top, col_w, Inches(0.05), TEAL)
 
         _add_textbox(
-            slide, col2_left + Inches(0.15), section_top + Inches(0.12),
-            col_w - Inches(0.3), Inches(0.3),
-            text="EMPLOYER BRANDING", font_size=10, bold=True, color=TEAL,
+            slide,
+            col2_left + Inches(0.15),
+            section_top + Inches(0.12),
+            col_w - Inches(0.3),
+            Inches(0.3),
+            text="EMPLOYER BRANDING",
+            font_size=10,
+            bold=True,
+            color=TEAL,
         )
 
         eb = workforce.get("employer_branding", {})
@@ -4353,7 +5858,9 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
             for ck, cv in list(ch_eff.items())[:3]:
                 label = str(ck).replace("_", " ").title()
                 if isinstance(cv, dict):
-                    eb_items.append((f"Channel: {label}", str(next(iter(cv.values()), ""))))
+                    eb_items.append(
+                        (f"Channel: {label}", str(next(iter(cv.values()), "")))
+                    )
                 else:
                     eb_items.append((f"Channel: {label}", str(cv)[:40]))
 
@@ -4361,8 +5868,11 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
             eb_items = [("Status", "Employer branding data not available")]
 
         box_eb, tf_eb = _add_textbox(
-            slide, col2_left + Inches(0.15), section_top + Inches(0.5),
-            col_w - Inches(0.3), col_h - Inches(0.6),
+            slide,
+            col2_left + Inches(0.15),
+            section_top + Inches(0.5),
+            col_w - Inches(0.3),
+            col_h - Inches(0.6),
         )
         tf_eb.paragraphs[0].space_before = Pt(0)
         tf_eb.paragraphs[0].space_after = Pt(0)
@@ -4386,9 +5896,15 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
         _add_filled_rect(slide, col3_left, section_top, col_w, Inches(0.05), NAVY)
 
         _add_textbox(
-            slide, col3_left + Inches(0.15), section_top + Inches(0.12),
-            col_w - Inches(0.3), Inches(0.3),
-            text="RESEARCH & INDUSTRY DATA", font_size=10, bold=True, color=NAVY,
+            slide,
+            col3_left + Inches(0.15),
+            section_top + Inches(0.12),
+            col_w - Inches(0.3),
+            Inches(0.3),
+            text="RESEARCH & INDUSTRY DATA",
+            font_size=10,
+            bold=True,
+            color=NAVY,
         )
 
         # White paper citations
@@ -4397,17 +5913,23 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
         if isinstance(research, list):
             for rr in research[:4]:
                 if isinstance(rr, dict):
-                    title = rr.get("title", "")
-                    publisher = rr.get("publisher", "")
-                    year = rr.get("year", "")
+                    title = rr.get("title") or ""
+                    publisher = rr.get("publisher") or ""
+                    year = rr.get("year") or ""
                     findings = rr.get("top_findings", [])
                     if title:
-                        r_items.append({
-                            "title": str(title)[:60],
-                            "publisher": str(publisher),
-                            "year": str(year) if year else "",
-                            "finding": str(findings[0])[:60] if isinstance(findings, list) and findings else "",
-                        })
+                        r_items.append(
+                            {
+                                "title": str(title)[:60],
+                                "publisher": str(publisher),
+                                "year": str(year) if year else "",
+                                "finding": (
+                                    str(findings[0])[:60]
+                                    if isinstance(findings, list) and findings
+                                    else ""
+                                ),
+                            }
+                        )
 
         # Supply partner trends
         sp = workforce.get("supply_partner_trends", {})
@@ -4415,8 +5937,11 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
         jt = workforce.get("job_type_trends", {})
 
         box_r, tf_r = _add_textbox(
-            slide, col3_left + Inches(0.15), section_top + Inches(0.5),
-            col_w - Inches(0.3), col_h - Inches(0.6),
+            slide,
+            col3_left + Inches(0.15),
+            section_top + Inches(0.5),
+            col_w - Inches(0.3),
+            col_h - Inches(0.6),
         )
         tf_r.paragraphs[0].space_before = Pt(0)
         tf_r.paragraphs[0].space_after = Pt(0)
@@ -4449,7 +5974,7 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
                 p3.space_before = Pt(0)
                 p3.space_after = Pt(4)
                 rf = p3.add_run()
-                rf.text = f"\u25B8 {ri_item['finding']}"
+                rf.text = f"\u25b8 {ri_item['finding']}"
                 _set_font(rf, size=7, color=TEAL)
 
         # Supply partner trends section
@@ -4466,7 +5991,7 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
                 p_s.space_before = Pt(1)
                 p_s.space_after = Pt(3)
                 rs1 = p_s.add_run()
-                rs1.text = f"\u25B8 {str(sk).replace('_', ' ').title()}: "
+                rs1.text = f"\u25b8 {str(sk).replace('_', ' ').title()}: "
                 _set_font(rs1, size=7, bold=True, color=TEAL)
                 rs2 = p_s.add_run()
                 if isinstance(sv, dict):
@@ -4489,7 +6014,7 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
                 p_j.space_before = Pt(1)
                 p_j.space_after = Pt(3)
                 rj1 = p_j.add_run()
-                rj1.text = f"\u25B8 {str(jk).replace('_', ' ').title()}: "
+                rj1.text = f"\u25b8 {str(jk).replace('_', ' ').title()}: "
                 _set_font(rj1, size=7, bold=True, color=TEAL)
                 rj2 = p_j.add_run()
                 if isinstance(jv, dict):
@@ -4506,9 +6031,15 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
 
         # Source line
         _add_textbox(
-            slide, Inches(0.55), Inches(6.7), Inches(12.2), Inches(0.2),
+            slide,
+            Inches(0.55),
+            Inches(6.7),
+            Inches(12.2),
+            Inches(0.2),
             text="Sources: Recruitment Industry White Papers, Workforce Trends Intelligence, Employer Branding Research",
-            font_size=7, italic=True, color=MUTED_TEXT,
+            font_size=7,
+            italic=True,
+            color=MUTED_TEXT,
         )
 
         # Footer
@@ -4516,12 +6047,14 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
 
     except Exception as exc:
         import logging
+
         logging.getLogger(__name__).warning("Workforce trends slide failed: %s", exc)
 
 
 # ===================================================================
 # SLIDE N (Last) - Data Sources & Methodology
 # ===================================================================
+
 
 def _build_slide_data_sources(prs: Presentation, data: Dict):
     """Build a Data Sources slide listing all API sources, freshness, and confidence.
@@ -4541,9 +6074,15 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
 
     # Action title
     _add_textbox(
-        slide, Inches(0.55), Inches(0.92), Inches(12.2), Inches(0.5),
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.5),
         text="Transparency into the data pipeline powering this media plan",
-        font_size=15, bold=True, color=NAVY,
+        font_size=15,
+        bold=True,
+        color=NAVY,
     )
 
     # Extract enrichment data
@@ -4561,8 +6100,8 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
     api_details = summary.get("api_details", {})
     if not isinstance(api_details, dict):
         api_details = {}
-    confidence_score = summary.get("confidence_score", 0)
-    total_time = summary.get("total_time_seconds", 0)
+    confidence_score = summary.get("confidence_score") or 0
+    total_time = summary.get("total_time_seconds") or 0
 
     # ---- HERO STATS BAR ----
     bar_top = Inches(1.55)
@@ -4574,7 +6113,10 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
         (str(len(apis_called)), "APIs Called"),
         (str(len(apis_succeeded)), "APIs Succeeded"),
         (str(len(apis_failed)), "APIs Failed"),
-        (_fmt_pct(confidence_score, decimals=0) if confidence_score else "N/A", "Confidence Score"),
+        (
+            _fmt_pct(confidence_score, decimals=0) if confidence_score else "N/A",
+            "Confidence Score",
+        ),
         (f"{total_time:.1f}s" if total_time else "N/A", "Fetch Time"),
     ]
 
@@ -4582,21 +6124,41 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
     for i, (val, label) in enumerate(hero_metrics):
         hx = Inches(0.55) + i * hero_w
         _add_textbox(
-            slide, hx, bar_top + Inches(0.05), hero_w, Inches(0.48),
-            text=val, font_size=22, bold=True, color=TEAL,
-            alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+            slide,
+            hx,
+            bar_top + Inches(0.05),
+            hero_w,
+            Inches(0.48),
+            text=val,
+            font_size=22,
+            bold=True,
+            color=TEAL,
+            alignment=PP_ALIGN.CENTER,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
         _add_textbox(
-            slide, hx, bar_top + Inches(0.52), hero_w, Inches(0.25),
-            text=label, font_size=8, bold=False, color=LIGHT_MUTED,
+            slide,
+            hx,
+            bar_top + Inches(0.52),
+            hero_w,
+            Inches(0.25),
+            text=label,
+            font_size=8,
+            bold=False,
+            color=LIGHT_MUTED,
             alignment=PP_ALIGN.CENTER,
         )
         # Thin divider between metrics (skip after last)
         if i < len(hero_metrics) - 1:
             div_x = Inches(0.55) + (i + 1) * hero_w
-            _add_filled_rect(slide, div_x, bar_top + Inches(0.15),
-                             Inches(0.015), Inches(0.55),
-                             RGBColor(0x1A, 0x45, 0x70))
+            _add_filled_rect(
+                slide,
+                div_x,
+                bar_top + Inches(0.15),
+                Inches(0.015),
+                Inches(0.55),
+                RGBColor(0x1A, 0x45, 0x70),
+            )
 
     # ---- DATA SOURCES TABLE ----
     table_top = Inches(2.65)
@@ -4606,11 +6168,19 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
 
     # Section header
     _add_textbox(
-        slide, table_left, table_top - Inches(0.4), Inches(4), Inches(0.35),
-        text="API DATA SOURCES", font_size=11, bold=True, color=NAVY,
+        slide,
+        table_left,
+        table_top - Inches(0.4),
+        Inches(4),
+        Inches(0.35),
+        text="API DATA SOURCES",
+        font_size=11,
+        bold=True,
+        color=NAVY,
     )
-    _add_filled_rect(slide, table_left, table_top - Inches(0.08),
-                     Inches(1.8), Inches(0.03), TEAL)
+    _add_filled_rect(
+        slide, table_left, table_top - Inches(0.08), Inches(1.8), Inches(0.03), TEAL
+    )
 
     # Table header row
     _add_filled_rect(slide, table_left, table_top, table_w, row_h, NAVY)
@@ -4622,8 +6192,15 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
 
     for ci, (header, cw, co) in enumerate(zip(col_headers, col_widths, col_offsets)):
         _add_textbox(
-            slide, table_left + co + Inches(0.1), table_top, cw - Inches(0.1), row_h,
-            text=header, font_size=9, bold=True, color=WHITE,
+            slide,
+            table_left + co + Inches(0.1),
+            table_top,
+            cw - Inches(0.1),
+            row_h,
+            text=header,
+            font_size=9,
+            bold=True,
+            color=WHITE,
             anchor=MSO_ANCHOR.MIDDLE,
         )
 
@@ -4636,7 +6213,7 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
                 continue
             source = detail.get("source", "unknown")
             success = detail.get("success", False)
-            elapsed = detail.get("elapsed_time", 0)
+            elapsed = detail.get("elapsed_time") or 0
             status_label = detail.get("status", "unknown")
 
             # Determine freshness label
@@ -4666,10 +6243,15 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
             # Estimate data points from enriched data keys
             data_points = "--"
             result_key_map = {
-                "BLS": "salary_data", "Adzuna": "job_market", "Census-ACS": "location_demographics",
-                "BLS-QCEW": "industry_employment", "WorldBank": "global_indicators",
-                "Clearbit": "clearbit_data", "Google-Ads": "google_ads_data",
-                "Meta-Ads": "meta_ads_data", "Teleport": "teleport_data",
+                "BLS": "salary_data",
+                "Adzuna": "job_market",
+                "Census-ACS": "location_demographics",
+                "BLS-QCEW": "industry_employment",
+                "WorldBank": "global_indicators",
+                "Clearbit": "clearbit_data",
+                "Google-Ads": "google_ads_data",
+                "Meta-Ads": "meta_ads_data",
+                "Teleport": "teleport_data",
             }
             mapped_key = None
             for rk_prefix, rk_val in result_key_map.items():
@@ -4683,13 +6265,15 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
                 elif isinstance(raw, list):
                     data_points = str(len(raw))
 
-            table_rows.append((
-                api_name,
-                (status_display, status_color),
-                freshness,
-                f"{elapsed:.2f}s" if elapsed else "--",
-                data_points,
-            ))
+            table_rows.append(
+                (
+                    api_name,
+                    (status_display, status_color),
+                    freshness,
+                    f"{elapsed:.2f}s" if elapsed else "--",
+                    data_points,
+                )
+            )
     else:
         # Fallback: build rows from simple lists
         all_apis = set(apis_called) if apis_called else set()
@@ -4710,23 +6294,27 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
                 status_display = "Unknown"
                 status_color = MUTED_TEXT
                 freshness = "--"
-            table_rows.append((
-                api_name,
-                (status_display, status_color),
-                freshness,
-                "--",
-                "--",
-            ))
+            table_rows.append(
+                (
+                    api_name,
+                    (status_display, status_color),
+                    freshness,
+                    "--",
+                    "--",
+                )
+            )
 
     # If no API data at all, show a placeholder row
     if not table_rows:
-        table_rows.append((
-            "No API enrichment data",
-            ("N/A", MUTED_TEXT),
-            "Curated benchmarks used",
-            "--",
-            "--",
-        ))
+        table_rows.append(
+            (
+                "No API enrichment data",
+                ("N/A", MUTED_TEXT),
+                "Curated benchmarks used",
+                "--",
+                "--",
+            )
+        )
 
     # Render table rows (cap at 12 to fit the slide)
     max_display_rows = 12
@@ -4735,10 +6323,18 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
         bg = WHITE if ri % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
         _add_filled_rect(slide, table_left, ry, table_w, row_h, bg)
         # Thin ruled line
-        _add_filled_rect(slide, table_left, ry + row_h - Inches(0.008),
-                         table_w, Inches(0.008), WARM_GRAY)
+        _add_filled_rect(
+            slide,
+            table_left,
+            ry + row_h - Inches(0.008),
+            table_w,
+            Inches(0.008),
+            WARM_GRAY,
+        )
 
-        api_name_str, (status_str, status_clr), freshness_str, elapsed_str, dp_str = row_data
+        api_name_str, (status_str, status_clr), freshness_str, elapsed_str, dp_str = (
+            row_data
+        )
 
         vals = [api_name_str, status_str, freshness_str, elapsed_str, dp_str]
         colors = [DARK_TEXT, status_clr, MUTED_TEXT, MUTED_TEXT, DARK_TEXT]
@@ -4748,8 +6344,15 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
             zip(vals, colors, bolds, col_widths, col_offsets)
         ):
             _add_textbox(
-                slide, table_left + co + Inches(0.1), ry, cw - Inches(0.1), row_h,
-                text=str(val), font_size=8, bold=bld, color=clr,
+                slide,
+                table_left + co + Inches(0.1),
+                ry,
+                cw - Inches(0.1),
+                row_h,
+                text=str(val),
+                font_size=8,
+                bold=bld,
+                color=clr,
                 anchor=MSO_ANCHOR.MIDDLE,
             )
 
@@ -4757,9 +6360,15 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
     if len(table_rows) > max_display_rows:
         overflow_y = table_top + row_h * (max_display_rows + 1) + Inches(0.05)
         _add_textbox(
-            slide, table_left, overflow_y, table_w, Inches(0.2),
+            slide,
+            table_left,
+            overflow_y,
+            table_w,
+            Inches(0.2),
             text=f"+ {len(table_rows) - max_display_rows} additional sources (see appendix)",
-            font_size=7, italic=True, color=MUTED_TEXT,
+            font_size=7,
+            italic=True,
+            color=MUTED_TEXT,
         )
 
     # ---- METHODOLOGY FOOTER ----
@@ -4773,14 +6382,28 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
         "live API calls to total attempted."
     )
     _add_textbox(
-        slide, Inches(0.55), Inches(7.05), Inches(10), Inches(0.35),
-        text=meth_text, font_size=6, italic=True, color=LIGHT_MUTED,
+        slide,
+        Inches(0.55),
+        Inches(7.05),
+        Inches(10),
+        Inches(0.35),
+        text=meth_text,
+        font_size=6,
+        italic=True,
+        color=LIGHT_MUTED,
     )
 
     # Generation timestamp
     _add_textbox(
-        slide, Inches(10.5), Inches(7.05), Inches(2.2), Inches(0.2),
-        text=f"Generated: {today}", font_size=7, bold=False, color=MUTED_TEXT,
+        slide,
+        Inches(10.5),
+        Inches(7.05),
+        Inches(2.2),
+        Inches(0.2),
+        text=f"Generated: {today}",
+        font_size=7,
+        bold=False,
+        color=MUTED_TEXT,
         alignment=PP_ALIGN.RIGHT,
     )
 
@@ -4791,6 +6414,7 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
 # ===================================================================
 # Public API
 # ===================================================================
+
 
 def generate_pptx(data: Dict[str, Any]) -> bytes:
     """
@@ -4823,7 +6447,10 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
     data.setdefault("roles", [])
     # Normalize roles: dicts -> strings (frontend may send [{"title": "..."}])
     if data["roles"] and isinstance(data["roles"][0], dict):
-        data["roles"] = [r.get("title", r.get("role", str(r))) if isinstance(r, dict) else str(r) for r in data["roles"]]
+        data["roles"] = [
+            r.get("title", r.get("role", str(r))) if isinstance(r, dict) else str(r)
+            for r in data["roles"]
+        ]
     data.setdefault("campaign_goals", [])
     data.setdefault("channel_categories", {})
     # Frontend sends "budget_range" but PPT reads "budget" -- normalize
@@ -4837,7 +6464,13 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
     data.setdefault("work_environment", "hybrid")
 
     # Null safety - replace None values with defaults
-    for key, default in [("client_name", "Client"), ("company_name", "Client"), ("industry", "general_entry_level"), ("budget", "TBD"), ("work_environment", "hybrid")]:
+    for key, default in [
+        ("client_name", "Client"),
+        ("company_name", "Client"),
+        ("industry", "general_entry_level"),
+        ("budget", "TBD"),
+        ("work_environment", "hybrid"),
+    ]:
         if data.get(key) is None:
             data[key] = default
     # Ensure list fields are actual lists
@@ -4852,13 +6485,15 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
     if cc is None:
         data["channel_categories"] = {}
     elif isinstance(cc, list):
-        data["channel_categories"] = {(item.get("name", "") if isinstance(item, dict) else str(item)): True for item in cc}
+        data["channel_categories"] = {
+            (item.get("name") or "" if isinstance(item, dict) else str(item)): True
+            for item in cc
+        }
 
     # Industry label mapping (single source of truth in shared_utils.py)
     if not data.get("industry_label"):
         data["industry_label"] = _SHARED_INDUSTRY_LABEL_MAP.get(
-            data["industry"],
-            data["industry"].replace("_", " ").title()
+            data["industry"], data["industry"].replace("_", " ").title()
         )
 
     try:
@@ -4867,7 +6502,9 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         # Set document metadata for GEO/SEO discoverability
         core_props = prs.core_properties
         client = data.get("client_name", "Client")
-        industry_label = data.get("industry_label", data.get("industry", "").replace("_", " ").title())
+        industry_label = data.get(
+            "industry_label", data.get("industry") or "".replace("_", " ").title()
+        )
         core_props.title = f"Recruitment Media Plan - {client}"
         core_props.author = "Nova AI Suite"
         core_props.subject = f"AI-generated recruitment advertising media plan for {client} in the {industry_label} industry"
@@ -4912,7 +6549,8 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         budget_alloc_data = data.get("_budget_allocation", {})
         if isinstance(budget_alloc_data, dict) and budget_alloc_data:
             _ba_has_data = (
-                budget_alloc_data.get("metadata", {}).get("total_budget", 0) > 0
+                budget_alloc_data.get("metadata", {}).get("total_budget")
+                or 0 > 0
                 or budget_alloc_data.get("total_projected", {})
                 or budget_alloc_data.get("channel_allocations", {})
             )
@@ -4935,7 +6573,9 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         return buffer.getvalue()
 
     except Exception as exc:
-        raise RuntimeError(f"Failed to generate PowerPoint presentation: {exc}") from exc
+        raise RuntimeError(
+            f"Failed to generate PowerPoint presentation: {exc}"
+        ) from exc
 
 
 # ===================================================================
@@ -4948,8 +6588,20 @@ if __name__ == "__main__":
         "client_website": "https://www.acmehealthcare.com",
         "industry": "healthcare_medical",
         "industry_label": "Healthcare & Medical",
-        "locations": ["New York, NY", "Chicago, IL", "Houston, TX", "Phoenix, AZ", "San Diego, CA"],
-        "roles": ["Registered Nurse", "Medical Assistant", "Physical Therapist", "Lab Technician", "Pharmacist"],
+        "locations": [
+            "New York, NY",
+            "Chicago, IL",
+            "Houston, TX",
+            "Phoenix, AZ",
+            "San Diego, CA",
+        ],
+        "roles": [
+            "Registered Nurse",
+            "Medical Assistant",
+            "Physical Therapist",
+            "Lab Technician",
+            "Pharmacist",
+        ],
         "job_categories": ["Clinical", "Allied Health", "Administrative"],
         "use_case": "Scaling clinical hiring across 5 metro areas to meet Q3 demand surge",
         "campaign_goals": ["high_volume", "cost_efficiency", "speed_to_hire"],

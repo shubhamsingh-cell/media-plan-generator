@@ -10,6 +10,7 @@ import re
 import zipfile
 import uuid
 import time
+import secrets
 
 try:
     import fcntl
@@ -14876,6 +14877,40 @@ except ImportError:
 except Exception as _supa_err:
     logger.debug("Supabase cache not configured: %s", _supa_err)
 
+# ── Scheduled daily knowledge-base backup ─────────────────────────────────
+_KB_BACKUP_INTERVAL = 86400  # 24 hours
+
+
+def _scheduled_kb_backup() -> None:
+    """Run a knowledge-base backup on a recurring timer.
+
+    Uses threading.Timer so it re-schedules itself after each run,
+    matching the existing pattern for background tasks.
+    """
+    try:
+        from scripts.backup_kb import backup_knowledge_base
+
+        result = backup_knowledge_base(DATA_DIR)
+        logger.info("Scheduled KB backup succeeded: %s", Path(result).name)
+    except Exception as bk_err:
+        logger.error("Scheduled KB backup failed: %s", bk_err, exc_info=True)
+    finally:
+        # Re-schedule next run
+        _timer = threading.Timer(_KB_BACKUP_INTERVAL, _scheduled_kb_backup)
+        _timer.daemon = True
+        _timer.name = "kb-backup"
+        _timer.start()
+
+
+if os.path.isdir(DATA_DIR):
+    _kb_backup_timer = threading.Timer(_KB_BACKUP_INTERVAL, _scheduled_kb_backup)
+    _kb_backup_timer.daemon = True
+    _kb_backup_timer.name = "kb-backup"
+    _kb_backup_timer.start()
+    logger.info("KB backup scheduler started (every 24h)")
+else:
+    logger.warning("KB backup scheduler not started (data/ directory not found)")
+
 # Simple in-memory rate limiter
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -14943,6 +14978,56 @@ _rl_generate = RateLimiter()  # /api/generate -- 10 req/min (expensive)
 _rl_portal = RateLimiter()  # /api/portal/* -- 20 req/min
 _rl_general = RateLimiter()  # all other /api/* POST routes -- 30 req/min
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CSRF TOKEN STORE (per-IP, 1-hour expiry)
+# ═══════════════════════════════════════════════════════════════════════════════
+_csrf_tokens: dict = {}  # ip -> {"token": str, "created": float}
+_csrf_lock = threading.Lock()
+_CSRF_TOKEN_TTL = 3600  # 1 hour
+
+
+def _get_or_create_csrf_token(client_ip: str) -> str:
+    """Return an existing valid CSRF token for the IP, or create a new one.
+
+    Thread-safe. Tokens expire after 1 hour. Periodic cleanup removes stale
+    entries to prevent unbounded memory growth.
+    """
+    now = time.time()
+    with _csrf_lock:
+        entry = _csrf_tokens.get(client_ip)
+        if entry and now - entry["created"] < _CSRF_TOKEN_TTL:
+            return entry["token"]
+        token = secrets.token_hex(32)
+        _csrf_tokens[client_ip] = {"token": token, "created": now}
+        # Periodic cleanup: remove expired entries when store exceeds 500 IPs
+        if len(_csrf_tokens) > 500:
+            stale = [
+                ip
+                for ip, e in list(_csrf_tokens.items())
+                if now - e["created"] >= _CSRF_TOKEN_TTL
+            ]
+            for ip in stale:
+                _csrf_tokens.pop(ip, None)
+        return token
+
+
+def _validate_csrf_token(client_ip: str, token: str) -> bool:
+    """Validate a CSRF token for the given client IP.
+
+    Returns True if the token matches and has not expired.
+    """
+    import hmac as _hmac_mod
+
+    now = time.time()
+    with _csrf_lock:
+        entry = _csrf_tokens.get(client_ip)
+        if not entry:
+            return False
+        if now - entry["created"] >= _CSRF_TOKEN_TTL:
+            _csrf_tokens.pop(client_ip, None)
+            return False
+        return _hmac_mod.compare_digest(entry["token"], token)
+
 
 def _rate_limiter_cleanup_loop():
     """Background thread: run cleanup on all rate limiter instances every 5 minutes."""
@@ -14968,6 +15053,935 @@ _ALLOWED_ORIGINS = {
     "http://127.0.0.1:5001",
     "https://media-plan-generator.onrender.com",
 }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ROI CALCULATOR BACKEND
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Industry benchmarks for ROI calculations – keyed by frontend select values
+# and also by KB-style keys for flexible lookup.
+_ROI_INDUSTRY_BENCHMARKS = {
+    "Technology": {"cpa": 28, "conv_rate": 0.05, "avg_cph": 6200, "avg_ttf": 42},
+    "Healthcare": {"cpa": 22, "conv_rate": 0.045, "avg_cph": 4800, "avg_ttf": 49},
+    "Finance": {"cpa": 35, "conv_rate": 0.04, "avg_cph": 5500, "avg_ttf": 44},
+    "Retail": {"cpa": 8, "conv_rate": 0.08, "avg_cph": 2700, "avg_ttf": 36},
+    "Manufacturing": {"cpa": 12, "conv_rate": 0.06, "avg_cph": 3800, "avg_ttf": 40},
+    "Logistics": {"cpa": 10, "conv_rate": 0.07, "avg_cph": 3200, "avg_ttf": 38},
+    "Hospitality": {"cpa": 7, "conv_rate": 0.09, "avg_cph": 2700, "avg_ttf": 33},
+    "Other": {"cpa": 15, "conv_rate": 0.05, "avg_cph": 4700, "avg_ttf": 45},
+    # KB-style keys map to same data
+    "tech_engineering": {"cpa": 28, "conv_rate": 0.05, "avg_cph": 6200, "avg_ttf": 42},
+    "healthcare_medical": {
+        "cpa": 22,
+        "conv_rate": 0.045,
+        "avg_cph": 4800,
+        "avg_ttf": 49,
+    },
+    "finance_banking": {"cpa": 35, "conv_rate": 0.04, "avg_cph": 5500, "avg_ttf": 44},
+    "retail_consumer": {"cpa": 8, "conv_rate": 0.08, "avg_cph": 2700, "avg_ttf": 36},
+    "construction_real_estate": {
+        "cpa": 14,
+        "conv_rate": 0.055,
+        "avg_cph": 4000,
+        "avg_ttf": 41,
+    },
+    "logistics_supply_chain": {
+        "cpa": 10,
+        "conv_rate": 0.07,
+        "avg_cph": 3200,
+        "avg_ttf": 38,
+    },
+    "hospitality_travel": {"cpa": 7, "conv_rate": 0.09, "avg_cph": 2700, "avg_ttf": 33},
+    "general": {"cpa": 15, "conv_rate": 0.05, "avg_cph": 4700, "avg_ttf": 45},
+}
+
+
+def _calculate_roi(data: dict) -> dict:
+    """Calculate ROI metrics from provided recruitment advertising parameters.
+
+    Accepts a dict with keys: monthly_budget, avg_cpa, avg_cost_per_hire,
+    current_time_to_fill, num_positions, industry. Returns calculated ROI
+    metrics including savings, payback period, and industry comparison.
+    """
+    monthly_budget = float(data.get("monthly_budget") or 0)
+    avg_cpa = float(data.get("avg_cpa") or 0)
+    avg_cost_per_hire = float(data.get("avg_cost_per_hire") or 0)
+    current_ttf = float(data.get("current_time_to_fill") or 45)
+    num_positions = int(data.get("num_positions") or 1)
+    industry = data.get("industry") or "Other"
+
+    if monthly_budget <= 0:
+        return {"error": "monthly_budget must be greater than zero"}
+
+    # Look up industry benchmarks
+    benchmarks = _ROI_INDUSTRY_BENCHMARKS.get(
+        industry, _ROI_INDUSTRY_BENCHMARKS["Other"]
+    )
+    cpa = avg_cpa if avg_cpa > 0 else benchmarks["cpa"]
+    conv_rate = benchmarks["conv_rate"]
+    industry_avg_cph = benchmarks["avg_cph"]
+    industry_avg_ttf = benchmarks["avg_ttf"]
+
+    # Core calculations
+    monthly_applications = monthly_budget / cpa if cpa > 0 else 0
+    projected_hires = monthly_applications * conv_rate
+    cost_per_hire = monthly_budget / projected_hires if projected_hires > 0 else 0
+
+    # Time-to-fill improvement (programmatic typically cuts 25-35%)
+    ttf_improvement_pct = 30.0
+    new_ttf = current_ttf * (1 - ttf_improvement_pct / 100)
+
+    # Annual savings: difference in cost-per-hire times positions times 12
+    current_annual_hiring_cost = (
+        avg_cost_per_hire * num_positions * 12
+        if avg_cost_per_hire > 0
+        else industry_avg_cph * num_positions * 12
+    )
+    projected_annual_hiring_cost = cost_per_hire * num_positions * 12
+    annual_ad_spend = monthly_budget * 12
+    annual_savings = (
+        current_annual_hiring_cost - projected_annual_hiring_cost - annual_ad_spend
+    )
+
+    # ROI percentage
+    roi_percentage = (
+        (annual_savings / annual_ad_spend * 100) if annual_ad_spend > 0 else 0
+    )
+
+    # Payback period
+    monthly_savings = annual_savings / 12 if annual_savings > 0 else 0
+    payback_period_months = (
+        round(annual_ad_spend / (monthly_savings * 12) * 12, 1)
+        if monthly_savings > 0
+        else 0
+    )
+
+    # Industry benchmark comparison
+    cph_vs_benchmark = "below" if cost_per_hire < industry_avg_cph else "above"
+    cph_diff_pct = (
+        abs(cost_per_hire - industry_avg_cph) / industry_avg_cph * 100
+        if industry_avg_cph > 0
+        else 0
+    )
+
+    # Try to enrich with KB data
+    kb_insights: list[str] = []
+    try:
+        kb = load_knowledge_base()
+        kb_key = _INDUSTRY_KEY_TO_KB_KEY.get(industry, "")
+        ind_benchmarks = kb.get("industry_specific_benchmarks", {}).get(kb_key, {})
+        if ind_benchmarks:
+            outlook = (
+                ind_benchmarks.get("outlook")
+                or ind_benchmarks.get("hiring_stability")
+                or ""
+            )
+            if outlook:
+                kb_insights.append(outlook)
+            hiring_strength = ind_benchmarks.get("hiring_strength") or ""
+            if hiring_strength:
+                kb_insights.append(hiring_strength)
+    except Exception as e:
+        logger.error("ROI KB enrichment error: %s", e, exc_info=True)
+
+    return {
+        "monthly_applications": round(monthly_applications, 1),
+        "projected_hires": round(projected_hires, 1),
+        "cost_per_hire": round(cost_per_hire, 2),
+        "time_to_fill_improvement": round(ttf_improvement_pct, 1),
+        "new_time_to_fill": round(new_ttf, 1),
+        "annual_savings": round(annual_savings, 2),
+        "monthly_savings": round(annual_savings / 12, 2) if annual_savings else 0,
+        "roi_percentage": round(roi_percentage, 1),
+        "payback_period_months": payback_period_months,
+        "annual_ad_spend": round(annual_ad_spend, 2),
+        "industry_benchmark_comparison": {
+            "industry": industry,
+            "industry_avg_cph": industry_avg_cph,
+            "your_projected_cph": round(cost_per_hire, 2),
+            "comparison": cph_vs_benchmark,
+            "difference_pct": round(cph_diff_pct, 1),
+            "industry_avg_ttf": industry_avg_ttf,
+            "your_projected_ttf": round(new_ttf, 1),
+        },
+        "kb_insights": kb_insights,
+        "inputs": {
+            "monthly_budget": monthly_budget,
+            "avg_cpa": cpa,
+            "avg_cost_per_hire": avg_cost_per_hire or industry_avg_cph,
+            "current_time_to_fill": current_ttf,
+            "num_positions": num_positions,
+            "industry": industry,
+        },
+    }
+
+
+def _generate_roi_excel(data: dict) -> bytes:
+    """Generate an Excel summary of ROI projection data.
+
+    Accepts the same data dict as _calculate_roi and produces a formatted
+    .xlsx workbook with inputs, projected metrics, and industry comparison.
+    """
+    # Calculate if not already calculated
+    if "monthly_applications" not in data:
+        data = _calculate_roi(data)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "ROI Projection"
+
+    header_font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+    header_fill = PatternFill(
+        start_color="6366F1", end_color="6366F1", fill_type="solid"
+    )
+    subheader_font = Font(name="Calibri", bold=True, size=10)
+    normal_font = Font(name="Calibri", size=10)
+
+    # Title
+    ws.merge_cells("A1:B1")
+    ws["A1"] = "ROI Projection Calculator"
+    ws["A1"].font = Font(name="Calibri", bold=True, size=16, color="6366F1")
+
+    # Inputs section
+    ws["A3"] = "INPUTS"
+    ws["A3"].font = Font(name="Calibri", bold=True, size=12, color="6366F1")
+    inputs = data.get("inputs", data)
+    input_rows = [
+        ("Monthly Budget", f"${inputs.get('monthly_budget') or 0:,.0f}"),
+        ("Avg CPA", f"${inputs.get('avg_cpa') or 0:,.2f}"),
+        ("Current Cost-Per-Hire", f"${inputs.get('avg_cost_per_hire') or 0:,.0f}"),
+        (
+            "Current Time-to-Fill",
+            f"{inputs.get('current_time_to_fill') or 0:.0f} days",
+        ),
+        ("Number of Positions", str(inputs.get("num_positions") or 0)),
+        ("Industry", str(inputs.get("industry") or "")),
+    ]
+    for i, (label, val) in enumerate(input_rows, start=4):
+        ws.cell(row=i, column=1, value=label).font = subheader_font
+        ws.cell(row=i, column=2, value=val).font = normal_font
+
+    # Results section
+    results_start = len(input_rows) + 5
+    ws.cell(row=results_start, column=1, value="PROJECTED RESULTS").font = Font(
+        name="Calibri", bold=True, size=12, color="6366F1"
+    )
+    result_rows = [
+        ("Monthly Applications", f"{data.get('monthly_applications') or 0:,.1f}"),
+        ("Projected Monthly Hires", f"{data.get('projected_hires') or 0:,.1f}"),
+        ("Projected Cost-Per-Hire", f"${data.get('cost_per_hire') or 0:,.2f}"),
+        (
+            "Time-to-Fill Improvement",
+            f"{data.get('time_to_fill_improvement') or 0:.1f}%",
+        ),
+        ("New Time-to-Fill", f"{data.get('new_time_to_fill') or 0:.0f} days"),
+        ("Annual Ad Spend", f"${data.get('annual_ad_spend') or 0:,.0f}"),
+        ("Annual Savings", f"${data.get('annual_savings') or 0:,.0f}"),
+        ("ROI Percentage", f"{data.get('roi_percentage') or 0:.1f}%"),
+        (
+            "Payback Period",
+            f"{data.get('payback_period_months') or 0:.1f} months",
+        ),
+    ]
+    for i, (label, val) in enumerate(result_rows, start=results_start + 1):
+        ws.cell(row=i, column=1, value=label).font = subheader_font
+        ws.cell(row=i, column=2, value=val).font = normal_font
+
+    # Industry comparison
+    bench_start = results_start + len(result_rows) + 2
+    ws.cell(row=bench_start, column=1, value="INDUSTRY COMPARISON").font = Font(
+        name="Calibri", bold=True, size=12, color="6366F1"
+    )
+    bench = data.get("industry_benchmark_comparison", {})
+    bench_rows = [
+        ("Industry Avg CPH", f"${bench.get('industry_avg_cph') or 0:,.0f}"),
+        ("Your Projected CPH", f"${bench.get('your_projected_cph') or 0:,.2f}"),
+        (
+            "Comparison",
+            f"{bench.get('difference_pct') or 0:.1f}% {bench.get('comparison') or ''} benchmark",
+        ),
+        ("Industry Avg TTF", f"{bench.get('industry_avg_ttf') or 0} days"),
+        ("Your Projected TTF", f"{bench.get('your_projected_ttf') or 0:.0f} days"),
+    ]
+    for i, (label, val) in enumerate(bench_rows, start=bench_start + 1):
+        ws.cell(row=i, column=1, value=label).font = subheader_font
+        ws.cell(row=i, column=2, value=val).font = normal_font
+
+    ws.column_dimensions["A"].width = 28
+    ws.column_dimensions["B"].width = 30
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# A/B TEST LAB BACKEND
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import random as _random
+
+# Template-based ad copy data for A/B test generation
+_AB_HEADLINES_BENEFITS = {
+    "active": [
+        "Take Your Career to the Next Level as a {job_title}",
+        "Join Our Team: {job_title} -- Top Benefits Included",
+        "Now Hiring: {job_title} with Industry-Leading Benefits",
+    ],
+    "passive": [
+        "Discover Why Top {job_title}s Are Making the Switch",
+        "What If Your {job_title} Role Came with Better Benefits?",
+        "See What {job_title}s Get at {company}",
+    ],
+    "early_career": [
+        "Start Your {job_title} Career with Unmatched Benefits",
+        "Launch Your {job_title} Journey -- Benefits from Day 1",
+        "{job_title} Opportunity: Build Your Future with Great Benefits",
+    ],
+}
+
+_AB_HEADLINES_CULTURE = {
+    "active": [
+        "Join a Team Where {job_title}s Thrive",
+        "{company} Is Hiring: A Culture Built for {job_title}s",
+        "Work Where Innovation Meets Purpose -- {job_title}",
+    ],
+    "passive": [
+        "Curious About a Better Work Culture? {job_title} at {company}",
+        "What Makes {company} the Best Place for {job_title}s?",
+        "Your Next {job_title} Role Could Be at a Company That Cares",
+    ],
+    "early_career": [
+        "Start Your Career in a Team-First Culture -- {job_title}",
+        "Join {company} as a {job_title}: Culture That Grows With You",
+        "Great Teams Start Here -- {job_title} at {company}",
+    ],
+}
+
+_AB_BENEFITS_BY_INDUSTRY = {
+    "tech_engineering": [
+        "flexible remote work",
+        "equity & stock options",
+        "unlimited PTO",
+        "learning stipend",
+        "top-tier health insurance",
+        "401(k) matching",
+    ],
+    "healthcare_medical": [
+        "sign-on bonus",
+        "tuition reimbursement",
+        "flexible scheduling",
+        "comprehensive health coverage",
+        "student loan assistance",
+        "shift differentials",
+    ],
+    "finance_banking": [
+        "competitive base salary",
+        "performance bonuses",
+        "hybrid work",
+        "professional development",
+        "comprehensive benefits",
+        "wellness programs",
+    ],
+    "retail_consumer": [
+        "employee discounts",
+        "flexible scheduling",
+        "career advancement",
+        "health benefits",
+        "paid training",
+        "bonus programs",
+    ],
+    "general": [
+        "competitive pay",
+        "health & dental insurance",
+        "paid time off",
+        "career growth opportunities",
+        "work-life balance",
+        "team events",
+    ],
+}
+
+_AB_CULTURE_PHRASES = {
+    "tech_engineering": [
+        "innovation-first environment",
+        "collaborative engineering culture",
+        "autonomy and ownership",
+        "continuous learning mindset",
+    ],
+    "healthcare_medical": [
+        "patient-centered mission",
+        "supportive team environment",
+        "making a real difference",
+        "compassion-driven workplace",
+    ],
+    "finance_banking": [
+        "integrity and excellence",
+        "client-focused approach",
+        "meritocratic growth",
+        "analytical rigor",
+    ],
+    "retail_consumer": [
+        "customer-first mindset",
+        "energetic team atmosphere",
+        "fast-paced growth",
+        "community-driven values",
+    ],
+    "general": [
+        "collaborative team culture",
+        "innovation and growth",
+        "inclusive workplace",
+        "mission-driven work",
+    ],
+}
+
+_AB_CPA_ESTIMATES = {
+    "Indeed": 25,
+    "LinkedIn": 45,
+    "Facebook": 20,
+    "Google": 30,
+    "ZipRecruiter": 28,
+    "Programmatic": 22,
+}
+
+
+def _generate_ab_test(data: dict) -> dict:
+    """Generate an A/B test configuration with ad copy variants.
+
+    Accepts a dict with keys: job_title, company, industry, test_type.
+    If ANTHROPIC_API_KEY is set, uses Claude API for sophisticated copy.
+    Otherwise falls back to template-based generation.
+    """
+    job_title = data.get("job_title") or "Software Engineer"
+    company = data.get("company") or "Your Company"
+    industry = data.get("industry") or "general"
+    test_type = data.get("test_type") or "benefits_vs_culture"
+    channel = data.get("channel") or "Indeed"
+    budget = float(data.get("budget") or 5000)
+    audience = data.get("audience") or "active"
+
+    # Normalize industry key
+    industry_key = industry
+    for k in _INDUSTRY_KEY_TO_KB_KEY:
+        if k == industry:
+            industry_key = k
+            break
+
+    # Check for Claude API
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if anthropic_key:
+        try:
+            result = _generate_ab_test_with_claude(
+                job_title,
+                company,
+                industry_key,
+                audience,
+                channel,
+                budget,
+                anthropic_key,
+            )
+            if result:
+                return result
+        except Exception as e:
+            logger.error(
+                "Claude A/B test generation failed, using templates: %s",
+                e,
+                exc_info=True,
+            )
+
+    # Template-based fallback
+    return _generate_ab_test_template(
+        job_title, company, industry_key, audience, channel, budget
+    )
+
+
+def _generate_ab_test_with_claude(
+    job_title: str,
+    company: str,
+    industry: str,
+    audience: str,
+    channel: str,
+    budget: float,
+    api_key: str,
+) -> "dict | None":
+    """Generate A/B test variants using Claude API.
+
+    Returns the result dict or None if the API call fails.
+    """
+    prompt = (
+        f"Generate two recruitment ad variants for A/B testing:\n\n"
+        f"Job Title: {job_title}\n"
+        f"Company: {company}\n"
+        f"Industry: {industry}\n"
+        f"Target Audience: {audience} job seekers\n"
+        f"Channel: {channel}\n"
+        f"Monthly Budget: ${budget:,.0f}\n\n"
+        f"Variant A should focus on BENEFITS (compensation, perks, work-life balance).\n"
+        f"Variant B should focus on CULTURE (team, mission, growth, values).\n\n"
+        f"For each variant provide:\n"
+        f"1. A compelling headline (under 60 characters)\n"
+        f"2. A description (2-3 sentences, under 150 characters)\n"
+        f"3. A call-to-action (under 30 characters)\n\n"
+        f"Respond in this exact JSON format:\n"
+        f'{{"variant_a": {{"headline": "...", "description": "...", "cta": "..."}},\n'
+        f' "variant_b": {{"headline": "...", "description": "...", "cta": "..."}}}}'
+    )
+
+    req_body = json.dumps(
+        {
+            "model": "claude-sonnet-4-20250514",
+            "max_tokens": 500,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+    ).encode("utf-8")
+
+    try:
+        req = urllib.request.Request(
+            "https://api.anthropic.com/v1/messages",
+            data=req_body,
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp_data = json.loads(resp.read().decode("utf-8"))
+
+        content_text = ""
+        for block in resp_data.get("content", []):
+            if block.get("type") == "text":
+                content_text += block.get("text") or ""
+
+        # Extract JSON from response
+        json_match = re.search(r"\{[\s\S]*\}", content_text)
+        if json_match:
+            variants = json.loads(json_match.group())
+            return _build_ab_response(
+                variants.get("variant_a", {}),
+                variants.get("variant_b", {}),
+                channel,
+                budget,
+                "claude",
+            )
+    except (urllib.error.URLError, json.JSONDecodeError, KeyError) as e:
+        logger.error("Claude API call failed: %s", e, exc_info=True)
+    return None
+
+
+def _generate_ab_test_template(
+    job_title: str,
+    company: str,
+    industry: str,
+    audience: str,
+    channel: str,
+    budget: float,
+) -> dict:
+    """Generate A/B test variants using templates (no API required).
+
+    Returns a complete A/B test configuration dict with variants,
+    statistical requirements, and recommendations.
+    """
+    ben_headlines = _AB_HEADLINES_BENEFITS.get(
+        audience, _AB_HEADLINES_BENEFITS["active"]
+    )
+    cul_headlines = _AB_HEADLINES_CULTURE.get(audience, _AB_HEADLINES_CULTURE["active"])
+
+    benefits = _AB_BENEFITS_BY_INDUSTRY.get(
+        industry, _AB_BENEFITS_BY_INDUSTRY["general"]
+    )
+    cultures = _AB_CULTURE_PHRASES.get(industry, _AB_CULTURE_PHRASES["general"])
+
+    headline_a = (
+        _random.choice(ben_headlines)
+        .replace("{job_title}", job_title)
+        .replace("{company}", company)
+    )
+    headline_b = (
+        _random.choice(cul_headlines)
+        .replace("{job_title}", job_title)
+        .replace("{company}", company)
+    )
+
+    selected_benefits = _random.sample(benefits, min(3, len(benefits)))
+    selected_cultures = _random.sample(cultures, min(2, len(cultures)))
+
+    desc_a = (
+        f"Join {company} as a {job_title}. Enjoy {selected_benefits[0]}, "
+        f"{selected_benefits[1]}, and {selected_benefits[2]}."
+    )
+    desc_b = (
+        f"Be part of {company}'s {selected_cultures[0]}. As a {job_title}, "
+        f"you will experience {selected_cultures[1]}."
+    )
+
+    cta_a = _random.choice(
+        [
+            "Apply Now -- See Full Benefits",
+            "View Benefits & Apply",
+            "Explore This Opportunity",
+        ]
+    )
+    cta_b = _random.choice(
+        [
+            "Meet the Team & Apply",
+            "Discover Our Culture",
+            "See Why We Are Different",
+        ]
+    )
+
+    variant_a = {"headline": headline_a, "description": desc_a, "cta": cta_a}
+    variant_b = {"headline": headline_b, "description": desc_b, "cta": cta_b}
+
+    return _build_ab_response(variant_a, variant_b, channel, budget, "template")
+
+
+def _build_ab_response(
+    variant_a: dict,
+    variant_b: dict,
+    channel: str,
+    budget: float,
+    source: str,
+) -> dict:
+    """Build the full A/B test response including statistical requirements.
+
+    Combines variant ad copy with sample size calculations, recommended
+    duration, and success metrics into a single response dict.
+    """
+    est_cpa = _AB_CPA_ESTIMATES.get(channel, 25)
+    daily_apps = max(1, round(budget / 30 / est_cpa))
+
+    baseline_apply_rate = 0.05
+    min_detectable_effect = 0.02
+    min_sample = int(
+        16
+        * baseline_apply_rate
+        * (1 - baseline_apply_rate)
+        / (min_detectable_effect**2)
+    )
+    days_needed = max(7, min(int(min_sample / daily_apps) + 1, 90))
+
+    split = "50/50" if budget >= 3000 else "60/40"
+
+    return {
+        "variant_a": variant_a,
+        "variant_b": variant_b,
+        "statistical_requirements": {
+            "sample_size": min_sample,
+            "confidence_level": "95%",
+            "min_detectable_effect": f"{min_detectable_effect * 100:.0f}%",
+            "baseline_apply_rate": f"{baseline_apply_rate * 100:.1f}%",
+        },
+        "recommended_duration_days": days_needed,
+        "traffic_split": split,
+        "estimated_daily_applications": daily_apps,
+        "estimated_cpa": est_cpa,
+        "success_metrics": [
+            {"name": "CTR", "description": "Click-Through Rate"},
+            {"name": "Apply Rate", "description": "Applications per Click"},
+            {"name": "CPA", "description": "Cost per Application"},
+            {"name": "Quality Score", "description": "Qualified Applicant Ratio"},
+        ],
+        "source": source,
+        "channel": channel,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# POST-CAMPAIGN PPT GENERATOR
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _generate_post_campaign_ppt(data: dict) -> bytes:
+    """Generate a PowerPoint presentation for post-campaign analysis.
+
+    Accepts a dict with campaign_name, client_name, start_date, end_date,
+    total_budget, industry, benchmark_cpa, channels (list), overall_grade,
+    and recommendations (list). Returns raw .pptx bytes.
+    """
+    from pptx import Presentation as PptxPresentation
+    from pptx.util import Inches as PptxInches, Pt as PptxPt
+    from pptx.dml.color import RGBColor as PptxRGB
+    from pptx.enum.text import PP_ALIGN as PptxAlign
+
+    prs = PptxPresentation()
+    prs.slide_width = PptxInches(13.333)
+    prs.slide_height = PptxInches(7.5)
+
+    # Brand colors
+    navy = PptxRGB(0x20, 0x20, 0x58)
+    accent = PptxRGB(0x5A, 0x54, 0xBD)
+    white = PptxRGB(0xFF, 0xFF, 0xFF)
+    dark_text = PptxRGB(0x20, 0x20, 0x58)
+    muted_text = PptxRGB(0x59, 0x67, 0x80)
+    teal = PptxRGB(0x6B, 0xB3, 0xCD)
+
+    campaign_name = data.get("campaign_name") or "Campaign Analysis"
+    client_name = data.get("client_name") or ""
+    start_date = data.get("start_date") or ""
+    end_date = data.get("end_date") or ""
+    benchmark_cpa = float(data.get("benchmark_cpa") or 20)
+    channels = data.get("channels") or []
+    overall_grade = data.get("overall_grade") or "--"
+    recommendations = data.get("recommendations") or []
+
+    def _add_bg(slide, color):
+        """Set slide background color."""
+        bg = slide.background
+        fill = bg.fill
+        fill.solid()
+        fill.fore_color.rgb = color
+
+    # ── Slide 1: Title ──
+    slide1 = prs.slides.add_slide(prs.slide_layouts[6])  # blank layout
+    _add_bg(slide1, navy)
+
+    txBox = slide1.shapes.add_textbox(
+        PptxInches(1), PptxInches(2), PptxInches(11), PptxInches(1.5)
+    )
+    tf = txBox.text_frame
+    tf.word_wrap = True
+    p = tf.paragraphs[0]
+    p.text = "Post-Campaign Analysis"
+    p.font.size = PptxPt(40)
+    p.font.bold = True
+    p.font.color.rgb = white
+    p.alignment = PptxAlign.LEFT
+
+    p2 = tf.add_paragraph()
+    p2.text = campaign_name
+    p2.font.size = PptxPt(28)
+    p2.font.color.rgb = teal
+    p2.alignment = PptxAlign.LEFT
+
+    if client_name or start_date:
+        p3 = tf.add_paragraph()
+        date_range = f"{start_date} -- {end_date}" if start_date and end_date else ""
+        p3.text = f"{client_name}  |  {date_range}".strip(" | ")
+        p3.font.size = PptxPt(16)
+        p3.font.color.rgb = PptxRGB(0x8C, 0x96, 0xA8)
+        p3.alignment = PptxAlign.LEFT
+
+    brand_box = slide1.shapes.add_textbox(
+        PptxInches(1), PptxInches(6.5), PptxInches(5), PptxInches(0.5)
+    )
+    bp = brand_box.text_frame.paragraphs[0]
+    bp.text = "Nova AI Suite | Post-Campaign Analysis"
+    bp.font.size = PptxPt(10)
+    bp.font.color.rgb = PptxRGB(0x8C, 0x96, 0xA8)
+
+    # ── Slide 2: Performance Summary ──
+    slide2 = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_bg(slide2, PptxRGB(0xFF, 0xFD, 0xF9))
+
+    title2 = slide2.shapes.add_textbox(
+        PptxInches(0.8), PptxInches(0.4), PptxInches(11), PptxInches(0.8)
+    )
+    t2p = title2.text_frame.paragraphs[0]
+    t2p.text = "Performance Summary"
+    t2p.font.size = PptxPt(28)
+    t2p.font.bold = True
+    t2p.font.color.rgb = dark_text
+
+    total_spend = sum(float(c.get("spend") or 0) for c in channels)
+    total_apps = sum(int(c.get("applications") or 0) for c in channels)
+    total_hires = sum(int(c.get("hires") or 0) for c in channels)
+    total_clicks = sum(int(c.get("clicks") or 0) for c in channels)
+    total_impressions = sum(int(c.get("impressions") or 0) for c in channels)
+    overall_cpa = total_spend / total_apps if total_apps > 0 else 0
+    overall_cph = total_spend / total_hires if total_hires > 0 else 0
+    overall_ctr = (
+        (total_clicks / total_impressions * 100) if total_impressions > 0 else 0
+    )
+
+    metrics = [
+        ("Overall Grade", overall_grade),
+        ("Total Spend", f"${total_spend:,.0f}"),
+        ("Total Applications", f"{total_apps:,}"),
+        ("Total Hires", f"{total_hires:,}"),
+        ("Overall CPA", f"${overall_cpa:,.2f}"),
+        ("Overall CPH", f"${overall_cph:,.2f}"),
+        ("Benchmark CPA", f"${benchmark_cpa:,.0f}"),
+        ("CTR", f"{overall_ctr:.2f}%"),
+    ]
+
+    for i, (label, value) in enumerate(metrics):
+        col = i % 4
+        row = i // 4
+        x = PptxInches(0.8 + col * 3.0)
+        y = PptxInches(1.8 + row * 2.2)
+
+        box = slide2.shapes.add_textbox(x, y, PptxInches(2.6), PptxInches(1.8))
+        btf = box.text_frame
+        btf.word_wrap = True
+
+        lp = btf.paragraphs[0]
+        lp.text = label
+        lp.font.size = PptxPt(12)
+        lp.font.color.rgb = muted_text
+
+        vp = btf.add_paragraph()
+        vp.text = str(value)
+        vp.font.size = PptxPt(24)
+        vp.font.bold = True
+        vp.font.color.rgb = dark_text
+
+    # ── Slide 3: Channel Breakdown ──
+    slide3 = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_bg(slide3, PptxRGB(0xFF, 0xFD, 0xF9))
+
+    title3 = slide3.shapes.add_textbox(
+        PptxInches(0.8), PptxInches(0.4), PptxInches(11), PptxInches(0.8)
+    )
+    t3p = title3.text_frame.paragraphs[0]
+    t3p.text = "Channel Performance Breakdown"
+    t3p.font.size = PptxPt(28)
+    t3p.font.bold = True
+    t3p.font.color.rgb = dark_text
+
+    if channels:
+        headers = [
+            "Channel",
+            "Spend",
+            "Applications",
+            "Hires",
+            "CPA",
+            "CPH",
+            "Grade",
+        ]
+        rows_count = len(channels) + 1
+        cols_count = len(headers)
+
+        table_shape = slide3.shapes.add_table(
+            rows_count,
+            cols_count,
+            PptxInches(0.5),
+            PptxInches(1.5),
+            PptxInches(12),
+            PptxInches(0.4 * rows_count + 0.2),
+        )
+        table = table_shape.table
+
+        for ci, hdr in enumerate(headers):
+            cell = table.cell(0, ci)
+            cell.text = hdr
+            for paragraph in cell.text_frame.paragraphs:
+                paragraph.font.size = PptxPt(11)
+                paragraph.font.bold = True
+                paragraph.font.color.rgb = white
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = accent
+
+        for ri, ch in enumerate(channels, start=1):
+            ch_spend = float(ch.get("spend") or 0)
+            ch_apps = int(ch.get("applications") or 0)
+            ch_hires = int(ch.get("hires") or 0)
+            ch_cpa = ch_spend / ch_apps if ch_apps > 0 else 0
+            ch_cph = ch_spend / ch_hires if ch_hires > 0 else 0
+            ch_grade = ch.get("grade") or "--"
+
+            vals = [
+                ch.get("channel") or "",
+                f"${ch_spend:,.0f}",
+                f"{ch_apps:,}",
+                f"{ch_hires:,}",
+                f"${ch_cpa:,.2f}",
+                f"${ch_cph:,.2f}",
+                ch_grade,
+            ]
+            for ci, val in enumerate(vals):
+                cell = table.cell(ri, ci)
+                cell.text = str(val)
+                for paragraph in cell.text_frame.paragraphs:
+                    paragraph.font.size = PptxPt(10)
+                    paragraph.font.color.rgb = dark_text
+
+    # ── Slide 4: Recommendations ──
+    slide4 = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_bg(slide4, navy)
+
+    title4 = slide4.shapes.add_textbox(
+        PptxInches(0.8), PptxInches(0.4), PptxInches(11), PptxInches(0.8)
+    )
+    t4p = title4.text_frame.paragraphs[0]
+    t4p.text = "Recommendations"
+    t4p.font.size = PptxPt(28)
+    t4p.font.bold = True
+    t4p.font.color.rgb = white
+
+    rec_box = slide4.shapes.add_textbox(
+        PptxInches(1), PptxInches(1.5), PptxInches(11), PptxInches(5)
+    )
+    rec_tf = rec_box.text_frame
+    rec_tf.word_wrap = True
+
+    if recommendations:
+        for i, rec in enumerate(recommendations):
+            rp = rec_tf.paragraphs[0] if i == 0 else rec_tf.add_paragraph()
+            rec_text = rec if isinstance(rec, str) else str(rec)
+            rp.text = f"  {rec_text}"
+            rp.font.size = PptxPt(14)
+            rp.font.color.rgb = PptxRGB(0xD4, 0xD4, 0xD8)
+            rp.space_after = PptxPt(12)
+    else:
+        auto_recs = []
+        if overall_cpa > benchmark_cpa * 1.3:
+            auto_recs.append(
+                f"Overall CPA (${overall_cpa:.2f}) exceeds benchmark "
+                f"(${benchmark_cpa}) by "
+                f"{((overall_cpa / benchmark_cpa) - 1) * 100:.0f}%. "
+                f"Consider optimizing targeting and ad copy."
+            )
+        elif overall_cpa <= benchmark_cpa * 0.7:
+            auto_recs.append(
+                f"CPA (${overall_cpa:.2f}) is well below benchmark. "
+                f"Consider scaling budget to capture more volume."
+            )
+        if channels:
+            best = min(
+                channels,
+                key=lambda c: (
+                    float(c.get("cpa") or 9999)
+                    if float(c.get("cpa") or 0) > 0
+                    else 9999
+                ),
+            )
+            worst = max(channels, key=lambda c: float(c.get("cpa") or 0))
+            if best.get("channel") != worst.get("channel"):
+                auto_recs.append(
+                    f"Shift budget from "
+                    f"{worst.get('channel', 'underperforming channel')} toward "
+                    f"{best.get('channel', 'top channel')} which has the "
+                    f"lowest CPA."
+                )
+        auto_recs.append(
+            "Implement A/B testing on ad creative to continuously "
+            "improve conversion rates."
+        )
+        auto_recs.append(
+            "Track quality-of-hire metrics alongside cost metrics "
+            "for a complete performance picture."
+        )
+
+        for i, rec in enumerate(auto_recs):
+            rp = rec_tf.paragraphs[0] if i == 0 else rec_tf.add_paragraph()
+            rp.text = f"  {rec}"
+            rp.font.size = PptxPt(14)
+            rp.font.color.rgb = PptxRGB(0xD4, 0xD4, 0xD8)
+            rp.space_after = PptxPt(12)
+
+    brand4 = slide4.shapes.add_textbox(
+        PptxInches(1), PptxInches(6.5), PptxInches(5), PptxInches(0.5)
+    )
+    b4p = brand4.text_frame.paragraphs[0]
+    b4p.text = "Nova AI Suite | Post-Campaign Analysis"
+    b4p.font.size = PptxPt(10)
+    b4p.font.color.rgb = PptxRGB(0x8C, 0x96, 0xA8)
+
+    buf = io.BytesIO()
+    prs.save(buf)
+    return buf.getvalue()
 
 
 class MediaPlanHandler(BaseHTTPRequestHandler):
@@ -15174,6 +16188,19 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self._serve_file(os.path.join(TEMPLATES_DIR, "hub.html"), "text/html")
         elif path in ("/media-plan", "/media-plan/", "/generator", "/generator/"):
             self._serve_file(os.path.join(TEMPLATES_DIR, "index.html"), "text/html")
+        elif path == "/api/csrf-token":
+            # Return a per-session CSRF token for the client IP
+            client_ip = self.client_address[0]
+            token = _get_or_create_csrf_token(client_ip)
+            body = json.dumps({"token": token}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            cors_origin = self._get_cors_origin()
+            if cors_origin:
+                self.send_header("Access-Control-Allow-Origin", cors_origin)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
         elif path in ("/api/health", "/health"):
             # Detailed health check for Render.com monitoring
             _health = health_check_detailed()
@@ -17047,6 +18074,30 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 )
                 return
 
+        # ── CSRF token validation ──
+        # Skip for API-key-authenticated requests (Bearer token) or admin auth.
+        _has_api_key = bool(
+            (self.headers.get("Authorization") or "").startswith("Bearer ")
+        )
+        if not _has_api_key and not _is_admin and path.startswith("/api/"):
+            csrf_token = self.headers.get("X-CSRF-Token") or ""
+            client_ip = self.client_address[0]
+            if not csrf_token or not _validate_csrf_token(client_ip, csrf_token):
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps(
+                        {
+                            "error": "Invalid or missing CSRF token. Refresh the page and try again."
+                        }
+                    ).encode()
+                )
+                return
+
         if path == "/api/generate":
             if not self._check_rate_limit():
                 self.send_response(429)
@@ -18663,6 +19714,35 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self._send_json(
                     {"error": f"Unknown action '{action}'. Use: create, list, revoke"}
                 )
+        # ── Knowledge Base Backup (admin) ──
+        elif path == "/api/admin/backup":
+            if not self._check_admin_auth():
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Unauthorized"}).encode())
+                return
+            try:
+                from scripts.backup_kb import backup_knowledge_base
+
+                backup_path = backup_knowledge_base(DATA_DIR)
+                backup_file = Path(backup_path)
+                self._send_json(
+                    {
+                        "status": "ok",
+                        "filename": backup_file.name,
+                        "size_bytes": backup_file.stat().st_size,
+                        "path": str(backup_file),
+                    }
+                )
+            except Exception as bk_err:
+                logger.error("Backup failed: %s", bk_err, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": f"Backup failed: {bk_err}"}).encode()
+                )
         # ── Campaign Performance Tracker APIs ──
         elif path == "/api/tracker/analyze":
             if not self._check_rate_limit():
@@ -19873,6 +20953,102 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(
                     json.dumps({"error": "Excel generation failed: " + str(e)}).encode()
                 )
+        # ── ROI Calculator: Calculate ──
+        elif path == "/api/roi/calculate":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                result = _calculate_roi(data)
+                self._send_json(result)
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+            except Exception as e:
+                logger.error("ROI calculate error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": f"ROI calculation failed: {e}"}).encode()
+                )
+        # ── ROI Calculator: Excel Download ──
+        elif path == "/api/roi/download/excel":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                excel_bytes = _generate_roi_excel(data)
+                self.send_response(200)
+                self.send_header(
+                    "Content-Type",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+                self.send_header(
+                    "Content-Disposition",
+                    "attachment; filename=roi_projection.xlsx",
+                )
+                self.send_header("Content-Length", str(len(excel_bytes)))
+                self.end_headers()
+                self.wfile.write(excel_bytes)
+            except Exception as e:
+                logger.error("ROI Excel error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": f"ROI Excel generation failed: {e}"}).encode()
+                )
+        # ── A/B Test Lab: Generate ──
+        elif path == "/api/ab-test/generate":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                result = _generate_ab_test(data)
+                self._send_json(result)
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+            except Exception as e:
+                logger.error("A/B test generate error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": f"A/B test generation failed: {e}"}).encode()
+                )
+        # ── Post-Campaign Analysis: PPT Download ──
+        elif path == "/api/post-campaign/download/ppt":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                ppt_bytes = _generate_post_campaign_ppt(data)
+                self.send_response(200)
+                self.send_header(
+                    "Content-Type",
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                )
+                self.send_header(
+                    "Content-Disposition",
+                    "attachment; filename=post_campaign_analysis.pptx",
+                )
+                self.send_header("Content-Length", str(len(ppt_bytes)))
+                self.end_headers()
+                self.wfile.write(ppt_bytes)
+            except Exception as e:
+                logger.error("Post-campaign PPT error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": f"PPT generation failed: {e}"}).encode()
+                )
         # ── Quick Wins: PDF/HTML Report ──
         elif path == "/api/report/html":
             try:
@@ -19914,7 +21090,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", cors_origin)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header(
-            "Access-Control-Allow-Headers", "Content-Type, Authorization, X-Async"
+            "Access-Control-Allow-Headers",
+            "Content-Type, Authorization, X-Async, X-CSRF-Token",
         )
         self.send_header("Access-Control-Max-Age", "86400")
         self.end_headers()
@@ -19932,7 +21109,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         except FileNotFoundError:
             self.send_error(404)
 
-    def send_response(self, code: int, message: str | None = None) -> None:
+    def send_response(self, code: int, message=None) -> None:
         """Override to track the response status code for metrics."""
         self._response_status = code
         super().send_response(code, message)

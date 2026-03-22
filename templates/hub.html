@@ -1497,6 +1497,36 @@
           transform: translateY(0);
         }
       }
+      /* ── SVG stroke-draw animation on card icons ── */
+      .card-icon svg path,
+      .card-icon svg circle,
+      .card-icon svg rect,
+      .card-icon svg line,
+      .card-icon svg polyline {
+        stroke-dasharray: 100;
+        stroke-dashoffset: 100;
+        transition: stroke-dashoffset 0.8s ease-out;
+      }
+
+      .product-card.svg-visible .card-icon svg path,
+      .product-card.svg-visible .card-icon svg circle,
+      .product-card.svg-visible .card-icon svg rect,
+      .product-card.svg-visible .card-icon svg line,
+      .product-card.svg-visible .card-icon svg polyline {
+        stroke-dashoffset: 0;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .card-icon svg path,
+        .card-icon svg circle,
+        .card-icon svg rect,
+        .card-icon svg line,
+        .card-icon svg polyline {
+          stroke-dasharray: none;
+          stroke-dashoffset: 0;
+          transition: none;
+        }
+      }
     </style>
   </head>
   <body>
@@ -2943,6 +2973,42 @@
 
           rows.forEach(function (row, i) {
             if (i > 0) stackObserver.observe(row);
+          });
+        }
+
+        // ── Parallax scroll on aurora background layers ──
+        if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          var auroraLayers = document.querySelectorAll(".aurora-layer");
+          if (auroraLayers.length > 0) {
+            window.addEventListener(
+              "scroll",
+              function () {
+                var scrollY = window.scrollY;
+                var translateY = scrollY * 0.5;
+                auroraLayers.forEach(function (layer) {
+                  layer.style.transform = "translateY(" + translateY + "px)";
+                });
+              },
+              { passive: true },
+            );
+          }
+        }
+
+        // ── SVG stroke-draw animation on card icons (IntersectionObserver) ──
+        if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          var svgCardObserver = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                  entry.target.classList.add("svg-visible");
+                  svgCardObserver.unobserve(entry.target);
+                }
+              });
+            },
+            { threshold: 0.2, rootMargin: "0px 0px -40px 0px" },
+          );
+          document.querySelectorAll(".product-card").forEach(function (card) {
+            svgCardObserver.observe(card);
           });
         }
       })();

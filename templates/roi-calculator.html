@@ -636,6 +636,44 @@
           return n.toFixed(1) + "%";
         }
 
+        function calculateClientSide(
+          currentCPH,
+          monthlyVolume,
+          currentTTF,
+          adSpend,
+          industry,
+        ) {
+          /* Client-side fallback calculation */
+          var b = benchmarks[industry];
+          var cpa = b.cpa;
+          var convRate = b.convRate;
+
+          var estimatedApplications = adSpend / cpa;
+          var estimatedHires = estimatedApplications * convRate;
+          var newCPH = estimatedHires > 0 ? adSpend / estimatedHires : 0;
+          var monthlySavings =
+            currentCPH * monthlyVolume - newCPH * monthlyVolume;
+          var annualSavings = monthlySavings * 12;
+          var annualAdSpend = adSpend * 12;
+          var roiPct =
+            annualAdSpend > 0 ? (annualSavings / annualAdSpend) * 100 : 0;
+          var newTTF = currentTTF * TTF_IMPROVEMENT;
+
+          return {
+            estimatedApplications: estimatedApplications,
+            estimatedHires: estimatedHires,
+            newCPH: newCPH,
+            monthlySavings: monthlySavings,
+            annualSavings: annualSavings,
+            roiPct: roiPct,
+            newTTF: newTTF,
+            currentCPH: currentCPH,
+            monthlyVolume: monthlyVolume,
+            cpa: cpa,
+            source: "client",
+          };
+        }
+
         function calculate() {
           var currentCPH = parseFloat(
             document.getElementById("currentCPH").value,
@@ -665,21 +703,67 @@
             return;
           }
 
-          var b = benchmarks[industry];
-          var cpa = b.cpa;
-          var convRate = b.convRate;
+          // Try API first, fall back to client-side
+          var payload = {
+            monthly_budget: adSpend,
+            avg_cpa: 0,
+            avg_cost_per_hire: currentCPH,
+            current_time_to_fill: currentTTF,
+            num_positions: monthlyVolume,
+            industry: industry,
+          };
 
-          // Calculations
-          var estimatedApplications = adSpend / cpa;
-          var estimatedHires = estimatedApplications * convRate;
-          var newCPH = estimatedHires > 0 ? adSpend / estimatedHires : 0;
-          var monthlySavings =
-            currentCPH * monthlyVolume - newCPH * monthlyVolume;
-          var annualSavings = monthlySavings * 12;
-          var annualAdSpend = adSpend * 12;
-          var roiPct =
-            annualAdSpend > 0 ? (annualSavings / annualAdSpend) * 100 : 0;
-          var newTTF = currentTTF * TTF_IMPROVEMENT;
+          fetch("/api/roi/calculate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+            .then(function (resp) {
+              if (!resp.ok) throw new Error("API error " + resp.status);
+              return resp.json();
+            })
+            .then(function (apiData) {
+              if (apiData.error) throw new Error(apiData.error);
+              // Map API response to display format
+              var result = {
+                estimatedApplications: apiData.monthly_applications,
+                estimatedHires: apiData.projected_hires,
+                newCPH: apiData.cost_per_hire,
+                monthlySavings: apiData.monthly_savings,
+                annualSavings: apiData.annual_savings,
+                roiPct: apiData.roi_percentage,
+                newTTF: apiData.new_time_to_fill,
+                currentCPH: currentCPH,
+                monthlyVolume: monthlyVolume,
+                cpa: apiData.inputs.avg_cpa,
+                source: "api",
+                benchmark: apiData.industry_benchmark_comparison,
+                kbInsights: apiData.kb_insights || [],
+              };
+              renderResults(result, currentCPH, monthlyVolume, currentTTF);
+            })
+            .catch(function () {
+              // Fallback to client-side
+              var result = calculateClientSide(
+                currentCPH,
+                monthlyVolume,
+                currentTTF,
+                adSpend,
+                industry,
+              );
+              renderResults(result, currentCPH, monthlyVolume, currentTTF);
+            });
+        }
+
+        function renderResults(r, currentCPH, monthlyVolume, currentTTF) {
+          var estimatedApplications = r.estimatedApplications;
+          var estimatedHires = r.estimatedHires;
+          var newCPH = r.newCPH;
+          var monthlySavings = r.monthlySavings;
+          var annualSavings = r.annualSavings;
+          var roiPct = r.roiPct;
+          var newTTF = r.newTTF;
+          var cpa = r.cpa;
 
           // Show results
           var resultsSection = document.getElementById("resultsSection");

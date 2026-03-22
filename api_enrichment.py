@@ -94,6 +94,7 @@ try:
         COUNTRY_MAP as _STD_COUNTRY_MAP,
         US_STATE_MAP as _STD_US_STATE_MAP,
     )
+
     _HAS_STANDARDIZER = True
 except ImportError:
     _HAS_STANDARDIZER = False
@@ -101,6 +102,7 @@ except ImportError:
 # Supabase persistent cache (L3, after memory L1 and disk L2)
 try:
     from supabase_cache import cache_get as _supa_get, cache_set as _supa_set
+
     _HAS_SUPABASE = True
 except ImportError:
     _HAS_SUPABASE = False
@@ -108,6 +110,7 @@ except ImportError:
 # Upstash Redis persistent cache (L4, after Supabase)
 try:
     from upstash_cache import cache_get as _upstash_get, cache_set as _upstash_set
+
     _HAS_UPSTASH = True
 except ImportError:
     _HAS_UPSTASH = False
@@ -146,6 +149,7 @@ def _get_unverified_ssl_ctx() -> ssl.SSLContext:
         )
         _UNVERIFIED_SSL_CTX = ssl._create_unverified_context()
     return _UNVERIFIED_SSL_CTX
+
 
 # ---------------------------------------------------------------------------
 # SOC code mapping — BLS Standard Occupational Classification
@@ -460,25 +464,85 @@ COUNTRY_CODES: Dict[str, str] = {
 
 # Adzuna country codes (two-letter lowercase)
 ADZUNA_COUNTRY_CODES: Dict[str, str] = {
-    "USA": "us", "GBR": "gb", "CAN": "ca", "AUS": "au", "DEU": "de",
-    "FRA": "fr", "IND": "in", "NLD": "nl", "BRA": "br", "POL": "pl",
-    "SGP": "sg", "ZAF": "za", "AUT": "at", "NZL": "nz", "ITA": "it",
-    "ESP": "es", "MEX": "mx",
+    "USA": "us",
+    "GBR": "gb",
+    "CAN": "ca",
+    "AUS": "au",
+    "DEU": "de",
+    "FRA": "fr",
+    "IND": "in",
+    "NLD": "nl",
+    "BRA": "br",
+    "POL": "pl",
+    "SGP": "sg",
+    "ZAF": "za",
+    "AUT": "at",
+    "NZL": "nz",
+    "ITA": "it",
+    "ESP": "es",
+    "MEX": "mx",
 }
 
 # US state abbreviations for detecting US locations
 US_STATES = {
-    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID",
-    "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS",
-    "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK",
-    "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV",
-    "WI", "WY", "DC",
+    "AL",
+    "AK",
+    "AZ",
+    "AR",
+    "CA",
+    "CO",
+    "CT",
+    "DE",
+    "FL",
+    "GA",
+    "HI",
+    "ID",
+    "IL",
+    "IN",
+    "IA",
+    "KS",
+    "KY",
+    "LA",
+    "ME",
+    "MD",
+    "MA",
+    "MI",
+    "MN",
+    "MS",
+    "MO",
+    "MT",
+    "NE",
+    "NV",
+    "NH",
+    "NJ",
+    "NM",
+    "NY",
+    "NC",
+    "ND",
+    "OH",
+    "OK",
+    "OR",
+    "PA",
+    "RI",
+    "SC",
+    "SD",
+    "TN",
+    "TX",
+    "UT",
+    "VT",
+    "VA",
+    "WA",
+    "WV",
+    "WI",
+    "WY",
+    "DC",
 }
 
 
 # ---------------------------------------------------------------------------
 # Standardizer-backed wrapper functions (with hardcoded fallbacks)
 # ---------------------------------------------------------------------------
+
 
 def get_naics_code(industry: str) -> str:
     """Return NAICS code for an industry, using the canonical standardizer
@@ -487,7 +551,7 @@ def get_naics_code(industry: str) -> str:
     if _HAS_STANDARDIZER:
         canon = _std_normalize_industry(industry)
         entry = _CANON_INDUSTRIES.get(canon, {})
-        naics = entry.get("naics", "")
+        naics = entry.get("naics") or ""
         if naics:
             return naics
     # Fallback to original hardcoded dict
@@ -513,7 +577,7 @@ def get_country_iso3(location_part: str) -> Optional[str]:
     if _HAS_STANDARDIZER:
         entry = _STD_COUNTRY_MAP.get(lower)
         if entry:
-            return entry.get("iso3", "")
+            return entry.get("iso3") or ""
     # Fallback to original dict
     return COUNTRY_CODES.get(lower)
 
@@ -585,6 +649,7 @@ MAX_MEMORY_CACHE_SIZE = 500  # Prevent unbounded memory growth
 # ---------------------------------------------------------------------------
 
 import logging as _logging
+
 _api_logger = _logging.getLogger("api_enrichment")
 
 # ── Request context for tracing (v3.1) ──
@@ -642,7 +707,7 @@ def _get_cached(key: str) -> Optional[Any]:
         try:
             with open(cache_file, "r", encoding="utf-8") as fh:
                 entry = json.load(fh)
-            if time.time() - entry.get("ts", 0) < CACHE_TTL:
+            if time.time() - entry.get("ts") or 0 < CACHE_TTL:
                 with _cache_lock:
                     _memory_cache[key] = entry  # promote to memory
                 return entry["data"]
@@ -699,6 +764,7 @@ def _startup_cache_cleanup():
     except Exception as e:
         _api_logger.debug("Startup cache cleanup skipped: %s", e)
 
+
 _startup_cache_cleanup()
 
 
@@ -712,9 +778,9 @@ def _set_cached(key: str, data: Any) -> None:
         if len(_memory_cache) >= MAX_MEMORY_CACHE_SIZE:
             sorted_keys = sorted(
                 list(_memory_cache.keys()),
-                key=lambda k: _memory_cache.get(k, {}).get("ts", 0)
+                key=lambda k: _memory_cache.get(k, {}).get("ts") or 0,
             )
-            for k in sorted_keys[:MAX_MEMORY_CACHE_SIZE // 5]:
+            for k in sorted_keys[: MAX_MEMORY_CACHE_SIZE // 5]:
                 _memory_cache.pop(k, None)
         _memory_cache[key] = entry
 
@@ -752,7 +818,9 @@ def _set_cached(key: str, data: Any) -> None:
             if len(cache_files) > _MAX_DISK_CACHE_FILES:
                 for old_file in cache_files[: len(cache_files) - _MAX_DISK_CACHE_FILES]:
                     old_file.unlink(missing_ok=True)
-                _log_info(f"Disk cache cleanup: removed {len(cache_files) - _MAX_DISK_CACHE_FILES} old files")
+                _log_info(
+                    f"Disk cache cleanup: removed {len(cache_files) - _MAX_DISK_CACHE_FILES} old files"
+                )
         except Exception as exc:
             _log_warn(f"Disk cache cleanup failed: {exc}")
 
@@ -765,8 +833,8 @@ def _set_cached(key: str, data: Any) -> None:
 #   "last_failure_time": float, "is_open": bool}}
 _circuit_breaker_state: Dict[str, Dict[str, Any]] = {}
 
-_CB_FAILURE_THRESHOLD = 3    # consecutive failures before opening circuit
-_CB_RECOVERY_TIMEOUT = 300   # seconds (5 minutes) before retrying a tripped API
+_CB_FAILURE_THRESHOLD = 3  # consecutive failures before opening circuit
+_CB_RECOVERY_TIMEOUT = 300  # seconds (5 minutes) before retrying a tripped API
 
 
 def _circuit_breaker_check(api_name: str) -> bool:
@@ -781,12 +849,14 @@ def _circuit_breaker_check(api_name: str) -> bool:
         if not state.get("is_open", False):
             return False
         # Check if recovery timeout has elapsed — allow a retry
-        elapsed = time.time() - state.get("last_failure_time", 0)
+        elapsed = time.time() - state.get("last_failure_time") or 0
         if elapsed >= _CB_RECOVERY_TIMEOUT:
             # Half-open: allow one request through
             state["is_open"] = False
-            _log_info(f"Circuit breaker half-open for '{api_name}' — "
-                      f"allowing retry after {elapsed:.0f}s")
+            _log_info(
+                f"Circuit breaker half-open for '{api_name}' — "
+                f"allowing retry after {elapsed:.0f}s"
+            )
             return False
         return True
 
@@ -804,17 +874,22 @@ def _circuit_breaker_record_success(api_name: str) -> None:
 def _circuit_breaker_record_failure(api_name: str) -> None:
     """Increment failure count, open circuit if threshold reached. Thread-safe."""
     with _circuit_breaker_lock:
-        state = _circuit_breaker_state.get(api_name, {
-            "failure_count": 0,
-            "last_failure_time": 0.0,
-            "is_open": False,
-        })
-        state["failure_count"] = state.get("failure_count", 0) + 1
+        state = _circuit_breaker_state.get(
+            api_name,
+            {
+                "failure_count": 0,
+                "last_failure_time": 0.0,
+                "is_open": False,
+            },
+        )
+        state["failure_count"] = state.get("failure_count") or 0 + 1
         state["last_failure_time"] = time.time()
         if state["failure_count"] >= _CB_FAILURE_THRESHOLD:
             state["is_open"] = True
-            _log_warn(f"Circuit breaker OPEN for '{api_name}' after "
-                      f"{state['failure_count']} consecutive failures")
+            _log_warn(
+                f"Circuit breaker OPEN for '{api_name}' after "
+                f"{state['failure_count']} consecutive failures"
+            )
         _circuit_breaker_state[api_name] = state
 
 
@@ -836,6 +911,7 @@ def _record_auth_failure(api_name: str) -> None:
     if count == _AUTH_ALERT_THRESHOLD:
         try:
             from email_alerts import send_error_alert
+
             send_error_alert(
                 error_type="APIAuthFailure",
                 error_message=(
@@ -865,8 +941,10 @@ def check_api_key_health() -> Dict[str, Any]:
     for api_name, count in snapshot.items():
         result[api_name] = {
             "consecutive_auth_failures": count,
-            "status": "critical" if count >= _AUTH_ALERT_THRESHOLD else (
-                "warning" if count > 0 else "ok"
+            "status": (
+                "critical"
+                if count >= _AUTH_ALERT_THRESHOLD
+                else ("warning" if count > 0 else "ok")
             ),
         }
     # Also include circuit-breaker state for context
@@ -878,15 +956,18 @@ def check_api_key_health() -> Dict[str, Any]:
     return result
 
 
-def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None,
-                   timeout: int = API_TIMEOUT) -> Optional[Any]:
+def _http_get_json(
+    url: str, headers: Optional[Dict[str, str]] = None, timeout: int = API_TIMEOUT
+) -> Optional[Any]:
     """
     Perform an HTTP GET and return parsed JSON, or None on any failure.
     Tries verified SSL first, falls back to unverified if needed.
     Retries on 429/503 with exponential backoff (1s, 2s, 4s).
     """
     req = urllib.request.Request(url, method="GET")
-    req.add_header("User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)")
+    req.add_header(
+        "User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)"
+    )
     req.add_header("Accept", "application/json")
     if headers:
         for k, v in headers.items():
@@ -905,7 +986,9 @@ def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None,
             try:
                 with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
                     if ctx_idx > 0:
-                        _log_warn(f"SSL verification BYPASSED for {url} — consider fixing the certificate")
+                        _log_warn(
+                            f"SSL verification BYPASSED for {url} — consider fixing the certificate"
+                        )
                     raw = resp.read().decode("utf-8")
                     return json.loads(raw)
             except ssl.SSLError:
@@ -914,8 +997,10 @@ def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None,
                 continue  # retry with unverified context
             except urllib.error.HTTPError as exc:
                 if exc.code in (429, 503) and attempt < max_retries:
-                    wait = min(2 ** attempt, 8)
-                    _log_warn(f"HTTP {exc.code} for {url}, retry in {wait}s (attempt {attempt + 1}/{max_retries})")
+                    wait = min(2**attempt, 8)
+                    _log_warn(
+                        f"HTTP {exc.code} for {url}, retry in {wait}s (attempt {attempt + 1}/{max_retries})"
+                    )
                     time.sleep(wait)
                     break  # break SSL loop to retry
                 _log_warn(f"HTTP GET failed for {url}: {exc}")
@@ -929,10 +1014,13 @@ def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None,
     return None
 
 
-def _http_post_json(url: str, payload: Any,
-                    headers: Optional[Dict[str, str]] = None,
-                    timeout: int = API_TIMEOUT,
-                    max_retries: int = 2) -> Optional[Any]:
+def _http_post_json(
+    url: str,
+    payload: Any,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = API_TIMEOUT,
+    max_retries: int = 2,
+) -> Optional[Any]:
     """Perform an HTTP POST with a JSON body and return parsed JSON.
 
     Retries on HTTP 429 (rate-limited) and 503 (service unavailable)
@@ -943,7 +1031,9 @@ def _http_post_json(url: str, payload: Any,
 
     for attempt in range(max_retries + 1):
         req = urllib.request.Request(url, data=body, method="POST")
-        req.add_header("User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)")
+        req.add_header(
+            "User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)"
+        )
         req.add_header("Content-Type", "application/json")
         req.add_header("Accept", "application/json")
         if headers:
@@ -964,11 +1054,15 @@ def _http_post_json(url: str, payload: Any,
                     return json.loads(raw)
             except ssl.SSLError:
                 if ctx_idx == 0:
-                    _log_warn(f"SSL error for POST {url}, retrying without verification")
+                    _log_warn(
+                        f"SSL error for POST {url}, retrying without verification"
+                    )
                 continue
             except urllib.error.HTTPError as exc:
                 if exc.code in (429, 503) and attempt < max_retries:
-                    retry_after = exc.headers.get("Retry-After") if exc.headers else None
+                    retry_after = (
+                        exc.headers.get("Retry-After") if exc.headers else None
+                    )
                     if retry_after is not None:
                         try:
                             wait = max(float(retry_after), 0.5)
@@ -976,8 +1070,10 @@ def _http_post_json(url: str, payload: Any,
                             wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
                     else:
                         wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
-                    _log_warn(f"HTTP {exc.code} for POST {url} -- "
-                              f"retry {attempt + 1}/{max_retries} after {wait}s")
+                    _log_warn(
+                        f"HTTP {exc.code} for POST {url} -- "
+                        f"retry {attempt + 1}/{max_retries} after {wait}s"
+                    )
                     time.sleep(wait)
                     break  # break SSL loop, continue retry loop
                 _log_warn(f"HTTP POST failed for {url}: {exc}")
@@ -996,6 +1092,7 @@ def _http_post_json(url: str, payload: Any,
 # ---------------------------------------------------------------------------
 # HTTP GET with retry + exponential backoff
 # ---------------------------------------------------------------------------
+
 
 def _http_get_json_with_retry(
     url: str,
@@ -1034,8 +1131,9 @@ def _http_get_json_with_retry(
 
     for attempt in range(max_retries + 1):
         req = urllib.request.Request(url, method="GET")
-        req.add_header("User-Agent",
-                        "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)")
+        req.add_header(
+            "User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)"
+        )
         req.add_header("Accept", "application/json")
         if headers:
             for k, v in headers.items():
@@ -1047,8 +1145,7 @@ def _http_get_json_with_retry(
             _ssl_ctxs.append(_get_unverified_ssl_ctx())
         for _ctx_idx, ctx in enumerate(_ssl_ctxs):
             try:
-                with urllib.request.urlopen(req, timeout=timeout,
-                                            context=ctx) as resp:
+                with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
                     if _ctx_idx > 0:
                         _log_warn(f"SSL verification BYPASSED for {url}")
                     raw = resp.read().decode("utf-8")
@@ -1076,19 +1173,21 @@ def _http_get_json_with_retry(
                     _record_auth_failure(_host)
                 if status_code in (429, 503) and attempt < max_retries:
                     # Determine wait time: prefer Retry-After header
-                    retry_after = exc.headers.get("Retry-After") if exc.headers else None
+                    retry_after = (
+                        exc.headers.get("Retry-After") if exc.headers else None
+                    )
                     if retry_after is not None:
                         try:
                             wait = max(float(retry_after), 0.5)
                         except (ValueError, TypeError):
-                            wait = backoff_delays[min(attempt,
-                                                       len(backoff_delays) - 1)]
+                            wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
                     else:
-                        wait = backoff_delays[min(attempt,
-                                                   len(backoff_delays) - 1)]
-                    _log_warn(f"HTTP {status_code} for {url} — "
-                              f"retry {attempt + 1}/{max_retries} "
-                              f"after {wait}s")
+                        wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
+                    _log_warn(
+                        f"HTTP {status_code} for {url} — "
+                        f"retry {attempt + 1}/{max_retries} "
+                        f"after {wait}s"
+                    )
                     time.sleep(wait)
                     last_exc = exc
                     break  # break inner SSL loop, restart outer retry loop
@@ -1103,8 +1202,10 @@ def _http_get_json_with_retry(
                 if attempt >= max_retries:
                     raise
                 wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
-                _log_warn(f"HTTP GET error for {url}: {exc} — "
-                          f"retry {attempt + 1}/{max_retries} after {wait}s")
+                _log_warn(
+                    f"HTTP GET error for {url}: {exc} — "
+                    f"retry {attempt + 1}/{max_retries} after {wait}s"
+                )
                 time.sleep(wait)
                 break  # break inner SSL loop, restart outer retry loop
         else:
@@ -1139,7 +1240,7 @@ def _parse_country_from_location(location: str) -> Optional[str]:
     # of CA=California vs CA=Canada, Portland OR vs Portland ME, etc.) ---
     if _HAS_STANDARDIZER:
         parsed = _std_normalize_location(location)
-        iso3 = parsed.get("country_iso3", "")
+        iso3 = parsed.get("country_iso3") or ""
         if iso3:
             return iso3
 
@@ -1181,8 +1282,12 @@ def _domain_from_name(name: str) -> str:
     'Salesforce' -> 'salesforce.com', 'Duck Creek Technologies' -> 'duckcreek.com'
     """
     clean = re.sub(r"[^a-zA-Z0-9\s]", "", name).strip().lower()
-    clean = re.sub(r"\s+(inc|llc|ltd|corp|co|technologies|technology|software|group|solutions)$",
-                   "", clean, flags=re.IGNORECASE).strip()
+    clean = re.sub(
+        r"\s+(inc|llc|ltd|corp|co|technologies|technology|software|group|solutions)$",
+        "",
+        clean,
+        flags=re.IGNORECASE,
+    ).strip()
     slug = clean.replace(" ", "")
     return f"{slug}.com"
 
@@ -1196,7 +1301,7 @@ def _extract_state_abbr(location: str) -> Optional[str]:
     # Try standardizer first (richer parsing with city-to-state DB)
     if _HAS_STANDARDIZER:
         parsed = _std_normalize_location(location)
-        st = parsed.get("state", "")
+        st = parsed.get("state") or ""
         if st:
             return st.upper()
 
@@ -1218,6 +1323,7 @@ def _extract_state_abbr(location: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # API 1: BLS (Bureau of Labor Statistics) — OES Salary Data
 # ---------------------------------------------------------------------------
+
 
 def _fetch_bls_salary(role: str, soc_code: str) -> Optional[Dict[str, Any]]:
     """
@@ -1242,10 +1348,10 @@ def _fetch_bls_salary(role: str, soc_code: str) -> Optional[Dict[str, Any]]:
     # Strip the dash for the series ID
     soc_clean = soc_code.replace("-", "")
 
-    series_mean = f"OEUN0000000000000{soc_clean}04"    # annual mean wage
+    series_mean = f"OEUN0000000000000{soc_clean}04"  # annual mean wage
     series_median = f"OEUN0000000000000{soc_clean}13"  # annual median wage
-    series_p10 = f"OEUN0000000000000{soc_clean}11"     # annual 10th pct
-    series_p90 = f"OEUN0000000000000{soc_clean}15"     # annual 90th pct
+    series_p10 = f"OEUN0000000000000{soc_clean}11"  # annual 10th pct
+    series_p90 = f"OEUN0000000000000{soc_clean}15"  # annual 90th pct
 
     api_key = os.environ.get("BLS_API_KEY", "")
 
@@ -1273,7 +1379,7 @@ def _fetch_bls_salary(role: str, soc_code: str) -> Optional[Dict[str, Any]]:
         else:
             msg = ""
             if resp:
-                msg = str(resp.get("message", ""))
+                msg = str(resp.get("message") or "")
             _log_warn(f"BLS {version} failed for SOC {soc_code}: {msg}")
             resp = None
 
@@ -1285,7 +1391,7 @@ def _fetch_bls_salary(role: str, soc_code: str) -> Optional[Dict[str, Any]]:
     series_list = resp.get("Results", {}).get("series", [])
 
     for series in series_list:
-        sid = series.get("seriesID", "")
+        sid = series.get("seriesID") or ""
         data_points = series.get("data", [])
         if not data_points:
             continue
@@ -1363,22 +1469,66 @@ def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
 
 # US state name-to-FIPS mapping for Census/QCEW
 US_STATE_FIPS: Dict[str, str] = {
-    "AL": "01", "AK": "02", "AZ": "04", "AR": "05", "CA": "06", "CO": "08",
-    "CT": "09", "DE": "10", "FL": "12", "GA": "13", "HI": "15", "ID": "16",
-    "IL": "17", "IN": "18", "IA": "19", "KS": "20", "KY": "21", "LA": "22",
-    "ME": "23", "MD": "24", "MA": "25", "MI": "26", "MN": "27", "MS": "28",
-    "MO": "29", "MT": "30", "NE": "31", "NV": "32", "NH": "33", "NJ": "34",
-    "NM": "35", "NY": "36", "NC": "37", "ND": "38", "OH": "39", "OK": "40",
-    "OR": "41", "PA": "42", "RI": "44", "SC": "45", "SD": "46", "TN": "47",
-    "TX": "48", "UT": "49", "VT": "50", "VA": "51", "WA": "53", "WV": "54",
-    "WI": "55", "WY": "56", "DC": "11",
+    "AL": "01",
+    "AK": "02",
+    "AZ": "04",
+    "AR": "05",
+    "CA": "06",
+    "CO": "08",
+    "CT": "09",
+    "DE": "10",
+    "FL": "12",
+    "GA": "13",
+    "HI": "15",
+    "ID": "16",
+    "IL": "17",
+    "IN": "18",
+    "IA": "19",
+    "KS": "20",
+    "KY": "21",
+    "LA": "22",
+    "ME": "23",
+    "MD": "24",
+    "MA": "25",
+    "MI": "26",
+    "MN": "27",
+    "MS": "28",
+    "MO": "29",
+    "MT": "30",
+    "NE": "31",
+    "NV": "32",
+    "NH": "33",
+    "NJ": "34",
+    "NM": "35",
+    "NY": "36",
+    "NC": "37",
+    "ND": "38",
+    "OH": "39",
+    "OK": "40",
+    "OR": "41",
+    "PA": "42",
+    "RI": "44",
+    "SC": "45",
+    "SD": "46",
+    "TN": "47",
+    "TX": "48",
+    "UT": "49",
+    "VT": "50",
+    "VA": "51",
+    "WA": "53",
+    "WV": "54",
+    "WI": "55",
+    "WY": "56",
+    "DC": "11",
 }
 
 
 def _http_get_text(url: str, timeout: int = API_TIMEOUT) -> Optional[str]:
     """Perform HTTP GET and return raw text, or None on failure."""
     req = urllib.request.Request(url, method="GET")
-    req.add_header("User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)")
+    req.add_header(
+        "User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)"
+    )
     _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
     _ssl_ctxs = [_DEFAULT_SSL_CTX]
     if _allow_unverified:
@@ -1391,7 +1541,9 @@ def _http_get_text(url: str, timeout: int = API_TIMEOUT) -> Optional[str]:
                 return resp.read().decode("utf-8")
         except ssl.SSLError:
             if _ctx_idx == 0:
-                _log_warn(f"SSL error for text GET {url}, retrying without verification")
+                _log_warn(
+                    f"SSL error for text GET {url}, retrying without verification"
+                )
             continue
         except Exception as exc:
             _log_warn(f"HTTP GET text failed for {url}: {exc}")
@@ -1448,15 +1600,19 @@ def fetch_industry_employment(industry: str) -> Optional[Dict[str, Any]]:
                         continue
                     row = dict(zip(headers, cols))
 
-                    area = row.get("area_fips", "")
+                    area = row.get("area_fips") or ""
                     # National total row + private ownership
-                    if area == "US000" and row.get("own_code", "") == "5":
+                    if area == "US000" and row.get("own_code") or "" == "5":
                         try:
-                            emp = int(row.get("annual_avg_emplvl", "0") or
-                                      row.get("month1_emplvl", "0"))
+                            emp = int(
+                                row.get("annual_avg_emplvl", "0")
+                                or row.get("month1_emplvl", "0")
+                            )
                             wages = int(row.get("annual_avg_wkly_wage", "0") or "0")
-                            estabs = int(row.get("annual_avg_estabs", "0") or
-                                         row.get("qtrly_estabs", "0"))
+                            estabs = int(
+                                row.get("annual_avg_estabs", "0")
+                                or row.get("qtrly_estabs", "0")
+                            )
 
                             result["total_employed"] = emp
                             result["avg_weekly_wage"] = wages
@@ -1482,6 +1638,7 @@ def fetch_industry_employment(industry: str) -> Optional[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # API 3: US Census ACS (Demographics)
 # ---------------------------------------------------------------------------
+
 
 def fetch_location_demographics(locations: List[str]) -> Dict[str, Any]:
     """
@@ -1570,13 +1727,17 @@ def _fetch_census_state_data() -> Dict[str, Dict[str, Any]]:
     for acs_year in ["2023", "2022", "2021"]:
         # ACS 5-year estimates — B01001_001E = total population,
         # B19013_001E = median household income
-        url = (f"https://api.census.gov/data/{acs_year}/acs/acs5"
-               "?get=NAME,B01001_001E,B19013_001E&for=state:*")
+        url = (
+            f"https://api.census.gov/data/{acs_year}/acs/acs5"
+            "?get=NAME,B01001_001E,B19013_001E&for=state:*"
+        )
 
         try:
             resp = _http_get_json(url, timeout=10)
             if not resp or not isinstance(resp, list) or len(resp) < 2:
-                _log_warn(f"Census ACS {acs_year} state data request failed, trying older year")
+                _log_warn(
+                    f"Census ACS {acs_year} state data request failed, trying older year"
+                )
                 continue
 
             # First row is headers: ["NAME","B01001_001E","B19013_001E","state"]
@@ -1675,7 +1836,9 @@ def fetch_global_indicators(locations: List[str]) -> Dict[str, Any]:
     return indicators
 
 
-_COUNTRY_LABEL_MAP: Dict[str, str] = {v: k for k, v in COUNTRY_CODES.items() if len(k) == 2}
+_COUNTRY_LABEL_MAP: Dict[str, str] = {
+    v: k for k, v in COUNTRY_CODES.items() if len(k) == 2
+}
 
 
 def _country_label(iso3: str) -> str:
@@ -1686,6 +1849,7 @@ def _country_label(iso3: str) -> str:
 # ---------------------------------------------------------------------------
 # API 5: Clearbit Logo API + Google Favicons
 # ---------------------------------------------------------------------------
+
 
 def fetch_company_logo(domain: str) -> Optional[str]:
     """
@@ -1718,7 +1882,9 @@ def fetch_company_logo(domain: str) -> Optional[str]:
             with urllib.request.urlopen(req, timeout=3, context=_ctx) as resp:
                 if resp.status == 200:
                     if _ctx_idx > 0:
-                        _log_warn(f"SSL verification BYPASSED for logo HEAD {clearbit_url}")
+                        _log_warn(
+                            f"SSL verification BYPASSED for logo HEAD {clearbit_url}"
+                        )
                     _set_cached(cache_k, clearbit_url)
                     return clearbit_url
         except ssl.SSLError:
@@ -1732,8 +1898,9 @@ def fetch_company_logo(domain: str) -> Optional[str]:
     return google_url
 
 
-def fetch_competitor_logos(competitors: List[str],
-                          client_website: Optional[str] = None) -> Dict[str, str]:
+def fetch_competitor_logos(
+    competitors: List[str], client_website: Optional[str] = None
+) -> Dict[str, str]:
     """Fetch logo URLs for a list of competitor company names."""
     logos: Dict[str, str] = {}
     for comp in competitors:
@@ -1754,22 +1921,44 @@ def fetch_competitor_logos(competitors: List[str],
 # ---------------------------------------------------------------------------
 
 _ADZUNA_BENCHMARKS: Dict[str, Dict[str, Any]] = {
-    "technology": {"posting_count": 145000, "avg_salary": 125000, "competition": "high"},
+    "technology": {
+        "posting_count": 145000,
+        "avg_salary": 125000,
+        "competition": "high",
+    },
     "healthcare": {"posting_count": 210000, "avg_salary": 78000, "competition": "high"},
     "finance": {"posting_count": 85000, "avg_salary": 105000, "competition": "medium"},
-    "manufacturing": {"posting_count": 65000, "avg_salary": 55000, "competition": "medium"},
+    "manufacturing": {
+        "posting_count": 65000,
+        "avg_salary": 55000,
+        "competition": "medium",
+    },
     "retail": {"posting_count": 180000, "avg_salary": 38000, "competition": "high"},
     "logistics": {"posting_count": 95000, "avg_salary": 48000, "competition": "high"},
     "education": {"posting_count": 72000, "avg_salary": 55000, "competition": "medium"},
-    "hospitality": {"posting_count": 120000, "avg_salary": 35000, "competition": "medium"},
-    "construction": {"posting_count": 55000, "avg_salary": 52000, "competition": "medium"},
-    "engineering": {"posting_count": 42000, "avg_salary": 98000, "competition": "medium"},
+    "hospitality": {
+        "posting_count": 120000,
+        "avg_salary": 35000,
+        "competition": "medium",
+    },
+    "construction": {
+        "posting_count": 55000,
+        "avg_salary": 52000,
+        "competition": "medium",
+    },
+    "engineering": {
+        "posting_count": 42000,
+        "avg_salary": 98000,
+        "competition": "medium",
+    },
     "marketing": {"posting_count": 38000, "avg_salary": 72000, "competition": "medium"},
     "default": {"posting_count": 50000, "avg_salary": 65000, "competition": "medium"},
 }
 
 
-def _adzuna_benchmark_fallback(roles: List[str], locations: List[str]) -> Dict[str, Any]:
+def _adzuna_benchmark_fallback(
+    roles: List[str], locations: List[str]
+) -> Dict[str, Any]:
     """Return Adzuna benchmark data when API keys are not configured."""
     if not roles:
         return {}
@@ -1784,12 +1973,24 @@ def _adzuna_benchmark_fallback(roles: List[str], locations: List[str]) -> Dict[s
         # Check common keywords
         if matched == "default":
             kw_map = {
-                "software": "technology", "developer": "technology", "engineer": "engineering",
-                "data": "technology", "devops": "technology", "nurse": "healthcare",
-                "doctor": "healthcare", "physician": "healthcare", "accountant": "finance",
-                "analyst": "finance", "warehouse": "logistics", "driver": "logistics",
-                "teacher": "education", "manager": "default", "sales": "retail",
-                "marketing": "marketing", "chef": "hospitality", "hotel": "hospitality",
+                "software": "technology",
+                "developer": "technology",
+                "engineer": "engineering",
+                "data": "technology",
+                "devops": "technology",
+                "nurse": "healthcare",
+                "doctor": "healthcare",
+                "physician": "healthcare",
+                "accountant": "finance",
+                "analyst": "finance",
+                "warehouse": "logistics",
+                "driver": "logistics",
+                "teacher": "education",
+                "manager": "default",
+                "sales": "retail",
+                "marketing": "marketing",
+                "chef": "hospitality",
+                "hotel": "hospitality",
             }
             for kw, cat in kw_map.items():
                 if kw in rl:
@@ -1834,19 +2035,21 @@ def fetch_job_market(roles: List[str], locations: List[str]) -> Dict[str, Any]:
             job_market[role] = cached
             continue
 
-        params = urllib.parse.urlencode({
-            "app_id": app_id,
-            "app_key": app_key,
-            "what": role,
-            "results_per_page": "1",
-            "content-type": "application/json",
-        })
+        params = urllib.parse.urlencode(
+            {
+                "app_id": app_id,
+                "app_key": app_key,
+                "what": role,
+                "results_per_page": "1",
+                "content-type": "application/json",
+            }
+        )
         url = f"https://api.adzuna.com/v1/api/jobs/{country}/search/1?{params}"
 
         try:
             resp = _http_get_json(url)
             if resp:
-                count = resp.get("count", 0)
+                count = resp.get("count") or 0
                 mean_salary = resp.get("mean", None)
 
                 # Classify competition level
@@ -1874,6 +2077,7 @@ def fetch_job_market(roles: List[str], locations: List[str]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # API 7: Currency rates (live API + hardcoded fallback)
 # ---------------------------------------------------------------------------
+
 
 def fetch_currency_rates() -> Dict[str, float]:
     """
@@ -1912,8 +2116,10 @@ def fetch_currency_rates() -> Dict[str, float]:
 # API 8: Wikipedia REST API
 # ---------------------------------------------------------------------------
 
-def fetch_company_info(client_name: str,
-                       client_website: Optional[str] = None) -> Dict[str, Any]:
+
+def fetch_company_info(
+    client_name: str, client_website: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Fetch company description from Wikipedia and logo from Clearbit.
     Prioritizes company-specific disambiguation to avoid wrong articles.
@@ -1951,20 +2157,45 @@ def fetch_company_info(client_name: str,
         try:
             resp = _http_get_json(url)
             if resp and resp.get("type") == "standard":
-                extract = resp.get("extract", "")
+                extract = resp.get("extract") or ""
                 if extract and len(extract) > 30:
                     # Verify the article is about a company/organization, not
                     # some unrelated topic. Check for business-related terms.
                     extract_lower = extract.lower()
-                    is_company_article = any(term in extract_lower for term in [
-                        "company", "corporation", "inc.", "ltd", "software",
-                        "founded", "headquartered", "business", "firm",
-                        "enterprise", "organization", "provider", "platform",
-                        "technology", "services", "solutions", "startup",
-                        "subsidiary", "group", "brand", "manufacturer",
-                        "hospital", "clinic", "bank", "financial",
-                        "retailer", "store", "chain", "restaurant",
-                    ])
+                    is_company_article = any(
+                        term in extract_lower
+                        for term in [
+                            "company",
+                            "corporation",
+                            "inc.",
+                            "ltd",
+                            "software",
+                            "founded",
+                            "headquartered",
+                            "business",
+                            "firm",
+                            "enterprise",
+                            "organization",
+                            "provider",
+                            "platform",
+                            "technology",
+                            "services",
+                            "solutions",
+                            "startup",
+                            "subsidiary",
+                            "group",
+                            "brand",
+                            "manufacturer",
+                            "hospital",
+                            "clinic",
+                            "bank",
+                            "financial",
+                            "retailer",
+                            "store",
+                            "chain",
+                            "restaurant",
+                        ]
+                    )
                     if is_company_article:
                         info["description"] = extract
                         _set_cached(cache_k, extract)
@@ -1984,27 +2215,54 @@ def fetch_company_info(client_name: str,
         if search_resp and "query" in search_resp:
             results = search_resp["query"].get("search", [])
             for sr in results:
-                title = sr.get("title", "")
+                title = sr.get("title") or ""
                 if not title:
                     continue
                 encoded = urllib.parse.quote(title.replace(" ", "_"), safe="()_")
-                summary_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{encoded}"
+                summary_url = (
+                    f"https://en.wikipedia.org/api/rest_v1/page/summary/{encoded}"
+                )
                 try:
                     resp = _http_get_json(summary_url)
                     if resp and resp.get("type") == "standard":
-                        extract = resp.get("extract", "")
+                        extract = resp.get("extract") or ""
                         if extract and len(extract) > 30:
                             # Verify the article is about a company/organization
                             extract_lower = extract.lower()
-                            is_company_article = any(term in extract_lower for term in [
-                                "company", "corporation", "inc.", "ltd", "software",
-                                "founded", "headquartered", "business", "firm",
-                                "enterprise", "organization", "provider", "platform",
-                                "technology", "services", "solutions", "startup",
-                                "subsidiary", "group", "brand", "manufacturer",
-                                "hospital", "clinic", "bank", "financial",
-                                "retailer", "store", "chain", "restaurant",
-                            ])
+                            is_company_article = any(
+                                term in extract_lower
+                                for term in [
+                                    "company",
+                                    "corporation",
+                                    "inc.",
+                                    "ltd",
+                                    "software",
+                                    "founded",
+                                    "headquartered",
+                                    "business",
+                                    "firm",
+                                    "enterprise",
+                                    "organization",
+                                    "provider",
+                                    "platform",
+                                    "technology",
+                                    "services",
+                                    "solutions",
+                                    "startup",
+                                    "subsidiary",
+                                    "group",
+                                    "brand",
+                                    "manufacturer",
+                                    "hospital",
+                                    "clinic",
+                                    "bank",
+                                    "financial",
+                                    "retailer",
+                                    "store",
+                                    "chain",
+                                    "restaurant",
+                                ]
+                            )
                             if is_company_article:
                                 info["description"] = extract
                                 _set_cached(cache_k, extract)
@@ -2022,8 +2280,10 @@ def fetch_company_info(client_name: str,
 # API 9: Clearbit Autocomplete (Company Metadata)
 # ---------------------------------------------------------------------------
 
-def fetch_company_metadata(company_name: str,
-                           client_website: Optional[str] = None) -> Optional[Dict[str, Any]]:
+
+def fetch_company_metadata(
+    company_name: str, client_website: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
     """
     Fetch company metadata from Clearbit Autocomplete API.
     Returns domain, logo, and basic company info.
@@ -2049,11 +2309,11 @@ def fetch_company_metadata(company_name: str,
             # Find best match — prefer exact name match
             best = resp[0]
             for item in resp:
-                if item.get("name", "").lower() == company_name.lower():
+                if item.get("name") or "".lower() == company_name.lower():
                     best = item
                     break
 
-            domain = best.get("domain", "")
+            domain = best.get("domain") or ""
 
             # If client_website is provided and Clearbit returned a different
             # domain, prefer the client_website as it's more reliable
@@ -2064,8 +2324,10 @@ def fetch_company_metadata(company_name: str,
                     cw = parsed.hostname or cw
                 # Only override if Clearbit domain looks wrong
                 if domain and cw and domain != cw:
-                    _log_info(f"Clearbit returned domain '{domain}' but "
-                              f"client_website is '{cw}'; using client_website")
+                    _log_info(
+                        f"Clearbit returned domain '{domain}' but "
+                        f"client_website is '{cw}'; using client_website"
+                    )
                     domain = cw
 
             result = {
@@ -2106,7 +2368,10 @@ def _load_sec_tickers() -> Dict[str, Any]:
     try:
         req = urllib.request.Request(url, method="GET")
         # SEC EDGAR requires a proper User-Agent with contact info
-        req.add_header("User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com; contact@joveo.com)")
+        req.add_header(
+            "User-Agent",
+            "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com; contact@joveo.com)",
+        )
         req.add_header("Accept", "application/json")
         with urllib.request.urlopen(req, timeout=15, context=_DEFAULT_SSL_CTX) as resp:
             data = json.loads(resp.read().decode("utf-8"))
@@ -2168,7 +2433,9 @@ def fetch_sec_company_data(company_name: str) -> Optional[Dict[str, Any]]:
     # Remove common suffixes for matching
     clean_name = re.sub(
         r"\s+(inc\.?|corp\.?|ltd\.?|llc|co\.?|company|technologies|technology)$",
-        "", company_lower, flags=re.IGNORECASE
+        "",
+        company_lower,
+        flags=re.IGNORECASE,
     ).strip()
 
     # Build search terms: original name + any aliases
@@ -2180,8 +2447,8 @@ def fetch_sec_company_data(company_name: str) -> Optional[Dict[str, Any]]:
     best_match = None
     best_score = 0
     for _key, entry in tickers.items():
-        title = entry.get("title", "").lower()
-        ticker = entry.get("ticker", "").lower()
+        title = entry.get("title") or "".lower()
+        ticker = entry.get("ticker") or "".lower()
 
         for term in search_terms:
             # Exact title match = highest priority
@@ -2195,13 +2462,17 @@ def fetch_sec_company_data(company_name: str) -> Optional[Dict[str, Any]]:
                     best_match = entry
                     best_score = 95
             # Title starts with search term (word-boundary match)
-            if title.startswith(term + " ") or title.startswith(term + ",") or title.startswith(term + "."):
+            if (
+                title.startswith(term + " ")
+                or title.startswith(term + ",")
+                or title.startswith(term + ".")
+            ):
                 score = 85
                 if score > best_score:
                     best_match = entry
                     best_score = score
             # Title contains search term as a whole word
-            elif re.search(r'\b' + re.escape(term) + r'\b', title):
+            elif re.search(r"\b" + re.escape(term) + r"\b", title):
                 score = len(term) / max(len(title), 1) * 80
                 if score > best_score:
                     best_match = entry
@@ -2218,9 +2489,9 @@ def fetch_sec_company_data(company_name: str) -> Optional[Dict[str, Any]]:
 
     if best_match:
         result = {
-            "ticker": best_match.get("ticker", ""),
-            "cik": str(best_match.get("cik_str", "")),
-            "company_name": best_match.get("title", ""),
+            "ticker": best_match.get("ticker") or "",
+            "cik": str(best_match.get("cik_str") or ""),
+            "company_name": best_match.get("title") or "",
             "is_public": True,
             "source": "SEC EDGAR",
         }
@@ -2235,10 +2506,10 @@ def fetch_sec_company_data(company_name: str) -> Optional[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 _FRED_SERIES = {
-    "unemployment_rate": "UNRATE",       # US unemployment rate
-    "cpi_inflation": "CPIAUCSL",         # Consumer Price Index
-    "fed_funds_rate": "FEDFUNDS",        # Federal funds rate
-    "job_openings": "JTSJOL",            # Job openings (JOLTS)
+    "unemployment_rate": "UNRATE",  # US unemployment rate
+    "cpi_inflation": "CPIAUCSL",  # Consumer Price Index
+    "fed_funds_rate": "FEDFUNDS",  # Federal funds rate
+    "job_openings": "JTSJOL",  # Job openings (JOLTS)
     "avg_hourly_earnings": "CES0500000003",  # Avg hourly earnings
 }
 
@@ -2271,11 +2542,11 @@ def fetch_fred_indicators() -> Dict[str, Any]:
             resp = _http_get_json(url, timeout=5)
             if resp and "observations" in resp and resp["observations"]:
                 obs = resp["observations"][0]
-                val = obs.get("value", "")
+                val = obs.get("value") or ""
                 if val and val != ".":
                     result[label] = {
                         "value": float(val),
-                        "date": obs.get("date", ""),
+                        "date": obs.get("date") or "",
                     }
         except Exception as exc:
             _log_warn(f"FRED series {series_id} failed: {exc}")
@@ -2377,53 +2648,528 @@ def fetch_search_trends(keywords: List[str]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 ONET_SOC_CODES: Dict[str, str] = {
-    "software engineer": "15-1252.00", "software developer": "15-1252.00",
-    "web developer": "15-1254.00", "data scientist": "15-2051.00",
-    "data analyst": "15-2051.00", "data engineer": "15-1243.00",
-    "devops engineer": "15-1244.00", "systems administrator": "15-1244.00",
-    "network engineer": "15-1241.00", "cybersecurity analyst": "15-1212.00",
-    "information security": "15-1212.00", "database administrator": "15-1242.00",
-    "product manager": "11-2021.00", "project manager": "11-9199.00",
-    "marketing manager": "11-2021.00", "sales manager": "11-2022.00",
-    "business analyst": "13-1111.00", "financial analyst": "13-2051.00",
-    "accountant": "13-2011.00", "hr manager": "11-3121.00",
-    "human resources": "11-3121.00", "recruiter": "13-1071.00",
-    "registered nurse": "29-1141.00", "nurse": "29-1141.00",
-    "physician": "29-1218.00", "pharmacist": "29-1051.00",
-    "mechanical engineer": "17-2141.00", "electrical engineer": "17-2071.00",
-    "civil engineer": "17-2051.00", "ux designer": "15-1255.00",
-    "graphic designer": "27-1024.00", "technical writer": "27-3042.00",
-    "operations manager": "11-1021.00", "supply chain": "13-1081.00",
+    "software engineer": "15-1252.00",
+    "software developer": "15-1252.00",
+    "web developer": "15-1254.00",
+    "data scientist": "15-2051.00",
+    "data analyst": "15-2051.00",
+    "data engineer": "15-1243.00",
+    "devops engineer": "15-1244.00",
+    "systems administrator": "15-1244.00",
+    "network engineer": "15-1241.00",
+    "cybersecurity analyst": "15-1212.00",
+    "information security": "15-1212.00",
+    "database administrator": "15-1242.00",
+    "product manager": "11-2021.00",
+    "project manager": "11-9199.00",
+    "marketing manager": "11-2021.00",
+    "sales manager": "11-2022.00",
+    "business analyst": "13-1111.00",
+    "financial analyst": "13-2051.00",
+    "accountant": "13-2011.00",
+    "hr manager": "11-3121.00",
+    "human resources": "11-3121.00",
+    "recruiter": "13-1071.00",
+    "registered nurse": "29-1141.00",
+    "nurse": "29-1141.00",
+    "physician": "29-1218.00",
+    "pharmacist": "29-1051.00",
+    "mechanical engineer": "17-2141.00",
+    "electrical engineer": "17-2071.00",
+    "civil engineer": "17-2051.00",
+    "ux designer": "15-1255.00",
+    "graphic designer": "27-1024.00",
+    "technical writer": "27-3042.00",
+    "operations manager": "11-1021.00",
+    "supply chain": "13-1081.00",
 }
 
 _ONET_FALLBACK: Dict[str, Dict[str, Any]] = {
-    "15-1252.00": {"title": "Software Developers", "skills": ["Programming", "Complex Problem Solving", "Systems Analysis", "Critical Thinking", "Mathematics"], "knowledge": ["Computers and Electronics", "Engineering and Technology", "Mathematics", "English Language"], "technology_skills": ["Python", "Java", "JavaScript", "SQL", "Git"], "outlook": "Much faster than average", "median_salary": 132270, "education": "Bachelor's degree"},
-    "15-2051.00": {"title": "Data Scientists", "skills": ["Programming", "Mathematics", "Critical Thinking", "Complex Problem Solving", "Active Learning"], "knowledge": ["Mathematics", "Computers and Electronics", "English Language", "Engineering and Technology"], "technology_skills": ["Python", "R", "SQL", "Tableau", "TensorFlow"], "outlook": "Much faster than average", "median_salary": 108020, "education": "Bachelor's degree"},
-    "15-1243.00": {"title": "Database Architects", "skills": ["Programming", "Systems Analysis", "Complex Problem Solving", "Critical Thinking"], "knowledge": ["Computers and Electronics", "Mathematics", "Engineering and Technology"], "technology_skills": ["SQL", "Python", "AWS", "Spark", "Kafka"], "outlook": "Faster than average", "median_salary": 112120, "education": "Bachelor's degree"},
-    "15-1244.00": {"title": "Network and Computer Systems Administrators", "skills": ["Critical Thinking", "Complex Problem Solving", "Systems Analysis", "Monitoring"], "knowledge": ["Computers and Electronics", "Telecommunications", "Engineering and Technology"], "technology_skills": ["Linux", "Docker", "Kubernetes", "AWS", "Terraform"], "outlook": "Average", "median_salary": 95360, "education": "Bachelor's degree"},
-    "11-2021.00": {"title": "Marketing Managers", "skills": ["Persuasion", "Social Perceptiveness", "Negotiation", "Coordination", "Critical Thinking"], "knowledge": ["Sales and Marketing", "English Language", "Communications and Media", "Administration and Management"], "technology_skills": ["Google Analytics", "Salesforce", "HubSpot", "Excel"], "outlook": "Faster than average", "median_salary": 156580, "education": "Bachelor's degree"},
-    "13-1111.00": {"title": "Management Analysts", "skills": ["Critical Thinking", "Complex Problem Solving", "Active Listening", "Judgment and Decision Making"], "knowledge": ["Administration and Management", "English Language", "Customer and Personal Service"], "technology_skills": ["Excel", "PowerPoint", "Tableau", "SQL"], "outlook": "Average", "median_salary": 99410, "education": "Bachelor's degree"},
-    "13-2051.00": {"title": "Financial Analysts", "skills": ["Critical Thinking", "Mathematics", "Active Learning", "Complex Problem Solving"], "knowledge": ["Economics and Accounting", "Mathematics", "English Language"], "technology_skills": ["Excel", "Bloomberg Terminal", "Python", "SQL"], "outlook": "Faster than average", "median_salary": 96220, "education": "Bachelor's degree"},
-    "13-2011.00": {"title": "Accountants and Auditors", "skills": ["Critical Thinking", "Mathematics", "Active Listening", "Reading Comprehension"], "knowledge": ["Economics and Accounting", "Mathematics", "English Language", "Law and Government"], "technology_skills": ["Excel", "QuickBooks", "SAP", "Oracle"], "outlook": "Average", "median_salary": 79880, "education": "Bachelor's degree"},
-    "11-3121.00": {"title": "Human Resources Managers", "skills": ["Social Perceptiveness", "Negotiation", "Active Listening", "Coordination"], "knowledge": ["Personnel and Human Resources", "Administration and Management", "English Language", "Law and Government"], "technology_skills": ["Workday", "SAP SuccessFactors", "ADP", "Excel"], "outlook": "Faster than average", "median_salary": 136350, "education": "Bachelor's degree"},
-    "13-1071.00": {"title": "Human Resources Specialists", "skills": ["Active Listening", "Social Perceptiveness", "Speaking", "Negotiation"], "knowledge": ["Personnel and Human Resources", "English Language", "Administration and Management"], "technology_skills": ["LinkedIn Recruiter", "Workday", "ADP", "iCIMS"], "outlook": "Faster than average", "median_salary": 67650, "education": "Bachelor's degree"},
-    "29-1141.00": {"title": "Registered Nurses", "skills": ["Critical Thinking", "Active Listening", "Social Perceptiveness", "Monitoring"], "knowledge": ["Medicine and Dentistry", "Psychology", "English Language", "Customer and Personal Service"], "technology_skills": ["Epic Systems", "Meditech", "Cerner"], "outlook": "Faster than average", "median_salary": 86070, "education": "Bachelor's degree"},
-    "17-2141.00": {"title": "Mechanical Engineers", "skills": ["Complex Problem Solving", "Critical Thinking", "Mathematics", "Science"], "knowledge": ["Engineering and Technology", "Design", "Mathematics", "Physics"], "technology_skills": ["AutoCAD", "SolidWorks", "MATLAB", "ANSYS"], "outlook": "Average", "median_salary": 99510, "education": "Bachelor's degree"},
-    "15-1254.00": {"title": "Web Developers", "skills": ["Programming", "Critical Thinking", "Active Learning", "Complex Problem Solving"], "knowledge": ["Computers and Electronics", "Design", "English Language"], "technology_skills": ["JavaScript", "React", "Node.js", "HTML/CSS", "TypeScript"], "outlook": "Much faster than average", "median_salary": 98580, "education": "Associate's degree"},
-    "15-1241.00": {"title": "Computer Network Architects", "skills": ["Critical Thinking", "Complex Problem Solving", "Systems Analysis"], "knowledge": ["Computers and Electronics", "Telecommunications", "Engineering and Technology"], "technology_skills": ["Cisco", "AWS", "Azure", "VMware"], "outlook": "Average", "median_salary": 126900, "education": "Bachelor's degree"},
-    "15-1212.00": {"title": "Information Security Analysts", "skills": ["Critical Thinking", "Complex Problem Solving", "Systems Analysis", "Active Learning"], "knowledge": ["Computers and Electronics", "Engineering and Technology", "Telecommunications"], "technology_skills": ["Splunk", "Wireshark", "Nessus", "Python", "Kali Linux"], "outlook": "Much faster than average", "median_salary": 120360, "education": "Bachelor's degree"},
-    "15-1242.00": {"title": "Database Administrators", "skills": ["Critical Thinking", "Complex Problem Solving", "Programming", "Systems Analysis"], "knowledge": ["Computers and Electronics", "Mathematics", "Engineering and Technology"], "technology_skills": ["SQL", "Oracle", "PostgreSQL", "MySQL", "MongoDB"], "outlook": "Faster than average", "median_salary": 101000, "education": "Bachelor's degree"},
-    "11-2022.00": {"title": "Sales Managers", "skills": ["Persuasion", "Negotiation", "Social Perceptiveness", "Active Listening"], "knowledge": ["Sales and Marketing", "Customer and Personal Service", "Administration and Management"], "technology_skills": ["Salesforce", "HubSpot", "Excel", "SAP"], "outlook": "Average", "median_salary": 135160, "education": "Bachelor's degree"},
-    "11-9199.00": {"title": "Managers, All Other", "skills": ["Critical Thinking", "Coordination", "Active Listening", "Judgment and Decision Making"], "knowledge": ["Administration and Management", "English Language", "Customer and Personal Service"], "technology_skills": ["Microsoft Office", "Jira", "Slack", "Asana"], "outlook": "Average", "median_salary": 116740, "education": "Bachelor's degree"},
-    "15-1255.00": {"title": "Web and Digital Interface Designers", "skills": ["Active Learning", "Critical Thinking", "Complex Problem Solving"], "knowledge": ["Design", "Computers and Electronics", "Fine Arts", "Communications and Media"], "technology_skills": ["Figma", "Adobe XD", "Sketch", "HTML/CSS", "JavaScript"], "outlook": "Faster than average", "median_salary": 85000, "education": "Bachelor's degree"},
-    "27-1024.00": {"title": "Graphic Designers", "skills": ["Active Learning", "Critical Thinking", "Complex Problem Solving", "Time Management"], "knowledge": ["Design", "Communications and Media", "Fine Arts", "English Language"], "technology_skills": ["Adobe Photoshop", "Illustrator", "InDesign", "Figma"], "outlook": "Average", "median_salary": 57990, "education": "Bachelor's degree"},
-    "27-3042.00": {"title": "Technical Writers", "skills": ["Writing", "Reading Comprehension", "Active Listening", "Critical Thinking"], "knowledge": ["English Language", "Computers and Electronics", "Communications and Media"], "technology_skills": ["MadCap Flare", "Adobe FrameMaker", "Confluence", "Markdown"], "outlook": "Average", "median_salary": 79960, "education": "Bachelor's degree"},
-    "11-1021.00": {"title": "General and Operations Managers", "skills": ["Critical Thinking", "Coordination", "Monitoring", "Judgment and Decision Making"], "knowledge": ["Administration and Management", "Customer and Personal Service", "Economics and Accounting"], "technology_skills": ["SAP", "Oracle", "Excel", "Salesforce"], "outlook": "Average", "median_salary": 101280, "education": "Bachelor's degree"},
-    "13-1081.00": {"title": "Logisticians", "skills": ["Critical Thinking", "Complex Problem Solving", "Coordination", "Monitoring"], "knowledge": ["Transportation", "Administration and Management", "Production and Processing"], "technology_skills": ["SAP", "Oracle SCM", "Excel", "Tableau"], "outlook": "Faster than average", "median_salary": 79400, "education": "Bachelor's degree"},
-    "29-1218.00": {"title": "Physicians, All Other", "skills": ["Critical Thinking", "Active Listening", "Social Perceptiveness", "Complex Problem Solving"], "knowledge": ["Medicine and Dentistry", "Biology", "Psychology", "English Language"], "technology_skills": ["Epic Systems", "Cerner", "MEDITECH"], "outlook": "Average", "median_salary": 229300, "education": "Doctoral or professional degree"},
-    "29-1051.00": {"title": "Pharmacists", "skills": ["Critical Thinking", "Active Listening", "Reading Comprehension", "Science"], "knowledge": ["Medicine and Dentistry", "Chemistry", "Mathematics", "English Language"], "technology_skills": ["QS/1", "PharMerica", "ScriptPro"], "outlook": "Declining", "median_salary": 136030, "education": "Doctoral or professional degree"},
-    "17-2071.00": {"title": "Electrical Engineers", "skills": ["Critical Thinking", "Complex Problem Solving", "Mathematics", "Science"], "knowledge": ["Engineering and Technology", "Design", "Mathematics", "Physics"], "technology_skills": ["MATLAB", "AutoCAD", "LabVIEW", "PSpice"], "outlook": "Average", "median_salary": 109010, "education": "Bachelor's degree"},
-    "17-2051.00": {"title": "Civil Engineers", "skills": ["Critical Thinking", "Complex Problem Solving", "Mathematics", "Science"], "knowledge": ["Engineering and Technology", "Design", "Mathematics", "Building and Construction"], "technology_skills": ["AutoCAD", "Civil 3D", "MicroStation", "STAAD.Pro"], "outlook": "Average", "median_salary": 95890, "education": "Bachelor's degree"},
+    "15-1252.00": {
+        "title": "Software Developers",
+        "skills": [
+            "Programming",
+            "Complex Problem Solving",
+            "Systems Analysis",
+            "Critical Thinking",
+            "Mathematics",
+        ],
+        "knowledge": [
+            "Computers and Electronics",
+            "Engineering and Technology",
+            "Mathematics",
+            "English Language",
+        ],
+        "technology_skills": ["Python", "Java", "JavaScript", "SQL", "Git"],
+        "outlook": "Much faster than average",
+        "median_salary": 132270,
+        "education": "Bachelor's degree",
+    },
+    "15-2051.00": {
+        "title": "Data Scientists",
+        "skills": [
+            "Programming",
+            "Mathematics",
+            "Critical Thinking",
+            "Complex Problem Solving",
+            "Active Learning",
+        ],
+        "knowledge": [
+            "Mathematics",
+            "Computers and Electronics",
+            "English Language",
+            "Engineering and Technology",
+        ],
+        "technology_skills": ["Python", "R", "SQL", "Tableau", "TensorFlow"],
+        "outlook": "Much faster than average",
+        "median_salary": 108020,
+        "education": "Bachelor's degree",
+    },
+    "15-1243.00": {
+        "title": "Database Architects",
+        "skills": [
+            "Programming",
+            "Systems Analysis",
+            "Complex Problem Solving",
+            "Critical Thinking",
+        ],
+        "knowledge": [
+            "Computers and Electronics",
+            "Mathematics",
+            "Engineering and Technology",
+        ],
+        "technology_skills": ["SQL", "Python", "AWS", "Spark", "Kafka"],
+        "outlook": "Faster than average",
+        "median_salary": 112120,
+        "education": "Bachelor's degree",
+    },
+    "15-1244.00": {
+        "title": "Network and Computer Systems Administrators",
+        "skills": [
+            "Critical Thinking",
+            "Complex Problem Solving",
+            "Systems Analysis",
+            "Monitoring",
+        ],
+        "knowledge": [
+            "Computers and Electronics",
+            "Telecommunications",
+            "Engineering and Technology",
+        ],
+        "technology_skills": ["Linux", "Docker", "Kubernetes", "AWS", "Terraform"],
+        "outlook": "Average",
+        "median_salary": 95360,
+        "education": "Bachelor's degree",
+    },
+    "11-2021.00": {
+        "title": "Marketing Managers",
+        "skills": [
+            "Persuasion",
+            "Social Perceptiveness",
+            "Negotiation",
+            "Coordination",
+            "Critical Thinking",
+        ],
+        "knowledge": [
+            "Sales and Marketing",
+            "English Language",
+            "Communications and Media",
+            "Administration and Management",
+        ],
+        "technology_skills": ["Google Analytics", "Salesforce", "HubSpot", "Excel"],
+        "outlook": "Faster than average",
+        "median_salary": 156580,
+        "education": "Bachelor's degree",
+    },
+    "13-1111.00": {
+        "title": "Management Analysts",
+        "skills": [
+            "Critical Thinking",
+            "Complex Problem Solving",
+            "Active Listening",
+            "Judgment and Decision Making",
+        ],
+        "knowledge": [
+            "Administration and Management",
+            "English Language",
+            "Customer and Personal Service",
+        ],
+        "technology_skills": ["Excel", "PowerPoint", "Tableau", "SQL"],
+        "outlook": "Average",
+        "median_salary": 99410,
+        "education": "Bachelor's degree",
+    },
+    "13-2051.00": {
+        "title": "Financial Analysts",
+        "skills": [
+            "Critical Thinking",
+            "Mathematics",
+            "Active Learning",
+            "Complex Problem Solving",
+        ],
+        "knowledge": ["Economics and Accounting", "Mathematics", "English Language"],
+        "technology_skills": ["Excel", "Bloomberg Terminal", "Python", "SQL"],
+        "outlook": "Faster than average",
+        "median_salary": 96220,
+        "education": "Bachelor's degree",
+    },
+    "13-2011.00": {
+        "title": "Accountants and Auditors",
+        "skills": [
+            "Critical Thinking",
+            "Mathematics",
+            "Active Listening",
+            "Reading Comprehension",
+        ],
+        "knowledge": [
+            "Economics and Accounting",
+            "Mathematics",
+            "English Language",
+            "Law and Government",
+        ],
+        "technology_skills": ["Excel", "QuickBooks", "SAP", "Oracle"],
+        "outlook": "Average",
+        "median_salary": 79880,
+        "education": "Bachelor's degree",
+    },
+    "11-3121.00": {
+        "title": "Human Resources Managers",
+        "skills": [
+            "Social Perceptiveness",
+            "Negotiation",
+            "Active Listening",
+            "Coordination",
+        ],
+        "knowledge": [
+            "Personnel and Human Resources",
+            "Administration and Management",
+            "English Language",
+            "Law and Government",
+        ],
+        "technology_skills": ["Workday", "SAP SuccessFactors", "ADP", "Excel"],
+        "outlook": "Faster than average",
+        "median_salary": 136350,
+        "education": "Bachelor's degree",
+    },
+    "13-1071.00": {
+        "title": "Human Resources Specialists",
+        "skills": [
+            "Active Listening",
+            "Social Perceptiveness",
+            "Speaking",
+            "Negotiation",
+        ],
+        "knowledge": [
+            "Personnel and Human Resources",
+            "English Language",
+            "Administration and Management",
+        ],
+        "technology_skills": ["LinkedIn Recruiter", "Workday", "ADP", "iCIMS"],
+        "outlook": "Faster than average",
+        "median_salary": 67650,
+        "education": "Bachelor's degree",
+    },
+    "29-1141.00": {
+        "title": "Registered Nurses",
+        "skills": [
+            "Critical Thinking",
+            "Active Listening",
+            "Social Perceptiveness",
+            "Monitoring",
+        ],
+        "knowledge": [
+            "Medicine and Dentistry",
+            "Psychology",
+            "English Language",
+            "Customer and Personal Service",
+        ],
+        "technology_skills": ["Epic Systems", "Meditech", "Cerner"],
+        "outlook": "Faster than average",
+        "median_salary": 86070,
+        "education": "Bachelor's degree",
+    },
+    "17-2141.00": {
+        "title": "Mechanical Engineers",
+        "skills": [
+            "Complex Problem Solving",
+            "Critical Thinking",
+            "Mathematics",
+            "Science",
+        ],
+        "knowledge": ["Engineering and Technology", "Design", "Mathematics", "Physics"],
+        "technology_skills": ["AutoCAD", "SolidWorks", "MATLAB", "ANSYS"],
+        "outlook": "Average",
+        "median_salary": 99510,
+        "education": "Bachelor's degree",
+    },
+    "15-1254.00": {
+        "title": "Web Developers",
+        "skills": [
+            "Programming",
+            "Critical Thinking",
+            "Active Learning",
+            "Complex Problem Solving",
+        ],
+        "knowledge": ["Computers and Electronics", "Design", "English Language"],
+        "technology_skills": [
+            "JavaScript",
+            "React",
+            "Node.js",
+            "HTML/CSS",
+            "TypeScript",
+        ],
+        "outlook": "Much faster than average",
+        "median_salary": 98580,
+        "education": "Associate's degree",
+    },
+    "15-1241.00": {
+        "title": "Computer Network Architects",
+        "skills": ["Critical Thinking", "Complex Problem Solving", "Systems Analysis"],
+        "knowledge": [
+            "Computers and Electronics",
+            "Telecommunications",
+            "Engineering and Technology",
+        ],
+        "technology_skills": ["Cisco", "AWS", "Azure", "VMware"],
+        "outlook": "Average",
+        "median_salary": 126900,
+        "education": "Bachelor's degree",
+    },
+    "15-1212.00": {
+        "title": "Information Security Analysts",
+        "skills": [
+            "Critical Thinking",
+            "Complex Problem Solving",
+            "Systems Analysis",
+            "Active Learning",
+        ],
+        "knowledge": [
+            "Computers and Electronics",
+            "Engineering and Technology",
+            "Telecommunications",
+        ],
+        "technology_skills": ["Splunk", "Wireshark", "Nessus", "Python", "Kali Linux"],
+        "outlook": "Much faster than average",
+        "median_salary": 120360,
+        "education": "Bachelor's degree",
+    },
+    "15-1242.00": {
+        "title": "Database Administrators",
+        "skills": [
+            "Critical Thinking",
+            "Complex Problem Solving",
+            "Programming",
+            "Systems Analysis",
+        ],
+        "knowledge": [
+            "Computers and Electronics",
+            "Mathematics",
+            "Engineering and Technology",
+        ],
+        "technology_skills": ["SQL", "Oracle", "PostgreSQL", "MySQL", "MongoDB"],
+        "outlook": "Faster than average",
+        "median_salary": 101000,
+        "education": "Bachelor's degree",
+    },
+    "11-2022.00": {
+        "title": "Sales Managers",
+        "skills": [
+            "Persuasion",
+            "Negotiation",
+            "Social Perceptiveness",
+            "Active Listening",
+        ],
+        "knowledge": [
+            "Sales and Marketing",
+            "Customer and Personal Service",
+            "Administration and Management",
+        ],
+        "technology_skills": ["Salesforce", "HubSpot", "Excel", "SAP"],
+        "outlook": "Average",
+        "median_salary": 135160,
+        "education": "Bachelor's degree",
+    },
+    "11-9199.00": {
+        "title": "Managers, All Other",
+        "skills": [
+            "Critical Thinking",
+            "Coordination",
+            "Active Listening",
+            "Judgment and Decision Making",
+        ],
+        "knowledge": [
+            "Administration and Management",
+            "English Language",
+            "Customer and Personal Service",
+        ],
+        "technology_skills": ["Microsoft Office", "Jira", "Slack", "Asana"],
+        "outlook": "Average",
+        "median_salary": 116740,
+        "education": "Bachelor's degree",
+    },
+    "15-1255.00": {
+        "title": "Web and Digital Interface Designers",
+        "skills": ["Active Learning", "Critical Thinking", "Complex Problem Solving"],
+        "knowledge": [
+            "Design",
+            "Computers and Electronics",
+            "Fine Arts",
+            "Communications and Media",
+        ],
+        "technology_skills": ["Figma", "Adobe XD", "Sketch", "HTML/CSS", "JavaScript"],
+        "outlook": "Faster than average",
+        "median_salary": 85000,
+        "education": "Bachelor's degree",
+    },
+    "27-1024.00": {
+        "title": "Graphic Designers",
+        "skills": [
+            "Active Learning",
+            "Critical Thinking",
+            "Complex Problem Solving",
+            "Time Management",
+        ],
+        "knowledge": [
+            "Design",
+            "Communications and Media",
+            "Fine Arts",
+            "English Language",
+        ],
+        "technology_skills": ["Adobe Photoshop", "Illustrator", "InDesign", "Figma"],
+        "outlook": "Average",
+        "median_salary": 57990,
+        "education": "Bachelor's degree",
+    },
+    "27-3042.00": {
+        "title": "Technical Writers",
+        "skills": [
+            "Writing",
+            "Reading Comprehension",
+            "Active Listening",
+            "Critical Thinking",
+        ],
+        "knowledge": [
+            "English Language",
+            "Computers and Electronics",
+            "Communications and Media",
+        ],
+        "technology_skills": [
+            "MadCap Flare",
+            "Adobe FrameMaker",
+            "Confluence",
+            "Markdown",
+        ],
+        "outlook": "Average",
+        "median_salary": 79960,
+        "education": "Bachelor's degree",
+    },
+    "11-1021.00": {
+        "title": "General and Operations Managers",
+        "skills": [
+            "Critical Thinking",
+            "Coordination",
+            "Monitoring",
+            "Judgment and Decision Making",
+        ],
+        "knowledge": [
+            "Administration and Management",
+            "Customer and Personal Service",
+            "Economics and Accounting",
+        ],
+        "technology_skills": ["SAP", "Oracle", "Excel", "Salesforce"],
+        "outlook": "Average",
+        "median_salary": 101280,
+        "education": "Bachelor's degree",
+    },
+    "13-1081.00": {
+        "title": "Logisticians",
+        "skills": [
+            "Critical Thinking",
+            "Complex Problem Solving",
+            "Coordination",
+            "Monitoring",
+        ],
+        "knowledge": [
+            "Transportation",
+            "Administration and Management",
+            "Production and Processing",
+        ],
+        "technology_skills": ["SAP", "Oracle SCM", "Excel", "Tableau"],
+        "outlook": "Faster than average",
+        "median_salary": 79400,
+        "education": "Bachelor's degree",
+    },
+    "29-1218.00": {
+        "title": "Physicians, All Other",
+        "skills": [
+            "Critical Thinking",
+            "Active Listening",
+            "Social Perceptiveness",
+            "Complex Problem Solving",
+        ],
+        "knowledge": [
+            "Medicine and Dentistry",
+            "Biology",
+            "Psychology",
+            "English Language",
+        ],
+        "technology_skills": ["Epic Systems", "Cerner", "MEDITECH"],
+        "outlook": "Average",
+        "median_salary": 229300,
+        "education": "Doctoral or professional degree",
+    },
+    "29-1051.00": {
+        "title": "Pharmacists",
+        "skills": [
+            "Critical Thinking",
+            "Active Listening",
+            "Reading Comprehension",
+            "Science",
+        ],
+        "knowledge": [
+            "Medicine and Dentistry",
+            "Chemistry",
+            "Mathematics",
+            "English Language",
+        ],
+        "technology_skills": ["QS/1", "PharMerica", "ScriptPro"],
+        "outlook": "Declining",
+        "median_salary": 136030,
+        "education": "Doctoral or professional degree",
+    },
+    "17-2071.00": {
+        "title": "Electrical Engineers",
+        "skills": [
+            "Critical Thinking",
+            "Complex Problem Solving",
+            "Mathematics",
+            "Science",
+        ],
+        "knowledge": ["Engineering and Technology", "Design", "Mathematics", "Physics"],
+        "technology_skills": ["MATLAB", "AutoCAD", "LabVIEW", "PSpice"],
+        "outlook": "Average",
+        "median_salary": 109010,
+        "education": "Bachelor's degree",
+    },
+    "17-2051.00": {
+        "title": "Civil Engineers",
+        "skills": [
+            "Critical Thinking",
+            "Complex Problem Solving",
+            "Mathematics",
+            "Science",
+        ],
+        "knowledge": [
+            "Engineering and Technology",
+            "Design",
+            "Mathematics",
+            "Building and Construction",
+        ],
+        "technology_skills": ["AutoCAD", "Civil 3D", "MicroStation", "STAAD.Pro"],
+        "outlook": "Average",
+        "median_salary": 95890,
+        "education": "Bachelor's degree",
+    },
 }
 
 
@@ -2475,6 +3221,7 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
         if use_live:
             try:
                 import base64
+
                 creds = base64.b64encode(f"{username}:{password}".encode()).decode()
                 headers = {
                     "Authorization": f"Basic {creds}",
@@ -2488,8 +3235,8 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
                     data = json.loads(resp.read().decode())
 
                 occ_data: Dict[str, Any] = {
-                    "title": data.get("title", ""),
-                    "description": data.get("description", ""),
+                    "title": data.get("title") or "",
+                    "description": data.get("description") or "",
                     "soc_code": soc_code,
                     "source": "O*NET Live API",
                 }
@@ -2498,10 +3245,14 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
                 try:
                     skills_url = f"{base_url}/{soc_code}/summary/skills"
                     req_s = urllib.request.Request(skills_url, headers=headers)
-                    with urllib.request.urlopen(req_s, timeout=8, context=ctx) as resp_s:
+                    with urllib.request.urlopen(
+                        req_s, timeout=8, context=ctx
+                    ) as resp_s:
                         skills_data = json.loads(resp_s.read().decode())
                     elements = skills_data.get("element", [])
-                    occ_data["skills"] = [e.get("name", "") for e in elements[:8] if e.get("name")]
+                    occ_data["skills"] = [
+                        e.get("name") or "" for e in elements[:8] if e.get("name")
+                    ]
                 except Exception:
                     occ_data["skills"] = []
 
@@ -2509,10 +3260,14 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
                 try:
                     know_url = f"{base_url}/{soc_code}/summary/knowledge"
                     req_k = urllib.request.Request(know_url, headers=headers)
-                    with urllib.request.urlopen(req_k, timeout=8, context=ctx) as resp_k:
+                    with urllib.request.urlopen(
+                        req_k, timeout=8, context=ctx
+                    ) as resp_k:
                         know_data = json.loads(resp_k.read().decode())
                     elements = know_data.get("element", [])
-                    occ_data["knowledge"] = [e.get("name", "") for e in elements[:6] if e.get("name")]
+                    occ_data["knowledge"] = [
+                        e.get("name") or "" for e in elements[:6] if e.get("name")
+                    ]
                 except Exception:
                     occ_data["knowledge"] = []
 
@@ -2520,13 +3275,15 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
                 try:
                     tech_url = f"{base_url}/{soc_code}/summary/technology_skills"
                     req_t = urllib.request.Request(tech_url, headers=headers)
-                    with urllib.request.urlopen(req_t, timeout=8, context=ctx) as resp_t:
+                    with urllib.request.urlopen(
+                        req_t, timeout=8, context=ctx
+                    ) as resp_t:
                         tech_data = json.loads(resp_t.read().decode())
                     categories = tech_data.get("category", [])
                     tech_skills = []
                     for cat in categories[:5]:
                         for ex in cat.get("example", [])[:2]:
-                            name = ex.get("name", "")
+                            name = ex.get("name") or ""
                             if name:
                                 tech_skills.append(name)
                     occ_data["technology_skills"] = tech_skills[:10]
@@ -2588,10 +3345,14 @@ def fetch_onet_job_zone(soc_code: str) -> Optional[Dict[str, Any]]:
 
         # Basic auth
         auth_string = base64.b64encode(f"{username}:".encode()).decode()
-        resp = _http_get_json(url, headers={
-            "Authorization": f"Basic {auth_string}",
-            "Accept": "application/json",
-        }, timeout=8)
+        resp = _http_get_json(
+            url,
+            headers={
+                "Authorization": f"Basic {auth_string}",
+                "Accept": "application/json",
+            },
+            timeout=8,
+        )
 
         if not resp:
             return None
@@ -2640,32 +3401,81 @@ def fetch_onet_job_zone(soc_code: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-
 # ---------------------------------------------------------------------------
 # IMF DataMapper — International economic indicators
 # ---------------------------------------------------------------------------
 
 ISO_2_TO_3: Dict[str, str] = {
-    "US": "USA", "GB": "GBR", "UK": "GBR", "CA": "CAN", "AU": "AUS",
-    "DE": "DEU", "FR": "FRA", "JP": "JPN", "IN": "IND", "CN": "CHN",
-    "BR": "BRA", "MX": "MEX", "KR": "KOR", "SG": "SGP", "HK": "HKG",
-    "NZ": "NZL", "IE": "IRL", "NL": "NLD", "SE": "SWE", "NO": "NOR",
-    "DK": "DNK", "FI": "FIN", "CH": "CHE", "AT": "AUT", "BE": "BEL",
-    "IT": "ITA", "ES": "ESP", "PT": "PRT", "PL": "POL", "CZ": "CZE",
-    "IL": "ISR", "ZA": "ZAF", "AE": "ARE", "PH": "PHL",
+    "US": "USA",
+    "GB": "GBR",
+    "UK": "GBR",
+    "CA": "CAN",
+    "AU": "AUS",
+    "DE": "DEU",
+    "FR": "FRA",
+    "JP": "JPN",
+    "IN": "IND",
+    "CN": "CHN",
+    "BR": "BRA",
+    "MX": "MEX",
+    "KR": "KOR",
+    "SG": "SGP",
+    "HK": "HKG",
+    "NZ": "NZL",
+    "IE": "IRL",
+    "NL": "NLD",
+    "SE": "SWE",
+    "NO": "NOR",
+    "DK": "DNK",
+    "FI": "FIN",
+    "CH": "CHE",
+    "AT": "AUT",
+    "BE": "BEL",
+    "IT": "ITA",
+    "ES": "ESP",
+    "PT": "PRT",
+    "PL": "POL",
+    "CZ": "CZE",
+    "IL": "ISR",
+    "ZA": "ZAF",
+    "AE": "ARE",
+    "PH": "PHL",
 }
 
 ISO_3_TO_COUNTRY: Dict[str, str] = {
-    "USA": "United States", "GBR": "United Kingdom", "CAN": "Canada",
-    "AUS": "Australia", "DEU": "Germany", "FRA": "France", "JPN": "Japan",
-    "IND": "India", "CHN": "China", "BRA": "Brazil", "MEX": "Mexico",
-    "KOR": "South Korea", "SGP": "Singapore", "HKG": "Hong Kong",
-    "NZL": "New Zealand", "IRL": "Ireland", "NLD": "Netherlands",
-    "SWE": "Sweden", "NOR": "Norway", "DNK": "Denmark", "FIN": "Finland",
-    "CHE": "Switzerland", "AUT": "Austria", "BEL": "Belgium",
-    "ITA": "Italy", "ESP": "Spain", "PRT": "Portugal", "POL": "Poland",
-    "CZE": "Czech Republic", "ISR": "Israel", "ZAF": "South Africa",
-    "ARE": "United Arab Emirates", "PHL": "Philippines",
+    "USA": "United States",
+    "GBR": "United Kingdom",
+    "CAN": "Canada",
+    "AUS": "Australia",
+    "DEU": "Germany",
+    "FRA": "France",
+    "JPN": "Japan",
+    "IND": "India",
+    "CHN": "China",
+    "BRA": "Brazil",
+    "MEX": "Mexico",
+    "KOR": "South Korea",
+    "SGP": "Singapore",
+    "HKG": "Hong Kong",
+    "NZL": "New Zealand",
+    "IRL": "Ireland",
+    "NLD": "Netherlands",
+    "SWE": "Sweden",
+    "NOR": "Norway",
+    "DNK": "Denmark",
+    "FIN": "Finland",
+    "CHE": "Switzerland",
+    "AUT": "Austria",
+    "BEL": "Belgium",
+    "ITA": "Italy",
+    "ESP": "Spain",
+    "PRT": "Portugal",
+    "POL": "Poland",
+    "CZE": "Czech Republic",
+    "ISR": "Israel",
+    "ZAF": "South Africa",
+    "ARE": "United Arab Emirates",
+    "PHL": "Philippines",
 }
 
 
@@ -2707,74 +3517,118 @@ def _extract_iso3_from_location(location: str) -> Optional[str]:
 
 _IMF_CURATED_DATA: Dict[str, Dict[str, Any]] = {
     "USA": {
-        "country": "United States", "iso3": "USA",
-        "gdp_growth_pct": 2.0, "gdp_growth_pct_year": "2025",
+        "country": "United States",
+        "iso3": "USA",
+        "gdp_growth_pct": 2.0,
+        "gdp_growth_pct_year": "2025",
         "gdp_growth_pct_2026": 1.8,
-        "inflation_pct": 2.7, "inflation_pct_year": "2025",
+        "inflation_pct": 2.7,
+        "inflation_pct_year": "2025",
         "inflation_pct_2026": 2.4,
-        "unemployment_pct": 4.2, "unemployment_pct_year": "2025",
+        "unemployment_pct": 4.2,
+        "unemployment_pct_year": "2025",
         "unemployment_pct_2026": 4.4,
     },
     "GBR": {
-        "country": "United Kingdom", "iso3": "GBR",
-        "gdp_growth_pct": 1.1, "gdp_growth_pct_year": "2025",
-        "inflation_pct": 2.6, "inflation_pct_year": "2025",
-        "unemployment_pct": 4.5, "unemployment_pct_year": "2025",
+        "country": "United Kingdom",
+        "iso3": "GBR",
+        "gdp_growth_pct": 1.1,
+        "gdp_growth_pct_year": "2025",
+        "inflation_pct": 2.6,
+        "inflation_pct_year": "2025",
+        "unemployment_pct": 4.5,
+        "unemployment_pct_year": "2025",
     },
     "DEU": {
-        "country": "Germany", "iso3": "DEU",
-        "gdp_growth_pct": 0.8, "gdp_growth_pct_year": "2025",
-        "inflation_pct": 2.3, "inflation_pct_year": "2025",
-        "unemployment_pct": 3.5, "unemployment_pct_year": "2025",
+        "country": "Germany",
+        "iso3": "DEU",
+        "gdp_growth_pct": 0.8,
+        "gdp_growth_pct_year": "2025",
+        "inflation_pct": 2.3,
+        "inflation_pct_year": "2025",
+        "unemployment_pct": 3.5,
+        "unemployment_pct_year": "2025",
     },
     "CAN": {
-        "country": "Canada", "iso3": "CAN",
-        "gdp_growth_pct": 1.4, "gdp_growth_pct_year": "2025",
-        "inflation_pct": 2.4, "inflation_pct_year": "2025",
-        "unemployment_pct": 6.4, "unemployment_pct_year": "2025",
+        "country": "Canada",
+        "iso3": "CAN",
+        "gdp_growth_pct": 1.4,
+        "gdp_growth_pct_year": "2025",
+        "inflation_pct": 2.4,
+        "inflation_pct_year": "2025",
+        "unemployment_pct": 6.4,
+        "unemployment_pct_year": "2025",
     },
     "AUS": {
-        "country": "Australia", "iso3": "AUS",
-        "gdp_growth_pct": 1.9, "gdp_growth_pct_year": "2025",
-        "inflation_pct": 3.0, "inflation_pct_year": "2025",
-        "unemployment_pct": 4.1, "unemployment_pct_year": "2025",
+        "country": "Australia",
+        "iso3": "AUS",
+        "gdp_growth_pct": 1.9,
+        "gdp_growth_pct_year": "2025",
+        "inflation_pct": 3.0,
+        "inflation_pct_year": "2025",
+        "unemployment_pct": 4.1,
+        "unemployment_pct_year": "2025",
     },
     "JPN": {
-        "country": "Japan", "iso3": "JPN",
-        "gdp_growth_pct": 1.0, "gdp_growth_pct_year": "2025",
-        "inflation_pct": 2.5, "inflation_pct_year": "2025",
-        "unemployment_pct": 2.5, "unemployment_pct_year": "2025",
+        "country": "Japan",
+        "iso3": "JPN",
+        "gdp_growth_pct": 1.0,
+        "gdp_growth_pct_year": "2025",
+        "inflation_pct": 2.5,
+        "inflation_pct_year": "2025",
+        "unemployment_pct": 2.5,
+        "unemployment_pct_year": "2025",
     },
     "IND": {
-        "country": "India", "iso3": "IND",
-        "gdp_growth_pct": 6.5, "gdp_growth_pct_year": "2025",
-        "inflation_pct": 4.4, "inflation_pct_year": "2025",
-        "unemployment_pct": 7.8, "unemployment_pct_year": "2025",
+        "country": "India",
+        "iso3": "IND",
+        "gdp_growth_pct": 6.5,
+        "gdp_growth_pct_year": "2025",
+        "inflation_pct": 4.4,
+        "inflation_pct_year": "2025",
+        "unemployment_pct": 7.8,
+        "unemployment_pct_year": "2025",
     },
     "FRA": {
-        "country": "France", "iso3": "FRA",
-        "gdp_growth_pct": 0.9, "gdp_growth_pct_year": "2025",
-        "inflation_pct": 2.1, "inflation_pct_year": "2025",
-        "unemployment_pct": 7.5, "unemployment_pct_year": "2025",
+        "country": "France",
+        "iso3": "FRA",
+        "gdp_growth_pct": 0.9,
+        "gdp_growth_pct_year": "2025",
+        "inflation_pct": 2.1,
+        "inflation_pct_year": "2025",
+        "unemployment_pct": 7.5,
+        "unemployment_pct_year": "2025",
     },
     "SGP": {
-        "country": "Singapore", "iso3": "SGP",
-        "gdp_growth_pct": 3.0, "gdp_growth_pct_year": "2025",
-        "inflation_pct": 2.5, "inflation_pct_year": "2025",
-        "unemployment_pct": 2.1, "unemployment_pct_year": "2025",
+        "country": "Singapore",
+        "iso3": "SGP",
+        "gdp_growth_pct": 3.0,
+        "gdp_growth_pct_year": "2025",
+        "inflation_pct": 2.5,
+        "inflation_pct_year": "2025",
+        "unemployment_pct": 2.1,
+        "unemployment_pct_year": "2025",
     },
     "ARE": {
-        "country": "United Arab Emirates", "iso3": "ARE",
-        "gdp_growth_pct": 4.0, "gdp_growth_pct_year": "2025",
-        "inflation_pct": 2.3, "inflation_pct_year": "2025",
-        "unemployment_pct": 2.9, "unemployment_pct_year": "2025",
+        "country": "United Arab Emirates",
+        "iso3": "ARE",
+        "gdp_growth_pct": 4.0,
+        "gdp_growth_pct_year": "2025",
+        "inflation_pct": 2.3,
+        "inflation_pct_year": "2025",
+        "unemployment_pct": 2.9,
+        "unemployment_pct_year": "2025",
     },
     "_GLOBAL": {
-        "country": "Global", "iso3": "_GLOBAL",
-        "gdp_growth_pct": 3.2, "gdp_growth_pct_year": "2025",
+        "country": "Global",
+        "iso3": "_GLOBAL",
+        "gdp_growth_pct": 3.2,
+        "gdp_growth_pct_year": "2025",
         "gdp_growth_pct_2026": 3.1,
-        "inflation_pct": 4.2, "inflation_pct_year": "2025",
-        "unemployment_pct": 5.0, "unemployment_pct_year": "2025",
+        "inflation_pct": 4.2,
+        "inflation_pct_year": "2025",
+        "unemployment_pct": 5.0,
+        "unemployment_pct_year": "2025",
     },
 }
 
@@ -2805,7 +3659,10 @@ def fetch_imf_indicators(locations: List[str]) -> Dict[str, Any]:
 
     _log_info("IMF API deprecated; using curated macro indicators")
 
-    result: Dict[str, Any] = {"source": "IMF DataMapper (curated benchmarks)", "countries": {}}
+    result: Dict[str, Any] = {
+        "source": "IMF DataMapper (curated benchmarks)",
+        "countries": {},
+    }
 
     for iso3, country_name in country_codes.items():
         curated = _IMF_CURATED_DATA.get(iso3)
@@ -2815,7 +3672,8 @@ def fetch_imf_indicators(locations: List[str]) -> Dict[str, Any]:
             # Provide global averages for unknown countries
             global_data = _IMF_CURATED_DATA["_GLOBAL"]
             result["countries"][iso3] = {
-                "country": country_name, "iso3": iso3,
+                "country": country_name,
+                "iso3": iso3,
                 "gdp_growth_pct": global_data["gdp_growth_pct"],
                 "gdp_growth_pct_year": global_data["gdp_growth_pct_year"],
                 "inflation_pct": global_data["inflation_pct"],
@@ -2834,6 +3692,7 @@ def fetch_imf_indicators(locations: List[str]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # REST Countries v3.1 — Country data for international campaigns
 # ---------------------------------------------------------------------------
+
 
 def fetch_country_data(locations: List[str]) -> Dict[str, Any]:
     """
@@ -2872,11 +3731,15 @@ def fetch_country_data(locations: List[str]) -> Dict[str, Any]:
 
             entry: Dict[str, Any] = {
                 "name": country.get("name", {}).get("common", name),
-                "official_name": country.get("name", {}).get("official", ""),
-                "capital": (country.get("capital") or [""])[0] if country.get("capital") else "",
-                "region": country.get("region", ""),
-                "subregion": country.get("subregion", ""),
-                "population": country.get("population", 0),
+                "official_name": country.get("name", {}).get("official") or "",
+                "capital": (
+                    (country.get("capital") or [""])[0]
+                    if country.get("capital")
+                    else ""
+                ),
+                "region": country.get("region") or "",
+                "subregion": country.get("subregion") or "",
+                "population": country.get("population") or 0,
                 "timezones": country.get("timezones", []),
             }
 
@@ -2885,8 +3748,8 @@ def fetch_country_data(locations: List[str]) -> Dict[str, Any]:
             if currencies:
                 for code, info in currencies.items():
                     entry["currency_code"] = code
-                    entry["currency_name"] = info.get("name", "")
-                    entry["currency_symbol"] = info.get("symbol", "")
+                    entry["currency_name"] = info.get("name") or ""
+                    entry["currency_symbol"] = info.get("symbol") or ""
                     break
 
             # Extract languages
@@ -2895,7 +3758,7 @@ def fetch_country_data(locations: List[str]) -> Dict[str, Any]:
 
             # Flag URL
             flags = country.get("flags", {})
-            entry["flag_svg"] = flags.get("svg", "")
+            entry["flag_svg"] = flags.get("svg") or ""
 
             result["countries"][iso3] = entry
         except Exception as exc:
@@ -2922,7 +3785,9 @@ def fetch_geonames_data(locations: List[str]) -> Dict[str, Any]:
     if not locations:
         return {}
 
-    cache_k = _cache_key("geonames", ",".join(sorted(l.lower() for l in locations[:10])))
+    cache_k = _cache_key(
+        "geonames", ",".join(sorted(l.lower() for l in locations[:10]))
+    )
     cached = _get_cached(cache_k)
     if cached is not None:
         return cached
@@ -2957,45 +3822,47 @@ def fetch_geonames_data(locations: List[str]) -> Dict[str, Any]:
             geo = data["geonames"][0]
             entry: Dict[str, Any] = {
                 "name": geo.get("name", city),
-                "country_name": geo.get("countryName", ""),
-                "country_code": geo.get("countryCode", ""),
-                "admin_name": geo.get("adminName1", ""),  # State/province
-                "population": geo.get("population", 0),
-                "latitude": geo.get("lat", ""),
-                "longitude": geo.get("lng", ""),
+                "country_name": geo.get("countryName") or "",
+                "country_code": geo.get("countryCode") or "",
+                "admin_name": geo.get("adminName1") or "",  # State/province
+                "population": geo.get("population") or 0,
+                "latitude": geo.get("lat") or "",
+                "longitude": geo.get("lng") or "",
                 "elevation": geo.get("elevation"),
-                "feature_class": geo.get("fclName", ""),
+                "feature_class": geo.get("fclName") or "",
             }
 
             # Fetch timezone info
-            lat = geo.get("lat", "")
-            lng = geo.get("lng", "")
+            lat = geo.get("lat") or ""
+            lng = geo.get("lng") or ""
             if lat and lng:
                 try:
                     tz_url = f"{GEONAMES_BASE}/timezoneJSON?lat={lat}&lng={lng}&username={username}"
                     tz_data = _http_get_json(tz_url, timeout=6)
                     if tz_data:
-                        entry["timezone"] = tz_data.get("timezoneId", "")
-                        entry["gmt_offset"] = tz_data.get("gmtOffset", "")
-                        entry["dst_offset"] = tz_data.get("dstOffset", "")
+                        entry["timezone"] = tz_data.get("timezoneId") or ""
+                        entry["gmt_offset"] = tz_data.get("gmtOffset") or ""
+                        entry["dst_offset"] = tz_data.get("dstOffset") or ""
                 except Exception:
                     pass
 
                 # Fetch nearby cities
                 try:
-                    nearby_url = (f"{GEONAMES_BASE}/findNearbyPlaceNameJSON?"
-                                  f"lat={lat}&lng={lng}&radius=50&maxRows=5"
-                                  f"&cities=cities15000&username={username}")
+                    nearby_url = (
+                        f"{GEONAMES_BASE}/findNearbyPlaceNameJSON?"
+                        f"lat={lat}&lng={lng}&radius=50&maxRows=5"
+                        f"&cities=cities15000&username={username}"
+                    )
                     nearby_data = _http_get_json(nearby_url, timeout=6)
                     if nearby_data and nearby_data.get("geonames"):
                         entry["nearby_cities"] = [
                             {
-                                "name": n.get("name", ""),
-                                "population": n.get("population", 0),
-                                "distance_km": n.get("distance", ""),
+                                "name": n.get("name") or "",
+                                "population": n.get("population") or 0,
+                                "distance_km": n.get("distance") or "",
                             }
                             for n in nearby_data["geonames"][:5]
-                            if n.get("name", "") != entry["name"]
+                            if n.get("name") or "" != entry["name"]
                         ]
                 except Exception:
                     pass
@@ -3015,188 +3882,294 @@ def fetch_geonames_data(locations: List[str]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 TELEPORT_SLUGS: Dict[str, str] = {
-    "san francisco": "san-francisco-bay-area", "san mateo": "san-francisco-bay-area",
-    "palo alto": "san-francisco-bay-area", "mountain view": "san-francisco-bay-area",
-    "sunnyvale": "san-francisco-bay-area", "san jose": "san-francisco-bay-area",
-    "new york": "new-york", "manhattan": "new-york", "brooklyn": "new-york",
-    "los angeles": "los-angeles", "chicago": "chicago", "boston": "boston",
-    "seattle": "seattle", "austin": "austin", "denver": "denver",
-    "dallas": "dallas-fort-worth", "houston": "houston",
-    "atlanta": "atlanta", "miami": "miami", "phoenix": "phoenix",
-    "detroit": "detroit", "minneapolis": "minneapolis-saint-paul",
-    "philadelphia": "philadelphia", "washington": "washington-dc",
-    "portland": "portland-or", "san diego": "san-diego",
-    "nashville": "nashville", "charlotte": "charlotte",
-    "london": "london", "manchester": "manchester", "edinburgh": "edinburgh",
-    "berlin": "berlin", "munich": "munich", "frankfurt": "frankfurt",
-    "paris": "paris", "amsterdam": "amsterdam", "dublin": "dublin",
-    "zurich": "zurich", "stockholm": "stockholm", "copenhagen": "copenhagen",
-    "oslo": "oslo", "helsinki": "helsinki", "barcelona": "barcelona",
-    "madrid": "madrid", "lisbon": "lisbon", "milan": "milan",
-    "rome": "rome", "vienna": "vienna", "prague": "prague",
-    "warsaw": "warsaw", "brussels": "brussels",
-    "toronto": "toronto", "vancouver": "vancouver", "montreal": "montreal",
-    "sydney": "sydney", "melbourne": "melbourne", "brisbane": "brisbane",
-    "auckland": "auckland", "wellington": "wellington",
-    "tokyo": "tokyo", "singapore": "singapore", "hong kong": "hong-kong",
-    "seoul": "seoul", "bangalore": "bangalore", "mumbai": "mumbai",
-    "delhi": "delhi", "hyderabad": "hyderabad", "pune": "pune",
-    "chennai": "chennai", "tel aviv": "tel-aviv", "dubai": "dubai",
-    "sao paulo": "sao-paulo", "mexico city": "mexico-city",
-    "cape town": "cape-town", "johannesburg": "johannesburg",
+    "san francisco": "san-francisco-bay-area",
+    "san mateo": "san-francisco-bay-area",
+    "palo alto": "san-francisco-bay-area",
+    "mountain view": "san-francisco-bay-area",
+    "sunnyvale": "san-francisco-bay-area",
+    "san jose": "san-francisco-bay-area",
+    "new york": "new-york",
+    "manhattan": "new-york",
+    "brooklyn": "new-york",
+    "los angeles": "los-angeles",
+    "chicago": "chicago",
+    "boston": "boston",
+    "seattle": "seattle",
+    "austin": "austin",
+    "denver": "denver",
+    "dallas": "dallas-fort-worth",
+    "houston": "houston",
+    "atlanta": "atlanta",
+    "miami": "miami",
+    "phoenix": "phoenix",
+    "detroit": "detroit",
+    "minneapolis": "minneapolis-saint-paul",
+    "philadelphia": "philadelphia",
+    "washington": "washington-dc",
+    "portland": "portland-or",
+    "san diego": "san-diego",
+    "nashville": "nashville",
+    "charlotte": "charlotte",
+    "london": "london",
+    "manchester": "manchester",
+    "edinburgh": "edinburgh",
+    "berlin": "berlin",
+    "munich": "munich",
+    "frankfurt": "frankfurt",
+    "paris": "paris",
+    "amsterdam": "amsterdam",
+    "dublin": "dublin",
+    "zurich": "zurich",
+    "stockholm": "stockholm",
+    "copenhagen": "copenhagen",
+    "oslo": "oslo",
+    "helsinki": "helsinki",
+    "barcelona": "barcelona",
+    "madrid": "madrid",
+    "lisbon": "lisbon",
+    "milan": "milan",
+    "rome": "rome",
+    "vienna": "vienna",
+    "prague": "prague",
+    "warsaw": "warsaw",
+    "brussels": "brussels",
+    "toronto": "toronto",
+    "vancouver": "vancouver",
+    "montreal": "montreal",
+    "sydney": "sydney",
+    "melbourne": "melbourne",
+    "brisbane": "brisbane",
+    "auckland": "auckland",
+    "wellington": "wellington",
+    "tokyo": "tokyo",
+    "singapore": "singapore",
+    "hong kong": "hong-kong",
+    "seoul": "seoul",
+    "bangalore": "bangalore",
+    "mumbai": "mumbai",
+    "delhi": "delhi",
+    "hyderabad": "hyderabad",
+    "pune": "pune",
+    "chennai": "chennai",
+    "tel aviv": "tel-aviv",
+    "dubai": "dubai",
+    "sao paulo": "sao-paulo",
+    "mexico city": "mexico-city",
+    "cape town": "cape-town",
+    "johannesburg": "johannesburg",
     "buenos aires": "buenos-aires",
 }
 
 
 _TELEPORT_BENCHMARK_DATA: Dict[str, Dict[str, Any]] = {
     "new-york": {
-        "quality_of_life": 7.2, "cost_of_living_index": 187,
-        "median_home_price": 680000, "median_rent_1br": 3200,
+        "quality_of_life": 7.2,
+        "cost_of_living_index": 187,
+        "median_home_price": 680000,
+        "median_rent_1br": 3200,
         "summary": "Major global financial and cultural hub with high cost of living but excellent career opportunities.",
     },
     "san-francisco-bay-area": {
-        "quality_of_life": 7.5, "cost_of_living_index": 195,
-        "median_home_price": 1150000, "median_rent_1br": 3500,
+        "quality_of_life": 7.5,
+        "cost_of_living_index": 195,
+        "median_home_price": 1150000,
+        "median_rent_1br": 3500,
         "summary": "Leading technology hub with world-class innovation ecosystem and high cost of living.",
     },
     "los-angeles": {
-        "quality_of_life": 6.9, "cost_of_living_index": 166,
-        "median_home_price": 850000, "median_rent_1br": 2500,
+        "quality_of_life": 6.9,
+        "cost_of_living_index": 166,
+        "median_home_price": 850000,
+        "median_rent_1br": 2500,
         "summary": "Entertainment and creative industry capital with diverse economy and Mediterranean climate.",
     },
     "chicago": {
-        "quality_of_life": 7.0, "cost_of_living_index": 107,
-        "median_home_price": 320000, "median_rent_1br": 1800,
+        "quality_of_life": 7.0,
+        "cost_of_living_index": 107,
+        "median_home_price": 320000,
+        "median_rent_1br": 1800,
         "summary": "Major Midwestern hub for finance, manufacturing, and technology with moderate cost of living.",
     },
     "austin": {
-        "quality_of_life": 7.6, "cost_of_living_index": 110,
-        "median_home_price": 450000, "median_rent_1br": 1650,
+        "quality_of_life": 7.6,
+        "cost_of_living_index": 110,
+        "median_home_price": 450000,
+        "median_rent_1br": 1650,
         "summary": "Fast-growing tech hub with vibrant culture, moderate cost of living, and no state income tax.",
     },
     "seattle": {
-        "quality_of_life": 7.4, "cost_of_living_index": 158,
-        "median_home_price": 800000, "median_rent_1br": 2200,
+        "quality_of_life": 7.4,
+        "cost_of_living_index": 158,
+        "median_home_price": 800000,
+        "median_rent_1br": 2200,
         "summary": "Major Pacific Northwest tech hub home to leading cloud and e-commerce companies.",
     },
     "boston": {
-        "quality_of_life": 7.3, "cost_of_living_index": 152,
-        "median_home_price": 700000, "median_rent_1br": 2800,
+        "quality_of_life": 7.3,
+        "cost_of_living_index": 152,
+        "median_home_price": 700000,
+        "median_rent_1br": 2800,
         "summary": "Leading education and biotech hub with strong healthcare and financial sectors.",
     },
     "denver": {
-        "quality_of_life": 7.5, "cost_of_living_index": 118,
-        "median_home_price": 550000, "median_rent_1br": 1750,
+        "quality_of_life": 7.5,
+        "cost_of_living_index": 118,
+        "median_home_price": 550000,
+        "median_rent_1br": 1750,
         "summary": "Growing tech and outdoor-lifestyle metro with moderate cost of living in the Rocky Mountain region.",
     },
     "dallas-fort-worth": {
-        "quality_of_life": 7.1, "cost_of_living_index": 98,
-        "median_home_price": 380000, "median_rent_1br": 1450,
+        "quality_of_life": 7.1,
+        "cost_of_living_index": 98,
+        "median_home_price": 380000,
+        "median_rent_1br": 1450,
         "summary": "Major business hub with low cost of living, no state income tax, and diverse economy.",
     },
     "atlanta": {
-        "quality_of_life": 7.0, "cost_of_living_index": 102,
-        "median_home_price": 370000, "median_rent_1br": 1600,
+        "quality_of_life": 7.0,
+        "cost_of_living_index": 102,
+        "median_home_price": 370000,
+        "median_rent_1br": 1600,
         "summary": "Leading Southeastern hub for logistics, media, and technology with affordable cost of living.",
     },
     "houston": {
-        "quality_of_life": 6.8, "cost_of_living_index": 96,
-        "median_home_price": 310000, "median_rent_1br": 1300,
+        "quality_of_life": 6.8,
+        "cost_of_living_index": 96,
+        "median_home_price": 310000,
+        "median_rent_1br": 1300,
         "summary": "Energy industry capital with diverse economy, low cost of living, and no state income tax.",
     },
     "miami": {
-        "quality_of_life": 6.7, "cost_of_living_index": 135,
-        "median_home_price": 520000, "median_rent_1br": 2400,
+        "quality_of_life": 6.7,
+        "cost_of_living_index": 135,
+        "median_home_price": 520000,
+        "median_rent_1br": 2400,
         "summary": "International business gateway with growing tech scene and subtropical climate.",
     },
     "phoenix": {
-        "quality_of_life": 6.9, "cost_of_living_index": 100,
-        "median_home_price": 400000, "median_rent_1br": 1400,
+        "quality_of_life": 6.9,
+        "cost_of_living_index": 100,
+        "median_home_price": 400000,
+        "median_rent_1br": 1400,
         "summary": "Fast-growing Sun Belt metro with affordable cost of living and expanding tech sector.",
     },
     "washington-dc": {
-        "quality_of_life": 7.2, "cost_of_living_index": 152,
-        "median_home_price": 600000, "median_rent_1br": 2300,
+        "quality_of_life": 7.2,
+        "cost_of_living_index": 152,
+        "median_home_price": 600000,
+        "median_rent_1br": 2300,
         "summary": "Government and policy hub with strong cybersecurity, defense, and consulting industries.",
     },
     "portland-or": {
-        "quality_of_life": 7.3, "cost_of_living_index": 130,
-        "median_home_price": 500000, "median_rent_1br": 1700,
+        "quality_of_life": 7.3,
+        "cost_of_living_index": 130,
+        "median_home_price": 500000,
+        "median_rent_1br": 1700,
         "summary": "Pacific Northwest city known for sustainability, creative industry, and tech startups.",
     },
     "nashville": {
-        "quality_of_life": 7.2, "cost_of_living_index": 104,
-        "median_home_price": 420000, "median_rent_1br": 1550,
+        "quality_of_life": 7.2,
+        "cost_of_living_index": 104,
+        "median_home_price": 420000,
+        "median_rent_1br": 1550,
         "summary": "Growing healthcare and entertainment hub with moderate cost of living.",
     },
     "charlotte": {
-        "quality_of_life": 7.1, "cost_of_living_index": 99,
-        "median_home_price": 360000, "median_rent_1br": 1400,
+        "quality_of_life": 7.1,
+        "cost_of_living_index": 99,
+        "median_home_price": 360000,
+        "median_rent_1br": 1400,
         "summary": "Major banking center with low cost of living and growing tech sector.",
     },
     "minneapolis-saint-paul": {
-        "quality_of_life": 7.3, "cost_of_living_index": 105,
-        "median_home_price": 340000, "median_rent_1br": 1350,
+        "quality_of_life": 7.3,
+        "cost_of_living_index": 105,
+        "median_home_price": 340000,
+        "median_rent_1br": 1350,
         "summary": "Strong Fortune 500 presence with excellent quality of life and moderate cost of living.",
     },
     "san-diego": {
-        "quality_of_life": 7.4, "cost_of_living_index": 155,
-        "median_home_price": 850000, "median_rent_1br": 2400,
+        "quality_of_life": 7.4,
+        "cost_of_living_index": 155,
+        "median_home_price": 850000,
+        "median_rent_1br": 2400,
         "summary": "Biotech and defense hub with excellent climate and high quality of life.",
     },
     "philadelphia": {
-        "quality_of_life": 6.8, "cost_of_living_index": 112,
-        "median_home_price": 280000, "median_rent_1br": 1600,
+        "quality_of_life": 6.8,
+        "cost_of_living_index": 112,
+        "median_home_price": 280000,
+        "median_rent_1br": 1600,
         "summary": "Historic East Coast city with strong healthcare, education, and pharmaceutical sectors.",
     },
     "detroit": {
-        "quality_of_life": 6.3, "cost_of_living_index": 89,
-        "median_home_price": 220000, "median_rent_1br": 1100,
+        "quality_of_life": 6.3,
+        "cost_of_living_index": 89,
+        "median_home_price": 220000,
+        "median_rent_1br": 1100,
         "summary": "Automotive industry hub with revitalizing downtown and very affordable cost of living.",
     },
     "london": {
-        "quality_of_life": 7.1, "cost_of_living_index": 175,
-        "median_home_price": 750000, "median_rent_1br": 2800,
+        "quality_of_life": 7.1,
+        "cost_of_living_index": 175,
+        "median_home_price": 750000,
+        "median_rent_1br": 2800,
         "summary": "Global financial capital with world-class cultural institutions and diverse economy.",
     },
     "berlin": {
-        "quality_of_life": 7.4, "cost_of_living_index": 105,
-        "median_home_price": 400000, "median_rent_1br": 1200,
+        "quality_of_life": 7.4,
+        "cost_of_living_index": 105,
+        "median_home_price": 400000,
+        "median_rent_1br": 1200,
         "summary": "European startup hub with vibrant culture and moderate cost of living.",
     },
     "toronto": {
-        "quality_of_life": 7.2, "cost_of_living_index": 130,
-        "median_home_price": 800000, "median_rent_1br": 2200,
+        "quality_of_life": 7.2,
+        "cost_of_living_index": 130,
+        "median_home_price": 800000,
+        "median_rent_1br": 2200,
         "summary": "Canada's largest city and financial capital with diverse multicultural economy.",
     },
     "sydney": {
-        "quality_of_life": 7.3, "cost_of_living_index": 145,
-        "median_home_price": 900000, "median_rent_1br": 2500,
+        "quality_of_life": 7.3,
+        "cost_of_living_index": 145,
+        "median_home_price": 900000,
+        "median_rent_1br": 2500,
         "summary": "Australia's largest city with strong finance, tech, and tourism sectors.",
     },
     "tokyo": {
-        "quality_of_life": 7.5, "cost_of_living_index": 130,
-        "median_home_price": 500000, "median_rent_1br": 1200,
+        "quality_of_life": 7.5,
+        "cost_of_living_index": 130,
+        "median_home_price": 500000,
+        "median_rent_1br": 1200,
         "summary": "World's largest metro area with cutting-edge technology and excellent public infrastructure.",
     },
     "singapore": {
-        "quality_of_life": 7.8, "cost_of_living_index": 160,
-        "median_home_price": 950000, "median_rent_1br": 2300,
+        "quality_of_life": 7.8,
+        "cost_of_living_index": 160,
+        "median_home_price": 950000,
+        "median_rent_1br": 2300,
         "summary": "Global financial hub with excellent infrastructure, safety, and business-friendly environment.",
     },
     "bangalore": {
-        "quality_of_life": 6.0, "cost_of_living_index": 40,
-        "median_home_price": 120000, "median_rent_1br": 400,
+        "quality_of_life": 6.0,
+        "cost_of_living_index": 40,
+        "median_home_price": 120000,
+        "median_rent_1br": 400,
         "summary": "India's Silicon Valley with massive IT industry and rapidly growing tech ecosystem.",
     },
     "dubai": {
-        "quality_of_life": 7.0, "cost_of_living_index": 120,
-        "median_home_price": 450000, "median_rent_1br": 1800,
+        "quality_of_life": 7.0,
+        "cost_of_living_index": 120,
+        "median_home_price": 450000,
+        "median_rent_1br": 1800,
         "summary": "Global business hub with no income tax, luxury lifestyle, and growing tech sector.",
     },
     "amsterdam": {
-        "quality_of_life": 7.6, "cost_of_living_index": 130,
-        "median_home_price": 550000, "median_rent_1br": 1900,
+        "quality_of_life": 7.6,
+        "cost_of_living_index": 130,
+        "median_home_price": 550000,
+        "median_rent_1br": 1900,
         "summary": "European tech hub with excellent quality of life, cycling culture, and international workforce.",
     },
 }
@@ -3211,7 +4184,9 @@ def fetch_teleport_city_data(locations: List[str]) -> Dict[str, Any]:
     if not locations:
         return {}
 
-    cache_k = _cache_key("teleport", ",".join(sorted(l.lower() for l in locations[:10])))
+    cache_k = _cache_key(
+        "teleport", ",".join(sorted(l.lower() for l in locations[:10]))
+    )
     cached = _get_cached(cache_k)
     if cached is not None:
         return cached
@@ -3238,7 +4213,9 @@ def fetch_teleport_city_data(locations: List[str]) -> Dict[str, Any]:
             "summary": benchmark["summary"],
             "quality_scores": {
                 "Quality of Life": benchmark["quality_of_life"],
-                "Cost of Living": round(10.0 - (benchmark["cost_of_living_index"] / 25.0), 2),
+                "Cost of Living": round(
+                    10.0 - (benchmark["cost_of_living_index"] / 25.0), 2
+                ),
             },
             "cost_of_living": {
                 "cost_of_living_index": benchmark["cost_of_living_index"],
@@ -3259,29 +4236,74 @@ def fetch_teleport_city_data(locations: List[str]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 US_STATE_NAMES: Dict[str, str] = {
-    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
-    "CA": "California", "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware",
-    "FL": "Florida", "GA": "Georgia", "HI": "Hawaii", "ID": "Idaho",
-    "IL": "Illinois", "IN": "Indiana", "IA": "Iowa", "KS": "Kansas",
-    "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
-    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
-    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada",
-    "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York",
-    "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma",
-    "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
-    "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah",
-    "VT": "Vermont", "VA": "Virginia", "WA": "Washington", "WV": "West Virginia",
-    "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia",
+    "AL": "Alabama",
+    "AK": "Alaska",
+    "AZ": "Arizona",
+    "AR": "Arkansas",
+    "CA": "California",
+    "CO": "Colorado",
+    "CT": "Connecticut",
+    "DE": "Delaware",
+    "FL": "Florida",
+    "GA": "Georgia",
+    "HI": "Hawaii",
+    "ID": "Idaho",
+    "IL": "Illinois",
+    "IN": "Indiana",
+    "IA": "Iowa",
+    "KS": "Kansas",
+    "KY": "Kentucky",
+    "LA": "Louisiana",
+    "ME": "Maine",
+    "MD": "Maryland",
+    "MA": "Massachusetts",
+    "MI": "Michigan",
+    "MN": "Minnesota",
+    "MS": "Mississippi",
+    "MO": "Missouri",
+    "MT": "Montana",
+    "NE": "Nebraska",
+    "NV": "Nevada",
+    "NH": "New Hampshire",
+    "NJ": "New Jersey",
+    "NM": "New Mexico",
+    "NY": "New York",
+    "NC": "North Carolina",
+    "ND": "North Dakota",
+    "OH": "Ohio",
+    "OK": "Oklahoma",
+    "OR": "Oregon",
+    "PA": "Pennsylvania",
+    "RI": "Rhode Island",
+    "SC": "South Carolina",
+    "SD": "South Dakota",
+    "TN": "Tennessee",
+    "TX": "Texas",
+    "UT": "Utah",
+    "VT": "Vermont",
+    "VA": "Virginia",
+    "WA": "Washington",
+    "WV": "West Virginia",
+    "WI": "Wisconsin",
+    "WY": "Wyoming",
+    "DC": "District of Columbia",
 }
 
 DATAUSA_OCC: Dict[str, str] = {
-    "software engineer": "Software Developers", "software developer": "Software Developers",
-    "data scientist": "Data Scientists", "data analyst": "Data Scientists",
-    "product manager": "Marketing Managers", "marketing manager": "Marketing Managers",
-    "financial analyst": "Financial Analysts", "accountant": "Accountants & Auditors",
-    "nurse": "Registered Nurses", "registered nurse": "Registered Nurses",
-    "mechanical engineer": "Mechanical Engineers", "electrical engineer": "Electrical Engineers",
-    "project manager": "Management Analysts", "business analyst": "Management Analysts",
+    "software engineer": "Software Developers",
+    "software developer": "Software Developers",
+    "data scientist": "Data Scientists",
+    "data analyst": "Data Scientists",
+    "product manager": "Marketing Managers",
+    "marketing manager": "Marketing Managers",
+    "financial analyst": "Financial Analysts",
+    "accountant": "Accountants & Auditors",
+    "nurse": "Registered Nurses",
+    "registered nurse": "Registered Nurses",
+    "mechanical engineer": "Mechanical Engineers",
+    "electrical engineer": "Electrical Engineers",
+    "project manager": "Management Analysts",
+    "business analyst": "Management Analysts",
 }
 
 
@@ -3294,7 +4316,11 @@ def fetch_datausa_occupation_stats(roles: List[str]) -> Dict[str, Any]:
     if not roles:
         return {}
 
-    _datausa_disabled = os.environ.get("DATAUSA_DISABLED", "").strip() in ("1", "true", "yes")
+    _datausa_disabled = os.environ.get("DATAUSA_DISABLED", "").strip() in (
+        "1",
+        "true",
+        "yes",
+    )
 
     cache_k = _cache_key("datausa_occ", ",".join(sorted(r.lower() for r in roles[:10])))
     cached = _get_cached(cache_k)
@@ -3338,13 +4364,15 @@ def fetch_datausa_occupation_stats(roles: List[str]) -> Dict[str, Any]:
                 if search_data and isinstance(search_data, dict):
                     results = search_data.get("results", [])
                     if results:
-                        occ_id = results[0].get("id", "")
+                        occ_id = results[0].get("id") or ""
 
                 if occ_id:
-                    stats_url = (f"https://datausa.io/api/data?"
-                                 f"drilldowns=Detailed+Occupation&measures=Total+Population,Average+Wage"
-                                 f"&Detailed+Occupation={urllib.parse.quote(str(occ_id))}"
-                                 f"&Year=latest")
+                    stats_url = (
+                        f"https://datausa.io/api/data?"
+                        f"drilldowns=Detailed+Occupation&measures=Total+Population,Average+Wage"
+                        f"&Detailed+Occupation={urllib.parse.quote(str(occ_id))}"
+                        f"&Year=latest"
+                    )
                     stats_data = _http_get_json(stats_url, timeout=10)
 
                     if stats_data and stats_data.get("data"):
@@ -3353,7 +4381,7 @@ def fetch_datausa_occupation_stats(roles: List[str]) -> Dict[str, Any]:
                             "occupation": entry.get("Detailed Occupation", occ_name),
                             "total_employed": entry.get("Total Population"),
                             "average_wage": entry.get("Average Wage"),
-                            "year": entry.get("Year", ""),
+                            "year": entry.get("Year") or "",
                             "source": "DataUSA (live)",
                         }
                         continue
@@ -3362,27 +4390,110 @@ def fetch_datausa_occupation_stats(roles: List[str]) -> Dict[str, Any]:
 
         # Fallback: curated BLS/Census benchmark data
         _OCC_BENCHMARKS = {
-            "software": {"occupation": "Software Developers", "total_employed": 1847900, "average_wage": 127260, "year": "2024"},
-            "data": {"occupation": "Data Scientists", "total_employed": 192000, "average_wage": 108020, "year": "2024"},
-            "nurse": {"occupation": "Registered Nurses", "total_employed": 3175390, "average_wage": 89010, "year": "2024"},
-            "market": {"occupation": "Marketing Managers", "total_employed": 316000, "average_wage": 157620, "year": "2024"},
-            "account": {"occupation": "Accountants & Auditors", "total_employed": 1451000, "average_wage": 83980, "year": "2024"},
-            "engineer": {"occupation": "Engineers (General)", "total_employed": 330000, "average_wage": 100640, "year": "2024"},
-            "teacher": {"occupation": "Teachers (K-12)", "total_employed": 3600000, "average_wage": 63770, "year": "2024"},
-            "driver": {"occupation": "Truck Drivers", "total_employed": 2100000, "average_wage": 54320, "year": "2024"},
-            "sales": {"occupation": "Sales Representatives", "total_employed": 1750000, "average_wage": 65630, "year": "2024"},
-            "warehouse": {"occupation": "Warehouse Workers", "total_employed": 1870000, "average_wage": 36340, "year": "2024"},
-            "mechanic": {"occupation": "Automotive Technicians", "total_employed": 784000, "average_wage": 48320, "year": "2024"},
-            "electrician": {"occupation": "Electricians", "total_employed": 726000, "average_wage": 65280, "year": "2024"},
-            "project": {"occupation": "Project Management Specialists", "total_employed": 781000, "average_wage": 98580, "year": "2024"},
-            "human": {"occupation": "HR Specialists", "total_employed": 783000, "average_wage": 67650, "year": "2024"},
-            "financ": {"occupation": "Financial Analysts", "total_employed": 328000, "average_wage": 99890, "year": "2024"},
-            "customer": {"occupation": "Customer Service Representatives", "total_employed": 2910000, "average_wage": 39680, "year": "2024"},
+            "software": {
+                "occupation": "Software Developers",
+                "total_employed": 1847900,
+                "average_wage": 127260,
+                "year": "2024",
+            },
+            "data": {
+                "occupation": "Data Scientists",
+                "total_employed": 192000,
+                "average_wage": 108020,
+                "year": "2024",
+            },
+            "nurse": {
+                "occupation": "Registered Nurses",
+                "total_employed": 3175390,
+                "average_wage": 89010,
+                "year": "2024",
+            },
+            "market": {
+                "occupation": "Marketing Managers",
+                "total_employed": 316000,
+                "average_wage": 157620,
+                "year": "2024",
+            },
+            "account": {
+                "occupation": "Accountants & Auditors",
+                "total_employed": 1451000,
+                "average_wage": 83980,
+                "year": "2024",
+            },
+            "engineer": {
+                "occupation": "Engineers (General)",
+                "total_employed": 330000,
+                "average_wage": 100640,
+                "year": "2024",
+            },
+            "teacher": {
+                "occupation": "Teachers (K-12)",
+                "total_employed": 3600000,
+                "average_wage": 63770,
+                "year": "2024",
+            },
+            "driver": {
+                "occupation": "Truck Drivers",
+                "total_employed": 2100000,
+                "average_wage": 54320,
+                "year": "2024",
+            },
+            "sales": {
+                "occupation": "Sales Representatives",
+                "total_employed": 1750000,
+                "average_wage": 65630,
+                "year": "2024",
+            },
+            "warehouse": {
+                "occupation": "Warehouse Workers",
+                "total_employed": 1870000,
+                "average_wage": 36340,
+                "year": "2024",
+            },
+            "mechanic": {
+                "occupation": "Automotive Technicians",
+                "total_employed": 784000,
+                "average_wage": 48320,
+                "year": "2024",
+            },
+            "electrician": {
+                "occupation": "Electricians",
+                "total_employed": 726000,
+                "average_wage": 65280,
+                "year": "2024",
+            },
+            "project": {
+                "occupation": "Project Management Specialists",
+                "total_employed": 781000,
+                "average_wage": 98580,
+                "year": "2024",
+            },
+            "human": {
+                "occupation": "HR Specialists",
+                "total_employed": 783000,
+                "average_wage": 67650,
+                "year": "2024",
+            },
+            "financ": {
+                "occupation": "Financial Analysts",
+                "total_employed": 328000,
+                "average_wage": 99890,
+                "year": "2024",
+            },
+            "customer": {
+                "occupation": "Customer Service Representatives",
+                "total_employed": 2910000,
+                "average_wage": 39680,
+                "year": "2024",
+            },
         }
         role_l = role.lower()
         for bm_key, bm_val in _OCC_BENCHMARKS.items():
             if bm_key in role_l:
-                result["occupations"][role] = {**bm_val, "source": "BLS/Census Benchmarks"}
+                result["occupations"][role] = {
+                    **bm_val,
+                    "source": "BLS/Census Benchmarks",
+                }
                 break
 
     if result["occupations"]:
@@ -3401,9 +4512,15 @@ def fetch_datausa_location_data(locations: List[str]) -> Dict[str, Any]:
     if not locations:
         return {}
 
-    _datausa_disabled = os.environ.get("DATAUSA_DISABLED", "").strip() in ("1", "true", "yes")
+    _datausa_disabled = os.environ.get("DATAUSA_DISABLED", "").strip() in (
+        "1",
+        "true",
+        "yes",
+    )
 
-    cache_k = _cache_key("datausa_loc", ",".join(sorted(l.lower() for l in locations[:10])))
+    cache_k = _cache_key(
+        "datausa_loc", ",".join(sorted(l.lower() for l in locations[:10]))
+    )
     cached = _get_cached(cache_k)
     if cached is not None:
         return cached
@@ -3430,66 +4547,268 @@ def fetch_datausa_location_data(locations: List[str]) -> Dict[str, Any]:
 
     # Curated state-level Census/ACS benchmark data (2024 estimates)
     _STATE_BENCHMARKS: Dict[str, Dict[str, Any]] = {
-        "California": {"population": 39538223, "median_household_income": 91905, "poverty_rate": 11.0},
-        "Texas": {"population": 30503340, "median_household_income": 73035, "poverty_rate": 13.4},
-        "Florida": {"population": 22610726, "median_household_income": 67917, "poverty_rate": 11.5},
-        "New York": {"population": 19571216, "median_household_income": 75910, "poverty_rate": 12.7},
-        "Pennsylvania": {"population": 12961683, "median_household_income": 72627, "poverty_rate": 11.1},
-        "Illinois": {"population": 12549689, "median_household_income": 74235, "poverty_rate": 10.6},
-        "Ohio": {"population": 11780017, "median_household_income": 62262, "poverty_rate": 13.0},
-        "Georgia": {"population": 10912876, "median_household_income": 66559, "poverty_rate": 12.2},
-        "North Carolina": {"population": 10698973, "median_household_income": 64003, "poverty_rate": 12.3},
-        "Michigan": {"population": 10037261, "median_household_income": 63202, "poverty_rate": 13.0},
-        "New Jersey": {"population": 9288994, "median_household_income": 89296, "poverty_rate": 9.4},
-        "Virginia": {"population": 8631393, "median_household_income": 82246, "poverty_rate": 9.6},
-        "Washington": {"population": 7715946, "median_household_income": 85748, "poverty_rate": 10.0},
-        "Arizona": {"population": 7303398, "median_household_income": 65913, "poverty_rate": 13.5},
-        "Massachusetts": {"population": 7029917, "median_household_income": 89645, "poverty_rate": 10.0},
-        "Tennessee": {"population": 7051339, "median_household_income": 59695, "poverty_rate": 13.2},
-        "Indiana": {"population": 6806460, "median_household_income": 62743, "poverty_rate": 11.4},
-        "Maryland": {"population": 6177224, "median_household_income": 87063, "poverty_rate": 9.1},
-        "Missouri": {"population": 6154913, "median_household_income": 60990, "poverty_rate": 12.1},
-        "Wisconsin": {"population": 5893718, "median_household_income": 67125, "poverty_rate": 10.4},
-        "Colorado": {"population": 5812069, "median_household_income": 82254, "poverty_rate": 9.1},
-        "Minnesota": {"population": 5706494, "median_household_income": 78474, "poverty_rate": 8.3},
-        "South Carolina": {"population": 5190705, "median_household_income": 59318, "poverty_rate": 13.4},
-        "Alabama": {"population": 5024279, "median_household_income": 56950, "poverty_rate": 14.8},
-        "Louisiana": {"population": 4657757, "median_household_income": 54216, "poverty_rate": 18.6},
-        "Kentucky": {"population": 4505836, "median_household_income": 55573, "poverty_rate": 15.5},
-        "Oregon": {"population": 4237256, "median_household_income": 71562, "poverty_rate": 11.2},
-        "Connecticut": {"population": 3605944, "median_household_income": 83771, "poverty_rate": 9.8},
-        "Utah": {"population": 3337975, "median_household_income": 79449, "poverty_rate": 8.2},
-        "Nevada": {"population": 3104614, "median_household_income": 65686, "poverty_rate": 11.2},
+        "California": {
+            "population": 39538223,
+            "median_household_income": 91905,
+            "poverty_rate": 11.0,
+        },
+        "Texas": {
+            "population": 30503340,
+            "median_household_income": 73035,
+            "poverty_rate": 13.4,
+        },
+        "Florida": {
+            "population": 22610726,
+            "median_household_income": 67917,
+            "poverty_rate": 11.5,
+        },
+        "New York": {
+            "population": 19571216,
+            "median_household_income": 75910,
+            "poverty_rate": 12.7,
+        },
+        "Pennsylvania": {
+            "population": 12961683,
+            "median_household_income": 72627,
+            "poverty_rate": 11.1,
+        },
+        "Illinois": {
+            "population": 12549689,
+            "median_household_income": 74235,
+            "poverty_rate": 10.6,
+        },
+        "Ohio": {
+            "population": 11780017,
+            "median_household_income": 62262,
+            "poverty_rate": 13.0,
+        },
+        "Georgia": {
+            "population": 10912876,
+            "median_household_income": 66559,
+            "poverty_rate": 12.2,
+        },
+        "North Carolina": {
+            "population": 10698973,
+            "median_household_income": 64003,
+            "poverty_rate": 12.3,
+        },
+        "Michigan": {
+            "population": 10037261,
+            "median_household_income": 63202,
+            "poverty_rate": 13.0,
+        },
+        "New Jersey": {
+            "population": 9288994,
+            "median_household_income": 89296,
+            "poverty_rate": 9.4,
+        },
+        "Virginia": {
+            "population": 8631393,
+            "median_household_income": 82246,
+            "poverty_rate": 9.6,
+        },
+        "Washington": {
+            "population": 7715946,
+            "median_household_income": 85748,
+            "poverty_rate": 10.0,
+        },
+        "Arizona": {
+            "population": 7303398,
+            "median_household_income": 65913,
+            "poverty_rate": 13.5,
+        },
+        "Massachusetts": {
+            "population": 7029917,
+            "median_household_income": 89645,
+            "poverty_rate": 10.0,
+        },
+        "Tennessee": {
+            "population": 7051339,
+            "median_household_income": 59695,
+            "poverty_rate": 13.2,
+        },
+        "Indiana": {
+            "population": 6806460,
+            "median_household_income": 62743,
+            "poverty_rate": 11.4,
+        },
+        "Maryland": {
+            "population": 6177224,
+            "median_household_income": 87063,
+            "poverty_rate": 9.1,
+        },
+        "Missouri": {
+            "population": 6154913,
+            "median_household_income": 60990,
+            "poverty_rate": 12.1,
+        },
+        "Wisconsin": {
+            "population": 5893718,
+            "median_household_income": 67125,
+            "poverty_rate": 10.4,
+        },
+        "Colorado": {
+            "population": 5812069,
+            "median_household_income": 82254,
+            "poverty_rate": 9.1,
+        },
+        "Minnesota": {
+            "population": 5706494,
+            "median_household_income": 78474,
+            "poverty_rate": 8.3,
+        },
+        "South Carolina": {
+            "population": 5190705,
+            "median_household_income": 59318,
+            "poverty_rate": 13.4,
+        },
+        "Alabama": {
+            "population": 5024279,
+            "median_household_income": 56950,
+            "poverty_rate": 14.8,
+        },
+        "Louisiana": {
+            "population": 4657757,
+            "median_household_income": 54216,
+            "poverty_rate": 18.6,
+        },
+        "Kentucky": {
+            "population": 4505836,
+            "median_household_income": 55573,
+            "poverty_rate": 15.5,
+        },
+        "Oregon": {
+            "population": 4237256,
+            "median_household_income": 71562,
+            "poverty_rate": 11.2,
+        },
+        "Connecticut": {
+            "population": 3605944,
+            "median_household_income": 83771,
+            "poverty_rate": 9.8,
+        },
+        "Utah": {
+            "population": 3337975,
+            "median_household_income": 79449,
+            "poverty_rate": 8.2,
+        },
+        "Nevada": {
+            "population": 3104614,
+            "median_household_income": 65686,
+            "poverty_rate": 11.2,
+        },
         # Remaining states (Census ACS 2024 estimates)
-        "Iowa": {"population": 3190369, "median_household_income": 65573, "poverty_rate": 10.4},
-        "Arkansas": {"population": 3011524, "median_household_income": 52528, "poverty_rate": 15.2},
-        "Mississippi": {"population": 2961279, "median_household_income": 48610, "poverty_rate": 18.7},
-        "Kansas": {"population": 2937880, "median_household_income": 64521, "poverty_rate": 10.3},
-        "New Mexico": {"population": 2117522, "median_household_income": 53992, "poverty_rate": 17.6},
-        "Nebraska": {"population": 1961504, "median_household_income": 66644, "poverty_rate": 10.0},
-        "Idaho": {"population": 1939033, "median_household_income": 65988, "poverty_rate": 10.1},
-        "West Virginia": {"population": 1793716, "median_household_income": 50884, "poverty_rate": 16.8},
-        "Hawaii": {"population": 1455271, "median_household_income": 88005, "poverty_rate": 9.3},
-        "New Hampshire": {"population": 1377529, "median_household_income": 88235, "poverty_rate": 6.4},
-        "Maine": {"population": 1362359, "median_household_income": 64767, "poverty_rate": 10.9},
-        "Montana": {"population": 1084225, "median_household_income": 60560, "poverty_rate": 12.1},
-        "Rhode Island": {"population": 1097379, "median_household_income": 74008, "poverty_rate": 10.3},
-        "Delaware": {"population": 989948, "median_household_income": 72724, "poverty_rate": 11.3},
-        "South Dakota": {"population": 886667, "median_household_income": 63920, "poverty_rate": 11.9},
-        "North Dakota": {"population": 779094, "median_household_income": 68131, "poverty_rate": 10.5},
-        "Alaska": {"population": 733391, "median_household_income": 77640, "poverty_rate": 10.2},
-        "Vermont": {"population": 643077, "median_household_income": 69543, "poverty_rate": 10.3},
-        "Wyoming": {"population": 576851, "median_household_income": 68002, "poverty_rate": 9.6},
-        "District of Columbia": {"population": 689545, "median_household_income": 90842, "poverty_rate": 13.5},
+        "Iowa": {
+            "population": 3190369,
+            "median_household_income": 65573,
+            "poverty_rate": 10.4,
+        },
+        "Arkansas": {
+            "population": 3011524,
+            "median_household_income": 52528,
+            "poverty_rate": 15.2,
+        },
+        "Mississippi": {
+            "population": 2961279,
+            "median_household_income": 48610,
+            "poverty_rate": 18.7,
+        },
+        "Kansas": {
+            "population": 2937880,
+            "median_household_income": 64521,
+            "poverty_rate": 10.3,
+        },
+        "New Mexico": {
+            "population": 2117522,
+            "median_household_income": 53992,
+            "poverty_rate": 17.6,
+        },
+        "Nebraska": {
+            "population": 1961504,
+            "median_household_income": 66644,
+            "poverty_rate": 10.0,
+        },
+        "Idaho": {
+            "population": 1939033,
+            "median_household_income": 65988,
+            "poverty_rate": 10.1,
+        },
+        "West Virginia": {
+            "population": 1793716,
+            "median_household_income": 50884,
+            "poverty_rate": 16.8,
+        },
+        "Hawaii": {
+            "population": 1455271,
+            "median_household_income": 88005,
+            "poverty_rate": 9.3,
+        },
+        "New Hampshire": {
+            "population": 1377529,
+            "median_household_income": 88235,
+            "poverty_rate": 6.4,
+        },
+        "Maine": {
+            "population": 1362359,
+            "median_household_income": 64767,
+            "poverty_rate": 10.9,
+        },
+        "Montana": {
+            "population": 1084225,
+            "median_household_income": 60560,
+            "poverty_rate": 12.1,
+        },
+        "Rhode Island": {
+            "population": 1097379,
+            "median_household_income": 74008,
+            "poverty_rate": 10.3,
+        },
+        "Delaware": {
+            "population": 989948,
+            "median_household_income": 72724,
+            "poverty_rate": 11.3,
+        },
+        "South Dakota": {
+            "population": 886667,
+            "median_household_income": 63920,
+            "poverty_rate": 11.9,
+        },
+        "North Dakota": {
+            "population": 779094,
+            "median_household_income": 68131,
+            "poverty_rate": 10.5,
+        },
+        "Alaska": {
+            "population": 733391,
+            "median_household_income": 77640,
+            "poverty_rate": 10.2,
+        },
+        "Vermont": {
+            "population": 643077,
+            "median_household_income": 69543,
+            "poverty_rate": 10.3,
+        },
+        "Wyoming": {
+            "population": 576851,
+            "median_household_income": 68002,
+            "poverty_rate": 9.6,
+        },
+        "District of Columbia": {
+            "population": 689545,
+            "median_household_income": 90842,
+            "poverty_rate": 13.5,
+        },
     }
 
     # Try live API first, fall back to benchmarks
     for state_name, orig_loc in state_locs.items():
         if not _datausa_disabled:
             try:
-                url = (f"https://datausa.io/api/data?"
-                       f"drilldowns=State&measures=Population,Median+Household+Income,Poverty+Rate"
-                       f"&State={urllib.parse.quote(state_name)}&Year=latest")
+                url = (
+                    f"https://datausa.io/api/data?"
+                    f"drilldowns=State&measures=Population,Median+Household+Income,Poverty+Rate"
+                    f"&State={urllib.parse.quote(state_name)}&Year=latest"
+                )
                 data = _http_get_json(url, timeout=10)
 
                 if data and data.get("data"):
@@ -3499,7 +4818,7 @@ def fetch_datausa_location_data(locations: List[str]) -> Dict[str, Any]:
                         "population": entry.get("Population"),
                         "median_household_income": entry.get("Median Household Income"),
                         "poverty_rate": entry.get("Poverty Rate"),
-                        "year": entry.get("Year", ""),
+                        "year": entry.get("Year") or "",
                         "source": "DataUSA (live)",
                     }
                     continue
@@ -3823,90 +5142,275 @@ GOOGLE_ADS_BENCHMARKS = {
 
 ROLE_TO_AD_CATEGORY = {
     "technology": [
-        "software", "developer", "programmer", "frontend", "backend", "fullstack",
-        "full-stack", "full stack", "devops", "sre", "site reliability", "web developer",
-        "mobile developer", "ios", "android", "qa", "quality assurance", "test engineer",
-        "sdet", "it ", "information technology", "systems administrator", "sysadmin",
-        "cloud", "platform engineer", "infrastructure", "tech lead",
+        "software",
+        "developer",
+        "programmer",
+        "frontend",
+        "backend",
+        "fullstack",
+        "full-stack",
+        "full stack",
+        "devops",
+        "sre",
+        "site reliability",
+        "web developer",
+        "mobile developer",
+        "ios",
+        "android",
+        "qa",
+        "quality assurance",
+        "test engineer",
+        "sdet",
+        "it ",
+        "information technology",
+        "systems administrator",
+        "sysadmin",
+        "cloud",
+        "platform engineer",
+        "infrastructure",
+        "tech lead",
     ],
     "healthcare": [
-        "healthcare", "medical", "physician", "doctor", "clinical", "therapist",
-        "pharmacy", "pharmacist", "health", "dental", "dentist", "optometrist",
-        "radiologist", "pathologist", "surgeon", "psychiatric", "behavioral health",
+        "healthcare",
+        "medical",
+        "physician",
+        "doctor",
+        "clinical",
+        "therapist",
+        "pharmacy",
+        "pharmacist",
+        "health",
+        "dental",
+        "dentist",
+        "optometrist",
+        "radiologist",
+        "pathologist",
+        "surgeon",
+        "psychiatric",
+        "behavioral health",
     ],
     "finance": [
-        "finance", "financial", "accountant", "accounting", "auditor", "banking",
-        "investment", "analyst", "actuary", "controller", "treasury", "tax ",
-        "bookkeeper", "cfo", "chief financial",
+        "finance",
+        "financial",
+        "accountant",
+        "accounting",
+        "auditor",
+        "banking",
+        "investment",
+        "analyst",
+        "actuary",
+        "controller",
+        "treasury",
+        "tax ",
+        "bookkeeper",
+        "cfo",
+        "chief financial",
     ],
     "engineering": [
-        "mechanical engineer", "civil engineer", "electrical engineer",
-        "chemical engineer", "structural engineer", "aerospace", "industrial engineer",
-        "biomedical engineer", "environmental engineer", "engineer",
+        "mechanical engineer",
+        "civil engineer",
+        "electrical engineer",
+        "chemical engineer",
+        "structural engineer",
+        "aerospace",
+        "industrial engineer",
+        "biomedical engineer",
+        "environmental engineer",
+        "engineer",
     ],
     "marketing": [
-        "marketing", "brand", "content", "seo", "sem", "social media",
-        "digital marketing", "growth", "communications", "public relations",
-        "advertising", "creative director", "copywriter", "cmo",
+        "marketing",
+        "brand",
+        "content",
+        "seo",
+        "sem",
+        "social media",
+        "digital marketing",
+        "growth",
+        "communications",
+        "public relations",
+        "advertising",
+        "creative director",
+        "copywriter",
+        "cmo",
     ],
     "sales": [
-        "sales", "account executive", "business development", "bdr", "sdr",
-        "account manager", "customer success", "revenue", "quota", "territory",
+        "sales",
+        "account executive",
+        "business development",
+        "bdr",
+        "sdr",
+        "account manager",
+        "customer success",
+        "revenue",
+        "quota",
+        "territory",
     ],
     "human_resources": [
-        "human resources", " hr ", "recruiter", "recruiting", "talent acquisition",
-        "people operations", "compensation", "benefits", "hrbp", "people partner",
-        "employee relations", "workforce",
+        "human resources",
+        " hr ",
+        "recruiter",
+        "recruiting",
+        "talent acquisition",
+        "people operations",
+        "compensation",
+        "benefits",
+        "hrbp",
+        "people partner",
+        "employee relations",
+        "workforce",
     ],
     "operations": [
-        "operations", "logistics", "supply chain", "procurement", "warehouse",
-        "distribution", "fleet", "inventory", "fulfillment", "coo",
+        "operations",
+        "logistics",
+        "supply chain",
+        "procurement",
+        "warehouse",
+        "distribution",
+        "fleet",
+        "inventory",
+        "fulfillment",
+        "coo",
     ],
     "executive": [
-        "executive", "c-suite", "ceo", "cto", "coo", "cfo", "cmo", "cio", "ciso",
-        "vp ", "vice president", "svp", "evp", "director", "head of", "chief",
-        "president", "managing director",
+        "executive",
+        "c-suite",
+        "ceo",
+        "cto",
+        "coo",
+        "cfo",
+        "cmo",
+        "cio",
+        "ciso",
+        "vp ",
+        "vice president",
+        "svp",
+        "evp",
+        "director",
+        "head of",
+        "chief",
+        "president",
+        "managing director",
     ],
     "data_science": [
-        "data scientist", "data analyst", "machine learning", "ml engineer",
-        "artificial intelligence", " ai ", "deep learning", "nlp", "data engineer",
-        "analytics", "business intelligence", " bi ", "statistician",
+        "data scientist",
+        "data analyst",
+        "machine learning",
+        "ml engineer",
+        "artificial intelligence",
+        " ai ",
+        "deep learning",
+        "nlp",
+        "data engineer",
+        "analytics",
+        "business intelligence",
+        " bi ",
+        "statistician",
     ],
     "cybersecurity": [
-        "cybersecurity", "cyber security", "security engineer", "security analyst",
-        "infosec", "information security", "penetration test", "pentest", "soc analyst",
-        "security architect", "ciso", "threat", "vulnerability",
+        "cybersecurity",
+        "cyber security",
+        "security engineer",
+        "security analyst",
+        "infosec",
+        "information security",
+        "penetration test",
+        "pentest",
+        "soc analyst",
+        "security architect",
+        "ciso",
+        "threat",
+        "vulnerability",
     ],
     "nursing": [
-        "nurse", "nursing", " rn ", "registered nurse", "lpn", "lvn",
-        "nurse practitioner", "travel nurse", "cna", "certified nursing",
+        "nurse",
+        "nursing",
+        " rn ",
+        "registered nurse",
+        "lpn",
+        "lvn",
+        "nurse practitioner",
+        "travel nurse",
+        "cna",
+        "certified nursing",
     ],
     "education": [
-        "teacher", "teaching", "professor", "instructor", "tutor", "education",
-        "principal", "academic", "curriculum", "school", "faculty",
+        "teacher",
+        "teaching",
+        "professor",
+        "instructor",
+        "tutor",
+        "education",
+        "principal",
+        "academic",
+        "curriculum",
+        "school",
+        "faculty",
     ],
     "legal": [
-        "legal", "attorney", "lawyer", "paralegal", "counsel", "litigation",
-        "compliance", "regulatory", "contract", "law ",
+        "legal",
+        "attorney",
+        "lawyer",
+        "paralegal",
+        "counsel",
+        "litigation",
+        "compliance",
+        "regulatory",
+        "contract",
+        "law ",
     ],
     "construction": [
-        "construction", "contractor", "builder", "foreman", "superintendent",
-        "estimator", "carpenter", "electrician", "plumber", "hvac", "welder",
-        "heavy equipment", "ironworker", "mason",
+        "construction",
+        "contractor",
+        "builder",
+        "foreman",
+        "superintendent",
+        "estimator",
+        "carpenter",
+        "electrician",
+        "plumber",
+        "hvac",
+        "welder",
+        "heavy equipment",
+        "ironworker",
+        "mason",
     ],
     "retail": [
-        "retail", "store manager", "cashier", "merchandiser", "buyer",
-        "visual merchandiser", "retail associate", "store associate",
+        "retail",
+        "store manager",
+        "cashier",
+        "merchandiser",
+        "buyer",
+        "visual merchandiser",
+        "retail associate",
+        "store associate",
         "district manager retail",
     ],
     "hospitality": [
-        "hospitality", "hotel", "restaurant", "chef", "cook", "bartender",
-        "server", "front desk", "concierge", "event coordinator", "catering",
+        "hospitality",
+        "hotel",
+        "restaurant",
+        "chef",
+        "cook",
+        "bartender",
+        "server",
+        "front desk",
+        "concierge",
+        "event coordinator",
+        "catering",
         "housekeeping",
     ],
     "manufacturing": [
-        "manufacturing", "factory", "production", "assembly", "plant manager",
-        "machinist", "cnc", "quality control", "lean", "six sigma",
+        "manufacturing",
+        "factory",
+        "production",
+        "assembly",
+        "plant manager",
+        "machinist",
+        "cnc",
+        "quality control",
+        "lean",
+        "six sigma",
         "process engineer manufacturing",
     ],
 }
@@ -4026,9 +5530,7 @@ def _call_google_ads_keyword_ideas(
             error_body = exc.read().decode("utf-8", errors="replace")
         except Exception:
             pass
-        _log_warn(
-            f"Google Ads API HTTP {exc.code}: {error_body[:500]}"
-        )
+        _log_warn(f"Google Ads API HTTP {exc.code}: {error_body[:500]}")
         return None
     except Exception as exc:
         _log_warn(f"Google Ads API call failed: {exc}")
@@ -4039,19 +5541,19 @@ def _parse_keyword_ideas(api_response: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Parse the generateKeywordIdeas response into a flat list of keyword data."""
     results = []
     for result in api_response.get("results", []):
-        text = result.get("text", "")
+        text = result.get("text") or ""
         metrics = result.get("keywordIdeaMetrics", {})
 
-        avg_searches = metrics.get("avgMonthlySearches", 0)
+        avg_searches = metrics.get("avgMonthlySearches") or 0
         competition = metrics.get("competition", "UNSPECIFIED")
 
         low_cpc_micros = (
-            metrics.get("lowTopOfPageBidMicros")
-            or metrics.get("competitionIndex", 0)
+            metrics.get("lowTopOfPageBidMicros") or metrics.get("competitionIndex") or 0
         )
         high_cpc_micros = (
             metrics.get("highTopOfPageBidMicros")
-            or metrics.get("competitionIndex", 0)
+            or metrics.get("competitionIndex")
+            or 0
         )
 
         if isinstance(low_cpc_micros, (int, float)):
@@ -4071,7 +5573,11 @@ def _parse_keyword_ideas(api_response: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "competition": competition,
                 "low_range_cpc_usd": round(low_cpc, 2),
                 "high_range_cpc_usd": round(high_cpc, 2),
-                "avg_cpc_usd": round((low_cpc + high_cpc) / 2, 2) if (low_cpc + high_cpc) > 0 else 0.0,
+                "avg_cpc_usd": (
+                    round((low_cpc + high_cpc) / 2, 2)
+                    if (low_cpc + high_cpc) > 0
+                    else 0.0
+                ),
             }
         )
 
@@ -4113,9 +5619,7 @@ LOCATION_NAME_TO_GEO_ID = {
 }
 
 
-def fetch_google_ads_data(
-    roles: List[str], locations: List[str]
-) -> Dict[str, Any]:
+def fetch_google_ads_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
     """
     Fetch keyword search volume, CPC estimates, and audience data for
     recruitment-related keywords from the Google Ads API.
@@ -4192,7 +5696,7 @@ def fetch_google_ads_data(
                         parsed = _parse_keyword_ideas(api_response)
 
                         total_searches = sum(
-                            kw.get("avg_monthly_searches", 0) for kw in parsed
+                            kw.get("avg_monthly_searches") or 0 for kw in parsed
                         )
                         avg_cpc_values = [
                             kw["avg_cpc_usd"] for kw in parsed if kw["avg_cpc_usd"] > 0
@@ -4204,9 +5708,11 @@ def fetch_google_ads_data(
                         )
 
                         competitions = [kw["competition"] for kw in parsed]
-                        competition = max(
-                            set(competitions), key=competitions.count
-                        ) if competitions else "UNSPECIFIED"
+                        competition = (
+                            max(set(competitions), key=competitions.count)
+                            if competitions
+                            else "UNSPECIFIED"
+                        )
 
                         ctr_estimate = 0.032 if competition == "HIGH" else 0.038
                         cpa_estimate = round(avg_cpc / 0.04, 2) if avg_cpc > 0 else 25.0
@@ -4215,7 +5721,11 @@ def fetch_google_ads_data(
                             "generated_keywords": generated_keywords,
                             "keyword_details": parsed[:15],
                             "avg_cpc_usd": avg_cpc,
-                            "avg_cpm_usd": round(avg_cpc * ctr_estimate * 1000, 2) if avg_cpc > 0 else 12.00,
+                            "avg_cpm_usd": (
+                                round(avg_cpc * ctr_estimate * 1000, 2)
+                                if avg_cpc > 0
+                                else 12.00
+                            ),
                             "avg_monthly_searches": total_searches,
                             "competition": competition,
                             "click_through_rate": ctr_estimate,
@@ -4797,6 +6307,7 @@ _META_LOCATION_MULTIPLIERS: Dict[str, float] = {
 
 # ---- internal helpers ------------------------------------------------------
 
+
 def _resolve_meta_category(role: str) -> str:
     """Map a role string to a META_ADS_BENCHMARKS category key using word-level matching."""
     role_lower = role.lower().strip()
@@ -4813,7 +6324,9 @@ def _resolve_meta_category(role: str) -> str:
 
     # Last resort: fuzzy substring check against category keys themselves.
     for cat_key in META_ADS_BENCHMARKS:
-        if cat_key.replace("_", " ") in role_lower or role_lower in cat_key.replace("_", " "):
+        if cat_key.replace("_", " ") in role_lower or role_lower in cat_key.replace(
+            "_", " "
+        ):
             return cat_key
 
     return "technology"  # safe default
@@ -4846,8 +6359,7 @@ def _apply_location_adjustment(
     adjusted: Dict[str, Any] = {}
     for key, value in benchmarks.items():
         if isinstance(value, (int, float)) and any(
-            cost_word in key
-            for cost_word in ("cpm", "cpc", "cost")
+            cost_word in key for cost_word in ("cpm", "cpc", "cost")
         ):
             adjusted[key] = round(value * multiplier, 2)
         elif key == "avg_reach_per_1000_usd" and isinstance(value, (int, float)):
@@ -4858,9 +6370,7 @@ def _apply_location_adjustment(
     return adjusted
 
 
-def _build_meta_targeting_spec(
-    role: str, locations: List[str]
-) -> Dict[str, Any]:
+def _build_meta_targeting_spec(role: str, locations: List[str]) -> Dict[str, Any]:
     """Build a Meta-compliant targeting_spec dict for the Delivery Estimate endpoint.
 
     Because recruitment falls under Special Ad Categories (EMPLOYMENT),
@@ -4891,13 +6401,20 @@ def _build_meta_targeting_spec(
                 "india",
             ):
                 code_map = {
-                    "us": "US", "united states": "US",
-                    "uk": "GB", "united kingdom": "GB",
-                    "ca": "CA", "canada": "CA",
-                    "au": "AU", "australia": "AU",
-                    "de": "DE", "germany": "DE",
-                    "fr": "FR", "france": "FR",
-                    "in": "IN", "india": "IN",
+                    "us": "US",
+                    "united states": "US",
+                    "uk": "GB",
+                    "united kingdom": "GB",
+                    "ca": "CA",
+                    "canada": "CA",
+                    "au": "AU",
+                    "australia": "AU",
+                    "de": "DE",
+                    "germany": "DE",
+                    "fr": "FR",
+                    "france": "FR",
+                    "in": "IN",
+                    "india": "IN",
                 }
                 code = code_map.get(loc_stripped.lower())
                 if code:
@@ -4939,9 +6456,7 @@ def _fetch_meta_delivery_estimate(
             "special_ad_categories": json.dumps(["EMPLOYMENT"]),
         }
     )
-    url = (
-        f"https://graph.facebook.com/v19.0/{ad_account_id}/delivery_estimate?{params}"
-    )
+    url = f"https://graph.facebook.com/v19.0/{ad_account_id}/delivery_estimate?{params}"
     try:
         return _http_get_json(url, headers={}, timeout=timeout)
     except Exception as exc:
@@ -4963,9 +6478,7 @@ def _fetch_meta_reach_estimate(
             "special_ad_categories": json.dumps(["EMPLOYMENT"]),
         }
     )
-    url = (
-        f"https://graph.facebook.com/v19.0/{ad_account_id}/reachestimate?{params}"
-    )
+    url = f"https://graph.facebook.com/v19.0/{ad_account_id}/reachestimate?{params}"
     try:
         return _http_get_json(url, headers={}, timeout=timeout)
     except Exception as exc:
@@ -4985,8 +6498,8 @@ def _parse_delivery_estimate(raw: Dict[str, Any]) -> Dict[str, Any]:
     daily_outcomes = entry.get("daily_outcomes_curve") or []
     if daily_outcomes:
         last = daily_outcomes[-1]
-        result["estimated_daily_reach"] = last.get("reach", 0)
-        result["estimated_daily_impressions"] = last.get("impressions", 0)
+        result["estimated_daily_reach"] = last.get("reach") or 0
+        result["estimated_daily_impressions"] = last.get("impressions") or 0
         actions = last.get("actions") or 0
         result["estimated_daily_actions"] = actions
 
@@ -5037,6 +6550,7 @@ def _parse_reach_estimate(raw: Dict[str, Any]) -> Dict[str, Any]:
 
 # ---- public function -------------------------------------------------------
 
+
 def fetch_meta_ads_data(
     roles: List[str],
     locations: List[str],
@@ -5064,7 +6578,9 @@ def fetch_meta_ads_data(
     # -- cache check ----------------------------------------------------------
     cache_key = _cache_key(
         "meta_ads",
-        json.dumps({"roles": sorted(roles), "locations": sorted(locations)}, sort_keys=True),
+        json.dumps(
+            {"roles": sorted(roles), "locations": sorted(locations)}, sort_keys=True
+        ),
     )
     cached = _get_cached(cache_key)
     if cached is not None:
@@ -5090,7 +6606,9 @@ def fetch_meta_ads_data(
 
     for role in roles:
         category = _resolve_meta_category(role)
-        benchmarks = META_ADS_BENCHMARKS.get(category, META_ADS_BENCHMARKS["technology"])
+        benchmarks = META_ADS_BENCHMARKS.get(
+            category, META_ADS_BENCHMARKS["technology"]
+        )
 
         role_result: Dict[str, Any] = {}
 
@@ -5104,20 +6622,14 @@ def fetch_meta_ads_data(
                     ad_account_id, access_token, targeting_spec
                 )
                 delivery_parsed = (
-                    _parse_delivery_estimate(delivery_raw)
-                    if delivery_raw
-                    else {}
+                    _parse_delivery_estimate(delivery_raw) if delivery_raw else {}
                 )
 
                 # Reach estimate
                 reach_raw = _fetch_meta_reach_estimate(
                     ad_account_id, access_token, targeting_spec
                 )
-                reach_parsed = (
-                    _parse_reach_estimate(reach_raw)
-                    if reach_raw
-                    else {}
-                )
+                reach_parsed = _parse_reach_estimate(reach_raw) if reach_raw else {}
 
                 # Merge live data with benchmark baselines per platform.
                 for platform in ("facebook", "instagram"):
@@ -5148,7 +6660,9 @@ def fetch_meta_ads_data(
         # ---- benchmark fallback path (also used if API call raised) ---------
         if not role_result:
             for platform in ("facebook", "instagram"):
-                platform_bench = benchmarks.get(platform, benchmarks.get("facebook", {}))
+                platform_bench = benchmarks.get(
+                    platform, benchmarks.get("facebook", {})
+                )
                 role_result[platform] = _apply_location_adjustment(
                     platform_bench, loc_mult
                 )
@@ -5158,7 +6672,11 @@ def fetch_meta_ads_data(
         roles_data[role] = role_result
 
     # Determine overall source label.
-    sources_used = {v.get("_source", "benchmarks") for v in roles_data.values() if isinstance(v, dict)}
+    sources_used = {
+        v.get("_source", "benchmarks")
+        for v in roles_data.values()
+        if isinstance(v, dict)
+    }
     if "api" in sources_used:
         source_label = "Meta Marketing API"
     else:
@@ -5565,12 +7083,14 @@ def _refresh_bing_oauth_token(client_id: str, refresh_token: str) -> Optional[st
     Returns the access_token string on success or ``None`` on failure.
     """
     token_url = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
-    payload = urllib.parse.urlencode({
-        "client_id": client_id,
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-        "scope": "https://ads.microsoft.com/msads.manage offline_access",
-    }).encode("utf-8")
+    payload = urllib.parse.urlencode(
+        {
+            "client_id": client_id,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "scope": "https://ads.microsoft.com/msads.manage offline_access",
+        }
+    ).encode("utf-8")
 
     req = urllib.request.Request(
         token_url,
@@ -5614,19 +7134,21 @@ def _bing_ads_soap_request(
         "Content-Type": "application/json",
     }
 
-    ideas_payload = json.dumps({
-        "Keywords": keywords,
-        "MaxSuggestions": len(keywords),
-        "SearchParameters": [
-            {
-                "Type": "SearchVolumeSearchParameter",
-            },
-            {
-                "Type": "LanguageSearchParameter",
-                "Languages": [{"Id": 1000}],  # English
-            },
-        ],
-    }).encode("utf-8")
+    ideas_payload = json.dumps(
+        {
+            "Keywords": keywords,
+            "MaxSuggestions": len(keywords),
+            "SearchParameters": [
+                {
+                    "Type": "SearchVolumeSearchParameter",
+                },
+                {
+                    "Type": "LanguageSearchParameter",
+                    "Languages": [{"Id": 1000}],  # English
+                },
+            ],
+        }
+    ).encode("utf-8")
 
     results: Dict[str, Any] = {}
 
@@ -5642,8 +7164,8 @@ def _bing_ads_soap_request(
             body = json.loads(resp.read().decode("utf-8"))
 
         for idea in body.get("KeywordIdeas", []):
-            kw_text = idea.get("Keyword", "")
-            avg_searches = idea.get("AvgMonthlySearches", 0)
+            kw_text = idea.get("Keyword") or ""
+            avg_searches = idea.get("AvgMonthlySearches") or 0
             competition = idea.get("Competition", "UNKNOWN")
             results[kw_text] = {
                 "avg_monthly_searches": avg_searches,
@@ -5668,18 +7190,20 @@ def _bing_ads_soap_request(
         for kw in keywords
     ]
 
-    traffic_payload = json.dumps({
-        "CampaignEstimators": [
-            {
-                "AdGroupEstimators": [
-                    {
-                        "KeywordEstimators": criteria,
-                    }
-                ],
-                "DailyBudget": 100.0,
-            }
-        ],
-    }).encode("utf-8")
+    traffic_payload = json.dumps(
+        {
+            "CampaignEstimators": [
+                {
+                    "AdGroupEstimators": [
+                        {
+                            "KeywordEstimators": criteria,
+                        }
+                    ],
+                    "DailyBudget": 100.0,
+                }
+            ],
+        }
+    ).encode("utf-8")
 
     try:
         req2 = urllib.request.Request(
@@ -5704,16 +7228,16 @@ def _bing_ads_soap_request(
                     minimum = est.get("Minimum", {})
                     maximum = est.get("Maximum", {})
                     avg_cpc = (
-                        (minimum.get("AverageCpc", 0) + maximum.get("AverageCpc", 0))
-                        / 2.0
-                    )
+                        minimum.get("AverageCpc") or 0 + maximum.get("AverageCpc") or 0
+                    ) / 2.0
                     avg_impressions = (
-                        (minimum.get("Impressions", 0) + maximum.get("Impressions", 0))
-                        / 2.0
-                    )
+                        minimum.get("Impressions")
+                        or 0 + maximum.get("Impressions")
+                        or 0
+                    ) / 2.0
                     avg_clicks = (
-                        (minimum.get("Clicks", 0) + maximum.get("Clicks", 0)) / 2.0
-                    )
+                        minimum.get("Clicks") or 0 + maximum.get("Clicks") or 0
+                    ) / 2.0
 
                     if kw_text not in results:
                         results[kw_text] = {}
@@ -5834,7 +7358,9 @@ def fetch_bing_ads_data(
                 keywords=keywords_list,
             )
         else:
-            _log_warn("Could not obtain Bing Ads access token; falling back to benchmarks")
+            _log_warn(
+                "Could not obtain Bing Ads access token; falling back to benchmarks"
+            )
     else:
         _log_info("Bing Ads credentials not configured – using benchmark data")
 
@@ -5851,7 +7377,9 @@ def fetch_bing_ads_data(
                 continue
 
             category = _bing_category_for_role(role_clean)
-            benchmark = BING_ADS_BENCHMARKS.get(category, BING_ADS_BENCHMARKS["technology"])
+            benchmark = BING_ADS_BENCHMARKS.get(
+                category, BING_ADS_BENCHMARKS["technology"]
+            )
 
             # Collect metrics from the API results that match this role.
             matching_cpc: List[float] = []
@@ -5864,7 +7392,10 @@ def fetch_bing_ads_data(
                 if role_lower in kw.lower():
                     if "avg_cpc_usd" in metrics and metrics["avg_cpc_usd"] > 0:
                         matching_cpc.append(metrics["avg_cpc_usd"])
-                    if "avg_monthly_searches" in metrics and metrics["avg_monthly_searches"] > 0:
+                    if (
+                        "avg_monthly_searches" in metrics
+                        and metrics["avg_monthly_searches"] > 0
+                    ):
                         matching_searches.append(metrics["avg_monthly_searches"])
                     if "avg_cpm_usd" in metrics and metrics["avg_cpm_usd"] > 0:
                         matching_cpm.append(metrics["avg_cpm_usd"])
@@ -6301,9 +7832,7 @@ def _fetch_tiktok_audience_estimate(
 
     Returns the estimated audience size or None on failure.
     """
-    cache_key = _cache_key(
-        "tiktok_audience", f"{','.join(location_codes)}_{category}"
-    )
+    cache_key = _cache_key("tiktok_audience", f"{','.join(location_codes)}_{category}")
     cached = _get_cached(cache_key)
     if cached is not None:
         return cached
@@ -6334,14 +7863,16 @@ def _fetch_tiktok_audience_estimate(
 
     interest_ids = category_interest_ids.get(category, ["15070"])
 
-    body = json.dumps({
-        "advertiser_id": advertiser_id,
-        "placements": ["PLACEMENT_TIKTOK"],
-        "location_ids": location_codes,
-        "age_groups": ["AGE_18_24", "AGE_25_34"],
-        "interest_category_ids": interest_ids,
-        "operating_systems": ["ANDROID", "IOS"],
-    }).encode("utf-8")
+    body = json.dumps(
+        {
+            "advertiser_id": advertiser_id,
+            "placements": ["PLACEMENT_TIKTOK"],
+            "location_ids": location_codes,
+            "age_groups": ["AGE_18_24", "AGE_25_34"],
+            "interest_category_ids": interest_ids,
+            "operating_systems": ["ANDROID", "IOS"],
+        }
+    ).encode("utf-8")
 
     try:
         req = urllib.request.Request(url, data=body, headers=headers, method="POST")
@@ -6350,10 +7881,9 @@ def _fetch_tiktok_audience_estimate(
             data = json.loads(resp.read().decode("utf-8"))
 
         if data.get("code") == 0:
-            audience_size = (
-                data.get("data", {}).get("estimated_audience_size")
-                or data.get("data", {}).get("audience_size")
-            )
+            audience_size = data.get("data", {}).get(
+                "estimated_audience_size"
+            ) or data.get("data", {}).get("audience_size")
             if audience_size is not None:
                 _set_cached(cache_key, int(audience_size))
                 return int(audience_size)
@@ -6383,9 +7913,7 @@ def _format_audience_size(size: int) -> str:
         return f"{lower:.1f}M-{upper:.1f}M"
 
 
-def fetch_tiktok_ads_data(
-    roles: List[str], locations: List[str]
-) -> Dict[str, Any]:
+def fetch_tiktok_ads_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
     """Fetch TikTok advertising benchmarks and audience estimates for recruitment.
 
     When valid ``TIKTOK_ACCESS_TOKEN`` and ``TIKTOK_ADVERTISER_ID`` environment
@@ -6418,7 +7946,9 @@ def fetch_tiktok_ads_data(
     has_credentials = bool(access_token and advertiser_id)
 
     if has_credentials:
-        _log_info("TikTok Marketing API credentials detected; will attempt live queries.")
+        _log_info(
+            "TikTok Marketing API credentials detected; will attempt live queries."
+        )
     else:
         _log_info("TikTok API credentials not found; using curated benchmark data.")
 
@@ -6475,9 +8005,22 @@ def fetch_tiktok_ads_data(
         is_senior = any(
             kw in role_lower
             for kw in [
-                "senior", "sr.", "lead", "principal", "director",
-                "vp", "vice president", "chief", "head of", "executive",
-                "manager", "cto", "cfo", "ceo", "coo", "cmo",
+                "senior",
+                "sr.",
+                "lead",
+                "principal",
+                "director",
+                "vp",
+                "vice president",
+                "chief",
+                "head of",
+                "executive",
+                "manager",
+                "cto",
+                "cfo",
+                "ceo",
+                "coo",
+                "cmo",
             ]
         )
         if is_senior:
@@ -6500,8 +8043,14 @@ def fetch_tiktok_ads_data(
         is_entry_level = any(
             kw in role_lower
             for kw in [
-                "intern", "entry", "junior", "jr.", "associate",
-                "assistant", "trainee", "apprentice",
+                "intern",
+                "entry",
+                "junior",
+                "jr.",
+                "associate",
+                "assistant",
+                "trainee",
+                "apprentice",
             ]
         )
         if is_entry_level:
@@ -6533,9 +8082,7 @@ def fetch_tiktok_ads_data(
                 "Employer branding, entry-level hiring, Gen-Z recruitment, "
                 "volume roles"
             ),
-            "audience_profile": (
-                "60% aged 18-34, highly engaged, mobile-first"
-            ),
+            "audience_profile": ("60% aged 18-34, highly engaged, mobile-first"),
             "ad_formats": [
                 "In-Feed Video",
                 "TopView",
@@ -6884,9 +8431,7 @@ _LINKEDIN_CACHE_TTL_SEC = 3600
 _LINKEDIN_PLATFORM_SUMMARY: Dict[str, Any] = {
     "platform": "LinkedIn",
     "monthly_active_users": "1+ billion members, 310M+ monthly active",
-    "best_for": (
-        "Professional hiring, senior roles, B2B, passive candidate targeting"
-    ),
+    "best_for": ("Professional hiring, senior roles, B2B, passive candidate targeting"),
     "audience_profile": (
         "Professionals, decision-makers, high-intent career-oriented users"
     ),
@@ -6953,9 +8498,7 @@ def _resolve_linkedin_category(role: str) -> str:
 
     # Substring match -- iterate once over the mapping, longest-key-first
     # so that "machine learning engineer" beats "engineer".
-    sorted_keys = sorted(
-        ROLE_TO_LINKEDIN_CATEGORY.keys(), key=len, reverse=True
-    )
+    sorted_keys = sorted(ROLE_TO_LINKEDIN_CATEGORY.keys(), key=len, reverse=True)
     for key in sorted_keys:
         if key in normalised or normalised in key:
             return ROLE_TO_LINKEDIN_CATEGORY[key]
@@ -6998,9 +8541,7 @@ def _linkedin_audience_count(
 
     Returns *None* on any failure so callers can fall back gracefully.
     """
-    cache_key = _cache_key(
-        "li_audience", f"{category}|{'|'.join(geo_urns)}"
-    )
+    cache_key = _cache_key("li_audience", f"{category}|{'|'.join(geo_urns)}")
     cached = _get_cached(cache_key)
     if cached is not None:
         return cached  # type: ignore[return-value]
@@ -7092,16 +8633,14 @@ def _linkedin_ad_forecast(
     ).encode("utf-8")
 
     try:
-        req = urllib.request.Request(
-            url, data=body, headers=headers, method="POST"
-        )
+        req = urllib.request.Request(url, data=body, headers=headers, method="POST")
         ctx = ssl.create_default_context()
         with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
             raw = json.loads(resp.read().decode("utf-8"))
 
         suggested = raw.get("suggestedBid", {})
-        bid_low = float(suggested.get("min", 0))
-        bid_high = float(suggested.get("max", 0))
+        bid_low = float(suggested.get("min") or 0)
+        bid_high = float(suggested.get("max") or 0)
         avg_bid = (bid_low + bid_high) / 2 if (bid_low + bid_high) else None
 
         result: Dict[str, Any] = {
@@ -7162,11 +8701,11 @@ def fetch_linkedin_ads_data(
     has_credentials = bool(token) and bool(ad_account)
 
     if has_credentials:
-        _log_info("LinkedIn Marketing API credentials detected -- will attempt live queries")
-    else:
         _log_info(
-            "LinkedIn credentials not found -- using curated benchmark data"
+            "LinkedIn Marketing API credentials detected -- will attempt live queries"
         )
+    else:
+        _log_info("LinkedIn credentials not found -- using curated benchmark data")
 
     geo_urns = _resolve_geo_urns(locations) if has_credentials else []
 
@@ -7193,29 +8732,21 @@ def fetch_linkedin_ads_data(
 
         if has_credentials:
             # --- Audience count ------------------------------------------------
-            audience = _linkedin_audience_count(
-                token, category, geo_urns
-            )
+            audience = _linkedin_audience_count(token, category, geo_urns)
             if audience is not None:
                 role_metrics["estimated_audience"] = audience
                 role_metrics["audience_source"] = "api"
                 used_live_api = True
 
             # --- Ad forecast ---------------------------------------------------
-            forecast = _linkedin_ad_forecast(
-                token, ad_account, category, geo_urns
-            )
+            forecast = _linkedin_ad_forecast(token, ad_account, category, geo_urns)
             if forecast is not None:
                 if "avg_cpm_usd" in forecast:
                     role_metrics["avg_cpm_usd"] = forecast["avg_cpm_usd"]
                 if "avg_cpc_usd" in forecast:
                     role_metrics["avg_cpc_usd"] = forecast["avg_cpc_usd"]
-                role_metrics["suggested_bid_low"] = forecast.get(
-                    "suggested_bid_low"
-                )
-                role_metrics["suggested_bid_high"] = forecast.get(
-                    "suggested_bid_high"
-                )
+                role_metrics["suggested_bid_low"] = forecast.get("suggested_bid_low")
+                role_metrics["suggested_bid_high"] = forecast.get("suggested_bid_high")
                 role_metrics["pricing_source"] = "api"
                 used_live_api = True
 
@@ -7656,12 +9187,62 @@ ROLE_TO_COS_OCCUPATION = {
 }
 
 _US_STATES = {
-    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
-    "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
-    "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
-    "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
-    "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
-    "DC", "PR", "VI", "GU", "AS", "MP",
+    "AL",
+    "AK",
+    "AZ",
+    "AR",
+    "CA",
+    "CO",
+    "CT",
+    "DE",
+    "FL",
+    "GA",
+    "HI",
+    "ID",
+    "IL",
+    "IN",
+    "IA",
+    "KS",
+    "KY",
+    "LA",
+    "ME",
+    "MD",
+    "MA",
+    "MI",
+    "MN",
+    "MS",
+    "MO",
+    "MT",
+    "NE",
+    "NV",
+    "NH",
+    "NJ",
+    "NM",
+    "NY",
+    "NC",
+    "ND",
+    "OH",
+    "OK",
+    "OR",
+    "PA",
+    "RI",
+    "SC",
+    "SD",
+    "TN",
+    "TX",
+    "UT",
+    "VT",
+    "VA",
+    "WA",
+    "WV",
+    "WI",
+    "WY",
+    "DC",
+    "PR",
+    "VI",
+    "GU",
+    "AS",
+    "MP",
 }
 
 
@@ -7698,20 +9279,56 @@ def _cos_extract_state_abbr(location: str) -> str:
 
     # Common full state name mapping (subset for most populous states)
     _STATE_NAMES = {
-        "ALABAMA": "AL", "ALASKA": "AK", "ARIZONA": "AZ", "ARKANSAS": "AR",
-        "CALIFORNIA": "CA", "COLORADO": "CO", "CONNECTICUT": "CT", "DELAWARE": "DE",
-        "FLORIDA": "FL", "GEORGIA": "GA", "HAWAII": "HI", "IDAHO": "ID",
-        "ILLINOIS": "IL", "INDIANA": "IN", "IOWA": "IA", "KANSAS": "KS",
-        "KENTUCKY": "KY", "LOUISIANA": "LA", "MAINE": "ME", "MARYLAND": "MD",
-        "MASSACHUSETTS": "MA", "MICHIGAN": "MI", "MINNESOTA": "MN",
-        "MISSISSIPPI": "MS", "MISSOURI": "MO", "MONTANA": "MT", "NEBRASKA": "NE",
-        "NEVADA": "NV", "NEW HAMPSHIRE": "NH", "NEW JERSEY": "NJ",
-        "NEW MEXICO": "NM", "NEW YORK": "NY", "NORTH CAROLINA": "NC",
-        "NORTH DAKOTA": "ND", "OHIO": "OH", "OKLAHOMA": "OK", "OREGON": "OR",
-        "PENNSYLVANIA": "PA", "RHODE ISLAND": "RI", "SOUTH CAROLINA": "SC",
-        "SOUTH DAKOTA": "SD", "TENNESSEE": "TN", "TEXAS": "TX", "UTAH": "UT",
-        "VERMONT": "VT", "VIRGINIA": "VA", "WASHINGTON": "WA",
-        "WEST VIRGINIA": "WV", "WISCONSIN": "WI", "WYOMING": "WY",
+        "ALABAMA": "AL",
+        "ALASKA": "AK",
+        "ARIZONA": "AZ",
+        "ARKANSAS": "AR",
+        "CALIFORNIA": "CA",
+        "COLORADO": "CO",
+        "CONNECTICUT": "CT",
+        "DELAWARE": "DE",
+        "FLORIDA": "FL",
+        "GEORGIA": "GA",
+        "HAWAII": "HI",
+        "IDAHO": "ID",
+        "ILLINOIS": "IL",
+        "INDIANA": "IN",
+        "IOWA": "IA",
+        "KANSAS": "KS",
+        "KENTUCKY": "KY",
+        "LOUISIANA": "LA",
+        "MAINE": "ME",
+        "MARYLAND": "MD",
+        "MASSACHUSETTS": "MA",
+        "MICHIGAN": "MI",
+        "MINNESOTA": "MN",
+        "MISSISSIPPI": "MS",
+        "MISSOURI": "MO",
+        "MONTANA": "MT",
+        "NEBRASKA": "NE",
+        "NEVADA": "NV",
+        "NEW HAMPSHIRE": "NH",
+        "NEW JERSEY": "NJ",
+        "NEW MEXICO": "NM",
+        "NEW YORK": "NY",
+        "NORTH CAROLINA": "NC",
+        "NORTH DAKOTA": "ND",
+        "OHIO": "OH",
+        "OKLAHOMA": "OK",
+        "OREGON": "OR",
+        "PENNSYLVANIA": "PA",
+        "RHODE ISLAND": "RI",
+        "SOUTH CAROLINA": "SC",
+        "SOUTH DAKOTA": "SD",
+        "TENNESSEE": "TN",
+        "TEXAS": "TX",
+        "UTAH": "UT",
+        "VERMONT": "VT",
+        "VIRGINIA": "VA",
+        "WASHINGTON": "WA",
+        "WEST VIRGINIA": "WV",
+        "WISCONSIN": "WI",
+        "WYOMING": "WY",
         "DISTRICT OF COLUMBIA": "DC",
     }
     location_upper = location.upper()
@@ -7759,7 +9376,9 @@ def _resolve_occupation_key(role: str) -> Optional[str]:
     return None
 
 
-def _cos_api_get(endpoint_path: str, api_key: str, timeout: int = 15) -> Optional[Dict[str, Any]]:
+def _cos_api_get(
+    endpoint_path: str, api_key: str, timeout: int = 15
+) -> Optional[Dict[str, Any]]:
     """Make an authenticated GET request to the CareerOneStop API.
 
     Args:
@@ -7780,7 +9399,9 @@ def _cos_api_get(endpoint_path: str, api_key: str, timeout: int = 15) -> Optiona
     try:
         return _http_get_json(url, headers, timeout)
     except Exception as exc:
-        _log_warn("CareerOneStop API request failed for {}: {}".format(endpoint_path, exc))
+        _log_warn(
+            "CareerOneStop API request failed for {}: {}".format(endpoint_path, exc)
+        )
         return None
 
 
@@ -7849,9 +9470,7 @@ def _fetch_cos_certifications(
     path = (
         "/v1/certificationfinder/{}/{}/{}?"
         "sortColumns=Name&sortOrder=asc&startRecord=0&limitRecord=10"
-    ).format(
-        urllib.parse.quote(user_id, safe=""), encoded_keyword, encoded_location
-    )
+    ).format(urllib.parse.quote(user_id, safe=""), encoded_keyword, encoded_location)
     cache_key = _cache_key("cos_certs", "{}:{}".format(keyword, location))
     cached = _get_cached(cache_key)
     if cached is not None:
@@ -7881,10 +9500,16 @@ def _parse_salary_response(salary_data: Dict[str, Any]) -> Optional[Dict[str, An
             return {
                 "median": _safe_int(median),
                 "entry_level": _safe_int(
-                    salary_data.get("Pct10") or salary_data.get("pct10") or salary_data.get("EntryLevel") or 0
+                    salary_data.get("Pct10")
+                    or salary_data.get("pct10")
+                    or salary_data.get("EntryLevel")
+                    or 0
                 ),
                 "experienced": _safe_int(
-                    salary_data.get("Pct90") or salary_data.get("pct90") or salary_data.get("Experienced") or 0
+                    salary_data.get("Pct90")
+                    or salary_data.get("pct90")
+                    or salary_data.get("Experienced")
+                    or 0
                 ),
             }
         return None
@@ -7896,14 +9521,27 @@ def _parse_salary_response(salary_data: Dict[str, Any]) -> Optional[Dict[str, An
     else:
         return None
 
-    median = rec.get("Median") or rec.get("median") or rec.get("MedianAnnual") or rec.get("medianAnnual")
+    median = (
+        rec.get("Median")
+        or rec.get("median")
+        or rec.get("MedianAnnual")
+        or rec.get("medianAnnual")
+    )
     entry = (
-        rec.get("Pct10") or rec.get("pct10") or rec.get("AnnualPct10")
-        or rec.get("annualPct10") or rec.get("EntryLevel") or rec.get("entryLevel")
+        rec.get("Pct10")
+        or rec.get("pct10")
+        or rec.get("AnnualPct10")
+        or rec.get("annualPct10")
+        or rec.get("EntryLevel")
+        or rec.get("entryLevel")
     )
     experienced = (
-        rec.get("Pct90") or rec.get("pct90") or rec.get("AnnualPct90")
-        or rec.get("annualPct90") or rec.get("Experienced") or rec.get("experienced")
+        rec.get("Pct90")
+        or rec.get("pct90")
+        or rec.get("AnnualPct90")
+        or rec.get("annualPct90")
+        or rec.get("Experienced")
+        or rec.get("experienced")
     )
 
     return {
@@ -7929,19 +9567,25 @@ def _parse_outlook_response(outlook_data: Dict[str, Any]) -> Optional[Dict[str, 
         projections = projections[0]
 
     growth_pct = (
-        projections.get("ProjectedGrowth") or projections.get("projectedGrowth")
-        or projections.get("BrightOutlookGrowth") or projections.get("ProjectedPercentChange")
+        projections.get("ProjectedGrowth")
+        or projections.get("projectedGrowth")
+        or projections.get("BrightOutlookGrowth")
+        or projections.get("ProjectedPercentChange")
     )
     growth_label = (
-        projections.get("GrowthLabel") or projections.get("growthLabel")
-        or projections.get("OutlookDescription") or projections.get("Outlook")
+        projections.get("GrowthLabel")
+        or projections.get("growthLabel")
+        or projections.get("OutlookDescription")
+        or projections.get("Outlook")
     )
     annual_openings = (
-        projections.get("AnnualOpenings") or projections.get("annualOpenings")
+        projections.get("AnnualOpenings")
+        or projections.get("annualOpenings")
         or projections.get("ProjectedAnnualJobOpenings")
     )
     employment = (
-        projections.get("Employment") or projections.get("employment")
+        projections.get("Employment")
+        or projections.get("employment")
         or projections.get("CurrentEmployment")
     )
 
@@ -7958,23 +9602,42 @@ def _parse_outlook_response(outlook_data: Dict[str, Any]) -> Optional[Dict[str, 
     return result if result else None
 
 
-def _parse_certifications_response(cert_data: Dict[str, Any]) -> Optional[List[Dict[str, str]]]:
+def _parse_certifications_response(
+    cert_data: Dict[str, Any],
+) -> Optional[List[Dict[str, str]]]:
     """Extract certification names and organizations from CareerOneStop response."""
     if not cert_data:
         return None
 
     cert_list = (
-        cert_data.get("CertList") or cert_data.get("certList")
-        or cert_data.get("CertificationList") or cert_data.get("certificationList")
+        cert_data.get("CertList")
+        or cert_data.get("certList")
+        or cert_data.get("CertificationList")
+        or cert_data.get("certificationList")
     )
     if not cert_list or not isinstance(cert_list, list):
         return None
 
     results = []
     for cert in cert_list[:10]:
-        name = cert.get("Name") or cert.get("name") or cert.get("CertName") or cert.get("certName")
-        org = cert.get("Organization") or cert.get("organization") or cert.get("CertOrg") or cert.get("certOrg")
-        url = cert.get("Url") or cert.get("url") or cert.get("CertUrl") or cert.get("certUrl")
+        name = (
+            cert.get("Name")
+            or cert.get("name")
+            or cert.get("CertName")
+            or cert.get("certName")
+        )
+        org = (
+            cert.get("Organization")
+            or cert.get("organization")
+            or cert.get("CertOrg")
+            or cert.get("certOrg")
+        )
+        url = (
+            cert.get("Url")
+            or cert.get("url")
+            or cert.get("CertUrl")
+            or cert.get("certUrl")
+        )
         if name:
             entry = {"name": str(name)}
             if org:
@@ -8010,9 +9673,7 @@ def _safe_float(val) -> float:
         return 0.0
 
 
-def _build_occupation_from_benchmark(
-    role: str, benchmark_key: str
-) -> Dict[str, Any]:
+def _build_occupation_from_benchmark(role: str, benchmark_key: str) -> Dict[str, Any]:
     """Build an occupation entry from curated benchmark data."""
     bench = CAREERONESTOP_BENCHMARKS[benchmark_key]
     return {
@@ -8035,9 +9696,7 @@ def _build_occupation_from_benchmark(
     }
 
 
-def fetch_careeronestop_data(
-    roles: List[str], locations: List[str]
-) -> Dict[str, Any]:
+def fetch_careeronestop_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
     """Fetch official DOL salary data, occupation outlook, certifications, and
     training programs from CareerOneStop by occupation and location.
 
@@ -8154,15 +9813,19 @@ def fetch_careeronestop_data(
             detail_body = occ_detail
             if isinstance(detail_body, dict):
                 soc = (
-                    detail_body.get("OnetCode") or detail_body.get("SocCode")
-                    or detail_body.get("OccupationCode") or detail_body.get("Code")
+                    detail_body.get("OnetCode")
+                    or detail_body.get("SocCode")
+                    or detail_body.get("OccupationCode")
+                    or detail_body.get("Code")
                 )
                 title = (
-                    detail_body.get("OnetTitle") or detail_body.get("Title")
+                    detail_body.get("OnetTitle")
+                    or detail_body.get("Title")
                     or detail_body.get("OccupationTitle")
                 )
                 education = (
-                    detail_body.get("EducationTraining") or detail_body.get("Education")
+                    detail_body.get("EducationTraining")
+                    or detail_body.get("Education")
                     or detail_body.get("TypicalEducation")
                 )
                 if soc:
@@ -8173,16 +9836,20 @@ def fetch_careeronestop_data(
                     occ_entry["education"] = str(education)
 
         if salary_parsed:
-            if salary_parsed.get("median", 0) > 0:
+            if salary_parsed.get("median") or 0 > 0:
                 occ_entry["salary"] = salary_parsed
 
         if outlook_parsed:
             if "projected_growth_pct" in outlook_parsed:
-                occ_entry["outlook"]["projected_growth_pct"] = outlook_parsed["projected_growth_pct"]
+                occ_entry["outlook"]["projected_growth_pct"] = outlook_parsed[
+                    "projected_growth_pct"
+                ]
             if "growth_label" in outlook_parsed:
                 occ_entry["outlook"]["growth_label"] = outlook_parsed["growth_label"]
             if "annual_openings" in outlook_parsed:
-                occ_entry["outlook"]["annual_openings"] = outlook_parsed["annual_openings"]
+                occ_entry["outlook"]["annual_openings"] = outlook_parsed[
+                    "annual_openings"
+                ]
             if "employment" in outlook_parsed:
                 occ_entry["employment"] = outlook_parsed["employment"]
 
@@ -8199,7 +9866,7 @@ def fetch_careeronestop_data(
             )
             if loc_salary_raw:
                 loc_salary_parsed = _parse_salary_response(loc_salary_raw)
-                if loc_salary_parsed and loc_salary_parsed.get("median", 0) > 0:
+                if loc_salary_parsed and loc_salary_parsed.get("median") or 0 > 0:
                     location_salary[state] = {
                         "median": loc_salary_parsed["median"],
                         "entry": loc_salary_parsed["entry_level"],
@@ -8215,9 +9882,7 @@ def fetch_careeronestop_data(
         time.sleep(0.25)
 
     if not result["occupations"]:
-        _log_warn(
-            "No occupation data could be retrieved for roles: {}".format(roles)
-        )
+        _log_warn("No occupation data could be retrieved for roles: {}".format(roles))
 
     _set_cached(cache_k, result)
     return result
@@ -8255,7 +9920,13 @@ JOOBLE_MARKET_DATA = {
             "avg_job_postings": 95000,
             "avg_salary_range": "$70,000-$165,000",
             "market_activity": "High",
-            "top_cities": ["New York", "Chicago", "San Francisco", "Charlotte", "Boston"],
+            "top_cities": [
+                "New York",
+                "Chicago",
+                "San Francisco",
+                "Charlotte",
+                "Boston",
+            ],
             "avg_time_to_fill_days": 40,
         },
         "engineering": {
@@ -8269,7 +9940,13 @@ JOOBLE_MARKET_DATA = {
             "avg_job_postings": 78000,
             "avg_salary_range": "$50,000-$120,000",
             "market_activity": "High",
-            "top_cities": ["New York", "Los Angeles", "Chicago", "San Francisco", "Atlanta"],
+            "top_cities": [
+                "New York",
+                "Los Angeles",
+                "Chicago",
+                "San Francisco",
+                "Atlanta",
+            ],
             "avg_time_to_fill_days": 33,
         },
         "sales": {
@@ -8285,7 +9962,13 @@ JOOBLE_MARKET_DATA = {
             "avg_job_postings": 65000,
             "avg_salary_range": "\u00a345,000-\u00a395,000",
             "market_activity": "High",
-            "top_cities": ["London", "Manchester", "Edinburgh", "Birmingham", "Bristol"],
+            "top_cities": [
+                "London",
+                "Manchester",
+                "Edinburgh",
+                "Birmingham",
+                "Bristol",
+            ],
             "avg_time_to_fill_days": 38,
         },
         "healthcare": {
@@ -8306,7 +9989,13 @@ JOOBLE_MARKET_DATA = {
             "avg_job_postings": 42000,
             "avg_salary_range": "\u00a335,000-\u00a375,000",
             "market_activity": "Medium",
-            "top_cities": ["London", "Manchester", "Birmingham", "Bristol", "Cambridge"],
+            "top_cities": [
+                "London",
+                "Manchester",
+                "Birmingham",
+                "Bristol",
+                "Cambridge",
+            ],
             "avg_time_to_fill_days": 40,
         },
         "marketing": {
@@ -8549,42 +10238,78 @@ JOOBLE_MARKET_DATA = {
             "avg_job_postings": 18000,
             "avg_salary_range": "S$60,000-S$140,000",
             "market_activity": "High",
-            "top_cities": ["Singapore Central", "Jurong East", "Changi", "Tampines", "Woodlands"],
+            "top_cities": [
+                "Singapore Central",
+                "Jurong East",
+                "Changi",
+                "Tampines",
+                "Woodlands",
+            ],
             "avg_time_to_fill_days": 35,
         },
         "healthcare": {
             "avg_job_postings": 12000,
             "avg_salary_range": "S$40,000-S$100,000",
             "market_activity": "High",
-            "top_cities": ["Singapore Central", "Novena", "Outram", "Tampines", "Jurong East"],
+            "top_cities": [
+                "Singapore Central",
+                "Novena",
+                "Outram",
+                "Tampines",
+                "Jurong East",
+            ],
             "avg_time_to_fill_days": 28,
         },
         "finance": {
             "avg_job_postings": 22000,
             "avg_salary_range": "S$55,000-S$150,000",
             "market_activity": "Very High",
-            "top_cities": ["Singapore Central", "Marina Bay", "Raffles Place", "Shenton Way", "Jurong East"],
+            "top_cities": [
+                "Singapore Central",
+                "Marina Bay",
+                "Raffles Place",
+                "Shenton Way",
+                "Jurong East",
+            ],
             "avg_time_to_fill_days": 32,
         },
         "engineering": {
             "avg_job_postings": 14000,
             "avg_salary_range": "S$50,000-S$120,000",
             "market_activity": "High",
-            "top_cities": ["Singapore Central", "Jurong", "Tuas", "Changi", "Woodlands"],
+            "top_cities": [
+                "Singapore Central",
+                "Jurong",
+                "Tuas",
+                "Changi",
+                "Woodlands",
+            ],
             "avg_time_to_fill_days": 38,
         },
         "marketing": {
             "avg_job_postings": 9000,
             "avg_salary_range": "S$42,000-S$95,000",
             "market_activity": "Medium",
-            "top_cities": ["Singapore Central", "Orchard", "Raffles Place", "Tampines", "Jurong East"],
+            "top_cities": [
+                "Singapore Central",
+                "Orchard",
+                "Raffles Place",
+                "Tampines",
+                "Jurong East",
+            ],
             "avg_time_to_fill_days": 30,
         },
         "sales": {
             "avg_job_postings": 15000,
             "avg_salary_range": "S$38,000-S$90,000",
             "market_activity": "High",
-            "top_cities": ["Singapore Central", "Raffles Place", "Orchard", "Jurong East", "Tampines"],
+            "top_cities": [
+                "Singapore Central",
+                "Raffles Place",
+                "Orchard",
+                "Jurong East",
+                "Tampines",
+            ],
             "avg_time_to_fill_days": 24,
         },
     },
@@ -8593,7 +10318,13 @@ JOOBLE_MARKET_DATA = {
             "avg_job_postings": 32000,
             "avg_salary_range": "\u20ac48,000-\u20ac95,000",
             "market_activity": "High",
-            "top_cities": ["Amsterdam", "Rotterdam", "The Hague", "Eindhoven", "Utrecht"],
+            "top_cities": [
+                "Amsterdam",
+                "Rotterdam",
+                "The Hague",
+                "Eindhoven",
+                "Utrecht",
+            ],
             "avg_time_to_fill_days": 38,
         },
         "healthcare": {
@@ -8607,7 +10338,13 @@ JOOBLE_MARKET_DATA = {
             "avg_job_postings": 20000,
             "avg_salary_range": "\u20ac45,000-\u20ac105,000",
             "market_activity": "High",
-            "top_cities": ["Amsterdam", "Rotterdam", "The Hague", "Utrecht", "Eindhoven"],
+            "top_cities": [
+                "Amsterdam",
+                "Rotterdam",
+                "The Hague",
+                "Utrecht",
+                "Eindhoven",
+            ],
             "avg_time_to_fill_days": 36,
         },
         "engineering": {
@@ -8621,14 +10358,26 @@ JOOBLE_MARKET_DATA = {
             "avg_job_postings": 14000,
             "avg_salary_range": "\u20ac36,000-\u20ac72,000",
             "market_activity": "Medium",
-            "top_cities": ["Amsterdam", "Rotterdam", "Utrecht", "The Hague", "Eindhoven"],
+            "top_cities": [
+                "Amsterdam",
+                "Rotterdam",
+                "Utrecht",
+                "The Hague",
+                "Eindhoven",
+            ],
             "avg_time_to_fill_days": 28,
         },
         "sales": {
             "avg_job_postings": 22000,
             "avg_salary_range": "\u20ac32,000-\u20ac70,000",
             "market_activity": "High",
-            "top_cities": ["Amsterdam", "Rotterdam", "The Hague", "Utrecht", "Eindhoven"],
+            "top_cities": [
+                "Amsterdam",
+                "Rotterdam",
+                "The Hague",
+                "Utrecht",
+                "Eindhoven",
+            ],
             "avg_time_to_fill_days": 24,
         },
     },
@@ -8702,7 +10451,13 @@ JOOBLE_MARKET_DATA = {
             "avg_job_postings": 22000,
             "avg_salary_range": "AED 150,000-AED 380,000",
             "market_activity": "High",
-            "top_cities": ["Dubai", "Abu Dhabi", "Sharjah", "Ras Al Khaimah", "Fujairah"],
+            "top_cities": [
+                "Dubai",
+                "Abu Dhabi",
+                "Sharjah",
+                "Ras Al Khaimah",
+                "Fujairah",
+            ],
             "avg_time_to_fill_days": 36,
         },
         "marketing": {
@@ -8769,42 +10524,78 @@ JOOBLE_MARKET_DATA = {
             "avg_job_postings": 65000,
             "avg_salary_range": "R$72,000-R$180,000",
             "market_activity": "High",
-            "top_cities": ["S\u00e3o Paulo", "Rio de Janeiro", "Belo Horizonte", "Curitiba", "Porto Alegre"],
+            "top_cities": [
+                "S\u00e3o Paulo",
+                "Rio de Janeiro",
+                "Belo Horizonte",
+                "Curitiba",
+                "Porto Alegre",
+            ],
             "avg_time_to_fill_days": 35,
         },
         "healthcare": {
             "avg_job_postings": 78000,
             "avg_salary_range": "R$48,000-R$144,000",
             "market_activity": "Very High",
-            "top_cities": ["S\u00e3o Paulo", "Rio de Janeiro", "Bras\u00edlia", "Belo Horizonte", "Salvador"],
+            "top_cities": [
+                "S\u00e3o Paulo",
+                "Rio de Janeiro",
+                "Bras\u00edlia",
+                "Belo Horizonte",
+                "Salvador",
+            ],
             "avg_time_to_fill_days": 25,
         },
         "finance": {
             "avg_job_postings": 35000,
             "avg_salary_range": "R$60,000-R$168,000",
             "market_activity": "High",
-            "top_cities": ["S\u00e3o Paulo", "Rio de Janeiro", "Bras\u00edlia", "Belo Horizonte", "Curitiba"],
+            "top_cities": [
+                "S\u00e3o Paulo",
+                "Rio de Janeiro",
+                "Bras\u00edlia",
+                "Belo Horizonte",
+                "Curitiba",
+            ],
             "avg_time_to_fill_days": 32,
         },
         "engineering": {
             "avg_job_postings": 48000,
             "avg_salary_range": "R$60,000-R$156,000",
             "market_activity": "High",
-            "top_cities": ["S\u00e3o Paulo", "Rio de Janeiro", "Belo Horizonte", "Curitiba", "Porto Alegre"],
+            "top_cities": [
+                "S\u00e3o Paulo",
+                "Rio de Janeiro",
+                "Belo Horizonte",
+                "Curitiba",
+                "Porto Alegre",
+            ],
             "avg_time_to_fill_days": 40,
         },
         "marketing": {
             "avg_job_postings": 28000,
             "avg_salary_range": "R$36,000-R$108,000",
             "market_activity": "Medium",
-            "top_cities": ["S\u00e3o Paulo", "Rio de Janeiro", "Belo Horizonte", "Curitiba", "Porto Alegre"],
+            "top_cities": [
+                "S\u00e3o Paulo",
+                "Rio de Janeiro",
+                "Belo Horizonte",
+                "Curitiba",
+                "Porto Alegre",
+            ],
             "avg_time_to_fill_days": 26,
         },
         "sales": {
             "avg_job_postings": 55000,
             "avg_salary_range": "R$30,000-R$96,000",
             "market_activity": "High",
-            "top_cities": ["S\u00e3o Paulo", "Rio de Janeiro", "Belo Horizonte", "Bras\u00edlia", "Curitiba"],
+            "top_cities": [
+                "S\u00e3o Paulo",
+                "Rio de Janeiro",
+                "Belo Horizonte",
+                "Bras\u00edlia",
+                "Curitiba",
+            ],
             "avg_time_to_fill_days": 20,
         },
     },
@@ -9022,19 +10813,74 @@ def _resolve_jooble_category(role: str) -> str:
             return category
     # Keyword heuristics
     keyword_map = {
-        "technology": ["tech", "software", "develop", "program", "code", "devops",
-                       "cloud", "data", "cyber", "machine learning", "ai ", "ml ",
-                       "it ", "sysadmin", "ux", "ui", "product"],
-        "healthcare": ["health", "medic", "nurs", "doctor", "pharm", "clinical",
-                       "patient", "hospital", "dental"],
-        "finance": ["financ", "account", "audit", "invest", "bank", "risk",
-                    "actuar", "tax", "treasury"],
-        "engineering": ["engineer", "mechanical", "civil", "electric", "chemical",
-                        "structural", "aerospace"],
-        "marketing": ["marketing", "seo", "content", "brand", "social media",
-                      "copywrite", "advertis", "creative"],
-        "sales": ["sales", "account exec", "business develop", "bdm",
-                  "relationship manage", "revenue"],
+        "technology": [
+            "tech",
+            "software",
+            "develop",
+            "program",
+            "code",
+            "devops",
+            "cloud",
+            "data",
+            "cyber",
+            "machine learning",
+            "ai ",
+            "ml ",
+            "it ",
+            "sysadmin",
+            "ux",
+            "ui",
+            "product",
+        ],
+        "healthcare": [
+            "health",
+            "medic",
+            "nurs",
+            "doctor",
+            "pharm",
+            "clinical",
+            "patient",
+            "hospital",
+            "dental",
+        ],
+        "finance": [
+            "financ",
+            "account",
+            "audit",
+            "invest",
+            "bank",
+            "risk",
+            "actuar",
+            "tax",
+            "treasury",
+        ],
+        "engineering": [
+            "engineer",
+            "mechanical",
+            "civil",
+            "electric",
+            "chemical",
+            "structural",
+            "aerospace",
+        ],
+        "marketing": [
+            "marketing",
+            "seo",
+            "content",
+            "brand",
+            "social media",
+            "copywrite",
+            "advertis",
+            "creative",
+        ],
+        "sales": [
+            "sales",
+            "account exec",
+            "business develop",
+            "bdm",
+            "relationship manage",
+            "revenue",
+        ],
     }
     for category, keywords in keyword_map.items():
         for kw in keywords:
@@ -9051,12 +10897,23 @@ def _parse_salary_from_jobs(jobs: List[Dict[str, Any]]) -> Optional[str]:
     currency_symbol = "$"
 
     for job in jobs:
-        salary_raw = job.get("salary", "") or ""
+        salary_raw = job.get("salary") or "" or ""
         if not salary_raw or not salary_raw.strip():
             continue
 
         # Detect currency symbol
-        for sym in ["\u00a3", "\u20ac", "A$", "C$", "S$", "AED", "R$", "\u20b9", "\u00a5", "$"]:
+        for sym in [
+            "\u00a3",
+            "\u20ac",
+            "A$",
+            "C$",
+            "S$",
+            "AED",
+            "R$",
+            "\u20b9",
+            "\u00a5",
+            "$",
+        ]:
             if sym in salary_raw:
                 currency_symbol = sym
                 break
@@ -9094,7 +10951,12 @@ def _extract_top_companies(jobs: List[Dict[str, Any]], limit: int = 5) -> List[s
     counts: Dict[str, int] = {}
     for job in jobs:
         company = (job.get("company") or "").strip()
-        if company and company.lower() not in ("", "n/a", "not specified", "confidential"):
+        if company and company.lower() not in (
+            "",
+            "n/a",
+            "not specified",
+            "confidential",
+        ):
             counts[company] = counts.get(company, 0) + 1
     sorted_companies = sorted(counts.items(), key=lambda x: x[1], reverse=True)
     return [c[0] for c in sorted_companies[:limit]]
@@ -9112,7 +10974,7 @@ def _compute_freshness(jobs: List[Dict[str, Any]]) -> str:
     now = datetime.datetime.utcnow()
 
     for job in jobs:
-        updated = job.get("updated", "")
+        updated = job.get("updated") or ""
         if not updated:
             continue
         try:
@@ -9132,7 +10994,9 @@ def _compute_freshness(jobs: List[Dict[str, Any]]) -> str:
     return f"{pct}% posted within 14 days"
 
 
-def _jooble_api_post(api_key: str, keywords: str, location: str) -> Optional[Dict[str, Any]]:
+def _jooble_api_post(
+    api_key: str, keywords: str, location: str
+) -> Optional[Dict[str, Any]]:
     """
     Make a single POST request to the Jooble API.
     Returns parsed JSON response or None on failure.
@@ -9146,16 +11010,20 @@ def _jooble_api_post(api_key: str, keywords: str, location: str) -> Optional[Dic
             _jooble_request_day = today
 
         if _jooble_request_count >= 480:
-            _log_warn("Jooble daily request limit approaching (480/500). Skipping API call.")
+            _log_warn(
+                "Jooble daily request limit approaching (480/500). Skipping API call."
+            )
             return None
         _jooble_request_count += 1
 
     url = f"https://jooble.org/api/{api_key}"
-    payload = json.dumps({
-        "keywords": keywords,
-        "location": location,
-        "page": 1,
-    }).encode("utf-8")
+    payload = json.dumps(
+        {
+            "keywords": keywords,
+            "location": location,
+            "page": 1,
+        }
+    ).encode("utf-8")
 
     req = urllib.request.Request(
         url,
@@ -9170,13 +11038,19 @@ def _jooble_api_post(api_key: str, keywords: str, location: str) -> Optional[Dic
             body = resp.read().decode("utf-8")
             return json.loads(body)
     except urllib.error.HTTPError as exc:
-        _log_warn(f"Jooble API HTTP error {exc.code} for '{keywords}' in '{location}': {exc.reason}")
+        _log_warn(
+            f"Jooble API HTTP error {exc.code} for '{keywords}' in '{location}': {exc.reason}"
+        )
         return None
     except urllib.error.URLError as exc:
-        _log_warn(f"Jooble API URL error for '{keywords}' in '{location}': {exc.reason}")
+        _log_warn(
+            f"Jooble API URL error for '{keywords}' in '{location}': {exc.reason}"
+        )
         return None
     except Exception as exc:
-        _log_warn(f"Jooble API unexpected error for '{keywords}' in '{location}': {exc}")
+        _log_warn(
+            f"Jooble API unexpected error for '{keywords}' in '{location}': {exc}"
+        )
         return None
 
 
@@ -9256,7 +11130,7 @@ def fetch_jooble_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
 
                 if api_resp is not None:
                     jobs = api_resp.get("jobs", [])
-                    total_count = api_resp.get("totalCount", 0)
+                    total_count = api_resp.get("totalCount") or 0
                     salary_range = _parse_salary_from_jobs(jobs)
                     top_companies = _extract_top_companies(jobs)
                     freshness = _compute_freshness(jobs)
@@ -9309,7 +11183,9 @@ def fetch_jooble_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
     # If every API call failed, mark source as benchmarks
     if use_api and api_failures == total_combos and total_combos > 0:
         source = "Jooble Market Benchmarks"
-        _log_warn("All Jooble API calls failed; using curated benchmark data exclusively.")
+        _log_warn(
+            "All Jooble API calls failed; using curated benchmark data exclusively."
+        )
 
     return {
         "source": source,
@@ -9326,7 +11202,6 @@ def fetch_jooble_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
             ],
         },
     }
-
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -9353,33 +11228,114 @@ JOLTS_INDUSTRY_CODES: Dict[str, str] = {
 
 # JOLTS data element codes
 JOLTS_ELEMENTS: Dict[str, str] = {
-    "job_openings": "JO",       # Job Openings Level
-    "hires": "HI",              # Hires Level (thousands)
+    "job_openings": "JO",  # Job Openings Level
+    "hires": "HI",  # Hires Level (thousands)
     "total_separations": "TS",  # Total Separations
-    "quits": "QU",              # Quits Level
-    "layoffs": "LD",            # Layoffs and Discharges
-    "job_openings_rate": "JOR", # Job Openings Rate (%)
-    "hires_rate": "HIR",        # Hires Rate (%)
-    "quits_rate": "QUR",        # Quits Rate (%)
+    "quits": "QU",  # Quits Level
+    "layoffs": "LD",  # Layoffs and Discharges
+    "job_openings_rate": "JOR",  # Job Openings Rate (%)
+    "hires_rate": "HIR",  # Hires Rate (%)
+    "quits_rate": "QUR",  # Quits Rate (%)
 }
 
 # Fallback data (2024 annual averages from BLS JOLTS summary)
 JOLTS_FALLBACK: Dict[str, Dict[str, Any]] = {
-    "total_nonfarm": {"job_openings": 8100, "hires": 5800, "quits": 3500, "layoffs": 1700, "job_openings_rate": 4.8, "hires_rate": 3.5, "quits_rate": 2.1},
-    "healthcare": {"job_openings": 1500, "hires": 980, "quits": 520, "layoffs": 180, "job_openings_rate": 6.8, "hires_rate": 4.5, "quits_rate": 2.4},
-    "technology": {"job_openings": 280, "hires": 190, "quits": 120, "layoffs": 65, "job_openings_rate": 4.2, "hires_rate": 2.8, "quits_rate": 1.8},
-    "professional_services": {"job_openings": 1200, "hires": 820, "quits": 650, "layoffs": 220, "job_openings_rate": 5.0, "hires_rate": 3.4, "quits_rate": 2.7},
-    "retail": {"job_openings": 850, "hires": 750, "quits": 520, "layoffs": 250, "job_openings_rate": 5.4, "hires_rate": 4.8, "quits_rate": 3.3},
-    "construction": {"job_openings": 420, "hires": 380, "quits": 250, "layoffs": 180, "job_openings_rate": 5.2, "hires_rate": 4.7, "quits_rate": 3.1},
-    "manufacturing": {"job_openings": 580, "hires": 380, "quits": 220, "layoffs": 210, "job_openings_rate": 4.5, "hires_rate": 3.0, "quits_rate": 1.7},
-    "accommodation_food": {"job_openings": 1100, "hires": 980, "quits": 700, "layoffs": 250, "job_openings_rate": 6.5, "hires_rate": 5.8, "quits_rate": 4.2},
-    "finance": {"job_openings": 480, "hires": 310, "quits": 200, "layoffs": 85, "job_openings_rate": 4.5, "hires_rate": 2.9, "quits_rate": 1.9},
-    "transportation": {"job_openings": 350, "hires": 280, "quits": 180, "layoffs": 120, "job_openings_rate": 5.0, "hires_rate": 4.0, "quits_rate": 2.6},
+    "total_nonfarm": {
+        "job_openings": 8100,
+        "hires": 5800,
+        "quits": 3500,
+        "layoffs": 1700,
+        "job_openings_rate": 4.8,
+        "hires_rate": 3.5,
+        "quits_rate": 2.1,
+    },
+    "healthcare": {
+        "job_openings": 1500,
+        "hires": 980,
+        "quits": 520,
+        "layoffs": 180,
+        "job_openings_rate": 6.8,
+        "hires_rate": 4.5,
+        "quits_rate": 2.4,
+    },
+    "technology": {
+        "job_openings": 280,
+        "hires": 190,
+        "quits": 120,
+        "layoffs": 65,
+        "job_openings_rate": 4.2,
+        "hires_rate": 2.8,
+        "quits_rate": 1.8,
+    },
+    "professional_services": {
+        "job_openings": 1200,
+        "hires": 820,
+        "quits": 650,
+        "layoffs": 220,
+        "job_openings_rate": 5.0,
+        "hires_rate": 3.4,
+        "quits_rate": 2.7,
+    },
+    "retail": {
+        "job_openings": 850,
+        "hires": 750,
+        "quits": 520,
+        "layoffs": 250,
+        "job_openings_rate": 5.4,
+        "hires_rate": 4.8,
+        "quits_rate": 3.3,
+    },
+    "construction": {
+        "job_openings": 420,
+        "hires": 380,
+        "quits": 250,
+        "layoffs": 180,
+        "job_openings_rate": 5.2,
+        "hires_rate": 4.7,
+        "quits_rate": 3.1,
+    },
+    "manufacturing": {
+        "job_openings": 580,
+        "hires": 380,
+        "quits": 220,
+        "layoffs": 210,
+        "job_openings_rate": 4.5,
+        "hires_rate": 3.0,
+        "quits_rate": 1.7,
+    },
+    "accommodation_food": {
+        "job_openings": 1100,
+        "hires": 980,
+        "quits": 700,
+        "layoffs": 250,
+        "job_openings_rate": 6.5,
+        "hires_rate": 5.8,
+        "quits_rate": 4.2,
+    },
+    "finance": {
+        "job_openings": 480,
+        "hires": 310,
+        "quits": 200,
+        "layoffs": 85,
+        "job_openings_rate": 4.5,
+        "hires_rate": 2.9,
+        "quits_rate": 1.9,
+    },
+    "transportation": {
+        "job_openings": 350,
+        "hires": 280,
+        "quits": 180,
+        "layoffs": 120,
+        "job_openings_rate": 5.0,
+        "hires_rate": 4.0,
+        "quits_rate": 2.6,
+    },
 }
 
 
-def fetch_bls_jolts(industry_code: str = "000000", data_element: str = "JO",
-                    years: int = 2) -> Optional[Dict[str, Any]]:
+def fetch_bls_jolts(
+    industry_code: str = "000000", data_element: str = "JO", years: int = 2
+) -> Optional[Dict[str, Any]]:
     """Fetch JOLTS data from BLS API.
 
     Series ID format: JTS{industry}{size}{ownership}{region}{data_element}{rate_level}
@@ -9452,7 +11408,9 @@ def fetch_bls_jolts(industry_code: str = "000000", data_element: str = "JO",
             "data_element": data_element,
             "industry_code": industry_code,
             "yearly_averages": result_data,
-            "latest_value": result_data.get(max(result_data.keys())) if result_data else None,
+            "latest_value": (
+                result_data.get(max(result_data.keys())) if result_data else None
+            ),
             "source": "BLS JOLTS",
             "data_confidence": 0.92,
         }
@@ -9507,11 +11465,17 @@ def get_jolts_hiring_difficulty(industry: str = "total_nonfarm") -> Dict[str, An
         "quits_rate": qu_rate,
         "openings_to_hires_ratio": round(ratio, 2),
         "interpretation": (
-            "Critical shortage" if difficulty >= 8 else
-            "Very difficult" if difficulty >= 6.5 else
-            "Moderately difficult" if difficulty >= 4.5 else
-            "Normal" if difficulty >= 3.0 else
-            "Easy to hire"
+            "Critical shortage"
+            if difficulty >= 8
+            else (
+                "Very difficult"
+                if difficulty >= 6.5
+                else (
+                    "Moderately difficult"
+                    if difficulty >= 4.5
+                    else "Normal" if difficulty >= 3.0 else "Easy to hire"
+                )
+            )
         ),
         "source": source,
         "data_confidence": confidence,
@@ -9524,16 +11488,16 @@ def get_jolts_hiring_difficulty(industry: str = "total_nonfarm") -> Dict[str, An
 # ═══════════════════════════════════════════════════════════════════════════════
 
 FRED_EMPLOYMENT_SERIES: Dict[str, str] = {
-    "avg_hourly_earnings": "CES0500000003",         # Total private, monthly
-    "employment_cost_index": "ECIWAG",               # ECI: Wages & Salaries, quarterly
-    "unemployment_info_sector": "LNU04032237",       # Information industry unemployment
-    "unemployment_prof_services": "LNU04032239",     # Professional services unemployment
-    "unemployment_healthcare": "LNU04032243",        # Healthcare unemployment (approx)
-    "unemployment_construction": "LNU04032231",      # Construction unemployment
-    "unemployment_manufacturing": "LNU04032229",     # Manufacturing unemployment
-    "job_openings_total": "JTSJOL",                  # Total nonfarm job openings
-    "quits_total": "JTSQUL",                         # Total nonfarm quits
-    "median_weekly_earnings": "LES1252881600Q",      # Median weekly earnings
+    "avg_hourly_earnings": "CES0500000003",  # Total private, monthly
+    "employment_cost_index": "ECIWAG",  # ECI: Wages & Salaries, quarterly
+    "unemployment_info_sector": "LNU04032237",  # Information industry unemployment
+    "unemployment_prof_services": "LNU04032239",  # Professional services unemployment
+    "unemployment_healthcare": "LNU04032243",  # Healthcare unemployment (approx)
+    "unemployment_construction": "LNU04032231",  # Construction unemployment
+    "unemployment_manufacturing": "LNU04032229",  # Manufacturing unemployment
+    "job_openings_total": "JTSJOL",  # Total nonfarm job openings
+    "quits_total": "JTSQUL",  # Total nonfarm quits
+    "median_weekly_earnings": "LES1252881600Q",  # Median weekly earnings
 }
 
 # Fallback values (2024 annual)
@@ -9550,9 +11514,9 @@ FRED_EMPLOYMENT_FALLBACK: Dict[str, Any] = {
 }
 
 
-def fetch_fred_employment_series(series_id: str,
-                                 observation_start: Optional[str] = None
-                                 ) -> Optional[Dict[str, Any]]:
+def fetch_fred_employment_series(
+    series_id: str, observation_start: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
     """Fetch a FRED employment data series.
 
     Uses the existing FRED API key from environment (FRED_API_KEY).
@@ -9580,9 +11544,13 @@ def fetch_fred_employment_series(series_id: str,
             f"&limit=24"
         )
 
-        resp = _http_get_json(url, headers={
-            "User-Agent": "MediaPlanGenerator/1.0",
-        }, timeout=8)
+        resp = _http_get_json(
+            url,
+            headers={
+                "User-Agent": "MediaPlanGenerator/1.0",
+            },
+            timeout=8,
+        )
 
         if not resp:
             return None
@@ -9665,16 +11633,24 @@ def get_labor_market_tightness(industry: str = "total") -> Dict[str, Any]:
         "wage_growth_yoy_pct": wage_growth,
         "job_openings_thousands": jo_level,
         "interpretation": (
-            "Very tight" if tightness >= 7 else
-            "Tight" if tightness >= 5 else
-            "Moderate" if tightness >= 3 else
-            "Loose"
+            "Very tight"
+            if tightness >= 7
+            else (
+                "Tight" if tightness >= 5 else "Moderate" if tightness >= 3 else "Loose"
+            )
         ),
         "cpc_impact": (
-            "CPCs elevated 15-25% above baseline" if tightness >= 7 else
-            "CPCs elevated 5-15% above baseline" if tightness >= 5 else
-            "CPCs near baseline" if tightness >= 3 else
-            "CPCs potentially below baseline -- good time for cost-efficient campaigns"
+            "CPCs elevated 15-25% above baseline"
+            if tightness >= 7
+            else (
+                "CPCs elevated 5-15% above baseline"
+                if tightness >= 5
+                else (
+                    "CPCs near baseline"
+                    if tightness >= 3
+                    else "CPCs potentially below baseline -- good time for cost-efficient campaigns"
+                )
+            )
         ),
         "source": source,
         "data_confidence": confidence,
@@ -9687,37 +11663,175 @@ def get_labor_market_tightness(industry: str = "total") -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _EUROSTAT_COUNTRY_MAP: Dict[str, str] = {
-    "united kingdom": "UK", "uk": "UK", "germany": "DE", "france": "FR",
-    "spain": "ES", "italy": "IT", "netherlands": "NL", "belgium": "BE",
-    "austria": "AT", "sweden": "SE", "denmark": "DK", "finland": "FI",
-    "ireland": "IE", "portugal": "PT", "greece": "EL", "poland": "PL",
-    "czech republic": "CZ", "czechia": "CZ", "romania": "RO", "hungary": "HU",
-    "bulgaria": "BG", "croatia": "HR", "slovakia": "SK", "slovenia": "SI",
-    "lithuania": "LT", "latvia": "LV", "estonia": "EE", "luxembourg": "LU",
-    "malta": "MT", "cyprus": "CY", "norway": "NO", "switzerland": "CH",
+    "united kingdom": "UK",
+    "uk": "UK",
+    "germany": "DE",
+    "france": "FR",
+    "spain": "ES",
+    "italy": "IT",
+    "netherlands": "NL",
+    "belgium": "BE",
+    "austria": "AT",
+    "sweden": "SE",
+    "denmark": "DK",
+    "finland": "FI",
+    "ireland": "IE",
+    "portugal": "PT",
+    "greece": "EL",
+    "poland": "PL",
+    "czech republic": "CZ",
+    "czechia": "CZ",
+    "romania": "RO",
+    "hungary": "HU",
+    "bulgaria": "BG",
+    "croatia": "HR",
+    "slovakia": "SK",
+    "slovenia": "SI",
+    "lithuania": "LT",
+    "latvia": "LV",
+    "estonia": "EE",
+    "luxembourg": "LU",
+    "malta": "MT",
+    "cyprus": "CY",
+    "norway": "NO",
+    "switzerland": "CH",
     "iceland": "IS",
 }
 
 _EUROSTAT_FALLBACK: Dict[str, Dict[str, Any]] = {
-    "DE": {"unemployment_rate": 3.4, "youth_unemployment": 6.1, "employment_rate": 77.2, "min_wage_eur": None, "avg_hourly_earnings_eur": 25.30},
-    "FR": {"unemployment_rate": 7.3, "youth_unemployment": 17.4, "employment_rate": 68.4, "min_wage_eur": 1767, "avg_hourly_earnings_eur": 22.80},
-    "ES": {"unemployment_rate": 11.7, "youth_unemployment": 28.5, "employment_rate": 65.7, "min_wage_eur": 1134, "avg_hourly_earnings_eur": 15.60},
-    "IT": {"unemployment_rate": 7.6, "youth_unemployment": 22.3, "employment_rate": 62.1, "min_wage_eur": None, "avg_hourly_earnings_eur": 17.40},
-    "NL": {"unemployment_rate": 3.6, "youth_unemployment": 8.9, "employment_rate": 82.9, "min_wage_eur": 2070, "avg_hourly_earnings_eur": 26.50},
-    "BE": {"unemployment_rate": 5.5, "youth_unemployment": 14.8, "employment_rate": 72.1, "min_wage_eur": 1955, "avg_hourly_earnings_eur": 24.70},
-    "AT": {"unemployment_rate": 5.1, "youth_unemployment": 10.2, "employment_rate": 77.8, "min_wage_eur": None, "avg_hourly_earnings_eur": 23.90},
-    "SE": {"unemployment_rate": 7.5, "youth_unemployment": 20.1, "employment_rate": 78.5, "min_wage_eur": None, "avg_hourly_earnings_eur": 28.10},
-    "DK": {"unemployment_rate": 4.8, "youth_unemployment": 10.3, "employment_rate": 78.9, "min_wage_eur": None, "avg_hourly_earnings_eur": 31.40},
-    "FI": {"unemployment_rate": 7.2, "youth_unemployment": 17.0, "employment_rate": 74.8, "min_wage_eur": None, "avg_hourly_earnings_eur": 24.30},
-    "IE": {"unemployment_rate": 4.3, "youth_unemployment": 10.1, "employment_rate": 75.3, "min_wage_eur": 2146, "avg_hourly_earnings_eur": 28.90},
-    "PT": {"unemployment_rate": 6.5, "youth_unemployment": 21.0, "employment_rate": 75.1, "min_wage_eur": 960, "avg_hourly_earnings_eur": 12.40},
-    "PL": {"unemployment_rate": 2.8, "youth_unemployment": 11.2, "employment_rate": 76.2, "min_wage_eur": 1012, "avg_hourly_earnings_eur": 10.80},
-    "CZ": {"unemployment_rate": 2.6, "youth_unemployment": 8.5, "employment_rate": 77.5, "min_wage_eur": 775, "avg_hourly_earnings_eur": 12.60},
-    "RO": {"unemployment_rate": 5.4, "youth_unemployment": 21.3, "employment_rate": 67.8, "min_wage_eur": 747, "avg_hourly_earnings_eur": 8.30},
-    "HU": {"unemployment_rate": 4.1, "youth_unemployment": 12.8, "employment_rate": 74.3, "min_wage_eur": 626, "avg_hourly_earnings_eur": 9.10},
-    "UK": {"unemployment_rate": 4.0, "youth_unemployment": 12.0, "employment_rate": 75.8, "min_wage_eur": None, "avg_hourly_earnings_eur": 22.50},
-    "NO": {"unemployment_rate": 3.5, "youth_unemployment": 10.5, "employment_rate": 79.1, "min_wage_eur": None, "avg_hourly_earnings_eur": 35.20},
-    "CH": {"unemployment_rate": 4.3, "youth_unemployment": 8.2, "employment_rate": 80.2, "min_wage_eur": None, "avg_hourly_earnings_eur": 38.40},
+    "DE": {
+        "unemployment_rate": 3.4,
+        "youth_unemployment": 6.1,
+        "employment_rate": 77.2,
+        "min_wage_eur": None,
+        "avg_hourly_earnings_eur": 25.30,
+    },
+    "FR": {
+        "unemployment_rate": 7.3,
+        "youth_unemployment": 17.4,
+        "employment_rate": 68.4,
+        "min_wage_eur": 1767,
+        "avg_hourly_earnings_eur": 22.80,
+    },
+    "ES": {
+        "unemployment_rate": 11.7,
+        "youth_unemployment": 28.5,
+        "employment_rate": 65.7,
+        "min_wage_eur": 1134,
+        "avg_hourly_earnings_eur": 15.60,
+    },
+    "IT": {
+        "unemployment_rate": 7.6,
+        "youth_unemployment": 22.3,
+        "employment_rate": 62.1,
+        "min_wage_eur": None,
+        "avg_hourly_earnings_eur": 17.40,
+    },
+    "NL": {
+        "unemployment_rate": 3.6,
+        "youth_unemployment": 8.9,
+        "employment_rate": 82.9,
+        "min_wage_eur": 2070,
+        "avg_hourly_earnings_eur": 26.50,
+    },
+    "BE": {
+        "unemployment_rate": 5.5,
+        "youth_unemployment": 14.8,
+        "employment_rate": 72.1,
+        "min_wage_eur": 1955,
+        "avg_hourly_earnings_eur": 24.70,
+    },
+    "AT": {
+        "unemployment_rate": 5.1,
+        "youth_unemployment": 10.2,
+        "employment_rate": 77.8,
+        "min_wage_eur": None,
+        "avg_hourly_earnings_eur": 23.90,
+    },
+    "SE": {
+        "unemployment_rate": 7.5,
+        "youth_unemployment": 20.1,
+        "employment_rate": 78.5,
+        "min_wage_eur": None,
+        "avg_hourly_earnings_eur": 28.10,
+    },
+    "DK": {
+        "unemployment_rate": 4.8,
+        "youth_unemployment": 10.3,
+        "employment_rate": 78.9,
+        "min_wage_eur": None,
+        "avg_hourly_earnings_eur": 31.40,
+    },
+    "FI": {
+        "unemployment_rate": 7.2,
+        "youth_unemployment": 17.0,
+        "employment_rate": 74.8,
+        "min_wage_eur": None,
+        "avg_hourly_earnings_eur": 24.30,
+    },
+    "IE": {
+        "unemployment_rate": 4.3,
+        "youth_unemployment": 10.1,
+        "employment_rate": 75.3,
+        "min_wage_eur": 2146,
+        "avg_hourly_earnings_eur": 28.90,
+    },
+    "PT": {
+        "unemployment_rate": 6.5,
+        "youth_unemployment": 21.0,
+        "employment_rate": 75.1,
+        "min_wage_eur": 960,
+        "avg_hourly_earnings_eur": 12.40,
+    },
+    "PL": {
+        "unemployment_rate": 2.8,
+        "youth_unemployment": 11.2,
+        "employment_rate": 76.2,
+        "min_wage_eur": 1012,
+        "avg_hourly_earnings_eur": 10.80,
+    },
+    "CZ": {
+        "unemployment_rate": 2.6,
+        "youth_unemployment": 8.5,
+        "employment_rate": 77.5,
+        "min_wage_eur": 775,
+        "avg_hourly_earnings_eur": 12.60,
+    },
+    "RO": {
+        "unemployment_rate": 5.4,
+        "youth_unemployment": 21.3,
+        "employment_rate": 67.8,
+        "min_wage_eur": 747,
+        "avg_hourly_earnings_eur": 8.30,
+    },
+    "HU": {
+        "unemployment_rate": 4.1,
+        "youth_unemployment": 12.8,
+        "employment_rate": 74.3,
+        "min_wage_eur": 626,
+        "avg_hourly_earnings_eur": 9.10,
+    },
+    "UK": {
+        "unemployment_rate": 4.0,
+        "youth_unemployment": 12.0,
+        "employment_rate": 75.8,
+        "min_wage_eur": None,
+        "avg_hourly_earnings_eur": 22.50,
+    },
+    "NO": {
+        "unemployment_rate": 3.5,
+        "youth_unemployment": 10.5,
+        "employment_rate": 79.1,
+        "min_wage_eur": None,
+        "avg_hourly_earnings_eur": 35.20,
+    },
+    "CH": {
+        "unemployment_rate": 4.3,
+        "youth_unemployment": 8.2,
+        "employment_rate": 80.2,
+        "min_wage_eur": None,
+        "avg_hourly_earnings_eur": 38.40,
+    },
 }
 
 
@@ -9760,7 +11874,12 @@ def fetch_eurostat_labour_data(locations: List[str]) -> Dict[str, Any]:
             resp = _http_get_json(url, timeout=10)
             if resp and "value" in resp:
                 values = resp["value"]
-                time_dim = resp.get("dimension", {}).get("time", {}).get("category", {}).get("index", {})
+                time_dim = (
+                    resp.get("dimension", {})
+                    .get("time", {})
+                    .get("category", {})
+                    .get("index", {})
+                )
                 # Get latest value
                 latest_idx = max(time_dim.values()) if time_dim else 0
                 unemp_rate = values.get(str(latest_idx))
@@ -9810,7 +11929,8 @@ def fetch_eurostat_labour_data(locations: List[str]) -> Dict[str, Any]:
         return {}
 
     result["data_confidence"] = max(
-        (d.get("data_confidence", 0.5) for d in result["countries"].values()), default=0.5
+        (d.get("data_confidence", 0.5) for d in result["countries"].values()),
+        default=0.5,
     )
     return result
 
@@ -9821,62 +11941,236 @@ def fetch_eurostat_labour_data(locations: List[str]) -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _ILO_COUNTRY_MAP: Dict[str, str] = {
-    "united states": "USA", "us": "USA", "usa": "USA",
-    "canada": "CAN", "mexico": "MEX",
-    "united kingdom": "GBR", "uk": "GBR",
-    "germany": "DEU", "france": "FRA", "spain": "ESP", "italy": "ITA",
-    "japan": "JPN", "china": "CHN", "india": "IND",
-    "brazil": "BRA", "australia": "AUS", "south korea": "KOR",
-    "singapore": "SGP", "hong kong": "HKG",
-    "south africa": "ZAF", "nigeria": "NGA", "kenya": "KEN",
-    "saudi arabia": "SAU", "uae": "ARE", "united arab emirates": "ARE",
-    "indonesia": "IDN", "philippines": "PHL", "vietnam": "VNM",
-    "thailand": "THA", "malaysia": "MYS",
-    "argentina": "ARG", "colombia": "COL", "chile": "CHL", "peru": "PER",
-    "egypt": "EGY", "turkey": "TUR", "israel": "ISR",
-    "poland": "POL", "netherlands": "NLD", "belgium": "BEL",
-    "sweden": "SWE", "norway": "NOR", "denmark": "DNK", "finland": "FIN",
-    "switzerland": "CHE", "austria": "AUT", "ireland": "IRL",
-    "portugal": "PRT", "greece": "GRC", "czech republic": "CZE",
-    "new zealand": "NZL", "taiwan": "TWN",
+    "united states": "USA",
+    "us": "USA",
+    "usa": "USA",
+    "canada": "CAN",
+    "mexico": "MEX",
+    "united kingdom": "GBR",
+    "uk": "GBR",
+    "germany": "DEU",
+    "france": "FRA",
+    "spain": "ESP",
+    "italy": "ITA",
+    "japan": "JPN",
+    "china": "CHN",
+    "india": "IND",
+    "brazil": "BRA",
+    "australia": "AUS",
+    "south korea": "KOR",
+    "singapore": "SGP",
+    "hong kong": "HKG",
+    "south africa": "ZAF",
+    "nigeria": "NGA",
+    "kenya": "KEN",
+    "saudi arabia": "SAU",
+    "uae": "ARE",
+    "united arab emirates": "ARE",
+    "indonesia": "IDN",
+    "philippines": "PHL",
+    "vietnam": "VNM",
+    "thailand": "THA",
+    "malaysia": "MYS",
+    "argentina": "ARG",
+    "colombia": "COL",
+    "chile": "CHL",
+    "peru": "PER",
+    "egypt": "EGY",
+    "turkey": "TUR",
+    "israel": "ISR",
+    "poland": "POL",
+    "netherlands": "NLD",
+    "belgium": "BEL",
+    "sweden": "SWE",
+    "norway": "NOR",
+    "denmark": "DNK",
+    "finland": "FIN",
+    "switzerland": "CHE",
+    "austria": "AUT",
+    "ireland": "IRL",
+    "portugal": "PRT",
+    "greece": "GRC",
+    "czech republic": "CZE",
+    "new zealand": "NZL",
+    "taiwan": "TWN",
 }
 
 _ILO_FALLBACK: Dict[str, Dict[str, Any]] = {
-    "USA": {"unemployment_rate": 3.7, "youth_unemployment": 8.5, "labor_force_participation": 62.5},
-    "GBR": {"unemployment_rate": 4.0, "youth_unemployment": 12.0, "labor_force_participation": 78.5},
-    "DEU": {"unemployment_rate": 3.4, "youth_unemployment": 6.1, "labor_force_participation": 79.2},
-    "FRA": {"unemployment_rate": 7.3, "youth_unemployment": 17.4, "labor_force_participation": 72.1},
-    "JPN": {"unemployment_rate": 2.6, "youth_unemployment": 4.2, "labor_force_participation": 62.8},
-    "CHN": {"unemployment_rate": 5.1, "youth_unemployment": 14.9, "labor_force_participation": 68.4},
-    "IND": {"unemployment_rate": 7.7, "youth_unemployment": 23.2, "labor_force_participation": 51.8},
-    "BRA": {"unemployment_rate": 7.8, "youth_unemployment": 17.5, "labor_force_participation": 63.2},
-    "AUS": {"unemployment_rate": 3.7, "youth_unemployment": 9.2, "labor_force_participation": 66.8},
-    "CAN": {"unemployment_rate": 5.4, "youth_unemployment": 10.8, "labor_force_participation": 65.2},
-    "KOR": {"unemployment_rate": 2.7, "youth_unemployment": 6.5, "labor_force_participation": 64.1},
-    "SGP": {"unemployment_rate": 2.0, "youth_unemployment": 6.8, "labor_force_participation": 69.5},
-    "MEX": {"unemployment_rate": 2.8, "youth_unemployment": 6.2, "labor_force_participation": 60.1},
-    "ZAF": {"unemployment_rate": 32.1, "youth_unemployment": 59.7, "labor_force_participation": 56.3},
-    "NGA": {"unemployment_rate": 33.3, "youth_unemployment": 42.5, "labor_force_participation": 55.2},
-    "SAU": {"unemployment_rate": 5.6, "youth_unemployment": 27.0, "labor_force_participation": 61.8},
-    "ARE": {"unemployment_rate": 2.7, "youth_unemployment": 7.5, "labor_force_participation": 82.1},
-    "IDN": {"unemployment_rate": 5.3, "youth_unemployment": 14.0, "labor_force_participation": 69.1},
-    "PHL": {"unemployment_rate": 4.3, "youth_unemployment": 9.2, "labor_force_participation": 65.8},
-    "VNM": {"unemployment_rate": 2.3, "youth_unemployment": 7.5, "labor_force_participation": 76.4},
-    "THA": {"unemployment_rate": 1.1, "youth_unemployment": 5.2, "labor_force_participation": 68.5},
-    "MYS": {"unemployment_rate": 3.4, "youth_unemployment": 12.1, "labor_force_participation": 69.8},
-    "ARG": {"unemployment_rate": 6.2, "youth_unemployment": 18.0, "labor_force_participation": 64.5},
-    "COL": {"unemployment_rate": 10.2, "youth_unemployment": 19.8, "labor_force_participation": 63.1},
-    "CHL": {"unemployment_rate": 8.5, "youth_unemployment": 21.3, "labor_force_participation": 62.0},
-    "EGY": {"unemployment_rate": 7.1, "youth_unemployment": 17.8, "labor_force_participation": 43.2},
-    "TUR": {"unemployment_rate": 9.4, "youth_unemployment": 18.5, "labor_force_participation": 53.8},
-    "ISR": {"unemployment_rate": 3.4, "youth_unemployment": 7.2, "labor_force_participation": 64.1},
-    "NZL": {"unemployment_rate": 3.9, "youth_unemployment": 9.8, "labor_force_participation": 71.2},
-    "POL": {"unemployment_rate": 2.8, "youth_unemployment": 11.2, "labor_force_participation": 73.5},
-    "NLD": {"unemployment_rate": 3.6, "youth_unemployment": 8.9, "labor_force_participation": 82.9},
-    "SWE": {"unemployment_rate": 7.5, "youth_unemployment": 20.1, "labor_force_participation": 79.0},
-    "NOR": {"unemployment_rate": 3.5, "youth_unemployment": 10.5, "labor_force_participation": 78.8},
-    "DNK": {"unemployment_rate": 4.8, "youth_unemployment": 10.3, "labor_force_participation": 79.5},
-    "CHE": {"unemployment_rate": 4.3, "youth_unemployment": 8.2, "labor_force_participation": 81.0},
+    "USA": {
+        "unemployment_rate": 3.7,
+        "youth_unemployment": 8.5,
+        "labor_force_participation": 62.5,
+    },
+    "GBR": {
+        "unemployment_rate": 4.0,
+        "youth_unemployment": 12.0,
+        "labor_force_participation": 78.5,
+    },
+    "DEU": {
+        "unemployment_rate": 3.4,
+        "youth_unemployment": 6.1,
+        "labor_force_participation": 79.2,
+    },
+    "FRA": {
+        "unemployment_rate": 7.3,
+        "youth_unemployment": 17.4,
+        "labor_force_participation": 72.1,
+    },
+    "JPN": {
+        "unemployment_rate": 2.6,
+        "youth_unemployment": 4.2,
+        "labor_force_participation": 62.8,
+    },
+    "CHN": {
+        "unemployment_rate": 5.1,
+        "youth_unemployment": 14.9,
+        "labor_force_participation": 68.4,
+    },
+    "IND": {
+        "unemployment_rate": 7.7,
+        "youth_unemployment": 23.2,
+        "labor_force_participation": 51.8,
+    },
+    "BRA": {
+        "unemployment_rate": 7.8,
+        "youth_unemployment": 17.5,
+        "labor_force_participation": 63.2,
+    },
+    "AUS": {
+        "unemployment_rate": 3.7,
+        "youth_unemployment": 9.2,
+        "labor_force_participation": 66.8,
+    },
+    "CAN": {
+        "unemployment_rate": 5.4,
+        "youth_unemployment": 10.8,
+        "labor_force_participation": 65.2,
+    },
+    "KOR": {
+        "unemployment_rate": 2.7,
+        "youth_unemployment": 6.5,
+        "labor_force_participation": 64.1,
+    },
+    "SGP": {
+        "unemployment_rate": 2.0,
+        "youth_unemployment": 6.8,
+        "labor_force_participation": 69.5,
+    },
+    "MEX": {
+        "unemployment_rate": 2.8,
+        "youth_unemployment": 6.2,
+        "labor_force_participation": 60.1,
+    },
+    "ZAF": {
+        "unemployment_rate": 32.1,
+        "youth_unemployment": 59.7,
+        "labor_force_participation": 56.3,
+    },
+    "NGA": {
+        "unemployment_rate": 33.3,
+        "youth_unemployment": 42.5,
+        "labor_force_participation": 55.2,
+    },
+    "SAU": {
+        "unemployment_rate": 5.6,
+        "youth_unemployment": 27.0,
+        "labor_force_participation": 61.8,
+    },
+    "ARE": {
+        "unemployment_rate": 2.7,
+        "youth_unemployment": 7.5,
+        "labor_force_participation": 82.1,
+    },
+    "IDN": {
+        "unemployment_rate": 5.3,
+        "youth_unemployment": 14.0,
+        "labor_force_participation": 69.1,
+    },
+    "PHL": {
+        "unemployment_rate": 4.3,
+        "youth_unemployment": 9.2,
+        "labor_force_participation": 65.8,
+    },
+    "VNM": {
+        "unemployment_rate": 2.3,
+        "youth_unemployment": 7.5,
+        "labor_force_participation": 76.4,
+    },
+    "THA": {
+        "unemployment_rate": 1.1,
+        "youth_unemployment": 5.2,
+        "labor_force_participation": 68.5,
+    },
+    "MYS": {
+        "unemployment_rate": 3.4,
+        "youth_unemployment": 12.1,
+        "labor_force_participation": 69.8,
+    },
+    "ARG": {
+        "unemployment_rate": 6.2,
+        "youth_unemployment": 18.0,
+        "labor_force_participation": 64.5,
+    },
+    "COL": {
+        "unemployment_rate": 10.2,
+        "youth_unemployment": 19.8,
+        "labor_force_participation": 63.1,
+    },
+    "CHL": {
+        "unemployment_rate": 8.5,
+        "youth_unemployment": 21.3,
+        "labor_force_participation": 62.0,
+    },
+    "EGY": {
+        "unemployment_rate": 7.1,
+        "youth_unemployment": 17.8,
+        "labor_force_participation": 43.2,
+    },
+    "TUR": {
+        "unemployment_rate": 9.4,
+        "youth_unemployment": 18.5,
+        "labor_force_participation": 53.8,
+    },
+    "ISR": {
+        "unemployment_rate": 3.4,
+        "youth_unemployment": 7.2,
+        "labor_force_participation": 64.1,
+    },
+    "NZL": {
+        "unemployment_rate": 3.9,
+        "youth_unemployment": 9.8,
+        "labor_force_participation": 71.2,
+    },
+    "POL": {
+        "unemployment_rate": 2.8,
+        "youth_unemployment": 11.2,
+        "labor_force_participation": 73.5,
+    },
+    "NLD": {
+        "unemployment_rate": 3.6,
+        "youth_unemployment": 8.9,
+        "labor_force_participation": 82.9,
+    },
+    "SWE": {
+        "unemployment_rate": 7.5,
+        "youth_unemployment": 20.1,
+        "labor_force_participation": 79.0,
+    },
+    "NOR": {
+        "unemployment_rate": 3.5,
+        "youth_unemployment": 10.5,
+        "labor_force_participation": 78.8,
+    },
+    "DNK": {
+        "unemployment_rate": 4.8,
+        "youth_unemployment": 10.3,
+        "labor_force_participation": 79.5,
+    },
+    "CHE": {
+        "unemployment_rate": 4.3,
+        "youth_unemployment": 8.2,
+        "labor_force_participation": 81.0,
+    },
 }
 
 
@@ -9956,7 +12250,8 @@ def fetch_ilo_labour_data(locations: List[str]) -> Dict[str, Any]:
         return {}
 
     result["data_confidence"] = max(
-        (d.get("data_confidence", 0.5) for d in result["countries"].values()), default=0.5
+        (d.get("data_confidence", 0.5) for d in result["countries"].values()),
+        default=0.5,
     )
     return result
 
@@ -9967,31 +12262,231 @@ def fetch_ilo_labour_data(locations: List[str]) -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _H1B_WAGE_DATA: Dict[str, Dict[str, Any]] = {
-    "15-1252.00": {"title": "Software Developers", "h1b_median_wage": 135000, "h1b_25th": 110000, "h1b_75th": 165000, "prevailing_wage": 118000, "total_lcas_2024": 186000, "top_employers": ["Google", "Microsoft", "Amazon", "Meta", "Apple"]},
-    "15-2051.00": {"title": "Data Scientists", "h1b_median_wage": 140000, "h1b_25th": 115000, "h1b_75th": 175000, "prevailing_wage": 120000, "total_lcas_2024": 42000, "top_employers": ["Google", "Meta", "Amazon", "Microsoft", "Apple"]},
-    "15-1243.00": {"title": "Database Architects", "h1b_median_wage": 130000, "h1b_25th": 105000, "h1b_75th": 160000, "prevailing_wage": 112000, "total_lcas_2024": 15000, "top_employers": ["Amazon", "Microsoft", "Oracle", "IBM"]},
-    "15-1244.00": {"title": "Network/Systems Admins", "h1b_median_wage": 110000, "h1b_25th": 88000, "h1b_75th": 135000, "prevailing_wage": 95000, "total_lcas_2024": 18000, "top_employers": ["Microsoft", "Cisco", "IBM", "AWS"]},
-    "15-1241.00": {"title": "Computer Network Architects", "h1b_median_wage": 140000, "h1b_25th": 115000, "h1b_75th": 170000, "prevailing_wage": 125000, "total_lcas_2024": 8000, "top_employers": ["Cisco", "Microsoft", "Amazon"]},
-    "15-1212.00": {"title": "Info Security Analysts", "h1b_median_wage": 128000, "h1b_25th": 100000, "h1b_75th": 155000, "prevailing_wage": 110000, "total_lcas_2024": 12000, "top_employers": ["Deloitte", "PwC", "Microsoft", "Amazon"]},
-    "15-1254.00": {"title": "Web Developers", "h1b_median_wage": 105000, "h1b_25th": 82000, "h1b_75th": 130000, "prevailing_wage": 92000, "total_lcas_2024": 22000, "top_employers": ["Google", "Amazon", "Meta", "Shopify"]},
-    "15-1255.00": {"title": "Web/Digital Interface Designers", "h1b_median_wage": 100000, "h1b_25th": 78000, "h1b_75th": 125000, "prevailing_wage": 88000, "total_lcas_2024": 5000, "top_employers": ["Apple", "Google", "Meta"]},
-    "11-2021.00": {"title": "Marketing Managers", "h1b_median_wage": 145000, "h1b_25th": 115000, "h1b_75th": 180000, "prevailing_wage": 130000, "total_lcas_2024": 8500, "top_employers": ["Google", "Amazon", "Meta", "Salesforce"]},
-    "11-2022.00": {"title": "Sales Managers", "h1b_median_wage": 140000, "h1b_25th": 110000, "h1b_75th": 175000, "prevailing_wage": 125000, "total_lcas_2024": 6000, "top_employers": ["Amazon", "Salesforce", "Oracle"]},
-    "13-1111.00": {"title": "Management Analysts", "h1b_median_wage": 115000, "h1b_25th": 90000, "h1b_75th": 145000, "prevailing_wage": 100000, "total_lcas_2024": 35000, "top_employers": ["Deloitte", "Accenture", "McKinsey", "EY"]},
-    "13-2051.00": {"title": "Financial Analysts", "h1b_median_wage": 110000, "h1b_25th": 85000, "h1b_75th": 140000, "prevailing_wage": 95000, "total_lcas_2024": 18000, "top_employers": ["JPMorgan", "Goldman Sachs", "Morgan Stanley"]},
-    "13-2011.00": {"title": "Accountants/Auditors", "h1b_median_wage": 82000, "h1b_25th": 65000, "h1b_75th": 105000, "prevailing_wage": 72000, "total_lcas_2024": 15000, "top_employers": ["Deloitte", "EY", "KPMG", "PwC"]},
-    "11-3121.00": {"title": "HR Managers", "h1b_median_wage": 130000, "h1b_25th": 105000, "h1b_75th": 160000, "prevailing_wage": 118000, "total_lcas_2024": 4000, "top_employers": ["Amazon", "Google", "Microsoft"]},
-    "13-1071.00": {"title": "HR Specialists", "h1b_median_wage": 78000, "h1b_25th": 62000, "h1b_75th": 98000, "prevailing_wage": 68000, "total_lcas_2024": 6000, "top_employers": ["Amazon", "Infosys", "Wipro"]},
-    "29-1141.00": {"title": "Registered Nurses", "h1b_median_wage": 78000, "h1b_25th": 62000, "h1b_75th": 95000, "prevailing_wage": 72000, "total_lcas_2024": 8000, "top_employers": ["HCA Healthcare", "Kaiser", "Mayo Clinic"]},
-    "17-2141.00": {"title": "Mechanical Engineers", "h1b_median_wage": 105000, "h1b_25th": 82000, "h1b_75th": 130000, "prevailing_wage": 92000, "total_lcas_2024": 12000, "top_employers": ["Tesla", "Boeing", "Lockheed Martin"]},
-    "17-2071.00": {"title": "Electrical Engineers", "h1b_median_wage": 115000, "h1b_25th": 90000, "h1b_75th": 140000, "prevailing_wage": 100000, "total_lcas_2024": 10000, "top_employers": ["Intel", "Qualcomm", "Apple", "Tesla"]},
-    "17-2051.00": {"title": "Civil Engineers", "h1b_median_wage": 95000, "h1b_25th": 75000, "h1b_75th": 120000, "prevailing_wage": 85000, "total_lcas_2024": 5000, "top_employers": ["AECOM", "Jacobs", "Bechtel"]},
-    "11-1021.00": {"title": "General/Ops Managers", "h1b_median_wage": 125000, "h1b_25th": 95000, "h1b_75th": 160000, "prevailing_wage": 108000, "total_lcas_2024": 8000, "top_employers": ["Amazon", "Google", "Microsoft"]},
-    "11-9199.00": {"title": "Managers, All Other", "h1b_median_wage": 120000, "h1b_25th": 95000, "h1b_75th": 155000, "prevailing_wage": 105000, "total_lcas_2024": 12000, "top_employers": ["Amazon", "Accenture", "Google"]},
-    "13-1081.00": {"title": "Logisticians", "h1b_median_wage": 88000, "h1b_25th": 68000, "h1b_75th": 110000, "prevailing_wage": 78000, "total_lcas_2024": 3000, "top_employers": ["Amazon", "FedEx", "UPS"]},
-    "15-1242.00": {"title": "Database Administrators", "h1b_median_wage": 115000, "h1b_25th": 90000, "h1b_75th": 140000, "prevailing_wage": 100000, "total_lcas_2024": 8000, "top_employers": ["Oracle", "Microsoft", "Amazon"]},
-    "27-1024.00": {"title": "Graphic Designers", "h1b_median_wage": 72000, "h1b_25th": 55000, "h1b_75th": 92000, "prevailing_wage": 62000, "total_lcas_2024": 2000, "top_employers": ["Apple", "Google", "Amazon"]},
-    "27-3042.00": {"title": "Technical Writers", "h1b_median_wage": 90000, "h1b_25th": 72000, "h1b_75th": 115000, "prevailing_wage": 80000, "total_lcas_2024": 3000, "top_employers": ["Google", "Microsoft", "Amazon"]},
+    "15-1252.00": {
+        "title": "Software Developers",
+        "h1b_median_wage": 135000,
+        "h1b_25th": 110000,
+        "h1b_75th": 165000,
+        "prevailing_wage": 118000,
+        "total_lcas_2024": 186000,
+        "top_employers": ["Google", "Microsoft", "Amazon", "Meta", "Apple"],
+    },
+    "15-2051.00": {
+        "title": "Data Scientists",
+        "h1b_median_wage": 140000,
+        "h1b_25th": 115000,
+        "h1b_75th": 175000,
+        "prevailing_wage": 120000,
+        "total_lcas_2024": 42000,
+        "top_employers": ["Google", "Meta", "Amazon", "Microsoft", "Apple"],
+    },
+    "15-1243.00": {
+        "title": "Database Architects",
+        "h1b_median_wage": 130000,
+        "h1b_25th": 105000,
+        "h1b_75th": 160000,
+        "prevailing_wage": 112000,
+        "total_lcas_2024": 15000,
+        "top_employers": ["Amazon", "Microsoft", "Oracle", "IBM"],
+    },
+    "15-1244.00": {
+        "title": "Network/Systems Admins",
+        "h1b_median_wage": 110000,
+        "h1b_25th": 88000,
+        "h1b_75th": 135000,
+        "prevailing_wage": 95000,
+        "total_lcas_2024": 18000,
+        "top_employers": ["Microsoft", "Cisco", "IBM", "AWS"],
+    },
+    "15-1241.00": {
+        "title": "Computer Network Architects",
+        "h1b_median_wage": 140000,
+        "h1b_25th": 115000,
+        "h1b_75th": 170000,
+        "prevailing_wage": 125000,
+        "total_lcas_2024": 8000,
+        "top_employers": ["Cisco", "Microsoft", "Amazon"],
+    },
+    "15-1212.00": {
+        "title": "Info Security Analysts",
+        "h1b_median_wage": 128000,
+        "h1b_25th": 100000,
+        "h1b_75th": 155000,
+        "prevailing_wage": 110000,
+        "total_lcas_2024": 12000,
+        "top_employers": ["Deloitte", "PwC", "Microsoft", "Amazon"],
+    },
+    "15-1254.00": {
+        "title": "Web Developers",
+        "h1b_median_wage": 105000,
+        "h1b_25th": 82000,
+        "h1b_75th": 130000,
+        "prevailing_wage": 92000,
+        "total_lcas_2024": 22000,
+        "top_employers": ["Google", "Amazon", "Meta", "Shopify"],
+    },
+    "15-1255.00": {
+        "title": "Web/Digital Interface Designers",
+        "h1b_median_wage": 100000,
+        "h1b_25th": 78000,
+        "h1b_75th": 125000,
+        "prevailing_wage": 88000,
+        "total_lcas_2024": 5000,
+        "top_employers": ["Apple", "Google", "Meta"],
+    },
+    "11-2021.00": {
+        "title": "Marketing Managers",
+        "h1b_median_wage": 145000,
+        "h1b_25th": 115000,
+        "h1b_75th": 180000,
+        "prevailing_wage": 130000,
+        "total_lcas_2024": 8500,
+        "top_employers": ["Google", "Amazon", "Meta", "Salesforce"],
+    },
+    "11-2022.00": {
+        "title": "Sales Managers",
+        "h1b_median_wage": 140000,
+        "h1b_25th": 110000,
+        "h1b_75th": 175000,
+        "prevailing_wage": 125000,
+        "total_lcas_2024": 6000,
+        "top_employers": ["Amazon", "Salesforce", "Oracle"],
+    },
+    "13-1111.00": {
+        "title": "Management Analysts",
+        "h1b_median_wage": 115000,
+        "h1b_25th": 90000,
+        "h1b_75th": 145000,
+        "prevailing_wage": 100000,
+        "total_lcas_2024": 35000,
+        "top_employers": ["Deloitte", "Accenture", "McKinsey", "EY"],
+    },
+    "13-2051.00": {
+        "title": "Financial Analysts",
+        "h1b_median_wage": 110000,
+        "h1b_25th": 85000,
+        "h1b_75th": 140000,
+        "prevailing_wage": 95000,
+        "total_lcas_2024": 18000,
+        "top_employers": ["JPMorgan", "Goldman Sachs", "Morgan Stanley"],
+    },
+    "13-2011.00": {
+        "title": "Accountants/Auditors",
+        "h1b_median_wage": 82000,
+        "h1b_25th": 65000,
+        "h1b_75th": 105000,
+        "prevailing_wage": 72000,
+        "total_lcas_2024": 15000,
+        "top_employers": ["Deloitte", "EY", "KPMG", "PwC"],
+    },
+    "11-3121.00": {
+        "title": "HR Managers",
+        "h1b_median_wage": 130000,
+        "h1b_25th": 105000,
+        "h1b_75th": 160000,
+        "prevailing_wage": 118000,
+        "total_lcas_2024": 4000,
+        "top_employers": ["Amazon", "Google", "Microsoft"],
+    },
+    "13-1071.00": {
+        "title": "HR Specialists",
+        "h1b_median_wage": 78000,
+        "h1b_25th": 62000,
+        "h1b_75th": 98000,
+        "prevailing_wage": 68000,
+        "total_lcas_2024": 6000,
+        "top_employers": ["Amazon", "Infosys", "Wipro"],
+    },
+    "29-1141.00": {
+        "title": "Registered Nurses",
+        "h1b_median_wage": 78000,
+        "h1b_25th": 62000,
+        "h1b_75th": 95000,
+        "prevailing_wage": 72000,
+        "total_lcas_2024": 8000,
+        "top_employers": ["HCA Healthcare", "Kaiser", "Mayo Clinic"],
+    },
+    "17-2141.00": {
+        "title": "Mechanical Engineers",
+        "h1b_median_wage": 105000,
+        "h1b_25th": 82000,
+        "h1b_75th": 130000,
+        "prevailing_wage": 92000,
+        "total_lcas_2024": 12000,
+        "top_employers": ["Tesla", "Boeing", "Lockheed Martin"],
+    },
+    "17-2071.00": {
+        "title": "Electrical Engineers",
+        "h1b_median_wage": 115000,
+        "h1b_25th": 90000,
+        "h1b_75th": 140000,
+        "prevailing_wage": 100000,
+        "total_lcas_2024": 10000,
+        "top_employers": ["Intel", "Qualcomm", "Apple", "Tesla"],
+    },
+    "17-2051.00": {
+        "title": "Civil Engineers",
+        "h1b_median_wage": 95000,
+        "h1b_25th": 75000,
+        "h1b_75th": 120000,
+        "prevailing_wage": 85000,
+        "total_lcas_2024": 5000,
+        "top_employers": ["AECOM", "Jacobs", "Bechtel"],
+    },
+    "11-1021.00": {
+        "title": "General/Ops Managers",
+        "h1b_median_wage": 125000,
+        "h1b_25th": 95000,
+        "h1b_75th": 160000,
+        "prevailing_wage": 108000,
+        "total_lcas_2024": 8000,
+        "top_employers": ["Amazon", "Google", "Microsoft"],
+    },
+    "11-9199.00": {
+        "title": "Managers, All Other",
+        "h1b_median_wage": 120000,
+        "h1b_25th": 95000,
+        "h1b_75th": 155000,
+        "prevailing_wage": 105000,
+        "total_lcas_2024": 12000,
+        "top_employers": ["Amazon", "Accenture", "Google"],
+    },
+    "13-1081.00": {
+        "title": "Logisticians",
+        "h1b_median_wage": 88000,
+        "h1b_25th": 68000,
+        "h1b_75th": 110000,
+        "prevailing_wage": 78000,
+        "total_lcas_2024": 3000,
+        "top_employers": ["Amazon", "FedEx", "UPS"],
+    },
+    "15-1242.00": {
+        "title": "Database Administrators",
+        "h1b_median_wage": 115000,
+        "h1b_25th": 90000,
+        "h1b_75th": 140000,
+        "prevailing_wage": 100000,
+        "total_lcas_2024": 8000,
+        "top_employers": ["Oracle", "Microsoft", "Amazon"],
+    },
+    "27-1024.00": {
+        "title": "Graphic Designers",
+        "h1b_median_wage": 72000,
+        "h1b_25th": 55000,
+        "h1b_75th": 92000,
+        "prevailing_wage": 62000,
+        "total_lcas_2024": 2000,
+        "top_employers": ["Apple", "Google", "Amazon"],
+    },
+    "27-3042.00": {
+        "title": "Technical Writers",
+        "h1b_median_wage": 90000,
+        "h1b_25th": 72000,
+        "h1b_75th": 115000,
+        "prevailing_wage": 80000,
+        "total_lcas_2024": 3000,
+        "top_employers": ["Google", "Microsoft", "Amazon"],
+    },
 }
 
 
@@ -10036,7 +12531,6 @@ def fetch_h1b_wage_benchmarks(roles: List[str]) -> Dict[str, Any]:
     return result if len(result) > 1 else {}
 
 
-
 def fetch_geopolitical_context(
     locations: list,
     industry: str = "",
@@ -10045,9 +12539,15 @@ def fetch_geopolitical_context(
 ) -> dict:
     """Use LLM to assess geopolitical/macro events impacting recruitment in given locations."""
     if not locations:
-        return {"overall_risk_score": 1.0, "risk_level": "low", "locations": {},
-                "summary": "No locations provided.", "recommendations": [],
-                "source": "none", "confidence": 0.0}
+        return {
+            "overall_risk_score": 1.0,
+            "risk_level": "low",
+            "locations": {},
+            "summary": "No locations provided.",
+            "recommendations": [],
+            "source": "none",
+            "confidence": 0.0,
+        }
 
     try:
         from llm_router import call_llm, TASK_RESEARCH
@@ -10055,9 +12555,26 @@ def fetch_geopolitical_context(
         _log_warn("llm_router not available for geopolitical context")
         return _geopolitical_fallback(locations)
 
-    month_names = ["", "January", "February", "March", "April", "May", "June",
-                   "July", "August", "September", "October", "November", "December"]
-    month_str = month_names[campaign_start_month] if 1 <= campaign_start_month <= 12 else "the current period"
+    month_names = [
+        "",
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ]
+    month_str = (
+        month_names[campaign_start_month]
+        if 1 <= campaign_start_month <= 12
+        else "the current period"
+    )
     roles_str = ", ".join((roles or [])[:5]) or "various roles"
     locations_str = ", ".join(locations[:10])
 
@@ -10106,11 +12623,13 @@ Respond ONLY in valid JSON with this exact structure:
             query_text=f"geopolitical risk for recruitment in {locations_str}",
         )
         if result and (result.get("text") or result.get("content")):
-            content = result.get("text") or result.get("content", "")
-            json_match = re.search(r'\{[\s\S]*\}', content)
+            content = result.get("text") or result.get("content") or ""
+            json_match = re.search(r"\{[\s\S]*\}", content)
             if json_match:
                 parsed = json.loads(json_match.group())
-                parsed["source"] = f"llm_geopolitical_analysis ({result.get('provider', 'unknown')})"
+                parsed["source"] = (
+                    f"llm_geopolitical_analysis ({result.get('provider', 'unknown')})"
+                )
                 parsed["confidence"] = 0.7
                 score = parsed.get("overall_risk_score", 1.0)
                 if score <= 3:
@@ -10133,7 +12652,10 @@ def _geopolitical_fallback(locations: list) -> dict:
     return {
         "overall_risk_score": 3.0,
         "risk_level": "low",
-        "locations": {loc: {"risk_score": 3.0, "events": [], "budget_adjustment_factor": 1.0} for loc in locations},
+        "locations": {
+            loc: {"risk_score": 3.0, "events": [], "budget_adjustment_factor": 1.0}
+            for loc in locations
+        },
         "summary": "Geopolitical risk analysis unavailable. Using default low-risk assumption.",
         "recommendations": ["Monitor local news for the campaign locations."],
         "source": "fallback",
@@ -10143,6 +12665,7 @@ def _geopolitical_fallback(locations: list) -> dict:
 
 # Main enrichment orchestrator
 # ---------------------------------------------------------------------------
+
 
 def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     """
@@ -10176,9 +12699,9 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     apis_failed: List[str] = []
 
     # --- Normalize inputs ---
-    client_name = data.get("client_name", "") or ""
-    client_website = data.get("client_website", "") or ""
-    industry = data.get("industry", "") or ""
+    client_name = data.get("client_name") or "" or ""
+    client_website = data.get("client_website") or "" or ""
+    industry = data.get("industry") or "" or ""
     roles = data.get("roles") or data.get("job_titles") or []
     locations = data.get("locations") or []
     competitors = data.get("competitors") or []
@@ -10191,13 +12714,23 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
         competitors = [c.strip() for c in competitors.split(",")]
 
     # Normalize dict inputs to strings (handles structured input like {"title": "...", "count": 5})
-    roles = [r.get("title", "") if isinstance(r, dict) else r for r in roles]
+    roles = [r.get("title") or "" if isinstance(r, dict) else r for r in roles]
     locations = [
-        ", ".join(filter(None, [l.get("city", ""), l.get("state", ""), l.get("country", "")]))
-        if isinstance(l, dict) else l
+        (
+            ", ".join(
+                filter(
+                    None,
+                    [l.get("city") or "", l.get("state") or "", l.get("country") or ""],
+                )
+            )
+            if isinstance(l, dict)
+            else l
+        )
         for l in locations
     ]
-    competitors = [c.get("name", "") if isinstance(c, dict) else c for c in competitors]
+    competitors = [
+        c.get("name") or "" if isinstance(c, dict) else c for c in competitors
+    ]
 
     # Filter out empty strings from lists
     roles = [r for r in roles if isinstance(r, str) and r.strip()]
@@ -10244,107 +12777,220 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     tasks: List[tuple] = []
 
     if roles:
-        tasks.append(("salary_data", "BLS",
-                       lambda _r=roles: fetch_salary_data(_r)))
+        tasks.append(("salary_data", "BLS", lambda _r=roles: fetch_salary_data(_r)))
 
     if industry:
-        tasks.append(("industry_employment", "BLS-QCEW",
-                       lambda _i=industry: fetch_industry_employment(_i)))
+        tasks.append(
+            (
+                "industry_employment",
+                "BLS-QCEW",
+                lambda _i=industry: fetch_industry_employment(_i),
+            )
+        )
 
     if locations:
-        tasks.append(("location_demographics", "Census-ACS",
-                       lambda _l=locations: fetch_location_demographics(_l)))
-        tasks.append(("global_indicators", "WorldBank",
-                       lambda _l=locations: fetch_global_indicators(_l)))
+        tasks.append(
+            (
+                "location_demographics",
+                "Census-ACS",
+                lambda _l=locations: fetch_location_demographics(_l),
+            )
+        )
+        tasks.append(
+            (
+                "global_indicators",
+                "WorldBank",
+                lambda _l=locations: fetch_global_indicators(_l),
+            )
+        )
 
     if roles and locations:
-        tasks.append(("job_market", "Adzuna",
-                       lambda _r=roles, _l=locations: fetch_job_market(_r, _l)))
+        tasks.append(
+            (
+                "job_market",
+                "Adzuna",
+                lambda _r=roles, _l=locations: fetch_job_market(_r, _l),
+            )
+        )
 
     if client_name:
-        tasks.append(("company_info", "Wikipedia",
-                       lambda _cn=client_name, _cw=client_website: fetch_company_info(_cn, _cw)))
-        tasks.append(("company_metadata", "Clearbit-Auto",
-                       lambda _cn=client_name, _cw=client_website: fetch_company_metadata(_cn, _cw)))
-        tasks.append(("sec_data", "SEC-EDGAR",
-                       lambda _cn=client_name: fetch_sec_company_data(_cn)))
+        tasks.append(
+            (
+                "company_info",
+                "Wikipedia",
+                lambda _cn=client_name, _cw=client_website: fetch_company_info(
+                    _cn, _cw
+                ),
+            )
+        )
+        tasks.append(
+            (
+                "company_metadata",
+                "Clearbit-Auto",
+                lambda _cn=client_name, _cw=client_website: fetch_company_metadata(
+                    _cn, _cw
+                ),
+            )
+        )
+        tasks.append(
+            (
+                "sec_data",
+                "SEC-EDGAR",
+                lambda _cn=client_name: fetch_sec_company_data(_cn),
+            )
+        )
 
     if competitors:
-        tasks.append(("competitor_logos", "Clearbit",
-                       lambda _c=competitors: fetch_competitor_logos(_c)))
+        tasks.append(
+            (
+                "competitor_logos",
+                "Clearbit",
+                lambda _c=competitors: fetch_competitor_logos(_c),
+            )
+        )
 
     # Currency rates (tries live API, falls back to hardcoded)
-    tasks.append(("currency_rates", "CurrencyRates",
-                  lambda: fetch_currency_rates()))
+    tasks.append(("currency_rates", "CurrencyRates", lambda: fetch_currency_rates()))
 
     # FRED economic indicators (if API key available)
-    tasks.append(("fred_indicators", "FRED",
-                  lambda: fetch_fred_indicators()))
+    tasks.append(("fred_indicators", "FRED", lambda: fetch_fred_indicators()))
 
     # Google Trends for roles (if pytrends installed)
     if roles:
         trend_keywords = [r for r in roles[:3]]
         if client_name:
             trend_keywords.insert(0, f"{client_name} jobs")
-        tasks.append(("search_trends", "GoogleTrends",
-                       lambda _kw=trend_keywords: fetch_search_trends(_kw)))
+        tasks.append(
+            (
+                "search_trends",
+                "GoogleTrends",
+                lambda _kw=trend_keywords: fetch_search_trends(_kw),
+            )
+        )
 
     # --- New APIs (O*NET, IMF, REST Countries, GeoNames, Teleport, DataUSA) ---
 
     if roles:
-        tasks.append(("onet_data", "O*NET",
-                       lambda _r=roles: fetch_onet_occupation_data(_r)))
-        tasks.append(("datausa_occupation", "DataUSA-Occ",
-                       lambda _r=roles: fetch_datausa_occupation_stats(_r)))
+        tasks.append(
+            ("onet_data", "O*NET", lambda _r=roles: fetch_onet_occupation_data(_r))
+        )
+        tasks.append(
+            (
+                "datausa_occupation",
+                "DataUSA-Occ",
+                lambda _r=roles: fetch_datausa_occupation_stats(_r),
+            )
+        )
 
     if locations:
-        tasks.append(("imf_indicators", "IMF",
-                       lambda _l=locations: fetch_imf_indicators(_l)))
-        tasks.append(("country_data", "RESTCountries",
-                       lambda _l=locations: fetch_country_data(_l)))
-        tasks.append(("geonames_data", "GeoNames",
-                       lambda _l=locations: fetch_geonames_data(_l)))
-        tasks.append(("teleport_data", "Teleport",
-                       lambda _l=locations: fetch_teleport_city_data(_l)))
-        tasks.append(("datausa_location", "DataUSA-Loc",
-                       lambda _l=locations: fetch_datausa_location_data(_l)))
+        tasks.append(
+            ("imf_indicators", "IMF", lambda _l=locations: fetch_imf_indicators(_l))
+        )
+        tasks.append(
+            (
+                "country_data",
+                "RESTCountries",
+                lambda _l=locations: fetch_country_data(_l),
+            )
+        )
+        tasks.append(
+            ("geonames_data", "GeoNames", lambda _l=locations: fetch_geonames_data(_l))
+        )
+        tasks.append(
+            (
+                "teleport_data",
+                "Teleport",
+                lambda _l=locations: fetch_teleport_city_data(_l),
+            )
+        )
+        tasks.append(
+            (
+                "datausa_location",
+                "DataUSA-Loc",
+                lambda _l=locations: fetch_datausa_location_data(_l),
+            )
+        )
 
     # --- Ad Platform & Job Market APIs (19-25) ---
 
     if roles:
-        tasks.append(("google_ads_data", "GoogleAds",
-                       lambda _r=roles, _l=locations: fetch_google_ads_data(_r, _l)))
-        tasks.append(("meta_ads_data", "MetaAds",
-                       lambda _r=roles, _l=locations: fetch_meta_ads_data(_r, _l)))
-        tasks.append(("bing_ads_data", "BingAds",
-                       lambda _r=roles, _l=locations: fetch_bing_ads_data(_r, _l)))
-        tasks.append(("tiktok_ads_data", "TikTokAds",
-                       lambda _r=roles, _l=locations: fetch_tiktok_ads_data(_r, _l)))
-        tasks.append(("linkedin_ads_data", "LinkedInAds",
-                       lambda _r=roles, _l=locations: fetch_linkedin_ads_data(_r, _l)))
-        tasks.append(("careeronestop_data", "CareerOneStop",
-                       lambda _r=roles, _l=locations: fetch_careeronestop_data(_r, _l)))
+        tasks.append(
+            (
+                "google_ads_data",
+                "GoogleAds",
+                lambda _r=roles, _l=locations: fetch_google_ads_data(_r, _l),
+            )
+        )
+        tasks.append(
+            (
+                "meta_ads_data",
+                "MetaAds",
+                lambda _r=roles, _l=locations: fetch_meta_ads_data(_r, _l),
+            )
+        )
+        tasks.append(
+            (
+                "bing_ads_data",
+                "BingAds",
+                lambda _r=roles, _l=locations: fetch_bing_ads_data(_r, _l),
+            )
+        )
+        tasks.append(
+            (
+                "tiktok_ads_data",
+                "TikTokAds",
+                lambda _r=roles, _l=locations: fetch_tiktok_ads_data(_r, _l),
+            )
+        )
+        tasks.append(
+            (
+                "linkedin_ads_data",
+                "LinkedInAds",
+                lambda _r=roles, _l=locations: fetch_linkedin_ads_data(_r, _l),
+            )
+        )
+        tasks.append(
+            (
+                "careeronestop_data",
+                "CareerOneStop",
+                lambda _r=roles, _l=locations: fetch_careeronestop_data(_r, _l),
+            )
+        )
 
     if roles and locations:
-        tasks.append(("jooble_data", "Jooble",
-                       lambda _r=roles, _l=locations: fetch_jooble_data(_r, _l)))
+        tasks.append(
+            (
+                "jooble_data",
+                "Jooble",
+                lambda _r=roles, _l=locations: fetch_jooble_data(_r, _l),
+            )
+        )
 
     # --- New APIs (28-30): Eurostat, ILO, H-1B ---
 
     if locations:
-        tasks.append(("eurostat_data", "Eurostat",
-                       lambda _l=locations: fetch_eurostat_labour_data(_l)))
-        tasks.append(("ilo_data", "ILO-ILOSTAT",
-                       lambda _l=locations: fetch_ilo_labour_data(_l)))
+        tasks.append(
+            (
+                "eurostat_data",
+                "Eurostat",
+                lambda _l=locations: fetch_eurostat_labour_data(_l),
+            )
+        )
+        tasks.append(
+            ("ilo_data", "ILO-ILOSTAT", lambda _l=locations: fetch_ilo_labour_data(_l))
+        )
 
     if roles:
-        tasks.append(("h1b_data", "H1B-Wages",
-                       lambda _r=roles: fetch_h1b_wage_benchmarks(_r)))
+        tasks.append(
+            ("h1b_data", "H1B-Wages", lambda _r=roles: fetch_h1b_wage_benchmarks(_r))
+        )
 
     # --- Execute tasks concurrently ---
-    _log_info(f"Starting enrichment with {len(tasks)} tasks "
-              f"(roles={len(roles)}, locations={len(locations)}, "
-              f"competitors={len(competitors)})")
+    _log_info(
+        f"Starting enrichment with {len(tasks)} tasks "
+        f"(roles={len(roles)}, locations={len(locations)}, "
+        f"competitors={len(competitors)})"
+    )
 
     apis_skipped: List[str] = []
     apis_circuit_broken: List[str] = []
@@ -10354,7 +13000,9 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     # Each enrich_data() creates a ThreadPoolExecutor(max_workers=15);
     # the semaphore caps total concurrent enrichments at 10 (= 150 threads).
     if not _enrichment_semaphore.acquire(timeout=120):  # 2-minute wait max
-        _log_warn("enrich_data: too many concurrent enrichments, returning partial data")
+        _log_warn(
+            "enrich_data: too many concurrent enrichments, returning partial data"
+        )
         return enriched  # Return what we have so far
 
     try:
@@ -10408,7 +13056,7 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
             locations=locations,
             industry=industry,
             roles=roles,
-            campaign_start_month=int(data.get("campaign_start_month", 0) or 0),
+            campaign_start_month=int(data.get("campaign_start_month") or 0 or 0),
         )
     except Exception as e:
         _log_warn("Geopolitical context enrichment failed: %s" % e)
@@ -10419,7 +13067,8 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     # Confidence score: ratio of successful (live + cached) calls to total
     total_calls = len(apis_called) if apis_called else 1  # avoid division by zero
     successful_calls = sum(
-        1 for d in api_details.values()
+        1
+        for d in api_details.values()
         if d.get("success", False) and d.get("source") in ("live", "cached")
     )
     confidence_score = round(successful_calls / total_calls, 3)
@@ -10439,13 +13088,16 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     }
 
     ok_count = len(apis_succeeded) + len(apis_skipped)
-    cb_msg = (f", {len(apis_circuit_broken)} circuit-broken"
-              if apis_circuit_broken else "")
-    _log_info(f"Enrichment complete in {elapsed}s — "
-              f"{ok_count}/{len(apis_called)} APIs ok "
-              f"({len(apis_succeeded)} data, {len(apis_skipped)} skipped, "
-              f"{len(apis_failed)} failed{cb_msg}) "
-              f"[confidence={confidence_score}]")
+    cb_msg = (
+        f", {len(apis_circuit_broken)} circuit-broken" if apis_circuit_broken else ""
+    )
+    _log_info(
+        f"Enrichment complete in {elapsed}s — "
+        f"{ok_count}/{len(apis_called)} APIs ok "
+        f"({len(apis_succeeded)} data, {len(apis_skipped)} skipped, "
+        f"{len(apis_failed)} failed{cb_msg}) "
+        f"[confidence={confidence_score}]"
+    )
 
     return enriched
 
@@ -10475,8 +13127,11 @@ def _safe_call(func, label: str):
 
     # --- Circuit breaker gate ---
     if _circuit_breaker_check(label):
-        _log_warn(f"[{rid}] Circuit breaker OPEN — skipping API '{label}'" if rid
-                  else f"Circuit breaker OPEN — skipping API '{label}'")
+        _log_warn(
+            f"[{rid}] Circuit breaker OPEN — skipping API '{label}'"
+            if rid
+            else f"Circuit breaker OPEN — skipping API '{label}'"
+        )
         metadata["source"] = "circuit_open"
         metadata["elapsed_time"] = 0.0
         return None, "circuit_open", metadata
@@ -10540,7 +13195,9 @@ def _safe_call(func, label: str):
         _circuit_breaker_record_success(label)
         metadata["success"] = True
         if rid:
-            _log_info(f"[{rid}] API '{label}' — {metadata['source']} response in {elapsed}s")
+            _log_info(
+                f"[{rid}] API '{label}' — {metadata['source']} response in {elapsed}s"
+            )
         return result, "ok", metadata
 
     except Exception as exc:
@@ -10552,7 +13209,8 @@ def _safe_call(func, label: str):
         _circuit_breaker_record_failure(label)
         _log_warn(
             f"[{rid}] API '{label}' raised an exception after {elapsed}s: {exc}"
-            if rid else f"API '{label}' raised an exception after {elapsed}s: {exc}"
+            if rid
+            else f"API '{label}' raised an exception after {elapsed}s: {exc}"
         )
         return None, "error", metadata
 
@@ -10560,6 +13218,7 @@ def _safe_call(func, label: str):
 # ---------------------------------------------------------------------------
 # Convenience: clear all caches
 # ---------------------------------------------------------------------------
+
 
 def clear_cache(memory: bool = True, disk: bool = True) -> None:
     """Clear in-memory and/or disk caches."""
@@ -10582,6 +13241,7 @@ def clear_cache(memory: bool = True, disk: bool = True) -> None:
 # ---------------------------------------------------------------------------
 # CLI entry point for testing
 # ---------------------------------------------------------------------------
+
 
 def _cli_demo():
     """Run a quick enrichment demo from the command line."""

@@ -1063,6 +1063,67 @@
 
         // ── Event ──
 
+        function displayResults(data) {
+          renderVariant(
+            document.getElementById("variantA"),
+            data.variantA || data.variant_a,
+            "Variant A",
+            "Benefits-Focused Approach",
+          );
+          renderVariant(
+            document.getElementById("variantB"),
+            data.variantB || data.variant_b,
+            "Variant B",
+            "Culture-Focused Approach",
+          );
+          renderConfig(data);
+          if (data.tips) renderTips(data.tips);
+
+          var results = document.getElementById("results");
+          results.style.display = "block";
+          results.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        function mapApiResponse(apiData, channel, budget) {
+          /* Map backend API response to frontend display format */
+          var estCpa = apiData.estimated_cpa || 25;
+          var split = apiData.traffic_split || "50/50";
+          var dur = apiData.recommended_duration_days || 14;
+
+          return {
+            variantA: apiData.variant_a,
+            variantB: apiData.variant_b,
+            config: {
+              split: split,
+              splitNote:
+                budget >= 3000
+                  ? "Budget supports equal split for statistically balanced comparison"
+                  : "Lean toward the control variant (60%) with limited budget to reduce risk",
+              duration: dur + " days",
+              durationNote:
+                dur <= 14
+                  ? "Adequate budget for a quick test cycle"
+                  : dur <= 30
+                    ? "Moderate timeline -- allow the full duration for significance"
+                    : "Extended test needed due to lower expected volume",
+              minSample:
+                (
+                  apiData.statistical_requirements.sample_size || 0
+                ).toLocaleString() + " applications per variant",
+              sampleNote:
+                "Confidence: " +
+                (apiData.statistical_requirements.confidence_level || "95%") +
+                ", MDE: " +
+                (apiData.statistical_requirements.min_detectable_effect ||
+                  "2%"),
+              estCpa: "$" + estCpa,
+              cpaNote: "Estimated CPA for " + channel,
+            },
+            metrics: apiData.success_metrics || [],
+            tips: channelTips[channel] || channelTips["Indeed"],
+          };
+        }
+
         document
           .getElementById("abForm")
           .addEventListener("submit", function (e) {
@@ -1076,32 +1137,42 @@
             if (!jobTitle || !industry || !audience || !channel || !budget)
               return;
 
-            var data = generateTest(
-              jobTitle,
-              industry,
-              audience,
-              channel,
-              budget,
-            );
+            // Try API first, fall back to client-side
+            var payload = {
+              job_title: jobTitle,
+              company: "Your Company",
+              industry: industry,
+              test_type: "benefits_vs_culture",
+              channel: channel,
+              budget: budget,
+              audience: audience,
+            };
 
-            renderVariant(
-              document.getElementById("variantA"),
-              data.variantA,
-              "Variant A",
-              "Benefits-Focused Approach",
-            );
-            renderVariant(
-              document.getElementById("variantB"),
-              data.variantB,
-              "Variant B",
-              "Culture-Focused Approach",
-            );
-            renderConfig(data);
-            renderTips(data.tips);
-
-            var results = document.getElementById("results");
-            results.style.display = "block";
-            results.scrollIntoView({ behavior: "smooth", block: "start" });
+            fetch("/api/ab-test/generate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            })
+              .then(function (resp) {
+                if (!resp.ok) throw new Error("API error");
+                return resp.json();
+              })
+              .then(function (apiData) {
+                if (apiData.error) throw new Error(apiData.error);
+                var mapped = mapApiResponse(apiData, channel, budget);
+                displayResults(mapped);
+              })
+              .catch(function () {
+                // Fallback to client-side generation
+                var data = generateTest(
+                  jobTitle,
+                  industry,
+                  audience,
+                  channel,
+                  budget,
+                );
+                displayResults(data);
+              });
           });
       })();
 

@@ -665,6 +665,18 @@
     </style>
   </head>
   <body>
+    <script>
+      // ── CSRF token fetch (auto-included in POST requests) ──
+      window.__csrfToken = "";
+      fetch("/api/csrf-token")
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          window.__csrfToken = d.token || "";
+        })
+        .catch(function () {});
+    </script>
     <!-- Nav -->
     <nav class="nav">
       <a href="/" class="nav-brand">
@@ -864,6 +876,27 @@
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
             Download as Excel
+          </button>
+          <button
+            type="button"
+            class="btn-primary"
+            id="downloadPptBtn"
+            style="margin-left: 8px"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download as PPT
           </button>
           <button type="button" class="btn-secondary" id="resetBtn">
             Reset Form
@@ -1506,7 +1539,10 @@
 
             fetch("/api/post-campaign/download/excel", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": window.__csrfToken,
+              },
               body: JSON.stringify(payload),
             })
               .then(function (resp) {
@@ -1530,6 +1566,86 @@
                 btn.disabled = false;
                 btn.innerHTML =
                   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download as Excel';
+              });
+          });
+
+        // ── Download PPT ──
+        document
+          .getElementById("downloadPptBtn")
+          .addEventListener("click", function () {
+            var btn = this;
+            btn.disabled = true;
+            btn.textContent = "Generating...";
+
+            var channelData = gatherChannelData();
+            var industry = document.getElementById("industry").value;
+            var benchmarkCpa = BENCHMARKS[industry] || 20;
+
+            // Add grade to each channel
+            channelData.forEach(function (c) {
+              var g = getGrade(c.cpa, benchmarkCpa);
+              c.grade = g.grade;
+            });
+
+            // Gather recommendations from the rendered list
+            var recsEls = document.querySelectorAll("#recsList li");
+            var recs = [];
+            recsEls.forEach(function (li) {
+              recs.push(li.textContent.trim());
+            });
+
+            // Calculate overall grade from CPA
+            var totalSpend = 0,
+              totalApps = 0;
+            channelData.forEach(function (c) {
+              totalSpend += c.spend;
+              totalApps += c.applications;
+            });
+            var overallCpa = totalApps > 0 ? totalSpend / totalApps : 0;
+            var og = getGrade(overallCpa, benchmarkCpa);
+
+            var payload = {
+              campaign_name: document
+                .getElementById("campaignName")
+                .value.trim(),
+              client_name: document.getElementById("clientName").value.trim(),
+              start_date: document.getElementById("startDate").value,
+              end_date: document.getElementById("endDate").value,
+              total_budget:
+                parseFloat(document.getElementById("totalBudget").value) || 0,
+              industry: industry,
+              benchmark_cpa: benchmarkCpa,
+              channels: channelData,
+              overall_grade: og.grade,
+              recommendations: recs,
+            };
+
+            fetch("/api/post-campaign/download/ppt", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            })
+              .then(function (resp) {
+                if (!resp.ok) throw new Error("Download failed");
+                return resp.blob();
+              })
+              .then(function (blob) {
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = "post_campaign_analysis.pptx";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              })
+              .catch(function (err) {
+                alert("Failed to download PPT file: " + err.message);
+              })
+              .finally(function () {
+                btn.disabled = false;
+                btn.innerHTML =
+                  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download as PPT';
               });
           });
 
