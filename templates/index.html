@@ -2955,14 +2955,14 @@
         text-align: center;
       }
       .plan-metric-label {
-        font-size: 0.78rem;
-        color: #666;
+        font-size: 0.7rem;
+        color: #6b7280;
         margin-bottom: 8px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
       }
       .plan-metric-value {
-        font-size: 1.8rem;
+        font-size: 1.6rem;
         font-weight: 700;
         color: white;
       }
@@ -2975,6 +2975,7 @@
         text-transform: uppercase;
         letter-spacing: 0.5px;
         color: var(--text-muted, #666);
+        margin-top: 24px;
         margin-bottom: 8px;
       }
       .plan-channels {
@@ -2995,14 +2996,14 @@
       }
       .plan-channel-track {
         flex: 1;
-        height: 10px;
+        height: 8px;
         background: rgba(255, 255, 255, 0.05);
-        border-radius: 5px;
+        border-radius: 4px;
         overflow: hidden;
       }
       .plan-channel-fill {
         height: 100%;
-        border-radius: 5px;
+        border-radius: 4px;
         transition: width 1s ease;
       }
       .plan-channel-fill.bar-indigo {
@@ -5720,8 +5721,7 @@
         html += "</div>"; // .plan-channels
 
         // Channel detail cards
-        html +=
-          '<div class="plan-section-label" style="margin-top: 16px">Channel Details</div>';
+        html += '<div class="plan-section-label">Channel Details</div>';
         html += '<div class="plan-channel-cards">';
         enabledChannels.forEach((ch) => {
           const badgeClass =
@@ -5809,8 +5809,7 @@
           "Full channel strategy, budget breakdowns, and hiring funnel projections are included in the downloaded Excel and PPT files.",
         );
 
-        html +=
-          '<div class="plan-section-label" style="margin-top: 16px">Key Insights</div>';
+        html += '<div class="plan-section-label">Key Insights</div>';
         html += '<div class="plan-insights-card">';
         html += "<ul>";
         insights.forEach((insight) => {
