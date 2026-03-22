@@ -212,8 +212,8 @@
         font-weight: 600;
         color: var(--text-secondary);
         margin-bottom: 5px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        text-transform: none;
+        letter-spacing: 0.02em;
       }
 
       .form-input {
@@ -835,11 +835,26 @@
     <!-- ═══ HEADER ═══ -->
     <header class="simulator-header">
       <div class="header-left">
-        <div class="logo">&#9889;</div>
+        <div class="logo">
+          <svg viewBox="0 0 32 32" fill="none" width="28" height="28">
+            <rect width="32" height="32" rx="6" fill="#6366F1" />
+            <text
+              x="16"
+              y="22"
+              text-anchor="middle"
+              fill="white"
+              font-family="Inter,sans-serif"
+              font-weight="800"
+              font-size="18"
+            >
+              N
+            </text>
+          </svg>
+        </div>
         <h1>Budget Simulator</h1>
       </div>
       <div class="header-right">
-        <a href="/">Back to Media Planner</a>
+        <a href="/">Back to Nova AI Suite</a>
       </div>
     </header>
 

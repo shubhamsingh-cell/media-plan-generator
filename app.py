@@ -17308,7 +17308,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Document not found"}).encode())
-        elif path in ("/nova", "/nova/"):
+        elif path in ("/nova", "/nova/", "/nova-jarvis", "/nova-jarvis/"):
             # ── Nova Jarvis UI ──
             jarvis_html = os.path.join(BASE_DIR, "templates", "nova-jarvis.html")
             if os.path.exists(jarvis_html):

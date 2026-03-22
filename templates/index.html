@@ -3449,6 +3449,29 @@
         color: white;
       }
 
+      .btn-regenerate {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: transparent;
+        border: 1px solid rgba(99, 102, 241, 0.4);
+        border-radius: 10px;
+        color: var(--accent-light, #818cf8);
+        font-size: 0.85rem;
+        font-family: inherit;
+        cursor: pointer;
+        transition:
+          background 0.2s,
+          border-color 0.2s,
+          color 0.2s;
+      }
+      .btn-regenerate:hover {
+        background: rgba(99, 102, 241, 0.1);
+        border-color: rgba(99, 102, 241, 0.6);
+        color: white;
+      }
+
       /* ── Confidence Signals ── */
       .confidence-signals {
         display: flex;
@@ -5125,6 +5148,23 @@
                 <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
               </svg>
               Copy Plan
+            </button>
+            <button class="btn-regenerate" onclick="generatePlan()">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M1 4v6h6" />
+                <path d="M23 20v-6h-6" />
+                <path
+                  d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"
+                />
+              </svg>
+              Regenerate
             </button>
           </div>
         </div>
