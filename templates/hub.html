@@ -333,18 +333,19 @@
         font-weight: 400;
       }
 
-      /* ── SECTION 1: HERO (full viewport) ── */
+      /* ── SECTION 1: HERO (split layout) ── */
       .hero {
         position: relative;
         z-index: 1;
         min-height: 100vh;
-        display: flex;
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 100px 2rem 80px;
+        gap: 60px;
+        padding: 120px 80px 80px;
         overflow: hidden;
+        max-width: 1400px;
+        margin: 0 auto;
       }
 
       .hero .ambient-glow {
@@ -410,6 +411,11 @@
         }
       }
 
+      .hero-text {
+        position: relative;
+        z-index: 1;
+      }
+
       .hero-badge {
         display: inline-flex;
         align-items: center;
@@ -423,8 +429,6 @@
         border-radius: 100px;
         margin-bottom: 32px;
         letter-spacing: 0.02em;
-        position: relative;
-        z-index: 1;
       }
 
       .hero-badge .dot {
@@ -446,12 +450,11 @@
       }
 
       .hero h1 {
-        font-size: clamp(3rem, 8vw, 5.5rem);
+        font-size: clamp(2.5rem, 5vw, 4rem);
         font-weight: 900;
-        line-height: 1.02;
+        line-height: 1.05;
         letter-spacing: -0.04em;
         margin-bottom: 24px;
-        max-width: 900px;
         background: linear-gradient(
           135deg,
           #f1f5f9 0%,
@@ -461,8 +464,6 @@
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        position: relative;
-        z-index: 1;
       }
 
       .hero h1::before {
@@ -480,23 +481,52 @@
       }
 
       .hero-subline {
-        font-size: clamp(1.1rem, 2vw, 1.35rem);
+        font-size: clamp(1rem, 1.5vw, 1.2rem);
         color: var(--text-secondary);
-        max-width: 600px;
-        margin: 0 auto 40px;
+        max-width: 500px;
+        margin-bottom: 32px;
         line-height: 1.6;
-        position: relative;
-        z-index: 1;
+      }
+
+      /* Hero stat pills */
+      .hero-stats-row {
+        display: flex;
+        gap: 24px;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+      }
+
+      .hero-stat-pill {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+      }
+
+      .hero-stat-num {
+        font-size: 1.6rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--accent-light), var(--cyan));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .hero-stat-suffix {
+        font-size: 1.2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--accent-light), var(--cyan));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
       }
 
       .hero-cta-row {
         display: flex;
         align-items: center;
-        justify-content: center;
         gap: 16px;
-        margin-bottom: 0;
-        position: relative;
-        z-index: 1;
       }
 
       .btn-primary {
@@ -583,6 +613,202 @@
         }
       }
 
+      /* ── Hero Dashboard Mockup ── */
+      .hero-dashboard {
+        position: relative;
+        z-index: 1;
+        transform: perspective(1200px) rotateY(-3deg) rotateX(1deg);
+        transition: transform 0.5s var(--ease-standard);
+      }
+
+      .hero-dashboard:hover {
+        transform: perspective(1200px) rotateY(0deg) rotateX(0deg);
+      }
+
+      .dash-window {
+        background: rgba(17, 17, 17, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        overflow: hidden;
+        backdrop-filter: blur(20px);
+        box-shadow:
+          0 24px 48px rgba(0, 0, 0, 0.4),
+          0 8px 24px rgba(99, 102, 241, 0.08);
+      }
+
+      .dash-titlebar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(0, 0, 0, 0.3);
+      }
+
+      .dash-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+
+      .dash-dot.red {
+        background: #ff5f56;
+      }
+      .dash-dot.yellow {
+        background: #ffbd2e;
+      }
+      .dash-dot.green {
+        background: #27c93f;
+      }
+
+      .dash-title {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-left: 8px;
+        font-weight: 500;
+      }
+
+      .dash-body {
+        padding: 20px;
+      }
+
+      .dash-metrics {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .dash-metric {
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        text-align: center;
+      }
+
+      .dash-metric-label {
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+      }
+
+      .dash-metric-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: white;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .dash-chart {
+        margin-bottom: 20px;
+      }
+
+      .dash-chart-title {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        font-weight: 600;
+        margin-bottom: 12px;
+      }
+
+      .dash-bar-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .dash-bar-label {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        width: 80px;
+        flex-shrink: 0;
+        text-align: right;
+      }
+
+      .dash-bar-track {
+        flex: 1;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .dash-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        background: var(--bar-color, var(--accent));
+        width: 0%;
+        transition: width 1.5s var(--ease-reveal);
+      }
+
+      .dash-bar-fill.animated {
+        width: var(--bar-width);
+      }
+
+      .dash-bar-value {
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+        width: 56px;
+        flex-shrink: 0;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .dash-table {
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        padding-top: 16px;
+      }
+
+      .dash-table-header {
+        display: flex;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        margin-bottom: 6px;
+      }
+
+      .dash-table-header span {
+        flex: 1;
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .dash-table-row {
+        display: flex;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        opacity: 0;
+        transform: translateY(8px);
+        transition:
+          opacity 0.4s var(--ease-reveal),
+          transform 0.4s var(--ease-reveal);
+      }
+
+      .dash-table-row.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .dash-table-row span {
+        flex: 1;
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+      }
+
+      .score-good {
+        color: #22c55e !important;
+        font-weight: 600;
+      }
+
+      .score-ok {
+        color: #f59e0b !important;
+        font-weight: 600;
+      }
+
       /* ── SECTION 2: LOGO MARQUEE (trust bar) ── */
       .trust-bar {
         position: relative;
@@ -646,110 +872,6 @@
         100% {
           transform: translateX(-50%);
         }
-      }
-
-      /* ── SECTION 3: CAPABILITIES ── */
-      .capabilities-section {
-        padding: var(--section-pad) 0;
-      }
-
-      .capabilities-header {
-        text-align: center;
-        margin-bottom: 64px;
-      }
-
-      .capabilities-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 24px;
-      }
-
-      .capability-card {
-        padding: 36px;
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        backdrop-filter: blur(16px);
-        transition: all 0.3s var(--ease-standard);
-        text-decoration: none;
-        color: inherit;
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
-
-      .capability-card:hover {
-        border-color: var(--border-hover);
-        background: var(--bg-card-hover);
-        transform: translateY(-4px);
-        box-shadow:
-          0 20px 40px rgba(0, 0, 0, 0.3),
-          0 0 1px rgba(90, 84, 189, 0.12);
-      }
-
-      .capability-card .cap-icon {
-        width: 52px;
-        height: 52px;
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        background: var(--accent-glow);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-      }
-
-      .capability-card h3 {
-        font-size: 1.2rem;
-        font-weight: 700;
-        letter-spacing: -0.01em;
-      }
-
-      .capability-card p {
-        font-size: 0.88rem;
-        color: var(--text-muted);
-        line-height: 1.6;
-      }
-
-      .cap-preview {
-        margin-top: auto;
-        padding: 12px;
-        background: rgba(15, 15, 25, 0.4);
-        border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.03);
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .cap-preview .mini-bar {
-        height: 5px;
-        border-radius: 3px;
-        background: linear-gradient(90deg, var(--accent), transparent);
-        opacity: 0.5;
-      }
-
-      .cap-preview .mini-bar.w70 {
-        width: 70%;
-      }
-      .cap-preview .mini-bar.w50 {
-        width: 50%;
-      }
-      .cap-preview .mini-bar.w85 {
-        width: 85%;
-      }
-
-      .cap-preview .mini-row {
-        display: flex;
-        gap: 4px;
-      }
-
-      .cap-preview .mini-cell {
-        flex: 1;
-        height: 16px;
-        border-radius: 4px;
-        background: rgba(99, 102, 241, 0.06);
-        border: 1px solid rgba(99, 102, 241, 0.04);
       }
 
       /* ── SECTION 4: PLATFORM (tabbed interface) ── */
@@ -970,45 +1092,47 @@
         border-radius: 8px;
         border: 1px solid rgba(255, 255, 255, 0.03);
         display: flex;
-        flex-direction: column;
-        gap: 6px;
+        align-items: center;
+        justify-content: center;
       }
 
-      .card-preview .mini-bar {
-        height: 5px;
-        border-radius: 3px;
-        background: linear-gradient(
-          90deg,
-          var(--card-accent, var(--accent)),
-          transparent
-        );
-        opacity: 0.5;
+      /* ── Card mini-viz SVGs ── */
+      .card-mini-viz {
+        width: 100%;
+        height: 80px;
+        opacity: 0.6;
+        transition: opacity 0.3s;
       }
 
-      .card-preview .mini-bar.w70 {
-        width: 70%;
-      }
-      .card-preview .mini-bar.w50 {
-        width: 50%;
-      }
-      .card-preview .mini-bar.w85 {
-        width: 85%;
-      }
-      .card-preview .mini-bar.w40 {
-        width: 40%;
+      .product-card:hover .card-mini-viz {
+        opacity: 1;
       }
 
-      .card-preview .mini-row {
-        display: flex;
-        gap: 4px;
+      .product-card:hover .viz-bar {
+        animation: bar-grow 0.6s var(--ease-reveal) forwards;
       }
 
-      .card-preview .mini-cell {
-        flex: 1;
-        height: 16px;
-        border-radius: 4px;
-        background: rgba(99, 102, 241, 0.06);
-        border: 1px solid rgba(99, 102, 241, 0.04);
+      .product-card:hover .viz-line {
+        stroke-dasharray: 200;
+        stroke-dashoffset: 200;
+        animation: line-draw 1s var(--ease-reveal) forwards;
+      }
+
+      @keyframes bar-grow {
+        from {
+          transform: scaleY(0);
+          transform-origin: bottom;
+        }
+        to {
+          transform: scaleY(1);
+          transform-origin: bottom;
+        }
+      }
+
+      @keyframes line-draw {
+        to {
+          stroke-dashoffset: 0;
+        }
       }
 
       .card-title {
@@ -1091,6 +1215,20 @@
         background: rgba(6, 182, 212, 0.1);
       }
 
+      .card-status.flagship {
+        background: linear-gradient(135deg, var(--accent), var(--cyan));
+        color: white;
+      }
+
+      /* ── Flagship grid card treatment ── */
+      .flagship-grid-card {
+        grid-column: span 2;
+      }
+
+      .flagship-grid-card .card-preview {
+        height: 120px;
+      }
+
       .no-results {
         grid-column: 1 / -1;
         text-align: center;
@@ -1102,233 +1240,6 @@
         font-size: 1.1rem;
         color: var(--text-secondary);
         margin-bottom: 8px;
-      }
-
-      /* ── SECTION 5: FLAGSHIP ── */
-      .flagship-section {
-        padding: var(--section-pad) 0;
-      }
-
-      .flagship-card {
-        position: relative;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 56px;
-        align-items: center;
-        padding: 64px;
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        overflow: hidden;
-        backdrop-filter: blur(20px);
-        transition:
-          border-color 0.3s,
-          box-shadow 0.3s;
-        text-decoration: none;
-        color: inherit;
-        cursor: pointer;
-        box-shadow:
-          0 2px 8px rgba(0, 0, 0, 0.2),
-          0 0 1px rgba(90, 84, 189, 0.08);
-      }
-
-      .flagship-card:hover {
-        border-color: var(--border-hover);
-        box-shadow:
-          0 24px 48px rgba(0, 0, 0, 0.3),
-          0 8px 16px rgba(32, 32, 88, 0.1),
-          0 0 1px rgba(90, 84, 189, 0.12);
-      }
-
-      .flagship-card::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 2px;
-        background: linear-gradient(
-          90deg,
-          transparent,
-          var(--accent),
-          var(--cyan),
-          transparent
-        );
-        opacity: 0;
-        transition: opacity 0.3s;
-      }
-
-      .flagship-card:hover::before {
-        opacity: 1;
-      }
-
-      .flagship-card::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        padding: 1px;
-        background: linear-gradient(
-          135deg,
-          rgba(99, 102, 241, 0.3),
-          rgba(6, 182, 212, 0.2),
-          rgba(99, 102, 241, 0.3)
-        );
-        -webkit-mask:
-          linear-gradient(#fff 0 0) content-box,
-          linear-gradient(#fff 0 0);
-        -webkit-mask-composite: xor;
-        mask-composite: exclude;
-        opacity: 0;
-        transition: opacity 0.4s;
-        pointer-events: none;
-      }
-
-      .flagship-card:hover::after {
-        opacity: 1;
-      }
-
-      .flagship-content h3 {
-        font-size: clamp(1.8rem, 3vw, 2.4rem);
-        font-weight: 800;
-        margin-bottom: 16px;
-        letter-spacing: -0.02em;
-      }
-
-      .flagship-content p {
-        color: var(--text-secondary);
-        font-size: 1rem;
-        line-height: 1.7;
-        margin-bottom: 24px;
-      }
-
-      .flagship-features {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 28px;
-      }
-
-      .flagship-features .tag {
-        font-size: 0.75rem;
-        font-weight: 500;
-        padding: 5px 14px;
-        border-radius: 100px;
-        background: var(--accent-glow);
-        color: var(--accent-light);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-      }
-
-      .flagship-cta {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 12px 28px;
-        background: var(--accent);
-        color: white;
-        border-radius: var(--radius-sm);
-        font-size: 0.95rem;
-        font-weight: 600;
-        text-decoration: none;
-        transition: all 0.2s;
-      }
-
-      .flagship-cta:hover {
-        background: var(--accent-light);
-        transform: translateY(-1px);
-      }
-
-      .flagship-preview {
-        position: relative;
-        background: rgba(15, 15, 25, 0.5);
-        border-radius: 16px;
-        padding: 28px;
-        border: 1px solid rgba(255, 255, 255, 0.04);
-      }
-
-      .flagship-preview .mock-ui {
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-      }
-
-      .mock-bar {
-        height: 8px;
-        border-radius: 4px;
-        background: linear-gradient(90deg, var(--accent), var(--cyan));
-      }
-
-      .mock-bar.w60 {
-        width: 60%;
-      }
-      .mock-bar.w80 {
-        width: 80%;
-      }
-      .mock-bar.w45 {
-        width: 45%;
-      }
-      .mock-bar.w70 {
-        width: 70%;
-      }
-
-      .mock-row {
-        display: flex;
-        gap: 8px;
-      }
-
-      .mock-cell {
-        flex: 1;
-        height: 36px;
-        border-radius: 8px;
-        background: rgba(99, 102, 241, 0.08);
-        border: 1px solid rgba(99, 102, 241, 0.06);
-      }
-
-      /* ── SECTION 6: RESULTS MARQUEE ── */
-      .stats-marquee {
-        position: relative;
-        z-index: 1;
-        padding: 56px 0;
-        overflow: hidden;
-        border-top: 1px solid var(--border);
-        border-bottom: 1px solid var(--border);
-        background: rgba(10, 10, 10, 0.6);
-      }
-
-      .stats-marquee .marquee {
-        animation: marquee 30s linear infinite;
-        gap: 80px;
-      }
-
-      .stat-item {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        white-space: nowrap;
-      }
-
-      .stat-item .stat-num {
-        font-size: clamp(2rem, 4vw, 2.8rem);
-        font-weight: 800;
-        color: var(--text-primary);
-        letter-spacing: -0.03em;
-        line-height: 1;
-        font-variant-numeric: tabular-nums;
-      }
-
-      .stat-item .stat-label {
-        font-size: 0.85rem;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        font-weight: 600;
-      }
-
-      .stat-divider {
-        width: 1px;
-        height: 40px;
-        background: var(--border);
-        flex-shrink: 0;
       }
 
       /* ── SECTION 8: CTA ── */
@@ -1661,21 +1572,35 @@
 
       /* ── Responsive ── */
       @media (max-width: 1024px) {
-        .capabilities-grid {
-          grid-template-columns: repeat(2, 1fr);
+        .hero {
+          grid-template-columns: 1fr;
+          text-align: center;
+          padding: 120px 2rem 80px;
+          gap: 40px;
+        }
+        .hero-text {
+          order: 1;
+        }
+        .hero-dashboard {
+          order: 2;
+          max-width: 600px;
+          margin: 0 auto;
+        }
+        .hero-subline {
+          margin-left: auto;
+          margin-right: auto;
+        }
+        .hero-stats-row {
+          justify-content: center;
+        }
+        .hero-cta-row {
+          justify-content: center;
         }
         .products-grid {
           grid-template-columns: repeat(2, 1fr);
         }
-        .flagship-card {
-          grid-template-columns: 1fr;
-          padding: 40px;
-        }
-        .flagship-preview {
-          display: none;
-        }
-        .testimonials-grid {
-          grid-template-columns: 1fr 1fr;
+        .flagship-grid-card {
+          grid-column: span 2;
         }
         .footer-grid {
           grid-template-columns: 1fr 1fr;
@@ -1687,21 +1612,33 @@
         }
       }
 
-      @media (max-width: 640px) {
-        .capabilities-grid {
-          grid-template-columns: 1fr;
-        }
-        .products-grid {
-          grid-template-columns: 1fr;
-        }
+      @media (max-width: 768px) {
         .hero {
           padding: 100px 1.5rem 60px;
         }
+        .flagship-grid-card {
+          grid-column: span 1;
+        }
+        .dash-metrics {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .hero-stats-row {
+          gap: 16px;
+        }
+        .hero-stat-num {
+          font-size: 1.3rem;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .products-grid {
+          grid-template-columns: 1fr;
+        }
+        .flagship-grid-card {
+          grid-column: span 1;
+        }
         .hero-cta-row {
           flex-direction: column;
-        }
-        .testimonials-grid {
-          grid-template-columns: 1fr;
         }
         .footer-grid {
           grid-template-columns: 1fr;
@@ -1723,9 +1660,6 @@
         .tab-btn {
           padding: 8px 14px;
           font-size: 0.8rem;
-        }
-        .flagship-card {
-          padding: 28px;
         }
         .cta-card {
           padding: 48px 24px;
@@ -1794,9 +1728,6 @@
           animation: none;
           display: none;
         }
-        .capability-card:hover {
-          transform: none;
-        }
         .card-icon svg path,
         .card-icon svg circle,
         .card-icon svg rect,
@@ -1806,322 +1737,32 @@
           stroke-dashoffset: 0;
           transition: none;
         }
-        .intel-viz {
-          animation: none;
-        }
-        .intel-viz .central-pulse,
-        .intel-viz .central-ring {
-          animation: none;
-        }
-        .intel-viz .data-particle {
-          animation: none;
-          display: none;
-        }
-        .intel-viz .satellite-node {
-          animation: none;
-          opacity: 1;
-        }
-        .intel-viz .connection-line {
-          stroke-dasharray: none;
-          animation: none;
-        }
         .hero-stat-pill .hero-stat-num {
           /* counters still run, just no animation delay */
         }
-      }
-
-      /* ── Recruitment Intelligence Visualization ── */
-      .intel-viz-wrap {
-        position: relative;
-        z-index: 1;
-        width: 100%;
-        max-width: 680px;
-        margin: 0 auto 40px;
-      }
-
-      .intel-viz {
-        position: relative;
-        width: 100%;
-        aspect-ratio: 1 / 0.85;
-        max-height: 560px;
-      }
-
-      .intel-viz svg.viz-svg {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-      }
-
-      /* Central node glow */
-      .intel-viz .central-glow {
-        fill: url(#centralGlow);
-      }
-
-      .intel-viz .central-pulse {
-        animation: central-pulse 3s ease-in-out infinite;
-        transform-origin: center;
-      }
-
-      .intel-viz .central-ring {
-        fill: none;
-        stroke: var(--accent);
-        stroke-width: 1.5;
-        opacity: 0.3;
-        animation: ring-expand 4s ease-out infinite;
-        transform-origin: center;
-      }
-
-      .intel-viz .central-ring:nth-child(2) {
-        animation-delay: 1.3s;
-      }
-
-      .intel-viz .central-ring:nth-child(3) {
-        animation-delay: 2.6s;
-      }
-
-      @keyframes central-pulse {
-        0%,
-        100% {
-          opacity: 0.9;
-          transform: scale(1);
+        /* Dashboard reduced-motion overrides */
+        .hero-dashboard {
+          transform: none;
         }
-        50% {
+        .hero-dashboard:hover {
+          transform: none;
+        }
+        .dash-bar-fill {
+          transition: none;
+          width: var(--bar-width);
+        }
+        .dash-table-row {
           opacity: 1;
-          transform: scale(1.06);
+          transform: none;
+          transition: none;
         }
-      }
-
-      @keyframes ring-expand {
-        0% {
-          r: 28;
-          opacity: 0.4;
+        .product-card:hover .viz-bar {
+          animation: none;
         }
-        100% {
-          r: 70;
-          opacity: 0;
-        }
-      }
-
-      /* Connection lines */
-      .intel-viz .connection-line {
-        fill: none;
-        stroke-width: 1;
-        stroke-linecap: round;
-        stroke-dasharray: 6 4;
-        opacity: 0.3;
-      }
-
-      .intel-viz .connection-line.line-indigo {
-        stroke: var(--accent);
-      }
-
-      .intel-viz .connection-line.line-cyan {
-        stroke: var(--cyan);
-      }
-
-      /* Data particles flowing along paths */
-      .intel-viz .data-particle {
-        r: 2.5;
-        filter: url(#particleGlow);
-      }
-
-      .intel-viz .data-particle.particle-indigo {
-        fill: var(--accent-light);
-      }
-
-      .intel-viz .data-particle.particle-cyan {
-        fill: var(--cyan);
-      }
-
-      .data-particle-anim-0 {
-        animation: flow-particle 3.2s linear infinite;
-      }
-      .data-particle-anim-1 {
-        animation: flow-particle 2.8s linear infinite 0.4s;
-      }
-      .data-particle-anim-2 {
-        animation: flow-particle 3.5s linear infinite 0.8s;
-      }
-      .data-particle-anim-3 {
-        animation: flow-particle 3s linear infinite 1.2s;
-      }
-      .data-particle-anim-4 {
-        animation: flow-particle 2.6s linear infinite 0.2s;
-      }
-      .data-particle-anim-5 {
-        animation: flow-particle 3.8s linear infinite 0.6s;
-      }
-      .data-particle-anim-6 {
-        animation: flow-particle 2.9s linear infinite 1s;
-      }
-      .data-particle-anim-7 {
-        animation: flow-particle 3.3s linear infinite 1.5s;
-      }
-
-      @keyframes flow-particle {
-        0% {
-          offset-distance: 0%;
-          opacity: 0;
-        }
-        10% {
-          opacity: 1;
-        }
-        90% {
-          opacity: 1;
-        }
-        100% {
-          offset-distance: 100%;
-          opacity: 0;
-        }
-      }
-
-      /* Satellite nodes */
-      .intel-viz .satellite-node {
-        cursor: default;
-        transition:
-          transform 0.3s var(--ease-standard),
-          filter 0.3s;
-      }
-
-      .intel-viz .satellite-node:hover {
-        filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.5));
-      }
-
-      .intel-viz .satellite-node:hover .sat-bg {
-        fill-opacity: 0.2;
-      }
-
-      .intel-viz .sat-bg {
-        fill: var(--accent);
-        fill-opacity: 0.1;
-        stroke: var(--border-hover);
-        stroke-width: 1;
-        rx: 10;
-        transition: fill-opacity 0.3s;
-      }
-
-      .intel-viz .sat-icon {
-        fill: none;
-        stroke: var(--accent-light);
-        stroke-width: 1.5;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-      }
-
-      .intel-viz .sat-icon.cyan {
-        stroke: var(--cyan);
-      }
-
-      .intel-viz .sat-label {
-        fill: var(--text-secondary);
-        font-size: 9px;
-        font-family: "Inter", sans-serif;
-        font-weight: 500;
-        text-anchor: middle;
-      }
-
-      /* Satellite entrance stagger */
-      .intel-viz .satellite-node {
-        opacity: 0;
-        animation: sat-appear 0.6s var(--ease-reveal) forwards;
-      }
-      .intel-viz .satellite-node:nth-child(1) {
-        animation-delay: 0.3s;
-      }
-      .intel-viz .satellite-node:nth-child(2) {
-        animation-delay: 0.45s;
-      }
-      .intel-viz .satellite-node:nth-child(3) {
-        animation-delay: 0.6s;
-      }
-      .intel-viz .satellite-node:nth-child(4) {
-        animation-delay: 0.75s;
-      }
-      .intel-viz .satellite-node:nth-child(5) {
-        animation-delay: 0.9s;
-      }
-      .intel-viz .satellite-node:nth-child(6) {
-        animation-delay: 1.05s;
-      }
-      .intel-viz .satellite-node:nth-child(7) {
-        animation-delay: 1.2s;
-      }
-      .intel-viz .satellite-node:nth-child(8) {
-        animation-delay: 1.35s;
-      }
-
-      @keyframes sat-appear {
-        0% {
-          opacity: 0;
-          transform: scale(0.7);
-        }
-        100% {
-          opacity: 1;
-          transform: scale(1);
-        }
-      }
-
-      /* Hero stat pills */
-      .hero-stats-row {
-        display: flex;
-        justify-content: center;
-        gap: 32px;
-        margin-bottom: 36px;
-        position: relative;
-        z-index: 1;
-        flex-wrap: wrap;
-      }
-
-      .hero-stat-pill {
-        display: flex;
-        align-items: baseline;
-        gap: 6px;
-        font-size: 0.85rem;
-        color: var(--text-secondary);
-      }
-
-      .hero-stat-num {
-        font-size: 1.6rem;
-        font-weight: 800;
-        background: linear-gradient(135deg, var(--accent-light), var(--cyan));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        font-variant-numeric: tabular-nums;
-      }
-
-      .hero-stat-suffix {
-        font-size: 1.2rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, var(--accent-light), var(--cyan));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
-
-      /* Responsive viz */
-      @media (max-width: 768px) {
-        .intel-viz-wrap {
-          max-width: 400px;
-        }
-        .intel-viz .sat-label {
-          font-size: 7px;
-        }
-        .hero-stats-row {
-          gap: 20px;
-        }
-        .hero-stat-num {
-          font-size: 1.3rem;
-        }
-      }
-
-      @media (max-width: 480px) {
-        .intel-viz-wrap {
-          max-width: 320px;
-        }
-        .hero-stats-row {
-          gap: 16px;
+        .product-card:hover .viz-line {
+          animation: none;
+          stroke-dasharray: none;
+          stroke-dashoffset: 0;
         }
       }
     </style>
@@ -2164,403 +1805,198 @@
     </nav>
 
     <!-- ========================================== -->
-    <!-- SECTION 1: HERO (full viewport)            -->
+    <!-- SECTION 1: HERO (split layout)             -->
     <!-- ========================================== -->
     <section class="hero">
       <div class="ambient-glow ambient-glow--violet" aria-hidden="true"></div>
       <div class="ambient-glow ambient-glow--teal" aria-hidden="true"></div>
       <div class="ambient-glow ambient-glow--deep" aria-hidden="true"></div>
 
-      <!-- Hero heading (above visualization) -->
-      <div class="hero-badge">
-        <span class="dot"></span>
-        All systems operational
-      </div>
+      <div class="hero-text">
+        <div class="hero-badge">
+          <span class="dot"></span>
+          All systems operational
+        </div>
 
-      <h1 class="streaming-text" data-streaming>
-        AI for Recruitment Advertising. Built for Talent Acquisition today.
-      </h1>
+        <h1 class="streaming-text" data-streaming>
+          The AI Platform for Recruitment Advertising
+        </h1>
 
-      <p class="hero-subline">
-        This is how you plan smarter, optimize budgets, and hire faster at
-        scale.
-      </p>
+        <p class="hero-subline">
+          Plan smarter. Optimize budgets. Hire faster. 21 AI-powered tools, one
+          platform.
+        </p>
 
-      <!-- Recruitment Intelligence Network Visualization -->
-      <div class="intel-viz-wrap" aria-hidden="true">
-        <div class="intel-viz">
-          <svg
-            class="viz-svg"
-            viewBox="0 0 600 510"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <defs>
-              <radialGradient id="centralGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#6366f1" stop-opacity="0.35" />
-                <stop offset="60%" stop-color="#6366f1" stop-opacity="0.08" />
-                <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
-              </radialGradient>
-              <filter id="particleGlow">
-                <feGaussianBlur stdDeviation="2" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-              <filter id="nodeGlow">
-                <feGaussianBlur stdDeviation="8" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-              <!-- Path definitions for particle motion -->
-              <path id="path0" d="M300,255 Q220,180 120,120" />
-              <path id="path1" d="M300,255 Q350,170 380,90" />
-              <path id="path2" d="M300,255 Q420,200 510,130" />
-              <path id="path3" d="M300,255 Q430,280 520,280" />
-              <path id="path4" d="M300,255 Q420,340 500,400" />
-              <path id="path5" d="M300,255 Q300,360 300,430" />
-              <path id="path6" d="M300,255 Q180,340 100,400" />
-              <path id="path7" d="M300,255 Q170,260 80,270" />
-            </defs>
-
-            <!-- Connection lines from center to satellites -->
-            <path
-              class="connection-line line-indigo"
-              d="M300,255 Q220,180 120,120"
-            />
-            <path
-              class="connection-line line-cyan"
-              d="M300,255 Q350,170 380,90"
-            />
-            <path
-              class="connection-line line-indigo"
-              d="M300,255 Q420,200 510,130"
-            />
-            <path
-              class="connection-line line-cyan"
-              d="M300,255 Q430,280 520,280"
-            />
-            <path
-              class="connection-line line-indigo"
-              d="M300,255 Q420,340 500,400"
-            />
-            <path
-              class="connection-line line-cyan"
-              d="M300,255 Q300,360 300,430"
-            />
-            <path
-              class="connection-line line-indigo"
-              d="M300,255 Q180,340 100,400"
-            />
-            <path
-              class="connection-line line-cyan"
-              d="M300,255 Q170,260 80,270"
-            />
-
-            <!-- Data particles (animated dots along paths) -->
-            <circle
-              class="data-particle particle-indigo data-particle-anim-0"
-              style="offset-path: path(&quot;M300,255 Q220,180 120,120&quot;)"
-            />
-            <circle
-              class="data-particle particle-cyan data-particle-anim-1"
-              style="offset-path: path(&quot;M300,255 Q350,170 380,90&quot;)"
-            />
-            <circle
-              class="data-particle particle-indigo data-particle-anim-2"
-              style="offset-path: path(&quot;M300,255 Q420,200 510,130&quot;)"
-            />
-            <circle
-              class="data-particle particle-cyan data-particle-anim-3"
-              style="offset-path: path(&quot;M300,255 Q430,280 520,280&quot;)"
-            />
-            <circle
-              class="data-particle particle-indigo data-particle-anim-4"
-              style="offset-path: path(&quot;M300,255 Q420,340 500,400&quot;)"
-            />
-            <circle
-              class="data-particle particle-cyan data-particle-anim-5"
-              style="offset-path: path(&quot;M300,255 Q300,360 300,430&quot;)"
-            />
-            <circle
-              class="data-particle particle-indigo data-particle-anim-6"
-              style="offset-path: path(&quot;M300,255 Q180,340 100,400&quot;)"
-            />
-            <circle
-              class="data-particle particle-cyan data-particle-anim-7"
-              style="offset-path: path(&quot;M300,255 Q170,260 80,270&quot;)"
-            />
-
-            <!-- Reverse particles (flowing inward) -->
-            <circle
-              class="data-particle particle-cyan data-particle-anim-3"
-              style="offset-path: path(&quot;M120,120 Q220,180 300,255&quot;)"
-            />
-            <circle
-              class="data-particle particle-indigo data-particle-anim-5"
-              style="offset-path: path(&quot;M510,130 Q420,200 300,255&quot;)"
-            />
-            <circle
-              class="data-particle particle-cyan data-particle-anim-1"
-              style="offset-path: path(&quot;M500,400 Q420,340 300,255&quot;)"
-            />
-            <circle
-              class="data-particle particle-indigo data-particle-anim-7"
-              style="offset-path: path(&quot;M80,270 Q170,260 300,255&quot;)"
-            />
-
-            <!-- Central node: Nova AI brain -->
-            <circle class="central-glow" cx="300" cy="255" r="60" />
-            <circle class="central-ring" cx="300" cy="255" r="28" />
-            <circle class="central-ring" cx="300" cy="255" r="28" />
-            <circle class="central-ring" cx="300" cy="255" r="28" />
-            <!-- Central icon: brain/network hub -->
-            <g class="central-pulse" filter="url(#nodeGlow)">
-              <circle
-                cx="300"
-                cy="255"
-                r="28"
-                fill="var(--accent)"
-                fill-opacity="0.2"
-                stroke="var(--accent-light)"
-                stroke-width="1.5"
-              />
-              <!-- Brain/AI icon -->
-              <g
-                transform="translate(286,241)"
-                stroke="var(--accent-light)"
-                stroke-width="1.5"
+        <div class="hero-stats-row">
+          <div class="hero-stat-pill">
+            <span class="hero-stat-num" data-hero-counter data-target="21"
+              >0</span
+            >
+            <span class="hero-stat-suffix">+</span>
+            <span>Products</span>
+          </div>
+          <div class="hero-stat-pill">
+            <span class="hero-stat-num" data-hero-counter data-target="91"
+              >0</span
+            >
+            <span class="hero-stat-suffix">+</span>
+            <span>Job Boards</span>
+          </div>
+          <div class="hero-stat-pill">
+            <span style="font-size: 1.2rem; margin-right: 2px">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
                 fill="none"
+                stroke="var(--cyan)"
+                stroke-width="2"
                 stroke-linecap="round"
-                stroke-linejoin="round"
               >
-                <path d="M7,4 C7,2 9,0 12,0 C14,0 16,1 16.5,3" />
-                <path d="M16.5,3 C18.5,2.5 21,3.5 21,6 C21,7.5 20,9 18.5,9.5" />
                 <path
-                  d="M18.5,9.5 C20.5,10.5 21.5,13 20,15.5 C19,17 17,18 15,17.5"
+                  d="M12 2a7 7 0 017 7c0 3.5-2.5 6-4 8l-3 4-3-4c-1.5-2-4-4.5-4-8a7 7 0 017-7z"
                 />
-                <path
-                  d="M15,17.5 C15.5,19.5 14,22 11.5,22.5 C9,23 7,21.5 6.5,19.5"
-                />
-                <path d="M6.5,19.5 C4.5,20 2,18.5 1.5,16 C1,14 2,12 3.5,11" />
-                <path d="M3.5,11 C1.5,10 0.5,7.5 2,5 C3,3.5 5,2.5 7,4" />
-                <!-- Neural connections inside -->
-                <circle
-                  cx="8"
-                  cy="8"
-                  r="1.2"
-                  fill="var(--accent-light)"
-                  stroke="none"
-                />
-                <circle
-                  cx="16"
-                  cy="7"
-                  r="1.2"
-                  fill="var(--accent-light)"
-                  stroke="none"
-                />
-                <circle
-                  cx="12"
-                  cy="14"
-                  r="1.2"
-                  fill="var(--accent-light)"
-                  stroke="none"
-                />
-                <line
-                  x1="8"
-                  y1="8"
-                  x2="16"
-                  y2="7"
-                  stroke-width="0.8"
-                  opacity="0.5"
-                />
-                <line
-                  x1="16"
-                  y1="7"
-                  x2="12"
-                  y2="14"
-                  stroke-width="0.8"
-                  opacity="0.5"
-                />
-                <line
-                  x1="12"
-                  y1="14"
-                  x2="8"
-                  y2="8"
-                  stroke-width="0.8"
-                  opacity="0.5"
-                />
-              </g>
-              <text
-                x="300"
-                y="290"
-                text-anchor="middle"
-                fill="var(--accent-light)"
-                font-size="9"
-                font-family="Inter,sans-serif"
-                font-weight="700"
-                letter-spacing="0.08em"
-              >
-                NOVA AI
-              </text>
-            </g>
-
-            <!-- Satellite nodes -->
-            <g class="satellite-node" transform="translate(80,95)">
-              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
-              <g class="sat-icon" transform="translate(30,8)">
-                <rect x="0" y="0" width="18" height="14" rx="2" />
-                <line x1="0" y1="5" x2="18" y2="5" />
-                <line x1="6" y1="5" x2="6" y2="14" />
-              </g>
-              <text class="sat-label" x="40" y="40">Job Boards</text>
-            </g>
-
-            <g class="satellite-node" transform="translate(340,55)">
-              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
-              <g class="sat-icon cyan" transform="translate(30,8)">
-                <polyline points="0,14 4,6 8,10 12,2 16,8" />
-                <line x1="0" y1="14" x2="16" y2="14" />
-              </g>
-              <text class="sat-label" x="40" y="40">Analytics</text>
-            </g>
-
-            <g class="satellite-node" transform="translate(470,100)">
-              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
-              <g class="sat-icon" transform="translate(30,8)">
-                <circle cx="9" cy="5" r="4" />
-                <path d="M0,16 C0,12 4,9 9,9 C14,9 18,12 18,16" />
-              </g>
-              <text class="sat-label" x="40" y="40">Candidates</text>
-            </g>
-
-            <g class="satellite-node" transform="translate(480,255)">
-              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
-              <g class="sat-icon cyan" transform="translate(30,8)">
-                <rect x="0" y="2" width="18" height="12" rx="2" />
-                <text
-                  x="9"
-                  y="11"
-                  text-anchor="middle"
-                  fill="var(--cyan)"
-                  font-size="7"
-                  font-weight="700"
-                  stroke="none"
-                >
-                  $
-                </text>
-              </g>
-              <text class="sat-label" x="40" y="40">Budget</text>
-            </g>
-
-            <g class="satellite-node" transform="translate(460,375)">
-              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
-              <g class="sat-icon" transform="translate(30,8)">
-                <path d="M9,0 L9,3 M9,11 L9,14 M0,7 L3,7 M15,7 L18,7" />
-                <circle cx="9" cy="7" r="5" />
-                <polyline points="6,7 8,9 12,5" />
-              </g>
-              <text class="sat-label" x="40" y="40">Compliance</text>
-            </g>
-
-            <g class="satellite-node" transform="translate(260,405)">
-              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
-              <g class="sat-icon cyan" transform="translate(30,8)">
-                <circle cx="5" cy="5" r="4" />
-                <circle cx="14" cy="5" r="4" />
-                <line x1="9" y1="5" x2="10" y2="5" />
-                <path d="M0,14 L18,14" />
-              </g>
-              <text class="sat-label" x="40" y="40">Competitive</text>
-            </g>
-
-            <g class="satellite-node" transform="translate(60,375)">
-              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
-              <g class="sat-icon" transform="translate(30,8)">
-                <rect x="0" y="0" width="8" height="14" rx="1" />
-                <rect x="10" y="4" width="8" height="10" rx="1" />
-                <line x1="4" y1="6" x2="4" y2="11" />
-                <line x1="14" y1="8" x2="14" y2="11" />
-              </g>
-              <text class="sat-label" x="40" y="40">Media Mix</text>
-            </g>
-
-            <g class="satellite-node" transform="translate(40,245)">
-              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
-              <g class="sat-icon cyan" transform="translate(30,8)">
-                <path d="M2,14 L9,2 L16,14 Z" fill="none" />
-                <line x1="9" y1="6" x2="9" y2="10" />
-                <circle
-                  cx="9"
-                  cy="12"
-                  r="0.8"
-                  fill="var(--cyan)"
-                  stroke="none"
-                />
-              </g>
-              <text class="sat-label" x="40" y="40">Insights</text>
-            </g>
-          </svg>
+                <circle cx="12" cy="9" r="2.5" />
+              </svg>
+            </span>
+            <span>AI-Powered</span>
+          </div>
         </div>
-      </div>
 
-      <!-- Stats row -->
-      <div class="hero-stats-row">
-        <div class="hero-stat-pill">
-          <span class="hero-stat-num" data-hero-counter data-target="21"
-            >0</span
-          >
-          <span class="hero-stat-suffix">+</span>
-          <span>Products</span>
-        </div>
-        <div class="hero-stat-pill">
-          <span class="hero-stat-num" data-hero-counter data-target="91"
-            >0</span
-          >
-          <span class="hero-stat-suffix">+</span>
-          <span>Job Boards</span>
-        </div>
-        <div class="hero-stat-pill">
-          <span style="font-size: 1.2rem; margin-right: 2px">
+        <div class="hero-cta-row">
+          <a href="/media-plan" class="btn-primary cta-btn">
+            Generate a Media Plan
             <svg
-              width="18"
-              height="18"
+              width="16"
+              height="16"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="var(--cyan)"
+              stroke="currentColor"
               stroke-width="2"
               stroke-linecap="round"
             >
-              <path
-                d="M12 2a7 7 0 017 7c0 3.5-2.5 6-4 8l-3 4-3-4c-1.5-2-4-4.5-4-8a7 7 0 017-7z"
-              />
-              <circle cx="12" cy="9" r="2.5" />
+              <path d="M5 12h14" />
+              <path d="M12 5l7 7-7 7" />
             </svg>
-          </span>
-          <span>AI-Powered</span>
+          </a>
+          <a href="#platform" class="btn-secondary">Explore Products</a>
         </div>
       </div>
 
-      <div class="hero-cta-row">
-        <a href="/media-plan" class="btn-primary cta-btn">
-          Generate a Media Plan
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-          >
-            <path d="M5 12h14" />
-            <path d="M12 5l7 7-7 7" />
-          </svg>
-        </a>
-        <a href="#platform" class="btn-secondary">Explore All Products</a>
+      <div class="hero-dashboard" aria-hidden="true">
+        <div class="dash-window">
+          <div class="dash-titlebar">
+            <span class="dash-dot red"></span>
+            <span class="dash-dot yellow"></span>
+            <span class="dash-dot green"></span>
+            <span class="dash-title">Nova AI &#8212; Media Plan</span>
+          </div>
+          <div class="dash-body">
+            <div class="dash-metrics">
+              <div class="dash-metric">
+                <div class="dash-metric-label">Total Budget</div>
+                <div
+                  class="dash-metric-value"
+                  data-counter
+                  data-target="50000"
+                  data-prefix="$"
+                >
+                  $0
+                </div>
+              </div>
+              <div class="dash-metric">
+                <div class="dash-metric-label">Avg CPC</div>
+                <div
+                  class="dash-metric-value"
+                  data-counter
+                  data-target="2.41"
+                  data-prefix="$"
+                  data-decimals="2"
+                >
+                  $0
+                </div>
+              </div>
+              <div class="dash-metric">
+                <div class="dash-metric-label">Applications</div>
+                <div class="dash-metric-value" data-counter data-target="847">
+                  0
+                </div>
+              </div>
+              <div class="dash-metric">
+                <div class="dash-metric-label">Quality Score</div>
+                <div
+                  class="dash-metric-value"
+                  data-counter
+                  data-target="92"
+                  data-suffix="%"
+                >
+                  0%
+                </div>
+              </div>
+            </div>
+            <div class="dash-chart">
+              <div class="dash-chart-title">Budget Allocation</div>
+              <div class="dash-bar-row">
+                <span class="dash-bar-label">Indeed</span>
+                <div class="dash-bar-track">
+                  <div
+                    class="dash-bar-fill"
+                    style="--bar-width: 72%; --bar-color: #6366f1"
+                  ></div>
+                </div>
+                <span class="dash-bar-value">$18,000</span>
+              </div>
+              <div class="dash-bar-row">
+                <span class="dash-bar-label">LinkedIn</span>
+                <div class="dash-bar-track">
+                  <div
+                    class="dash-bar-fill"
+                    style="--bar-width: 55%; --bar-color: #06b6d4"
+                  ></div>
+                </div>
+                <span class="dash-bar-value">$13,750</span>
+              </div>
+              <div class="dash-bar-row">
+                <span class="dash-bar-label">ZipRecruiter</span>
+                <div class="dash-bar-track">
+                  <div
+                    class="dash-bar-fill"
+                    style="--bar-width: 38%; --bar-color: #22c55e"
+                  ></div>
+                </div>
+                <span class="dash-bar-value">$9,500</span>
+              </div>
+              <div class="dash-bar-row">
+                <span class="dash-bar-label">Glassdoor</span>
+                <div class="dash-bar-track">
+                  <div
+                    class="dash-bar-fill"
+                    style="--bar-width: 25%; --bar-color: #f59e0b"
+                  ></div>
+                </div>
+                <span class="dash-bar-value">$6,250</span>
+              </div>
+            </div>
+            <div class="dash-table">
+              <div class="dash-table-header">
+                <span>Channel</span><span>CPC</span><span>CPA</span
+                ><span>Score</span>
+              </div>
+              <div class="dash-table-row">
+                <span>Indeed</span><span>$1.82</span><span>$24</span
+                ><span class="score-good">A+</span>
+              </div>
+              <div class="dash-table-row">
+                <span>LinkedIn</span><span>$3.45</span><span>$38</span
+                ><span class="score-ok">B+</span>
+              </div>
+              <div class="dash-table-row">
+                <span>ZipRecruiter</span><span>$2.10</span><span>$28</span
+                ><span class="score-good">A</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -2656,7 +2092,7 @@
           <div class="marquee-item">
             <img
               src="https://www.joveo.com/wp-content/uploads/2023/01/johnson.png.webp"
-              alt="Johnson & Johnson"
+              alt="Johnson &amp; Johnson"
               height="28"
               style="filter: brightness(0) invert(0.7)"
             />
@@ -2753,7 +2189,7 @@
           <div class="marquee-item">
             <img
               src="https://www.joveo.com/wp-content/uploads/2023/01/johnson.png.webp"
-              alt="Johnson & Johnson"
+              alt="Johnson &amp; Johnson"
               height="28"
               style="filter: brightness(0) invert(0.7)"
             />
@@ -2769,232 +2205,6 @@
         </div>
       </div>
     </div>
-
-    <!-- ========================================== -->
-    <!-- SECTION 3: CAPABILITIES ("With Nova AI")   -->
-    <!-- ========================================== -->
-    <section class="capabilities-section page-section">
-      <div class="container">
-        <div class="capabilities-header reveal-on-scroll">
-          <div class="section-label">With Nova AI, you can</div>
-          <div class="section-title">
-            Everything you need <span>for recruitment advertising</span>
-          </div>
-        </div>
-
-        <div class="capabilities-grid">
-          <a
-            href="/media-plan"
-            class="capability-card reveal-on-scroll stagger-1"
-          >
-            <div class="cap-icon" style="background: rgba(99, 102, 241, 0.12)">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#818cf8"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path
-                  d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
-                />
-                <path d="M14 2v6h6" />
-                <path d="M16 13H8" />
-                <path d="M16 17H8" />
-              </svg>
-            </div>
-            <h3>Plan Media Campaigns</h3>
-            <p>
-              Generate data-driven recruitment media plans across 91+ job boards
-              with AI-powered budget allocation.
-            </p>
-            <div class="cap-preview">
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w85"></div>
-              <div class="mini-bar w50"></div>
-            </div>
-          </a>
-
-          <a href="/tracker" class="capability-card reveal-on-scroll stagger-2">
-            <div class="cap-icon" style="background: rgba(6, 182, 212, 0.12)">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#06b6d4"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path d="M3 3v18h18" />
-                <path d="M18 9l-5 5-2-2-4 4" />
-              </svg>
-            </div>
-            <h3>Analyze Performance</h3>
-            <p>
-              Track CPA, CPC, conversion rates, and quality-of-hire metrics with
-              AI-powered performance analysis.
-            </p>
-            <div class="cap-preview">
-              <div class="mini-bar w70"></div>
-              <div class="mini-bar w85"></div>
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-            </div>
-          </a>
-
-          <a
-            href="/competitive"
-            class="capability-card reveal-on-scroll stagger-3"
-          >
-            <div class="cap-icon" style="background: rgba(244, 63, 94, 0.12)">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#f43f5e"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="M21 21l-4.35-4.35" />
-              </svg>
-            </div>
-            <h3>Scout Competition</h3>
-            <p>
-              Deep competitive analysis of hiring strategies, platform presence,
-              and market positioning in real-time.
-            </p>
-            <div class="cap-preview">
-              <div class="mini-bar w50"></div>
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w70"></div>
-            </div>
-          </a>
-
-          <a
-            href="/simulator"
-            class="capability-card reveal-on-scroll stagger-4"
-          >
-            <div class="cap-icon" style="background: rgba(34, 197, 94, 0.12)">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#22c55e"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path
-                  d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"
-                />
-              </svg>
-            </div>
-            <h3>Optimize Budgets</h3>
-            <p>
-              Model recruitment budget scenarios with AI-driven forecasting.
-              Simulate spend allocation across channels.
-            </p>
-            <div class="cap-preview">
-              <div class="mini-bar w85"></div>
-              <div class="mini-bar w50"></div>
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-            </div>
-          </a>
-
-          <a
-            href="/compliance-guard"
-            class="capability-card reveal-on-scroll stagger-5"
-          >
-            <div class="cap-icon" style="background: rgba(34, 211, 238, 0.12)">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#22d3ee"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path
-                  d="M12 2L4 7v5c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V7L12 2z"
-                />
-                <path d="M9 12l2 2 4-4" />
-              </svg>
-            </div>
-            <h3>Ensure Compliance</h3>
-            <p>
-              Scan job postings for pay transparency gaps, biased language, EEO
-              violations, and regulatory risks.
-            </p>
-            <div class="cap-preview">
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w70"></div>
-              <div class="mini-bar w85"></div>
-            </div>
-          </a>
-
-          <a
-            href="/post-campaign"
-            class="capability-card reveal-on-scroll stagger-6"
-          >
-            <div class="cap-icon" style="background: rgba(244, 114, 182, 0.12)">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#f472b6"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path
-                  d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
-                />
-                <path d="M14 2v6h6" />
-                <path d="M16 13H8" />
-                <path d="M16 17H8" />
-              </svg>
-            </div>
-            <h3>Generate Reports</h3>
-            <p>
-              Structured post-campaign reports with performance grades,
-              recommendations, and export to Excel, PPT, or PDF.
-            </p>
-            <div class="cap-preview">
-              <div class="mini-bar w70"></div>
-              <div class="mini-bar w50"></div>
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-            </div>
-          </a>
-        </div>
-      </div>
-    </section>
 
     <!-- ========================================== -->
     <!-- SECTION 4: PLATFORM (tabbed interface)     -->
@@ -3030,7 +2240,185 @@
         </div>
 
         <div class="products-grid" id="productsGrid">
-          <!-- 1. Budget Simulator -->
+          <!-- FLAGSHIP 1: Media Plan Generator -->
+          <a
+            href="/media-plan"
+            class="product-card flagship-grid-card reveal-on-scroll stagger-1"
+            data-category="planning"
+            data-keywords="media plan generator budget allocation job board recruitment"
+            style="--card-accent: #6366f1"
+          >
+            <span class="card-status flagship">Flagship</span>
+            <div class="card-preview">
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <rect
+                  x="8"
+                  y="50"
+                  width="20"
+                  height="22"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.9"
+                  class="viz-bar"
+                />
+                <rect
+                  x="34"
+                  y="30"
+                  width="20"
+                  height="42"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                  class="viz-bar"
+                />
+                <rect
+                  x="60"
+                  y="15"
+                  width="20"
+                  height="57"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                  class="viz-bar"
+                />
+                <rect
+                  x="86"
+                  y="38"
+                  width="20"
+                  height="34"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                  class="viz-bar"
+                />
+              </svg>
+            </div>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(99, 102, 241, 0.1);
+                --icon-border: rgba(99, 102, 241, 0.15);
+              "
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#6366f1"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path
+                  d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+                />
+                <path d="M14 2v6h6" />
+                <path d="M16 13H8" />
+                <path d="M16 17H8" />
+              </svg>
+            </div>
+            <div class="card-title">Media Plan Generator</div>
+            <div class="card-desc">
+              Generate data-driven recruitment media plans across 91+ job boards
+              with AI-powered budget allocation and 5-tier data cascading.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Planning</span
+              ><span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
+
+          <!-- FLAGSHIP 2: Nova Jarvis -->
+          <a
+            href="/nova-jarvis"
+            class="product-card flagship-grid-card reveal-on-scroll stagger-2"
+            data-category="tools"
+            data-keywords="nova jarvis ai assistant chat recruitment conversational"
+            style="--card-accent: #818cf8"
+          >
+            <span class="card-status flagship">Flagship</span>
+            <div class="card-preview">
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <rect
+                  x="10"
+                  y="10"
+                  width="50"
+                  height="20"
+                  rx="10"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                />
+                <rect
+                  x="60"
+                  y="40"
+                  width="50"
+                  height="20"
+                  rx="10"
+                  fill="#06b6d4"
+                  opacity="0.3"
+                />
+                <circle
+                  cx="18"
+                  cy="20"
+                  r="3"
+                  fill="var(--card-accent)"
+                  opacity="0.8"
+                />
+                <circle
+                  cx="30"
+                  cy="20"
+                  r="3"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                />
+                <circle
+                  cx="42"
+                  cy="20"
+                  r="3"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                />
+                <circle cx="68" cy="50" r="3" fill="#06b6d4" opacity="0.8" />
+                <circle cx="80" cy="50" r="3" fill="#06b6d4" opacity="0.6" />
+                <circle cx="92" cy="50" r="3" fill="#06b6d4" opacity="0.4" />
+              </svg>
+            </div>
+            <div
+              class="card-icon"
+              style="
+                --icon-bg: rgba(129, 140, 248, 0.1);
+                --icon-border: rgba(129, 140, 248, 0.15);
+              "
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#818cf8"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path
+                  d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+                />
+                <path d="M8 10h8" />
+                <path d="M8 14h4" />
+              </svg>
+            </div>
+            <div class="card-title">Nova Jarvis</div>
+            <div class="card-desc">
+              AI-powered conversational assistant for recruitment advertising.
+              Get instant answers, strategy recommendations, and campaign
+              insights through natural language.
+            </div>
+            <div class="card-footer">
+              <span class="card-category">Tools</span
+              ><span class="card-arrow">&rarr;</span>
+            </div>
+          </a>
+
+          <!-- 1. Budget Simulator (pie chart) -->
           <a
             href="/simulator"
             class="product-card reveal-on-scroll stagger-1"
@@ -3040,13 +2428,43 @@
           >
             <span class="card-status live">Live</span>
             <div class="card-preview">
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w70"></div>
-              <div class="mini-bar w50"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <circle
+                  cx="60"
+                  cy="40"
+                  r="28"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="8"
+                  stroke-dasharray="70 106"
+                  opacity="0.9"
+                  transform="rotate(-90 60 40)"
+                />
+                <circle
+                  cx="60"
+                  cy="40"
+                  r="28"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="8"
+                  stroke-dasharray="45 131"
+                  stroke-dashoffset="-70"
+                  opacity="0.5"
+                  transform="rotate(-90 60 40)"
+                />
+                <circle
+                  cx="60"
+                  cy="40"
+                  r="28"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="8"
+                  stroke-dasharray="30 146"
+                  stroke-dashoffset="-115"
+                  opacity="0.3"
+                  transform="rotate(-90 60 40)"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3080,7 +2498,7 @@
             </div>
           </a>
 
-          <!-- 2. Performance Tracker -->
+          <!-- 2. Performance Tracker (line chart) -->
           <a
             href="/tracker"
             class="product-card reveal-on-scroll stagger-2"
@@ -3090,12 +2508,18 @@
           >
             <span class="card-status live">Live</span>
             <div class="card-preview">
-              <div class="mini-bar w85"></div>
-              <div class="mini-bar w50"></div>
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <polyline
+                  points="10,60 30,45 50,55 70,25 90,30 110,12"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="viz-line"
+                />
+                <circle cx="110" cy="12" r="3" fill="var(--card-accent)" />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3128,7 +2552,7 @@
             </div>
           </a>
 
-          <!-- 3. Competitive Intel -->
+          <!-- 3. Competitive Intel (comparison bars) -->
           <a
             href="/competitive"
             class="product-card reveal-on-scroll stagger-3"
@@ -3138,13 +2562,62 @@
           >
             <span class="card-status live">Live</span>
             <div class="card-preview">
-              <div class="mini-bar w70"></div>
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w40"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <rect
+                  x="15"
+                  y="10"
+                  width="35"
+                  height="12"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.8"
+                />
+                <rect
+                  x="60"
+                  y="10"
+                  width="45"
+                  height="12"
+                  rx="2"
+                  fill="#06b6d4"
+                  opacity="0.5"
+                />
+                <rect
+                  x="15"
+                  y="30"
+                  width="50"
+                  height="12"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.8"
+                />
+                <rect
+                  x="60"
+                  y="30"
+                  width="30"
+                  height="12"
+                  rx="2"
+                  fill="#06b6d4"
+                  opacity="0.5"
+                />
+                <rect
+                  x="15"
+                  y="50"
+                  width="25"
+                  height="12"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.8"
+                />
+                <rect
+                  x="60"
+                  y="50"
+                  width="40"
+                  height="12"
+                  rx="2"
+                  fill="#06b6d4"
+                  opacity="0.5"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3177,7 +2650,7 @@
             </div>
           </a>
 
-          <!-- 4. Quick Plan -->
+          <!-- 4. Quick Plan (document lines) -->
           <a
             href="/quick-plan"
             class="product-card reveal-on-scroll stagger-4"
@@ -3187,9 +2660,44 @@
           >
             <span class="card-status live">Live</span>
             <div class="card-preview">
-              <div class="mini-bar w85"></div>
-              <div class="mini-bar w70"></div>
-              <div class="mini-bar w50"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <rect
+                  x="20"
+                  y="18"
+                  width="80"
+                  height="4"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                />
+                <rect
+                  x="20"
+                  y="30"
+                  width="60"
+                  height="4"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                />
+                <rect
+                  x="20"
+                  y="42"
+                  width="70"
+                  height="4"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                />
+                <path
+                  d="M90 52 L97 59 L107 46"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.8"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3221,7 +2729,7 @@
             </div>
           </a>
 
-          <!-- 5. Media Plan Audit -->
+          <!-- 5. Media Plan Audit (magnifying glass) -->
           <a
             href="/audit"
             class="product-card reveal-on-scroll stagger-5"
@@ -3231,12 +2739,45 @@
           >
             <span class="card-status live">Live</span>
             <div class="card-preview">
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w70"></div>
-              <div class="mini-bar w85"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <circle
+                  cx="50"
+                  cy="38"
+                  r="22"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  opacity="0.5"
+                />
+                <line
+                  x1="66"
+                  y1="54"
+                  x2="82"
+                  y2="70"
+                  stroke="var(--card-accent)"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  opacity="0.7"
+                />
+                <rect
+                  x="38"
+                  y="28"
+                  width="8"
+                  height="16"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                />
+                <rect
+                  x="50"
+                  y="22"
+                  width="8"
+                  height="22"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3271,7 +2812,7 @@
             </div>
           </a>
 
-          <!-- 6. Market Pulse -->
+          <!-- 6. Market Pulse (sparkline with uptick) -->
           <a
             href="/market-pulse"
             class="product-card reveal-on-scroll stagger-6"
@@ -3281,9 +2822,21 @@
           >
             <span class="card-status live">Live</span>
             <div class="card-preview">
-              <div class="mini-bar w50"></div>
-              <div class="mini-bar w85"></div>
-              <div class="mini-bar w40"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <polyline
+                  points="10,55 25,50 40,52 55,45 70,48 85,35 100,20 110,10"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  class="viz-line"
+                />
+                <polygon
+                  points="105,8 112,12 108,18"
+                  fill="var(--card-accent)"
+                  opacity="0.8"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3315,7 +2868,7 @@
             </div>
           </a>
 
-          <!-- 7. Social Plan -->
+          <!-- 7. Social Plan (3 social circles) -->
           <a
             href="/social-plan"
             class="product-card reveal-on-scroll stagger-1"
@@ -3325,12 +2878,35 @@
           >
             <span class="card-status new">New</span>
             <div class="card-preview">
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w70"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <circle
+                  cx="35"
+                  cy="40"
+                  r="16"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                />
+                <circle
+                  cx="60"
+                  cy="40"
+                  r="16"
+                  fill="#06b6d4"
+                  opacity="0.3"
+                  stroke="#06b6d4"
+                  stroke-width="1"
+                />
+                <circle
+                  cx="85"
+                  cy="40"
+                  r="16"
+                  fill="#22c55e"
+                  opacity="0.3"
+                  stroke="#22c55e"
+                  stroke-width="1"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3365,7 +2941,7 @@
             </div>
           </a>
 
-          <!-- 8. HireSignal -->
+          <!-- 8. HireSignal (3 wave lines) -->
           <a
             href="/hire-signal"
             class="product-card reveal-on-scroll stagger-2"
@@ -3375,12 +2951,32 @@
           >
             <span class="card-status new">New</span>
             <div class="card-preview">
-              <div class="mini-bar w85"></div>
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w50"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <path
+                  d="M10,25 Q30,15 50,25 T90,25 T110,25"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  opacity="0.8"
+                  class="viz-line"
+                />
+                <path
+                  d="M10,40 Q30,30 50,40 T90,40 T110,40"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  opacity="0.5"
+                  class="viz-line"
+                />
+                <path
+                  d="M10,55 Q30,45 50,55 T90,55 T110,55"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  opacity="0.3"
+                  class="viz-line"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3415,7 +3011,7 @@
             </div>
           </a>
 
-          <!-- 9. ApplyFlow -->
+          <!-- 9. ApplyFlow (funnel) -->
           <a
             href="/applyflow"
             class="product-card reveal-on-scroll stagger-3"
@@ -3425,13 +3021,23 @@
           >
             <span class="card-status new">New</span>
             <div class="card-preview">
-              <div class="mini-bar w70"></div>
-              <div class="mini-bar w40"></div>
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <polygon
+                  points="30,12 90,12 78,35 42,35"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                />
+                <polygon
+                  points="42,37 78,37 72,55 48,55"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                />
+                <polygon
+                  points="48,57 72,57 66,72 54,72"
+                  fill="var(--card-accent)"
+                  opacity="0.8"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3465,7 +3071,7 @@
             </div>
           </a>
 
-          <!-- 10. API Portal -->
+          <!-- 10. API Portal (angle brackets) -->
           <a
             href="/api-portal"
             class="product-card reveal-on-scroll stagger-4"
@@ -3475,12 +3081,30 @@
           >
             <span class="card-status new">New</span>
             <div class="card-preview">
-              <div class="mini-bar w50"></div>
-              <div class="mini-bar w85"></div>
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <text
+                  x="32"
+                  y="52"
+                  font-family="Inter,monospace"
+                  font-size="32"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                >
+                  &lt;
+                </text>
+                <text
+                  x="70"
+                  y="52"
+                  font-family="Inter,monospace"
+                  font-size="32"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                >
+                  &gt;
+                </text>
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3513,7 +3137,7 @@
             </div>
           </a>
 
-          <!-- 11. Talent Heat Map -->
+          <!-- 11. Talent Heat Map (3x3 grid) -->
           <a
             href="/talent-heatmap"
             class="product-card reveal-on-scroll stagger-5"
@@ -3523,12 +3147,89 @@
           >
             <span class="card-status new">New</span>
             <div class="card-preview">
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w70"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <rect
+                  x="22"
+                  y="12"
+                  width="22"
+                  height="16"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.9"
+                />
+                <rect
+                  x="48"
+                  y="12"
+                  width="22"
+                  height="16"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                />
+                <rect
+                  x="74"
+                  y="12"
+                  width="22"
+                  height="16"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                />
+                <rect
+                  x="22"
+                  y="32"
+                  width="22"
+                  height="16"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                />
+                <rect
+                  x="48"
+                  y="32"
+                  width="22"
+                  height="16"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.8"
+                />
+                <rect
+                  x="74"
+                  y="32"
+                  width="22"
+                  height="16"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                />
+                <rect
+                  x="22"
+                  y="52"
+                  width="22"
+                  height="16"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.2"
+                />
+                <rect
+                  x="48"
+                  y="52"
+                  width="22"
+                  height="16"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                />
+                <rect
+                  x="74"
+                  y="52"
+                  width="22"
+                  height="16"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3561,7 +3262,7 @@
             </div>
           </a>
 
-          <!-- 12. Market Intel Reports -->
+          <!-- 12. Market Intel (pin with bar) -->
           <a
             href="/market-intel"
             class="product-card reveal-on-scroll stagger-6"
@@ -3571,9 +3272,58 @@
           >
             <span class="card-status beta">Beta</span>
             <div class="card-preview">
-              <div class="mini-bar w85"></div>
-              <div class="mini-bar w50"></div>
-              <div class="mini-bar w70"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <path
+                  d="M40 15 a12 12 0 1 1 0 0.01 Z"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  opacity="0.7"
+                />
+                <line
+                  x1="40"
+                  y1="27"
+                  x2="40"
+                  y2="38"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  opacity="0.7"
+                />
+                <circle
+                  cx="40"
+                  cy="15"
+                  r="4"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                />
+                <rect
+                  x="60"
+                  y="50"
+                  width="10"
+                  height="18"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                />
+                <rect
+                  x="74"
+                  y="40"
+                  width="10"
+                  height="28"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                />
+                <rect
+                  x="88"
+                  y="30"
+                  width="10"
+                  height="38"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.9"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3611,7 +3361,7 @@
             </div>
           </a>
 
-          <!-- 13. SkillTarget -->
+          <!-- 13. SkillTarget (target rings) -->
           <a
             href="/skill-target"
             class="product-card reveal-on-scroll stagger-1"
@@ -3621,12 +3371,42 @@
           >
             <span class="card-status beta">Beta</span>
             <div class="card-preview">
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w70"></div>
-              <div class="mini-bar w40"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <circle
+                  cx="60"
+                  cy="40"
+                  r="30"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  opacity="0.3"
+                />
+                <circle
+                  cx="60"
+                  cy="40"
+                  r="20"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  opacity="0.5"
+                />
+                <circle
+                  cx="60"
+                  cy="40"
+                  r="10"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  opacity="0.8"
+                />
+                <circle
+                  cx="60"
+                  cy="40"
+                  r="3"
+                  fill="var(--card-accent)"
+                  opacity="0.9"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3661,7 +3441,7 @@
             </div>
           </a>
 
-          <!-- 14. ROI Calculator -->
+          <!-- 14. ROI Calculator (big 3.2x) -->
           <a
             href="/roi-calculator"
             class="product-card reveal-on-scroll stagger-2"
@@ -3671,13 +3451,20 @@
           >
             <span class="card-status new">New</span>
             <div class="card-preview">
-              <div class="mini-bar w85"></div>
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w50"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <text
+                  x="60"
+                  y="52"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="28"
+                  font-weight="800"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  3.2x
+                </text>
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3713,7 +3500,7 @@
             </div>
           </a>
 
-          <!-- 15. A/B Test Lab -->
+          <!-- 15. A/B Test Lab (split A|B) -->
           <a
             href="/ab-testing"
             class="product-card reveal-on-scroll stagger-3"
@@ -3723,12 +3510,41 @@
           >
             <span class="card-status new">New</span>
             <div class="card-preview">
-              <div class="mini-bar w50"></div>
-              <div class="mini-bar w70"></div>
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <line
+                  x1="60"
+                  y1="8"
+                  x2="60"
+                  y2="72"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                  opacity="0.4"
+                />
+                <text
+                  x="32"
+                  y="50"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="26"
+                  font-weight="800"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                >
+                  A
+                </text>
+                <text
+                  x="88"
+                  y="50"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="26"
+                  font-weight="800"
+                  fill="#06b6d4"
+                  opacity="0.6"
+                >
+                  B
+                </text>
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3765,7 +3581,7 @@
             </div>
           </a>
 
-          <!-- 16. Quick Brief -->
+          <!-- 16. Quick Brief (doc with checkmarks) -->
           <a
             href="/quick-brief"
             class="product-card reveal-on-scroll stagger-4"
@@ -3775,9 +3591,55 @@
           >
             <span class="card-status new">New</span>
             <div class="card-preview">
-              <div class="mini-bar w70"></div>
-              <div class="mini-bar w85"></div>
-              <div class="mini-bar w40"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <rect
+                  x="30"
+                  y="8"
+                  width="60"
+                  height="64"
+                  rx="4"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="1.5"
+                  opacity="0.4"
+                />
+                <rect
+                  x="40"
+                  y="20"
+                  width="30"
+                  height="3"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                />
+                <rect
+                  x="40"
+                  y="30"
+                  width="40"
+                  height="3"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                />
+                <path
+                  d="M40 44 L44 48 L52 40"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.7"
+                />
+                <path
+                  d="M40 56 L44 60 L52 52"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.7"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3817,7 +3679,7 @@
             </div>
           </a>
 
-          <!-- 17. Post-Campaign Analysis -->
+          <!-- 17. Post-Campaign (doc with A+ grade) -->
           <a
             href="/post-campaign"
             class="product-card reveal-on-scroll stagger-5"
@@ -3827,12 +3689,49 @@
           >
             <span class="card-status new">New</span>
             <div class="card-preview">
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w70"></div>
-              <div class="mini-bar w50"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <rect
+                  x="25"
+                  y="8"
+                  width="50"
+                  height="64"
+                  rx="4"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="1.5"
+                  opacity="0.4"
+                />
+                <rect
+                  x="33"
+                  y="18"
+                  width="34"
+                  height="3"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                />
+                <rect
+                  x="33"
+                  y="26"
+                  width="24"
+                  height="3"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                />
+                <text
+                  x="95"
+                  y="52"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="22"
+                  font-weight="800"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  A+
+                </text>
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3868,7 +3767,7 @@
             </div>
           </a>
 
-          <!-- 18. PayScale Sync -->
+          <!-- 18. PayScale Sync ($ with range bar) -->
           <a
             href="/payscale-sync"
             class="product-card reveal-on-scroll stagger-6"
@@ -3878,13 +3777,52 @@
           >
             <span class="card-status new">New</span>
             <div class="card-preview">
-              <div class="mini-bar w85"></div>
-              <div class="mini-bar w50"></div>
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <text
+                  x="30"
+                  y="48"
+                  font-family="Inter,sans-serif"
+                  font-size="28"
+                  font-weight="800"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  $
+                </text>
+                <line
+                  x1="52"
+                  y1="40"
+                  x2="108"
+                  y2="40"
+                  stroke="var(--card-accent)"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  opacity="0.3"
+                />
+                <circle
+                  cx="70"
+                  cy="40"
+                  r="5"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                />
+                <circle
+                  cx="95"
+                  cy="40"
+                  r="5"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                />
+                <rect
+                  x="70"
+                  y="37"
+                  width="25"
+                  height="6"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3918,7 +3856,7 @@
             </div>
           </a>
 
-          <!-- 19. ComplianceGuard -->
+          <!-- 19. ComplianceGuard (shield with check) -->
           <a
             href="/compliance-guard"
             class="product-card reveal-on-scroll stagger-1"
@@ -3928,12 +3866,24 @@
           >
             <span class="card-status new">New</span>
             <div class="card-preview">
-              <div class="mini-bar w70"></div>
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w85"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <path
+                  d="M60 10 L38 22 L38 42 C38 56 48 66 60 70 C72 66 82 56 82 42 L82 22 Z"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  opacity="0.5"
+                />
+                <path
+                  d="M50 40 L56 46 L72 30"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.8"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -3969,7 +3919,7 @@
             </div>
           </a>
 
-          <!-- 20. CreativeAI -->
+          <!-- 20. CreativeAI (sparkle star) -->
           <a
             href="/creative-ai"
             class="product-card reveal-on-scroll stagger-2"
@@ -3979,9 +3929,30 @@
           >
             <span class="card-status new">New</span>
             <div class="card-preview">
-              <div class="mini-bar w50"></div>
-              <div class="mini-bar w85"></div>
-              <div class="mini-bar w70"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <path
+                  d="M60 10 L64 30 L84 30 L68 42 L74 62 L60 50 L46 62 L52 42 L36 30 L56 30 Z"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                  stroke-linejoin="round"
+                />
+                <circle
+                  cx="85"
+                  cy="18"
+                  r="2"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                />
+                <circle
+                  cx="38"
+                  cy="55"
+                  r="1.5"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                />
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -4016,7 +3987,7 @@
             </div>
           </a>
 
-          <!-- 21. VendorIQ -->
+          <!-- 21. VendorIQ (3 ranked bars) -->
           <a
             href="/vendor-iq"
             class="product-card reveal-on-scroll stagger-3"
@@ -4026,13 +3997,74 @@
           >
             <span class="card-status new">New</span>
             <div class="card-preview">
-              <div class="mini-row">
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-                <div class="mini-cell"></div>
-              </div>
-              <div class="mini-bar w70"></div>
-              <div class="mini-bar w40"></div>
+              <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <rect
+                  x="20"
+                  y="50"
+                  width="24"
+                  height="22"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                  class="viz-bar"
+                />
+                <rect
+                  x="48"
+                  y="30"
+                  width="24"
+                  height="42"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                  class="viz-bar"
+                />
+                <rect
+                  x="76"
+                  y="12"
+                  width="24"
+                  height="60"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.9"
+                  class="viz-bar"
+                />
+                <text
+                  x="32"
+                  y="46"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="8"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  3
+                </text>
+                <text
+                  x="60"
+                  y="26"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="8"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  2
+                </text>
+                <text
+                  x="88"
+                  y="8"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="8"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  1
+                </text>
+              </svg>
             </div>
             <div
               class="card-icon"
@@ -4068,153 +4100,6 @@
         </div>
       </div>
     </section>
-
-    <!-- ========================================== -->
-    <!-- SECTION 5: FLAGSHIP PRODUCT                -->
-    <!-- ========================================== -->
-    <section class="flagship-section page-section">
-      <div class="container">
-        <div class="reveal-on-scroll" style="margin-bottom: 32px">
-          <div class="section-label">Our Flagship Product</div>
-        </div>
-        <a href="/media-plan" class="flagship-card reveal-on-scroll">
-          <div class="flagship-content">
-            <span class="card-status live">Live</span>
-            <h3>The AI Media Plan Generator</h3>
-            <p>
-              Generate data-driven recruitment media plans in minutes. Analyze
-              91+ job boards, optimize budgets with 5-tier data cascading, and
-              export to Excel, PPT, or PDF.
-            </p>
-            <div class="flagship-features">
-              <span class="tag">5-Tier Data Cascade</span>
-              <span class="tag">25 Real-Time APIs</span>
-              <span class="tag">Collar Intelligence</span>
-              <span class="tag">Excel + PPT + PDF</span>
-              <span class="tag">Budget Optimization</span>
-              <span class="tag">AI Chat Assistant</span>
-            </div>
-            <span class="flagship-cta">
-              Try the Generator
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path d="M5 12h14" />
-                <path d="M12 5l7 7-7 7" />
-              </svg>
-            </span>
-          </div>
-          <div class="flagship-preview">
-            <div class="mock-ui">
-              <div class="mock-bar w80"></div>
-              <div class="mock-row">
-                <div class="mock-cell"></div>
-                <div class="mock-cell"></div>
-                <div class="mock-cell"></div>
-              </div>
-              <div class="mock-bar w60"></div>
-              <div class="mock-bar w70"></div>
-              <div class="mock-row">
-                <div class="mock-cell"></div>
-                <div class="mock-cell"></div>
-              </div>
-              <div class="mock-bar w45"></div>
-              <div class="mock-row">
-                <div class="mock-cell"></div>
-                <div class="mock-cell"></div>
-                <div class="mock-cell"></div>
-              </div>
-              <div class="mock-bar w80"></div>
-            </div>
-          </div>
-        </a>
-      </div>
-    </section>
-
-    <!-- ========================================== -->
-    <!-- SECTION 6: RESULTS MARQUEE                 -->
-    <!-- ========================================== -->
-    <div class="stats-marquee page-section reveal-on-scroll">
-      <div class="marquee">
-        <div class="stat-item">
-          <span class="stat-num" data-counter data-target="21">0</span>
-          <span class="stat-label">AI Products</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-num" data-counter data-target="91" data-suffix="+"
-            >0</span
-          >
-          <span class="stat-label">Job Boards</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-num" data-counter data-target="25">0</span>
-          <span class="stat-label">Live APIs</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-num" data-counter data-target="50" data-suffix="+"
-            >0</span
-          >
-          <span class="stat-label">Industries</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-num">5-Tier</span>
-          <span class="stat-label">Data Cascade</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-num">Real-Time</span>
-          <span class="stat-label">Market Data</span>
-        </div>
-        <!-- Duplicate for seamless loop -->
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-num" data-counter data-target="21">0</span>
-          <span class="stat-label">AI Products</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-num" data-counter data-target="91" data-suffix="+"
-            >0</span
-          >
-          <span class="stat-label">Job Boards</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-num" data-counter data-target="25">0</span>
-          <span class="stat-label">Live APIs</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-num" data-counter data-target="50" data-suffix="+"
-            >0</span
-          >
-          <span class="stat-label">Industries</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-num">5-Tier</span>
-          <span class="stat-label">Data Cascade</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-num">Real-Time</span>
-          <span class="stat-label">Market Data</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- ========================================== -->
-    <!-- Social proof section removed -->
 
     <!-- ========================================== -->
     <!-- SECTION 8: CTA                             -->
@@ -4380,7 +4265,6 @@
             }
           });
 
-          // Show/hide no results
           var existing = grid.querySelector(".no-results");
           if (visibleCount === 0) {
             if (!existing) {
@@ -4449,12 +4333,14 @@
             entries.forEach(function (entry) {
               if (entry.isIntersecting) {
                 var el = entry.target;
-                var target = parseInt(el.dataset.target, 10);
+                var target = parseFloat(el.dataset.target);
                 if (isNaN(target)) {
                   counterObserver.unobserve(el);
                   return;
                 }
                 var suffix = el.dataset.suffix || "";
+                var prefix = el.dataset.prefix || "";
+                var decimals = parseInt(el.dataset.decimals, 10) || 0;
                 var startTime = null;
                 var duration = 1200;
 
@@ -4465,12 +4351,24 @@
                     1,
                   );
                   var eased = 1 - Math.pow(1 - progress, 3);
-                  var current = Math.floor(eased * target);
-                  el.textContent = current.toLocaleString() + suffix;
+                  var current = eased * target;
+                  if (decimals > 0) {
+                    el.textContent =
+                      prefix + current.toFixed(decimals) + suffix;
+                  } else {
+                    el.textContent =
+                      prefix + Math.floor(current).toLocaleString() + suffix;
+                  }
                   if (progress < 1) {
                     requestAnimationFrame(animateCount);
                   } else {
-                    el.textContent = target.toLocaleString() + suffix;
+                    if (decimals > 0) {
+                      el.textContent =
+                        prefix + target.toFixed(decimals) + suffix;
+                    } else {
+                      el.textContent =
+                        prefix + target.toLocaleString() + suffix;
+                    }
                   }
                 }
                 requestAnimationFrame(animateCount);
@@ -4522,6 +4420,37 @@
         document.querySelectorAll("[data-hero-counter]").forEach(function (el) {
           heroCounterObserver.observe(el);
         });
+
+        // ── Dashboard bar animation ──
+        var dashObserver = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                var fills = entry.target.querySelectorAll(".dash-bar-fill");
+                fills.forEach(function (fill, i) {
+                  setTimeout(function () {
+                    fill.classList.add("animated");
+                  }, i * 200);
+                });
+                var rows = entry.target.querySelectorAll(".dash-table-row");
+                rows.forEach(function (row, i) {
+                  setTimeout(
+                    function () {
+                      row.classList.add("visible");
+                    },
+                    800 + i * 300,
+                  );
+                });
+                dashObserver.unobserve(entry.target);
+              }
+            });
+          },
+          { threshold: 0.3 },
+        );
+        var dashWindow = document.querySelector(".dash-window");
+        if (dashWindow) {
+          dashObserver.observe(dashWindow);
+        }
 
         // ── 3D card tilt on hover ──
         var prefersReduced = window.matchMedia(
