@@ -8351,7 +8351,7 @@ except ImportError as _mon_err:
         return {
             "status": "healthy" if is_healthy else "unhealthy",
             "uptime_seconds": round(time.time() - _SERVER_START_TIME, 2),
-            "version": "2.0.0",
+            "version": "3.5.0",
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "checks": {
                 "knowledge_base": kb_loaded,
@@ -8361,6 +8361,24 @@ except ImportError as _mon_err:
 
     def health_check_readiness():
         return {"status": "healthy", "version": "3.5.0"}
+
+# Ensure health_check_detailed always exists (monitoring module may not export it)
+if "health_check_detailed" not in dir():
+    def health_check_detailed():
+        """Detailed health check with uptime, version, and subsystem checks."""
+        kb_loaded = _knowledge_base is not None and len(_knowledge_base) > 0
+        data_dir_exists = os.path.isdir(DATA_DIR)
+        is_healthy = kb_loaded and data_dir_exists
+        return {
+            "status": "healthy" if is_healthy else "unhealthy",
+            "uptime_seconds": round(time.time() - _SERVER_START_TIME, 2),
+            "version": "3.5.0",
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "checks": {
+                "knowledge_base": kb_loaded,
+                "data_dir": data_dir_exists,
+            },
+        }
 
 # Data matrix health monitor (background checks every 12h)
 try:
@@ -11247,8 +11265,25 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 content_len = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(content_len) if content_len > 0 else b"{}"
                 data = json.loads(body)
-                from budget_simulator import compare_scenarios
-                result = compare_scenarios(data.get("scenarios", []))
+                from budget_simulator import compare_scenarios, simulate_scenario
+                raw_scenarios = data.get("scenarios", [])
+                # Pre-simulate scenarios if they are raw configs (no "summary" key)
+                simulated = []
+                for sc in raw_scenarios:
+                    if "summary" in sc:
+                        simulated.append(sc)
+                    else:
+                        _sc_roles = sc.get("roles", ["Software Engineer"])
+                        _sc_locs = sc.get("locations", ["United States"])
+                        sim_result = simulate_scenario(
+                            channel_allocations=sc.get("channel_allocations", sc.get("allocations", {})),
+                            total_budget=float(sc.get("total_budget", 100000)),
+                            industry=sc.get("industry", "Technology"),
+                            roles=", ".join(_sc_roles) if isinstance(_sc_roles, list) else str(_sc_roles),
+                            locations=", ".join(_sc_locs) if isinstance(_sc_locs, list) else str(_sc_locs),
+                        )
+                        simulated.append(sim_result)
+                result = compare_scenarios(simulated)
                 self._send_json(result)
             except Exception as e:
                 logger.error("Simulator compare error: %s", e, exc_info=True)

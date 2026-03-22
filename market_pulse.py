@@ -815,7 +815,7 @@ def _generate_key_takeaways(
 
     # 2. Market tightness
     if market_demand.get("available"):
-        tightness = market_demand.get("tightness_label", "")
+        tightness = market_demand.get("tightness_label") or ""
         if "Tight" in tightness or "Very Tight" in tightness:
             takeaways.append(
                 f"The labor market remains tight (openings/hires ratio: "
@@ -926,11 +926,15 @@ def generate_pulse_report(week_date: Optional[str] = None) -> Dict[str, Any]:
         logger.error("market_pulse: salary_trends collection failed: %s", exc)
         salary_trends = {"available": False, "error": str(exc)}
 
-    # Generate takeaways
-    key_takeaways = _generate_key_takeaways(
-        cpc_trends, market_demand, industry_spotlight,
-        platform_shifts, seasonal_insights,
-    )
+    # Generate takeaways (with error isolation)
+    try:
+        key_takeaways = _generate_key_takeaways(
+            cpc_trends, market_demand, industry_spotlight,
+            platform_shifts, seasonal_insights,
+        )
+    except Exception as exc:
+        logger.error("market_pulse: key_takeaways generation failed: %s", exc)
+        key_takeaways = ["Report generated but takeaway summary unavailable."]
 
     report = {
         "report_id": report_id,

@@ -1603,11 +1603,55 @@ def run_heatmap_analysis(role: str, industry: str = "general_entry_level",
         result["errors"].append("Role is required")
         return result
 
-    # Normalize industry
+    # Normalize industry -- map common names to canonical keys
     if industry not in INDUSTRY_LABEL_MAP:
-        industry = "general_entry_level"
+        _industry_alias_map = {
+            "technology": "tech_engineering", "tech": "tech_engineering",
+            "engineering": "tech_engineering", "software": "tech_engineering",
+            "it": "tech_engineering", "information technology": "tech_engineering",
+            "healthcare": "healthcare_medical", "medical": "healthcare_medical",
+            "health": "healthcare_medical", "nursing": "healthcare_medical",
+            "finance": "finance_banking", "banking": "finance_banking",
+            "financial": "finance_banking", "fintech": "finance_banking",
+            "retail": "retail_consumer", "consumer": "retail_consumer",
+            "ecommerce": "retail_consumer", "e-commerce": "retail_consumer",
+            "logistics": "logistics_supply_chain", "supply chain": "logistics_supply_chain",
+            "transportation": "logistics_supply_chain", "warehousing": "logistics_supply_chain",
+            "hospitality": "hospitality_travel", "travel": "hospitality_travel",
+            "hotel": "hospitality_travel", "restaurant": "hospitality_travel",
+            "construction": "construction_real_estate", "real estate": "construction_real_estate",
+            "education": "education", "teaching": "education",
+            "aerospace": "aerospace_defense", "defense": "aerospace_defense",
+            "pharma": "pharma_biotech", "biotech": "pharma_biotech",
+            "pharmaceutical": "pharma_biotech",
+            "energy": "energy_utilities", "utilities": "energy_utilities",
+            "oil": "energy_utilities", "gas": "energy_utilities",
+            "insurance": "insurance",
+            "telecom": "telecommunications", "telecommunications": "telecommunications",
+            "automotive": "automotive", "manufacturing": "automotive",
+            "food": "food_beverage", "beverage": "food_beverage",
+            "media": "media_entertainment", "entertainment": "media_entertainment",
+            "legal": "legal_services", "law": "legal_services",
+            "mental health": "mental_health", "behavioral": "mental_health",
+            "blue collar": "blue_collar_trades", "trades": "blue_collar_trades",
+            "skilled trades": "blue_collar_trades",
+        }
+        normalized = _industry_alias_map.get(industry.lower().strip(), None)
+        if normalized:
+            industry = normalized
+        else:
+            # Try partial match on label values
+            _industry_lower = industry.lower().strip()
+            matched = False
+            for key, label in INDUSTRY_LABEL_MAP.items():
+                if _industry_lower in label.lower() or label.lower() in _industry_lower:
+                    industry = key
+                    matched = True
+                    break
+            if not matched:
+                industry = "general_entry_level"
         result["industry"] = industry
-        result["industry_label"] = INDUSTRY_LABEL_MAP[industry]
+        result["industry_label"] = INDUSTRY_LABEL_MAP.get(industry, industry)
 
     # If no locations provided, auto-suggest top locations
     if not locations or (len(locations) == 1 and not locations[0].strip()):

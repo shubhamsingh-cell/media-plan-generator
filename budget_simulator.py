@@ -597,6 +597,7 @@ def simulate_scenario(
         "channels": channels,
         "summary": {
             "total_budget": total_budget,
+            "total_spend": round(total_spend, 2),
             "total_clicks": total_clicks,
             "total_applies": total_applies,
             "total_hires": total_hires,
