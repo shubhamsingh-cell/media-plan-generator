@@ -1883,6 +1883,323 @@
           stroke-dashoffset: 0;
           transition: none;
         }
+        .intel-viz {
+          animation: none;
+        }
+        .intel-viz .central-pulse,
+        .intel-viz .central-ring {
+          animation: none;
+        }
+        .intel-viz .data-particle {
+          animation: none;
+          display: none;
+        }
+        .intel-viz .satellite-node {
+          animation: none;
+          opacity: 1;
+        }
+        .intel-viz .connection-line {
+          stroke-dasharray: none;
+          animation: none;
+        }
+        .hero-stat-pill .hero-stat-num {
+          /* counters still run, just no animation delay */
+        }
+      }
+
+      /* ── Recruitment Intelligence Visualization ── */
+      .intel-viz-wrap {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-width: 680px;
+        margin: 0 auto 40px;
+      }
+
+      .intel-viz {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 1 / 0.85;
+        max-height: 560px;
+      }
+
+      .intel-viz svg.viz-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Central node glow */
+      .intel-viz .central-glow {
+        fill: url(#centralGlow);
+      }
+
+      .intel-viz .central-pulse {
+        animation: central-pulse 3s ease-in-out infinite;
+        transform-origin: center;
+      }
+
+      .intel-viz .central-ring {
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 1.5;
+        opacity: 0.3;
+        animation: ring-expand 4s ease-out infinite;
+        transform-origin: center;
+      }
+
+      .intel-viz .central-ring:nth-child(2) {
+        animation-delay: 1.3s;
+      }
+
+      .intel-viz .central-ring:nth-child(3) {
+        animation-delay: 2.6s;
+      }
+
+      @keyframes central-pulse {
+        0%,
+        100% {
+          opacity: 0.9;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.06);
+        }
+      }
+
+      @keyframes ring-expand {
+        0% {
+          r: 28;
+          opacity: 0.4;
+        }
+        100% {
+          r: 70;
+          opacity: 0;
+        }
+      }
+
+      /* Connection lines */
+      .intel-viz .connection-line {
+        fill: none;
+        stroke-width: 1;
+        stroke-linecap: round;
+        stroke-dasharray: 6 4;
+        opacity: 0.3;
+      }
+
+      .intel-viz .connection-line.line-indigo {
+        stroke: var(--accent);
+      }
+
+      .intel-viz .connection-line.line-cyan {
+        stroke: var(--cyan);
+      }
+
+      /* Data particles flowing along paths */
+      .intel-viz .data-particle {
+        r: 2.5;
+        filter: url(#particleGlow);
+      }
+
+      .intel-viz .data-particle.particle-indigo {
+        fill: var(--accent-light);
+      }
+
+      .intel-viz .data-particle.particle-cyan {
+        fill: var(--cyan);
+      }
+
+      .data-particle-anim-0 {
+        animation: flow-particle 3.2s linear infinite;
+      }
+      .data-particle-anim-1 {
+        animation: flow-particle 2.8s linear infinite 0.4s;
+      }
+      .data-particle-anim-2 {
+        animation: flow-particle 3.5s linear infinite 0.8s;
+      }
+      .data-particle-anim-3 {
+        animation: flow-particle 3s linear infinite 1.2s;
+      }
+      .data-particle-anim-4 {
+        animation: flow-particle 2.6s linear infinite 0.2s;
+      }
+      .data-particle-anim-5 {
+        animation: flow-particle 3.8s linear infinite 0.6s;
+      }
+      .data-particle-anim-6 {
+        animation: flow-particle 2.9s linear infinite 1s;
+      }
+      .data-particle-anim-7 {
+        animation: flow-particle 3.3s linear infinite 1.5s;
+      }
+
+      @keyframes flow-particle {
+        0% {
+          offset-distance: 0%;
+          opacity: 0;
+        }
+        10% {
+          opacity: 1;
+        }
+        90% {
+          opacity: 1;
+        }
+        100% {
+          offset-distance: 100%;
+          opacity: 0;
+        }
+      }
+
+      /* Satellite nodes */
+      .intel-viz .satellite-node {
+        cursor: default;
+        transition:
+          transform 0.3s var(--ease-standard),
+          filter 0.3s;
+      }
+
+      .intel-viz .satellite-node:hover {
+        filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.5));
+      }
+
+      .intel-viz .satellite-node:hover .sat-bg {
+        fill-opacity: 0.2;
+      }
+
+      .intel-viz .sat-bg {
+        fill: var(--accent);
+        fill-opacity: 0.1;
+        stroke: var(--border-hover);
+        stroke-width: 1;
+        rx: 10;
+        transition: fill-opacity 0.3s;
+      }
+
+      .intel-viz .sat-icon {
+        fill: none;
+        stroke: var(--accent-light);
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .intel-viz .sat-icon.cyan {
+        stroke: var(--cyan);
+      }
+
+      .intel-viz .sat-label {
+        fill: var(--text-secondary);
+        font-size: 9px;
+        font-family: "Inter", sans-serif;
+        font-weight: 500;
+        text-anchor: middle;
+      }
+
+      /* Satellite entrance stagger */
+      .intel-viz .satellite-node {
+        opacity: 0;
+        animation: sat-appear 0.6s var(--ease-reveal) forwards;
+      }
+      .intel-viz .satellite-node:nth-child(1) {
+        animation-delay: 0.3s;
+      }
+      .intel-viz .satellite-node:nth-child(2) {
+        animation-delay: 0.45s;
+      }
+      .intel-viz .satellite-node:nth-child(3) {
+        animation-delay: 0.6s;
+      }
+      .intel-viz .satellite-node:nth-child(4) {
+        animation-delay: 0.75s;
+      }
+      .intel-viz .satellite-node:nth-child(5) {
+        animation-delay: 0.9s;
+      }
+      .intel-viz .satellite-node:nth-child(6) {
+        animation-delay: 1.05s;
+      }
+      .intel-viz .satellite-node:nth-child(7) {
+        animation-delay: 1.2s;
+      }
+      .intel-viz .satellite-node:nth-child(8) {
+        animation-delay: 1.35s;
+      }
+
+      @keyframes sat-appear {
+        0% {
+          opacity: 0;
+          transform: scale(0.7);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      /* Hero stat pills */
+      .hero-stats-row {
+        display: flex;
+        justify-content: center;
+        gap: 32px;
+        margin-bottom: 36px;
+        position: relative;
+        z-index: 1;
+        flex-wrap: wrap;
+      }
+
+      .hero-stat-pill {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+      }
+
+      .hero-stat-num {
+        font-size: 1.6rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--accent-light), var(--cyan));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .hero-stat-suffix {
+        font-size: 1.2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--accent-light), var(--cyan));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      /* Responsive viz */
+      @media (max-width: 768px) {
+        .intel-viz-wrap {
+          max-width: 400px;
+        }
+        .intel-viz .sat-label {
+          font-size: 7px;
+        }
+        .hero-stats-row {
+          gap: 20px;
+        }
+        .hero-stat-num {
+          font-size: 1.3rem;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .intel-viz-wrap {
+          max-width: 320px;
+        }
+        .hero-stats-row {
+          gap: 16px;
+        }
       }
     </style>
   </head>
@@ -1931,6 +2248,7 @@
       <div class="ambient-glow ambient-glow--teal" aria-hidden="true"></div>
       <div class="ambient-glow ambient-glow--deep" aria-hidden="true"></div>
 
+      <!-- Hero heading (above visualization) -->
       <div class="hero-badge reveal-on-scroll">
         <span class="dot"></span>
         All systems operational
@@ -1945,7 +2263,365 @@
         scale.
       </p>
 
-      <div class="hero-cta-row reveal-on-scroll stagger-3">
+      <!-- Recruitment Intelligence Network Visualization -->
+      <div class="intel-viz-wrap reveal-on-scroll stagger-3" aria-hidden="true">
+        <div class="intel-viz">
+          <svg
+            class="viz-svg"
+            viewBox="0 0 600 510"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <defs>
+              <radialGradient id="centralGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#6366f1" stop-opacity="0.35" />
+                <stop offset="60%" stop-color="#6366f1" stop-opacity="0.08" />
+                <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
+              </radialGradient>
+              <filter id="particleGlow">
+                <feGaussianBlur stdDeviation="2" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <filter id="nodeGlow">
+                <feGaussianBlur stdDeviation="8" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <!-- Path definitions for particle motion -->
+              <path id="path0" d="M300,255 Q220,180 120,120" />
+              <path id="path1" d="M300,255 Q350,170 380,90" />
+              <path id="path2" d="M300,255 Q420,200 510,130" />
+              <path id="path3" d="M300,255 Q430,280 520,280" />
+              <path id="path4" d="M300,255 Q420,340 500,400" />
+              <path id="path5" d="M300,255 Q300,360 300,430" />
+              <path id="path6" d="M300,255 Q180,340 100,400" />
+              <path id="path7" d="M300,255 Q170,260 80,270" />
+            </defs>
+
+            <!-- Connection lines from center to satellites -->
+            <path
+              class="connection-line line-indigo"
+              d="M300,255 Q220,180 120,120"
+            />
+            <path
+              class="connection-line line-cyan"
+              d="M300,255 Q350,170 380,90"
+            />
+            <path
+              class="connection-line line-indigo"
+              d="M300,255 Q420,200 510,130"
+            />
+            <path
+              class="connection-line line-cyan"
+              d="M300,255 Q430,280 520,280"
+            />
+            <path
+              class="connection-line line-indigo"
+              d="M300,255 Q420,340 500,400"
+            />
+            <path
+              class="connection-line line-cyan"
+              d="M300,255 Q300,360 300,430"
+            />
+            <path
+              class="connection-line line-indigo"
+              d="M300,255 Q180,340 100,400"
+            />
+            <path
+              class="connection-line line-cyan"
+              d="M300,255 Q170,260 80,270"
+            />
+
+            <!-- Data particles (animated dots along paths) -->
+            <circle
+              class="data-particle particle-indigo data-particle-anim-0"
+              style="offset-path: path(&quot;M300,255 Q220,180 120,120&quot;)"
+            />
+            <circle
+              class="data-particle particle-cyan data-particle-anim-1"
+              style="offset-path: path(&quot;M300,255 Q350,170 380,90&quot;)"
+            />
+            <circle
+              class="data-particle particle-indigo data-particle-anim-2"
+              style="offset-path: path(&quot;M300,255 Q420,200 510,130&quot;)"
+            />
+            <circle
+              class="data-particle particle-cyan data-particle-anim-3"
+              style="offset-path: path(&quot;M300,255 Q430,280 520,280&quot;)"
+            />
+            <circle
+              class="data-particle particle-indigo data-particle-anim-4"
+              style="offset-path: path(&quot;M300,255 Q420,340 500,400&quot;)"
+            />
+            <circle
+              class="data-particle particle-cyan data-particle-anim-5"
+              style="offset-path: path(&quot;M300,255 Q300,360 300,430&quot;)"
+            />
+            <circle
+              class="data-particle particle-indigo data-particle-anim-6"
+              style="offset-path: path(&quot;M300,255 Q180,340 100,400&quot;)"
+            />
+            <circle
+              class="data-particle particle-cyan data-particle-anim-7"
+              style="offset-path: path(&quot;M300,255 Q170,260 80,270&quot;)"
+            />
+
+            <!-- Reverse particles (flowing inward) -->
+            <circle
+              class="data-particle particle-cyan data-particle-anim-3"
+              style="offset-path: path(&quot;M120,120 Q220,180 300,255&quot;)"
+            />
+            <circle
+              class="data-particle particle-indigo data-particle-anim-5"
+              style="offset-path: path(&quot;M510,130 Q420,200 300,255&quot;)"
+            />
+            <circle
+              class="data-particle particle-cyan data-particle-anim-1"
+              style="offset-path: path(&quot;M500,400 Q420,340 300,255&quot;)"
+            />
+            <circle
+              class="data-particle particle-indigo data-particle-anim-7"
+              style="offset-path: path(&quot;M80,270 Q170,260 300,255&quot;)"
+            />
+
+            <!-- Central node: Nova AI brain -->
+            <circle class="central-glow" cx="300" cy="255" r="60" />
+            <circle class="central-ring" cx="300" cy="255" r="28" />
+            <circle class="central-ring" cx="300" cy="255" r="28" />
+            <circle class="central-ring" cx="300" cy="255" r="28" />
+            <!-- Central icon: brain/network hub -->
+            <g class="central-pulse" filter="url(#nodeGlow)">
+              <circle
+                cx="300"
+                cy="255"
+                r="28"
+                fill="var(--accent)"
+                fill-opacity="0.2"
+                stroke="var(--accent-light)"
+                stroke-width="1.5"
+              />
+              <!-- Brain/AI icon -->
+              <g
+                transform="translate(286,241)"
+                stroke="var(--accent-light)"
+                stroke-width="1.5"
+                fill="none"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M7,4 C7,2 9,0 12,0 C14,0 16,1 16.5,3" />
+                <path d="M16.5,3 C18.5,2.5 21,3.5 21,6 C21,7.5 20,9 18.5,9.5" />
+                <path
+                  d="M18.5,9.5 C20.5,10.5 21.5,13 20,15.5 C19,17 17,18 15,17.5"
+                />
+                <path
+                  d="M15,17.5 C15.5,19.5 14,22 11.5,22.5 C9,23 7,21.5 6.5,19.5"
+                />
+                <path d="M6.5,19.5 C4.5,20 2,18.5 1.5,16 C1,14 2,12 3.5,11" />
+                <path d="M3.5,11 C1.5,10 0.5,7.5 2,5 C3,3.5 5,2.5 7,4" />
+                <!-- Neural connections inside -->
+                <circle
+                  cx="8"
+                  cy="8"
+                  r="1.2"
+                  fill="var(--accent-light)"
+                  stroke="none"
+                />
+                <circle
+                  cx="16"
+                  cy="7"
+                  r="1.2"
+                  fill="var(--accent-light)"
+                  stroke="none"
+                />
+                <circle
+                  cx="12"
+                  cy="14"
+                  r="1.2"
+                  fill="var(--accent-light)"
+                  stroke="none"
+                />
+                <line
+                  x1="8"
+                  y1="8"
+                  x2="16"
+                  y2="7"
+                  stroke-width="0.8"
+                  opacity="0.5"
+                />
+                <line
+                  x1="16"
+                  y1="7"
+                  x2="12"
+                  y2="14"
+                  stroke-width="0.8"
+                  opacity="0.5"
+                />
+                <line
+                  x1="12"
+                  y1="14"
+                  x2="8"
+                  y2="8"
+                  stroke-width="0.8"
+                  opacity="0.5"
+                />
+              </g>
+              <text
+                x="300"
+                y="290"
+                text-anchor="middle"
+                fill="var(--accent-light)"
+                font-size="9"
+                font-family="Inter,sans-serif"
+                font-weight="700"
+                letter-spacing="0.08em"
+              >
+                NOVA AI
+              </text>
+            </g>
+
+            <!-- Satellite nodes -->
+            <g class="satellite-node" transform="translate(80,95)">
+              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
+              <g class="sat-icon" transform="translate(30,8)">
+                <rect x="0" y="0" width="18" height="14" rx="2" />
+                <line x1="0" y1="5" x2="18" y2="5" />
+                <line x1="6" y1="5" x2="6" y2="14" />
+              </g>
+              <text class="sat-label" x="40" y="40">Job Boards</text>
+            </g>
+
+            <g class="satellite-node" transform="translate(340,55)">
+              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
+              <g class="sat-icon cyan" transform="translate(30,8)">
+                <polyline points="0,14 4,6 8,10 12,2 16,8" />
+                <line x1="0" y1="14" x2="16" y2="14" />
+              </g>
+              <text class="sat-label" x="40" y="40">Analytics</text>
+            </g>
+
+            <g class="satellite-node" transform="translate(470,100)">
+              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
+              <g class="sat-icon" transform="translate(30,8)">
+                <circle cx="9" cy="5" r="4" />
+                <path d="M0,16 C0,12 4,9 9,9 C14,9 18,12 18,16" />
+              </g>
+              <text class="sat-label" x="40" y="40">Candidates</text>
+            </g>
+
+            <g class="satellite-node" transform="translate(480,255)">
+              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
+              <g class="sat-icon cyan" transform="translate(30,8)">
+                <rect x="0" y="2" width="18" height="12" rx="2" />
+                <text
+                  x="9"
+                  y="11"
+                  text-anchor="middle"
+                  fill="var(--cyan)"
+                  font-size="7"
+                  font-weight="700"
+                  stroke="none"
+                >
+                  $
+                </text>
+              </g>
+              <text class="sat-label" x="40" y="40">Budget</text>
+            </g>
+
+            <g class="satellite-node" transform="translate(460,375)">
+              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
+              <g class="sat-icon" transform="translate(30,8)">
+                <path d="M9,0 L9,3 M9,11 L9,14 M0,7 L3,7 M15,7 L18,7" />
+                <circle cx="9" cy="7" r="5" />
+                <polyline points="6,7 8,9 12,5" />
+              </g>
+              <text class="sat-label" x="40" y="40">Compliance</text>
+            </g>
+
+            <g class="satellite-node" transform="translate(260,405)">
+              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
+              <g class="sat-icon cyan" transform="translate(30,8)">
+                <circle cx="5" cy="5" r="4" />
+                <circle cx="14" cy="5" r="4" />
+                <line x1="9" y1="5" x2="10" y2="5" />
+                <path d="M0,14 L18,14" />
+              </g>
+              <text class="sat-label" x="40" y="40">Competitive</text>
+            </g>
+
+            <g class="satellite-node" transform="translate(60,375)">
+              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
+              <g class="sat-icon" transform="translate(30,8)">
+                <rect x="0" y="0" width="8" height="14" rx="1" />
+                <rect x="10" y="4" width="8" height="10" rx="1" />
+                <line x1="4" y1="6" x2="4" y2="11" />
+                <line x1="14" y1="8" x2="14" y2="11" />
+              </g>
+              <text class="sat-label" x="40" y="40">Media Mix</text>
+            </g>
+
+            <g class="satellite-node" transform="translate(40,245)">
+              <rect class="sat-bg" x="0" y="0" width="80" height="50" rx="10" />
+              <g class="sat-icon cyan" transform="translate(30,8)">
+                <path d="M2,14 L9,2 L16,14 Z" fill="none" />
+                <line x1="9" y1="6" x2="9" y2="10" />
+                <circle
+                  cx="9"
+                  cy="12"
+                  r="0.8"
+                  fill="var(--cyan)"
+                  stroke="none"
+                />
+              </g>
+              <text class="sat-label" x="40" y="40">Insights</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="hero-stats-row reveal-on-scroll stagger-4">
+        <div class="hero-stat-pill">
+          <span class="hero-stat-num" data-hero-counter data-target="21"
+            >0</span
+          >
+          <span class="hero-stat-suffix">+</span>
+          <span>Products</span>
+        </div>
+        <div class="hero-stat-pill">
+          <span class="hero-stat-num" data-hero-counter data-target="91"
+            >0</span
+          >
+          <span class="hero-stat-suffix">+</span>
+          <span>Job Boards</span>
+        </div>
+        <div class="hero-stat-pill">
+          <span style="font-size: 1.2rem; margin-right: 2px">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--cyan)"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path
+                d="M12 2a7 7 0 017 7c0 3.5-2.5 6-4 8l-3 4-3-4c-1.5-2-4-4.5-4-8a7 7 0 017-7z"
+              />
+              <circle cx="12" cy="9" r="2.5" />
+            </svg>
+          </span>
+          <span>AI-Powered</span>
+        </div>
+      </div>
+
+      <div class="hero-cta-row reveal-on-scroll stagger-5">
         <a href="/media-plan" class="btn-primary cta-btn">
           Generate a Media Plan
           <svg
@@ -3946,6 +4622,44 @@
 
         document.querySelectorAll("[data-counter]").forEach(function (el) {
           counterObserver.observe(el);
+        });
+
+        // ── Hero stat counters ──
+        var heroCounterObserver = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                var el = entry.target;
+                var target = parseInt(el.dataset.target, 10);
+                if (isNaN(target)) {
+                  heroCounterObserver.unobserve(el);
+                  return;
+                }
+                var startTime = null;
+                var duration = 1600;
+                function animateHeroCount(timestamp) {
+                  if (!startTime) startTime = timestamp;
+                  var progress = Math.min(
+                    (timestamp - startTime) / duration,
+                    1,
+                  );
+                  var eased = 1 - Math.pow(1 - progress, 3);
+                  el.textContent = Math.floor(eased * target);
+                  if (progress < 1) {
+                    requestAnimationFrame(animateHeroCount);
+                  } else {
+                    el.textContent = target;
+                  }
+                }
+                requestAnimationFrame(animateHeroCount);
+                heroCounterObserver.unobserve(el);
+              }
+            });
+          },
+          { threshold: 0.3 },
+        );
+        document.querySelectorAll("[data-hero-counter]").forEach(function (el) {
+          heroCounterObserver.observe(el);
         });
 
         // ── 3D card tilt on hover ──
