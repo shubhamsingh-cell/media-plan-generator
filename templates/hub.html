@@ -1331,83 +1331,6 @@
         flex-shrink: 0;
       }
 
-      /* ── SECTION 7: SOCIAL PROOF ── */
-      .social-proof {
-        padding: var(--section-pad) 0;
-      }
-
-      .social-proof-header {
-        text-align: center;
-        margin-bottom: 64px;
-      }
-
-      .testimonials-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 24px;
-      }
-
-      .testimonial-card {
-        padding: 36px;
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-        backdrop-filter: blur(16px);
-        transition: border-color 0.3s;
-      }
-
-      .testimonial-card:hover {
-        border-color: var(--border-hover);
-      }
-
-      .testimonial-quote-mark {
-        font-size: 2.5rem;
-        line-height: 1;
-        color: var(--accent);
-        opacity: 0.4;
-      }
-
-      .testimonial-quote {
-        font-size: 0.95rem;
-        color: var(--text-secondary);
-        line-height: 1.7;
-        flex: 1;
-      }
-
-      .testimonial-author {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-
-      .testimonial-avatar {
-        width: 44px;
-        height: 44px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, var(--accent), var(--cyan));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        font-size: 0.85rem;
-        color: white;
-        flex-shrink: 0;
-      }
-
-      .testimonial-name {
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: var(--text-primary);
-      }
-
-      .testimonial-role {
-        font-size: 0.78rem;
-        color: var(--text-muted);
-      }
-
       /* ── SECTION 8: CTA ── */
       .cta-section {
         position: relative;
@@ -2249,22 +2172,22 @@
       <div class="ambient-glow ambient-glow--deep" aria-hidden="true"></div>
 
       <!-- Hero heading (above visualization) -->
-      <div class="hero-badge reveal-on-scroll">
+      <div class="hero-badge">
         <span class="dot"></span>
         All systems operational
       </div>
 
-      <h1 class="reveal-on-scroll stagger-1 streaming-text" data-streaming>
+      <h1 class="streaming-text" data-streaming>
         AI for Recruitment Advertising. Built for Talent Acquisition today.
       </h1>
 
-      <p class="hero-subline reveal-on-scroll stagger-2">
+      <p class="hero-subline">
         This is how you plan smarter, optimize budgets, and hire faster at
         scale.
       </p>
 
       <!-- Recruitment Intelligence Network Visualization -->
-      <div class="intel-viz-wrap reveal-on-scroll stagger-3" aria-hidden="true">
+      <div class="intel-viz-wrap" aria-hidden="true">
         <div class="intel-viz">
           <svg
             class="viz-svg"
@@ -2585,7 +2508,7 @@
       </div>
 
       <!-- Stats row -->
-      <div class="hero-stats-row reveal-on-scroll stagger-4">
+      <div class="hero-stats-row">
         <div class="hero-stat-pill">
           <span class="hero-stat-num" data-hero-counter data-target="21"
             >0</span
@@ -2621,7 +2544,7 @@
         </div>
       </div>
 
-      <div class="hero-cta-row reveal-on-scroll stagger-5">
+      <div class="hero-cta-row">
         <a href="/media-plan" class="btn-primary cta-btn">
           Generate a Media Plan
           <svg
@@ -4291,69 +4214,7 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- SECTION 7: SOCIAL PROOF                    -->
-    <!-- ========================================== -->
-    <section class="social-proof page-section">
-      <div class="container">
-        <div class="social-proof-header reveal-on-scroll">
-          <div class="section-label">Social Proof</div>
-          <div class="section-title">What recruitment leaders are saying</div>
-        </div>
-        <div class="testimonials-grid">
-          <div class="testimonial-card reveal-on-scroll stagger-1">
-            <div class="testimonial-quote-mark">&ldquo;</div>
-            <div class="testimonial-quote">
-              The 5-tier data cascade alone justified the switch. We went from
-              spending 3 days on media plans to under 30 minutes with better
-              accuracy.
-            </div>
-            <div class="testimonial-author">
-              <div class="testimonial-avatar">JM</div>
-              <div>
-                <div class="testimonial-name">Jessica M.</div>
-                <div class="testimonial-role">
-                  Head of TA, Fortune 500 Retailer
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="testimonial-card reveal-on-scroll stagger-2">
-            <div class="testimonial-quote-mark">&ldquo;</div>
-            <div class="testimonial-quote">
-              ComplianceGuard flagged 14 pay transparency gaps in our job
-              postings that our legal team missed. The ROI was immediate and
-              measurable.
-            </div>
-            <div class="testimonial-author">
-              <div class="testimonial-avatar">RP</div>
-              <div>
-                <div class="testimonial-name">Raj P.</div>
-                <div class="testimonial-role">
-                  VP Talent Acquisition, SaaS Scale-up
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="testimonial-card reveal-on-scroll stagger-3">
-            <div class="testimonial-quote-mark">&ldquo;</div>
-            <div class="testimonial-quote">
-              We use the Competitive Intel and Market Pulse tools daily. It
-              replaced three separate vendor subscriptions and gives us
-              real-time data.
-            </div>
-            <div class="testimonial-author">
-              <div class="testimonial-avatar">SK</div>
-              <div>
-                <div class="testimonial-name">Sarah K.</div>
-                <div class="testimonial-role">
-                  Director of Recruitment Marketing
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <!-- Social proof section removed -->
 
     <!-- ========================================== -->
     <!-- SECTION 8: CTA                             -->
