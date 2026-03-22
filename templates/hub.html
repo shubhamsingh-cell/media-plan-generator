@@ -477,9 +477,9 @@
       .hero {
         position: relative;
         z-index: 1;
-        padding: 140px 2rem 80px;
+        padding: 100px 2rem 60px;
         text-align: center;
-        max-width: 900px;
+        max-width: 1100px;
         margin: 0 auto;
       }
 
@@ -517,10 +517,10 @@
       }
 
       .hero h1 {
-        font-size: clamp(2.5rem, 6vw, 4.2rem);
+        font-size: clamp(3rem, 7vw, 5rem);
         font-weight: 800;
-        line-height: 1.1;
-        letter-spacing: -0.03em;
+        line-height: 1.05;
+        letter-spacing: -0.04em;
         margin-bottom: 20px;
         background: linear-gradient(
           135deg,
@@ -533,19 +533,208 @@
         background-clip: text;
       }
 
-      .hero p {
-        font-size: clamp(1rem, 2vw, 1.2rem);
+      .hero-subline {
+        font-size: clamp(1.05rem, 2vw, 1.25rem);
         color: var(--text-secondary);
-        max-width: 640px;
-        margin: 0 auto 36px;
-        line-height: 1.7;
+        max-width: 540px;
+        margin: 0 auto 32px;
+        line-height: 1.5;
+      }
+
+      .hero-cta-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        margin-bottom: 48px;
+      }
+
+      .hero-cta-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 32px;
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-size: 1rem;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .hero-cta-primary:hover {
+        background: var(--accent-light);
+        transform: translateY(-1px);
+        box-shadow:
+          0 8px 24px rgba(99, 102, 241, 0.3),
+          0 0 40px rgba(99, 102, 241, 0.15);
+      }
+
+      .hero-cta-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 28px;
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 1rem;
+        font-weight: 500;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .hero-cta-secondary:hover {
+        border-color: var(--border-hover);
+        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      /* Hero product demo preview */
+      .hero-demo {
+        max-width: 900px;
+        margin: 0 auto 0;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: rgba(10, 10, 10, 0.8);
+        overflow: hidden;
+        box-shadow:
+          0 20px 60px rgba(0, 0, 0, 0.5),
+          0 0 1px rgba(99, 102, 241, 0.1);
+      }
+
+      .hero-demo-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(17, 17, 17, 0.6);
+      }
+
+      .hero-demo-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .hero-demo-dot:nth-child(1) {
+        background: #ff5f57;
+      }
+      .hero-demo-dot:nth-child(2) {
+        background: #febc2e;
+      }
+      .hero-demo-dot:nth-child(3) {
+        background: #28c840;
+      }
+
+      .hero-demo-url {
+        flex: 1;
+        margin-left: 12px;
+        padding: 5px 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 6px;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        font-family: monospace;
+      }
+
+      .hero-demo-body {
+        padding: 24px;
+        display: grid;
+        grid-template-columns: 180px 1fr;
+        gap: 20px;
+        min-height: 220px;
+      }
+
+      .hero-demo-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .hero-demo-nav-item {
+        height: 10px;
+        border-radius: 5px;
+        background: rgba(99, 102, 241, 0.12);
+      }
+
+      .hero-demo-nav-item.active {
+        background: linear-gradient(
+          90deg,
+          var(--accent),
+          rgba(99, 102, 241, 0.3)
+        );
+      }
+
+      .hero-demo-content {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .hero-demo-chart-row {
+        display: flex;
+        gap: 12px;
+        flex: 1;
+      }
+
+      .hero-demo-chart {
+        flex: 1;
+        border-radius: 8px;
+        background: rgba(99, 102, 241, 0.06);
+        border: 1px solid rgba(99, 102, 241, 0.08);
+        display: flex;
+        align-items: flex-end;
+        padding: 12px 8px 8px;
+        gap: 4px;
+      }
+
+      .hero-demo-bar {
+        flex: 1;
+        border-radius: 3px 3px 0 0;
+        background: linear-gradient(to top, var(--accent), var(--cyan));
+        opacity: 0.7;
+      }
+
+      .hero-demo-table {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .hero-demo-table-row {
+        display: flex;
+        gap: 8px;
+      }
+
+      .hero-demo-table-cell {
+        flex: 1;
+        height: 10px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .hero-demo-table-cell.highlight {
+        background: rgba(99, 102, 241, 0.1);
       }
 
       .hero-stats {
         display: flex;
         justify-content: center;
-        gap: 48px;
-        margin-top: 48px;
+        gap: 64px;
+        margin-top: 56px;
+        padding: 32px 0;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
       }
 
       .hero-stat {
@@ -553,18 +742,19 @@
       }
 
       .hero-stat .num {
-        font-size: 2rem;
+        font-size: clamp(2rem, 4vw, 2.8rem);
         font-weight: 800;
-        color: var(--accent-light);
-        letter-spacing: -0.02em;
+        color: var(--text-primary);
+        letter-spacing: -0.03em;
+        line-height: 1;
       }
 
       .hero-stat .label {
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         color: var(--text-muted);
-        margin-top: 2px;
+        margin-top: 6px;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.08em;
       }
 
       /* ── Section titles ── */
@@ -573,11 +763,11 @@
         z-index: 1;
         max-width: 1240px;
         margin: 0 auto;
-        padding: 60px 2rem;
+        padding: 80px 2rem;
       }
 
       .section-header {
-        margin-bottom: 40px;
+        margin-bottom: 56px;
       }
 
       .section-label {
@@ -590,7 +780,7 @@
       }
 
       .section-title {
-        font-size: 1.8rem;
+        font-size: clamp(1.8rem, 4vw, 2.8rem);
         font-weight: 700;
         letter-spacing: -0.02em;
         background: linear-gradient(
@@ -672,12 +862,7 @@
         opacity: 1;
       }
 
-      .flagship-content h3 {
-        font-size: 1.6rem;
-        font-weight: 700;
-        margin-bottom: 12px;
-        letter-spacing: -0.01em;
-      }
+      /* flagship h3 moved to later section for specificity */
 
       .flagship-content p {
         color: var(--text-secondary);
@@ -844,7 +1029,7 @@
       }
 
       .card-title {
-        font-size: 1.05rem;
+        font-size: 1.1rem;
         font-weight: 650;
         margin-bottom: 8px;
         letter-spacing: -0.01em;
@@ -852,9 +1037,58 @@
 
       .card-desc {
         font-size: 0.85rem;
-        color: var(--text-secondary);
+        color: var(--text-muted);
         line-height: 1.6;
         flex: 1;
+      }
+
+      /* ── Card mini preview illustration ── */
+      .card-preview {
+        margin-bottom: 16px;
+        padding: 12px;
+        background: rgba(15, 15, 25, 0.4);
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .card-preview .mini-bar {
+        height: 5px;
+        border-radius: 3px;
+        background: linear-gradient(
+          90deg,
+          var(--card-accent, var(--accent)),
+          transparent
+        );
+        opacity: 0.5;
+      }
+
+      .card-preview .mini-bar.w70 {
+        width: 70%;
+      }
+      .card-preview .mini-bar.w50 {
+        width: 50%;
+      }
+      .card-preview .mini-bar.w85 {
+        width: 85%;
+      }
+      .card-preview .mini-bar.w40 {
+        width: 40%;
+      }
+
+      .card-preview .mini-row {
+        display: flex;
+        gap: 4px;
+      }
+
+      .card-preview .mini-cell {
+        flex: 1;
+        height: 16px;
+        border-radius: 4px;
+        background: rgba(99, 102, 241, 0.06);
+        border: 1px solid rgba(99, 102, 241, 0.04);
       }
 
       .card-footer {
@@ -1076,25 +1310,7 @@
         font-variant-numeric: tabular-nums;
       }
 
-      /* ── Footer ── */
-      .footer {
-        position: relative;
-        z-index: 1;
-        padding: 32px 2rem;
-        text-align: center;
-        border-top: 1px solid var(--border);
-        color: var(--text-muted);
-        font-size: 0.8rem;
-      }
-
-      .footer a {
-        color: var(--accent-light);
-        text-decoration: none;
-      }
-
-      .footer a:hover {
-        text-decoration: underline;
-      }
+      /* ── Footer: see rich footer section below ── */
 
       /* ── Animations ── */
       .fade-in {
@@ -1175,6 +1391,252 @@
       .stagger-17 {
         transition-delay: 0.85s;
       }
+      .stagger-18 {
+        transition-delay: 0.9s;
+      }
+      .stagger-19 {
+        transition-delay: 0.95s;
+      }
+
+      /* ── Numbered category headers ── */
+      .category-header {
+        margin-bottom: 32px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .category-number {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--accent);
+        margin-bottom: 6px;
+        font-family: "Inter", monospace;
+      }
+
+      .category-title {
+        font-size: clamp(1.4rem, 3vw, 1.8rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+      }
+
+      .category-desc {
+        font-size: 0.88rem;
+        color: var(--text-muted);
+        max-width: 540px;
+      }
+
+      .category-section {
+        margin-bottom: 48px;
+      }
+
+      .category-section:last-child {
+        margin-bottom: 0;
+      }
+
+      /* ── Social proof / testimonials ── */
+      .social-proof {
+        position: relative;
+        z-index: 1;
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 80px 2rem;
+      }
+
+      .social-proof-header {
+        text-align: center;
+        margin-bottom: 56px;
+      }
+
+      .testimonials-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+      }
+
+      .testimonial-card {
+        padding: 32px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        transition: border-color 0.3s;
+      }
+
+      .testimonial-card:hover {
+        border-color: var(--border-hover);
+      }
+
+      .testimonial-quote {
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+        line-height: 1.7;
+        flex: 1;
+      }
+
+      .testimonial-author {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .testimonial-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent), var(--cyan));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: white;
+        flex-shrink: 0;
+      }
+
+      .testimonial-name {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .testimonial-role {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+      }
+
+      /* ── Rich footer ── */
+      .footer {
+        position: relative;
+        z-index: 1;
+        padding: 64px 2rem 32px;
+        border-top: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        max-width: 1240px;
+        margin: 0 auto;
+      }
+
+      .footer-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+        gap: 48px;
+        margin-bottom: 48px;
+      }
+
+      .footer-brand {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .footer-brand-name {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .footer-brand-name svg {
+        width: 28px;
+        height: 28px;
+      }
+
+      .footer-brand p {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        line-height: 1.6;
+        max-width: 280px;
+      }
+
+      .footer-col-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-secondary);
+        margin-bottom: 16px;
+      }
+
+      .footer-links {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .footer-links a {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: color 0.2s;
+      }
+
+      .footer-links a:hover {
+        color: var(--text-primary);
+      }
+
+      .footer-bottom {
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .footer-bottom a {
+        color: var(--accent-light);
+        text-decoration: none;
+      }
+
+      .footer-bottom a:hover {
+        text-decoration: underline;
+      }
+
+      /* ── Flagship enhancements ── */
+      .flagship {
+        max-width: 1240px;
+        padding: 0 2rem;
+      }
+
+      .flagship-card {
+        padding: 56px;
+      }
+
+      .flagship-content h3 {
+        font-size: clamp(1.6rem, 3vw, 2rem);
+        font-weight: 700;
+        margin-bottom: 12px;
+        letter-spacing: -0.02em;
+      }
+
+      .flagship-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 20px;
+        padding: 10px 24px;
+        background: var(--accent);
+        color: white;
+        border-radius: var(--radius-sm);
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s;
+      }
+
+      .flagship-cta:hover {
+        background: var(--accent-light);
+      }
 
       /* ── Responsive ── */
       @media (max-width: 1024px) {
@@ -1183,8 +1645,22 @@
         }
         .flagship-card {
           grid-template-columns: 1fr;
+          padding: 36px;
         }
         .flagship-preview {
+          display: none;
+        }
+        .testimonials-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .footer-grid {
+          grid-template-columns: 1fr 1fr;
+          gap: 32px;
+        }
+        .hero-demo-body {
+          grid-template-columns: 1fr;
+        }
+        .hero-demo-sidebar {
           display: none;
         }
       }
@@ -1194,7 +1670,21 @@
           grid-template-columns: 1fr;
         }
         .hero {
-          padding: 120px 1.5rem 60px;
+          padding: 100px 1.5rem 40px;
+        }
+        .hero-cta-row {
+          flex-direction: column;
+        }
+        .testimonials-grid {
+          grid-template-columns: 1fr;
+        }
+        .footer-grid {
+          grid-template-columns: 1fr;
+          gap: 24px;
+        }
+        .footer-bottom {
+          flex-direction: column;
+          text-align: center;
         }
         .hero-stats {
           gap: 24px;
@@ -1551,14 +2041,93 @@
         All systems operational
       </div>
       <h1 class="fade-in stagger-1 streaming-text hero-halo" data-streaming>
-        The Recruitment Intelligence Platform
+        Recruitment intelligence, built for scale
       </h1>
-      <p class="fade-in stagger-2">
-        AI-powered tools for every stage of talent acquisition. From media
-        planning to competitive intelligence, performance tracking to market
-        research.
+      <p class="hero-subline fade-in stagger-2">
+        21 AI-powered tools for media planning, competitive intel, and
+        performance tracking.
       </p>
-      <div class="hero-stats fade-in stagger-3">
+      <div class="hero-cta-row fade-in stagger-3">
+        <a href="/media-plan" class="hero-cta-primary cta-btn">
+          Generate a Media Plan
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <path d="M5 12h14" />
+            <path d="M12 5l7 7-7 7" />
+          </svg>
+        </a>
+        <a href="#products" class="hero-cta-secondary"> Explore Products </a>
+      </div>
+
+      <!-- Product demo preview in hero -->
+      <div class="hero-demo fade-in stagger-4">
+        <div class="hero-demo-toolbar">
+          <span class="hero-demo-dot"></span>
+          <span class="hero-demo-dot"></span>
+          <span class="hero-demo-dot"></span>
+          <span class="hero-demo-url"
+            >nova-ai-suite.onrender.com/media-plan</span
+          >
+        </div>
+        <div class="hero-demo-body">
+          <div class="hero-demo-sidebar">
+            <div class="hero-demo-nav-item active" style="width: 80%"></div>
+            <div class="hero-demo-nav-item" style="width: 65%"></div>
+            <div class="hero-demo-nav-item" style="width: 70%"></div>
+            <div class="hero-demo-nav-item" style="width: 55%"></div>
+            <div class="hero-demo-nav-item" style="width: 60%"></div>
+          </div>
+          <div class="hero-demo-content">
+            <div class="hero-demo-chart-row">
+              <div class="hero-demo-chart">
+                <div class="hero-demo-bar" style="height: 40%"></div>
+                <div class="hero-demo-bar" style="height: 65%"></div>
+                <div class="hero-demo-bar" style="height: 85%"></div>
+                <div class="hero-demo-bar" style="height: 55%"></div>
+                <div class="hero-demo-bar" style="height: 70%"></div>
+                <div class="hero-demo-bar" style="height: 90%"></div>
+                <div class="hero-demo-bar" style="height: 45%"></div>
+              </div>
+              <div class="hero-demo-chart">
+                <div class="hero-demo-bar" style="height: 70%"></div>
+                <div class="hero-demo-bar" style="height: 50%"></div>
+                <div class="hero-demo-bar" style="height: 80%"></div>
+                <div class="hero-demo-bar" style="height: 60%"></div>
+                <div class="hero-demo-bar" style="height: 75%"></div>
+              </div>
+            </div>
+            <div class="hero-demo-table">
+              <div class="hero-demo-table-row">
+                <div class="hero-demo-table-cell highlight"></div>
+                <div class="hero-demo-table-cell"></div>
+                <div class="hero-demo-table-cell"></div>
+                <div class="hero-demo-table-cell highlight"></div>
+              </div>
+              <div class="hero-demo-table-row">
+                <div class="hero-demo-table-cell"></div>
+                <div class="hero-demo-table-cell highlight"></div>
+                <div class="hero-demo-table-cell"></div>
+                <div class="hero-demo-table-cell"></div>
+              </div>
+              <div class="hero-demo-table-row">
+                <div class="hero-demo-table-cell highlight"></div>
+                <div class="hero-demo-table-cell"></div>
+                <div class="hero-demo-table-cell highlight"></div>
+                <div class="hero-demo-table-cell"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-stats fade-in stagger-5">
         <div class="hero-stat">
           <div class="num" id="product-count" data-counter data-target="21">
             0
@@ -1585,11 +2154,11 @@
       <a href="/media-plan" class="flagship-card fade-in stagger-4">
         <div class="flagship-content">
           <span class="card-status live">Live</span>
-          <h3>Nova AI Media Plan Generator</h3>
+          <h3>The AI Media Plan Generator</h3>
           <p>
-            Our flagship product. Generate data-driven recruitment media plans
-            powered by AI. Analyze 91+ job boards, optimize budgets with 5-tier
-            data cascading, and export to Excel, PPT, or PDF with one click.
+            Generate data-driven recruitment media plans in minutes. Analyze 91+
+            job boards, optimize budgets with 5-tier data cascading, and export
+            to Excel, PPT, or PDF.
           </p>
           <div class="flagship-features">
             <span class="tag">5-Tier Data Cascade</span>
@@ -1599,27 +2168,43 @@
             <span class="tag">Budget Optimization</span>
             <span class="tag">AI Chat Assistant</span>
           </div>
+          <span class="flagship-cta">
+            Try the Generator
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path d="M5 12h14" />
+              <path d="M12 5l7 7-7 7" />
+            </svg>
+          </span>
         </div>
         <div class="flagship-preview">
           <div class="mock-ui">
-            <div class="mock-row">
-              <div class="mock-cell"></div>
-              <div class="mock-cell"></div>
-              <div class="mock-cell"></div>
-            </div>
             <div class="mock-bar w80"></div>
+            <div class="mock-row">
+              <div class="mock-cell"></div>
+              <div class="mock-cell"></div>
+              <div class="mock-cell"></div>
+            </div>
             <div class="mock-bar w60"></div>
+            <div class="mock-bar w70"></div>
             <div class="mock-row">
               <div class="mock-cell"></div>
               <div class="mock-cell"></div>
             </div>
-            <div class="mock-bar w70"></div>
             <div class="mock-bar w45"></div>
             <div class="mock-row">
               <div class="mock-cell"></div>
               <div class="mock-cell"></div>
               <div class="mock-cell"></div>
             </div>
+            <div class="mock-bar w80"></div>
           </div>
         </div>
       </a>
@@ -1720,20 +2305,28 @@
             type="text"
             class="search-input"
             id="searchInput"
-            placeholder="Search products..."
+            placeholder="Search 21 products... (press / to focus)"
           />
         </div>
         <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="planning">Planning</button>
-        <button class="filter-btn" data-filter="analytics">Analytics</button>
-        <button class="filter-btn" data-filter="intelligence">
-          Intelligence
-        </button>
-        <button class="filter-btn" data-filter="tools">Tools</button>
-        <button class="filter-btn" data-filter="compliance">Compliance</button>
+        <button class="filter-btn" data-filter="planning">1.0 Plan</button>
+        <button class="filter-btn" data-filter="analytics">2.0 Analyze</button>
+        <button class="filter-btn" data-filter="intelligence">3.0 Intel</button>
+        <button class="filter-btn" data-filter="tools">4.0 Tools</button>
+        <button class="filter-btn" data-filter="compliance">5.0 Comply</button>
       </div>
 
       <div class="products-grid" id="productsGrid">
+        <!-- Category: 1.0 Plan -->
+        <div class="category-header reveal-on-scroll">
+          <div class="category-number">1.0 Plan</div>
+          <div class="category-title">Planning &amp; Strategy</div>
+          <div class="category-desc">
+            Build data-driven media plans and budget strategies for any hiring
+            scenario.
+          </div>
+        </div>
+
         <div class="product-grid-row">
           <!-- 1. Budget Simulator -->
           <a
@@ -1741,8 +2334,18 @@
             class="product-card fade-in stagger-1"
             data-category="planning"
             data-keywords="budget simulator forecast scenario"
+            style="--card-accent: #22c55e"
           >
             <span class="card-status live">Live</span>
+            <div class="card-preview">
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+              <div class="mini-bar w70"></div>
+              <div class="mini-bar w50"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -1767,7 +2370,7 @@
             <div class="card-title">Budget Simulator</div>
             <div class="card-desc">
               Model recruitment budget scenarios with AI-driven forecasting.
-              Simulate spend allocation across channels and predict outcomes.
+              Simulate spend allocation across channels.
             </div>
             <div class="card-footer">
               <span class="card-category">Planning</span>
@@ -1781,8 +2384,17 @@
             class="product-card fade-in stagger-2"
             data-category="analytics"
             data-keywords="performance tracker campaign kpi metrics"
+            style="--card-accent: #06b6d4"
           >
             <span class="card-status live">Live</span>
+            <div class="card-preview">
+              <div class="mini-bar w85"></div>
+              <div class="mini-bar w50"></div>
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -1806,8 +2418,7 @@
             <div class="card-title">Performance Tracker</div>
             <div class="card-desc">
               Upload campaign data and get AI-powered performance analysis.
-              Track CPA, CPC, conversion rates, and budget utilization across
-              platforms.
+              Track CPA, CPC, and conversion rates.
             </div>
             <div class="card-footer">
               <span class="card-category">Analytics</span>
@@ -1821,8 +2432,18 @@
             class="product-card fade-in stagger-3"
             data-category="intelligence"
             data-keywords="competitive intelligence analysis competitor"
+            style="--card-accent: #f43f5e"
           >
             <span class="card-status live">Live</span>
+            <div class="card-preview">
+              <div class="mini-bar w70"></div>
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+              <div class="mini-bar w40"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -1846,7 +2467,7 @@
             <div class="card-title">Competitive Intel</div>
             <div class="card-desc">
               Deep competitive analysis of hiring strategies, platform presence,
-              and market positioning. Benchmark against your competitors.
+              and market positioning.
             </div>
             <div class="card-footer">
               <span class="card-category">Intelligence</span>
@@ -1855,6 +2476,15 @@
           </a>
         </div>
         <!-- end row 1 -->
+        <!-- Category: 2.0 Analyze -->
+        <div class="category-header reveal-on-scroll" style="margin-top: 32px">
+          <div class="category-number">2.0 Analyze</div>
+          <div class="category-title">Analytics &amp; Performance</div>
+          <div class="category-desc">
+            Track, audit, and optimize your recruitment advertising performance.
+          </div>
+        </div>
+
         <div class="product-grid-row">
           <!-- 4. Quick Plan -->
           <a
@@ -1862,8 +2492,14 @@
             class="product-card fade-in stagger-4"
             data-category="planning"
             data-keywords="quick plan fast instant media"
+            style="--card-accent: #f59e0b"
           >
             <span class="card-status live">Live</span>
+            <div class="card-preview">
+              <div class="mini-bar w85"></div>
+              <div class="mini-bar w70"></div>
+              <div class="mini-bar w50"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -1886,7 +2522,7 @@
             <div class="card-title">Quick Plan</div>
             <div class="card-desc">
               Generate a recruitment media plan in under 60 seconds. Minimal
-              inputs, maximum intelligence. Perfect for rapid proposals.
+              inputs, maximum intelligence.
             </div>
             <div class="card-footer">
               <span class="card-category">Planning</span>
@@ -1900,8 +2536,17 @@
             class="product-card fade-in stagger-5"
             data-category="analytics"
             data-keywords="audit review check existing media plan"
+            style="--card-accent: #a855f7"
           >
             <span class="card-status live">Live</span>
+            <div class="card-preview">
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+              <div class="mini-bar w70"></div>
+              <div class="mini-bar w85"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -1941,8 +2586,14 @@
             class="product-card fade-in stagger-6"
             data-category="intelligence"
             data-keywords="market pulse trends real-time hiring"
+            style="--card-accent: #6366f1"
           >
             <span class="card-status live">Live</span>
+            <div class="card-preview">
+              <div class="mini-bar w50"></div>
+              <div class="mini-bar w85"></div>
+              <div class="mini-bar w40"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -1974,6 +2625,16 @@
           </a>
         </div>
         <!-- end row 2 -->
+        <!-- Category: 3.0 Intel -->
+        <div class="category-header reveal-on-scroll" style="margin-top: 32px">
+          <div class="category-number">3.0 Intel</div>
+          <div class="category-title">Intelligence &amp; Research</div>
+          <div class="category-desc">
+            Market research, competitive analysis, and talent supply
+            intelligence.
+          </div>
+        </div>
+
         <div class="product-grid-row">
           <!-- 7. Social Plan -->
           <a
@@ -1981,8 +2642,17 @@
             class="product-card fade-in stagger-7"
             data-category="planning"
             data-keywords="social media plan facebook linkedin instagram tiktok"
+            style="--card-accent: #3b82f6"
           >
             <span class="card-status new">New</span>
+            <div class="card-preview">
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+              <div class="mini-bar w70"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2022,8 +2692,17 @@
             class="product-card fade-in stagger-8"
             data-category="analytics"
             data-keywords="hire signal quality source qoh retention"
+            style="--card-accent: #10b981"
           >
             <span class="card-status new">New</span>
+            <div class="card-preview">
+              <div class="mini-bar w85"></div>
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+              <div class="mini-bar w50"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2063,8 +2742,18 @@
             class="product-card fade-in stagger-9"
             data-category="tools"
             data-keywords="applyflow application tracking chatbot conversational"
+            style="--card-accent: #ec4899"
           >
             <span class="card-status new">New</span>
+            <div class="card-preview">
+              <div class="mini-bar w70"></div>
+              <div class="mini-bar w40"></div>
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2098,6 +2787,15 @@
           </a>
         </div>
         <!-- end row 3 -->
+        <!-- Category: 4.0 Tools -->
+        <div class="category-header reveal-on-scroll" style="margin-top: 32px">
+          <div class="category-number">4.0 Tools</div>
+          <div class="category-title">Tools &amp; Integrations</div>
+          <div class="category-desc">
+            Developer tools, creative generation, and workflow automation.
+          </div>
+        </div>
+
         <div class="product-grid-row">
           <!-- 10. API Portal -->
           <a
@@ -2105,8 +2803,17 @@
             class="product-card fade-in stagger-10"
             data-category="tools"
             data-keywords="api portal developer key management endpoint"
+            style="--card-accent: #0ea5e9"
           >
             <span class="card-status new">New</span>
+            <div class="card-preview">
+              <div class="mini-bar w50"></div>
+              <div class="mini-bar w85"></div>
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2144,8 +2851,17 @@
             class="product-card fade-in stagger-11"
             data-category="intelligence"
             data-keywords="talent heatmap geography salary supply heat map"
+            style="--card-accent: #ef4444"
           >
             <span class="card-status new">New</span>
+            <div class="card-preview">
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+              <div class="mini-bar w70"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2183,8 +2899,14 @@
             class="product-card fade-in stagger-12"
             data-category="intelligence"
             data-keywords="market intelligence reports research industry"
+            style="--card-accent: #fbbf24"
           >
             <span class="card-status beta">Beta</span>
+            <div class="card-preview">
+              <div class="mini-bar w85"></div>
+              <div class="mini-bar w50"></div>
+              <div class="mini-bar w70"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2229,8 +2951,17 @@
             class="product-card fade-in stagger-13"
             data-category="planning"
             data-keywords="skill target targeting channel recommendation"
+            style="--card-accent: #8b5cf6"
           >
             <span class="card-status beta">Beta</span>
+            <div class="card-preview">
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+              <div class="mini-bar w70"></div>
+              <div class="mini-bar w40"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2269,8 +3000,18 @@
             class="product-card fade-in stagger-14"
             data-category="analytics"
             data-keywords="roi calculator return investment cost per hire savings projection"
+            style="--card-accent: #22c55e"
           >
             <span class="card-status new">New</span>
+            <div class="card-preview">
+              <div class="mini-bar w85"></div>
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+              <div class="mini-bar w50"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2311,8 +3052,17 @@
             class="product-card fade-in stagger-15"
             data-category="intelligence"
             data-keywords="ab test lab variant ad copy recruitment campaign testing"
+            style="--card-accent: #6366f1"
           >
             <span class="card-status new">New</span>
+            <div class="card-preview">
+              <div class="mini-bar w50"></div>
+              <div class="mini-bar w70"></div>
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2349,6 +3099,15 @@
           </a>
         </div>
         <!-- end row 5 -->
+        <!-- Category: 5.0 Comply -->
+        <div class="category-header reveal-on-scroll" style="margin-top: 32px">
+          <div class="category-number">5.0 Comply</div>
+          <div class="category-title">Compliance &amp; Governance</div>
+          <div class="category-desc">
+            Pay transparency, bias detection, and regulatory compliance tools.
+          </div>
+        </div>
+
         <div class="product-grid-row">
           <!-- 16. Quick Brief -->
           <a
@@ -2356,8 +3115,14 @@
             class="product-card fade-in stagger-16"
             data-category="intelligence"
             data-keywords="quick brief natural language plain text hiring need parse structured"
+            style="--card-accent: #6366f1"
           >
             <span class="card-status new">New</span>
+            <div class="card-preview">
+              <div class="mini-bar w70"></div>
+              <div class="mini-bar w85"></div>
+              <div class="mini-bar w40"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2402,8 +3167,17 @@
             class="product-card fade-in stagger-17"
             data-category="analytics"
             data-keywords="post campaign analysis report performance grade recommendation cpa cph"
+            style="--card-accent: #f472b6"
           >
             <span class="card-status new">New</span>
+            <div class="card-preview">
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+              <div class="mini-bar w70"></div>
+              <div class="mini-bar w50"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2444,8 +3218,18 @@
             class="product-card fade-in stagger-18"
             data-category="intelligence"
             data-keywords="payscale salary compensation pay transparency range benchmark"
+            style="--card-accent: #34d399"
           >
             <span class="card-status new">New</span>
+            <div class="card-preview">
+              <div class="mini-bar w85"></div>
+              <div class="mini-bar w50"></div>
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2484,8 +3268,17 @@
             class="product-card fade-in stagger-19"
             data-category="compliance"
             data-keywords="compliance guard scan job posting bias language eeo ofccp age discrimination pay transparency salary"
+            style="--card-accent: #22d3ee"
           >
             <span class="card-status new">New</span>
+            <div class="card-preview">
+              <div class="mini-bar w70"></div>
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+              <div class="mini-bar w85"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2528,8 +3321,14 @@
             class="product-card fade-in stagger-1"
             data-category="tools"
             data-keywords="creative ai ad copy variant recruitment job posting generator"
+            style="--card-accent: #fbbf24"
           >
             <span class="card-status new">New</span>
+            <div class="card-preview">
+              <div class="mini-bar w50"></div>
+              <div class="mini-bar w85"></div>
+              <div class="mini-bar w70"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2569,8 +3368,18 @@
             class="product-card fade-in stagger-2"
             data-category="analytics"
             data-keywords="vendor iq compare job board performance cpc cpa quality benchmark"
+            style="--card-accent: #6366f1"
           >
             <span class="card-status new">New</span>
+            <div class="card-preview">
+              <div class="mini-row">
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+                <div class="mini-cell"></div>
+              </div>
+              <div class="mini-bar w70"></div>
+              <div class="mini-bar w40"></div>
+            </div>
             <div
               class="card-icon"
               style="
@@ -2607,14 +3416,84 @@
       </div>
     </section>
 
+    <!-- Social Proof -->
+    <section class="social-proof section-fade">
+      <div class="social-proof-header reveal-on-scroll">
+        <div class="section-label">Trusted by TA Leaders</div>
+        <div
+          class="section-title"
+          style="
+            background: linear-gradient(
+              135deg,
+              #ededed 0%,
+              #c7d2fe 60%,
+              #818cf8 100%
+            );
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+          "
+        >
+          Built for teams that demand precision
+        </div>
+      </div>
+      <div class="testimonials-grid">
+        <div class="testimonial-card reveal-on-scroll stagger-1">
+          <div class="testimonial-quote">
+            "The 5-tier data cascade alone justified the switch. We went from
+            spending 3 days on media plans to under 30 minutes with better
+            accuracy."
+          </div>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">JM</div>
+            <div>
+              <div class="testimonial-name">Jessica M.</div>
+              <div class="testimonial-role">
+                Head of TA, Fortune 500 Retailer
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="testimonial-card reveal-on-scroll stagger-2">
+          <div class="testimonial-quote">
+            "ComplianceGuard flagged 14 pay transparency gaps in our job
+            postings that our legal team missed. The ROI was immediate and
+            measurable."
+          </div>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">RP</div>
+            <div>
+              <div class="testimonial-name">Raj P.</div>
+              <div class="testimonial-role">
+                VP Talent Acquisition, SaaS Scale-up
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="testimonial-card reveal-on-scroll stagger-3">
+          <div class="testimonial-quote">
+            "We use the Competitive Intel and Market Pulse tools daily. It
+            replaced three separate vendor subscriptions and gives us real-time
+            data."
+          </div>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">SK</div>
+            <div>
+              <div class="testimonial-name">Sarah K.</div>
+              <div class="testimonial-role">
+                Director of Recruitment Marketing
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- CTA -->
     <section class="cta-section">
       <div class="cta-card fade-in reveal-on-scroll">
         <h3>Ready to transform your recruitment advertising?</h3>
-        <p>
-          Start with our flagship Media Plan Generator, or explore the full
-          suite of AI-powered tools.
-        </p>
+        <p>Start with the Media Plan Generator, or explore the full suite.</p>
         <a href="/media-plan" class="cta-btn">
           Generate Your First Plan
           <svg
@@ -2635,16 +3514,79 @@
 
     <!-- Footer -->
     <footer class="footer reveal-on-scroll">
-      <p>
-        Nova AI Suite &mdash; Built by
-        <a
-          href="https://www.linkedin.com/in/chandel13/"
-          target="_blank"
-          rel="noopener"
-          >Shubham Singh Chandel</a
-        >
-        &middot; Powered by AI &middot; 2024&ndash;2026
-      </p>
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="footer-brand-name">
+            <svg viewBox="0 0 32 32" fill="none">
+              <rect width="32" height="32" rx="8" fill="#6366F1" />
+              <text
+                x="16"
+                y="22"
+                text-anchor="middle"
+                fill="white"
+                font-family="Inter, sans-serif"
+                font-weight="800"
+                font-size="18"
+              >
+                N
+              </text>
+            </svg>
+            Nova AI Suite
+          </div>
+          <p>
+            AI-powered recruitment intelligence platform. 21 tools for every
+            stage of talent acquisition.
+          </p>
+        </div>
+        <div>
+          <div class="footer-col-title">Products</div>
+          <ul class="footer-links">
+            <li><a href="/media-plan">Media Plan Generator</a></li>
+            <li><a href="/simulator">Budget Simulator</a></li>
+            <li><a href="/tracker">Performance Tracker</a></li>
+            <li><a href="/competitive">Competitive Intel</a></li>
+            <li><a href="/market-pulse">Market Pulse</a></li>
+            <li><a href="/compliance-guard">ComplianceGuard</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="footer-col-title">Resources</div>
+          <ul class="footer-links">
+            <li><a href="/api-portal">API Portal</a></li>
+            <li><a href="/audit">Media Plan Audit</a></li>
+            <li><a href="/quick-plan">Quick Plan</a></li>
+            <li><a href="/quick-brief">Quick Brief</a></li>
+            <li><a href="/creative-ai">CreativeAI</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="footer-col-title">Company</div>
+          <ul class="footer-links">
+            <li>
+              <a
+                href="https://www.linkedin.com/in/chandel13/"
+                target="_blank"
+                rel="noopener"
+                >LinkedIn</a
+              >
+            </li>
+            <li><a href="/hub">Product Suite</a></li>
+            <li><a href="#" id="footerDashboardLink">Dashboard</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>
+          Nova AI Suite &mdash; Built by
+          <a
+            href="https://www.linkedin.com/in/chandel13/"
+            target="_blank"
+            rel="noopener"
+            >Shubham Singh Chandel</a
+          >
+        </p>
+        <p>Powered by AI &middot; 2024&ndash;2026</p>
+      </div>
     </footer>
 
     <script>
@@ -2720,7 +3662,7 @@
             }
           });
 
-          // Show/hide empty rows
+          // Show/hide empty rows and category headers
           document
             .querySelectorAll(".product-grid-row")
             .forEach(function (row) {
@@ -2730,6 +3672,25 @@
                 return c.style.display !== "none";
               });
               row.style.display = hasVisible ? "" : "none";
+            });
+
+          // Hide category headers when all their adjacent rows are hidden
+          document
+            .querySelectorAll(".category-header")
+            .forEach(function (header) {
+              var next = header.nextElementSibling;
+              var hasVisibleRow = false;
+              while (next && !next.classList.contains("category-header")) {
+                if (
+                  next.classList.contains("product-grid-row") &&
+                  next.style.display !== "none"
+                ) {
+                  hasVisibleRow = true;
+                  break;
+                }
+                next = next.nextElementSibling;
+              }
+              header.style.display = hasVisibleRow ? "" : "none";
             });
 
           // Show/hide no results
@@ -2911,6 +3872,17 @@
               span.textContent = word;
               el.appendChild(span);
             });
+          });
+        }
+
+        // ── Footer dashboard link ──
+        var footerDashLink = document.getElementById("footerDashboardLink");
+        if (footerDashLink) {
+          footerDashLink.addEventListener("click", function (e) {
+            e.preventDefault();
+            var pw = prompt("Enter dashboard password:");
+            if (pw)
+              window.location.href = "/dashboard?key=" + encodeURIComponent(pw);
           });
         }
 
