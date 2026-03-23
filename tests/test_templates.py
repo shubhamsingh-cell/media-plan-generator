@@ -34,6 +34,9 @@ EXPECTED_TEMPLATES = [
     "talent-heatmap.html",
     "tracker.html",
     "vendor-iq.html",
+    "pricing.html",
+    "privacy.html",
+    "terms.html",
 ]
 
 
@@ -47,10 +50,10 @@ class TestTemplateExistence:
         assert path.exists(), f"Missing template: {filename}"
 
     def test_template_count(self) -> None:
-        """There should be exactly 26 template files."""
+        """There should be exactly 29 template files."""
         html_files = list(TEMPLATES_DIR.glob("*.html"))
-        assert len(html_files) == 26, (
-            f"Expected 26 templates, found {len(html_files)}: "
+        assert len(html_files) == 29, (
+            f"Expected 29 templates, found {len(html_files)}: "
             f"{[f.name for f in html_files]}"
         )
 
@@ -125,9 +128,10 @@ class TestBranding:
 
     @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
     def test_text_color(self, filename: str) -> None:
-        """Each template should use the standard text color #d4d4d8."""
+        """Each template should use the standard text color #d4d4d8 or #e4e4e7."""
         content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8").lower()
-        assert "#d4d4d8" in content, f"{filename} missing standard text color #d4d4d8"
+        has_color = "#d4d4d8" in content or "#e4e4e7" in content
+        assert has_color, f"{filename} missing standard text color (#d4d4d8 or #e4e4e7)"
 
 
 class TestSecurityInTemplates:

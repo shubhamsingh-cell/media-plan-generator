@@ -14599,6 +14599,20 @@ _OPENAPI_SPEC = {
                 },
             }
         },
+        "/api/health/enrichment": {
+            "get": {
+                "summary": "Data enrichment status",
+                "description": "Background data enrichment engine status, freshness checks, and recent activity.",
+                "operationId": "healthEnrichment",
+                "tags": ["Health"],
+                "security": [{"BearerAuth": []}],
+                "responses": {
+                    "200": {"description": "Enrichment engine status"},
+                    "401": {"description": "Unauthorized"},
+                    "503": {"description": "Enrichment engine unavailable"},
+                },
+            }
+        },
         "/api/health/slos": {
             "get": {
                 "summary": "SLO compliance",
@@ -14932,6 +14946,17 @@ try:
 except ImportError as _aqc_err:
     logger.warning("auto_qc not available: %s", _aqc_err)
     _auto_qc = None
+
+# Data enrichment engine (hourly freshness checks)
+try:
+    from data_enrichment import start_enrichment, get_enrichment_status
+
+    start_enrichment()
+    _data_enrichment_available = True
+    logger.info("Data enrichment engine started (hourly freshness checks)")
+except ImportError as _de_err:
+    logger.warning("data_enrichment not available: %s", _de_err)
+    _data_enrichment_available = False
 
 # Email alert notifications (Resend API)
 try:
@@ -16681,6 +16706,28 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(qc_err_body)))
                 self.end_headers()
                 self.wfile.write(qc_err_body)
+        elif path == "/api/health/enrichment":
+            # Data enrichment engine status (admin-protected)
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            if _data_enrichment_available:
+                de_result = get_enrichment_status()
+                de_body = json.dumps(de_result, indent=2).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(de_body)))
+                self.end_headers()
+                self.wfile.write(de_body)
+            else:
+                de_err_body = json.dumps(
+                    {"error": "Data enrichment engine not available"}
+                ).encode("utf-8")
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(de_err_body)))
+                self.end_headers()
+                self.wfile.write(de_err_body)
         elif path == "/api/health/integrations":
             # Comprehensive integrations status -- all APIs, tools, LLMs (admin-protected)
             if not self._check_admin_auth():
@@ -21775,6 +21822,10 @@ if __name__ == "__main__":
     )
     logger.info("Data Matrix: %s", "monitoring" if _data_matrix else "unavailable")
     logger.info("AutoQC: %s", "running" if _auto_qc else "unavailable")
+    logger.info(
+        "Data Enrichment: %s",
+        "running" if _data_enrichment_available else "unavailable",
+    )
     logger.info("API Docs: http://localhost:%d/docs", port)
     logger.info("OpenAPI: http://localhost:%d/api/docs/openapi.json", port)
     logger.info("API Version: v1 | Async generation: enabled")
