@@ -3302,9 +3302,11 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
     if cached is not None:
         return cached
 
-    username = os.environ.get("ONET_USERNAME") or ""
-    password = os.environ.get("ONET_PASSWORD") or ""
-    use_live = bool(username and password)
+    # O*NET v2 uses X-API-Key header (preferred), v1 uses Basic Auth
+    onet_api_key = (
+        os.environ.get("ONET_API_KEY") or os.environ.get("ONET_PASSWORD") or ""
+    )
+    use_live = bool(onet_api_key)
 
     result: Dict[str, Any] = {"source": "O*NET", "occupations": {}}
 
@@ -3338,12 +3340,12 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
             try:
                 import base64
 
-                creds = base64.b64encode(f"{username}:{password}".encode()).decode()
                 headers = {
-                    "Authorization": f"Basic {creds}",
+                    "X-API-Key": onet_api_key,
+                    "User-Agent": "python-OnetWebService/2.00 (bot)",
                     "Accept": "application/json",
                 }
-                base_url = "https://services.onetcenter.org/ws/online/occupations"
+                base_url = "https://api-v2.onetcenter.org/online/occupations"
                 url = f"{base_url}/{soc_code}"
                 req = urllib.request.Request(url, headers=headers)
                 ctx = ssl.create_default_context()
