@@ -59,6 +59,30 @@ except ImportError:
     _firecrawl_available = False
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# API INTEGRATIONS MODULE (8 external data APIs for market intelligence)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from api_integrations import (
+        fred as _api_fred,
+        adzuna as _api_adzuna,
+        jooble as _api_jooble,
+        onet as _api_onet,
+        bea as _api_bea,
+        census as _api_census,
+        usajobs as _api_usajobs,
+        bls as _api_bls,
+        test_all_apis as _api_test_all,
+    )
+
+    _api_integrations_available = True
+except ImportError:
+    _api_fred = _api_adzuna = _api_jooble = _api_onet = None
+    _api_bea = _api_census = _api_usajobs = _api_bls = None
+    _api_test_all = None
+    _api_integrations_available = False
+    logger.warning("api_integrations module not available; API enrichment disabled")
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # SUPABASE DATA LAYER (Supabase-first with local JSON fallback)
 # ═══════════════════════════════════════════════════════════════════════════════
 try:
@@ -255,7 +279,7 @@ def _generate_product_insights(
 # ═══════════════════════════════════════════════════════════════════════════════
 # SENTRY ERROR TRACKING
 # ═══════════════════════════════════════════════════════════════════════════════
-_SENTRY_DSN = os.environ.get("SENTRY_DSN") or "".strip()
+_SENTRY_DSN = (os.environ.get("SENTRY_DSN") or "").strip()
 if _SENTRY_DSN:
     try:
         import sentry_sdk
@@ -2263,7 +2287,7 @@ def generate_excel(data):
 
     ws_overview.merge_cells("B2:C2")
     title_cell = ws_overview["B2"]
-    _overview_client = data.get("client_name") or "".strip()
+    _overview_client = (data.get("client_name") or "").strip()
     title_cell.value = (
         f"Media Plan — {_overview_client}"
         if _overview_client
@@ -8544,10 +8568,12 @@ def generate_excel(data):
 
         # Separate local radio and podcasts
         local_stations = [
-            r for r in radio_data if "downloads" not in r.get("listeners") or "".lower()
+            r
+            for r in radio_data
+            if "downloads" not in (r.get("listeners") or "").lower()
         ]
         podcasts = [
-            r for r in radio_data if "downloads" in r.get("listeners") or "".lower()
+            r for r in radio_data if "downloads" in (r.get("listeners") or "").lower()
         ]
 
         if local_stations:
@@ -15021,20 +15047,7 @@ except ImportError as _mon_err:
 
     def health_check_detailed():
         """Detailed health check with uptime, version, and subsystem checks."""
-        kb_loaded = _knowledge_base is not None and len(_knowledge_base) > 0
-        data_dir_exists = os.path.isdir(DATA_DIR)
-        is_healthy = kb_loaded and data_dir_exists
-        return {
-            "status": "healthy" if is_healthy else "unhealthy",
-            "uptime_seconds": round(time.time() - _SERVER_START_TIME, 2),
-            "version": "3.5.0",
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "checks": {
-                "knowledge_base": kb_loaded,
-                "data_dir": data_dir_exists,
-            },
-            "metrics_persisted": False,
-        }
+        return _build_health_response()
 
     def health_check_readiness():
         return {"status": "healthy", "version": "3.5.0", "metrics_persisted": False}
@@ -15046,25 +15059,73 @@ except ImportError as _mon_err:
         pass
 
 
+def _build_health_response() -> dict:
+    """Build the detailed health check response with subsystem status.
+
+    Centralised so both the except-block fallback and the
+    'if not in dir()' guard share the same logic.
+    """
+    kb_loaded = _knowledge_base is not None and len(_knowledge_base) > 0
+    data_dir_exists = os.path.isdir(DATA_DIR)
+    is_healthy = kb_loaded and data_dir_exists
+
+    # Supabase connectivity check
+    _sb_connected = False
+    try:
+        _sb_connected = bool(_supabase_data_available)
+    except NameError:
+        pass
+
+    # Enrichment daemon check
+    _enrich_running = False
+    try:
+        _enrich_running = bool(_data_enrichment_available)
+    except NameError:
+        pass
+
+    # LLM router availability
+    _llm_available = False
+    try:
+        _llm_available = _lazy_llm_router() is not None
+    except Exception:
+        pass
+
+    # API integrations availability
+    _api_integ = False
+    try:
+        _api_integ = bool(_api_integrations_available)
+    except NameError:
+        pass
+
+    # PostHog key for frontend initialization (safe to expose -- it's a public project key)
+    _ph_key_val = (os.environ.get("POSTHOG_API_KEY") or "").strip()
+
+    result: dict = {
+        "status": "healthy" if is_healthy else "unhealthy",
+        "uptime_seconds": round(time.time() - _SERVER_START_TIME, 2),
+        "version": "3.5.0",
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "checks": {
+            "knowledge_base": kb_loaded,
+            "data_dir": data_dir_exists,
+        },
+        "metrics_persisted": False,
+        "supabase_connected": _sb_connected,
+        "enrichment_daemon_running": _enrich_running,
+        "llm_router_available": _llm_available,
+        "api_integrations_available": _api_integ,
+    }
+    if _ph_key_val:
+        result["posthog_key"] = _ph_key_val
+    return result
+
+
 # Ensure health_check_detailed always exists (monitoring module may not export it)
 if "health_check_detailed" not in dir():
 
     def health_check_detailed():
         """Detailed health check with uptime, version, and subsystem checks."""
-        kb_loaded = _knowledge_base is not None and len(_knowledge_base) > 0
-        data_dir_exists = os.path.isdir(DATA_DIR)
-        is_healthy = kb_loaded and data_dir_exists
-        return {
-            "status": "healthy" if is_healthy else "unhealthy",
-            "uptime_seconds": round(time.time() - _SERVER_START_TIME, 2),
-            "version": "3.5.0",
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "checks": {
-                "knowledge_base": kb_loaded,
-                "data_dir": data_dir_exists,
-            },
-            "metrics_persisted": False,
-        }
+        return _build_health_response()
 
 
 # Data matrix health monitor (background checks every 12h)
@@ -16103,7 +16164,7 @@ def _generate_ab_test(data: dict) -> dict:
             break
 
     # Check for Claude API
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY") or "".strip()
+    anthropic_key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
     if anthropic_key:
         try:
             result = _generate_ab_test_with_claude(
@@ -16867,7 +16928,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         # ── API Versioning: strip /v1 prefix (Feature 4) ──
         if path.startswith("/v1/"):
             path = path[3:]
-        if path == "/" or path == "":
+        if path == "/" or path == "" or path in ("/hub", "/hub/"):
             self._serve_file(os.path.join(TEMPLATES_DIR, "hub.html"), "text/html")
         elif path in ("/media-plan", "/media-plan/", "/generator", "/generator/"):
             self._serve_file(os.path.join(TEMPLATES_DIR, "index.html"), "text/html")
@@ -17002,7 +17063,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             infra = result["infrastructure"]
             # -- Sentry --
             try:
-                _sentry_dsn = os.environ.get("SENTRY_DSN") or "".strip()
+                _sentry_dsn = (os.environ.get("SENTRY_DSN") or "").strip()
                 if _sentry_dsn:
                     import sentry_sdk as _sk
 
@@ -17073,7 +17134,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     },
                 }
             except Exception:
-                _ph_key = os.environ.get("POSTHOG_API_KEY") or "".strip()
+                _ph_key = (os.environ.get("POSTHOG_API_KEY") or "").strip()
                 infra["posthog"] = {
                     "name": "PostHog",
                     "status": "ok" if _ph_key else "disabled",
@@ -17133,7 +17194,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 _graf_dropped = _graf_data.get("records_dropped") or 0
                 _graf_errors = _graf_data.get("flush_errors") or 0
                 _graf_last_err = _graf_data.get("last_error")
-                _graf_url = os.environ.get("GRAFANA_LOKI_URL") or "".strip()
+                _graf_url = (os.environ.get("GRAFANA_LOKI_URL") or "").strip()
                 # Status: degraded if configured but currently failing
                 _graf_status = "disabled"
                 if _graf_url:
@@ -17243,7 +17304,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     },
                 }
             except Exception:
-                _resend_key = os.environ.get("RESEND_API_KEY") or "".strip()
+                _resend_key = (os.environ.get("RESEND_API_KEY") or "").strip()
                 infra["resend"] = {
                     "name": "Resend Email",
                     "status": "ok" if _resend_key else "disabled",
@@ -17607,7 +17668,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
             # ---- Communication ----
             comms = result["communication"]
-            _slack_token = os.environ.get("SLACK_BOT_TOKEN") or "".strip()
+            _slack_token = (os.environ.get("SLACK_BOT_TOKEN") or "").strip()
             comms["slack"] = {
                 "name": "Slack Bot",
                 "status": "ok" if _slack_token else "disabled",
@@ -18698,6 +18759,130 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(html.encode())
             else:
                 self.send_error(404, "Terms of Service page not found")
+        # ── API Integrations Status ──
+        elif path == "/api/integrations/status":
+            if not _api_integrations_available:
+                self._send_json(
+                    {
+                        "available": False,
+                        "error": "api_integrations module not loaded",
+                        "apis": {},
+                    }
+                )
+            else:
+                try:
+                    _api_results = _api_test_all()
+                    _passed = sum(1 for v in _api_results.values() if v)
+                    _total = len(_api_results)
+                    self._send_json(
+                        {
+                            "available": True,
+                            "summary": f"{_passed}/{_total} APIs healthy",
+                            "apis": _api_results,
+                            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+                        }
+                    )
+                except Exception as _e:
+                    logger.error(
+                        "API integrations status check failed: %s", _e, exc_info=True
+                    )
+                    self._send_json(
+                        {
+                            "available": True,
+                            "error": f"Status check failed: {_e}",
+                            "apis": {},
+                        }
+                    )
+        # ── API Integrations Market Snapshot ──
+        elif path == "/api/integrations/market-snapshot":
+            qs = urllib.parse.parse_qs(parsed.query)
+            _snap_role = qs.get("role", [""])[0]
+            _snap_location = qs.get("location", [""])[0]
+            if not _snap_role:
+                self._send_json({"error": "Missing required 'role' query parameter"})
+            elif not _api_integrations_available:
+                self._send_json(
+                    {
+                        "error": "api_integrations module not loaded",
+                        "role": _snap_role,
+                        "location": _snap_location,
+                    }
+                )
+            else:
+                _snapshot: dict = {
+                    "role": _snap_role,
+                    "location": _snap_location,
+                    "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+                }
+                # Adzuna job count + salary
+                try:
+                    if _api_adzuna:
+                        _s_count = _api_adzuna.get_job_count(_snap_role, "us")
+                        if _s_count:
+                            _snapshot["adzuna_job_count"] = _s_count
+                        _s_hist = _api_adzuna.get_salary_histogram(_snap_role, "us")
+                        if _s_hist:
+                            _snapshot["adzuna_salary_histogram"] = _s_hist
+                        _s_companies = _api_adzuna.get_top_companies(_snap_role, "us")
+                        if _s_companies:
+                            _snapshot["adzuna_top_companies"] = _s_companies
+                except (urllib.error.URLError, OSError, ValueError, TypeError) as _ae:
+                    logger.error(
+                        "Adzuna data for market-snapshot failed: %s", _ae, exc_info=True
+                    )
+                # FRED economic data
+                try:
+                    if _api_fred:
+                        _s_unemp = _api_fred.get_unemployment_rate()
+                        if _s_unemp:
+                            _snapshot["fred_unemployment"] = _s_unemp
+                        _s_cpi = _api_fred.get_cpi_data(months=6)
+                        if _s_cpi:
+                            _snapshot["fred_cpi"] = _s_cpi
+                except (urllib.error.URLError, OSError, ValueError, TypeError) as _fe:
+                    logger.error(
+                        "FRED data for market-snapshot failed: %s", _fe, exc_info=True
+                    )
+                # O*NET occupation data
+                try:
+                    if _api_onet:
+                        _s_occs = _api_onet.search_occupations(_snap_role)
+                        if _s_occs:
+                            _snapshot["onet_occupations"] = _s_occs[:5]
+                            _top_code = _s_occs[0].get("code") or ""
+                            if _top_code:
+                                _s_skills = _api_onet.get_skills(_top_code)
+                                if _s_skills:
+                                    _snapshot["onet_skills"] = _s_skills[:10]
+                except (urllib.error.URLError, OSError, ValueError, TypeError) as _oe:
+                    logger.error(
+                        "O*NET data for market-snapshot failed: %s", _oe, exc_info=True
+                    )
+                # BLS employment data
+                try:
+                    if _api_bls and _api_onet:
+                        _s_occs_bls = _snapshot.get("onet_occupations") or []
+                        if _s_occs_bls:
+                            _s_soc = _s_occs_bls[0].get("code") or ""
+                            if _s_soc:
+                                _s_oes = _api_bls.get_occupational_employment(_s_soc)
+                                if _s_oes:
+                                    _snapshot["bls_occupational_employment"] = _s_oes
+                except (urllib.error.URLError, OSError, ValueError, TypeError) as _be:
+                    logger.error(
+                        "BLS data for market-snapshot failed: %s", _be, exc_info=True
+                    )
+                # Census population
+                try:
+                    if _api_census:
+                        _s_pop = _api_census.get_population_by_state()
+                        if _s_pop:
+                            _snapshot["census_population"] = _s_pop
+                except (urllib.error.URLError, OSError, ValueError, TypeError) as _ce:
+                    logger.error(
+                        "Census data for market-snapshot failed: %s", _ce, exc_info=True
+                    )
+                self._send_json(_snapshot)
         # ── API Portal GET routes ──
         elif path.startswith("/api/portal/"):
             if not self._check_admin_auth():
@@ -18773,6 +18958,53 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         "articles": articles,
                         "count": len(articles),
                     }
+                    # ── API Integrations: Market Pulse News enrichment ──
+                    if _api_integrations_available:
+                        _mp_econ: dict = {}
+                        try:
+                            if _api_fred:
+                                _fred_unemp = _api_fred.get_unemployment_rate()
+                                if _fred_unemp:
+                                    _mp_econ["fred_unemployment"] = _fred_unemp
+                                _fred_gdp = _api_fred.get_gdp_growth()
+                                if _fred_gdp:
+                                    _mp_econ["fred_gdp_growth"] = _fred_gdp
+                                if _mp_econ:
+                                    logger.info(
+                                        "Enriched /api/market-pulse/news with fred economic data"
+                                    )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _fe:
+                            logger.error(
+                                "FRED enrichment for market-pulse/news failed: %s",
+                                _fe,
+                                exc_info=True,
+                            )
+                        try:
+                            if _api_bea:
+                                _bea_gdp = _api_bea.get_gdp_by_state()
+                                if _bea_gdp:
+                                    _mp_econ["bea_gdp_by_state"] = _bea_gdp
+                                    logger.info(
+                                        "Enriched /api/market-pulse/news with bea GDP data"
+                                    )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _be:
+                            logger.error(
+                                "BEA enrichment for market-pulse/news failed: %s",
+                                _be,
+                                exc_info=True,
+                            )
+                        if _mp_econ:
+                            _mp_news_resp["economic_context"] = _mp_econ
                     # Enrich with Supabase market trends
                     if _supabase_data_available:
                         try:
@@ -19090,7 +19322,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 logger.info("Input validation warnings: %s", _validation_warnings)
 
             # ── Feature 2b: Async generation mode ──
-            if self.headers.get("X-Async") or "".lower() == "true":
+            if (self.headers.get("X-Async") or "").lower() == "true":
                 job_id = uuid.uuid4().hex[:12]
                 with _generation_jobs_lock:
                     _generation_jobs[job_id] = {
@@ -19749,7 +19981,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             enrich_data(data, request_id=_rid)
                             if _rid
                             else enrich_data(data)
-                        )
+                        ) or {}
                     data["_enriched"] = enriched
                     logger.info(
                         "API enrichment complete: %s",
@@ -19760,6 +19992,118 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     data["_enriched"] = {}
             else:
                 data["_enriched"] = {}
+
+            # ── API Integrations: Market Context for /api/generate ──
+            if _api_integrations_available:
+                try:
+                    _market_ctx: dict = {}
+                    _roles_for_api = data.get("target_roles") or data.get("roles") or []
+                    _role_str = (
+                        _roles_for_api[0]
+                        if isinstance(_roles_for_api, list) and _roles_for_api
+                        else str(_roles_for_api)
+                    )
+                    if isinstance(_role_str, dict):
+                        _role_str = _role_str.get("title") or ""
+                    _role_str = str(_role_str) if _role_str else ""
+                    _locs_for_api = data.get("locations") or []
+                    _state_code = ""
+                    if _locs_for_api:
+                        _first_loc = (
+                            _locs_for_api[0]
+                            if isinstance(_locs_for_api, list)
+                            else str(_locs_for_api)
+                        )
+                        if isinstance(_first_loc, dict):
+                            _state_code = _first_loc.get("state") or ""
+                        elif isinstance(_first_loc, str):
+                            _parts = [p.strip() for p in _first_loc.split(",")]
+                            _state_code = _parts[1] if len(_parts) > 1 else ""
+                        if len(_state_code) > 2:
+                            _state_code = ""  # Only 2-letter state codes
+                    # Adzuna job count
+                    try:
+                        if _api_adzuna and _role_str:
+                            _adzuna_count = _api_adzuna.get_job_count(_role_str, "us")
+                            if _adzuna_count:
+                                _market_ctx["adzuna_job_count"] = _adzuna_count
+                                logger.info(
+                                    "Enriched /api/generate with adzuna job_count data"
+                                )
+                    except (
+                        urllib.error.URLError,
+                        OSError,
+                        ValueError,
+                        TypeError,
+                    ) as _ae:
+                        logger.error(
+                            "Adzuna enrichment for /api/generate failed: %s",
+                            _ae,
+                            exc_info=True,
+                        )
+                    # BLS occupational employment
+                    try:
+                        if _api_bls and _role_str:
+                            # Try to get SOC code from data or use role string
+                            _soc = ""
+                            for _rr in (
+                                _roles_for_api
+                                if isinstance(_roles_for_api, list)
+                                else []
+                            ):
+                                if isinstance(_rr, dict):
+                                    _soc = _rr.get("_soc_code") or ""
+                                    break
+                            if _soc:
+                                _bls_oes = _api_bls.get_occupational_employment(_soc)
+                                if _bls_oes:
+                                    _market_ctx["bls_occupational_employment"] = (
+                                        _bls_oes
+                                    )
+                                    logger.info(
+                                        "Enriched /api/generate with bls OES data"
+                                    )
+                    except (
+                        urllib.error.URLError,
+                        OSError,
+                        ValueError,
+                        TypeError,
+                    ) as _be:
+                        logger.error(
+                            "BLS enrichment for /api/generate failed: %s",
+                            _be,
+                            exc_info=True,
+                        )
+                    # FRED unemployment rate
+                    try:
+                        if _api_fred:
+                            _fred_unemp = _api_fred.get_unemployment_rate(
+                                state_code=_state_code if _state_code else None
+                            )
+                            if _fred_unemp:
+                                _market_ctx["fred_unemployment"] = _fred_unemp
+                                logger.info(
+                                    "Enriched /api/generate with fred unemployment data"
+                                )
+                    except (
+                        urllib.error.URLError,
+                        OSError,
+                        ValueError,
+                        TypeError,
+                    ) as _fe:
+                        logger.error(
+                            "FRED enrichment for /api/generate failed: %s",
+                            _fe,
+                            exc_info=True,
+                        )
+                    if _market_ctx:
+                        data["market_context"] = _market_ctx
+                except Exception as _mkt_err:
+                    logger.error(
+                        "Market context enrichment failed (non-fatal): %s",
+                        _mkt_err,
+                        exc_info=True,
+                    )
 
             # ── Phase 2: Load Knowledge Base ──
             with _span_fn("kb.load", "Load knowledge base"):
@@ -20271,6 +20615,102 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
             try:
+                # ── API Integrations: Enrich chat context with live data ──
+                if _api_integrations_available:
+                    _chat_msg = (data.get("message") or "").lower()
+                    _chat_api_ctx: dict = {}
+                    _chat_role = (
+                        data.get("role") or data.get("context", {}).get("role") or ""
+                    )
+                    # Job/role questions -> O*NET occupation data
+                    if _api_onet and any(
+                        kw in _chat_msg
+                        for kw in ("job", "role", "occupation", "career", "position")
+                    ):
+                        try:
+                            _search_term = _chat_role or _chat_msg[:50]
+                            _onet_results = _api_onet.search_occupations(_search_term)
+                            if _onet_results:
+                                _chat_api_ctx["onet_occupations"] = _onet_results[:5]
+                                logger.info(
+                                    "Enriched /api/chat with onet occupation data"
+                                )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _oe:
+                            logger.error(
+                                "O*NET enrichment for chat failed: %s",
+                                _oe,
+                                exc_info=True,
+                            )
+                    # Salary questions -> Adzuna salary histogram
+                    if _api_adzuna and any(
+                        kw in _chat_msg
+                        for kw in ("salary", "pay", "compensation", "wage", "earning")
+                    ):
+                        try:
+                            _sal_role = _chat_role or "software engineer"
+                            _sal_hist = _api_adzuna.get_salary_histogram(
+                                _sal_role, "us"
+                            )
+                            if _sal_hist:
+                                _chat_api_ctx["adzuna_salary_histogram"] = _sal_hist
+                                logger.info(
+                                    "Enriched /api/chat with adzuna salary data"
+                                )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _ae:
+                            logger.error(
+                                "Adzuna salary enrichment for chat failed: %s",
+                                _ae,
+                                exc_info=True,
+                            )
+                    # Market/economy questions -> FRED data
+                    if _api_fred and any(
+                        kw in _chat_msg
+                        for kw in (
+                            "market",
+                            "economy",
+                            "unemployment",
+                            "inflation",
+                            "economic",
+                            "recession",
+                        )
+                    ):
+                        try:
+                            _fred_unemp = _api_fred.get_unemployment_rate()
+                            if _fred_unemp:
+                                _chat_api_ctx["fred_unemployment"] = _fred_unemp
+                            _fred_cpi = _api_fred.get_cpi_data(months=6)
+                            if _fred_cpi:
+                                _chat_api_ctx["fred_cpi"] = _fred_cpi
+                            if _chat_api_ctx.get(
+                                "fred_unemployment"
+                            ) or _chat_api_ctx.get("fred_cpi"):
+                                logger.info(
+                                    "Enriched /api/chat with fred economic data"
+                                )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _fe:
+                            logger.error(
+                                "FRED enrichment for chat failed: %s",
+                                _fe,
+                                exc_info=True,
+                            )
+                    if _chat_api_ctx:
+                        data["_api_context"] = _chat_api_ctx
+
                 from nova import handle_chat_request
 
                 _chat_span_fn = getattr(self, "_sentry_span", lambda o, n: _nullctx())
@@ -21077,6 +21517,35 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     )
                 else:
                     result = analyze_competitor_careers(company_domain=domain)
+                    # ── API Integrations: Competitive Intel enrichment ──
+                    if (
+                        _api_integrations_available
+                        and _api_jooble
+                        and isinstance(result, dict)
+                    ):
+                        try:
+                            _ci_role = data.get("role") or data.get("keyword") or ""
+                            _ci_location = data.get("location") or ""
+                            if _ci_role:
+                                _jooble_jobs = _api_jooble.search_jobs(
+                                    _ci_role, _ci_location
+                                )
+                                if _jooble_jobs:
+                                    result["jooble_market_comparison"] = _jooble_jobs
+                                    logger.info(
+                                        "Enriched /api/competitive/scrape with jooble data"
+                                    )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _je:
+                            logger.error(
+                                "Jooble enrichment for competitive/scrape failed: %s",
+                                _je,
+                                exc_info=True,
+                            )
                     self._send_json(result)
             except Exception as e:
                 logger.error("Competitive scrape error: %s", e, exc_info=True)
@@ -21340,6 +21809,81 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             f"Supabase salary enrichment for heatmap failed: {sb_err}",
                             exc_info=True,
                         )
+
+                # ── API Integrations: Talent Heatmap enrichment ──
+                if _api_integrations_available and isinstance(result, dict):
+                    _thm_live_data: dict = {}
+                    _thm_role_str = data.get("role") or ""
+                    _thm_locs = data.get("locations") or []
+                    if isinstance(_thm_locs, str):
+                        _thm_locs = [_thm_locs]
+                    # Adzuna job counts per location
+                    if _api_adzuna and _thm_role_str:
+                        try:
+                            _thm_job_counts: dict = {}
+                            for _loc in _thm_locs[:10]:
+                                _loc_str = _loc if isinstance(_loc, str) else str(_loc)
+                                _count = _api_adzuna.get_job_count(_thm_role_str, "us")
+                                if _count:
+                                    _thm_job_counts[_loc_str] = _count
+                            if _thm_job_counts:
+                                _thm_live_data["adzuna_job_counts"] = _thm_job_counts
+                                logger.info(
+                                    "Enriched /api/talent-heatmap with adzuna job_count data"
+                                )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _ae:
+                            logger.error(
+                                "Adzuna enrichment for talent-heatmap failed: %s",
+                                _ae,
+                                exc_info=True,
+                            )
+                    # Census population by state
+                    if _api_census:
+                        try:
+                            _census_pop = _api_census.get_population_by_state()
+                            if _census_pop:
+                                _thm_live_data["census_population"] = _census_pop
+                                logger.info(
+                                    "Enriched /api/talent-heatmap with census population data"
+                                )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _ce:
+                            logger.error(
+                                "Census enrichment for talent-heatmap failed: %s",
+                                _ce,
+                                exc_info=True,
+                            )
+                    # BEA regional employment
+                    if _api_bea:
+                        try:
+                            _bea_emp = _api_bea.get_regional_employment()
+                            if _bea_emp:
+                                _thm_live_data["bea_regional_employment"] = _bea_emp
+                                logger.info(
+                                    "Enriched /api/talent-heatmap with bea employment data"
+                                )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _be:
+                            logger.error(
+                                "BEA enrichment for talent-heatmap failed: %s",
+                                _be,
+                                exc_info=True,
+                            )
+                    if _thm_live_data:
+                        result["live_market_data"] = _thm_live_data
 
                 # LLM insights for Talent Heatmap
                 if isinstance(result, dict):
@@ -21815,10 +22359,18 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     data = json.loads(body)
                     from hire_signal import run_full_signal_analysis
 
+                    # Validate manual_data entries are dicts, not strings
+                    _raw_manual = data.get("manual_data")
+                    if isinstance(_raw_manual, list):
+                        _raw_manual = [
+                            item if isinstance(item, dict) else {"source": str(item)}
+                            for item in _raw_manual
+                        ]
+
                     result = run_full_signal_analysis(
-                        manual_data=data.get("manual_data"),
-                        industry=data.get("industry", "general_entry_level"),
-                        client_name=data.get("client_name", "Client"),
+                        manual_data=_raw_manual,
+                        industry=data.get("industry") or "general_entry_level",
+                        client_name=data.get("client_name") or "Client",
                     )
 
                 # LLM insights for HireSignal
@@ -21897,6 +22449,86 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                 f"Supabase supply repository fetch for HireSignal failed: {sb_err}",
                                 exc_info=True,
                             )
+
+                    # ── API Integrations: HireSignal enrichment ──
+                    if _api_integrations_available:
+                        _hs_api_data: dict = {}
+                        _hs_role_str = (
+                            result.get("role") or result.get("job_title") or ""
+                        )
+                        _hs_loc_str = result.get("location") or ""
+                        # Adzuna current job postings
+                        if _api_adzuna and _hs_role_str:
+                            try:
+                                _hs_jobs = _api_adzuna.search_jobs(
+                                    _hs_role_str, "us", results_per_page=5
+                                )
+                                if _hs_jobs:
+                                    _hs_api_data["adzuna_current_postings"] = _hs_jobs
+                                    logger.info(
+                                        "Enriched /api/hire-signal with adzuna job postings"
+                                    )
+                            except (
+                                urllib.error.URLError,
+                                OSError,
+                                ValueError,
+                                TypeError,
+                            ) as _ae:
+                                logger.error(
+                                    "Adzuna enrichment for hire-signal failed: %s",
+                                    _ae,
+                                    exc_info=True,
+                                )
+                        # O*NET skill requirements
+                        if _api_onet and _hs_role_str:
+                            try:
+                                _onet_occs = _api_onet.search_occupations(_hs_role_str)
+                                if _onet_occs and len(_onet_occs) > 0:
+                                    _top_soc = _onet_occs[0].get("code") or ""
+                                    if _top_soc:
+                                        _onet_skills = _api_onet.get_skills(_top_soc)
+                                        if _onet_skills:
+                                            _hs_api_data["onet_skills"] = _onet_skills[
+                                                :10
+                                            ]
+                                            logger.info(
+                                                "Enriched /api/hire-signal with onet skills data"
+                                            )
+                            except (
+                                urllib.error.URLError,
+                                OSError,
+                                ValueError,
+                                TypeError,
+                            ) as _oe:
+                                logger.error(
+                                    "O*NET enrichment for hire-signal failed: %s",
+                                    _oe,
+                                    exc_info=True,
+                                )
+                        # USAJobs government sector comparison
+                        if _api_usajobs and _hs_role_str:
+                            try:
+                                _usa_jobs = _api_usajobs.search_jobs(
+                                    _hs_role_str, _hs_loc_str, results_per_page=5
+                                )
+                                if _usa_jobs:
+                                    _hs_api_data["usajobs_federal_postings"] = _usa_jobs
+                                    logger.info(
+                                        "Enriched /api/hire-signal with usajobs data"
+                                    )
+                            except (
+                                urllib.error.URLError,
+                                OSError,
+                                ValueError,
+                                TypeError,
+                            ) as _ue:
+                                logger.error(
+                                    "USAJobs enrichment for hire-signal failed: %s",
+                                    _ue,
+                                    exc_info=True,
+                                )
+                        if _hs_api_data:
+                            result["live_market_data"] = _hs_api_data
 
                 self._send_json(result)
             except Exception as e:
@@ -22231,6 +22863,15 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 data = json.loads(body_raw)
                 result = _analyze_compliance(data)
 
+                # Return 400 if required fields are missing
+                if (
+                    isinstance(result, dict)
+                    and result.get("error")
+                    and not data.get("text")
+                ):
+                    self._send_json(result, status_code=400)
+                    return
+
                 # Enrich with Supabase compliance rules
                 if _supabase_data_available and isinstance(result, dict):
                     try:
@@ -22282,7 +22923,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
                 data = json.loads(body_raw)
                 result = _generate_creative_ads(data)
-                self._send_json(result)
+                # Return 400 if required fields are missing
+                if isinstance(result, dict) and result.get("error"):
+                    self._send_json(result, status_code=400)
+                else:
+                    self._send_json(result)
             except json.JSONDecodeError:
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
@@ -22324,7 +22969,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
                 data = json.loads(body_raw)
                 result = _calculate_roi(data)
-                self._send_json(result)
+                # Return 400 if required fields are invalid
+                if isinstance(result, dict) and result.get("error"):
+                    self._send_json(result, status_code=400)
+                else:
+                    self._send_json(result)
             except json.JSONDecodeError:
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
@@ -22468,6 +23117,31 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 if _viq_sb_benchmarks:
                     _viq_response["supabase_channel_benchmarks"] = _viq_sb_benchmarks
 
+                # ── API Integrations: VendorIQ enrichment ──
+                if _api_integrations_available and _api_adzuna:
+                    try:
+                        _viq_role = data.get("role") or data.get("keyword") or ""
+                        if _viq_role:
+                            _viq_companies = _api_adzuna.get_top_companies(
+                                _viq_role, "us"
+                            )
+                            if _viq_companies:
+                                _viq_response["adzuna_top_companies"] = _viq_companies
+                                logger.info(
+                                    "Enriched /api/vendor-iq with adzuna top_companies data"
+                                )
+                    except (
+                        urllib.error.URLError,
+                        OSError,
+                        ValueError,
+                        TypeError,
+                    ) as _ae:
+                        logger.error(
+                            "Adzuna enrichment for vendor-iq failed: %s",
+                            _ae,
+                            exc_info=True,
+                        )
+
                 self._send_json(_viq_response)
             except json.JSONDecodeError:
                 self.send_response(400)
@@ -22505,6 +23179,80 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             f"Supabase salary data fetch for PayScale failed: {sb_err}",
                             exc_info=True,
                         )
+
+                # ── API Integrations: PayScale Sync enrichment ──
+                if _api_integrations_available and isinstance(result, dict):
+                    _ps_api_data: dict = {}
+                    _ps_role_str = data.get("role") or ""
+                    # BLS occupational employment/wage data
+                    if _api_bls and _ps_role_str:
+                        try:
+                            # Use SOC code if available, otherwise skip
+                            _ps_soc = data.get("soc_code") or ""
+                            if _ps_soc:
+                                _bls_oes = _api_bls.get_occupational_employment(_ps_soc)
+                                if _bls_oes:
+                                    _ps_api_data["bls_occupational_employment"] = (
+                                        _bls_oes
+                                    )
+                                    logger.info(
+                                        "Enriched /api/payscale-sync with bls OES data"
+                                    )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _be:
+                            logger.error(
+                                "BLS enrichment for payscale-sync failed: %s",
+                                _be,
+                                exc_info=True,
+                            )
+                    # Adzuna salary histogram
+                    if _api_adzuna and _ps_role_str:
+                        try:
+                            _ps_hist = _api_adzuna.get_salary_histogram(
+                                _ps_role_str, "us"
+                            )
+                            if _ps_hist:
+                                _ps_api_data["adzuna_salary_histogram"] = _ps_hist
+                                logger.info(
+                                    "Enriched /api/payscale-sync with adzuna salary data"
+                                )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _ae:
+                            logger.error(
+                                "Adzuna enrichment for payscale-sync failed: %s",
+                                _ae,
+                                exc_info=True,
+                            )
+                    # FRED CPI for cost-of-living context
+                    if _api_fred:
+                        try:
+                            _ps_cpi = _api_fred.get_cpi_data(months=12)
+                            if _ps_cpi:
+                                _ps_api_data["fred_cpi"] = _ps_cpi
+                                logger.info(
+                                    "Enriched /api/payscale-sync with fred CPI data"
+                                )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _fe:
+                            logger.error(
+                                "FRED enrichment for payscale-sync failed: %s",
+                                _fe,
+                                exc_info=True,
+                            )
+                    if _ps_api_data:
+                        result["live_market_data"] = _ps_api_data
 
                 self._send_json(result)
             except json.JSONDecodeError:
@@ -22618,10 +23366,10 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         self._response_status = code
         super().send_response(code, message)
 
-    def _send_json(self, data):
+    def _send_json(self, data, status_code: int = 200):
         """Send a JSON response with gzip compression when beneficial."""
         body = json.dumps(data).encode("utf-8")
-        self._send_compressed_response(body, "application/json")
+        self._send_compressed_response(body, "application/json", status=status_code)
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
