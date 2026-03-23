@@ -46,6 +46,11 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+try:
+    from alert_manager import send_alert
+except ImportError:
+    send_alert = lambda *a, **kw: False
+
 # -- Scheduling ----------------------------------------------------------------
 ENRICHMENT_INTERVAL = 3600  # Check every hour
 _INITIAL_DELAY = 300  # 5 minutes after startup (let services warm up)
@@ -161,6 +166,56 @@ _AD_PLATFORMS: list[str] = [
 
 
 # ==============================================================================
+# RETRY HELPER
+# ==============================================================================
+
+
+_RETRYABLE_EXCEPTIONS = (urllib.error.URLError, OSError, TimeoutError, ValueError)
+
+
+def _retry_with_backoff(
+    fn: callable,
+    max_retries: int = 3,
+    base_delay: float = 2.0,
+) -> Any:
+    """Execute a callable with exponential backoff on transient failures.
+
+    Retries on network-related exceptions (URLError, OSError, TimeoutError)
+    and ValueError. Uses exponential backoff: base_delay * 2^attempt
+    (e.g., 2s, 4s, 8s for base_delay=2.0).
+
+    Args:
+        fn: Zero-argument callable to execute.
+        max_retries: Maximum number of retry attempts (default 3).
+        base_delay: Base delay in seconds before first retry (default 2.0).
+
+    Returns:
+        The return value of fn on success, or None after all retries exhausted.
+    """
+    last_exc: BaseException | None = None
+    for attempt in range(max_retries + 1):
+        try:
+            return fn()
+        except _RETRYABLE_EXCEPTIONS as exc:
+            last_exc = exc
+            if attempt < max_retries:
+                delay = base_delay * (2**attempt)
+                logger.warning(
+                    f"Retry {attempt + 1}/{max_retries} after "
+                    f"{delay:.1f}s for {fn.__name__ if hasattr(fn, '__name__') else 'callable'}: {exc}"
+                )
+                time.sleep(delay)
+            else:
+                logger.error(
+                    f"All {max_retries} retries exhausted for "
+                    f"{fn.__name__ if hasattr(fn, '__name__') else 'callable'}: {last_exc}",
+                    exc_info=True,
+                )
+                return None
+    return None  # pragma: no cover
+
+
+# ==============================================================================
 # SUPABASE WRITE HELPERS
 # ==============================================================================
 
@@ -222,9 +277,14 @@ def _upsert_to_supabase(
         chunk = rows[i : i + _BATCH_SIZE]
         payload = json.dumps(chunk, ensure_ascii=False, default=str).encode("utf-8")
 
-        try:
+        def _do_upsert_batch(
+            _payload: bytes = payload,
+            _url: str = url,
+            _headers: dict = headers,
+        ) -> int:
+            """Execute a single Supabase upsert batch with urlopen."""
             req = urllib.request.Request(
-                url, data=payload, method="POST", headers=headers
+                _url, data=_payload, method="POST", headers=_headers
             )
             with urllib.request.urlopen(
                 req, timeout=_HTTP_TIMEOUT, context=_SSL_CTX
@@ -232,9 +292,15 @@ def _upsert_to_supabase(
                 status = resp.getcode()
                 if status and status >= 400:
                     body = resp.read().decode("utf-8", errors="replace")[:300]
-                    logger.error(f"Supabase HTTP {status} upserting to {table}: {body}")
-                else:
-                    total_upserted += len(chunk)
+                    raise ValueError(
+                        f"Supabase HTTP {status} upserting to {table}: {body}"
+                    )
+                return len(chunk)
+
+        try:
+            result = _retry_with_backoff(_do_upsert_batch)
+            if result is not None:
+                total_upserted += result
         except urllib.error.HTTPError as exc:
             error_body = ""
             try:
@@ -245,12 +311,7 @@ def _upsert_to_supabase(
                 f"Supabase HTTP {exc.code} upserting to {table}: {error_body}",
                 exc_info=True,
             )
-        except urllib.error.URLError as exc:
-            logger.error(
-                f"Supabase URLError upserting to {table}: {exc.reason}",
-                exc_info=True,
-            )
-        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             logger.error(f"Supabase error upserting to {table}: {exc}", exc_info=True)
 
     if total_upserted:
@@ -353,23 +414,29 @@ class DataEnrichmentEngine:
         """
         if not _SUPABASE_ENABLED:
             return None
-        try:
-            base = SUPABASE_URL.rstrip("/")
-            url = (
-                f"{base}/rest/v1/enrichment_log"
-                "?select=source,started_at,success,records"
-                "&order=started_at.desc"
-                "&limit=50"
-            )
-            headers = _build_supabase_headers()
+
+        base = SUPABASE_URL.rstrip("/")
+        url = (
+            f"{base}/rest/v1/enrichment_log"
+            "?select=source,started_at,success,records"
+            "&order=started_at.desc"
+            "&limit=50"
+        )
+        headers = _build_supabase_headers()
+
+        def _fetch_enrichment_log() -> list:
+            """Fetch enrichment log rows from Supabase."""
             req = urllib.request.Request(url, method="GET", headers=headers)
             with urllib.request.urlopen(
                 req, timeout=_HTTP_TIMEOUT, context=_SSL_CTX
             ) as resp:
                 raw = resp.read().decode("utf-8")
-                rows = json.loads(raw)
-                if not isinstance(rows, list) or not rows:
-                    return None
+                return json.loads(raw)
+
+        try:
+            rows = _retry_with_backoff(_fetch_enrichment_log)
+            if not isinstance(rows, list) or not rows:
+                return None
 
             last_runs: dict[str, str] = {}
             total_ok = 0
@@ -392,9 +459,7 @@ class DataEnrichmentEngine:
             }
         except (
             urllib.error.HTTPError,
-            urllib.error.URLError,
             json.JSONDecodeError,
-            OSError,
         ) as exc:
             logger.debug(f"Could not load state from Supabase: {exc}")
             return None
@@ -1416,6 +1481,30 @@ class DataEnrichmentEngine:
             results["failed"],
             elapsed,
         )
+
+        # Alert on enrichment failures
+        failed_count = results.get("failed") or 0
+        if failed_count > 0:
+            # Collect names of failed sources from the enrichment log
+            recent_failures = [
+                entry.get("source") or "unknown"
+                for entry in self._enrichment_log[-failed_count:]
+                if not entry.get("success")
+            ]
+            send_alert(
+                subject=f"Data Enrichment: {failed_count} source(s) failed",
+                body=(
+                    f"<p><b>{failed_count}</b> enrichment source(s) failed after retries.</p>"
+                    f"<p>Failed sources: {', '.join(recent_failures) or 'unknown'}</p>"
+                    f"<p>Checked: {results.get('checked') or 0} | "
+                    f"Refreshed: {results.get('refreshed') or 0} | "
+                    f"Skipped: {results.get('skipped') or 0}</p>"
+                    f"<p>Elapsed: {elapsed}s</p>"
+                    f"<p>Check: <code>/api/health/enrichment</code></p>"
+                ),
+                severity="critical" if failed_count >= 3 else "warning",
+            )
+
         return results
 
     # -- Background loop -------------------------------------------------------

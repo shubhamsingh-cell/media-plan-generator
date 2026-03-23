@@ -23,18 +23,27 @@ import importlib
 import json
 import logging
 import os
+import shutil
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+try:
+    from alert_manager import send_alert
+except ImportError:
+    send_alert = lambda *a, **kw: False
+
 _CHECK_INTERVAL = 12 * 3600  # 12 hours
 _INITIAL_DELAY = 60  # wait 60s after startup before first check
 _MAX_HEAL_LOG = 20  # keep last N heal actions
+_API_HEALTH_TIMEOUT = 5  # seconds for API health-check requests
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -187,6 +196,8 @@ class DataMatrixMonitor:
         # Config drift: snapshot env var hashes at startup
         self._env_snapshot: Dict[str, str] = self._snapshot_env_hashes()
         self._last_drift_check: float = time.time()
+        # Supabase fallback flag: when True, products should use local JSON
+        self.supabase_fallback_to_local: bool = False
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -363,6 +374,32 @@ class DataMatrixMonitor:
             counts["healed"],
             elapsed,
         )
+
+        # Alert on unhealed errors
+        error_count = counts.get("error") or 0
+        if error_count > 0:
+            # Collect error cells for the alert body
+            error_cells: list[str] = []
+            for product, layers in matrix_results.items():
+                for layer, info in layers.items():
+                    if isinstance(info, dict) and info.get("health") == "error":
+                        error_cells.append(f"{product}/{layer}")
+            for mod_key, info in tier2_results.items():
+                if isinstance(info, dict) and info.get("status") == "error":
+                    error_cells.append(f"tier2/{mod_key}")
+            send_alert(
+                subject=f"Data Matrix: {error_count} check(s) failed after self-heal",
+                body=(
+                    f"<p><b>{error_count}</b> data matrix check(s) failed and "
+                    f"could not be self-healed.</p>"
+                    f"<p>Failed cells: {', '.join(error_cells[:15]) or 'unknown'}</p>"
+                    f"<p>Health: {health_pct}% | Healed: {counts.get('healed') or 0} | "
+                    f"Duration: {elapsed}s</p>"
+                    f"<p>Check: <code>/api/health/data-matrix</code></p>"
+                ),
+                severity="critical" if error_count >= 5 else "warning",
+            )
+
         return result
 
     # ── Background loop ───────────────────────────────────────────────────
@@ -773,7 +810,443 @@ class DataMatrixMonitor:
             )
             results["v35_routing"] = {"status": "error", "detail": str(e)}
 
+        # 8. API health (FRED, BLS, Adzuna, O*NET)
+        try:
+            results["api_health"] = self._check_api_health()
+        except Exception as e:
+            logger.error(
+                "extended_health: api_health probe failed: %s",
+                e,
+                exc_info=True,
+            )
+            results["api_health"] = {
+                "name": "api_health",
+                "status": "error",
+                "detail": str(e),
+                "healed": False,
+            }
+
+        # 9. Supabase connectivity
+        try:
+            results["supabase_health"] = self._check_supabase_health()
+        except Exception as e:
+            logger.error(
+                "extended_health: supabase_health probe failed: %s",
+                e,
+                exc_info=True,
+            )
+            results["supabase_health"] = {
+                "name": "supabase_health",
+                "status": "error",
+                "detail": str(e),
+                "healed": False,
+            }
+
+        # 10. Cache staleness (data/ freshness vs FRESHNESS_THRESHOLDS)
+        try:
+            results["cache_staleness"] = self._check_cache_staleness()
+        except Exception as e:
+            logger.error(
+                "extended_health: cache_staleness probe failed: %s",
+                e,
+                exc_info=True,
+            )
+            results["cache_staleness"] = {
+                "name": "cache_staleness",
+                "status": "error",
+                "detail": str(e),
+                "healed": False,
+            }
+
+        # 11. Disk space
+        try:
+            results["disk_space"] = self._check_disk_space()
+        except Exception as e:
+            logger.error(
+                "extended_health: disk_space probe failed: %s",
+                e,
+                exc_info=True,
+            )
+            results["disk_space"] = {
+                "name": "disk_space",
+                "status": "error",
+                "detail": str(e),
+                "healed": False,
+            }
+
         return results
+
+    # ── Extended self-healing checks (v4) ─────────────────────────────────
+
+    def _check_api_health(self) -> Dict[str, Any]:
+        """Test each configured external API key with a minimal request.
+
+        Checks FRED, BLS, Adzuna, and O*NET APIs. Skips any API whose
+        key is not set. Reports 'degraded' (not 'error') on failure so
+        the system keeps running with reduced capability.
+
+        Returns:
+            Dict with name, status, detail, and healed keys.
+        """
+        api_results: Dict[str, str] = {}
+        failed: List[str] = []
+
+        # -- FRED --
+        fred_key = os.environ.get("FRED_API_KEY") or ""
+        if fred_key:
+            try:
+                url = (
+                    f"https://api.stlouisfed.org/fred/series"
+                    f"?series_id=GNPCA&api_key={fred_key}&file_type=json"
+                )
+                req = urllib.request.Request(url, method="GET")
+                with urllib.request.urlopen(req, timeout=_API_HEALTH_TIMEOUT) as resp:
+                    if resp.status == 200:
+                        api_results["fred"] = "ok"
+                    else:
+                        api_results["fred"] = "degraded"
+                        failed.append("fred")
+            except (urllib.error.URLError, OSError, TimeoutError) as e:
+                logger.warning("API health: FRED check failed: %s", e)
+                api_results["fred"] = "degraded"
+                failed.append("fred")
+        else:
+            api_results["fred"] = "skipped"
+
+        # -- BLS --
+        bls_key = os.environ.get("BLS_API_KEY") or ""
+        if bls_key:
+            try:
+                payload = json.dumps(
+                    {
+                        "seriesid": ["CUUR0000SA0"],
+                        "registrationkey": bls_key,
+                        "latest": True,
+                    }
+                ).encode("utf-8")
+                req = urllib.request.Request(
+                    "https://api.bls.gov/publicAPI/v2/timeseries/data/",
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=_API_HEALTH_TIMEOUT) as resp:
+                    body = json.loads(resp.read().decode("utf-8"))
+                    if body.get("status") == "REQUEST_SUCCEEDED":
+                        api_results["bls"] = "ok"
+                    else:
+                        api_results["bls"] = "degraded"
+                        failed.append("bls")
+            except (
+                urllib.error.URLError,
+                OSError,
+                TimeoutError,
+                json.JSONDecodeError,
+            ) as e:
+                logger.warning("API health: BLS check failed: %s", e)
+                api_results["bls"] = "degraded"
+                failed.append("bls")
+        else:
+            api_results["bls"] = "skipped"
+
+        # -- Adzuna --
+        adzuna_id = os.environ.get("ADZUNA_APP_ID") or ""
+        adzuna_key = os.environ.get("ADZUNA_APP_KEY") or ""
+        if adzuna_id and adzuna_key:
+            try:
+                url = (
+                    f"https://api.adzuna.com/v1/api/jobs/us/search/1"
+                    f"?app_id={adzuna_id}&app_key={adzuna_key}"
+                    f"&results_per_page=1"
+                )
+                req = urllib.request.Request(url, method="GET")
+                with urllib.request.urlopen(req, timeout=_API_HEALTH_TIMEOUT) as resp:
+                    if resp.status == 200:
+                        api_results["adzuna"] = "ok"
+                    else:
+                        api_results["adzuna"] = "degraded"
+                        failed.append("adzuna")
+            except (urllib.error.URLError, OSError, TimeoutError) as e:
+                logger.warning("API health: Adzuna check failed: %s", e)
+                api_results["adzuna"] = "degraded"
+                failed.append("adzuna")
+        else:
+            api_results["adzuna"] = "skipped"
+
+        # -- O*NET --
+        onet_key = (
+            os.environ.get("ONET_API_KEY") or os.environ.get("ONET_PASSWORD") or ""
+        )
+        if onet_key:
+            try:
+                url = "https://api-v2.onetcenter.org/online/occupations/15-1252.00"
+                req = urllib.request.Request(url, method="GET")
+                req.add_header("X-API-Key", onet_key)
+                req.add_header("Accept", "application/json")
+                with urllib.request.urlopen(req, timeout=_API_HEALTH_TIMEOUT) as resp:
+                    if resp.status == 200:
+                        api_results["onet"] = "ok"
+                    else:
+                        api_results["onet"] = "degraded"
+                        failed.append("onet")
+            except (urllib.error.URLError, OSError, TimeoutError) as e:
+                logger.warning("API health: O*NET check failed: %s", e)
+                api_results["onet"] = "degraded"
+                failed.append("onet")
+        else:
+            api_results["onet"] = "skipped"
+
+        configured = [k for k, v in api_results.items() if v != "skipped"]
+        ok_count = sum(1 for v in api_results.values() if v == "ok")
+
+        if not configured:
+            status = "warning"
+            detail = "No external API keys configured"
+        elif failed:
+            status = "warning"
+            detail = (
+                f"{ok_count}/{len(configured)} APIs healthy; "
+                f"degraded: {', '.join(failed)}"
+            )
+        else:
+            status = "ok"
+            detail = f"{ok_count}/{len(configured)} APIs healthy"
+
+        return {
+            "name": "api_health",
+            "status": status,
+            "detail": detail,
+            "healed": False,
+            "apis": api_results,
+        }
+
+    def _check_supabase_health(self) -> Dict[str, Any]:
+        """Test Supabase connectivity with a minimal REST query.
+
+        Self-heals by setting ``supabase_fallback_to_local`` so products
+        fall back to local JSON files when Supabase is unreachable.
+
+        Returns:
+            Dict with name, status, detail, and healed keys.
+        """
+        sb_url = os.environ.get("SUPABASE_URL") or ""
+        sb_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or ""
+
+        if not sb_url or not sb_key:
+            return {
+                "name": "supabase_health",
+                "status": "warning",
+                "detail": "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set",
+                "healed": False,
+            }
+
+        try:
+            url = (
+                f"{sb_url.rstrip('/')}/rest/v1/knowledge_base" f"?select=count&limit=1"
+            )
+            req = urllib.request.Request(url, method="GET")
+            req.add_header("apikey", sb_key)
+            req.add_header("Authorization", f"Bearer {sb_key}")
+            with urllib.request.urlopen(req, timeout=_API_HEALTH_TIMEOUT) as resp:
+                if resp.status == 200:
+                    self.supabase_fallback_to_local = False
+                    return {
+                        "name": "supabase_health",
+                        "status": "ok",
+                        "detail": "Supabase reachable",
+                        "healed": False,
+                    }
+                else:
+                    self.supabase_fallback_to_local = True
+                    self._record_heal(
+                        "system",
+                        "supabase",
+                        "fallback_to_local_json",
+                        True,
+                    )
+                    return {
+                        "name": "supabase_health",
+                        "status": "warning",
+                        "detail": (
+                            f"Supabase returned status {resp.status}; "
+                            f"fell back to local JSON"
+                        ),
+                        "healed": True,
+                    }
+        except (urllib.error.URLError, OSError, TimeoutError) as e:
+            logger.warning("Supabase health check failed: %s", e)
+            self.supabase_fallback_to_local = True
+            self._record_heal("system", "supabase", "fallback_to_local_json", True)
+            return {
+                "name": "supabase_health",
+                "status": "warning",
+                "detail": (f"Supabase unreachable ({e}); fell back to local JSON"),
+                "healed": True,
+            }
+
+    def _check_cache_staleness(self) -> Dict[str, Any]:
+        """Check data/ JSON freshness against FRESHNESS_THRESHOLDS.
+
+        Compares each file's modification time to the threshold defined in
+        ``data_enrichment.FRESHNESS_THRESHOLDS``. Self-heals by triggering
+        the enrichment engine's ``run_cycle`` for stale sources.
+
+        Returns:
+            Dict with name, status, detail, and healed keys.
+        """
+        stale_sources: List[str] = []
+        checked = 0
+
+        try:
+            from data_enrichment import FRESHNESS_THRESHOLDS
+        except ImportError:
+            return {
+                "name": "cache_staleness",
+                "status": "warning",
+                "detail": (
+                    "data_enrichment module not importable; " "skipped staleness check"
+                ),
+                "healed": False,
+            }
+
+        now = time.time()
+        for source, threshold_hours in FRESHNESS_THRESHOLDS.items():
+            # Convention: data/<source>.json or data/enrichment_<source>.json
+            candidates = [
+                DATA_DIR / f"{source}.json",
+                DATA_DIR / f"enrichment_{source}.json",
+            ]
+            found = False
+            for fpath in candidates:
+                if fpath.exists():
+                    found = True
+                    checked += 1
+                    age_hours = (now - fpath.stat().st_mtime) / 3600
+                    if age_hours > threshold_hours:
+                        stale_sources.append(
+                            f"{source} ({age_hours:.0f}h > {threshold_hours}h)"
+                        )
+                    break
+            if not found:
+                stale_sources.append(f"{source} (file missing)")
+
+        healed = False
+        if stale_sources:
+            # Self-heal: trigger enrichment cycle in background thread
+            try:
+                from data_enrichment import get_engine
+
+                engine = get_engine()
+                threading.Thread(
+                    target=engine.run_cycle,
+                    name="heal-cache-staleness",
+                    daemon=True,
+                ).start()
+                healed = True
+                self._record_heal(
+                    "system",
+                    "cache_staleness",
+                    f"triggered enrichment for {len(stale_sources)} stale sources",
+                    True,
+                )
+            except (ImportError, RuntimeError, TypeError) as e:
+                logger.warning("Cache staleness self-heal failed: %s", e)
+                self._record_heal(
+                    "system",
+                    "cache_staleness",
+                    f"enrichment trigger failed: {e}",
+                    False,
+                )
+
+        if not stale_sources:
+            status = "ok"
+            detail = f"{checked} sources within freshness thresholds"
+        else:
+            status = "warning"
+            detail = f"{len(stale_sources)} stale: " f"{', '.join(stale_sources[:5])}"
+
+        return {
+            "name": "cache_staleness",
+            "status": status,
+            "detail": detail,
+            "healed": healed,
+            "stale_sources": stale_sources,
+        }
+
+    def _check_disk_space(self) -> Dict[str, Any]:
+        """Check free disk space and clear old cache files if low.
+
+        Warns if less than 500 MB free. Self-heals by removing files
+        from ``data/cache/`` (if that directory exists).
+
+        Returns:
+            Dict with name, status, detail, and healed keys.
+        """
+        try:
+            usage = shutil.disk_usage(DATA_DIR)
+        except OSError as e:
+            return {
+                "name": "disk_space",
+                "status": "error",
+                "detail": f"Could not read disk usage: {e}",
+                "healed": False,
+            }
+
+        free_mb = usage.free / (1024 * 1024)
+        healed = False
+
+        if free_mb >= 500:
+            return {
+                "name": "disk_space",
+                "status": "ok",
+                "detail": f"{free_mb:.0f} MB free",
+                "healed": False,
+            }
+
+        # Self-heal: clear old cache files (oldest first)
+        cache_dir = DATA_DIR / "cache"
+        cleared = 0
+        freed_bytes = 0
+        if cache_dir.is_dir():
+            try:
+                for entry in sorted(
+                    cache_dir.iterdir(),
+                    key=lambda p: p.stat().st_mtime,
+                ):
+                    if entry.is_file():
+                        sz = entry.stat().st_size
+                        entry.unlink()
+                        cleared += 1
+                        freed_bytes += sz
+                if cleared:
+                    healed = True
+                    self._record_heal(
+                        "system",
+                        "disk_space",
+                        (
+                            f"cleared {cleared} cache files "
+                            f"({freed_bytes / 1024:.0f} KB)"
+                        ),
+                        True,
+                    )
+            except OSError as e:
+                logger.warning("Disk space self-heal failed: %s", e)
+                self._record_heal(
+                    "system",
+                    "disk_space",
+                    f"cache cleanup failed: {e}",
+                    False,
+                )
+
+        return {
+            "name": "disk_space",
+            "status": "warning",
+            "detail": (
+                f"{free_mb:.0f} MB free (< 500 MB)"
+                + (f"; cleared {cleared} cache files" if cleared else "")
+            ),
+            "healed": healed,
+        }
 
     # ── Self-healing ──────────────────────────────────────────────────────
 

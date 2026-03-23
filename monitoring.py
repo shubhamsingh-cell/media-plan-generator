@@ -26,6 +26,8 @@ import shutil
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 import uuid
 from collections import defaultdict, deque
 from datetime import datetime, timezone
@@ -506,6 +508,284 @@ def get_metrics() -> MetricsCollector:
 
 
 # ---------------------------------------------------------------------------
+# Supabase Metrics Persistence
+# ---------------------------------------------------------------------------
+#
+# Required Supabase table (run once via SQL editor):
+#
+# CREATE TABLE IF NOT EXISTS metrics_snapshot (
+#     id TEXT PRIMARY KEY DEFAULT 'singleton',
+#     data JSONB NOT NULL,
+#     updated_at TIMESTAMPTZ DEFAULT now()
+# );
+
+# Persistable counter fields in MetricsCollector that survive deploys.
+_PERSIST_COUNTERS = (
+    "total_requests",
+    "total_errors",
+    "total_generations",
+    "total_chat_requests",
+    "total_slack_events",
+    "chat_conversational_count",
+    "chat_tool_count",
+    "chat_claude_count",
+    "chat_suppressed_count",
+    "_api_success_count",
+    "_api_failure_count",
+)
+
+_PERSIST_SAVE_INTERVAL_SEC = 300  # 5 minutes
+
+
+class SupabasePersistence:
+    """Persist and restore MetricsCollector counters via Supabase REST API.
+
+    Reads ``SUPABASE_URL`` and ``SUPABASE_SERVICE_ROLE_KEY`` from environment
+    variables.  If either is missing, persistence is silently disabled and the
+    app continues with in-memory-only metrics.
+
+    Lifecycle:
+        1. ``load()`` -- called once at startup to restore counters.
+        2. ``start_background_save()`` -- launches a daemon thread that
+           upserts the current snapshot every 5 minutes.
+        3. ``save()`` -- can be called manually (e.g. on graceful shutdown).
+
+    All operations are thread-safe and will never crash the main application.
+    """
+
+    def __init__(self, collector: MetricsCollector) -> None:
+        self._collector = collector
+        self._lock = threading.Lock()
+        self._enabled: bool = False
+        self._last_save_ok: bool = False
+        self._last_save_ts: float = 0.0
+        self._base_url: str = ""
+        self._api_key: str = ""
+        self._save_thread: Optional[threading.Thread] = None
+
+        url = os.environ.get("SUPABASE_URL") or ""
+        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or ""
+        if url and key:
+            self._base_url = url.rstrip("/")
+            self._api_key = key
+            self._enabled = True
+            logger.info("Supabase metrics persistence enabled")
+        else:
+            logger.info(
+                "Supabase metrics persistence disabled (SUPABASE_URL or "
+                "SUPABASE_SERVICE_ROLE_KEY not set)"
+            )
+
+    @property
+    def is_enabled(self) -> bool:
+        """Return True if Supabase credentials are configured."""
+        return self._enabled
+
+    @property
+    def is_persisted(self) -> bool:
+        """Return True if the most recent save succeeded."""
+        return self._enabled and self._last_save_ok
+
+    def _build_headers(self) -> Dict[str, str]:
+        """Build HTTP headers for Supabase REST API calls."""
+        return {
+            "apikey": self._api_key,
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates",
+        }
+
+    def _rest_url(self) -> str:
+        """Return the full REST endpoint for the metrics_snapshot table."""
+        return f"{self._base_url}/rest/v1/metrics_snapshot"
+
+    # -- Load ----------------------------------------------------------------
+
+    def load(self) -> bool:
+        """Load previous metrics snapshot from Supabase and apply to collector.
+
+        Returns True if counters were restored, False otherwise.
+        """
+        if not self._enabled:
+            return False
+        try:
+            url = f"{self._rest_url()}?id=eq.singleton&select=data"
+            req = urllib.request.Request(
+                url, headers=self._build_headers(), method="GET"
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                body = resp.read().decode("utf-8")
+            rows = json.loads(body)
+            if not rows:
+                logger.info("No existing metrics snapshot in Supabase")
+                return False
+            data = rows[0].get("data") or {}
+            if not isinstance(data, dict):
+                return False
+            self._apply_snapshot(data)
+            logger.info(
+                "Restored metrics from Supabase: %d total_requests, %d total_errors",
+                data.get("total_requests", 0),
+                data.get("total_errors", 0),
+            )
+            return True
+        except urllib.error.URLError as e:
+            logger.warning("Failed to load metrics from Supabase: %s", e)
+            return False
+        except (json.JSONDecodeError, KeyError, IndexError, TypeError) as e:
+            logger.warning("Malformed Supabase metrics response: %s", e)
+            return False
+
+    def _apply_snapshot(self, data: Dict[str, Any]) -> None:
+        """Apply saved counter values to the collector (additive merge)."""
+        with self._collector._req_lock:
+            for field in _PERSIST_COUNTERS:
+                saved_val = data.get(field, 0)
+                if isinstance(saved_val, (int, float)) and saved_val > 0:
+                    current = getattr(self._collector, field, 0)
+                    setattr(self._collector, field, current + int(saved_val))
+
+    # -- Save ----------------------------------------------------------------
+
+    def save(self) -> bool:
+        """Save current metrics snapshot to Supabase (upsert).
+
+        Returns True on success, False on failure.
+        """
+        if not self._enabled:
+            return False
+        try:
+            snapshot = self._build_snapshot()
+            payload = json.dumps(
+                [
+                    {
+                        "id": "singleton",
+                        "data": snapshot,
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                ],
+                default=str,
+            )
+            req = urllib.request.Request(
+                self._rest_url(),
+                data=payload.encode("utf-8"),
+                headers=self._build_headers(),
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                resp.read()  # consume response
+            with self._lock:
+                self._last_save_ok = True
+                self._last_save_ts = time.time()
+            logger.debug("Metrics snapshot saved to Supabase")
+            return True
+        except urllib.error.URLError as e:
+            with self._lock:
+                self._last_save_ok = False
+            logger.warning("Failed to save metrics to Supabase: %s", e)
+            return False
+        except (TypeError, ValueError) as e:
+            with self._lock:
+                self._last_save_ok = False
+            logger.warning("Metrics serialization failed: %s", e)
+            return False
+
+    def _build_snapshot(self) -> Dict[str, Any]:
+        """Extract persistable counter values from the collector."""
+        snapshot: Dict[str, Any] = {}
+        with self._collector._req_lock:
+            for field in _PERSIST_COUNTERS:
+                snapshot[field] = getattr(self._collector, field, 0)
+        snapshot["saved_at"] = datetime.now(timezone.utc).isoformat()
+        return snapshot
+
+    # -- Background save loop ------------------------------------------------
+
+    def start_background_save(self) -> None:
+        """Start a daemon thread that saves metrics every 5 minutes."""
+        if not self._enabled:
+            return
+        if self._save_thread is not None and self._save_thread.is_alive():
+            return  # already running
+        self._save_thread = threading.Thread(
+            target=self._save_loop, name="metrics-persist", daemon=True
+        )
+        self._save_thread.start()
+        logger.info(
+            "Metrics persistence background thread started " "(interval=%ds)",
+            _PERSIST_SAVE_INTERVAL_SEC,
+        )
+
+    def _save_loop(self) -> None:
+        """Periodically save metrics until the process exits."""
+        while True:
+            time.sleep(_PERSIST_SAVE_INTERVAL_SEC)
+            try:
+                self.save()
+            except Exception as e:
+                logger.error(
+                    "Unexpected error in metrics persistence loop: %s",
+                    e,
+                    exc_info=True,
+                )
+
+    # -- Status ---------------------------------------------------------------
+
+    def get_status(self) -> Dict[str, Any]:
+        """Return persistence status for health endpoints."""
+        with self._lock:
+            return {
+                "metrics_persisted": self.is_persisted,
+                "persistence_enabled": self._enabled,
+                "last_save_ok": self._last_save_ok,
+                "last_save_ts": (
+                    datetime.fromtimestamp(
+                        self._last_save_ts, tz=timezone.utc
+                    ).isoformat()
+                    if self._last_save_ts > 0
+                    else None
+                ),
+            }
+
+
+# Module-level persistence singleton (initialized after MetricsCollector).
+_persistence: Optional[SupabasePersistence] = None
+_persistence_init_lock = threading.Lock()
+
+
+def get_persistence() -> Optional[SupabasePersistence]:
+    """Get or create the SupabasePersistence singleton.
+
+    Returns None if Supabase credentials are not configured.
+    """
+    global _persistence
+    if _persistence is not None:
+        return _persistence
+    with _persistence_init_lock:
+        if _persistence is not None:
+            return _persistence
+        collector = MetricsCollector()
+        _persistence = SupabasePersistence(collector)
+        return _persistence
+
+
+def init_metrics_persistence() -> None:
+    """Initialize Supabase persistence: load snapshot and start background saves.
+
+    Call this once at application startup (after MetricsCollector is ready).
+    Safe to call even if Supabase is not configured -- will be a no-op.
+    """
+    p = get_persistence()
+    if p is None or not p.is_enabled:
+        return
+    try:
+        p.load()
+    except Exception as e:
+        logger.error("Failed to load persisted metrics: %s", e, exc_info=True)
+    p.start_background_save()
+
+
+# ---------------------------------------------------------------------------
 # Health Checks
 # ---------------------------------------------------------------------------
 
@@ -516,12 +796,18 @@ def health_check_liveness() -> Dict[str, Any]:
     Suitable for Render.com / Kubernetes liveness probes.
     Should return quickly (< 100ms).
     """
-    return {
+    result: Dict[str, Any] = {
         "status": "ok",
         "version": VERSION,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "uptime_seconds": round(time.time() - _START_TIME, 1),
     }
+    p = get_persistence()
+    if p is not None:
+        result["metrics_persisted"] = p.is_persisted
+    else:
+        result["metrics_persisted"] = False
+    return result
 
 
 def health_check_readiness() -> Dict[str, Any]:
@@ -669,14 +955,26 @@ def health_check_readiness() -> Dict[str, Any]:
     except Exception as e:
         checks["orchestrator"] = {"status": "degraded", "detail": str(e)}
 
-    return {
+    # 9. Metrics persistence
+    p = get_persistence()
+    if p is not None:
+        checks["metrics_persistence"] = p.get_status()
+    else:
+        checks["metrics_persistence"] = {
+            "metrics_persisted": False,
+            "persistence_enabled": False,
+        }
+
+    result: Dict[str, Any] = {
         "status": "healthy" if overall_healthy else "unhealthy",
         "version": VERSION,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "uptime_seconds": round(time.time() - _START_TIME, 1),
         "uptime_human": _format_duration(time.time() - _START_TIME),
         "checks": checks,
+        "metrics_persisted": p.is_persisted if p is not None else False,
     }
+    return result
 
 
 # ---------------------------------------------------------------------------

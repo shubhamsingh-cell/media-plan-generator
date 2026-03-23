@@ -14994,8 +14994,10 @@ try:
     from monitoring import (
         configure_logging,
         get_metrics,
+        get_persistence,
         health_check_liveness,
         health_check_readiness,
+        init_metrics_persistence,
         GracefulShutdown,
         get_system_info,
     )
@@ -15003,6 +15005,7 @@ try:
     configure_logging(os.environ.get("LOG_LEVEL", "INFO"))
     _metrics = get_metrics()
     _shutdown = GracefulShutdown(timeout=30.0)
+    init_metrics_persistence()
     logger.info("Monitoring module loaded successfully")
 except ImportError as _mon_err:
     logger.warning("monitoring module not available: %s", _mon_err)
@@ -15030,10 +15033,17 @@ except ImportError as _mon_err:
                 "knowledge_base": kb_loaded,
                 "data_dir": data_dir_exists,
             },
+            "metrics_persisted": False,
         }
 
     def health_check_readiness():
-        return {"status": "healthy", "version": "3.5.0"}
+        return {"status": "healthy", "version": "3.5.0", "metrics_persisted": False}
+
+    def get_persistence():
+        return None
+
+    def init_metrics_persistence():
+        pass
 
 
 # Ensure health_check_detailed always exists (monitoring module may not export it)
@@ -15053,6 +15063,7 @@ if "health_check_detailed" not in dir():
                 "knowledge_base": kb_loaded,
                 "data_dir": data_dir_exists,
             },
+            "metrics_persisted": False,
         }
 
 
@@ -16882,6 +16893,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         elif path in ("/api/health", "/health"):
             # Detailed health check for Render.com monitoring
             _health = health_check_detailed()
+            # Ensure metrics_persisted is always present
+            if "metrics_persisted" not in _health:
+                p = get_persistence()
+                _health["metrics_persisted"] = (
+                    p.is_persisted if p is not None else False
+                )
             status_code = 200 if _health.get("status") == "healthy" else 503
             body = json.dumps(_health).encode("utf-8")
             self.send_response(status_code)

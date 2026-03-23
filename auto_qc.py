@@ -35,6 +35,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+try:
+    from alert_manager import send_alert as _email_alert
+except ImportError:
+    _email_alert = lambda *a, **kw: False
+
 # ── Scheduling ──────────────────────────────────────────────────────────────
 _TEST_INTERVAL = 12 * 3600  # 12 hours between test runs
 _INITIAL_DELAY = 120  # 2 min after startup (let services warm up)
@@ -3607,10 +3612,11 @@ class AutoQC:
     # ══════════════════════════════════════════════════════════════════════
 
     def _send_alert(self, run_result: dict) -> None:
-        """Send Slack alert when tests fail persistently (best-effort).
+        """Send Slack + email alerts when tests fail persistently (best-effort).
 
-        Delegates to scripts/notify_slack for actual delivery.  Falls back
-        to inline urllib if the helper module is unavailable.
+        Delegates to scripts/notify_slack for Slack delivery and
+        alert_manager for email delivery.  Falls back to inline urllib
+        for Slack if the helper module is unavailable.
         """
         failed_count = run_result.get("failed") or 0
         if failed_count == 0:
@@ -3620,6 +3626,21 @@ class AutoQC:
         failure_names = [f["name"] for f in failures[:5]]
         healed = run_result.get("healed") or 0
         total = run_result.get("total") or 0
+
+        # Email alert via alert_manager (best-effort)
+        _email_alert(
+            subject=f"AutoQC: {failed_count} critical test(s) failed (run #{run_result.get('run_number') or '?'})",
+            body=(
+                f"<p><b>{failed_count}</b> QC test(s) failed after auto-healing.</p>"
+                f"<p>Status: <code>{run_result.get('status') or 'unknown'}</code></p>"
+                f"<p>Passed: {run_result.get('passed') or 0}/{total}</p>"
+                f"<p>Failed tests: {', '.join(failure_names) or 'none'}</p>"
+                f"<p>Healed: {healed}</p>"
+                f"<p>Check: <code>/api/health/auto-qc</code></p>"
+            ),
+            severity="critical" if failed_count >= 3 else "warning",
+        )
+
         channel = os.environ.get("SLACK_ALERT_CHANNEL") or "#nova-alerts"
         msg = (
             f":warning: *AutoQC Alert* -- Run #{run_result['run_number']}\n"
