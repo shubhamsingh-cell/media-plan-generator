@@ -1,0 +1,272 @@
+[
+  {
+    "regulation_name": "Executive Order 11246 (Revoked by EO 14173)",
+    "jurisdiction": "Federal - U.S.",
+    "effective_date": "Revoked January 21, 2025; wind-down by April 21, 2025",
+    "description": "Previously required federal contractors to take affirmative action in employment. EO 14173 revoked this order, directing OFCCP to cease holding federal contractors responsible for affirmative action on specified bases. Contractors were given until April 21, 2025 to wind down compliance activities.",
+    "impact_on_advertising": "Federal contractors no longer required to include affirmative action language or EEO taglines mandated under EO 11246 in job advertisements. However, nondiscrimination obligations under other statutes remain in effect.",
+    "source_url": "https://www.dol.gov/agencies/ofccp",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Section 503 of the Rehabilitation Act",
+    "jurisdiction": "Federal - U.S.",
+    "effective_date": "Active (abeyance lifted per Order 08-2025)",
+    "description": "Requires federal contractors and subcontractors to take affirmative action to employ and advance individuals with disabilities. Contractors must develop written affirmative action programs and take steps to recruit, hire, and promote qualified individuals with disabilities.",
+    "impact_on_advertising": "Federal contractors must include disability-inclusive language in job postings and actively recruit from disability-focused channels. AAP certification period remains closed pending system revisions, but underlying compliance obligations remain.",
+    "source_url": "https://www.dol.gov/agencies/ofccp",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Vietnam Era Veterans' Readjustment Assistance Act (VEVRAA)",
+    "jurisdiction": "Federal - U.S.",
+    "effective_date": "Active (abeyance lifted per Order 08-2025)",
+    "description": "Requires federal contractors to take affirmative action to employ and advance protected veterans, including disabled veterans, recently separated veterans, active duty wartime or campaign badge veterans, and Armed Forces service medal veterans.",
+    "impact_on_advertising": "Federal contractors must list job openings with appropriate state employment service delivery systems and include veteran-friendly language in recruitment advertising. Must take outreach steps to recruit veterans.",
+    "source_url": "https://www.dol.gov/agencies/ofccp",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Title VII of the Civil Rights Act of 1964",
+    "jurisdiction": "Federal - U.S.",
+    "effective_date": "1964 (ongoing enforcement updates)",
+    "description": "Prohibits employment discrimination based on race, color, religion, sex (including pregnancy, transgender status, and sexual orientation), and national origin. Applies to employers with 15 or more employees. EEOC rescinded its harassment guidance in 2025, requiring employers to realign policies.",
+    "impact_on_advertising": "Job advertisements cannot express preference or limitation based on protected characteristics. Ads must use inclusive language. Targeted advertising algorithms must not exclude protected groups. EEOC enforcement priorities are shifting, particularly around DEI program investigations.",
+    "source_url": "https://www.eeoc.gov/employers",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Age Discrimination in Employment Act (ADEA)",
+    "jurisdiction": "Federal - U.S.",
+    "effective_date": "1967 (ongoing)",
+    "description": "Protects individuals aged 40 and older from employment discrimination. Applies to employers with 20 or more employees. Prohibits age-based discrimination in hiring, promotion, discharge, compensation, and terms of employment.",
+    "impact_on_advertising": "Job ads cannot include age preferences or limitations such as 'young,' 'recent graduate,' or 'digital native.' Targeted digital advertising must not exclude users over 40 from seeing job postings.",
+    "source_url": "https://www.eeoc.gov/employers",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Americans with Disabilities Act (ADA)",
+    "jurisdiction": "Federal - U.S.",
+    "effective_date": "1990 (ongoing)",
+    "description": "Prohibits discrimination against qualified individuals with disabilities in employment. Requires employers to provide reasonable accommodations unless doing so would cause undue hardship.",
+    "impact_on_advertising": "Job ads must focus on essential functions rather than physical requirements. Must include accommodation availability notices. Digital job postings must be accessible (WCAG compliance). Cannot use screening criteria that disproportionately exclude people with disabilities.",
+    "source_url": "https://www.eeoc.gov/employers",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Genetic Information Nondiscrimination Act (GINA)",
+    "jurisdiction": "Federal - U.S.",
+    "effective_date": "2008 (ongoing)",
+    "description": "Prohibits employment discrimination based on genetic information, including family medical history. Employers cannot request, require, or purchase genetic information about applicants or employees.",
+    "impact_on_advertising": "Job applications and screening processes linked to job ads must not request genetic or family medical history information.",
+    "source_url": "https://www.eeoc.gov/employers",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Equal Pay Act",
+    "jurisdiction": "Federal - U.S.",
+    "effective_date": "1963 (ongoing)",
+    "description": "Requires equal pay for equal work regardless of sex. Does not require filing a charge of discrimination before initiating a lawsuit, unlike most other EEOC-enforced statutes.",
+    "impact_on_advertising": "Compensation listed in job postings must be gender-neutral. When salary ranges are disclosed, they must apply equally regardless of sex. Interacts with state pay transparency laws.",
+    "source_url": "https://www.eeoc.gov/employers",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Family and Medical Leave Act (FMLA)",
+    "jurisdiction": "Federal - U.S.",
+    "effective_date": "1993 (ongoing)",
+    "description": "Provides eligible employees up to 12 weeks of unpaid, job-protected leave for family and medical reasons. 89% of employers report more training is needed on FMLA rights and responsibilities per SHRM survey.",
+    "impact_on_advertising": "Job postings for positions at covered employers should not include language that discourages FMLA-eligible candidates. Benefits sections of job ads should accurately reflect leave entitlements.",
+    "source_url": "https://www.shrm.org/topics-tools/employment-law-compliance",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "DOL Worker Classification Rules (Independent Contractor)",
+    "jurisdiction": "Federal - U.S.",
+    "effective_date": "Proposed 2025; reinstating economic reality test",
+    "description": "DOL proposed rescinding the 2024 independent contractor rule and reinstating the economic reality test for determining worker classification. Affects whether workers are classified as employees or independent contractors under the Fair Labor Standards Act.",
+    "impact_on_advertising": "Job postings must accurately reflect whether a position is employee or contractor. Misclassification in job ads may trigger enforcement action. Affects gig economy and freelance recruitment advertising.",
+    "source_url": "https://www.shrm.org/topics-tools/employment-law-compliance",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Colorado Pay Transparency Act (SB 19-085)",
+    "jurisdiction": "State - Colorado",
+    "effective_date": "January 1, 2021",
+    "description": "First major state pay transparency law requiring employers to disclose salary ranges in job postings. Applies to all positions that could be performed in Colorado.",
+    "impact_on_advertising": "All job postings for positions performable in Colorado must include compensation range and benefits description. Remote job ads visible to Colorado residents must comply.",
+    "source_url": "https://www.paycor.com/resource-center/articles/pay-transparency-laws-by-state/",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "California Pay Transparency Act (SB 1162)",
+    "jurisdiction": "State - California",
+    "effective_date": "January 1, 2023",
+    "description": "Requires employers with 15 or more employees to include pay scale in job postings. Must provide pay scale to current employees upon request. Requires annual pay data reporting.",
+    "impact_on_advertising": "All California job postings must include salary or hourly wage range. Third-party job boards must also display pay ranges. Non-compliance penalties of $100-$10,000 per violation.",
+    "source_url": "https://www.paycor.com/resource-center/articles/pay-transparency-laws-by-state/",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "California Pay Transparency Update (SB 642)",
+    "jurisdiction": "State - California",
+    "effective_date": "January 1, 2026",
+    "description": "Clarifies that 'pay scale' means a good faith estimate of the expected wage range the employer reasonably expects to pay upon hire, not what the position would pay after several years. Tightens enforcement with civil penalties of $100-$10,000 per violation.",
+    "impact_on_advertising": "Job postings must show realistic starting pay ranges, not aspirational long-term compensation. Narrows what employers can list as the pay range in advertisements.",
+    "source_url": "https://www.berkshireassociates.com/blog/california-pay-transparency-updates-for-2026-sb-642",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "New York Pay Transparency Law",
+    "jurisdiction": "State - New York",
+    "effective_date": "September 17, 2023",
+    "description": "Requires employers with 4 or more employees to disclose the compensation range and job description for any advertised job, promotion, or transfer opportunity.",
+    "impact_on_advertising": "All job postings in New York must include salary or hourly wage range. Applies to remote positions that could be filled by New York residents.",
+    "source_url": "https://www.paycor.com/resource-center/articles/pay-transparency-laws-by-state/",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Illinois Pay Transparency Act",
+    "jurisdiction": "State - Illinois",
+    "effective_date": "January 1, 2025",
+    "description": "Requires employers with 15 or more employees to include wage scales and benefits information in all job postings. Must also provide pay scale and benefits to current employees for promotions.",
+    "impact_on_advertising": "Job ads must include pay range and general benefits description. Applies to positions that will be performed at least partially in Illinois or report to a supervisor in Illinois.",
+    "source_url": "https://www.paycor.com/resource-center/articles/pay-transparency-laws-by-state/",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Minnesota Pay Transparency Law",
+    "jurisdiction": "State - Minnesota",
+    "effective_date": "January 1, 2025",
+    "description": "Employers with 30 or more employees must include the starting salary range and a general description of all benefits and other compensation in all job postings.",
+    "impact_on_advertising": "Job postings must show starting salary range and comprehensive benefits summary. Applies to positions physically located in or reportable to Minnesota.",
+    "source_url": "https://www.paycor.com/resource-center/articles/pay-transparency-laws-by-state/",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "New Jersey Pay Transparency Law",
+    "jurisdiction": "State - New Jersey",
+    "effective_date": "June 1, 2025",
+    "description": "Requires employers to include a good faith salary range and a general description of benefits in all job postings.",
+    "impact_on_advertising": "All job advertisements for New Jersey positions must include salary range and benefits description. Covers both internal and external postings.",
+    "source_url": "https://www.hunton.com/hunton-retail-law-resource/several-states-enact-pay-transparency-laws-what-employers-need-to-know-in-2026",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Vermont Pay Transparency Law",
+    "jurisdiction": "State - Vermont",
+    "effective_date": "July 1, 2025",
+    "description": "Pay transparency law with the lowest employer threshold nationally, applying to employers with just 5 or more employees. Requires salary range disclosure in job postings.",
+    "impact_on_advertising": "Even small employers must include pay ranges in job ads. The low threshold means nearly all Vermont employers are covered, significantly expanding the number of compliant postings required.",
+    "source_url": "https://www.paycor.com/resource-center/articles/pay-transparency-laws-by-state/",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Massachusetts Pay Transparency Law",
+    "jurisdiction": "State - Massachusetts",
+    "effective_date": "October 29, 2025",
+    "description": "Requires employers with 25 or more employees to include a good faith pay range in all job postings, promotions, and transfers.",
+    "impact_on_advertising": "All job advertisements must include salary range. Covers postings for new hires, internal promotions, and lateral transfers.",
+    "source_url": "https://www.paycor.com/resource-center/articles/pay-transparency-laws-by-state/",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Oregon Pay Transparency Law",
+    "jurisdiction": "State - Oregon",
+    "effective_date": "January 1, 2026",
+    "description": "Requires detailed payroll explanations at hire, focusing on earnings statements, deductions, and pay basis rather than traditional range posting.",
+    "impact_on_advertising": "Different approach from other states - focuses on post-hire transparency rather than pre-hire range disclosure. Employers must provide detailed compensation breakdowns upon hiring.",
+    "source_url": "https://www.paycor.com/resource-center/articles/pay-transparency-laws-by-state/",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Delaware Pay Transparency Law",
+    "jurisdiction": "State - Delaware",
+    "effective_date": "June 30, 2027",
+    "description": "Requires employers with more than 25 employees to share clear compensation information with applicants and employees. Signed by Governor Matt Meyer.",
+    "impact_on_advertising": "When effective, job postings must include compensation details. Employers should begin preparing job ad templates and pay range documentation in advance of the 2027 deadline.",
+    "source_url": "https://www.paycor.com/resource-center/articles/pay-transparency-laws-by-state/",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "NYC Local Law 144 - Automated Employment Decision Tools (AEDT)",
+    "jurisdiction": "Local - New York City",
+    "effective_date": "July 5, 2023 (in effect)",
+    "description": "Requires annual independent bias audits for any automated employment decision tools used in hiring or promotion in NYC. Employers must publish audit results and provide notice to candidates when AEDT is used. Applies even when humans make final decisions based on AI rankings or scores.",
+    "impact_on_advertising": "Employers using AI-powered recruitment advertising, programmatic job distribution, or automated candidate screening must conduct annual bias audits. Job postings must disclose AEDT usage. Fines of $500-$1,500 per violation per day per affected applicant.",
+    "source_url": "https://www.hrdefenseblog.com/2025/11/ai-in-hiring-emerging-legal-developments-and-compliance-guidance-for-2026/",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "California Automated Decision Systems (ADS) Regulations",
+    "jurisdiction": "State - California",
+    "effective_date": "October 1, 2025",
+    "description": "Most detailed U.S. AI hiring regulations. Unlawful to use any automated-decision system that discriminates in hiring. Requires meaningful human oversight, proactive bias testing, record-keeping for 4+ years, pre-use and post-use candidate notices, and accommodation alternatives.",
+    "impact_on_advertising": "AI-driven recruitment advertising platforms, programmatic job distribution tools, and resume screening systems must undergo anti-bias testing. Employers must notify candidates when AI influences hiring. Cannot outsource accountability to vendors. Employers using AI ad targeting for recruitment must ensure no discriminatory exclusion.",
+    "source_url": "https://www.klgates.com/AI-in-Recruiting-and-Employment-Decision-Making-New-California-AI-Regulations-Strike-a-Balance-Between-Efficiency-and-Algorithmic-Accountability-10-31-2025",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Illinois AI Employment Law (HB 3773)",
+    "jurisdiction": "State - Illinois",
+    "effective_date": "January 1, 2026",
+    "description": "Prohibits employers from using AI in ways that result in bias against protected classes under the Illinois Human Rights Act, whether intentional or not. Requires notification to employees and candidates when AI is used in employment decisions. Bans using ZIP codes as proxy for protected characteristics.",
+    "impact_on_advertising": "AI-powered job ad targeting cannot use ZIP codes as proxies for race or other protected characteristics. Must notify candidates when AI is used in any employment decision. Covers both intentional and disparate impact discrimination through AI systems.",
+    "source_url": "https://www.lexology.com/library/detail.aspx?g=bb0a51a8-4a1f-4592-83a2-3de69f22d075",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Colorado AI Act",
+    "jurisdiction": "State - Colorado",
+    "effective_date": "June 30, 2026",
+    "description": "Introduces a risk-based framework for AI. Employment-related AI systems classified as high-risk, triggering specific obligations including impact assessments, transparency requirements, and ongoing monitoring. Widely viewed as a bellwether for other states.",
+    "impact_on_advertising": "AI-driven recruitment advertising and candidate screening tools classified as high-risk. Employers must conduct impact assessments before deploying AI in hiring. Requires transparency about AI use in recruitment processes.",
+    "source_url": "https://www.consultils.com/post/us-ai-hiring-laws-compliance-guide-2026",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Texas Responsible AI Governance Act (TRAIGA)",
+    "jurisdiction": "State - Texas",
+    "effective_date": "January 1, 2026",
+    "description": "Adopts a business-friendly approach to AI regulation. Prohibits only intentional AI-based discrimination. Does not require audits, impact assessments, or user disclosures. Grants employers a 60-day notice and cure period for violations.",
+    "impact_on_advertising": "Less restrictive than California or Illinois. Employers using AI in recruitment advertising face liability only for intentional discrimination, not disparate impact. 60-day cure period provides buffer for correcting violations.",
+    "source_url": "https://www.consultils.com/post/us-ai-hiring-laws-compliance-guide-2026",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "Executive Order on AI Policy Framework (December 2025)",
+    "jurisdiction": "Federal - U.S.",
+    "effective_date": "December 11, 2025",
+    "description": "Directs federal agencies to review state AI laws and establishes an AI litigation task force to potentially challenge certain state statutes. Revoked Biden-era EO on Safe, Secure, and Trustworthy AI. EEOC retracted 2023 guidance on responsible AI use in employment selection.",
+    "impact_on_advertising": "Federal enforcement of AI in hiring is currently reduced, but state laws remain fully in effect. Employers must comply with applicable state and local AI hiring requirements regardless of federal policy direction. Creates compliance uncertainty for multi-state employers.",
+    "source_url": "https://www.harrisbeachmurtha.com/insights/ai-assisted-hiring-in-2026-managing-discrimination-risk/",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "EU AI Act - Employment Provisions",
+    "jurisdiction": "EU (extraterritorial reach to U.S. employers)",
+    "effective_date": "Phased: Feb 2, 2025 (prohibitions); Aug 2, 2025 (GPAI); Aug 2, 2026 (high-risk hiring obligations)",
+    "description": "World's first comprehensive AI legal framework. AI systems used in recruitment and employment are classified as high-risk. Requires transparency, data governance, human oversight, and bias monitoring. Applies to U.S. employers if AI outputs affect EU candidates or workers. Penalties up to 35 million EUR or 7% of global revenue.",
+    "impact_on_advertising": "AI-driven recruitment advertising targeting EU candidates must comply. Programmatic job distribution, automated screening, and AI candidate scoring are all high-risk. Employers must provide pre-use notices to candidates, conduct ongoing bias monitoring, maintain documentation for 4+ years, and ensure meaningful human oversight. Vendor tools must be audited. Emotion recognition in recruitment is banned.",
+    "source_url": "https://artificialintelligenceact.eu/implementation-timeline/",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "EU AI Act - Prohibited Practices (Employment)",
+    "jurisdiction": "EU (extraterritorial)",
+    "effective_date": "February 2, 2025 (in effect)",
+    "description": "Bans emotion recognition in workplaces, biometric categorization for employment purposes, social scoring systems, subliminal manipulation, exploitation of vulnerabilities, and untargeted facial recognition scraping. AI literacy obligations also took effect.",
+    "impact_on_advertising": "Recruitment tools that use emotion detection in video interviews or biometric screening are prohibited for EU candidates. Employers must ensure AI literacy among HR staff using AI hiring tools.",
+    "source_url": "https://www.hiretruffle.com/blog/eu-ai-act-hiring",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  },
+  {
+    "regulation_name": "EEOC Employer Recordkeeping Requirements",
+    "jurisdiction": "Federal - U.S.",
+    "effective_date": "Ongoing",
+    "description": "Employers must maintain employment records regardless of whether a discrimination charge has been filed. Enhanced record retention obligations apply when charges are filed. Must post notices describing federal anti-discrimination laws in visible locations.",
+    "impact_on_advertising": "Employers must retain records of job advertisements, applicant data, and hiring decisions. When using digital advertising platforms, records of targeting criteria and applicant demographics should be preserved. Required EEO posters must be displayed physically and may need digital equivalents.",
+    "source_url": "https://www.eeoc.gov/employers",
+    "scraped_at": "2026-03-24T00:00:00Z"
+  }
+]

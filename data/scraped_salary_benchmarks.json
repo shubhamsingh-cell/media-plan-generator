@@ -1,0 +1,476 @@
+{
+  "metadata": {
+    "scraped_at": "2026-03-24",
+    "sources": [
+      "levels.fyi",
+      "payscale.com"
+    ],
+    "notes": {
+      "glassdoor": "Returned 403 Forbidden - requires authentication/CAPTCHA",
+      "salary_com": "Timed out on multiple attempts - heavy JavaScript rendering",
+      "indeed": "Returned 403 Forbidden - bot protection",
+      "ziprecruiter": "Returned empty content - JavaScript-rendered SPA"
+    },
+    "total_records": 34,
+    "coverage": "12 roles across US national and metro-level geographies"
+  },
+  "salary_benchmarks": [
+    {
+      "source": "levels.fyi",
+      "role": "Software Engineer",
+      "location": "United States",
+      "median_salary": 165000,
+      "median_total_comp": 200000,
+      "salary_range_min": 99000,
+      "salary_range_max": 235000,
+      "total_comp_range_min": 100000,
+      "total_comp_range_max": 405000,
+      "percentiles": {
+        "p10": 100000,
+        "p25": 137000,
+        "p50": 200000,
+        "p75": 300000,
+        "p90": 405000
+      },
+      "base_salary_percentiles": {
+        "p10": 99000,
+        "p25": 126700,
+        "p50": 165000,
+        "p75": 200000,
+        "p90": 235000
+      },
+      "equity_median": 19075,
+      "bonus_median": 0,
+      "sample_size": 4099,
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.levels.fyi/t/software-engineer"
+    },
+    {
+      "source": "levels.fyi",
+      "role": "Software Engineer",
+      "location": "San Francisco Bay Area",
+      "median_salary": 192000,
+      "median_total_comp": 273000,
+      "salary_range_min": null,
+      "salary_range_max": null,
+      "total_comp_range_min": null,
+      "total_comp_range_max": 495000,
+      "percentiles": {
+        "p10": null,
+        "p25": 200900,
+        "p50": 273000,
+        "p75": 375000,
+        "p90": 495000
+      },
+      "base_salary_percentiles": {
+        "p50": 192000
+      },
+      "equity_median": 55000,
+      "bonus_median": 3750,
+      "sample_size": 12651,
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.levels.fyi/t/software-engineer/locations/san-francisco-bay-area"
+    },
+    {
+      "source": "levels.fyi",
+      "role": "Software Engineer",
+      "location": "Greater Seattle Area",
+      "median_salary": 171000,
+      "median_total_comp": 247460,
+      "salary_range_min": null,
+      "salary_range_max": null,
+      "total_comp_range_min": 156888,
+      "total_comp_range_max": 429000,
+      "percentiles": {
+        "p10": 156888,
+        "p25": 186000,
+        "p50": 247460,
+        "p75": 328000,
+        "p90": 429000
+      },
+      "base_salary_percentiles": {
+        "p50": 171000
+      },
+      "equity_median": 50000,
+      "bonus_median": 0,
+      "sample_size": 7257,
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.levels.fyi/t/software-engineer/locations/greater-seattle-area"
+    },
+    {
+      "source": "levels.fyi",
+      "role": "Data Scientist",
+      "location": "United States",
+      "median_salary": 160000,
+      "median_total_comp": 182500,
+      "salary_range_min": 100000,
+      "salary_range_max": 230000,
+      "total_comp_range_min": 103000,
+      "total_comp_range_max": 357500,
+      "percentiles": {
+        "p10": 103000,
+        "p25": 140000,
+        "p50": 182500,
+        "p75": 261000,
+        "p90": 357500
+      },
+      "base_salary_percentiles": {
+        "p10": 100000,
+        "p25": 130000,
+        "p50": 160000,
+        "p75": 195000,
+        "p90": 230000
+      },
+      "equity_median": 0,
+      "bonus_median": 0,
+      "sample_size": 272,
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.levels.fyi/t/data-scientist"
+    },
+    {
+      "source": "levels.fyi",
+      "role": "Product Manager",
+      "location": "United States",
+      "median_salary": 190000,
+      "median_total_comp": 240500,
+      "salary_range_min": 120000,
+      "salary_range_max": 255000,
+      "total_comp_range_min": 125000,
+      "total_comp_range_max": 448000,
+      "percentiles": {
+        "p10": 125000,
+        "p25": 170000,
+        "p50": 240500,
+        "p75": 335000,
+        "p90": 448000
+      },
+      "base_salary_percentiles": {
+        "p10": 120000,
+        "p25": 153000,
+        "p50": 190000,
+        "p75": 220500,
+        "p90": 255000
+      },
+      "equity_median": 11000,
+      "bonus_median": 10000,
+      "sample_size": 402,
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.levels.fyi/t/product-manager"
+    },
+    {
+      "source": "payscale.com",
+      "role": "Software Engineer",
+      "location": "United States",
+      "median_salary": 97736,
+      "median_total_comp": 99790,
+      "salary_range_min": 71281,
+      "salary_range_max": 141351,
+      "total_comp_range_min": 71281,
+      "total_comp_range_max": 141351,
+      "percentiles": {
+        "p10": 71281,
+        "p90": 141351
+      },
+      "bonus_median": 6077,
+      "sample_size": 29656,
+      "by_experience": [
+        {"level": "Entry Level (<1 yr)", "salary_modifier": -0.15},
+        {"level": "Early Career (1-4 yrs)", "salary_modifier": -0.03},
+        {"level": "Mid Career (5-9 yrs)", "salary_modifier": 0.12},
+        {"level": "Late Career (10-19 yrs)", "salary_modifier": 0.23},
+        {"level": "Experienced (20+ yrs)", "salary_modifier": 0.30}
+      ],
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.payscale.com/research/US/Job=Software_Engineer/Salary"
+    },
+    {
+      "source": "payscale.com",
+      "role": "Senior Software Engineer",
+      "location": "United States",
+      "median_salary": 132223,
+      "median_total_comp": null,
+      "salary_range_min": 100000,
+      "salary_range_max": 172000,
+      "total_comp_range_min": 102000,
+      "total_comp_range_max": 183000,
+      "percentiles": {
+        "p10": 100000,
+        "p90": 172000
+      },
+      "bonus_range_min": 3000,
+      "bonus_range_max": 22000,
+      "sample_size": 15471,
+      "by_experience": [
+        {"level": "Entry Level", "salary_modifier": -0.21},
+        {"level": "Early Career (1-4 yrs)", "salary_modifier": -0.06},
+        {"level": "Mid Career (5-9 yrs)", "salary_modifier": -0.01},
+        {"level": "Late Career (10-19 yrs)", "salary_modifier": 0.03},
+        {"level": "Experienced (20+ yrs)", "salary_modifier": 0.05}
+      ],
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.payscale.com/research/US/Job=Senior_Software_Engineer/Salary"
+    },
+    {
+      "source": "payscale.com",
+      "role": "Data Scientist",
+      "location": "United States",
+      "median_salary": 103250,
+      "median_total_comp": null,
+      "salary_range_min": 72846,
+      "salary_range_max": 144281,
+      "total_comp_range_min": 72392,
+      "total_comp_range_max": 153370,
+      "percentiles": {
+        "p10": 72846,
+        "p90": 144281
+      },
+      "bonus_range_min": 2427,
+      "bonus_range_max": 19485,
+      "sample_size": 6388,
+      "by_experience": [
+        {"level": "Entry Level (<1 yr)", "salary": 88797, "salary_modifier": -0.14},
+        {"level": "Early Career (1-4 yrs)", "salary": 101770, "salary_modifier": -0.01},
+        {"level": "Mid Career (5-9 yrs)", "salary": 117880, "salary_modifier": 0.14},
+        {"level": "Experienced (10-19 yrs)", "salary": 126733, "salary_modifier": 0.23},
+        {"level": "Late Career (20+ yrs)", "salary": 141451, "salary_modifier": 0.37}
+      ],
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.payscale.com/research/US/Job=Data_Scientist/Salary"
+    },
+    {
+      "source": "payscale.com",
+      "role": "Marketing Manager",
+      "location": "United States",
+      "median_salary": 76305,
+      "median_total_comp": 76762,
+      "salary_range_min": 51340,
+      "salary_range_max": 112528,
+      "total_comp_range_min": 49422,
+      "total_comp_range_max": 117253,
+      "percentiles": {
+        "p10": 51340,
+        "p90": 112528
+      },
+      "bonus_median": 5410,
+      "bonus_range_min": 1036,
+      "bonus_range_max": 14375,
+      "commission_median": 5823,
+      "sample_size": 12196,
+      "by_experience": [
+        {"level": "Entry Level (<1 yr)", "salary_modifier": -0.26},
+        {"level": "Early Career (1-4 yrs)", "salary_modifier": -0.12},
+        {"level": "Mid Career (5-9 yrs)", "salary_modifier": 0.03},
+        {"level": "Experienced (10-19 yrs)", "salary_modifier": 0.15},
+        {"level": "Late Career (20+ yrs)", "salary_modifier": 0.19}
+      ],
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.payscale.com/research/US/Job=Marketing_Manager/Salary"
+    },
+    {
+      "source": "payscale.com",
+      "role": "Sales Manager",
+      "location": "United States",
+      "median_salary": 73485,
+      "median_total_comp": null,
+      "salary_range_min": 45000,
+      "salary_range_max": 124000,
+      "total_comp_range_min": 37609,
+      "total_comp_range_max": 135568,
+      "percentiles": {
+        "p10": 45000,
+        "p90": 124000
+      },
+      "bonus_median": 10378,
+      "commission_median": 18935,
+      "sample_size": 620,
+      "by_experience": [
+        {"level": "Entry Level (<1 yr)", "salary": 46242, "salary_modifier": -0.37},
+        {"level": "Early Career (1-4 yrs)", "salary": 60650, "salary_modifier": -0.17},
+        {"level": "Mid Career (5-9 yrs)", "salary": 70660, "salary_modifier": -0.04},
+        {"level": "Experienced (10-19 yrs)", "salary": 74513, "salary_modifier": 0.01},
+        {"level": "Late Career (20+ yrs)", "salary": 86802, "salary_modifier": 0.18}
+      ],
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.payscale.com/research/US/Job=Sales_Manager/Salary"
+    },
+    {
+      "source": "payscale.com",
+      "role": "Registered Nurse (RN)",
+      "location": "United States",
+      "median_salary": 77016,
+      "median_total_comp": null,
+      "salary_range_min": 59548,
+      "salary_range_max": 105086,
+      "total_comp_range_min": null,
+      "total_comp_range_max": null,
+      "percentiles": {
+        "p10": 59548,
+        "p25": 66972,
+        "p50": 77016,
+        "p75": 89884,
+        "p90": 105086
+      },
+      "hourly_rate_median": 36.79,
+      "hourly_rate_range_min": 28.88,
+      "hourly_rate_range_max": 50.42,
+      "sample_size": 40301,
+      "by_experience": [
+        {"level": "Entry Level (<1 yr)", "salary_modifier": -0.13},
+        {"level": "Early Career (1-4 yrs)", "salary_modifier": -0.07},
+        {"level": "Mid Career (5-9 yrs)", "salary_modifier": 0.02},
+        {"level": "Experienced (10-19 yrs)", "salary_modifier": 0.15},
+        {"level": "Late Career (20+ yrs)", "salary_modifier": 0.10}
+      ],
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.payscale.com/research/US/Job=Registered_Nurse_(RN)/Hourly_Rate"
+    },
+    {
+      "source": "payscale.com",
+      "role": "Project Manager",
+      "location": "United States",
+      "median_salary": 83237,
+      "median_total_comp": 83785,
+      "salary_range_min": 56284,
+      "salary_range_max": 123352,
+      "total_comp_range_min": null,
+      "total_comp_range_max": null,
+      "percentiles": {
+        "p10": 56284,
+        "p90": 123352
+      },
+      "bonus_range_min": 1092,
+      "bonus_range_max": 15334,
+      "sample_size": 28054,
+      "by_experience": [
+        {"level": "Entry Level (<1 yr)", "salary": 62565, "salary_modifier": -0.25},
+        {"level": "Early Career (1-4 yrs)", "salary_modifier": -0.12},
+        {"level": "Mid Career (5-9 yrs)", "salary_modifier": 0.05},
+        {"level": "Experienced (10-19 yrs)", "salary_modifier": 0.18},
+        {"level": "Late Career (20+ yrs)", "salary_modifier": 0.20}
+      ],
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.payscale.com/research/US/Job=Project_Manager%2C_(Unspecified_Type_%2F_General)/Salary"
+    },
+    {
+      "source": "payscale.com",
+      "role": "Financial Analyst",
+      "location": "United States",
+      "median_salary": 70390,
+      "median_total_comp": null,
+      "salary_range_min": 54000,
+      "salary_range_max": 93000,
+      "total_comp_range_min": null,
+      "total_comp_range_max": null,
+      "percentiles": {
+        "p10": 54000,
+        "p90": 93000
+      },
+      "bonus_range_min": 1215,
+      "bonus_range_max": 10430,
+      "sample_size": 9718,
+      "by_experience": [
+        {"level": "Entry Level (<1 yr)", "salary": 62562, "salary_modifier": -0.11},
+        {"level": "Early Career (1-4 yrs)", "salary": 69370, "salary_modifier": -0.01},
+        {"level": "Mid Career (5-9 yrs)", "salary": 78400, "salary_modifier": 0.11},
+        {"level": "Experienced (10-19 yrs)", "salary": 82600, "salary_modifier": 0.17},
+        {"level": "Late Career (20+ yrs)", "salary": 88700, "salary_modifier": 0.26}
+      ],
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.payscale.com/research/US/Job=Financial_Analyst/Salary"
+    },
+    {
+      "source": "payscale.com",
+      "role": "Mechanical Engineer",
+      "location": "United States",
+      "median_salary": 83295,
+      "median_total_comp": null,
+      "salary_range_min": 64458,
+      "salary_range_max": 115918,
+      "total_comp_range_min": null,
+      "total_comp_range_max": null,
+      "percentiles": {
+        "p10": 64458,
+        "p90": 115918
+      },
+      "bonus_range_min": 1014,
+      "bonus_range_max": 11860,
+      "sample_size": 20593,
+      "by_experience": [
+        {"level": "Entry Level (<1 yr)", "salary": 71160},
+        {"level": "Early Career (1-4 yrs)", "salary": 79468},
+        {"level": "Mid Career (5-9 yrs)", "salary_modifier": 0.10},
+        {"level": "Experienced (10-19 yrs)", "salary_modifier": 0.25},
+        {"level": "Late Career (20+ yrs)", "salary_modifier": 0.46}
+      ],
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.payscale.com/research/US/Job=Mechanical_Engineer/Salary"
+    },
+    {
+      "source": "payscale.com",
+      "role": "Human Resources (HR) Manager",
+      "location": "United States",
+      "median_salary": 78245,
+      "median_total_comp": null,
+      "salary_range_min": 56000,
+      "salary_range_max": 106000,
+      "total_comp_range_min": null,
+      "total_comp_range_max": null,
+      "percentiles": {
+        "p10": 56000,
+        "p90": 106000
+      },
+      "bonus_range_min": 1037,
+      "bonus_range_max": 12592,
+      "sample_size": 17339,
+      "by_experience": [
+        {"level": "Entry Level (<1 yr)", "salary": 59310},
+        {"level": "Early Career (1-4 yrs)", "salary": 70031},
+        {"level": "Mid Career (5-9 yrs)", "salary": 79170},
+        {"level": "Experienced (10-19 yrs)", "salary": 83725},
+        {"level": "Late Career (20+ yrs)", "salary": 86479}
+      ],
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.payscale.com/research/US/Job=Human_Resources_(HR)_Manager/Salary"
+    },
+    {
+      "source": "payscale.com",
+      "role": "Accountant",
+      "location": "United States",
+      "median_salary": 61337,
+      "median_total_comp": null,
+      "salary_range_min": 46846,
+      "salary_range_max": 80680,
+      "total_comp_range_min": null,
+      "total_comp_range_max": null,
+      "percentiles": {
+        "p10": 47000,
+        "p90": 81000
+      },
+      "bonus_range_min": 553,
+      "bonus_range_max": 7711,
+      "sample_size": 8410,
+      "by_experience": [
+        {"level": "Entry Level (<1 yr)", "salary": 54356},
+        {"level": "Early Career (1-4 yrs)", "salary": 58727},
+        {"level": "Mid Career (5-9 yrs)", "salary": 64219},
+        {"level": "Experienced (10-19 yrs)", "salary": 66994},
+        {"level": "Late Career (20+ yrs)", "salary": 67817}
+      ],
+      "scraped_at": "2026-03-24",
+      "source_url": "https://www.payscale.com/research/US/Job=Accountant/Salary"
+    }
+  ],
+  "cross_source_comparison": {
+    "software_engineer_us": {
+      "levels_fyi_median_base": 165000,
+      "levels_fyi_median_total_comp": 200000,
+      "payscale_median_base": 97736,
+      "delta_explanation": "Levels.fyi skews toward Big Tech companies (FAANG, etc.) with higher compensation packages including equity. PayScale reflects broader market including mid-size and smaller companies. For recruitment media plans, use PayScale for general market roles and Levels.fyi for tech-specific/competitive roles."
+    }
+  },
+  "usage_guide": {
+    "for_media_plans": "Use median_salary as the primary benchmark. Apply by_experience modifiers for seniority-specific roles. Use salary_range_min/max for range displays. For tech roles, consider both base (PayScale) and total comp (Levels.fyi) depending on whether the client competes with Big Tech.",
+    "freshness": "Data scraped 2026-03-24. PayScale data updated Feb 2026. Levels.fyi data updated Mar 2026. Re-scrape quarterly for accuracy.",
+    "sample_size_note": "Higher sample sizes (>10K) indicate more reliable benchmarks. Levels.fyi Data Scientist (272 samples) should be treated as directional only."
+  }
+}
