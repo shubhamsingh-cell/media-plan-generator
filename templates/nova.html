@@ -19,7 +19,7 @@
         box-sizing: border-box;
       }
       @font-face {
-        font-family: "JarvisFont";
+        font-family: "NovaFont";
         src: local("SF Mono"), local("Menlo"), local("Consolas");
         font-display: swap;
       }
@@ -42,7 +42,7 @@
         overflow: hidden;
         background: var(--bg);
         color: var(--text);
-        font-family: "JarvisFont", monospace;
+        font-family: "NovaFont", monospace;
       }
 
       /* ── Scanline overlay ── */
@@ -62,7 +62,7 @@
       }
 
       /* ── Layout ── */
-      .jarvis-container {
+      .nova-container {
         display: grid;
         grid-template-rows: auto 1fr auto;
         height: 100vh;
@@ -688,7 +688,7 @@
         })
         .catch(function () {});
     </script>
-    <div class="jarvis-container">
+    <div class="nova-container">
       <!-- Top HUD -->
       <div class="hud-top">
         <div class="hud-top-left">
@@ -1232,7 +1232,7 @@
         var API_URL = "/api/chat";
         var messages = [];
         var sessionId =
-          "nova-jarvis-" +
+          "nova-session-" +
           Date.now() +
           "-" +
           Math.random().toString(36).substr(2, 6);
@@ -1244,17 +1244,17 @@
 
         // Session persistence
         try {
-          var stored = sessionStorage.getItem("nova_jarvis_history");
+          var stored = sessionStorage.getItem("nova_history");
           if (stored) messages = JSON.parse(stored);
-          var storedSid = sessionStorage.getItem("nova_jarvis_session");
+          var storedSid = sessionStorage.getItem("nova_session");
           if (storedSid) sessionId = storedSid;
-          else sessionStorage.setItem("nova_jarvis_session", sessionId);
+          else sessionStorage.setItem("nova_session", sessionId);
         } catch (e) {}
 
         function saveMessages() {
           try {
             sessionStorage.setItem(
-              "nova_jarvis_history",
+              "nova_history",
               JSON.stringify(messages.slice(-50)),
             );
           } catch (e) {}
@@ -1358,7 +1358,7 @@
           }
 
           // Remove suggestions if present
-          var sugEl = document.getElementById("jarvis-suggestions");
+          var sugEl = document.getElementById("nova-suggestions");
           if (sugEl && msg.role === "user") sugEl.remove();
 
           chatMessages.appendChild(el);
@@ -1497,7 +1497,7 @@
 
           var sg = document.createElement("div");
           sg.className = "suggestions";
-          sg.id = "jarvis-suggestions";
+          sg.id = "nova-suggestions";
           sg.innerHTML =
             '<div class="suggestions-title">Suggested Queries</div>';
           var qs = [

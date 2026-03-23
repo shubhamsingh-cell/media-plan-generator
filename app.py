@@ -16493,6 +16493,19 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         )
         super().end_headers()
 
+    def _get_client_ip(self) -> str:
+        """Return the real client IP, respecting reverse-proxy headers.
+
+        On Render.com (behind a load balancer), ``self.client_address[0]``
+        may return the proxy IP which changes between requests, breaking
+        CSRF token matching.  The ``X-Forwarded-For`` header carries the
+        real client IP as its first entry.
+        """
+        forwarded: str = self.headers.get("X-Forwarded-For") or ""
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return self.client_address[0]
+
     def _get_cors_origin(self):
         """Return the request Origin if it is in the allowlist, else empty string.
         SECURITY: CORS_ALLOW_ALL removed to prevent accidental exposure in production.
@@ -16570,7 +16583,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 # If key is invalid/revoked, fall through to IP-based limiting
 
         # ── Fallback: per-IP rate limiting (original behavior) ──
-        client_ip = self.client_address[0]
+        client_ip = self._get_client_ip()
         with _rate_limit_lock:
             # Purge expired timestamps for this IP
             _rate_limit_store[client_ip] = [
@@ -16658,7 +16671,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self._serve_file(os.path.join(TEMPLATES_DIR, "index.html"), "text/html")
         elif path == "/api/csrf-token":
             # Return a per-session CSRF token for the client IP
-            client_ip = self.client_address[0]
+            client_ip = self._get_client_ip()
             token = _get_or_create_csrf_token(client_ip)
             body = json.dumps({"token": token}).encode("utf-8")
             self.send_response(200)
@@ -17798,11 +17811,16 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Document not found"}).encode())
-        elif path in ("/nova", "/nova/", "/nova-jarvis", "/nova-jarvis/"):
-            # ── Nova Jarvis UI ──
-            jarvis_html = os.path.join(BASE_DIR, "templates", "nova-jarvis.html")
-            if os.path.exists(jarvis_html):
-                with open(jarvis_html, "r") as f:
+        elif path in ("/nova-jarvis", "/nova-jarvis/"):
+            # ── Backward-compat redirect: /nova-jarvis -> /nova ──
+            self.send_response(301)
+            self.send_header("Location", "/nova")
+            self.end_headers()
+        elif path in ("/nova", "/nova/"):
+            # ── Nova AI UI ──
+            nova_html = os.path.join(BASE_DIR, "templates", "nova.html")
+            if os.path.exists(nova_html):
+                with open(nova_html, "r") as f:
                     html = f.read()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -18606,7 +18624,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         # Skip rate limiting for admin routes when valid auth is provided.
         _is_admin = self._check_admin_auth()
         if not _is_admin and path.startswith("/api/"):
-            client_ip = self.client_address[0]
+            client_ip = self._get_client_ip()
             if path == "/api/generate":
                 _rl_allowed = _rl_generate.is_allowed(
                     client_ip, max_requests=10, window_seconds=60
@@ -18641,7 +18659,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         )
         if not _has_api_key and not _is_admin and path.startswith("/api/"):
             csrf_token = self.headers.get("X-CSRF-Token") or ""
-            client_ip = self.client_address[0]
+            client_ip = self._get_client_ip()
             if not csrf_token or not _validate_csrf_token(client_ip, csrf_token):
                 self.send_response(403)
                 self.send_header("Content-Type", "application/json")
@@ -20671,11 +20689,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 data = json.loads(body)
                 from plan_delivery import send_plan_email
 
-                client_ip = (
-                    self.headers.get("X-Forwarded-For", self.client_address[0])
-                    .split(",")[0]
-                    .strip()
-                )
+                client_ip = self._get_client_ip()
                 result = send_plan_email(
                     recipient_email=data.get("email") or "",
                     client_name=data.get("client_name") or "",

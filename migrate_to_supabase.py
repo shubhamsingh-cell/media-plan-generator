@@ -116,8 +116,21 @@ def _post_rows(table: str, rows: list[dict[str, Any]], *, dry_run: bool = False)
         logger.info(f"  [DRY-RUN] Would upsert {len(rows)} rows into {table}")
         return len(rows)
 
+    # Map tables to their unique constraint columns for upsert
+    _on_conflict_map: dict[str, str] = {
+        "knowledge_base": "category,key",
+        "channel_benchmarks": "channel,industry",
+        "vendor_profiles": "name",
+        "supply_repository": "name",
+        "salary_data": "role,location",
+        "compliance_rules": "rule_type,jurisdiction",
+        "market_trends": "category,title,source",
+    }
     base = SUPABASE_URL.rstrip("/")
+    on_conflict = _on_conflict_map.get(table) or ""
     url = f"{base}/rest/v1/{table}"
+    if on_conflict:
+        url += f"?on_conflict={on_conflict}"
     payload = json.dumps(rows, ensure_ascii=False).encode("utf-8")
     headers = _build_headers(prefer="resolution=merge-duplicates")
 
