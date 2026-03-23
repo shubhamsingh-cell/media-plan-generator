@@ -1,11 +1,13 @@
 """Security checks for the Nova AI Suite codebase."""
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 
 class TestAdminKeySecurity:
@@ -83,3 +85,78 @@ class TestCORSPolicy:
         assert (
             "_ALLOWED_ORIGINS" in app_source or "ALLOWED_ORIGINS" in app_source
         ), "No CORS allowlist (ALLOWED_ORIGINS) found in app.py"
+
+
+class TestCSRFDoubleSubmit:
+    """CSRF must use the cookie-based double-submit pattern (not IP-based)."""
+
+    def test_no_ip_based_csrf_store(self, app_source: str) -> None:
+        """Server-side per-IP CSRF token storage must not exist."""
+        assert (
+            "_csrf_tokens" not in app_source
+        ), "Found _csrf_tokens dict -- IP-based CSRF store should be removed"
+        assert (
+            "_csrf_lock" not in app_source
+        ), "Found _csrf_lock -- IP-based CSRF lock should be removed"
+
+    def test_csrf_cookie_is_set(self, app_source: str) -> None:
+        """The /api/csrf-token endpoint must set a Set-Cookie header."""
+        assert (
+            "Set-Cookie" in app_source
+        ), "Set-Cookie header not found -- CSRF cookie must be set"
+        assert "csrf_token=" in app_source, "csrf_token= cookie not found in app.py"
+
+    def test_csrf_cookie_flags(self, app_source: str) -> None:
+        """CSRF cookie must have HttpOnly and SameSite=Strict flags."""
+        assert "HttpOnly" in app_source, "CSRF cookie missing HttpOnly flag"
+        assert (
+            "SameSite=Strict" in app_source
+        ), "CSRF cookie missing SameSite=Strict flag"
+
+    def test_csrf_double_submit_validation(self, app_source: str) -> None:
+        """POST validation must compare cookie token with header token."""
+        assert (
+            "_validate_csrf_double_submit" in app_source
+        ), "Double-submit validation function not found"
+        assert (
+            "compare_digest" in app_source
+        ), "Constant-time comparison (hmac.compare_digest) not used"
+
+    def test_csrf_functions_unit(self) -> None:
+        """Unit test the CSRF helper functions directly."""
+        from app import (
+            _build_csrf_cookie,
+            _generate_csrf_token,
+            _parse_cookie_value,
+            _validate_csrf_double_submit,
+        )
+
+        # Token generation
+        t1 = _generate_csrf_token()
+        t2 = _generate_csrf_token()
+        assert len(t1) == 64, "Token should be 64 hex chars"
+        assert t1 != t2, "Tokens must be unique"
+
+        # Cookie building -- HTTPS
+        cookie = _build_csrf_cookie("abc123", secure=True)
+        assert "csrf_token=abc123" in cookie
+        assert "HttpOnly" in cookie
+        assert "SameSite=Strict" in cookie
+        assert "Secure" in cookie
+
+        # Cookie building -- HTTP (no Secure flag)
+        cookie_http = _build_csrf_cookie("abc123", secure=False)
+        assert "Secure" not in cookie_http
+
+        # Cookie parsing
+        assert _parse_cookie_value("csrf_token=abc; other=1", "csrf_token") == "abc"
+        assert _parse_cookie_value("other=1; csrf_token=xyz", "csrf_token") == "xyz"
+        assert _parse_cookie_value("other=1", "csrf_token") == ""
+        assert _parse_cookie_value("", "csrf_token") == ""
+
+        # Double-submit validation
+        assert _validate_csrf_double_submit("tok", "tok") is True
+        assert _validate_csrf_double_submit("tok", "bad") is False
+        assert _validate_csrf_double_submit("", "tok") is False
+        assert _validate_csrf_double_submit("tok", "") is False
+        assert _validate_csrf_double_submit("", "") is False

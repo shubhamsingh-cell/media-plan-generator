@@ -39,6 +39,8 @@ from shared_utils import (
     standardize_location as _shared_standardize_location,
 )
 
+import benchmark_registry
+
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -55,6 +57,25 @@ try:
     _firecrawl_available = True
 except ImportError:
     _firecrawl_available = False
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SUPABASE DATA LAYER (Supabase-first with local JSON fallback)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from supabase_data import (
+        get_knowledge,
+        get_channel_benchmarks,
+        get_salary_data,
+        get_compliance_rules,
+        get_market_trends,
+        get_vendor_profiles,
+        get_supply_repository,
+    )
+
+    _supabase_data_available = True
+except ImportError:
+    _supabase_data_available = False
+    logger.warning("supabase_data module not available; Supabase enrichment disabled")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -120,6 +141,114 @@ def _generate_narrative(
         return result.get("text") or ""
     except Exception as e:
         logger.error("Narrative generation failed: %s", e, exc_info=True)
+        return ""
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LLM PRODUCT INSIGHTS -- optional AI insights for "dumb" products
+# ═══════════════════════════════════════════════════════════════════════════════
+import hashlib
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+
+_insights_cache: dict[str, tuple[str, float]] = {}
+_insights_cache_lock = threading.Lock()
+_INSIGHTS_CACHE_TTL = 3600.0  # 1 hour
+_INSIGHTS_LLM_TIMEOUT = 10  # seconds
+_insights_executor = ThreadPoolExecutor(
+    max_workers=2, thread_name_prefix="llm-insights"
+)
+
+
+def _generate_product_insights(
+    product_name: str,
+    result_summary: dict,
+    context: str = "",
+    max_tokens: int = 250,
+) -> str:
+    """Generate optional AI insights for a product endpoint.
+
+    Uses the LLM router with caching (1h TTL) and a 10-second timeout.
+    Returns empty string on any failure -- never blocks the main response.
+
+    Args:
+        product_name: Human-readable product name (e.g. "Budget Simulator").
+        result_summary: Dict of key result data to base insights on.
+        context: Additional context for the prompt.
+        max_tokens: Max tokens for LLM response.
+
+    Returns:
+        AI-generated insights string, or empty string on failure.
+    """
+    router = _lazy_llm_router()
+    if not router:
+        return ""
+
+    # Build cache key from product name + truncated summary hash
+    summary_str = json.dumps(result_summary, sort_keys=True, default=str)[:1000]
+    cache_key = hashlib.md5(
+        f"{product_name}:{summary_str}".encode(), usedforsecurity=False
+    ).hexdigest()
+
+    # Check cache
+    with _insights_cache_lock:
+        cached = _insights_cache.get(cache_key)
+        if cached:
+            text, ts = cached
+            if time.time() - ts < _INSIGHTS_CACHE_TTL:
+                return text
+            else:
+                del _insights_cache[cache_key]
+
+    def _call_llm_sync() -> str:
+        """Run LLM call in thread for timeout control."""
+        task_type = getattr(router, "TASK_STRUCTURED", "structured")
+        prompt = (
+            f"You are analyzing {product_name} output for a recruitment media planner.\n\n"
+            f"Data summary:\n{json.dumps(result_summary, indent=2, default=str)[:1500]}\n\n"
+        )
+        if context:
+            prompt += f"Context: {context}\n\n"
+        prompt += (
+            "Provide exactly 3 brief, actionable insights as a numbered list. "
+            "Each insight should be 1-2 sentences. Focus on practical recommendations "
+            "a recruitment media planner can act on immediately."
+        )
+        result = router.call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt=(
+                "You are a senior recruitment marketing strategist. "
+                "Give concise, data-driven insights. No fluff, no preamble."
+            ),
+            task_type=task_type,
+            max_tokens=max_tokens,
+        )
+        return result.get("text") or ""
+
+    try:
+        future = _insights_executor.submit(_call_llm_sync)
+        text = future.result(timeout=_INSIGHTS_LLM_TIMEOUT)
+        # Store in cache
+        if text:
+            with _insights_cache_lock:
+                _insights_cache[cache_key] = (text, time.time())
+                # Evict stale entries if cache grows too large
+                if len(_insights_cache) > 500:
+                    now = time.time()
+                    stale = [
+                        k
+                        for k, (_, ts) in _insights_cache.items()
+                        if now - ts > _INSIGHTS_CACHE_TTL
+                    ]
+                    for k in stale:
+                        del _insights_cache[k]
+        return text
+    except FuturesTimeoutError:
+        logger.warning(
+            f"LLM insights timed out for {product_name} (>{_INSIGHTS_LLM_TIMEOUT}s)"
+        )
+        return ""
+    except Exception as exc:
+        logger.error(f"LLM insights failed for {product_name}: {exc}", exc_info=True)
         return ""
 
 
@@ -15096,54 +15225,73 @@ _rl_portal = RateLimiter()  # /api/portal/* -- 20 req/min
 _rl_general = RateLimiter()  # all other /api/* POST routes -- 30 req/min
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CSRF TOKEN STORE (per-IP, 1-hour expiry)
+# CSRF: Cookie-based double-submit pattern (stateless)
 # ═══════════════════════════════════════════════════════════════════════════════
-_csrf_tokens: dict = {}  # ip -> {"token": str, "created": float}
-_csrf_lock = threading.Lock()
-_CSRF_TOKEN_TTL = 3600  # 1 hour
 
 
-def _get_or_create_csrf_token(client_ip: str) -> str:
-    """Return an existing valid CSRF token for the IP, or create a new one.
+def _generate_csrf_token() -> str:
+    """Generate a cryptographically random CSRF token (64 hex chars)."""
+    return secrets.token_hex(32)
 
-    Thread-safe. Tokens expire after 1 hour. Periodic cleanup removes stale
-    entries to prevent unbounded memory growth.
+
+def _build_csrf_cookie(token: str, *, secure: bool) -> str:
+    """Build the Set-Cookie header value for the CSRF token.
+
+    Args:
+        token: The CSRF token string.
+        secure: Whether to include the Secure flag (True for HTTPS).
+
+    Returns:
+        A fully-formed Set-Cookie header value.
     """
-    now = time.time()
-    with _csrf_lock:
-        entry = _csrf_tokens.get(client_ip)
-        if entry and now - entry["created"] < _CSRF_TOKEN_TTL:
-            return entry["token"]
-        token = secrets.token_hex(32)
-        _csrf_tokens[client_ip] = {"token": token, "created": now}
-        # Periodic cleanup: remove expired entries when store exceeds 500 IPs
-        if len(_csrf_tokens) > 500:
-            stale = [
-                ip
-                for ip, e in list(_csrf_tokens.items())
-                if now - e["created"] >= _CSRF_TOKEN_TTL
-            ]
-            for ip in stale:
-                _csrf_tokens.pop(ip, None)
-        return token
+    parts = [
+        f"csrf_token={token}",
+        "Path=/",
+        "HttpOnly",
+        "SameSite=Strict",
+    ]
+    if secure:
+        parts.append("Secure")
+    return "; ".join(parts)
 
 
-def _validate_csrf_token(client_ip: str, token: str) -> bool:
-    """Validate a CSRF token for the given client IP.
+def _parse_cookie_value(cookie_header: str, name: str) -> str:
+    """Extract a named value from a Cookie header string.
 
-    Returns True if the token matches and has not expired.
+    Args:
+        cookie_header: The raw Cookie header (e.g. "a=1; csrf_token=abc; b=2").
+        name: The cookie name to extract.
+
+    Returns:
+        The cookie value, or empty string if not found.
+    """
+    for pair in cookie_header.split(";"):
+        pair = pair.strip()
+        if pair.startswith(f"{name}="):
+            return pair[len(name) + 1 :]
+    return ""
+
+
+def _validate_csrf_double_submit(cookie_token: str, header_token: str) -> bool:
+    """Validate CSRF using the double-submit cookie pattern.
+
+    Compares the token from the csrf_token cookie (set by server, sent
+    automatically by browser) with the token from the X-CSRF-Token header
+    (set by JavaScript). Uses constant-time comparison to prevent timing
+    attacks.
+
+    Args:
+        cookie_token: Token read from the csrf_token cookie.
+        header_token: Token read from the X-CSRF-Token request header.
+
+    Returns:
+        True if both tokens are non-empty and match.
     """
     import hmac as _hmac_mod
 
-    now = time.time()
-    with _csrf_lock:
-        entry = _csrf_tokens.get(client_ip)
-        if not entry:
-            return False
-        if now - entry["created"] >= _CSRF_TOKEN_TTL:
-            _csrf_tokens.pop(client_ip, None)
-            return False
-        return _hmac_mod.compare_digest(entry["token"], token)
+    if not cookie_token or not header_token:
+        return False
+    return _hmac_mod.compare_digest(cookie_token, header_token)
 
 
 def _rate_limiter_cleanup_loop():
@@ -15176,42 +15324,72 @@ _ALLOWED_ORIGINS = {
 # ROI CALCULATOR BACKEND
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Industry benchmarks for ROI calculations – keyed by frontend select values
-# and also by KB-style keys for flexible lookup.
-_ROI_INDUSTRY_BENCHMARKS = {
-    "Technology": {"cpa": 28, "conv_rate": 0.05, "avg_cph": 6200, "avg_ttf": 42},
-    "Healthcare": {"cpa": 22, "conv_rate": 0.045, "avg_cph": 4800, "avg_ttf": 49},
-    "Finance": {"cpa": 35, "conv_rate": 0.04, "avg_cph": 5500, "avg_ttf": 44},
-    "Retail": {"cpa": 8, "conv_rate": 0.08, "avg_cph": 2700, "avg_ttf": 36},
-    "Manufacturing": {"cpa": 12, "conv_rate": 0.06, "avg_cph": 3800, "avg_ttf": 40},
-    "Logistics": {"cpa": 10, "conv_rate": 0.07, "avg_cph": 3200, "avg_ttf": 38},
-    "Hospitality": {"cpa": 7, "conv_rate": 0.09, "avg_cph": 2700, "avg_ttf": 33},
-    "Other": {"cpa": 15, "conv_rate": 0.05, "avg_cph": 4700, "avg_ttf": 45},
-    # KB-style keys map to same data
-    "tech_engineering": {"cpa": 28, "conv_rate": 0.05, "avg_cph": 6200, "avg_ttf": 42},
-    "healthcare_medical": {
-        "cpa": 22,
-        "conv_rate": 0.045,
-        "avg_cph": 4800,
-        "avg_ttf": 49,
-    },
-    "finance_banking": {"cpa": 35, "conv_rate": 0.04, "avg_cph": 5500, "avg_ttf": 44},
-    "retail_consumer": {"cpa": 8, "conv_rate": 0.08, "avg_cph": 2700, "avg_ttf": 36},
-    "construction_real_estate": {
-        "cpa": 14,
-        "conv_rate": 0.055,
-        "avg_cph": 4000,
-        "avg_ttf": 41,
-    },
-    "logistics_supply_chain": {
-        "cpa": 10,
-        "conv_rate": 0.07,
-        "avg_cph": 3200,
-        "avg_ttf": 38,
-    },
-    "hospitality_travel": {"cpa": 7, "conv_rate": 0.09, "avg_cph": 2700, "avg_ttf": 33},
-    "general": {"cpa": 15, "conv_rate": 0.05, "avg_cph": 4700, "avg_ttf": 45},
+# Conversion rates and time-to-fill by industry.  CPA and cost-per-hire are
+# now sourced from benchmark_registry (single source of truth) via
+# _get_roi_industry_benchmarks().
+_ROI_CONV_RATE_TTF: dict[str, dict[str, float]] = {
+    "technology": {"conv_rate": 0.05, "avg_ttf": 42},
+    "healthcare": {"conv_rate": 0.045, "avg_ttf": 49},
+    "finance": {"conv_rate": 0.04, "avg_ttf": 44},
+    "retail": {"conv_rate": 0.08, "avg_ttf": 36},
+    "manufacturing": {"conv_rate": 0.06, "avg_ttf": 40},
+    "logistics": {"conv_rate": 0.07, "avg_ttf": 38},
+    "hospitality": {"conv_rate": 0.09, "avg_ttf": 33},
+    "construction": {"conv_rate": 0.055, "avg_ttf": 41},
+    "overall": {"conv_rate": 0.05, "avg_ttf": 45},
 }
+
+# Maps frontend / legacy industry keys to benchmark_registry keys
+_ROI_INDUSTRY_KEY_MAP: dict[str, str] = {
+    "Technology": "technology",
+    "Healthcare": "healthcare",
+    "Finance": "finance",
+    "Retail": "retail",
+    "Manufacturing": "manufacturing",
+    "Logistics": "logistics",
+    "Hospitality": "hospitality",
+    "Other": "overall",
+    "tech_engineering": "technology",
+    "healthcare_medical": "healthcare",
+    "finance_banking": "finance",
+    "retail_consumer": "retail",
+    "construction_real_estate": "construction",
+    "logistics_supply_chain": "logistics",
+    "hospitality_travel": "hospitality",
+    "general": "overall",
+}
+
+
+def _get_roi_industry_benchmarks(industry: str) -> dict[str, float]:
+    """Get CPA, cost-per-hire, conversion rate, and TTF for an industry.
+
+    Pulls CPA and cost-per-hire from benchmark_registry (single source of
+    truth); conv_rate and avg_ttf come from the local _ROI_CONV_RATE_TTF table
+    since the registry doesn't track those.
+
+    Args:
+        industry: Industry key from frontend or KB (e.g., "Technology",
+                  "tech_engineering", "healthcare_medical").
+
+    Returns:
+        Dict with keys: cpa, conv_rate, avg_cph, avg_ttf.
+    """
+    registry_key = _ROI_INDUSTRY_KEY_MAP.get(industry, "overall")
+    conv_ttf = _ROI_CONV_RATE_TTF.get(registry_key, _ROI_CONV_RATE_TTF["overall"])
+
+    # CPA: use the industry-adjusted programmatic CPA from the registry
+    bench = benchmark_registry.get_channel_benchmark("programmatic", registry_key)
+    cpa = bench.get("cpa_adjusted") or bench.get("cpa") or 15.0
+
+    # Cost-per-hire from registry
+    avg_cph = benchmark_registry.get_cost_per_hire(registry_key)
+
+    return {
+        "cpa": cpa,
+        "conv_rate": conv_ttf["conv_rate"],
+        "avg_cph": avg_cph,
+        "avg_ttf": conv_ttf["avg_ttf"],
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -15526,10 +15704,8 @@ def _calculate_roi(data: dict) -> dict:
     if monthly_budget <= 0:
         return {"error": "monthly_budget must be greater than zero"}
 
-    # Look up industry benchmarks
-    benchmarks = _ROI_INDUSTRY_BENCHMARKS.get(
-        industry, _ROI_INDUSTRY_BENCHMARKS["Other"]
-    )
+    # Look up industry benchmarks from benchmark_registry
+    benchmarks = _get_roi_industry_benchmarks(industry)
     cpa = avg_cpa if avg_cpa > 0 else benchmarks["cpa"]
     conv_rate = benchmarks["conv_rate"]
     industry_avg_cph = benchmarks["avg_cph"]
@@ -15867,14 +16043,30 @@ _AB_CULTURE_PHRASES = {
     ],
 }
 
-_AB_CPA_ESTIMATES = {
-    "Indeed": 25,
-    "LinkedIn": 45,
-    "Facebook": 20,
-    "Google": 30,
-    "ZipRecruiter": 28,
-    "Programmatic": 22,
+# Channel name -> benchmark_registry key mapping for A/B test CPA lookup.
+# Uses benchmark_registry as single source of truth instead of hardcoded values.
+_AB_CHANNEL_TO_REGISTRY: dict[str, str] = {
+    "Indeed": "indeed",
+    "LinkedIn": "linkedin",
+    "Facebook": "meta_facebook",
+    "Google": "google_ads",
+    "ZipRecruiter": "ziprecruiter",
+    "Programmatic": "programmatic",
 }
+
+
+def _get_ab_cpa_estimate(channel: str) -> float:
+    """Get CPA estimate for A/B test calculations from benchmark_registry.
+
+    Args:
+        channel: Display name of the channel (e.g., "Indeed", "LinkedIn").
+
+    Returns:
+        CPA value as a float. Falls back to programmatic CPA if channel unknown.
+    """
+    registry_key = _AB_CHANNEL_TO_REGISTRY.get(channel, "programmatic")
+    bench = benchmark_registry.get_channel_benchmark(registry_key)
+    return bench.get("cpa") or 25.0
 
 
 def _generate_ab_test(data: dict) -> dict:
@@ -16117,7 +16309,7 @@ def _build_ab_response(
     Combines variant ad copy with sample size calculations, recommended
     duration, and success metrics into a single response dict.
     """
-    est_cpa = _AB_CPA_ESTIMATES.get(channel, 25)
+    est_cpa = _get_ab_cpa_estimate(channel)
     daily_apps = max(1, round(budget / 30 / est_cpa))
 
     baseline_apply_rate = 0.05
@@ -16497,9 +16689,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         """Return the real client IP, respecting reverse-proxy headers.
 
         On Render.com (behind a load balancer), ``self.client_address[0]``
-        may return the proxy IP which changes between requests, breaking
-        CSRF token matching.  The ``X-Forwarded-For`` header carries the
-        real client IP as its first entry.
+        may return the proxy IP.  The ``X-Forwarded-For`` header carries the
+        real client IP as its first entry.  Used for rate limiting.
         """
         forwarded: str = self.headers.get("X-Forwarded-For") or ""
         if forwarded:
@@ -16670,15 +16861,21 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         elif path in ("/media-plan", "/media-plan/", "/generator", "/generator/"):
             self._serve_file(os.path.join(TEMPLATES_DIR, "index.html"), "text/html")
         elif path == "/api/csrf-token":
-            # Return a per-session CSRF token for the client IP
-            client_ip = self._get_client_ip()
-            token = _get_or_create_csrf_token(client_ip)
+            # Cookie-based double-submit CSRF: generate token, set as cookie
+            # AND return in JSON body.  JS stores the body copy and sends it
+            # back via X-CSRF-Token header; browser sends the cookie copy
+            # automatically.  Server compares the two on POST.
+            token = _generate_csrf_token()
+            is_https = (self.headers.get("X-Forwarded-Proto") or "").lower() == "https"
+            cookie_val = _build_csrf_cookie(token, secure=is_https)
             body = json.dumps({"token": token}).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Set-Cookie", cookie_val)
             cors_origin = self._get_cors_origin()
             if cors_origin:
                 self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.send_header("Access-Control-Allow-Credentials", "true")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -18019,6 +18216,22 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
                 _ef = EvalSuite()
                 eval_result = _ef.run_full_eval()
+                # LLM insights for Eval Framework
+                if isinstance(eval_result, dict):
+                    eval_result["ai_insights"] = _generate_product_insights(
+                        "Eval Framework",
+                        {
+                            k: eval_result.get(k)
+                            for k in (
+                                "overall_score",
+                                "test_results",
+                                "failures",
+                                "warnings",
+                            )
+                            if eval_result.get(k) is not None
+                        },
+                        context="Platform quality evaluation results",
+                    )
                 self._send_json(eval_result)
             except ImportError:
                 self._send_json({"error": "Eval framework not available"})
@@ -18130,7 +18343,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 }
             )
         # ── Campaign Performance Tracker Page ──
-        elif path in ("/tracker", "/tracker/"):
+        elif path in (
+            "/tracker",
+            "/tracker/",
+            "/performance-tracker",
+            "/performance-tracker/",
+        ):
             tracker_html = os.path.join(BASE_DIR, "templates", "tracker.html")
             if os.path.exists(tracker_html):
                 with open(tracker_html, "r") as f:
@@ -18142,7 +18360,14 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             else:
                 self.send_error(404, "Tracker page not found")
         # ── Budget Simulator Page ──
-        elif path in ("/simulator", "/simulator/"):
+        elif path in (
+            "/simulator",
+            "/simulator/",
+            "/budget-simulator",
+            "/budget-simulator/",
+            "/budget-engine",
+            "/budget-engine/",
+        ):
             sim_html = os.path.join(BASE_DIR, "templates", "simulator.html")
             if os.path.exists(sim_html):
                 with open(sim_html, "r") as f:
@@ -18183,7 +18408,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 logger.error("Simulator defaults error: %s", e, exc_info=True)
                 self._send_json({"error": "Internal server error"})
         # ── Competitive Intelligence Dashboard Page ──
-        elif path in ("/competitive", "/competitive/"):
+        elif path in (
+            "/competitive",
+            "/competitive/",
+            "/competitive-intel",
+            "/competitive-intel/",
+        ):
             _html_path = os.path.join(BASE_DIR, "templates", "competitive.html")
             if os.path.exists(_html_path):
                 with open(_html_path, "r") as f:
@@ -18267,7 +18497,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             else:
                 self.send_error(404, "API Portal page not found")
         # ── PayScale Sync Page ──
-        elif path in ("/payscale-sync", "/payscale-sync/"):
+        elif path in ("/payscale-sync", "/payscale-sync/", "/payscale", "/payscale/"):
             _html_path = os.path.join(BASE_DIR, "templates", "payscale-sync.html")
             if os.path.exists(_html_path):
                 with open(_html_path, "r") as f:
@@ -18373,6 +18603,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             "/market-intel/",
             "/market-intelligence",
             "/market-intelligence/",
+            "/market-intel-reports",
+            "/market-intel-reports/",
         ):
             _html_path = os.path.join(BASE_DIR, "templates", "market-intel.html")
             if os.path.exists(_html_path):
@@ -18519,14 +18751,39 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     qs = urllib.parse.parse_qs(parsed.query)
                     topic = qs.get("topic", ["recruitment advertising"])[0]
                     articles = fetch_recruitment_news(topic=topic)
-                    self._send_json(
-                        {"ok": True, "articles": articles, "count": len(articles)}
-                    )
+                    _mp_news_resp: dict = {
+                        "ok": True,
+                        "articles": articles,
+                        "count": len(articles),
+                    }
+                    # Enrich with Supabase market trends
+                    if _supabase_data_available:
+                        try:
+                            _mp_news_trends = get_market_trends(category="cpc_trends")
+                            if _mp_news_trends:
+                                _mp_news_resp["supabase_market_trends"] = (
+                                    _mp_news_trends
+                                )
+                        except (urllib.error.URLError, OSError, ValueError) as sb_err:
+                            logger.error(
+                                f"Supabase market trends for news failed: {sb_err}",
+                                exc_info=True,
+                            )
+                    self._send_json(_mp_news_resp)
             except Exception as e:
                 logger.error("Firecrawl news error: %s", e, exc_info=True)
                 self._send_json(
                     {"ok": False, "error": "Internal server error", "articles": []}
                 )
+        # ── Alias redirects for API-only features (no dedicated page) ──
+        elif path in ("/auto-qc", "/auto-qc/"):
+            self.send_response(301)
+            self.send_header("Location", "/hub")
+            self.end_headers()
+        elif path in ("/eval-framework", "/eval-framework/"):
+            self.send_response(301)
+            self.send_header("Location", "/hub")
+            self.end_headers()
         else:
             self.send_error(404)
 
@@ -18652,20 +18909,22 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 )
                 return
 
-        # ── CSRF token validation ──
+        # ── CSRF token validation (double-submit cookie pattern) ──
         # Skip for API-key-authenticated requests (Bearer token) or admin auth.
         _has_api_key = bool(
             (self.headers.get("Authorization") or "").startswith("Bearer ")
         )
         if not _has_api_key and not _is_admin and path.startswith("/api/"):
-            csrf_token = self.headers.get("X-CSRF-Token") or ""
-            client_ip = self._get_client_ip()
-            if not csrf_token or not _validate_csrf_token(client_ip, csrf_token):
+            header_token = self.headers.get("X-CSRF-Token") or ""
+            cookie_header = self.headers.get("Cookie") or ""
+            cookie_token = _parse_cookie_value(cookie_header, "csrf_token")
+            if not _validate_csrf_double_submit(cookie_token, header_token):
                 self.send_response(403)
                 self.send_header("Content-Type", "application/json")
                 cors_origin = self._get_cors_origin()
                 if cors_origin:
                     self.send_header("Access-Control-Allow-Origin", cors_origin)
+                    self.send_header("Access-Control-Allow-Credentials", "true")
                 self.end_headers()
                 self.wfile.write(
                     json.dumps(
@@ -18854,8 +19113,31 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 30
 
-                        # KB + Synthesis
+                        # KB + Synthesis (Supabase-first, local fallback)
                         kb = load_knowledge_base()
+                        # Enrich KB with Supabase channel benchmarks
+                        if _supabase_data_available:
+                            try:
+                                _sb_industry = gen_data.get("industry") or ""
+                                _sb_benchmarks = get_channel_benchmarks(
+                                    industry=_sb_industry
+                                )
+                                if _sb_benchmarks:
+                                    kb["_supabase_channel_benchmarks"] = _sb_benchmarks
+                                _sb_kb_insights = get_knowledge(
+                                    "industry_insights", _sb_industry
+                                )
+                                if _sb_kb_insights:
+                                    kb["_supabase_industry_insights"] = _sb_kb_insights
+                            except (
+                                urllib.error.URLError,
+                                OSError,
+                                ValueError,
+                            ) as sb_err:
+                                logger.error(
+                                    f"Supabase enrichment for generate failed: {sb_err}",
+                                    exc_info=True,
+                                )
                         gen_data["_knowledge_base"] = kb
                         if data_synthesize is not None:
                             try:
@@ -20392,6 +20674,22 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         else locations
                     ),
                 )
+                # LLM insights for Performance Tracker
+                if isinstance(result, dict):
+                    result["ai_insights"] = _generate_product_insights(
+                        "Campaign Performance Tracker",
+                        {
+                            k: result.get(k)
+                            for k in (
+                                "summary",
+                                "channel_performance",
+                                "metrics",
+                                "alerts",
+                            )
+                            if result.get(k) is not None
+                        },
+                        context=f"Campaign: {campaign_name}, Industry: {industry}",
+                    )
                 resp_body = json.dumps(result).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
@@ -20521,6 +20819,23 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         else str(_sim_locs)
                     ),
                 )
+                # LLM insights for Budget Simulator
+                if isinstance(result, dict):
+                    result["ai_insights"] = _generate_product_insights(
+                        "Budget Simulator",
+                        {
+                            k: result.get(k)
+                            for k in (
+                                "summary",
+                                "total_budget",
+                                "channel_allocations",
+                                "projected_metrics",
+                            )
+                            if result.get(k) is not None
+                        },
+                        context=f"Industry: {data.get('industry', 'Technology')}, "
+                        f"Roles: {_sim_roles}, Locations: {_sim_locs}",
+                    )
                 self._send_json(result)
             except Exception as e:
                 logger.error("Simulator simulate error: %s", e, exc_info=True)
@@ -20549,6 +20864,22 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         else str(_opt_locs)
                     ),
                 )
+                # LLM insights for Budget Optimizer
+                if isinstance(result, dict):
+                    result["ai_insights"] = _generate_product_insights(
+                        "Budget Optimizer",
+                        {
+                            k: result.get(k)
+                            for k in (
+                                "goal",
+                                "optimized_allocations",
+                                "projected_metrics",
+                            )
+                            if result.get(k) is not None
+                        },
+                        context=f"Goal: {data.get('goal', 'balanced')}, "
+                        f"Budget: ${data.get('total_budget', 100000):,.0f}",
+                    )
                 self._send_json(result)
             except Exception as e:
                 logger.error("Simulator optimize error: %s", e, exc_info=True)
@@ -20588,6 +20919,17 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         )
                         simulated.append(sim_result)
                 result = compare_scenarios(simulated)
+                # LLM insights for Scenario Comparison
+                if isinstance(result, dict):
+                    result["ai_insights"] = _generate_product_insights(
+                        "Budget Scenario Comparison",
+                        {
+                            k: result.get(k)
+                            for k in ("winner", "comparison_matrix", "summary")
+                            if result.get(k) is not None
+                        },
+                        context=f"Comparing {len(simulated)} budget scenarios",
+                    )
                 self._send_json(result)
             except Exception as e:
                 logger.error("Simulator compare error: %s", e, exc_info=True)
@@ -20839,6 +21181,25 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     duration_weeks=data.get("duration_weeks", 4),
                 )
 
+                # LLM insights for Social Plan
+                if isinstance(result, dict):
+                    result["ai_insights"] = _generate_product_insights(
+                        "Social & Search Media Plan",
+                        {
+                            k: result.get(k)
+                            for k in (
+                                "platform_allocations",
+                                "weekly_schedule",
+                                "budget_breakdown",
+                                "projected_reach",
+                            )
+                            if result.get(k) is not None
+                        },
+                        context=f"Role: {data.get('role') or ''}, "
+                        f"Budget: ${data.get('budget', 50000):,.0f}, "
+                        f"Duration: {data.get('duration_weeks', 4)} weeks",
+                    )
+
                 # Enrich with Firecrawl platform ad specs
                 if isinstance(result, dict):
                     try:
@@ -20937,6 +21298,49 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     budget=data.get("budget") or 0,
                     num_hires=data.get("num_hires", 5),
                 )
+
+                # Enrich with Supabase salary data
+                if _supabase_data_available and isinstance(result, dict):
+                    try:
+                        _thm_role = data.get("role") or ""
+                        _thm_locations = data.get("locations") or []
+                        if isinstance(_thm_locations, str):
+                            _thm_locations = [_thm_locations]
+                        _thm_salary_data: list = []
+                        for _thm_loc in _thm_locations[:10]:
+                            _thm_loc_str = (
+                                _thm_loc if isinstance(_thm_loc, str) else str(_thm_loc)
+                            )
+                            _sb_salaries = get_salary_data(
+                                role=_thm_role, location=_thm_loc_str
+                            )
+                            if _sb_salaries:
+                                _thm_salary_data.extend(_sb_salaries)
+                        if _thm_salary_data:
+                            result["supabase_salary_data"] = _thm_salary_data
+                    except (urllib.error.URLError, OSError, ValueError) as sb_err:
+                        logger.error(
+                            f"Supabase salary enrichment for heatmap failed: {sb_err}",
+                            exc_info=True,
+                        )
+
+                # LLM insights for Talent Heatmap
+                if isinstance(result, dict):
+                    result["ai_insights"] = _generate_product_insights(
+                        "Talent Heatmap",
+                        {
+                            k: result.get(k)
+                            for k in (
+                                "heatmap_data",
+                                "top_locations",
+                                "cost_analysis",
+                                "competition_index",
+                            )
+                            if result.get(k) is not None
+                        },
+                        context=f"Role: {data.get('role') or ''}, "
+                        f"Industry: {data.get('industry', 'general_entry_level')}",
+                    )
 
                 # Enrich with Census Bureau workforce demographics
                 try:
@@ -21050,6 +21454,49 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 from skill_target import handle_skill_target_request
 
                 result = handle_skill_target_request(path, "POST", data)
+                # LLM insights for Skill Target
+                if isinstance(result, dict) and "status_code" not in result:
+                    result["ai_insights"] = _generate_product_insights(
+                        "Skill Target Intelligence",
+                        {
+                            k: result.get(k)
+                            for k in (
+                                "skill_gaps",
+                                "talent_pool",
+                                "recommended_channels",
+                                "difficulty_score",
+                            )
+                            if result.get(k) is not None
+                        },
+                        context=f"Skill targeting analysis",
+                    )
+                elif isinstance(result, dict) and result.get("status_code") == 200:
+                    # Inject into JSON body of structured response
+                    try:
+                        _st_body = result.get("body") or ""
+                        _st_parsed = (
+                            json.loads(_st_body)
+                            if isinstance(_st_body, str)
+                            else _st_body
+                        )
+                        if isinstance(_st_parsed, dict):
+                            _st_parsed["ai_insights"] = _generate_product_insights(
+                                "Skill Target Intelligence",
+                                {
+                                    k: _st_parsed.get(k)
+                                    for k in (
+                                        "skill_gaps",
+                                        "talent_pool",
+                                        "recommended_channels",
+                                        "difficulty_score",
+                                    )
+                                    if _st_parsed.get(k) is not None
+                                },
+                                context=f"Skill targeting analysis",
+                            )
+                            result["body"] = json.dumps(_st_parsed)
+                    except (json.JSONDecodeError, TypeError, AttributeError):
+                        pass  # Non-JSON body, skip insights
                 # Unwrap structured response from skill_target.py
                 if (
                     isinstance(result, dict)
@@ -21239,6 +21686,22 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     locations=locations,
                     client_name=client_name,
                 )
+                # LLM insights for Audit Tool
+                if isinstance(result, dict):
+                    result["ai_insights"] = _generate_product_insights(
+                        "Recruitment Advertising Audit",
+                        {
+                            k: result.get(k)
+                            for k in (
+                                "overall_score",
+                                "findings",
+                                "spend_efficiency",
+                                "channel_audit",
+                            )
+                            if result.get(k) is not None
+                        },
+                        context=f"Client: {client_name}, Industry: {industry}",
+                    )
                 self._send_json(result)
             except Exception as e:
                 logger.error("Audit analysis error: %s", e, exc_info=True)
@@ -21341,6 +21804,24 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         client_name=data.get("client_name", "Client"),
                     )
 
+                # LLM insights for HireSignal
+                if isinstance(result, dict):
+                    result["ai_insights"] = _generate_product_insights(
+                        "HireSignal Intelligence",
+                        {
+                            k: result.get(k)
+                            for k in (
+                                "signal_score",
+                                "risk_factors",
+                                "recommendations",
+                                "market_signals",
+                                "channel_analysis",
+                            )
+                            if result.get(k) is not None
+                        },
+                        context=f"Industry: {(data.get('industry') or '') if isinstance(data, dict) else ''}",
+                    )
+
                 # Enrich with Google Trends hiring data
                 if isinstance(result, dict):
                     try:
@@ -21381,6 +21862,24 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             vol_err,
                             exc_info=True,
                         )
+
+                    # Enrich with Supabase supply repository data
+                    if _supabase_data_available:
+                        try:
+                            _hs_industry = (
+                                industry
+                                if "multipart/form-data"
+                                in (self.headers.get("Content-Type") or "")
+                                else (data.get("industry") or "")
+                            )
+                            _hs_supply = get_supply_repository(category=_hs_industry)
+                            if _hs_supply:
+                                result["supabase_supply_data"] = _hs_supply
+                        except (urllib.error.URLError, OSError, ValueError) as sb_err:
+                            logger.error(
+                                f"Supabase supply repository fetch for HireSignal failed: {sb_err}",
+                                exc_info=True,
+                            )
 
                 self._send_json(result)
             except Exception as e:
@@ -21478,6 +21977,25 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 status_code, result = handle_pulse_api(
                     path, method="POST", body=body_data
                 )
+
+                # Enrich with Supabase market trends
+                if (
+                    _supabase_data_available
+                    and status_code == 200
+                    and isinstance(result, dict)
+                ):
+                    try:
+                        _mp_category = (
+                            body_data.get("category") or body_data.get("sector") or ""
+                        )
+                        _mp_trends = get_market_trends(category=_mp_category)
+                        if _mp_trends:
+                            result["supabase_market_trends"] = _mp_trends
+                    except (urllib.error.URLError, OSError, ValueError) as sb_err:
+                        logger.error(
+                            f"Supabase market trends fetch failed: {sb_err}",
+                            exc_info=True,
+                        )
 
                 # Enrich with Google Trends hiring data
                 if status_code == 200 and isinstance(result, dict):
@@ -21696,6 +22214,19 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 data = json.loads(body_raw)
                 result = _analyze_compliance(data)
 
+                # Enrich with Supabase compliance rules
+                if _supabase_data_available and isinstance(result, dict):
+                    try:
+                        _cg_location = data.get("location") or ""
+                        _cg_rules = get_compliance_rules(jurisdiction=_cg_location)
+                        if _cg_rules:
+                            result["supabase_compliance_rules"] = _cg_rules
+                    except (urllib.error.URLError, OSError, ValueError) as sb_err:
+                        logger.error(
+                            f"Supabase compliance rules fetch failed: {sb_err}",
+                            exc_info=True,
+                        )
+
                 # Enrich with Firecrawl recent compliance law updates
                 if isinstance(result, dict):
                     try:
@@ -21892,7 +22423,35 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             "source": "error",
                         }
 
-                self._send_json({"vendors": vendors_result, "status": "ok"})
+                # Enrich with Supabase vendor profiles and benchmarks
+                _viq_sb_profiles: list = []
+                _viq_sb_benchmarks: list = []
+                if _supabase_data_available:
+                    try:
+                        _viq_sb_profiles = get_vendor_profiles()
+                    except (urllib.error.URLError, OSError, ValueError) as sb_err:
+                        logger.error(
+                            f"Supabase vendor profiles fetch failed: {sb_err}",
+                            exc_info=True,
+                        )
+                    try:
+                        _viq_industry = data.get("industry") or ""
+                        _viq_sb_benchmarks = get_channel_benchmarks(
+                            industry=_viq_industry
+                        )
+                    except (urllib.error.URLError, OSError, ValueError) as sb_err:
+                        logger.error(
+                            f"Supabase benchmarks fetch for VendorIQ failed: {sb_err}",
+                            exc_info=True,
+                        )
+
+                _viq_response: dict = {"vendors": vendors_result, "status": "ok"}
+                if _viq_sb_profiles:
+                    _viq_response["supabase_vendor_profiles"] = _viq_sb_profiles
+                if _viq_sb_benchmarks:
+                    _viq_response["supabase_channel_benchmarks"] = _viq_sb_benchmarks
+
+                self._send_json(_viq_response)
             except json.JSONDecodeError:
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
@@ -21913,6 +22472,23 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     role=data.get("role") or "",
                     location=data.get("location") or "",
                 )
+
+                # Enrich with Supabase salary data
+                if _supabase_data_available and isinstance(result, dict):
+                    try:
+                        _ps_role = data.get("role") or ""
+                        _ps_location = data.get("location") or ""
+                        _ps_salaries = get_salary_data(
+                            role=_ps_role, location=_ps_location
+                        )
+                        if _ps_salaries:
+                            result["supabase_salary_data"] = _ps_salaries
+                    except (urllib.error.URLError, OSError, ValueError) as sb_err:
+                        logger.error(
+                            f"Supabase salary data fetch for PayScale failed: {sb_err}",
+                            exc_info=True,
+                        )
+
                 self._send_json(result)
             except json.JSONDecodeError:
                 self.send_response(400)
@@ -21955,12 +22531,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
-    def do_OPTIONS(self):
+    def do_OPTIONS(self) -> None:
         """Handle CORS preflight requests."""
         self.send_response(204)
         cors_origin = self._get_cors_origin()
         if cors_origin:
             self.send_header("Access-Control-Allow-Origin", cors_origin)
+            self.send_header("Access-Control-Allow-Credentials", "true")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header(
             "Access-Control-Allow-Headers",

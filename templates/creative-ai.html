@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="CreativeAI -- Generate multiple recruitment ad copy variants for A/B testing across channels."
+      content="CreativeAI -- AI-powered recruitment ad copy generator. Create channel-optimized, bias-checked, performance-scored job ads for Indeed, LinkedIn, Google Ads, and social media."
     />
     <meta name="theme-color" content="#000000" />
-    <title>CreativeAI | Recruitment Ad Copy Generator | Nova AI Suite</title>
+    <title>CreativeAI | AI Ad Copy Generator | Nova AI Suite</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='16'>Ai</text></svg>"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -21,19 +21,847 @@
     />
     <style>
       :root {
-        --bg: #000000;
-        --card: rgba(17, 17, 17, 0.8);
-        --card-solid: #111111;
-        --indigo: #6366f1;
-        --indigo-light: #818cf8;
-        --text: #d4d4d8;
-        --muted: #a1a1a1;
-        --success: #22c55e;
-        --warning: #f59e0b;
-        --error: #ef4444;
+        --bg-primary: #000000;
+        --bg-secondary: #111111;
+        --bg-card: rgba(17, 17, 17, 0.8);
+        --bg-card-hover: rgba(26, 26, 26, 0.9);
+        --bg-input: rgba(26, 26, 26, 0.6);
+        --accent: #6366f1;
+        --accent-light: #818cf8;
+        --accent-dim: rgba(99, 102, 241, 0.3);
+        --accent-glow: rgba(99, 102, 241, 0.15);
+        --text-primary: #d4d4d8;
+        --text-secondary: #a1a1a1;
+        --text-muted: #666666;
+        --text-bright: #ffffff;
+        --green: #22c55e;
+        --green-bg: rgba(34, 197, 94, 0.1);
+        --green-border: rgba(34, 197, 94, 0.3);
+        --red: #ef4444;
+        --red-bg: rgba(239, 68, 68, 0.1);
+        --red-border: rgba(239, 68, 68, 0.3);
+        --amber: #f59e0b;
+        --amber-bg: rgba(245, 158, 11, 0.1);
+        --amber-border: rgba(245, 158, 11, 0.3);
+        --blue: #3b82f6;
+        --blue-bg: rgba(59, 130, 246, 0.1);
+        --blue-border: rgba(59, 130, 246, 0.3);
+        --cyan: #22d3ee;
         --border: rgba(255, 255, 255, 0.08);
+        --border-strong: rgba(255, 255, 255, 0.16);
+        --blur: 20px;
         --radius: 12px;
-        --gradient: linear-gradient(135deg, #6366f1, #818cf8);
+        --radius-sm: 8px;
+        --radius-lg: 16px;
+        --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.1);
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      ::selection {
+        background: var(--accent);
+        color: white;
+      }
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+        position: relative;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        background:
+          radial-gradient(
+            ellipse 600px 400px at 20% 10%,
+            rgba(99, 102, 241, 0.06),
+            transparent
+          ),
+          radial-gradient(
+            ellipse 500px 300px at 80% 80%,
+            rgba(34, 211, 238, 0.04),
+            transparent
+          ),
+          radial-gradient(
+            ellipse 400px 300px at 50% 50%,
+            rgba(99, 102, 241, 0.03),
+            transparent
+          );
+      }
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+      h2 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      h3 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-secondary);
+      }
+      .app-header {
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.95);
+        backdrop-filter: blur(var(--blur));
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .header-left .logo {
+        width: 32px;
+        height: 32px;
+        background: var(--accent);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .header-right a {
+        color: var(--accent-light);
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        opacity: 0.8;
+        transition: var(--transition);
+      }
+      .header-right a:hover {
+        opacity: 1;
+      }
+      .container {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 24px;
+        position: relative;
+        z-index: 1;
+      }
+      .hero {
+        text-align: center;
+        padding: 48px 0 32px;
+      }
+      .hero-icon {
+        font-size: 2.5rem;
+        margin-bottom: 12px;
+      }
+      .hero h1 {
+        font-size: 2rem;
+        margin-bottom: 8px;
+      }
+      .hero p {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        max-width: 640px;
+        margin: 0 auto;
+      }
+      .hero .badge-row {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+      .hero .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(99, 102, 241, 0.08);
+        color: var(--accent-light);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        backdrop-filter: blur(var(--blur));
+        padding: 20px;
+        transition: var(--transition);
+      }
+      .card:hover {
+        border-color: var(--border-strong);
+        box-shadow: var(--shadow-glow);
+      }
+      .section-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-secondary);
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .section-title .section-number {
+        width: 20px;
+        height: 20px;
+        background: var(--accent-dim);
+        color: var(--accent-light);
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.65rem;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .main-layout {
+        display: grid;
+        grid-template-columns: 440px 1fr;
+        gap: 24px;
+        align-items: start;
+      }
+      .input-panel {
+        position: sticky;
+        top: 80px;
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+      }
+      .input-panel::-webkit-scrollbar {
+        width: 4px;
+      }
+      .input-panel::-webkit-scrollbar-thumb {
+        background: var(--border-strong);
+        border-radius: 2px;
+      }
+      .form-section {
+        margin-bottom: 20px;
+      }
+      .form-group {
+        margin-bottom: 14px;
+      }
+      .form-group label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .form-group label .required {
+        color: var(--red);
+        margin-left: 2px;
+      }
+      .form-input {
+        width: 100%;
+        padding: 10px 12px;
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        outline: none;
+      }
+      .form-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+      }
+      .form-input::placeholder {
+        color: var(--text-muted);
+      }
+      textarea.form-input {
+        resize: vertical;
+        min-height: 70px;
+      }
+      select.form-input {
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 30px;
+      }
+      .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .channel-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .channel-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: var(--transition);
+        user-select: none;
+      }
+      .channel-item:hover {
+        border-color: var(--border-strong);
+        background: var(--bg-card-hover);
+      }
+      .channel-item.selected {
+        border-color: var(--accent);
+        background: var(--accent-glow);
+      }
+      .channel-item input[type="checkbox"] {
+        display: none;
+      }
+      .channel-item .ch-check {
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--border-strong);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.6rem;
+        transition: var(--transition);
+        flex-shrink: 0;
+        color: transparent;
+      }
+      .channel-item.selected .ch-check {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+      .channel-item .ch-label {
+        font-size: 0.8rem;
+        font-weight: 500;
+      }
+      .slider-group {
+        margin-bottom: 10px;
+      }
+      .slider-group .slider-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+      }
+      .slider-group input[type="range"] {
+        width: 100%;
+        height: 4px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: var(--border-strong);
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+      }
+      .slider-group input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        background: var(--accent);
+        border-radius: 50%;
+        border: 2px solid var(--bg-primary);
+        cursor: pointer;
+      }
+      .slider-group input[type="range"]::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        background: var(--accent);
+        border-radius: 50%;
+        border: 2px solid var(--bg-primary);
+        cursor: pointer;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 12px 24px;
+        font-family: inherit;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border-radius: var(--radius-sm);
+        border: none;
+        cursor: pointer;
+        transition: var(--transition);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: white;
+        position: relative;
+      }
+      .btn-primary:hover {
+        background: var(--accent-light);
+        box-shadow: 0 0 20px var(--accent-dim);
+      }
+      .btn-primary:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .btn-block {
+        width: 100%;
+      }
+      .btn-sm {
+        padding: 6px 12px;
+        font-size: 0.72rem;
+      }
+      .btn-outline {
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+      }
+      .btn-outline:hover {
+        border-color: var(--border-strong);
+        color: var(--text-primary);
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--accent-light);
+        padding: 4px 8px;
+        font-size: 0.72rem;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      .btn-ghost:hover {
+        background: var(--accent-glow);
+      }
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        display: inline-block;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .results-panel {
+        display: none;
+        min-height: 300px;
+      }
+      .results-panel.active {
+        display: block;
+      }
+      .results-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .results-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .channel-tabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 20px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+      .channel-tab {
+        padding: 8px 16px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: var(--transition);
+        white-space: nowrap;
+        font-family: inherit;
+      }
+      .channel-tab:hover {
+        border-color: var(--border-strong);
+        color: var(--text-primary);
+      }
+      .channel-tab.active {
+        background: var(--accent-glow);
+        border-color: var(--accent);
+        color: var(--accent-light);
+      }
+      .channel-output {
+        display: none;
+      }
+      .channel-output.active {
+        display: block;
+      }
+      .output-section-title {
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--accent-light);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .title-variation {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        margin-bottom: 6px;
+        transition: var(--transition);
+      }
+      .title-variation:hover {
+        border-color: var(--border-strong);
+      }
+      .title-variation .tv-text {
+        font-size: 0.88rem;
+        font-weight: 500;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .title-variation .tv-count {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+        margin-left: 12px;
+      }
+      .ad-copy-block {
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        margin-bottom: 10px;
+        position: relative;
+      }
+      .ad-copy-block .acb-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .ad-copy-block .acb-label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .ad-copy-block .acb-char-count {
+        font-size: 0.68rem;
+        color: var(--text-muted);
+      }
+      .ad-copy-block .acb-char-count.over-limit {
+        color: var(--red);
+        font-weight: 600;
+      }
+      .ad-copy-block .acb-char-count.near-limit {
+        color: var(--amber);
+      }
+      .ad-copy-block .acb-text {
+        font-size: 0.88rem;
+        line-height: 1.6;
+        color: var(--text-primary);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .ad-copy-block .acb-actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 10px;
+        justify-content: flex-end;
+      }
+      .variant-toggle {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 14px;
+      }
+      .variant-btn {
+        padding: 6px 14px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: var(--transition);
+        font-family: inherit;
+      }
+      .variant-btn.active {
+        background: var(--accent-glow);
+        border-color: var(--accent);
+        color: var(--accent-light);
+      }
+      .variant-btn:hover {
+        border-color: var(--border-strong);
+      }
+      .quality-score-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .qs-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+      .qs-overall {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .qs-ring {
+        width: 56px;
+        height: 56px;
+        position: relative;
+      }
+      .qs-ring svg {
+        transform: rotate(-90deg);
+      }
+      .qs-ring .qs-ring-bg {
+        fill: none;
+        stroke: var(--border-strong);
+        stroke-width: 4;
+      }
+      .qs-ring .qs-ring-fill {
+        fill: none;
+        stroke-width: 4;
+        stroke-linecap: round;
+        transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .qs-ring .qs-value {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        font-weight: 800;
+      }
+      .qs-grade {
+        font-size: 0.8rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+      .qs-grade.excellent {
+        background: var(--green-bg);
+        color: var(--green);
+        border: 1px solid var(--green-border);
+      }
+      .qs-grade.good {
+        background: var(--blue-bg);
+        color: var(--blue);
+        border: 1px solid var(--blue-border);
+      }
+      .qs-grade.fair {
+        background: var(--amber-bg);
+        color: var(--amber);
+        border: 1px solid var(--amber-border);
+      }
+      .qs-grade.poor {
+        background: var(--red-bg);
+        color: var(--red);
+        border: 1px solid var(--red-border);
+      }
+      .qs-breakdown {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .qs-metric {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .qs-metric-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.72rem;
+      }
+      .qs-metric-label {
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+      .qs-metric-value {
+        font-weight: 700;
+      }
+      .qs-bar {
+        height: 4px;
+        background: var(--border-strong);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .qs-bar-fill {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .bias-section {
+        margin-top: 16px;
+      }
+      .bias-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: var(--radius-sm);
+        margin-bottom: 6px;
+        font-size: 0.82rem;
+        line-height: 1.5;
+      }
+      .bias-item.critical {
+        background: var(--red-bg);
+        border: 1px solid var(--red-border);
+      }
+      .bias-item.warning {
+        background: var(--amber-bg);
+        border: 1px solid var(--amber-border);
+      }
+      .bias-item.suggestion {
+        background: rgba(100, 116, 139, 0.1);
+        border: 1px solid rgba(100, 116, 139, 0.2);
+      }
+      .bias-item.positive {
+        background: var(--green-bg);
+        border: 1px solid var(--green-border);
+      }
+      .bias-item .bias-icon {
+        font-size: 0.9rem;
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+      .bias-item .bias-text {
+        flex: 1;
+      }
+      .bias-item .bias-text strong {
+        font-weight: 600;
+      }
+      .bias-item .bias-text .bias-suggestion {
+        display: block;
+        margin-top: 2px;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+      }
+      .empty-state {
+        text-align: center;
+        padding: 80px 24px;
+        color: var(--text-muted);
+      }
+      .empty-state .empty-icon {
+        font-size: 3rem;
+        margin-bottom: 16px;
+        opacity: 0.5;
+      }
+      .empty-state h2 {
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+      }
+      .empty-state p {
+        font-size: 0.88rem;
+        max-width: 400px;
+        margin: 0 auto;
+      }
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 10px 16px;
+        font-size: 0.82rem;
+        color: var(--text-primary);
+        box-shadow: var(--shadow);
+        z-index: 9999;
+        opacity: 0;
+        transform: translateY(16px);
+        transition: var(--transition);
+        pointer-events: none;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+      @media (max-width: 960px) {
+        .main-layout {
+          grid-template-columns: 1fr;
+        }
+        .input-panel {
+          position: static;
+          max-height: none;
+          overflow-y: visible;
+        }
+      }
+      @media (max-width: 640px) {
+        .container {
+          padding: 16px;
+        }
+        .form-row {
+          grid-template-columns: 1fr;
+        }
+        .channel-grid {
+          grid-template-columns: 1fr;
+        }
+        .qs-breakdown {
+          grid-template-columns: 1fr;
+        }
+        .hero h1 {
+          font-size: 1.5rem;
+        }
       }
       @media (prefers-reduced-motion: reduce) {
         .reveal-on-scroll {
@@ -46,409 +874,34 @@
         *::before,
         *::after {
           animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
           transition-duration: 0.01ms !important;
         }
+        .stagger-1,
+        .stagger-2,
+        .stagger-3,
+        .stagger-4,
+        .stagger-5,
+        .stagger-6 {
+          transition-delay: 0s !important;
+        }
+        .spinner {
+          animation: none;
+          border-top-color: white;
+        }
       }
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      html {
-        scroll-behavior: smooth;
-      }
-      ::selection {
-        background: var(--indigo);
-        color: #fff;
-      }
-      body {
-        font-family:
-          "Inter",
-          -apple-system,
-          BlinkMacSystemFont,
-          sans-serif;
-        background: var(--bg);
-        color: var(--text);
-        min-height: 100vh;
-        line-height: 1.6;
-      }
-      body::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        z-index: -1;
-        background:
-          radial-gradient(
-            ellipse at 20% 50%,
-            rgba(99, 102, 241, 0.06) 0%,
-            transparent 50%
-          ),
-          radial-gradient(
-            ellipse at 80% 20%,
-            rgba(129, 140, 248, 0.04) 0%,
-            transparent 50%
-          );
-      }
-      /* Nav */
-      nav {
-        position: sticky;
-        top: 0;
-        z-index: 100;
-        padding: 0.75rem 2rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: rgba(0, 0, 0, 0.85);
-        backdrop-filter: blur(20px);
-        border-bottom: 1px solid var(--border);
-      }
-      nav a {
-        color: var(--muted);
-        text-decoration: none;
-        font-size: 0.875rem;
-        font-weight: 500;
-        transition: color 0.2s;
-      }
-      nav a:hover {
-        color: var(--text);
-      }
-      .nav-brand {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }
-      .nav-brand span {
-        font-weight: 700;
-        font-size: 1.1rem;
-        background: var(--gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-      .nav-links {
-        display: flex;
-        gap: 1.25rem;
-        align-items: center;
-      }
-      /* Layout */
-      .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 2rem 1.5rem;
-      }
-      /* Header */
-      .hero {
-        text-align: center;
-        margin-bottom: 2.5rem;
-      }
-      .hero h1 {
-        font-size: 2.5rem;
-        font-weight: 800;
-        background: var(--gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem;
-      }
-      .hero-icon {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-        display: block;
-      }
-      .hero p {
-        color: var(--muted);
-        font-size: 1.1rem;
-        max-width: 640px;
-        margin: 0 auto;
-      }
-      /* Card */
-      .card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        backdrop-filter: blur(10px);
-      }
-      .card-title {
-        font-size: 1.1rem;
-        font-weight: 700;
-        margin-bottom: 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }
-      .card-title .icon {
-        width: 28px;
-        height: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(99, 102, 241, 0.12);
-        border-radius: 8px;
-        font-size: 0.85rem;
-        flex-shrink: 0;
-      }
-      /* Form */
-      .form-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        gap: 1rem;
-      }
-      .form-full {
-        grid-column: 1 / -1;
-      }
-      label {
-        display: block;
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: var(--muted);
-        margin-bottom: 0.35rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      }
-      input,
-      select,
-      textarea {
-        width: 100%;
-        padding: 0.65rem 0.85rem;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        color: var(--text);
-        font-size: 0.9rem;
-        font-family: inherit;
-        transition: border-color 0.2s;
-      }
-      textarea {
-        resize: vertical;
-        min-height: 80px;
-        line-height: 1.5;
-      }
-      input:focus,
-      select:focus,
-      textarea:focus {
+      :focus-visible {
         outline: none;
-        border-color: rgba(99, 102, 241, 0.5);
-        box-shadow:
-          0 0 0 3px rgba(99, 102, 241, 0.1),
-          0 0 20px rgba(99, 102, 241, 0.05);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
       }
-      select option {
-        background: #111;
-        color: var(--text);
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      textarea:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
       }
-      .btn {
-        padding: 0.7rem 1.5rem;
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 0.9rem;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-family: inherit;
-      }
-      .btn-primary {
-        background: var(--gradient);
-        color: #fff;
-      }
-      .btn-primary:hover {
-        opacity: 0.9;
-        transform: translateY(-1px);
-      }
-      .btn-primary:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-        transform: none;
-      }
-      .btn-row {
-        display: flex;
-        justify-content: center;
-        margin-top: 1.25rem;
-      }
-      /* Results */
-      #results {
-        display: none;
-      }
-      .results-header {
-        text-align: center;
-        margin-bottom: 1.5rem;
-      }
-      .results-header h2 {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--text);
-        margin-bottom: 0.25rem;
-      }
-      .results-header p {
-        color: var(--muted);
-        font-size: 0.9rem;
-      }
-      .variants-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 1rem;
-      }
-      /* Variant cards with color coding */
-      .variant-card {
-        background: var(--card-solid);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        padding: 1.5rem;
-        position: relative;
-        overflow: hidden;
-        transition: border-color 0.2s;
-      }
-      .variant-card:hover {
-        border-color: rgba(255, 255, 255, 0.15);
-      }
-      .variant-card::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-      }
-      .variant-benefits::before {
-        background: var(--indigo);
-      }
-      .variant-culture::before {
-        background: var(--success);
-      }
-      .variant-growth::before {
-        background: var(--warning);
-      }
-      .variant-impact::before {
-        background: #ec4899;
-      }
-      .variant-data::before {
-        background: #06b6d4;
-      }
-      .variant-top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 0.75rem;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-      .variant-label {
-        display: inline-block;
-        font-size: 0.7rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        padding: 0.25rem 0.6rem;
-        border-radius: 4px;
-      }
-      .variant-benefits .variant-label {
-        background: rgba(99, 102, 241, 0.15);
-        color: var(--indigo-light);
-      }
-      .variant-culture .variant-label {
-        background: rgba(34, 197, 94, 0.15);
-        color: var(--success);
-      }
-      .variant-growth .variant-label {
-        background: rgba(245, 158, 11, 0.15);
-        color: var(--warning);
-      }
-      .variant-impact .variant-label {
-        background: rgba(236, 72, 153, 0.15);
-        color: #ec4899;
-      }
-      .variant-data .variant-label {
-        background: rgba(6, 182, 212, 0.15);
-        color: #06b6d4;
-      }
-      .char-count {
-        font-size: 0.75rem;
-        color: var(--muted);
-        font-weight: 500;
-      }
-      .char-count.over-limit {
-        color: var(--error);
-        font-weight: 600;
-      }
-      .copy-text {
-        font-size: 0.95rem;
-        line-height: 1.6;
-        color: var(--text);
-        margin-bottom: 1rem;
-        white-space: pre-wrap;
-      }
-      .copy-btn {
-        padding: 0.4rem 0.85rem;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        background: rgba(255, 255, 255, 0.04);
-        color: var(--muted);
-        font-size: 0.8rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-family: inherit;
-      }
-      .copy-btn:hover {
-        background: rgba(99, 102, 241, 0.12);
-        color: var(--indigo-light);
-        border-color: rgba(99, 102, 241, 0.3);
-      }
-      .copy-btn.copied {
-        background: rgba(34, 197, 94, 0.12);
-        color: var(--success);
-        border-color: rgba(34, 197, 94, 0.3);
-      }
-      /* Platform tips */
-      .tips-list {
-        list-style: none;
-      }
-      .tips-list li {
-        padding: 0.65rem 0;
-        border-bottom: 1px solid var(--border);
-        font-size: 0.9rem;
-        color: var(--muted);
-        display: flex;
-        align-items: flex-start;
-        gap: 0.5rem;
-      }
-      .tips-list li:last-child {
-        border-bottom: none;
-      }
-      .tip-bullet {
-        color: var(--indigo-light);
-        font-weight: 700;
-        flex-shrink: 0;
-      }
-      /* Footer */
-      footer {
-        text-align: center;
-        padding: 2rem 1.5rem;
-        color: var(--muted);
-        font-size: 0.8rem;
-        border-top: 1px solid var(--border);
-        margin-top: 3rem;
-      }
-      footer a {
-        color: var(--indigo-light);
-        text-decoration: none;
-      }
-      footer a:hover {
-        text-decoration: underline;
-      }
-      /* Responsive */
-      @media (max-width: 768px) {
-        .hero h1 {
-          font-size: 1.75rem;
-        }
-        .form-grid {
-          grid-template-columns: 1fr;
-        }
-        nav {
-          padding: 0.75rem 1rem;
-        }
-      }
-
-      /* -- Scroll reveal animations -- */
       .reveal-on-scroll {
         opacity: 0;
         transform: translateY(24px);
@@ -463,901 +916,1563 @@
         transform: translateY(0);
         filter: none;
       }
+      .stagger-1 {
+        transition-delay: 0.05s;
+      }
+      .stagger-2 {
+        transition-delay: 0.1s;
+      }
+      .stagger-3 {
+        transition-delay: 0.15s;
+      }
+      .stagger-4 {
+        transition-delay: 0.2s;
+      }
+      .stagger-5 {
+        transition-delay: 0.25s;
+      }
+      .stagger-6 {
+        transition-delay: 0.3s;
+      }
     </style>
   </head>
   <body>
-    <nav>
-      <div class="nav-brand">
-        <span>CreativeAI</span>
-      </div>
-      <div class="nav-links">
-        <a href="/">Back to Nova AI Suite</a>
-      </div>
-    </nav>
-
-    <div class="container">
-      <div class="hero">
-        <span class="hero-icon" aria-hidden="true">&#10024;</span>
-        <h1>CreativeAI</h1>
-        <p>
-          Generate multiple recruitment ad copy variants for A/B testing. Five
-          distinct angles, tailored to your platform and tone.
-        </p>
-      </div>
-
-      <!-- Input Form -->
-      <div class="card reveal-on-scroll">
-        <div class="card-title">
-          <div class="icon">&#9881;</div>
-          Copy Configuration
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo">
+          <svg viewBox="0 0 32 32" fill="none" width="28" height="28">
+            <rect width="32" height="32" rx="6" fill="#6366F1" />
+            <text
+              x="16"
+              y="22"
+              text-anchor="middle"
+              fill="white"
+              font-family="Inter,sans-serif"
+              font-weight="800"
+              font-size="18"
+            >
+              N
+            </text>
+          </svg>
         </div>
-        <form id="creativeForm" autocomplete="off">
-          <div class="form-grid">
-            <div>
-              <label for="jobTitle">Job Title</label>
-              <input
+        <h1>CreativeAI</h1>
+      </div>
+      <div class="header-right"><a href="/">Back to Nova AI Suite</a></div>
+    </header>
+    <div class="container">
+      <section class="hero reveal-on-scroll">
+        <div class="hero-icon">
+          <svg
+            width="44"
+            height="44"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#818cf8"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+        </div>
+        <h1>AI-Powered Recruitment Ad Copy</h1>
+        <p>
+          Generate channel-optimized, bias-checked, performance-scored job ad
+          content for Indeed, LinkedIn, Google Ads, and social media. The only
+          tool that bridges JD optimization and channel-specific ad copy.
+        </p>
+        <div class="badge-row">
+          <span class="badge">Bias Detection</span
+          ><span class="badge">Multi-Channel</span
+          ><span class="badge">Quality Scoring</span
+          ><span class="badge">A/B Variants</span>
+        </div>
+      </section>
+      <div class="main-layout">
+        <div class="input-panel">
+          <div class="card form-section reveal-on-scroll stagger-1">
+            <div class="section-title">
+              <span class="section-number" aria-hidden="true">1</span> Job
+              Basics
+            </div>
+            <div class="form-group">
+              <label for="jobTitle"
+                >Job Title <span class="required">*</span></label
+              ><input
                 type="text"
                 id="jobTitle"
+                class="form-input"
                 placeholder="e.g. Senior Software Engineer"
                 required
+                autocomplete="off"
               />
             </div>
-            <div>
-              <label for="companyName">Company Name</label>
-              <input
+            <div class="form-row">
+              <div class="form-group">
+                <label for="industry"
+                  >Industry <span class="required">*</span></label
+                ><select id="industry" class="form-input" required>
+                  <option value="">Select industry...</option>
+                  <option value="technology">Technology</option>
+                  <option value="healthcare">Healthcare</option>
+                  <option value="finance">Finance &amp; Banking</option>
+                  <option value="retail">Retail &amp; E-commerce</option>
+                  <option value="manufacturing">Manufacturing</option>
+                  <option value="education">Education</option>
+                  <option value="media">Media &amp; Entertainment</option>
+                  <option value="energy">Energy &amp; Utilities</option>
+                  <option value="logistics">
+                    Logistics &amp; Supply Chain
+                  </option>
+                  <option value="hospitality">Hospitality &amp; Travel</option>
+                  <option value="government">
+                    Government &amp; Public Sector
+                  </option>
+                  <option value="nonprofit">Non-Profit</option>
+                  <option value="consulting">Consulting</option>
+                  <option value="legal">Legal</option>
+                  <option value="real_estate">Real Estate</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="seniority">Seniority Level</label
+                ><select id="seniority" class="form-input">
+                  <option value="entry">Entry Level</option>
+                  <option value="mid" selected>Mid Level</option>
+                  <option value="senior">Senior</option>
+                  <option value="lead">Lead / Principal</option>
+                  <option value="executive">Executive / C-Suite</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="location">Location</label
+              ><input
                 type="text"
-                id="companyName"
-                placeholder="e.g. Acme Corp"
-                required
+                id="location"
+                class="form-input"
+                placeholder="e.g. San Francisco, CA (Remote/Hybrid/Onsite)"
               />
             </div>
-            <div>
-              <label for="tone">Tone</label>
-              <select id="tone" required>
-                <option value="">Select tone</option>
-                <option value="Professional">Professional</option>
-                <option value="Conversational">Conversational</option>
-                <option value="Bold">Bold / Edgy</option>
-                <option value="Empathetic">Empathetic</option>
-                <option value="DataDriven">Data-Driven</option>
-              </select>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="salaryMin">Salary Min (optional)</label
+                ><input
+                  type="text"
+                  id="salaryMin"
+                  class="form-input"
+                  placeholder="e.g. $80,000"
+                />
+              </div>
+              <div class="form-group">
+                <label for="salaryMax">Salary Max (optional)</label
+                ><input
+                  type="text"
+                  id="salaryMax"
+                  class="form-input"
+                  placeholder="e.g. $120,000"
+                />
+              </div>
             </div>
-            <div>
-              <label for="platform">Platform</label>
-              <select id="platform" required>
-                <option value="">Select platform</option>
-                <option value="LinkedIn">LinkedIn</option>
-                <option value="Indeed">Indeed</option>
-                <option value="Facebook">Facebook</option>
-                <option value="Instagram">Instagram</option>
-                <option value="GoogleAds">Google Ads</option>
-                <option value="Twitter">Twitter / X</option>
-                <option value="Generic">Generic</option>
-              </select>
+          </div>
+          <div class="card form-section reveal-on-scroll stagger-2">
+            <div class="section-title">
+              <span class="section-number" aria-hidden="true">2</span> Job
+              Content
             </div>
-            <div>
-              <label for="charLimit">Character Limit</label>
-              <input
-                type="number"
-                id="charLimit"
-                placeholder="280"
-                min="50"
-                max="2000"
-                value="280"
-              />
+            <div class="form-group">
+              <label for="requirements"
+                >Key Requirements / Skills
+                <span class="required">*</span></label
+              ><textarea
+                id="requirements"
+                class="form-input"
+                rows="4"
+                placeholder="List key skills, experience, and qualifications."
+              ></textarea>
             </div>
-            <div class="form-full">
-              <label for="sellingPoints"
-                >Key Selling Points (benefits, perks, culture)</label
-              >
-              <textarea
-                id="sellingPoints"
-                placeholder="e.g. Remote-first, unlimited PTO, $150K-$200K salary range, Series B startup, collaborative team, cutting-edge tech stack"
+            <div class="form-group">
+              <label for="cultureVoice">Company Culture / Brand Voice</label
+              ><textarea
+                id="cultureVoice"
+                class="form-input"
                 rows="3"
+                placeholder="Describe your company tone, values, and culture."
               ></textarea>
             </div>
           </div>
-          <div class="btn-row">
-            <button type="submit" class="btn btn-primary" id="generateBtn">
-              Generate Variants
+          <div class="card form-section reveal-on-scroll stagger-3">
+            <div class="section-title">
+              <span class="section-number" aria-hidden="true">3</span> Brand
+              Voice
+            </div>
+            <div class="slider-group">
+              <div class="slider-header">
+                <span>Formal</span><span>Casual</span>
+              </div>
+              <input
+                type="range"
+                id="toneFormal"
+                min="0"
+                max="100"
+                value="40"
+                aria-label="Tone: Formal to Casual"
+              />
+            </div>
+            <div class="slider-group">
+              <div class="slider-header">
+                <span>Calm</span><span>Exciting</span>
+              </div>
+              <input
+                type="range"
+                id="toneEnergy"
+                min="0"
+                max="100"
+                value="60"
+                aria-label="Energy: Calm to Exciting"
+              />
+            </div>
+            <div class="form-group" style="margin-top: 8px">
+              <label for="framework">Copywriting Framework</label
+              ><select id="framework" class="form-input">
+                <option value="auto">Auto (Best for Channel)</option>
+                <option value="aida">
+                  AIDA (Attention-Interest-Desire-Action)
+                </option>
+                <option value="pas">PAS (Problem-Agitation-Solution)</option>
+                <option value="bab">BAB (Before-After-Bridge)</option>
+                <option value="benefits">Benefits-First</option>
+              </select>
+            </div>
+          </div>
+          <div class="card form-section reveal-on-scroll stagger-4">
+            <div class="section-title">
+              <span class="section-number" aria-hidden="true">4</span> Target
+              Channels
+            </div>
+            <div class="channel-grid" id="channelGrid">
+              <label class="channel-item selected" data-channel="indeed"
+                ><input
+                  type="checkbox"
+                  name="channel"
+                  value="indeed"
+                  checked
+                /><span class="ch-check">&#10003;</span
+                ><span class="ch-label">Indeed</span></label
+              >
+              <label class="channel-item selected" data-channel="linkedin"
+                ><input
+                  type="checkbox"
+                  name="channel"
+                  value="linkedin"
+                  checked
+                /><span class="ch-check">&#10003;</span
+                ><span class="ch-label">LinkedIn</span></label
+              >
+              <label class="channel-item" data-channel="google_ads"
+                ><input
+                  type="checkbox"
+                  name="channel"
+                  value="google_ads"
+                /><span class="ch-check">&#10003;</span
+                ><span class="ch-label">Google Ads</span></label
+              >
+              <label class="channel-item" data-channel="facebook"
+                ><input type="checkbox" name="channel" value="facebook" /><span
+                  class="ch-check"
+                  >&#10003;</span
+                ><span class="ch-label">Facebook</span></label
+              >
+              <label class="channel-item" data-channel="instagram"
+                ><input type="checkbox" name="channel" value="instagram" /><span
+                  class="ch-check"
+                  >&#10003;</span
+                ><span class="ch-label">Instagram</span></label
+              >
+              <label class="channel-item" data-channel="tiktok"
+                ><input type="checkbox" name="channel" value="tiktok" /><span
+                  class="ch-check"
+                  >&#10003;</span
+                ><span class="ch-label">TikTok</span></label
+              >
+              <label class="channel-item" data-channel="twitter"
+                ><input type="checkbox" name="channel" value="twitter" /><span
+                  class="ch-check"
+                  >&#10003;</span
+                ><span class="ch-label">Twitter / X</span></label
+              >
+            </div>
+          </div>
+          <div class="card form-section reveal-on-scroll stagger-5">
+            <div class="section-title">
+              <span class="section-number" aria-hidden="true">5</span> Advanced
+              Options
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="numVariations">Variations per Channel</label
+                ><select id="numVariations" class="form-input">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3" selected>3</option>
+                  <option value="5">5</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>A/B Testing Mode</label
+                ><label
+                  class="channel-item"
+                  style="margin-top: 0; justify-content: center"
+                  id="abToggleLabel"
+                  ><input type="checkbox" id="abToggle" /><span class="ch-check"
+                    >&#10003;</span
+                  ><span class="ch-label">Generate A/B Pairs</span></label
+                >
+              </div>
+            </div>
+          </div>
+          <div class="reveal-on-scroll stagger-6">
+            <button
+              class="btn btn-primary btn-block"
+              id="generateBtn"
+              type="button"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+              Generate Ad Copy
             </button>
           </div>
-        </form>
-      </div>
-
-      <!-- Results -->
-      <div id="results">
-        <div class="results-header reveal-on-scroll">
-          <h2>Your Ad Copy Variants</h2>
-          <p id="resultsMeta"></p>
         </div>
-
-        <div class="variants-grid" id="variantsGrid"></div>
-
-        <!-- Platform Tips -->
-        <div class="card reveal-on-scroll" style="margin-top: 1.5rem">
-          <div class="card-title">
-            <div class="icon">&#9733;</div>
-            Platform Best Practices
+        <div id="resultsPanel" class="results-panel"></div>
+        <div id="emptyState" class="empty-state">
+          <div class="empty-icon">
+            <svg
+              width="64"
+              height="64"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--text-muted)"
+              stroke-width="1"
+              stroke-linecap="round"
+            >
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
           </div>
-          <ul class="tips-list" id="tipsList"></ul>
+          <h2>Ready to Generate</h2>
+          <p>
+            Fill in the job details on the left and click Generate to create
+            channel-optimized ad copy with quality scoring and bias detection.
+          </p>
         </div>
       </div>
     </div>
-
-    <footer class="reveal-on-scroll">
-      <p>
-        Nova AI Suite -- Built by
-        <a
-          href="https://www.linkedin.com/in/chandel13/"
-          target="_blank"
-          rel="noopener"
-          >Shubham Singh Chandel</a
-        >
-      </p>
-    </footer>
-
+    <div class="toast" id="toast" aria-live="polite"></div>
     <script>
       (function () {
         "use strict";
+        var CC = {
+          indeed: {
+            name: "Indeed",
+            icon: "\uD83D\uDCCC",
+            titleLimit: 70,
+            descLimit: 2000,
+            shortDescLimit: 300,
+            framework: "benefits",
+          },
+          linkedin: {
+            name: "LinkedIn",
+            icon: "\uD83D\uDC65",
+            headlineLimit: 70,
+            introLimit: 200,
+            hookLimit: 210,
+            framework: "pas",
+          },
+          google_ads: {
+            name: "Google Ads",
+            icon: "\uD83D\uDD0E",
+            headlineLimit: 30,
+            headlineCount: 3,
+            descLimit: 90,
+            descCount: 2,
+            framework: "aida",
+          },
+          facebook: {
+            name: "Facebook",
+            icon: "\uD83D\uDCF6",
+            primaryLimit: 125,
+            headlineLimit: 40,
+            framework: "bab",
+          },
+          instagram: {
+            name: "Instagram",
+            icon: "\uD83D\uDCF7",
+            primaryLimit: 125,
+            headlineLimit: 40,
+            framework: "bab",
+          },
+          tiktok: {
+            name: "TikTok",
+            icon: "\uD83C\uDFAC",
+            adTextLimit: 100,
+            framework: "benefits",
+          },
+          twitter: {
+            name: "Twitter / X",
+            icon: "\uD83D\uDCAC",
+            tweetLimit: 280,
+            framework: "benefits",
+          },
+        };
 
-        // ── Utility ──
+        var BR = [
+          {
+            pattern: /\b(he|his|him|she|her|hers)\b/gi,
+            category: "gender",
+            severity: "critical",
+            message: "Gendered pronoun detected",
+            suggestion: "Use they/them/their for inclusive language.",
+            research:
+              "Gendered language reduces applicant diversity by up to 29%.",
+          },
+          {
+            pattern:
+              /\b(manpower|man-hours|mankind|chairman|salesm[ae]n|foreman)\b/gi,
+            category: "gender",
+            severity: "critical",
+            message: "Gendered term detected",
+            suggestion:
+              "Use workforce, person-hours, humanity, chairperson, salesperson, supervisor.",
+            research:
+              "Male-coded words reduce female applicant pool by 29% (Ongig 2024).",
+          },
+          {
+            pattern: /\b(aggressive|dominant|ninja|rockstar|guru|hacker)\b/gi,
+            category: "gender",
+            severity: "warning",
+            message: "Male-coded language",
+            suggestion:
+              "Replace with driven, collaborative, expert, skilled professional.",
+            research:
+              "Male-coded words signal a masculine culture, deterring diverse candidates.",
+          },
+          {
+            pattern: /\b(nurturing|supportive|warm|gentle|compassionate)\b/gi,
+            category: "gender",
+            severity: "warning",
+            message: "Female-coded language",
+            suggestion:
+              "Replace with collaborative, helpful, approachable, empathetic.",
+            research:
+              "Female-coded words can create gendered expectations about the role.",
+          },
+          {
+            pattern:
+              /\b(digital native|young|energetic|recent graduate|fresh grad)\b/gi,
+            category: "age",
+            severity: "critical",
+            message: "Potentially ageist language",
+            suggestion:
+              "Use tech-savvy, motivated, enthusiastic, early-career professional.",
+            research:
+              "Age-coded language violates ADEA protections and deters experienced talent.",
+          },
+          {
+            pattern: /\b(\d{1,2}\+?\s*years?\s*(?:of\s*)?experience)\b/gi,
+            category: "age",
+            severity: "suggestion",
+            message:
+              "Specific experience years may exclude qualified candidates",
+            suggestion:
+              "Consider using skill-level descriptions instead of strict year requirements.",
+            research:
+              "Rigid experience requirements disproportionately exclude career changers.",
+          },
+          {
+            pattern:
+              /\b(must be able to stand|physical stamina|able-bodied|clean driving record)\b/gi,
+            category: "disability",
+            severity: "warning",
+            message: "Potentially ableist requirement",
+            suggestion:
+              "Only include physical requirements if essential. Add accommodations statement.",
+            research:
+              "Unnecessary physical requirements violate ADA guidelines.",
+          },
+          {
+            pattern: /\b(native English|mother tongue|native speaker)\b/gi,
+            category: "nationality",
+            severity: "critical",
+            message: "Potentially discriminatory language requirement",
+            suggestion:
+              "Use fluent in English or professional English proficiency.",
+            research:
+              "Native speaker excludes multilingual professionals with equivalent fluency.",
+          },
+          {
+            pattern: /\b(culture fit|cultural fit)\b/gi,
+            category: "cultural",
+            severity: "warning",
+            message: "Culture fit can mask bias",
+            suggestion: "Replace with values alignment or culture add.",
+            research:
+              "Culture fit is a vector for homogeneity bias in hiring (HBR 2024).",
+          },
+          {
+            pattern:
+              /\b(MBA required|degree required|must have a degree|bachelor'?s required)\b/gi,
+            category: "education",
+            severity: "warning",
+            message:
+              "Strict degree requirement may exclude qualified candidates",
+            suggestion:
+              "Consider degree preferred or equivalent experience accepted.",
+            research:
+              "Unnecessary degree requirements exclude 72% of Black and 79% of Hispanic candidates.",
+          },
+          {
+            pattern:
+              /\b(excellent communication skills required|strong interpersonal skills required|must be outgoing)\b/gi,
+            category: "neurodiversity",
+            severity: "suggestion",
+            message: "May exclude neurodiverse candidates",
+            suggestion:
+              "Specify actual communication needs (e.g. written reports, client presentations).",
+            research:
+              "Vague communication requirements disproportionately exclude autistic professionals.",
+          },
+          {
+            pattern:
+              /\b(unpaid internship|must own a car|must have reliable transportation)\b/gi,
+            category: "socioeconomic",
+            severity: "warning",
+            message: "Socioeconomic barrier",
+            suggestion:
+              "Consider if this is essential. Offer alternatives or relocation support.",
+            research:
+              "Transportation requirements create barriers for lower-income candidates.",
+          },
+          {
+            pattern:
+              /\b(thick skin|handle pressure|high-stress|stress tolerance)\b/gi,
+            category: "mental_health",
+            severity: "suggestion",
+            message: "May deter candidates concerned about mental health",
+            suggestion:
+              "Focus on resilience, problem-solving, or adaptability instead.",
+            research:
+              "Stress-coded language deters candidates who prioritize wellbeing.",
+          },
+        ];
 
-        function pick(arr) {
-          return arr[Math.floor(Math.random() * arr.length)];
+        var PP = [
+          {
+            pattern: /\b(collaborative|dedicated|innovative|analytical)\b/gi,
+            label: "Inclusive language",
+          },
+          {
+            pattern:
+              /\b(equal opportunity|diverse|inclusion|accessibility|accommodat)/gi,
+            label: "DEI commitment",
+          },
+          {
+            pattern: /\$[\d,]+\s*[-\u2013]\s*\$[\d,]+/g,
+            label: "Pay transparency",
+          },
+          {
+            pattern: /\b(flexible|remote|hybrid|work.life.balance)\b/gi,
+            label: "Flexible work",
+          },
+          {
+            pattern:
+              /\b(professional development|career growth|mentorship|learning)\b/gi,
+            label: "Growth opportunity",
+          },
+        ];
+
+        var $gen = document.getElementById("generateBtn"),
+          $res = document.getElementById("resultsPanel"),
+          $emp = document.getElementById("emptyState"),
+          $toast = document.getElementById("toast");
+
+        document.querySelectorAll(".channel-item").forEach(function (item) {
+          var cb = item.querySelector("input[type='checkbox']");
+          if (!cb) return;
+          item.addEventListener("click", function (e) {
+            if (e.target === cb) return;
+            cb.checked = !cb.checked;
+            item.classList.toggle("selected", cb.checked);
+          });
+          cb.addEventListener("change", function () {
+            item.classList.toggle("selected", cb.checked);
+          });
+        });
+        var $ab = document.getElementById("abToggle"),
+          $abL = document.getElementById("abToggleLabel");
+        if ($ab && $abL) {
+          $abL.addEventListener("click", function (e) {
+            if (e.target === $ab) return;
+            $ab.checked = !$ab.checked;
+            $abL.classList.toggle("selected", $ab.checked);
+          });
+          $ab.addEventListener("change", function () {
+            $abL.classList.toggle("selected", $ab.checked);
+          });
         }
-        function pickN(arr, n) {
-          var copy = arr.slice();
-          var out = [];
-          for (var i = 0; i < Math.min(n, copy.length); i++) {
-            var idx = Math.floor(Math.random() * copy.length);
-            out.push(copy.splice(idx, 1)[0]);
+
+        var _tt = null;
+        function showToast(m, d) {
+          d = d || 2500;
+          if (_tt) clearTimeout(_tt);
+          $toast.textContent = m;
+          $toast.classList.add("show");
+          _tt = setTimeout(function () {
+            $toast.classList.remove("show");
+          }, d);
+        }
+        function copyText(t) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(t).then(function () {
+              showToast("Copied to clipboard");
+            });
+          } else {
+            var ta = document.createElement("textarea");
+            ta.value = t;
+            ta.style.position = "fixed";
+            ta.style.left = "-9999px";
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+              document.execCommand("copy");
+              showToast("Copied to clipboard");
+            } catch (_e) {
+              showToast("Copy failed");
+            }
+            document.body.removeChild(ta);
+          }
+        }
+        function cLabel(t, l) {
+          var n = (t || "").length,
+            c = "";
+          if (n > l) c = "over-limit";
+          else if (n > l * 0.85) c = "near-limit";
+          return (
+            '<span class="acb-char-count ' +
+            c +
+            '">' +
+            n +
+            " / " +
+            l +
+            " chars</span>"
+          );
+        }
+        function esc(s) {
+          var d = document.createElement("div");
+          d.appendChild(document.createTextNode(s || ""));
+          return d.innerHTML;
+        }
+
+        function qScore(text, ch) {
+          var s = { clarity: 0, inclusivity: 0, seo: 0, channelFit: 0, cta: 0 };
+          if (!text) return { overall: 0, scores: s, grade: "F" };
+          var w = text.split(/\s+/).filter(Boolean),
+            len = text.length;
+          var awl =
+            w.reduce(function (a, b) {
+              return a + b.length;
+            }, 0) / (w.length || 1);
+          s.clarity = awl < 6 ? 85 : awl < 8 ? 70 : 50;
+          if (w.length > 5 && w.length < 300) s.clarity += 10;
+          s.clarity = Math.min(100, s.clarity);
+          var bh = 0;
+          BR.forEach(function (r) {
+            if (r.pattern.test(text)) bh++;
+            r.pattern.lastIndex = 0;
+          });
+          s.inclusivity = bh === 0 ? 95 : bh <= 2 ? 70 : bh <= 4 ? 50 : 30;
+          var ph = 0;
+          PP.forEach(function (p) {
+            if (p.pattern.test(text)) ph++;
+            p.pattern.lastIndex = 0;
+          });
+          s.inclusivity = Math.min(100, s.inclusivity + ph * 5);
+          var st =
+            /\b(apply|join|opportunity|career|team|grow|learn|develop|build|lead|manage|hiring)\b/gi;
+          s.seo = Math.min(100, 40 + (text.match(st) || []).length * 10);
+          var cfg = CC[ch] || {},
+            pl =
+              cfg.titleLimit ||
+              cfg.headlineLimit ||
+              cfg.primaryLimit ||
+              cfg.adTextLimit ||
+              cfg.tweetLimit ||
+              cfg.descLimit ||
+              200;
+          s.channelFit = len <= pl ? 90 : len <= pl * 1.2 ? 65 : 40;
+          var ct =
+            /\b(apply now|learn more|join us|get started|sign up|explore|discover|apply today)\b/gi;
+          s.cta = ct.test(text) ? 85 : 40;
+          ct.lastIndex = 0;
+          var o = Math.round(
+            s.clarity * 0.2 +
+              s.inclusivity * 0.25 +
+              s.seo * 0.2 +
+              s.channelFit * 0.2 +
+              s.cta * 0.15,
+          );
+          var g =
+            o >= 85
+              ? "A+"
+              : o >= 75
+                ? "A"
+                : o >= 65
+                  ? "B"
+                  : o >= 55
+                    ? "C"
+                    : o >= 45
+                      ? "D"
+                      : "F";
+          return { overall: o, scores: s, grade: g };
+        }
+
+        function detectBias(text) {
+          var r = [];
+          if (!text) return r;
+          BR.forEach(function (rule) {
+            rule.pattern.lastIndex = 0;
+            var m = rule.pattern.exec(text);
+            if (m)
+              r.push({
+                matched: m[0],
+                category: rule.category,
+                severity: rule.severity,
+                message: rule.message,
+                suggestion: rule.suggestion,
+                research: rule.research,
+              });
+            rule.pattern.lastIndex = 0;
+          });
+          PP.forEach(function (p) {
+            p.pattern.lastIndex = 0;
+            if (p.pattern.test(text))
+              r.push({
+                matched: "",
+                category: "positive",
+                severity: "positive",
+                message: p.label + " detected",
+                suggestion: "Good practice -- keep it.",
+                research: "",
+              });
+            p.pattern.lastIndex = 0;
+          });
+          return r;
+        }
+
+        function collectForm() {
+          var ch = [];
+          document
+            .querySelectorAll("input[name='channel']:checked")
+            .forEach(function (c) {
+              ch.push(c.value);
+            });
+          return {
+            job_title: document.getElementById("jobTitle").value.trim(),
+            industry: document.getElementById("industry").value,
+            seniority: document.getElementById("seniority").value,
+            location: document.getElementById("location").value.trim(),
+            salary_min: document.getElementById("salaryMin").value.trim(),
+            salary_max: document.getElementById("salaryMax").value.trim(),
+            requirements: document.getElementById("requirements").value.trim(),
+            culture_voice: document.getElementById("cultureVoice").value.trim(),
+            tone_formal: parseInt(
+              document.getElementById("toneFormal").value,
+              10,
+            ),
+            tone_energy: parseInt(
+              document.getElementById("toneEnergy").value,
+              10,
+            ),
+            framework: document.getElementById("framework").value,
+            channels: ch,
+            num_variations: parseInt(
+              document.getElementById("numVariations").value,
+              10,
+            ),
+            ab_testing: document.getElementById("abToggle").checked,
+          };
+        }
+        function validateForm(d) {
+          if (!d.job_title) {
+            showToast("Job Title is required");
+            return false;
+          }
+          if (!d.industry) {
+            showToast("Industry is required");
+            return false;
+          }
+          if (!d.requirements) {
+            showToast("Key Requirements are required");
+            return false;
+          }
+          if (d.channels.length === 0) {
+            showToast("Select at least one target channel");
+            return false;
+          }
+          return true;
+        }
+
+        function callAPI(data) {
+          return new Promise(function (resolve, reject) {
+            var x = new XMLHttpRequest();
+            x.open("POST", "/api/creative/generate", true);
+            x.setRequestHeader("Content-Type", "application/json");
+            var csrf =
+              (typeof window !== "undefined" && window.__csrfToken) || "";
+            if (csrf) x.setRequestHeader("X-CSRF-Token", csrf);
+            x.onload = function () {
+              if (x.status >= 200 && x.status < 300) {
+                try {
+                  resolve(JSON.parse(x.responseText));
+                } catch (e) {
+                  reject(new Error("Invalid JSON"));
+                }
+              } else reject(new Error("API error: " + x.status));
+            };
+            x.onerror = function () {
+              reject(new Error("Network error"));
+            };
+            x.timeout = 60000;
+            x.ontimeout = function () {
+              reject(new Error("Timeout"));
+            };
+            try {
+              x.send(JSON.stringify(data));
+            } catch (e) {
+              reject(e);
+            }
+          });
+        }
+
+        function trunc(s, n) {
+          if (!s) return "";
+          return s.length <= n ? s : s.substring(0, n - 3) + "...";
+        }
+        var SL = {
+          entry: "Entry Level",
+          mid: "Mid Level",
+          senior: "Senior",
+          lead: "Lead / Principal",
+          executive: "Executive",
+        };
+        var ANGLES = [
+          "growth",
+          "culture",
+          "compensation",
+          "mission",
+          "innovation",
+        ];
+
+        function genClient(d) {
+          var t = d.job_title || "Open Position",
+            loc = d.location || "Remote",
+            req = d.requirements || "",
+            cul = d.culture_voice || "",
+            sl = SL[d.seniority] || d.seniority,
+            sal = "";
+          if (d.salary_min && d.salary_max)
+            sal = d.salary_min + " - " + d.salary_max;
+          var r = { channels: {} };
+          d.channels.forEach(function (ch) {
+            var cfg = CC[ch];
+            if (!cfg) return;
+            var vars = [];
+            for (var v = 0; v < (d.num_variations || 3); v++)
+              vars.push(
+                genVar(ch, cfg, t, sl, loc, req, cul, sal, v, d.ab_testing),
+              );
+            r.channels[ch] = {
+              name: cfg.name,
+              icon: cfg.icon,
+              variations: vars,
+            };
+          });
+          return r;
+        }
+
+        function genTitles(t, s, l, a) {
+          var v1 = t,
+            v2 = t + " - " + l,
+            v3 = s + " " + t;
+          if (a === "growth") v3 = t + " (Growth Opportunity)";
+          else if (a === "culture") v3 = t + " | Join Our Team";
+          else if (a === "compensation") v3 = t + " | Competitive Pay";
+          return [v1, v2, v3];
+        }
+
+        function genIndeed(t, s, l, req, cul, sal, a) {
+          var p = [];
+          if (a === "growth")
+            p.push(
+              "Ready to take your career to the next level? We are looking for a talented " +
+                t +
+                " to join our growing team in " +
+                l +
+                ".",
+            );
+          else if (a === "culture")
+            p.push(
+              "Join a team that values collaboration, innovation, and your professional growth. We are hiring a " +
+                t +
+                " in " +
+                l +
+                ".",
+            );
+          else if (a === "mission")
+            p.push(
+              "Make a real impact. We are seeking a " +
+                t +
+                " to help us transform the industry and deliver value to millions.",
+            );
+          else if (a === "innovation")
+            p.push(
+              "Work on cutting-edge problems. We need a " +
+                t +
+                " in " +
+                l +
+                " to push boundaries and build innovative solutions.",
+            );
+          else
+            p.push(
+              "We are looking for an experienced " +
+                t +
+                " to join our team in " +
+                l +
+                ". This " +
+                s +
+                " role offers an opportunity to work on challenging problems.",
+            );
+          if (sal) p.push("Salary: " + sal + ".");
+          if (req) p.push("Key qualifications: " + req.substring(0, 400) + ".");
+          if (cul) p.push(cul.substring(0, 250));
+          p.push(
+            "We are an equal opportunity employer committed to diversity and inclusion. Reasonable accommodations available for candidates with disabilities.",
+          );
+          p.push("Apply now to start your next chapter.");
+          return p.join("\n\n");
+        }
+
+        function genLI(t, s, l, cul, sal, a) {
+          var h = "";
+          if (a === "growth")
+            h =
+              "Your next career breakthrough starts here. We are hiring a " +
+              t +
+              " in " +
+              l +
+              ".";
+          else if (a === "culture")
+            h =
+              "Join a team where your ideas matter. " +
+              t +
+              " opportunity in " +
+              l +
+              ".";
+          else if (a === "compensation" && sal) h = t + " | " + sal + " | " + l;
+          else if (a === "mission")
+            h =
+              "Want to make a difference? We need a " +
+              t +
+              " in " +
+              l +
+              " to help us change the game.";
+          else h = "Exciting " + s + " opportunity: " + t + " in " + l + ".";
+          if (cul) h += " " + cul.substring(0, 80) + ".";
+          h += " Apply now or tag someone who would be a great fit.";
+          return trunc(h, 200);
+        }
+
+        function genGH(t, s, l, sal, lim) {
+          var c = [
+            t + " Jobs",
+            s + " " + t,
+            t + " in " + l,
+            "Hiring: " + t,
+            "Apply Today - " + t,
+            t + " Careers",
+          ];
+          if (sal) c.push(t + " | " + sal);
+          return c.slice(0, 3).map(function (h) {
+            return trunc(h, lim);
+          });
+        }
+        function genGD(t, req, cul, sal, lim) {
+          var d1 =
+            "Join our team as a " +
+            t +
+            ". Competitive benefits and growth opportunities. Apply now.";
+          var d2 = req
+            ? "We need: " + req.substring(0, 60) + ". Apply today."
+            : "Exciting career opportunity. Collaborative team, great benefits. Apply now.";
+          return [trunc(d1, lim), trunc(d2, lim)];
+        }
+        function genSoc(t, s, l, cul, sal, a, lim) {
+          var x = "";
+          if (a === "growth")
+            x =
+              "Ready to grow your career? We are hiring a " +
+              t +
+              " in " +
+              l +
+              ". Apply now.";
+          else if (a === "culture")
+            x =
+              "Great teams build great products. Join us as a " +
+              t +
+              ". " +
+              (cul ? cul.substring(0, 40) : "");
+          else
+            x =
+              "We are hiring! " +
+              s +
+              " " +
+              t +
+              " in " +
+              l +
+              ". " +
+              (sal ? sal + ". " : " ") +
+              "Apply today.";
+          return trunc(x.trim(), lim);
+        }
+        function genTT(t, sal, lim) {
+          return trunc(
+            "We are hiring a " +
+              t +
+              "! " +
+              (sal ? sal + " " : "") +
+              "Apply now.",
+            lim,
+          );
+        }
+        function genTw(t, s, l, sal, lim) {
+          return trunc(
+            "We are hiring! " +
+              s +
+              " " +
+              t +
+              " in " +
+              l +
+              ". " +
+              (sal ? sal + ". " : "") +
+              "Apply: #hiring #jobs #careers",
+            lim,
+          );
+        }
+        function tweakAB(c) {
+          var ab = {};
+          Object.keys(c).forEach(function (k) {
+            var v = c[k];
+            if (typeof v === "string")
+              ab[k] = v
+                .replace(/Apply now/gi, "Join us today")
+                .replace(/We are hiring/gi, "Now hiring")
+                .replace(/Join our team/gi, "Be part of something great")
+                .replace(/career/gi, "professional journey");
+            else if (Array.isArray(v))
+              ab[k] = v.map(function (s) {
+                return s
+                  .replace(/Apply/gi, "Join")
+                  .replace(/Hiring/gi, "Seeking");
+              });
+            else ab[k] = v;
+          });
+          return ab;
+        }
+
+        function genVar(ch, cfg, t, s, l, req, cul, sal, vi, ab) {
+          var angle = ANGLES[vi % ANGLES.length],
+            titles = genTitles(t, s, l, angle),
+            copy = {},
+            fd = "";
+          if (ch === "indeed") {
+            copy.title = titles[0];
+            fd = genIndeed(t, s, l, req, cul, sal, angle);
+            copy.description = fd;
+          } else if (ch === "linkedin") {
+            copy.headline = trunc(titles[0], cfg.headlineLimit);
+            copy.intro = genLI(t, s, l, cul, sal, angle);
+            fd = copy.intro;
+          } else if (ch === "google_ads") {
+            copy.headlines = genGH(t, s, l, sal, cfg.headlineLimit);
+            copy.descriptions = genGD(t, req, cul, sal, cfg.descLimit);
+            fd = copy.headlines.join(" | ") + " " + copy.descriptions.join(" ");
+          } else if (ch === "facebook" || ch === "instagram") {
+            copy.primary_text = genSoc(
+              t,
+              s,
+              l,
+              cul,
+              sal,
+              angle,
+              cfg.primaryLimit,
+            );
+            copy.headline = trunc(t + " - " + l, cfg.headlineLimit);
+            fd = copy.primary_text;
+          } else if (ch === "tiktok") {
+            copy.ad_text = genTT(t, sal, cfg.adTextLimit);
+            fd = copy.ad_text;
+          } else if (ch === "twitter") {
+            copy.tweet = genTw(t, s, l, sal, cfg.tweetLimit);
+            fd = copy.tweet;
+          }
+          var qs = qScore(fd, ch),
+            bi = detectBias(fd),
+            out = {
+              angle: angle,
+              title_variations: titles,
+              copy: copy,
+              quality_score: qs,
+              bias_detection: bi,
+            };
+          if (ab) {
+            out.variant_label = "A";
+            var abc = tweakAB(copy),
+              abd =
+                abc.description ||
+                abc.intro ||
+                abc.primary_text ||
+                abc.tweet ||
+                abc.ad_text ||
+                "";
+            out.ab_variant = {
+              variant_label: "B",
+              copy: abc,
+              quality_score: qScore(abd, ch),
+              bias_detection: detectBias(abd),
+            };
           }
           return out;
         }
-        function shuffle(arr) {
-          var copy = arr.slice();
-          for (var i = copy.length - 1; i > 0; i--) {
-            var j = Math.floor(Math.random() * (i + 1));
-            var tmp = copy[i];
-            copy[i] = copy[j];
-            copy[j] = tmp;
+
+        function render(result) {
+          if (
+            !result ||
+            !result.channels ||
+            Object.keys(result.channels).length === 0
+          ) {
+            $res.innerHTML =
+              '<div class="empty-state"><h2>No Results</h2><p>No output generated. Try adjusting inputs.</p></div>';
+            return;
           }
-          return copy;
-        }
-        function escapeHtml(str) {
-          var div = document.createElement("div");
-          div.appendChild(document.createTextNode(str));
-          return div.innerHTML;
-        }
-        function truncate(str, limit) {
-          if (str.length <= limit) return str;
-          return str.substring(0, limit - 3).replace(/\s+\S*$/, "") + "...";
-        }
-
-        // ── Selling Points Parser ──
-
-        function parseSellingPoints(raw) {
-          if (!raw || !raw.trim()) {
-            return {
-              benefits: ["competitive compensation", "great benefits"],
-              culture: ["collaborative team", "innovative environment"],
-              perks: ["flexible schedule", "growth opportunities"],
-              keywords: [],
-            };
-          }
-          var items = raw
-            .split(/[,;\n]+/)
-            .map(function (s) {
-              return s.trim();
-            })
-            .filter(Boolean);
-
-          var benefits = [];
-          var culture = [];
-          var perks = [];
-
-          var benefitWords = [
-            "salary",
-            "pay",
-            "$",
-            "k",
-            "compensation",
-            "bonus",
-            "equity",
-            "stock",
-            "401k",
-            "insurance",
-            "health",
-            "dental",
-            "vision",
-            "pto",
-            "vacation",
-            "paid",
-          ];
-          var cultureWords = [
-            "team",
-            "culture",
-            "collaborative",
-            "inclusive",
-            "diverse",
-            "mission",
-            "values",
-            "people",
-            "community",
-            "supportive",
-            "innovation",
-            "innovative",
-          ];
-
-          items.forEach(function (item) {
-            var lower = item.toLowerCase();
-            var isBenefit = benefitWords.some(function (w) {
-              return lower.indexOf(w) !== -1;
-            });
-            var isCulture = cultureWords.some(function (w) {
-              return lower.indexOf(w) !== -1;
-            });
-            if (isBenefit) {
-              benefits.push(item);
-            } else if (isCulture) {
-              culture.push(item);
-            } else {
-              perks.push(item);
-            }
+          var cks = Object.keys(result.channels),
+            h = "";
+          h +=
+            '<div class="results-header reveal-on-scroll"><h2>Generated Ad Copy</h2><div class="results-actions"><button class="btn btn-sm btn-outline" id="exportJsonBtn">Export JSON</button><button class="btn btn-sm btn-outline" id="regenerateBtn">Regenerate All</button></div></div>';
+          h += '<div class="channel-tabs reveal-on-scroll">';
+          cks.forEach(function (ch, i) {
+            var d = result.channels[ch];
+            h +=
+              '<button class="channel-tab' +
+              (i === 0 ? " active" : "") +
+              '" data-channel-tab="' +
+              ch +
+              '">' +
+              esc(d.icon + " " + d.name) +
+              "</button>";
           });
-
-          if (benefits.length === 0)
-            benefits = ["competitive compensation", "strong benefits package"];
-          if (culture.length === 0)
-            culture = ["collaborative team environment"];
-          if (perks.length === 0) perks = items.slice(0, 2);
-
-          return {
-            benefits: benefits,
-            culture: culture,
-            perks: perks,
-            keywords: items,
-          };
-        }
-
-        // ── Platform Config ──
-
-        var PLATFORM_CONFIG = {
-          LinkedIn: {
-            defaultLimit: 500,
-            hashtags: true,
-            hashtagPrefix: "#",
-            cta: "Apply",
-            tips: [
-              "Lead with the job title and seniority in the first line -- LinkedIn's feed truncates after ~150 characters on mobile.",
-              "Tag the company page and use 3-5 relevant hashtags to boost organic reach beyond your follower base.",
-              "Posts with a direct question in the opening line see 50% more engagement than statement-led posts.",
-              "Avoid generic language like 'exciting opportunity' -- specificity in compensation and role impact drives 2x more clicks.",
-            ],
-          },
-          Indeed: {
-            defaultLimit: 500,
-            hashtags: false,
-            cta: "Apply Now",
-            tips: [
-              "Front-load salary information -- Indeed listings with transparent pay get up to 30% more applications.",
-              "Keep the core pitch between 150-300 characters. Concise descriptions outperform walls of text on Indeed.",
-              "Use action verbs and address the candidate directly with 'you' language to increase engagement.",
-              "Include location and schedule details early -- these are top-3 decision factors for Indeed users.",
-            ],
-          },
-          Facebook: {
-            defaultLimit: 400,
-            hashtags: true,
-            hashtagPrefix: "#",
-            cta: "Apply Now",
-            tips: [
-              "Use conversational, scroll-stopping first lines -- Facebook penalizes corporate jargon in ad relevance scores.",
-              "Pair the copy with a real team photo or behind-the-scenes image for 3x more engagement than stock photos.",
-              "Keep the primary text under 125 characters to avoid the 'See More' truncation on mobile feeds.",
-              "Include a clear, single CTA -- multiple asks confuse users and reduce conversion rates by up to 40%.",
-            ],
-          },
-          Instagram: {
-            defaultLimit: 280,
-            hashtags: true,
-            hashtagPrefix: "#",
-            cta: "Link in Bio",
-            tips: [
-              "Front-load the hook in the first line -- Instagram truncates captions after 125 characters in the feed.",
-              "Use 5-10 targeted hashtags mixing role-specific and industry terms for optimal discovery without looking spammy.",
-              "Stories and Reels outperform static feed posts for job ads -- keep copy punchy for overlay text.",
-              "Emoji usage in job posts on Instagram increases engagement by 25%, but limit to 2-3 per post.",
-            ],
-          },
-          GoogleAds: {
-            defaultLimit: 180,
-            hashtags: false,
-            cta: "Apply",
-            tips: [
-              "Headlines max 30 characters, descriptions max 90 -- write multiple variants and let Google optimize combinations.",
-              "Include the job title and location in at least one headline for quality score improvement.",
-              "Use dynamic keyword insertion {KeyWord:Default} to match search intent and improve click-through rates.",
-              "Add sitelink extensions for benefits page, company culture, and direct apply -- extensions improve CTR by 10-15%.",
-            ],
-          },
-          Twitter: {
-            defaultLimit: 280,
-            hashtags: true,
-            hashtagPrefix: "#",
-            cta: "Apply",
-            tips: [
-              "Keep it under 280 characters total including hashtags. Tweets under 100 characters get 17% more engagement.",
-              "Use 1-2 highly relevant hashtags max -- over-hashtagging on X looks spammy and reduces engagement.",
-              "Thread longer job descriptions: hook in tweet 1, details in tweet 2, apply link in tweet 3.",
-              "Posts with numbers and data points (salary ranges, team size) outperform vague descriptions on X.",
-            ],
-          },
-          Generic: {
-            defaultLimit: 500,
-            hashtags: false,
-            cta: "Apply",
-            tips: [
-              "Write platform-agnostic copy that can be adapted -- keep the core message under 200 characters.",
-              "Structure copy with a hook, value proposition, and clear call-to-action in that order.",
-              "Test multiple variants simultaneously -- even small wording changes can shift apply rates by 20-30%.",
-              "Always include: role clarity, top 2-3 benefits, and a single next step for the candidate.",
-            ],
-          },
-        };
-
-        // ── COPY_TEMPLATES: 5+ structures per tone ──
-
-        var COPY_TEMPLATES = {
-          Professional: {
-            "Benefits-First": [
-              "{company} is hiring a {job}. We offer {benefit1}, {benefit2}, and {benefit3}. Join a team where your expertise is valued and rewarded. {cta}",
-              "Open position: {job} at {company}. Our compensation package includes {benefit1} and {benefit2}. {perk1} included. {cta}",
-              "{job} -- {company}. Total rewards: {benefit1}, {benefit2}, {benefit3}. Build your career with a company that invests in its people. {cta}",
-              "We are seeking an exceptional {job}. At {company}, we believe in rewarding talent with {benefit1}, {benefit2}, and {perk1}. {cta}",
-              "{company} | {job}. Industry-leading {benefit1} combined with {benefit2}. Your next career milestone starts here. {cta}",
-              "Opportunity: {job} at {company}. Comprehensive package featuring {benefit1}, {benefit2}, and {benefit3}. Apply to learn more. {cta}",
-            ],
-            "Culture-Forward": [
-              "At {company}, our {job} team thrives in {culture1}. We are looking for someone who values {culture2} as much as we do. {cta}",
-              "{company} is more than a workplace -- it is {culture1}. We are hiring a {job} who wants to make a real difference. {cta}",
-              "Join {company} as a {job}. Our team is built on {culture1} and {culture2}. Great work happens when great people collaborate. {cta}",
-              "What makes {company} different? {culture1}. We are hiring a {job} who shares our commitment to {culture2}. {cta}",
-              "Be part of something meaningful. {company} is hiring a {job} to join {culture1}. Where purpose meets profession. {cta}",
-              "{job} at {company}. We have built {culture1}, grounded in {culture2}. Your talent belongs here. {cta}",
-            ],
-            "Growth-Focused": [
-              "{job} at {company} -- where your career trajectory accelerates. {perk1} and mentorship from industry leaders. {cta}",
-              "Ambitious {job} wanted. {company} offers {perk1}, clear promotion paths, and {benefit1}. Grow with us. {cta}",
-              "Your next chapter starts at {company}. This {job} role offers {perk1}, leadership development, and {benefit1}. {cta}",
-              "{company} is hiring a {job}. We invest in growth: {perk1}, {benefit1}, and a track record of promoting from within. {cta}",
-              "Looking for a {job} role where you will level up? {company} provides {perk1}, {perk2}, and real advancement. {cta}",
-              "Accelerate your career as a {job} at {company}. {perk1} combined with {benefit1} and structured growth paths. {cta}",
-            ],
-            "Impact-Driven": [
-              "Shape the future as a {job} at {company}. Your work directly impacts {impact}. {benefit1} included. {cta}",
-              "{company} needs a {job} who wants to drive real change. You will {impact}, backed by {benefit1} and {culture1}. {cta}",
-              "Make your mark. As a {job} at {company}, you will {impact}. We support your mission with {benefit1} and {perk1}. {cta}",
-              "The {job} role at {company} is not just a position -- it is a platform to {impact}. {benefit1}, {benefit2}. {cta}",
-              "Ready to {impact}? {company} is hiring a {job} with the drive to create lasting change. {benefit1} and {culture1}. {cta}",
-              "Join {company} as a {job}. Here, you will {impact} while enjoying {benefit1} and {perk1}. Purpose meets opportunity. {cta}",
-            ],
-            "Data-Backed": [
-              "{company} | {job}. {stat1}. Package includes {benefit1} and {benefit2}. {cta}",
-              "Why join {company} as a {job}? {stat1}. Plus: {benefit1}, {benefit2}, and {perk1}. {cta}",
-              "{job} at {company}. The numbers speak: {stat1}. We offer {benefit1} and {benefit2}. {cta}",
-              "Join the team: {stat1}. {company} is hiring a {job} with {benefit1}, {benefit2}, and {perk1}. {cta}",
-              "{company} by the numbers: {stat1}. Now hiring: {job}. {benefit1}, {benefit2}. {cta}",
-              "Data does not lie. {stat1}. {company} is looking for a {job} to help write the next chapter. {benefit1}. {cta}",
-            ],
-          },
-          Conversational: {
-            "Benefits-First": [
-              "Hey, we are hiring! {company} is looking for a {job} and the perks are real: {benefit1}, {benefit2}, and {benefit3}. Come join us! {cta}",
-              "So {company} is hiring a {job}. What is in it for you? {benefit1}, {benefit2}, and yes, {perk1} too. Pretty sweet, right? {cta}",
-              "Real talk -- {company} takes care of its people. {benefit1}, {benefit2}, {benefit3}. Oh, and we are hiring a {job}. Interested? {cta}",
-              "Looking for a {job} gig with {benefit1} and {benefit2}? {company} has got you covered. Plus {perk1}. {cta}",
-              "What if your next {job} role came with {benefit1}, {benefit2}, and {perk1}? At {company}, it does. {cta}",
-              "Okay but what if we told you this {job} role at {company} includes {benefit1}, {benefit2}, AND {benefit3}? {cta}",
-            ],
-            "Culture-Forward": [
-              "Know what makes {company} awesome? {culture1}. We are looking for a {job} who gets that. {cta}",
-              "Working at {company} feels different. It is {culture1}, it is {culture2}, and we need a {job} to join the crew. {cta}",
-              "If {culture1} and {culture2} sound like your vibe, you will love being a {job} at {company}. {cta}",
-              "We built {company} around {culture1}. Now we need a {job} who shares that energy. Sound like you? {cta}",
-              "Hot take: work should not drain you. At {company}, our {job} team enjoys {culture1} and {culture2}. {cta}",
-              "Come be a {job} at {company}. We are {culture1}, we value {culture2}, and we think you will fit right in. {cta}",
-            ],
-            "Growth-Focused": [
-              "Want to grow? Like, actually grow? {company} is hiring a {job} with {perk1} and real mentorship. {cta}",
-              "Your {job} career should not plateau. At {company}, you get {perk1}, {benefit1}, and room to run. {cta}",
-              "{company} is not just hiring a {job} -- we are investing in your future. {perk1} and {benefit1}. Let us talk. {cta}",
-              "If you are a {job} who wants more than a paycheck -- {perk1}, growth paths, {benefit1} -- check out {company}. {cta}",
-              "Tired of dead-end roles? {company} is hiring a {job} with {perk1}, {perk2}, and leadership that actually mentors. {cta}",
-              "Plot twist: your {job} career gets better at {company}. {perk1} and {benefit1} to fuel your growth. {cta}",
-            ],
-            "Impact-Driven": [
-              "Want to {impact}? We are serious. {company} is hiring a {job} who wants to make waves. {benefit1}. {cta}",
-              "Here is the thing -- at {company}, your work as a {job} actually matters. You will {impact}. Plus {benefit1}. {cta}",
-              "If you are a {job} who wants to {impact}, you need to check out {company}. {benefit1} and {culture1}. {cta}",
-              "Big roles at {company}. As a {job}, you will {impact}. And you will have {benefit1} while doing it. {cta}",
-              "What if your {job} work could {impact}? At {company}, it can. Plus {benefit1} and {perk1}. {cta}",
-              "Not just a {job} gig. At {company}, you will {impact}. {benefit1} and a team that has your back. {cta}",
-            ],
-            "Data-Backed": [
-              "Numbers do not lie: {stat1}. That is {company}. We are hiring a {job}. {benefit1}. {cta}",
-              "Fun fact about {company}: {stat1}. We are looking for a {job} to keep the momentum going. {benefit1}. {cta}",
-              "Here is why people love working at {company}: {stat1}. Now hiring {job}. {benefit1} included. {cta}",
-              "{stat1} -- that is not a typo. {company} is growing and needs a {job}. {benefit1} and {perk1}. {cta}",
-              "Ready for this? {stat1}. {company} is hiring a {job}. {benefit1}, {benefit2}. Let us chat. {cta}",
-              "Quick stat: {stat1}. {company} needs a {job}. Perks include {benefit1} and {perk1}. {cta}",
-            ],
-          },
-          Bold: {
-            "Benefits-First": [
-              "Stop scrolling. {company} is hiring a {job} with {benefit1}, {benefit2}, and {benefit3}. You are welcome. {cta}",
-              "{benefit1}. {benefit2}. {benefit3}. That is what {company} offers its {job} team. No gimmicks. {cta}",
-              "Other companies talk about benefits. {company} delivers: {benefit1}, {benefit2}, {perk1}. {job} role open now. {cta}",
-              "Forget 'competitive salary.' {company} offers a {job} role with {benefit1}, {benefit2}, and {benefit3}. Period. {cta}",
-              "Bold move: join {company} as a {job}. {benefit1}, {benefit2}, {benefit3}. This is what you have been looking for. {cta}",
-              "We said it: {benefit1} and {benefit2}. {company} is hiring a {job} and we do not play around with comp. {cta}",
-            ],
-            "Culture-Forward": [
-              "{company} is not for everyone. We are {culture1}, we demand {culture2}, and we hire {job}s who bring fire. {cta}",
-              "Average cultures hire average people. {company} is {culture1}. We want a {job} who refuses to settle. {cta}",
-              "Warning: {company} is {culture1}. If {culture2} excites you and you are a {job}, this is your moment. {cta}",
-              "Boring companies need not apply. {company} is {culture1}, powered by {culture2}. Hiring: {job}. {cta}",
-              "{culture1}. {culture2}. Zero BS. That is {company}. Now hiring a {job} who gets it. {cta}",
-              "We do not do mediocre at {company}. {culture1} and {culture2} are non-negotiable. {job} wanted. {cta}",
-            ],
-            "Growth-Focused": [
-              "Your career is stalling. Fix it. {company} is hiring a {job} with {perk1} and {benefit1}. Level up. {cta}",
-              "Still in the same role from 2 years ago? {company} hires {job}s who want {perk1} and relentless growth. {cta}",
-              "Comfort zones are career killers. {company} offers {job}s {perk1}, {perk2}, and {benefit1}. Dare to grow. {cta}",
-              "Be honest: are you growing? {company} is hiring a {job} with {perk1} and a genuine path to leadership. {cta}",
-              "Plateau is not in our vocabulary. {company} needs a {job}. {perk1}, {benefit1}, and momentum that does not stop. {cta}",
-              "Next-level {job} role at {company}. {perk1}. {benefit1}. No ceiling on your potential. {cta}",
-            ],
-            "Impact-Driven": [
-              "Do something that matters. {company} is hiring a {job} to {impact}. {benefit1}. No excuses, no fluff. {cta}",
-              "Your inbox is full of job posts. This one is different. {company} needs a {job} to {impact}. {cta}",
-              "Talk is cheap. At {company}, {job}s {impact}. {benefit1} and a team that moves fast. {cta}",
-              "Most {job} roles are forgettable. This one lets you {impact} at {company}. {benefit1}. Your move. {cta}",
-              "Want impact, not just a title? {company} is hiring a {job} who will {impact}. {benefit1} included. {cta}",
-              "Skip the noise. This {job} role at {company} lets you {impact}. {benefit1}, {perk1}. Real talk. {cta}",
-            ],
-            "Data-Backed": [
-              "{stat1}. Not bad for {company}. We are hiring a {job} to keep breaking records. {benefit1}. {cta}",
-              "Let the data talk: {stat1}. {company} | {job}. {benefit1}. {benefit2}. Drop the mic. {cta}",
-              "Facts over hype. {stat1}. {company} needs a {job}. {benefit1} and {perk1}. {cta}",
-              "{stat1}. That is {company}. We are looking for a {job} who thinks in results. {benefit1}. {cta}",
-              "Numbers you cannot ignore: {stat1}. {company} is hiring a {job}. {benefit1}, {perk1}. {cta}",
-              "Proof, not promises: {stat1}. Join {company} as a {job}. {benefit1}, {benefit2}. {cta}",
-            ],
-          },
-          Empathetic: {
-            "Benefits-First": [
-              "You deserve a {job} role that values you. At {company}, that means {benefit1}, {benefit2}, and {benefit3}. {cta}",
-              "We know finding the right {job} role matters. {company} offers {benefit1}, {benefit2}, and {perk1} because you deserve it. {cta}",
-              "Your wellbeing matters at {company}. As a {job}, you will enjoy {benefit1}, {benefit2}, and {benefit3}. We take care of our people. {cta}",
-              "Looking for a {job} role that cares about you, not just your output? {company}: {benefit1}, {benefit2}, {perk1}. {cta}",
-              "At {company}, we know {benefit1} and {benefit2} are not perks -- they are essentials. Hiring: {job}. {cta}",
-              "You have earned {benefit1} and {benefit2}. {company} is hiring a {job} and we put people first. {cta}",
-            ],
-            "Culture-Forward": [
-              "You belong here. {company} is {culture1}, where {culture2}. We are looking for a {job} who values people as much as results. {cta}",
-              "We believe work should feel human. At {company}, our {job} team is {culture1} and {culture2}. {cta}",
-              "Imagine a workplace that is {culture1}. Where {culture2} is not a slogan. {company} is hiring a {job}. {cta}",
-              "At {company}, every {job} is part of {culture1}. We lead with empathy, grow with {culture2}. {cta}",
-              "Kindness is not weakness -- it is how {company} built {culture1}. Looking for a {job} who agrees. {cta}",
-              "You are more than your resume. At {company}, our {job} team enjoys {culture1} and genuine {culture2}. {cta}",
-            ],
-            "Growth-Focused": [
-              "We see your potential. {company} is hiring a {job} with {perk1} and {benefit1} to help you flourish. {cta}",
-              "Growth looks different for everyone. At {company}, {job}s get {perk1}, {perk2}, and personalized support. {cta}",
-              "Your journey matters to us. {company} offers {job}s {perk1} and {benefit1} to build the career you envision. {cta}",
-              "Not sure what is next? That is okay. {company} supports {job}s with {perk1} and {benefit1} to find your path. {cta}",
-              "At {company}, we nurture talent. This {job} role includes {perk1}, {benefit1}, and leaders who champion your growth. {cta}",
-              "Every expert was once a beginner. {company} hires {job}s and invests in them: {perk1}, {benefit1}. {cta}",
-            ],
-            "Impact-Driven": [
-              "Your work should matter. As a {job} at {company}, you will {impact}. We will support you with {benefit1}. {cta}",
-              "Caring about your work is not naive -- it is powerful. {company} needs a {job} to {impact}. {benefit1}. {cta}",
-              "At {company}, every {job} makes a difference. You will {impact}, supported by {culture1} and {benefit1}. {cta}",
-              "The world needs people who care. {company} is hiring a {job} to {impact}. {benefit1} and {perk1}. {cta}",
-              "Make a difference as a {job} at {company}. You will {impact} with a team that truly supports you. {benefit1}. {cta}",
-              "Purpose and compassion. That is what drives {company}. As a {job}, you will {impact}. {benefit1}. {cta}",
-            ],
-            "Data-Backed": [
-              "Here is something that might resonate: {stat1}. {company} is a place where {job}s thrive. {benefit1}. {cta}",
-              "We let results tell our story: {stat1}. {company} is hiring a {job}. {benefit1}, {perk1}. {cta}",
-              "{stat1} -- because we genuinely care about our people. {company} | {job}. {benefit1}. {cta}",
-              "Happy teams create great results: {stat1}. {company} is hiring a {job}. {benefit1} and {culture1}. {cta}",
-              "When you take care of people, numbers follow: {stat1}. {company} needs a {job}. {benefit1}. {cta}",
-              "Our commitment shows in the data: {stat1}. {company} is looking for a {job}. {benefit1}, {perk1}. {cta}",
-            ],
-          },
-          DataDriven: {
-            "Benefits-First": [
-              "{job} at {company}. Package: {benefit1} + {benefit2} + {benefit3}. ROI on your career starts here. {cta}",
-              "{company} | {job}. Compensation data: {benefit1}, {benefit2}, {benefit3}. Above-market by design. {cta}",
-              "The math works: {benefit1} + {benefit2} + {perk1}. {company} is hiring a {job}. Calculate your upside. {cta}",
-              "{job} role at {company}. Total comp includes {benefit1}, {benefit2}, and {benefit3}. See the full breakdown. {cta}",
-              "By the numbers: {benefit1}, {benefit2}, {benefit3}. {company} is hiring a {job}. Your value, quantified. {cta}",
-              "{company}: {job} role. Transparent comp: {benefit1} + {benefit2} + {perk1}. No guessing. {cta}",
-            ],
-            "Culture-Forward": [
-              "{stat1}. That is the {company} culture. Hiring: {job}. Built on {culture1} and {culture2}. {cta}",
-              "Culture metrics at {company}: {stat1}. Now hiring {job}. Environment: {culture1}, {culture2}. {cta}",
-              "Measured culture, real results: {stat1}. {company} is seeking a {job}. {culture1}. {cta}",
-              "Data point: {stat1}. {company} has built {culture1} backed by {culture2}. {job} role open. {cta}",
-              "{stat1} -- proof that {culture1} works. {company} | {job}. {benefit1}. {cta}",
-              "The culture-performance link is real: {stat1}. {company} is hiring a {job}. {culture1}. {cta}",
-            ],
-            "Growth-Focused": [
-              "{stat1}. Career velocity at {company} is unmatched. Hiring {job} with {perk1} and {benefit1}. {cta}",
-              "Growth trajectory: {perk1} + {benefit1} + mentorship. {company} is hiring a {job}. {stat1}. {cta}",
-              "Development ROI at {company}: {perk1}, {perk2}, {benefit1}. {stat1}. {job} role open. {cta}",
-              "{stat1}. {company} invests in {job}s: {perk1} and {benefit1}. Upward mobility, quantified. {cta}",
-              "Career data at {company}: {stat1}. This {job} role includes {perk1} and {benefit1}. {cta}",
-              "Internal mobility: {stat1}. {company} is hiring a {job}. {perk1}, {benefit1}. Track record speaks. {cta}",
-            ],
-            "Impact-Driven": [
-              "Impact metric: you will {impact}. {company} | {job}. {stat1}. {benefit1}. {cta}",
-              "{stat1}. As a {job} at {company}, you will {impact}. Measurable outcomes, not buzzwords. {benefit1}. {cta}",
-              "Quantified impact: {stat1}. {company} needs a {job} to {impact}. {benefit1}. {cta}",
-              "Your {job} impact at {company}: {impact}. Supporting data: {stat1}. {benefit1}. {cta}",
-              "Results-driven {job} role at {company}. You will {impact}. {stat1}. {benefit1}, {perk1}. {cta}",
-              "Outcome: {impact}. Evidence: {stat1}. Role: {job} at {company}. {benefit1}. {cta}",
-            ],
-            "Data-Backed": [
-              "{stat1}. {stat2}. {company} is hiring a {job}. {benefit1}, {benefit2}. The data is clear. {cta}",
-              "Two facts about {company}: {stat1}. {stat2}. Hiring: {job} with {benefit1}. {cta}",
-              "Evidence-based hiring: {stat1}. {stat2}. {company} | {job}. {benefit1}, {perk1}. {cta}",
-              "{stat1}. Also: {stat2}. {company} needs a {job}. {benefit1} and {benefit2}. No fluff. {cta}",
-              "Dashboard view -- {stat1}. {stat2}. Open role: {job} at {company}. {benefit1}. {cta}",
-              "Key metrics: {stat1}. {stat2}. {company} is growing and needs a {job}. {benefit1}. {cta}",
-            ],
-          },
-        };
-
-        // ── Impact phrases ──
-
-        var IMPACT_PHRASES = [
-          "shape the hiring strategy for a growing organization",
-          "influence decisions that affect thousands of users",
-          "build products that solve real problems",
-          "lead initiatives that transform how teams work",
-          "drive innovation in a rapidly evolving industry",
-          "create solutions that impact the bottom line",
-          "connect talented people with life-changing opportunities",
-          "architect systems that scale to millions",
-          "redefine what excellence looks like in your field",
-          "contribute to a mission that goes beyond the bottom line",
-        ];
-
-        // ── Stat generators ──
-
-        function generateStats() {
-          var stats = shuffle([
-            "92% employee retention rate year over year",
-            "4.5/5 average employee satisfaction score",
-            "3x faster career progression than industry average",
-            "40% of leadership promoted from within",
-            "Top 10% employer in our industry for compensation",
-            "250% revenue growth in the last 3 years",
-            "98% of new hires say onboarding exceeded expectations",
-            "Zero layoffs in company history",
-            "35+ average learning hours per employee per quarter",
-            "85% of employees would recommend us to a friend",
-            "Named a Best Place to Work 3 years running",
-            "50% reduction in time-to-productivity for new hires",
-            "2x industry average for internal mobility",
-            "Employee NPS of 72 (industry avg: 38)",
-            "30% of revenue reinvested in employee development",
-          ]);
-          return stats;
-        }
-
-        // ── Main Generation Engine ──
-
-        var VARIANT_TYPES = [
-          "Benefits-First",
-          "Culture-Forward",
-          "Growth-Focused",
-          "Impact-Driven",
-          "Data-Backed",
-        ];
-        var VARIANT_CSS_CLASSES = [
-          "variant-benefits",
-          "variant-culture",
-          "variant-growth",
-          "variant-impact",
-          "variant-data",
-        ];
-
-        function generateVariants(
-          jobTitle,
-          companyName,
-          sellingPointsRaw,
-          tone,
-          platform,
-          charLimit,
-        ) {
-          var parsed = parseSellingPoints(sellingPointsRaw);
-          var platformConf =
-            PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.Generic;
-          var limit = charLimit || platformConf.defaultLimit;
-          var stats = generateStats();
-          var impacts = shuffle(IMPACT_PHRASES);
-
-          var toneTemplates = COPY_TEMPLATES[tone];
-          if (!toneTemplates) toneTemplates = COPY_TEMPLATES.Professional;
-
-          var variants = [];
-
-          VARIANT_TYPES.forEach(function (variantType, idx) {
-            var templates = toneTemplates[variantType];
-            if (!templates || templates.length === 0) return;
-
-            var template = pick(templates);
-
-            // Build substitution variables
-            var benefits = shuffle(parsed.benefits);
-            var cultures = shuffle(parsed.culture);
-            var perks = shuffle(
-              parsed.perks.length > 0 ? parsed.perks : parsed.benefits,
-            );
-
-            var vars = {
-              job: jobTitle,
-              company: companyName,
-              benefit1: benefits[0] || "competitive compensation",
-              benefit2: benefits[1] || benefits[0] || "strong benefits",
-              benefit3:
-                benefits[2] ||
-                (perks[0] !== benefits[0] ? perks[0] : "career growth"),
-              culture1: cultures[0] || "a collaborative environment",
-              culture2: cultures[1] || cultures[0] || "innovation and teamwork",
-              perk1: perks[0] || "professional development",
-              perk2: perks[1] || perks[0] || "flexible work arrangements",
-              impact: impacts[idx] || impacts[0],
-              stat1: stats[idx * 2] || stats[0],
-              stat2: stats[idx * 2 + 1] || stats[1],
-              cta: platformConf.cta || "Apply",
-            };
-
-            // Substitute
-            var copy = template;
-            for (var k in vars) {
-              copy = copy.split("{" + k + "}").join(vars[k]);
-            }
-
-            // Platform-specific formatting
-            if (platformConf.hashtags) {
-              var hashtags = [];
-              var jobWords = jobTitle.split(/\s+/);
-              if (jobWords.length <= 3) {
-                hashtags.push(
-                  platformConf.hashtagPrefix +
-                    jobWords.join("").replace(/[^a-zA-Z0-9]/g, ""),
-                );
-              }
-              hashtags.push(platformConf.hashtagPrefix + "Hiring");
-              hashtags.push(platformConf.hashtagPrefix + "Jobs");
-              var hashtagStr = " " + hashtags.join(" ");
-              if (copy.length + hashtagStr.length <= limit) {
-                copy += hashtagStr;
-              }
-            }
-
-            // Truncate to limit
-            copy = truncate(copy, limit);
-
-            variants.push({
-              name: variantType,
-              copy: copy,
-              charCount: copy.length,
-              limit: limit,
-              cssClass: VARIANT_CSS_CLASSES[idx],
+          h += "</div>";
+          cks.forEach(function (ch, i) {
+            var d = result.channels[ch],
+              cfg = CC[ch] || {};
+            h +=
+              '<div class="channel-output' +
+              (i === 0 ? " active" : "") +
+              '" data-channel-output="' +
+              ch +
+              '">';
+            d.variations.forEach(function (v, vi) {
+              h += renderVar(v, vi, ch, cfg);
             });
+            h += "</div>";
           });
-
-          return variants;
-        }
-
-        // ── Render ──
-
-        function renderResults(variants, platform) {
-          var grid = document.getElementById("variantsGrid");
-          grid.innerHTML = "";
-
-          variants.forEach(function (v, idx) {
-            var card = document.createElement("div");
-            card.className = "variant-card " + v.cssClass + " reveal-on-scroll";
-
-            var overLimit = v.charCount > v.limit;
-            var charClass = overLimit ? "char-count over-limit" : "char-count";
-
-            var topDiv = document.createElement("div");
-            topDiv.className = "variant-top";
-
-            var labelSpan = document.createElement("span");
-            labelSpan.className = "variant-label";
-            labelSpan.textContent = v.name;
-            topDiv.appendChild(labelSpan);
-
-            var countSpan = document.createElement("span");
-            countSpan.className = charClass;
-            countSpan.textContent = v.charCount + " / " + v.limit + " chars";
-            topDiv.appendChild(countSpan);
-
-            card.appendChild(topDiv);
-
-            var copyDiv = document.createElement("div");
-            copyDiv.className = "copy-text";
-            copyDiv.textContent = v.copy;
-            card.appendChild(copyDiv);
-
-            var copyBtn = document.createElement("button");
-            copyBtn.className = "copy-btn";
-            copyBtn.textContent = "Copy";
-            copyBtn.setAttribute("data-copy", v.copy);
-            copyBtn.addEventListener("click", function () {
-              var text = this.getAttribute("data-copy");
-              var btn = this;
-              if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard
-                  .writeText(text)
-                  .then(function () {
-                    btn.textContent = "Copied!";
-                    btn.classList.add("copied");
-                    setTimeout(function () {
-                      btn.textContent = "Copy";
-                      btn.classList.remove("copied");
-                    }, 2000);
-                  })
-                  .catch(function () {
-                    fallbackCopy(text, btn);
-                  });
-              } else {
-                fallbackCopy(text, btn);
-              }
-            });
-            card.appendChild(copyBtn);
-
-            grid.appendChild(card);
-          });
-
-          // Platform tips
-          var platformConf =
-            PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.Generic;
-          var tipsList = document.getElementById("tipsList");
-          tipsList.innerHTML = platformConf.tips
-            .map(function (t) {
-              return (
-                '<li><span class="tip-bullet">--</span> ' +
-                escapeHtml(t) +
-                "</li>"
-              );
-            })
-            .join("");
-
-          // Meta
-          document.getElementById("resultsMeta").textContent =
-            "5 variants generated for " +
-            platform +
-            " -- click Copy to grab any variant.";
-        }
-
-        function fallbackCopy(text, btn) {
-          var ta = document.createElement("textarea");
-          ta.value = text;
-          ta.style.position = "fixed";
-          ta.style.left = "-9999px";
-          document.body.appendChild(ta);
-          ta.select();
-          try {
-            document.execCommand("copy");
-            btn.textContent = "Copied!";
-            btn.classList.add("copied");
-            setTimeout(function () {
-              btn.textContent = "Copy";
-              btn.classList.remove("copied");
-            }, 2000);
-          } catch (err) {
-            btn.textContent = "Failed";
-            setTimeout(function () {
-              btn.textContent = "Copy";
-            }, 2000);
-          }
-          document.body.removeChild(ta);
-        }
-
-        // ── Platform change auto-updates char limit ──
-
-        var platformDefaults = {
-          LinkedIn: 500,
-          Indeed: 500,
-          Facebook: 400,
-          Instagram: 280,
-          GoogleAds: 180,
-          Twitter: 280,
-          Generic: 500,
-        };
-
-        document
-          .getElementById("platform")
-          .addEventListener("change", function () {
-            var val = this.value;
-            if (val && platformDefaults[val]) {
-              document.getElementById("charLimit").value =
-                platformDefaults[val];
-            }
-          });
-
-        // ── Form Submit ──
-
-        document
-          .getElementById("creativeForm")
-          .addEventListener("submit", function (e) {
-            e.preventDefault();
-            var jobTitle = document.getElementById("jobTitle").value.trim();
-            var companyName = document
-              .getElementById("companyName")
-              .value.trim();
-            var sellingPoints = document
-              .getElementById("sellingPoints")
-              .value.trim();
-            var tone = document.getElementById("tone").value;
-            var platform = document.getElementById("platform").value;
-            var charLimit =
-              parseInt(document.getElementById("charLimit").value, 10) || 280;
-
-            if (!jobTitle || !companyName || !tone || !platform) return;
-
-            var variants = generateVariants(
-              jobTitle,
-              companyName,
-              sellingPoints,
-              tone,
-              platform,
-              charLimit,
-            );
-
-            renderResults(variants, platform);
-
-            var results = document.getElementById("results");
-            results.style.display = "block";
-
-            // Re-observe new reveal-on-scroll elements
-            document
-              .querySelectorAll(".reveal-on-scroll:not(.visible)")
-              .forEach(function (el) {
-                scrollObserver.observe(el);
+          $res.innerHTML = h;
+          $res.classList.add("active");
+          $emp.style.display = "none";
+          $res.querySelectorAll(".channel-tab").forEach(function (tab) {
+            tab.addEventListener("click", function () {
+              var tg = tab.getAttribute("data-channel-tab");
+              $res.querySelectorAll(".channel-tab").forEach(function (t) {
+                t.classList.remove("active");
               });
-
-            results.scrollIntoView({ behavior: "smooth", block: "start" });
+              tab.classList.add("active");
+              $res.querySelectorAll(".channel-output").forEach(function (o) {
+                o.classList.remove("active");
+              });
+              var to = $res.querySelector("[data-channel-output='" + tg + "']");
+              if (to) to.classList.add("active");
+            });
           });
+          $res.querySelectorAll(".variant-btn").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              var g = btn.closest(".output-section");
+              if (!g) return;
+              g.querySelectorAll(".variant-btn").forEach(function (b) {
+                b.classList.remove("active");
+              });
+              btn.classList.add("active");
+              var tg = btn.getAttribute("data-variant");
+              g.querySelectorAll(".variant-content").forEach(function (vc) {
+                vc.style.display = "none";
+              });
+              var tc = g.querySelector(
+                ".variant-content[data-variant='" + tg + "']",
+              );
+              if (tc) tc.style.display = "block";
+            });
+          });
+          $res.querySelectorAll("[data-copy-text]").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              copyText(
+                btn.getAttribute("data-copy-text").replace(/\\n/g, "\n"),
+              );
+            });
+          });
+          var eb = document.getElementById("exportJsonBtn");
+          if (eb)
+            eb.addEventListener("click", function () {
+              window._creativeAI.exportJSON();
+            });
+          var rb = document.getElementById("regenerateBtn");
+          if (rb)
+            rb.addEventListener("click", function () {
+              window._creativeAI.regenerateAll();
+            });
+          $res.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+            sO.observe(el);
+          });
+        }
 
-        // ── Scroll Reveal ──
+        function renderVar(v, vi, ch, cfg) {
+          var h =
+            '<div class="card output-section reveal-on-scroll" style="margin-bottom:16px;">';
+          h +=
+            '<div class="output-section-title">Variation ' +
+            (vi + 1) +
+            " &mdash; " +
+            esc(v.angle.charAt(0).toUpperCase() + v.angle.slice(1)) +
+            " Angle</div>";
+          if (v.title_variations && v.title_variations.length > 0) {
+            h +=
+              '<div style="margin-bottom:14px;"><div class="output-section-title" style="font-size:0.68rem;">Title Variations</div>';
+            v.title_variations.forEach(function (tv) {
+              var st = esc(tv);
+              h +=
+                '<div class="title-variation"><span class="tv-text">' +
+                st +
+                '</span><span class="tv-count">' +
+                tv.length +
+                ' chars</span><div style="display:flex;gap:4px;margin-left:8px;"><button class="btn-ghost" data-copy-text="' +
+                st.replace(/"/g, "&quot;") +
+                '">Copy</button></div></div>';
+            });
+            h += "</div>";
+          }
+          var ab = !!v.ab_variant;
+          if (ab)
+            h +=
+              '<div class="variant-toggle"><button class="variant-btn active" data-variant="A">Variant A</button><button class="variant-btn" data-variant="B">Variant B</button></div>';
+          h += renderCopy(v.copy, ch, cfg, ab ? "A" : null, false);
+          if (ab && v.ab_variant)
+            h += renderCopy(v.ab_variant.copy, ch, cfg, "B", true);
+          if (ab && v.ab_variant) {
+            h += renderQS(v.quality_score, "Variant A Quality Score");
+            h += renderQS(
+              v.ab_variant.quality_score,
+              "Variant B Quality Score",
+            );
+          } else h += renderQS(v.quality_score, "Quality Score");
+          if (v.bias_detection && v.bias_detection.length > 0)
+            h += renderBias(v.bias_detection);
+          h += "</div>";
+          return h;
+        }
 
-        var scrollObserver = new IntersectionObserver(
+        function renderCopy(copy, ch, cfg, vl, hidden) {
+          var ws = hidden ? ' style="display:none;"' : "",
+            da = vl ? ' data-variant="' + vl + '"' : "",
+            h = '<div class="variant-content"' + da + ws + ">";
+          if (ch === "indeed") {
+            h += cpBlock("Job Title", copy.title, cfg.titleLimit);
+            h += cpBlock("Job Description", copy.description, cfg.descLimit);
+          } else if (ch === "linkedin") {
+            h += cpBlock("Headline", copy.headline, cfg.headlineLimit);
+            h += cpBlock("Intro Text", copy.intro, cfg.introLimit);
+          } else if (ch === "google_ads") {
+            if (copy.headlines)
+              copy.headlines.forEach(function (x, i) {
+                h += cpBlock("Headline " + (i + 1), x, cfg.headlineLimit);
+              });
+            if (copy.descriptions)
+              copy.descriptions.forEach(function (x, i) {
+                h += cpBlock("Description " + (i + 1), x, cfg.descLimit);
+              });
+          } else if (ch === "facebook" || ch === "instagram") {
+            h += cpBlock("Primary Text", copy.primary_text, cfg.primaryLimit);
+            h += cpBlock("Headline", copy.headline, cfg.headlineLimit);
+          } else if (ch === "tiktok")
+            h += cpBlock("Ad Text", copy.ad_text, cfg.adTextLimit);
+          else if (ch === "twitter")
+            h += cpBlock("Tweet", copy.tweet, cfg.tweetLimit);
+          h += "</div>";
+          return h;
+        }
+
+        function cpBlock(label, text, limit) {
+          if (!text) return "";
+          var st = esc(text);
+          var h =
+            '<div class="ad-copy-block"><div class="acb-header"><span class="acb-label">' +
+            esc(label) +
+            "</span>";
+          if (limit) h += cLabel(text, limit);
+          h +=
+            '</div><div class="acb-text">' +
+            st +
+            '</div><div class="acb-actions"><button class="btn btn-sm btn-ghost" data-copy-text="' +
+            st.replace(/"/g, "&quot;") +
+            '">Copy</button></div></div>';
+          return h;
+        }
+
+        function renderQS(qs, title) {
+          if (!qs) return "";
+          var o = qs.overall || 0,
+            g = qs.grade || "F",
+            s = qs.scores || {};
+          var gc =
+            o >= 80
+              ? "excellent"
+              : o >= 65
+                ? "good"
+                : o >= 50
+                  ? "fair"
+                  : "poor";
+          var sc =
+            gc === "excellent"
+              ? "var(--green)"
+              : gc === "good"
+                ? "var(--blue)"
+                : gc === "fair"
+                  ? "var(--amber)"
+                  : "var(--red)";
+          var ci = 2 * Math.PI * 24,
+            off = ci - (o / 100) * ci;
+          var h =
+            '<div class="quality-score-card"><div class="qs-header"><div class="qs-overall"><div class="qs-ring"><svg width="56" height="56" viewBox="0 0 56 56"><circle cx="28" cy="28" r="24" class="qs-ring-bg"/><circle cx="28" cy="28" r="24" class="qs-ring-fill" stroke="' +
+            sc +
+            '" stroke-dasharray="' +
+            ci +
+            '" stroke-dashoffset="' +
+            off +
+            '"/></svg><span class="qs-value" style="color:' +
+            sc +
+            '">' +
+            o +
+            '</span></div><div><div style="font-size:0.78rem;font-weight:600;margin-bottom:2px;">' +
+            esc(title) +
+            '</div><span class="qs-grade ' +
+            gc +
+            '">' +
+            esc(g) +
+            "</span></div></div></div>";
+          h += '<div class="qs-breakdown">';
+          [
+            { k: "clarity", l: "Clarity" },
+            { k: "inclusivity", l: "Inclusivity" },
+            { k: "seo", l: "SEO Optimization" },
+            { k: "channelFit", l: "Channel Fit" },
+            { k: "cta", l: "CTA Strength" },
+          ].forEach(function (m) {
+            var v = s[m.k] || 0,
+              bc =
+                v >= 75
+                  ? "var(--green)"
+                  : v >= 50
+                    ? "var(--amber)"
+                    : "var(--red)";
+            h +=
+              '<div class="qs-metric"><div class="qs-metric-header"><span class="qs-metric-label">' +
+              esc(m.l) +
+              '</span><span class="qs-metric-value" style="color:' +
+              bc +
+              '">' +
+              v +
+              '</span></div><div class="qs-bar"><div class="qs-bar-fill" style="width:' +
+              v +
+              "%;background:" +
+              bc +
+              '"></div></div></div>';
+          });
+          h += "</div></div>";
+          return h;
+        }
+
+        function renderBias(items) {
+          var h =
+            '<div class="bias-section"><div class="output-section-title" style="font-size:0.68rem;">Bias Detection &amp; Inclusive Language</div>';
+          items.forEach(function (it) {
+            var sc =
+              it.severity === "critical"
+                ? "critical"
+                : it.severity === "warning"
+                  ? "warning"
+                  : it.severity === "positive"
+                    ? "positive"
+                    : "suggestion";
+            var ic =
+              sc === "critical"
+                ? "\u26D4"
+                : sc === "warning"
+                  ? "\u26A0\uFE0F"
+                  : sc === "positive"
+                    ? "\u2705"
+                    : "\uD83D\uDCA1";
+            h +=
+              '<div class="bias-item ' +
+              sc +
+              '"><span class="bias-icon" aria-hidden="true">' +
+              ic +
+              '</span><div class="bias-text"><strong>' +
+              esc(it.message) +
+              "</strong>";
+            if (it.matched)
+              h +=
+                ' <span style="color:var(--text-muted);font-size:0.75rem;">(&ldquo;' +
+                esc(it.matched) +
+                "&rdquo;)</span>";
+            if (it.suggestion)
+              h +=
+                '<span class="bias-suggestion">' +
+                esc(it.suggestion) +
+                "</span>";
+            if (it.research)
+              h +=
+                '<span class="bias-suggestion" style="font-style:italic;opacity:0.8;">' +
+                esc(it.research) +
+                "</span>";
+            h += "</div></div>";
+          });
+          h += "</div>";
+          return h;
+        }
+
+        var _lf = null,
+          _lr = null;
+        $gen.addEventListener("click", function () {
+          var d = collectForm();
+          if (!validateForm(d)) return;
+          _lf = d;
+          $gen.disabled = true;
+          $gen.innerHTML = '<span class="spinner"></span> Generating...';
+          callAPI(d)
+            .then(function (r) {
+              _lr = r;
+              render(r);
+            })
+            .catch(function () {
+              var cr = genClient(d);
+              _lr = cr;
+              render(cr);
+            })
+            .finally(function () {
+              $gen.disabled = false;
+              $gen.innerHTML =
+                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Generate Ad Copy';
+            });
+        });
+
+        window._creativeAI = {
+          copy: function (t) {
+            copyText(t.replace(/\\n/g, "\n"));
+          },
+          exportJSON: function () {
+            if (!_lr) {
+              showToast("Nothing to export");
+              return;
+            }
+            var b = new Blob([JSON.stringify(_lr, null, 2)], {
+              type: "application/json",
+            });
+            var u = URL.createObjectURL(b);
+            var a = document.createElement("a");
+            a.href = u;
+            a.download = "creative-ai-output.json";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(u);
+            showToast("JSON exported");
+          },
+          regenerateAll: function () {
+            if (!_lf) {
+              showToast("Generate first");
+              return;
+            }
+            $gen.click();
+          },
+        };
+
+        var sO = new IntersectionObserver(
           function (entries) {
-            entries.forEach(function (entry) {
-              if (entry.isIntersecting) {
-                entry.target.classList.add("visible");
-                scrollObserver.unobserve(entry.target);
+            entries.forEach(function (e) {
+              if (e.isIntersecting) {
+                e.target.classList.add("visible");
+                sO.unobserve(e.target);
               }
             });
           },
           { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
         );
         document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
-          scrollObserver.observe(el);
+          sO.observe(el);
         });
       })();
     </script>
+    <footer
+      class="reveal-on-scroll"
+      style="
+        text-align: center;
+        padding: 2rem 1rem;
+        color: #64748b;
+        font-size: 0.8rem;
+        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        margin-top: 3rem;
+      "
+    >
+      Powered by
+      <a
+        href="https://www.linkedin.com/in/chandel13/"
+        target="_blank"
+        rel="noopener"
+        style="color: #818cf8; text-decoration: none"
+        >Shubham Singh Chandel</a
+      >
+      &middot; Nova AI Suite
+    </footer>
   </body>
 </html>

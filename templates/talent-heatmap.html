@@ -725,6 +725,80 @@
         filter: none;
       }
     </style>
+    <!-- PostHog Analytics (loaded only if API key is configured server-side) -->
+    <script>
+      !(function (t, e) {
+        var o, n, p, r;
+        e.__SV ||
+          ((window.posthog = e),
+          (e._i = []),
+          (e.init = function (i, s, a) {
+            function g(t, e) {
+              var o = e.split(".");
+              (2 == o.length && ((t = t[o[0]]), (e = o[1])),
+                (t[e] = function () {
+                  t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+                }));
+            }
+            (((p = t.createElement("script")).type = "text/javascript"),
+              (p.crossOrigin = "anonymous"),
+              (p.async = !0),
+              (p.src =
+                s.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") +
+                "/static/array.js"),
+              (r = t.getElementsByTagName("script")[0]).parentNode.insertBefore(
+                p,
+                r,
+              ));
+            var u = e;
+            for (
+              void 0 !== a ? (u = e[a] = []) : (a = "posthog"),
+                u.people = u.people || [],
+                u.toString = function (t) {
+                  var e = "posthog";
+                  return (
+                    "posthog" !== a && (e += "." + a),
+                    t || (e += " (stub)"),
+                    e
+                  );
+                },
+                u.people.toString = function () {
+                  return u.toString(1) + ".people (stub)";
+                },
+                o =
+                  "init capture register register_once unregister opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing identify alias people.set people.set_once set_config reset get_distinct_id getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep".split(
+                    " ",
+                  ),
+                n = 0;
+              n < o.length;
+              n++
+            )
+              g(u, o[n]);
+            e._i.push([i, s, a]);
+          }),
+          (e.__SV = 1));
+      })(document, window.posthog || []);
+    </script>
+    <script>
+      // Initialize PostHog only if the backend provides the key via a meta tag or inline
+      (function () {
+        // Fetch the PostHog key from the server config endpoint
+        fetch("/api/health")
+          .then((r) => r.json())
+          .then((d) => {
+            if (d && d.posthog_key) {
+              posthog.init(d.posthog_key, {
+                api_host: "https://us.i.posthog.com",
+                person_profiles: "identified_only",
+                autocapture: true,
+                capture_pageview: true,
+                capture_pageleave: true,
+              });
+            }
+          })
+          .catch(() => {});
+      })();
+    </script>
   </head>
   <body>
     <script>
@@ -971,6 +1045,54 @@
           <div class="optimal-grid reveal-on-scroll" id="optimalGrid"></div>
         </div>
 
+        <!-- Live Job Density -->
+        <div
+          class="glass-card reveal-on-scroll"
+          id="jobDensityCard"
+          style="display: none"
+        >
+          <h2 style="display: flex; align-items: center; gap: 8px">
+            <span class="icon">&#128200;</span> Live Job Density
+            <span
+              style="
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 0.65rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                padding: 2px 6px;
+                border-radius: 4px;
+                background: rgba(34, 197, 94, 0.15);
+                color: #22c55e;
+                border: 1px solid rgba(34, 197, 94, 0.3);
+              "
+            >
+              <span
+                style="
+                  width: 6px;
+                  height: 6px;
+                  border-radius: 50%;
+                  background: #22c55e;
+                "
+                aria-hidden="true"
+              ></span>
+              Live
+            </span>
+          </h2>
+          <p
+            style="
+              color: var(--text-secondary);
+              font-size: 0.875rem;
+              margin-bottom: 1rem;
+            "
+          >
+            Real-time job posting density by location from major job boards.
+          </p>
+          <div id="jobDensityContent"></div>
+        </div>
+
         <!-- Downloads -->
         <div class="glass-card reveal-on-scroll">
           <h2><span class="icon">&#128229;</span> Download Reports</h2>
@@ -1142,6 +1264,7 @@
           renderSalaryBars(data.salary_map || []);
           renderComparison(data.comparison || {});
           renderOptimal(data.optimal_locations || []);
+          renderJobDensity(data.live_job_density);
 
           resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
         }
@@ -1423,6 +1546,99 @@
               "</div>";
           });
           grid.innerHTML = html;
+        }
+
+        function renderJobDensity(densityData) {
+          var card = document.getElementById("jobDensityCard");
+          var content = document.getElementById("jobDensityContent");
+          if (!densityData || densityData.source === "error") {
+            card.style.display = "none";
+            return;
+          }
+          card.style.display = "block";
+
+          var locations =
+            densityData.locations ||
+            densityData.by_location ||
+            densityData.cities ||
+            {};
+          var locKeys = Object.keys(locations);
+          if (locKeys.length === 0 && Array.isArray(densityData.results)) {
+            densityData.results.forEach(function (r) {
+              locations[r.location || r.city || "Unknown"] =
+                r.count || r.jobs || r.density || 0;
+            });
+            locKeys = Object.keys(locations);
+          }
+
+          if (locKeys.length === 0) {
+            card.style.display = "none";
+            return;
+          }
+
+          // Sort by count descending
+          var sorted = locKeys
+            .map(function (k) {
+              var val = locations[k];
+              var count =
+                typeof val === "number"
+                  ? val
+                  : val.count || val.jobs || val.density || 0;
+              return { city: k, count: count };
+            })
+            .sort(function (a, b) {
+              return b.count - a.count;
+            });
+
+          var maxCount = sorted[0].count || 1;
+
+          var html =
+            '<div style="display:flex;flex-direction:column;gap:8px;">';
+          sorted.forEach(function (item, idx) {
+            var pct = Math.round((item.count / maxCount) * 100);
+            var barColor =
+              idx === 0
+                ? "var(--cyan-accent, #22d3ee)"
+                : "var(--indigo, #6366f1)";
+            html += '<div style="display:flex;align-items:center;gap:12px;">';
+            html +=
+              '<div style="min-width:24px;color:var(--text-muted);font-size:0.8rem;font-weight:600;text-align:right;">#' +
+              (idx + 1) +
+              "</div>";
+            html += '<div style="flex:1;">';
+            html +=
+              '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
+            html +=
+              '<span style="font-size:0.85rem;font-weight:600;color:var(--text,#d4d4d8);">' +
+              escapeHtml(item.city) +
+              "</span>";
+            html +=
+              '<span style="font-size:0.85rem;font-weight:700;color:' +
+              barColor +
+              ';">' +
+              item.count.toLocaleString() +
+              " jobs</span>";
+            html += "</div>";
+            html +=
+              '<div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">';
+            html +=
+              '<div style="height:100%;width:' +
+              pct +
+              "%;background:" +
+              barColor +
+              ';border-radius:3px;transition:width 0.6s ease;"></div>';
+            html += "</div></div></div>";
+          });
+          html += "</div>";
+
+          if (densityData.source) {
+            html +=
+              '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:10px;text-align:right;">Source: ' +
+              escapeHtml(densityData.source) +
+              "</div>";
+          }
+
+          content.innerHTML = html;
         }
 
         // ── Table Sorting ──

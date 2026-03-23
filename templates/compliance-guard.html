@@ -919,6 +919,80 @@
         }
       }
     </style>
+    <!-- PostHog Analytics (loaded only if API key is configured server-side) -->
+    <script>
+      !(function (t, e) {
+        var o, n, p, r;
+        e.__SV ||
+          ((window.posthog = e),
+          (e._i = []),
+          (e.init = function (i, s, a) {
+            function g(t, e) {
+              var o = e.split(".");
+              (2 == o.length && ((t = t[o[0]]), (e = o[1])),
+                (t[e] = function () {
+                  t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+                }));
+            }
+            (((p = t.createElement("script")).type = "text/javascript"),
+              (p.crossOrigin = "anonymous"),
+              (p.async = !0),
+              (p.src =
+                s.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") +
+                "/static/array.js"),
+              (r = t.getElementsByTagName("script")[0]).parentNode.insertBefore(
+                p,
+                r,
+              ));
+            var u = e;
+            for (
+              void 0 !== a ? (u = e[a] = []) : (a = "posthog"),
+                u.people = u.people || [],
+                u.toString = function (t) {
+                  var e = "posthog";
+                  return (
+                    "posthog" !== a && (e += "." + a),
+                    t || (e += " (stub)"),
+                    e
+                  );
+                },
+                u.people.toString = function () {
+                  return u.toString(1) + ".people (stub)";
+                },
+                o =
+                  "init capture register register_once unregister opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing identify alias people.set people.set_once set_config reset get_distinct_id getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep".split(
+                    " ",
+                  ),
+                n = 0;
+              n < o.length;
+              n++
+            )
+              g(u, o[n]);
+            e._i.push([i, s, a]);
+          }),
+          (e.__SV = 1));
+      })(document, window.posthog || []);
+    </script>
+    <script>
+      // Initialize PostHog only if the backend provides the key via a meta tag or inline
+      (function () {
+        // Fetch the PostHog key from the server config endpoint
+        fetch("/api/health")
+          .then((r) => r.json())
+          .then((d) => {
+            if (d && d.posthog_key) {
+              posthog.init(d.posthog_key, {
+                api_host: "https://us.i.posthog.com",
+                person_profiles: "identified_only",
+                autocapture: true,
+                capture_pageview: true,
+                capture_pageleave: true,
+              });
+            }
+          })
+          .catch(() => {});
+      })();
+    </script>
   </head>
   <body>
     <header class="app-header" role="banner">
@@ -1038,6 +1112,36 @@
           </button>
           <button
             class="btn-primary"
+            id="aiAnalyzeBtn"
+            type="button"
+            style="
+              background: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
+              box-shadow: 0 0 16px rgba(99, 102, 241, 0.3);
+            "
+            aria-label="Run AI-powered compliance analysis"
+          >
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="btn-text">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                style="vertical-align: middle; margin-right: 4px"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              AI Deep Analysis
+            </span>
+          </button>
+          <button
+            class="btn-primary"
             id="clearBtn"
             type="button"
             style="
@@ -1101,6 +1205,80 @@
         <div class="glass-card recommendations reveal-on-scroll stagger-3">
           <span class="section-label">Recommendations</span>
           <div class="rec-list" id="recList"></div>
+        </div>
+
+        <!-- AI Analysis Results -->
+        <div
+          class="glass-card reveal-on-scroll stagger-4"
+          id="aiResultsCard"
+          style="display: none"
+        >
+          <span
+            class="section-label"
+            style="display: flex; align-items: center; gap: 8px"
+          >
+            AI Compliance Analysis
+            <span
+              style="
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 0.65rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                padding: 2px 6px;
+                border-radius: 4px;
+                background: rgba(99, 102, 241, 0.15);
+                color: #818cf8;
+                border: 1px solid rgba(99, 102, 241, 0.3);
+              "
+              >AI</span
+            >
+          </span>
+          <div id="aiResultsContent"></div>
+        </div>
+
+        <!-- Recent Law Updates -->
+        <div
+          class="glass-card reveal-on-scroll stagger-5"
+          id="lawUpdatesCard"
+          style="display: none"
+        >
+          <span
+            class="section-label"
+            style="display: flex; align-items: center; gap: 8px"
+          >
+            Recent Law Updates
+            <span
+              style="
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 0.65rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                padding: 2px 6px;
+                border-radius: 4px;
+                background: rgba(34, 197, 94, 0.15);
+                color: #22c55e;
+                border: 1px solid rgba(34, 197, 94, 0.3);
+              "
+            >
+              <span
+                style="
+                  width: 6px;
+                  height: 6px;
+                  border-radius: 50%;
+                  background: #22c55e;
+                "
+                aria-hidden="true"
+              ></span>
+              Live
+            </span>
+          </span>
+          <div id="lawUpdatesContent"></div>
         </div>
       </section>
     </main>
@@ -1916,6 +2094,243 @@
         document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
           scrollObserver.observe(el);
         });
+
+        // ── CSRF Token ──
+        window.__csrfToken = "";
+        fetch("/api/csrf-token")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (d) {
+            window.__csrfToken = d.token || "";
+          })
+          .catch(function () {});
+
+        // ── AI Deep Analysis ──
+        var aiAnalyzeBtn = document.getElementById("aiAnalyzeBtn");
+
+        aiAnalyzeBtn.addEventListener("click", async function () {
+          hideError();
+          var text = (jobPosting.value || "").trim();
+          if (!text) {
+            showError("Please paste a job posting for AI analysis.");
+            return;
+          }
+          if (text.length < 50) {
+            showError("Job posting seems too short for AI analysis.");
+            return;
+          }
+
+          aiAnalyzeBtn.classList.add("loading");
+          aiAnalyzeBtn.disabled = true;
+
+          try {
+            var resp = await fetch("/api/compliance/analyze", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": window.__csrfToken,
+              },
+              body: JSON.stringify({
+                text: text,
+                job_title: document.getElementById("jobTitle").value || "",
+                location: document.getElementById("jobLocation").value || "",
+                industry: "",
+              }),
+            });
+
+            if (!resp.ok) throw new Error("HTTP " + resp.status);
+            var data = await resp.json();
+            if (data.error && !data.score && !data.issues) {
+              throw new Error(data.error);
+            }
+
+            renderAiResults(data);
+            renderLawUpdates(data.recent_law_updates);
+
+            // Show results section if not already visible
+            resultsSection.classList.add("visible");
+
+            var aiCard = document.getElementById("aiResultsCard");
+            if (aiCard) {
+              aiCard.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+          } catch (err) {
+            showError("AI analysis failed: " + err.message);
+          } finally {
+            aiAnalyzeBtn.classList.remove("loading");
+            aiAnalyzeBtn.disabled = false;
+          }
+        });
+
+        function renderAiResults(data) {
+          var card = document.getElementById("aiResultsCard");
+          var content = document.getElementById("aiResultsContent");
+          card.style.display = "block";
+
+          var aiScore = data.score || 0;
+          var issues = data.issues || [];
+          var recs = data.recommendations || [];
+
+          var scoreColor =
+            aiScore >= 80
+              ? "var(--green-success)"
+              : aiScore >= 60
+                ? "var(--amber-warning)"
+                : "var(--red-error)";
+
+          var html =
+            '<div style="display:grid;grid-template-columns:auto 1fr;gap:24px;margin-top:12px;">';
+
+          // Score
+          html +=
+            '<div style="text-align:center;padding:16px 24px;background:rgba(0,0,0,0.3);border-radius:12px;border:1px solid var(--glass-border);">';
+          html +=
+            '<div style="font-size:2.5rem;font-weight:800;color:' +
+            scoreColor +
+            ';">' +
+            aiScore +
+            "</div>";
+          html +=
+            '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">AI Score</div>';
+          html += "</div>";
+
+          // Issues list
+          html += "<div>";
+          if (issues.length === 0) {
+            html +=
+              '<div style="color:var(--green-success);font-weight:600;padding:8px 0;">No compliance issues detected by AI.</div>';
+          } else {
+            html +=
+              '<div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;font-weight:600;">' +
+              issues.length +
+              " issue" +
+              (issues.length !== 1 ? "s" : "") +
+              " found:</div>";
+            issues.forEach(function (issue) {
+              html +=
+                '<div style="background:var(--surface-2,rgba(26,26,26,0.5));border:1px solid var(--glass-border);border-radius:8px;padding:12px;margin-bottom:8px;">';
+              if (issue.phrase) {
+                html +=
+                  '<div style="font-size:0.75rem;color:var(--red-error);font-weight:600;margin-bottom:4px;">Flagged: "' +
+                  escapeHtml(issue.phrase) +
+                  '"</div>';
+              }
+              if (issue.reason) {
+                html +=
+                  '<div style="font-size:0.825rem;color:var(--text);margin-bottom:4px;">' +
+                  escapeHtml(issue.reason) +
+                  "</div>";
+              }
+              if (issue.suggestion) {
+                html +=
+                  '<div style="font-size:0.8rem;color:var(--cyan-accent,#22d3ee);">Suggestion: ' +
+                  escapeHtml(issue.suggestion) +
+                  "</div>";
+              }
+              if (issue.law) {
+                html +=
+                  '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Law: ' +
+                  escapeHtml(issue.law) +
+                  "</div>";
+              }
+              html += "</div>";
+            });
+          }
+          html += "</div></div>";
+
+          // Recommendations
+          if (recs.length > 0) {
+            html +=
+              '<div style="margin-top:16px;border-top:1px solid var(--glass-border);padding-top:16px;">';
+            html +=
+              '<div style="font-size:0.8rem;color:var(--text-secondary);font-weight:600;margin-bottom:8px;">AI Recommendations:</div>';
+            recs.forEach(function (rec) {
+              html +=
+                '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">';
+              html +=
+                '<span style="color:var(--indigo-light,#818cf8);font-size:0.75rem;margin-top:2px;">&#9679;</span>';
+              html +=
+                '<span style="font-size:0.825rem;color:var(--text);">' +
+                escapeHtml(rec) +
+                "</span>";
+              html += "</div>";
+            });
+            html += "</div>";
+          }
+
+          content.innerHTML = html;
+
+          // Re-observe for scroll reveal
+          scrollObserver.observe(card);
+        }
+
+        function renderLawUpdates(updates) {
+          var card = document.getElementById("lawUpdatesCard");
+          var content = document.getElementById("lawUpdatesContent");
+
+          if (!updates || (Array.isArray(updates) && updates.length === 0)) {
+            card.style.display = "none";
+            return;
+          }
+
+          card.style.display = "block";
+          var items = Array.isArray(updates)
+            ? updates
+            : updates.updates || updates.laws || [updates];
+
+          if (items.length === 0) {
+            card.style.display = "none";
+            return;
+          }
+
+          var html =
+            '<div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">';
+          items.forEach(function (item) {
+            var title = item.title || item.name || item.law || "";
+            var desc = item.description || item.summary || item.details || "";
+            var jurisdiction =
+              item.jurisdiction || item.state || item.region || "";
+            var effectiveDate = item.effective_date || item.date || "";
+            var source = item.source || item.url || "";
+
+            html +=
+              '<div style="background:var(--surface-2,rgba(26,26,26,0.5));border:1px solid var(--glass-border);border-radius:8px;padding:14px;">';
+            if (title) {
+              html +=
+                '<div style="font-size:0.9rem;font-weight:700;color:var(--text);margin-bottom:4px;">' +
+                escapeHtml(title) +
+                "</div>";
+            }
+            var meta = [];
+            if (jurisdiction) meta.push(escapeHtml(jurisdiction));
+            if (effectiveDate)
+              meta.push("Effective: " + escapeHtml(effectiveDate));
+            if (meta.length) {
+              html +=
+                '<div style="font-size:0.75rem;color:var(--indigo-light,#818cf8);margin-bottom:6px;">' +
+                meta.join(" | ") +
+                "</div>";
+            }
+            if (desc) {
+              html +=
+                '<div style="font-size:0.825rem;color:var(--text-secondary);line-height:1.5;">' +
+                escapeHtml(desc) +
+                "</div>";
+            }
+            if (source && source.startsWith("http")) {
+              html +=
+                '<a href="' +
+                escapeHtml(source) +
+                '" target="_blank" rel="noopener" style="font-size:0.75rem;color:var(--cyan-accent,#22d3ee);margin-top:6px;display:inline-block;">View Source</a>';
+            }
+            html += "</div>";
+          });
+          html += "</div>";
+
+          content.innerHTML = html;
+          scrollObserver.observe(card);
+        }
       })();
     </script>
     <footer

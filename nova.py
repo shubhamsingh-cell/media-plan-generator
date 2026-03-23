@@ -28,6 +28,14 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+# Supabase data layer (optional, falls back gracefully)
+try:
+    from supabase_data import get_knowledge, get_channel_benchmarks
+
+    _nova_supabase_available = True
+except ImportError:
+    _nova_supabase_available = False
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -2772,8 +2780,28 @@ When presenting budget projections:
         return result
 
     def _query_knowledge_base(self, params: dict) -> dict:
-        """Query recruitment industry knowledge base."""
+        """Query recruitment industry knowledge base.
+
+        Tries Supabase first for fresher data, falls back to local cache.
+        """
         kb = self._data_cache.get("knowledge_base", {})
+
+        # Enrich with Supabase knowledge if available
+        if _nova_supabase_available:
+            try:
+                _nkb_industry = params.get("industry") or ""
+                _nkb_topic = params.get("topic") or ""
+                _sb_category = (
+                    _nkb_topic if _nkb_topic != "all" else "industry_insights"
+                )
+                _sb_kb = get_knowledge(_sb_category, _nkb_industry)
+                if _sb_kb:
+                    kb["_supabase_enriched"] = _sb_kb
+            except Exception as sb_err:
+                logger.error(
+                    f"Supabase KB enrichment for Nova failed: {sb_err}",
+                    exc_info=True,
+                )
         topic = params.get("topic", "all")
         metric = params.get("metric") or "".strip().lower()
         industry = params.get("industry") or "".strip().lower()

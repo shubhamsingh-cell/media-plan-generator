@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="PayScale Sync - Market-competitive salary ranges for job postings with pay transparency compliance. Supports EU Pay Transparency Directive and US state laws."
+      content="PayScale Sync -- Real-time salary benchmarking, pay transparency compliance, and compensation intelligence for recruitment media planning."
     />
     <meta name="theme-color" content="#000000" />
-    <title>PayScale Sync | Nova AI Suite</title>
+    <title>PayScale Sync | Salary Intelligence | Nova AI Suite</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' font-size='18' fill='white'>$</text></svg>"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%235A54BD'/><path d='M8 22V14l4-4 4 6 4-8 4 14' stroke='white' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='16' cy='8' r='2.5' fill='%236BB3CD' opacity='0.8'/></svg>"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -20,65 +20,54 @@
       rel="stylesheet"
     />
     <style>
+      /* ═══════════════════════════════════════════════════════════════════
+         DESIGN SYSTEM: Deep Obsidian + PayScale Sync Palette
+         PORT_GORE=#202058, BLUE_VIOLET=#5A54BD, DOWNY_TEAL=#6BB3CD
+         ═══════════════════════════════════════════════════════════════════ */
       :root {
-        --obsidian: #000000;
-        --obsidian-light: #111111;
-        --navy: #1a1a1a;
-        --indigo: #6366f1;
-        --indigo-light: #818cf8;
-        --indigo-pale: rgba(99, 102, 241, 0.08);
-        --indigo-glow: rgba(99, 102, 241, 0.15);
-        --cyan-accent: #22d3ee;
-        --green-success: #34d399;
+        --bg-primary: #000000;
+        --bg-secondary: #111111;
+        --bg-card: rgba(17, 17, 17, 0.8);
+        --bg-card-hover: rgba(26, 26, 26, 0.9);
+        --bg-input: rgba(26, 26, 26, 0.6);
+        --port-gore: #202058;
+        --blue-violet: #5a54bd;
+        --downy-teal: #6bb3cd;
         --accent: #6366f1;
         --accent-light: #818cf8;
-        --accent-warm: #f87171;
-        --warning: #fbbf24;
-        --error: #f87171;
-        --bg: #000000;
-        --surface-1: rgba(17, 17, 17, 0.8);
-        --card: rgba(17, 17, 17, 0.8);
-        --card-hover: rgba(26, 26, 26, 0.7);
-        --glass-blur-md: blur(24px) saturate(1.3);
-        --glass-border: rgba(255, 255, 255, 0.08);
-        --glass-border-hover: rgba(255, 255, 255, 0.16);
-        --text: #d4d4d8;
+        --accent-dim: rgba(99, 102, 241, 0.3);
+        --accent-glow: rgba(99, 102, 241, 0.15);
+        --text-primary: #d4d4d8;
         --text-secondary: #a1a1a1;
-        --text-light: #a1a1a1;
         --text-muted: #666666;
+        --text-bright: #ffffff;
+        --green: #22c55e;
+        --green-bg: rgba(34, 197, 94, 0.1);
+        --green-border: rgba(34, 197, 94, 0.3);
+        --red: #ef4444;
+        --red-bg: rgba(239, 68, 68, 0.1);
+        --red-border: rgba(239, 68, 68, 0.3);
+        --amber: #f59e0b;
+        --amber-bg: rgba(245, 158, 11, 0.1);
+        --amber-border: rgba(245, 158, 11, 0.3);
+        --blue: #3b82f6;
+        --blue-bg: rgba(59, 130, 246, 0.1);
+        --blue-border: rgba(59, 130, 246, 0.3);
+        --purple: #a855f7;
+        --purple-bg: rgba(168, 85, 247, 0.1);
+        --purple-border: rgba(168, 85, 247, 0.3);
         --border: rgba(255, 255, 255, 0.08);
-        --border-accent: rgba(99, 102, 241, 0.3);
-        --shadow-md:
-          0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
-        --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-        --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+        --border-strong: rgba(255, 255, 255, 0.16);
+        --blur: 20px;
         --radius: 12px;
         --radius-sm: 8px;
-        --radius-lg: 16px;
-        --gradient-primary: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
-        --gradient-accent: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
-        --gradient-mesh:
-          radial-gradient(
-            ellipse at 20% 50%,
-            rgba(99, 102, 241, 0.08) 0%,
-            transparent 50%
-          ),
-          radial-gradient(
-            ellipse at 80% 20%,
-            rgba(34, 211, 238, 0.06) 0%,
-            transparent 50%
-          ),
-          radial-gradient(
-            ellipse at 40% 80%,
-            rgba(99, 102, 241, 0.04) 0%,
-            transparent 50%
-          );
+        --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.1);
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-        --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
-        --duration-normal: 200ms;
-        --duration-slow: 300ms;
-        --focus-ring: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent);
       }
+
+      /* ── Reduced Motion ── */
       @media (prefers-reduced-motion: reduce) {
         .reveal-on-scroll {
           opacity: 1;
@@ -90,9 +79,19 @@
         *::before,
         *::after {
           animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
           transition-duration: 0.01ms !important;
         }
+        .stagger-1,
+        .stagger-2,
+        .stagger-3,
+        .stagger-4,
+        .stagger-5,
+        .stagger-6 {
+          transition-delay: 0s !important;
+        }
       }
+
       * {
         margin: 0;
         padding: 0;
@@ -102,9 +101,10 @@
         scroll-behavior: smooth;
       }
       ::selection {
-        background: var(--accent);
+        background: var(--blue-violet);
         color: white;
       }
+
       body {
         font-family:
           "Inter",
@@ -113,2058 +113,3028 @@
           "Segoe UI",
           Roboto,
           sans-serif;
-        background: var(--bg);
-        color: var(--text);
+        background: var(--bg-primary);
+        color: var(--text-primary);
         min-height: 100vh;
         font-size: 16px;
         line-height: 1.5;
         -webkit-font-smoothing: antialiased;
+        position: relative;
+        overflow-x: hidden;
       }
+
       body::before {
         content: "";
         position: fixed;
         inset: 0;
-        background: var(--gradient-mesh);
+        background:
+          radial-gradient(
+            ellipse 600px 400px at 20% 10%,
+            rgba(90, 84, 189, 0.08),
+            transparent
+          ),
+          radial-gradient(
+            ellipse 500px 300px at 80% 80%,
+            rgba(107, 179, 205, 0.06),
+            transparent
+          ),
+          radial-gradient(
+            ellipse 400px 300px at 50% 50%,
+            rgba(32, 32, 88, 0.04),
+            transparent
+          );
         pointer-events: none;
         z-index: 0;
-      }
-      .page-wrapper {
-        position: relative;
-        z-index: 1;
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 2rem 1.5rem 4rem;
-      }
-      .page-header {
-        text-align: center;
-        margin-bottom: 2.5rem;
-      }
-      .page-header h1 {
-        font-size: clamp(1.75rem, 4vw, 2.5rem);
-        font-weight: 800;
-        background: var(--gradient-accent);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        letter-spacing: -0.02em;
-        margin-bottom: 0.5rem;
-      }
-      .page-header p {
-        color: var(--text-secondary);
-        font-size: 1rem;
-        max-width: 640px;
-        margin: 0 auto;
-      }
-      .back-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: var(--text-light);
-        text-decoration: none;
-        font-size: 0.875rem;
-        margin-bottom: 1rem;
-        padding: 0.5rem 0;
-        min-height: 44px;
-        transition: color var(--duration-normal);
-      }
-      .back-link:hover {
-        color: var(--accent-light);
-      }
-      .back-link:focus-visible {
-        outline: none;
-        box-shadow: var(--focus-ring);
-        border-radius: 4px;
+        animation: ambientDrift 25s ease-in-out infinite alternate;
       }
 
-      .glass-card {
-        background: var(--card);
-        backdrop-filter: var(--glass-blur-md);
-        border: 1px solid var(--glass-border);
-        border-radius: var(--radius-lg);
-        padding: 2rem;
-        box-shadow: var(--shadow-md);
-        margin-bottom: 1.5rem;
-        transition: border-color var(--duration-normal);
-      }
-      .glass-card:hover {
-        border-color: var(--glass-border-hover);
-      }
-      .glass-card h2 {
-        font-size: 1.25rem;
-        font-weight: 700;
-        margin-bottom: 1.5rem;
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-      }
-      .glass-card h2 .icon {
-        width: 36px;
-        height: 36px;
-        background: var(--gradient-primary);
-        border-radius: var(--radius-sm);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1rem;
-        flex-shrink: 0;
-      }
-
-      .form-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1.25rem;
-      }
-      @media (max-width: 640px) {
-        .form-grid {
-          grid-template-columns: 1fr;
+      @keyframes ambientDrift {
+        0% {
+          background:
+            radial-gradient(
+              ellipse 600px 400px at 20% 10%,
+              rgba(90, 84, 189, 0.08),
+              transparent
+            ),
+            radial-gradient(
+              ellipse 500px 300px at 80% 80%,
+              rgba(107, 179, 205, 0.06),
+              transparent
+            ),
+            radial-gradient(
+              ellipse 400px 300px at 50% 50%,
+              rgba(32, 32, 88, 0.04),
+              transparent
+            );
         }
-      }
-      .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-      .form-group--full {
-        grid-column: 1 / -1;
-      }
-      label {
-        font-size: 0.8125rem;
-        font-weight: 600;
-        color: var(--text-secondary);
-        letter-spacing: 0.03em;
-        text-transform: uppercase;
-      }
-      input[type="text"],
-      input[type="number"],
-      select {
-        width: 100%;
-        padding: 0.75rem 1rem;
-        font-size: 0.9375rem;
-        font-family: inherit;
-        color: var(--text);
-        background: rgba(17, 17, 17, 0.8);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        outline: none;
-        transition:
-          border-color var(--duration-normal),
-          box-shadow var(--duration-normal);
-        min-height: 48px;
-        -webkit-appearance: none;
-      }
-      input::placeholder {
-        color: var(--text-muted);
-      }
-      input:focus,
-      select:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-      }
-      select {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23818CF8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 0.75rem center;
-        padding-right: 2.5rem;
-        cursor: pointer;
-      }
-
-      .btn-primary {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.75rem;
-        padding: 0.875rem 2rem;
-        font-size: 1rem;
-        font-weight: 700;
-        font-family: inherit;
-        color: white;
-        background: var(--gradient-primary);
-        border: none;
-        border-radius: var(--radius);
-        cursor: pointer;
-        min-height: 52px;
-        min-width: 200px;
-        transition: all var(--duration-normal);
-        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
-        position: relative;
-        overflow: hidden;
-      }
-      .btn-primary:hover:not(:disabled) {
-        box-shadow: 0 6px 24px rgba(99, 102, 241, 0.45);
-        transform: translateY(-1px);
-      }
-      .btn-primary:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      .btn-primary:focus-visible {
-        outline: none;
-        box-shadow: var(--focus-ring);
-      }
-
-      .btn-secondary {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 1.25rem;
-        font-size: 0.875rem;
-        font-weight: 600;
-        font-family: inherit;
-        border-radius: var(--radius-sm);
-        cursor: pointer;
-        min-height: 44px;
-        transition: all var(--duration-normal);
-        text-decoration: none;
-        color: var(--cyan-accent);
-        background: rgba(34, 211, 238, 0.08);
-        border: 1px solid rgba(34, 211, 238, 0.3);
-      }
-      .btn-secondary:hover {
-        background: rgba(34, 211, 238, 0.15);
-      }
-      .btn-secondary:focus-visible {
-        outline: none;
-        box-shadow: var(--focus-ring);
-      }
-
-      /* Results */
-      .results-section {
-        display: none;
-      }
-      .results-section.visible {
-        display: block;
-        animation: fadeSlideIn 400ms var(--ease-out);
-      }
-      @keyframes fadeSlideIn {
-        from {
-          opacity: 0;
-          transform: translateY(16px);
+        50% {
+          background:
+            radial-gradient(
+              ellipse 600px 400px at 60% 30%,
+              rgba(90, 84, 189, 0.1),
+              transparent
+            ),
+            radial-gradient(
+              ellipse 500px 300px at 20% 70%,
+              rgba(107, 179, 205, 0.05),
+              transparent
+            ),
+            radial-gradient(
+              ellipse 400px 300px at 80% 50%,
+              rgba(32, 32, 88, 0.06),
+              transparent
+            );
         }
-        to {
-          opacity: 1;
-          transform: translateY(0);
+        100% {
+          background:
+            radial-gradient(
+              ellipse 600px 400px at 40% 60%,
+              rgba(90, 84, 189, 0.07),
+              transparent
+            ),
+            radial-gradient(
+              ellipse 500px 300px at 70% 40%,
+              rgba(107, 179, 205, 0.08),
+              transparent
+            ),
+            radial-gradient(
+              ellipse 400px 300px at 30% 20%,
+              rgba(32, 32, 88, 0.05),
+              transparent
+            );
         }
       }
 
-      /* Salary range visual */
-      .salary-range-visual {
-        position: relative;
-        margin: 2rem 0;
-      }
-      .range-bar-container {
-        position: relative;
-        height: 48px;
-        background: rgba(255, 255, 255, 0.04);
-        border-radius: var(--radius-sm);
-        overflow: visible;
-        margin: 1.5rem 0 2.5rem;
-      }
-      .range-bar-fill {
-        position: absolute;
-        top: 0;
-        height: 100%;
-        border-radius: var(--radius-sm);
-        background: linear-gradient(
-          90deg,
-          rgba(34, 211, 238, 0.4),
-          rgba(99, 102, 241, 0.6),
-          rgba(248, 113, 113, 0.4)
-        );
-        transition: all 600ms var(--ease-out);
-      }
-      .range-marker {
-        position: absolute;
-        top: -8px;
-        width: 3px;
-        height: calc(100% + 16px);
-        background: white;
-        border-radius: 2px;
-        transform: translateX(-50%);
-      }
-      .range-marker::after {
-        content: attr(data-label);
-        position: absolute;
-        top: calc(100% + 8px);
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 0.6875rem;
-        font-weight: 600;
-        color: var(--text-secondary);
-        white-space: nowrap;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-      }
-      .range-marker.median {
-        background: var(--accent-light);
-        width: 4px;
-      }
-      .range-labels {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 0.5rem;
-      }
-      .range-label {
-        text-align: center;
-      }
-      .range-label .amount {
+      h1 {
         font-size: 1.5rem;
         font-weight: 800;
-        color: white;
+        letter-spacing: -0.03em;
       }
-      .range-label .label-text {
-        font-size: 0.6875rem;
-        color: var(--text-muted);
+      h2 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      h3 {
+        font-size: 0.85rem;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
-      .range-label.median-label .amount {
-        color: var(--accent-light);
+        letter-spacing: 0.06em;
+        color: var(--text-secondary);
       }
 
-      /* Stat cards */
-      .stat-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-      }
-      .stat-card {
-        background: rgba(17, 17, 17, 0.5);
-        border: 1px solid var(--glass-border);
-        border-radius: var(--radius-sm);
-        padding: 1.25rem;
-        text-align: center;
-        transition:
-          border-color var(--duration-normal),
-          transform var(--duration-normal);
-      }
-      .stat-card:hover {
-        border-color: var(--glass-border-hover);
-        transform: translateY(-2px);
-      }
-      .stat-card .stat-value {
-        font-size: 1.75rem;
-        font-weight: 800;
-        background: var(--gradient-accent);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
-      .stat-card .stat-label {
-        font-size: 0.75rem;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-top: 0.25rem;
-      }
-
-      /* Compliance badges */
-      .compliance-list {
+      .app-header {
+        padding: 16px 24px;
         display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.95);
+        backdrop-filter: blur(var(--blur));
+        position: sticky;
+        top: 0;
+        z-index: 100;
       }
-      .compliance-item {
+      .header-left {
         display: flex;
-        align-items: flex-start;
-        gap: 0.75rem;
-        padding: 0.75rem 1rem;
-        background: rgba(17, 17, 17, 0.5);
-        border: 1px solid var(--glass-border);
-        border-radius: var(--radius-sm);
+        align-items: center;
+        gap: 12px;
       }
-      .compliance-icon {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
+      .header-left .logo {
+        width: 32px;
+        height: 32px;
+        background: var(--blue-violet);
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.875rem;
-        flex-shrink: 0;
-        margin-top: 0.1rem;
+        font-size: 16px;
       }
-      .compliance-icon.active {
-        background: rgba(52, 211, 153, 0.15);
-        color: var(--green-success);
-      }
-      .compliance-icon.upcoming {
-        background: rgba(251, 191, 36, 0.15);
-        color: var(--warning);
-      }
-      .compliance-icon.na {
-        background: rgba(255, 255, 255, 0.05);
-        color: var(--text-muted);
-      }
-      .compliance-info {
-        flex: 1;
-      }
-      .compliance-name {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: var(--text);
-      }
-      .compliance-detail {
-        font-size: 0.75rem;
-        color: var(--text-muted);
-        margin-top: 0.15rem;
-      }
-      .compliance-status-badge {
-        font-size: 0.6875rem;
-        font-weight: 700;
-        padding: 0.15rem 0.5rem;
-        border-radius: 4px;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-      }
-      .badge-active {
-        color: var(--green-success);
-        background: rgba(52, 211, 153, 0.1);
-      }
-      .badge-upcoming {
-        color: var(--warning);
-        background: rgba(251, 191, 36, 0.1);
-      }
-      .badge-na {
-        color: var(--text-muted);
-        background: rgba(255, 255, 255, 0.05);
-      }
-
-      /* Comparable roles */
-      .comparable-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 1rem;
-      }
-      .comparable-card {
-        background: rgba(17, 17, 17, 0.5);
-        border: 1px solid var(--glass-border);
-        border-radius: var(--radius-sm);
-        padding: 1.25rem;
-        transition:
-          border-color var(--duration-normal),
-          transform var(--duration-normal);
-      }
-      .comparable-card:hover {
-        border-color: var(--glass-border-hover);
-        transform: translateY(-2px);
-      }
-      .comparable-title {
-        font-size: 0.9375rem;
-        font-weight: 700;
-        margin-bottom: 0.75rem;
-      }
-      .comparable-range {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.5rem;
-      }
-      .comparable-range .range-text {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: var(--accent-light);
-      }
-      .comparable-range .diff-text {
-        font-size: 0.75rem;
-        font-weight: 600;
-      }
-      .diff-higher {
-        color: var(--green-success);
-      }
-      .diff-lower {
-        color: var(--accent-warm);
-      }
-      .diff-same {
-        color: var(--text-muted);
-      }
-      .comparable-bar {
-        height: 6px;
-        background: rgba(255, 255, 255, 0.04);
-        border-radius: 3px;
-        overflow: hidden;
-      }
-      .comparable-bar-fill {
-        height: 100%;
-        border-radius: 3px;
-        background: var(--gradient-primary);
-        transition: width 600ms var(--ease-out);
-      }
-
-      /* Posting range card */
-      .posting-range {
-        background: rgba(99, 102, 241, 0.06);
-        border: 1px solid var(--border-accent);
-        border-radius: var(--radius);
-        padding: 1.5rem;
-        text-align: center;
-      }
-      .posting-range .posting-value {
-        font-size: 1.75rem;
-        font-weight: 800;
-        color: white;
-        margin: 0.5rem 0;
-      }
-      .posting-range .posting-label {
-        font-size: 0.8125rem;
-        color: var(--text-secondary);
-      }
-      .posting-range .posting-note {
-        font-size: 0.75rem;
-        color: var(--text-muted);
-        margin-top: 0.75rem;
-      }
-
-      /* Copy button */
-      .btn-copy {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 1.25rem;
-        font-size: 0.875rem;
-        font-weight: 600;
-        font-family: inherit;
-        color: var(--green-success);
-        background: rgba(52, 211, 153, 0.08);
-        border: 1px solid rgba(52, 211, 153, 0.3);
-        border-radius: var(--radius-sm);
-        cursor: pointer;
-        min-height: 44px;
-        transition: all var(--duration-normal);
-      }
-      .btn-copy:hover {
-        background: rgba(52, 211, 153, 0.15);
-      }
-      .btn-copy:focus-visible {
-        outline: none;
-        box-shadow: var(--focus-ring);
-      }
-      .btn-copy.copied {
-        color: white;
-        background: rgba(52, 211, 153, 0.3);
-      }
-
-      /* Cost of living */
-      .col-adjustment {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1rem;
-        background: rgba(17, 17, 17, 0.5);
-        border: 1px solid var(--glass-border);
-        border-radius: var(--radius-sm);
-      }
-      .col-index {
-        font-size: 2rem;
-        font-weight: 800;
-        min-width: 80px;
-        text-align: center;
-      }
-      .col-index.high {
-        color: var(--accent-warm);
-      }
-      .col-index.medium {
-        color: var(--warning);
-      }
-      .col-index.low {
-        color: var(--green-success);
-      }
-      .col-details {
-        flex: 1;
-      }
-      .col-details .col-location {
-        font-size: 0.9375rem;
-        font-weight: 600;
-      }
-      .col-details .col-description {
-        font-size: 0.8125rem;
-        color: var(--text-muted);
-        margin-top: 0.25rem;
-      }
-
-      /* Error banner */
-      .error-banner {
-        background: rgba(248, 113, 113, 0.1);
-        border: 1px solid rgba(248, 113, 113, 0.3);
-        border-radius: var(--radius-sm);
-        padding: 0.75rem 1.25rem;
-        color: var(--error);
-        font-size: 0.875rem;
-        margin-bottom: 1rem;
-        display: none;
-      }
-      .error-banner.visible {
-        display: block;
-      }
-
-      /* Footer */
-      .footer {
-        text-align: center;
-        padding: 2rem 0;
-        color: var(--text-muted);
-        font-size: 0.8125rem;
-        border-top: 1px solid var(--border);
-        margin-top: 3rem;
-      }
-      .footer a {
+      .header-right a {
         color: var(--accent-light);
         text-decoration: none;
-        transition: color var(--duration-normal);
+        font-size: 0.85rem;
+        font-weight: 500;
+        opacity: 0.8;
+        transition: var(--transition);
       }
-      .footer a:hover {
-        color: var(--accent);
+      .header-right a:hover {
+        opacity: 1;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px;
+        position: relative;
+        z-index: 1;
       }
 
-      /* -- Scroll reveal animations -- */
       .reveal-on-scroll {
         opacity: 0;
         transform: translateY(24px);
-        filter: hue-rotate(40deg) saturate(0.5) brightness(0.8);
         transition:
-          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-          filter 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+          opacity 0.6s var(--ease-out),
+          transform 0.6s var(--ease-out);
       }
       .reveal-on-scroll.visible {
         opacity: 1;
         transform: translateY(0);
-        filter: none;
+      }
+      .stagger-1 {
+        transition-delay: 0.05s;
+      }
+      .stagger-2 {
+        transition-delay: 0.1s;
+      }
+      .stagger-3 {
+        transition-delay: 0.15s;
+      }
+      .stagger-4 {
+        transition-delay: 0.2s;
+      }
+      .stagger-5 {
+        transition-delay: 0.25s;
+      }
+      .stagger-6 {
+        transition-delay: 0.3s;
+      }
+
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        backdrop-filter: blur(var(--blur));
+        padding: 20px;
+        transition: var(--transition);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+      }
+      .card:hover {
+        border-color: var(--border-strong);
+        box-shadow: var(--shadow-glow);
+      }
+
+      .hero {
+        text-align: center;
+        padding: 48px 0 32px;
+      }
+      .hero-icon {
+        font-size: 2.5rem;
+        margin-bottom: 12px;
+      }
+      .hero h1 {
+        font-size: 2rem;
+        margin-bottom: 8px;
+        background: linear-gradient(
+          135deg,
+          var(--blue-violet),
+          var(--downy-teal)
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .hero p {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+      .hero-badge {
+        display: inline-block;
+        margin-top: 12px;
+        padding: 4px 12px;
+        background: rgba(90, 84, 189, 0.15);
+        border: 1px solid rgba(90, 84, 189, 0.3);
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--downy-teal);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .filters-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+      .filter-group {
+        min-width: 0;
+      }
+      .filter-group label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .form-input {
+        width: 100%;
+        padding: 10px 12px;
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        outline: none;
+      }
+      .form-input:focus {
+        border-color: var(--blue-violet);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.3);
+      }
+      .form-input::placeholder {
+        color: var(--text-muted);
+      }
+      select.form-input {
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 30px;
+      }
+
+      .autocomplete-wrapper {
+        position: relative;
+      }
+      .autocomplete-list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #1a1a1a;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 50;
+        display: none;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      }
+      .autocomplete-list.active {
+        display: block;
+      }
+      .autocomplete-item {
+        padding: 8px 12px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        color: var(--text-primary);
+        transition: background 0.15s;
+      }
+      .autocomplete-item:hover,
+      .autocomplete-item.highlighted {
+        background: rgba(90, 84, 189, 0.2);
+      }
+
+      .section-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-secondary);
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 12px 24px;
+        font-family: inherit;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border-radius: var(--radius-sm);
+        border: none;
+        cursor: pointer;
+        transition: var(--transition);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .btn-primary {
+        background: var(--blue-violet);
+        color: white;
+        position: relative;
+      }
+      .btn-primary:hover {
+        background: #6b64d4;
+        box-shadow: 0 0 20px rgba(90, 84, 189, 0.4);
+      }
+      .btn-primary:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .btn-outline {
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+      }
+      .btn-outline:hover {
+        border-color: var(--border-strong);
+        color: var(--text-primary);
+      }
+      .btn-sm {
+        padding: 8px 14px;
+        font-size: 0.75rem;
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--text-secondary);
+        padding: 6px 10px;
+        font-size: 0.8rem;
+        border: none;
+      }
+      .btn-ghost:hover {
+        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .compare-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+
+      .spinner-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(6px);
+        z-index: 200;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .spinner-overlay.active {
+        display: flex;
+      }
+      .spinner {
+        width: 48px;
+        height: 48px;
+        border: 3px solid rgba(90, 84, 189, 0.2);
+        border-top-color: var(--blue-violet);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .spinner-text {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+      }
+
+      #resultsArea {
+        display: none;
+        margin-top: 32px;
+      }
+      #resultsArea.active {
+        display: block;
+      }
+      .results-grid {
+        display: grid;
+        gap: 24px;
+      }
+      .results-grid-2 {
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      }
+
+      .salary-overview {
+        text-align: center;
+        padding: 32px 24px;
+      }
+      .salary-median {
+        font-size: 3rem;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        background: linear-gradient(
+          135deg,
+          var(--blue-violet),
+          var(--downy-teal)
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 4px;
+      }
+      .salary-label {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 24px;
+      }
+
+      .range-bar-wrapper {
+        position: relative;
+        height: 40px;
+        margin: 20px 0 40px;
+      }
+      .range-bar {
+        position: absolute;
+        top: 8px;
+        left: 0;
+        right: 0;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 12px;
+        overflow: visible;
+      }
+      .range-fill {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        border-radius: 12px;
+        background: linear-gradient(
+          90deg,
+          var(--port-gore),
+          var(--blue-violet),
+          var(--downy-teal)
+        );
+        transition:
+          left 0.8s var(--ease-out),
+          width 0.8s var(--ease-out);
+      }
+      .range-marker {
+        position: absolute;
+        top: -4px;
+        width: 3px;
+        height: 32px;
+        background: var(--text-bright);
+        border-radius: 2px;
+        transform: translateX(-1px);
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+        z-index: 2;
+      }
+      .range-marker-label {
+        position: absolute;
+        top: 34px;
+        transform: translateX(-50%);
+        font-size: 0.65rem;
+        font-weight: 600;
+        white-space: nowrap;
+        color: var(--text-secondary);
+      }
+      .range-marker-value {
+        position: absolute;
+        top: -20px;
+        transform: translateX(-50%);
+        font-size: 0.7rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .range-endpoints {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 4px;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+
+      .comparison-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .comparison-row:last-child {
+        border-bottom: none;
+      }
+      .comparison-label {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        min-width: 80px;
+      }
+      .comparison-bar {
+        flex: 1;
+        height: 20px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .comparison-bar-fill {
+        height: 100%;
+        border-radius: 10px;
+        transition: width 1s var(--ease-out);
+      }
+      .comparison-value {
+        font-size: 0.8rem;
+        font-weight: 700;
+        min-width: 80px;
+        text-align: right;
+      }
+
+      .position-gauge {
+        position: relative;
+        width: 180px;
+        height: 100px;
+        margin: 0 auto 16px;
+      }
+      .gauge-track {
+        width: 180px;
+        height: 90px;
+        border-radius: 90px 90px 0 0;
+        background: conic-gradient(
+          from 180deg at 50% 100%,
+          var(--red) 0deg,
+          var(--amber) 60deg,
+          var(--green) 100deg,
+          var(--blue) 150deg,
+          var(--purple) 180deg
+        );
+        position: relative;
+        overflow: hidden;
+      }
+      .gauge-inner {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 140px;
+        height: 70px;
+        border-radius: 70px 70px 0 0;
+        background: var(--bg-primary);
+      }
+      .gauge-needle {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        width: 3px;
+        height: 70px;
+        background: white;
+        transform-origin: bottom center;
+        transform: translateX(-50%) rotate(0deg);
+        transition: transform 1s var(--ease-out);
+        border-radius: 2px;
+        box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+        z-index: 2;
+      }
+      .gauge-center {
+        position: absolute;
+        bottom: -4px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 12px;
+        height: 12px;
+        background: white;
+        border-radius: 50%;
+        z-index: 3;
+      }
+      .gauge-score {
+        font-size: 2rem;
+        font-weight: 800;
+        text-align: center;
+        margin-top: 8px;
+      }
+      .gauge-rating {
+        text-align: center;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-top: 4px;
+        padding: 4px 12px;
+        border-radius: 4px;
+        display: inline-block;
+      }
+      .rating-below {
+        color: var(--red);
+        background: var(--red-bg);
+      }
+      .rating-at {
+        color: var(--amber);
+        background: var(--amber-bg);
+      }
+      .rating-above {
+        color: var(--green);
+        background: var(--green-bg);
+      }
+      .rating-premium {
+        color: var(--blue);
+        background: var(--blue-bg);
+      }
+
+      .col-city-card {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px;
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        margin-bottom: 8px;
+      }
+      .col-city-index {
+        font-size: 1.6rem;
+        font-weight: 800;
+        min-width: 60px;
+        text-align: center;
+      }
+      .col-city-details {
+        flex: 1;
+      }
+      .col-city-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .col-city-salary {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+      .col-diff {
+        font-size: 0.85rem;
+        font-weight: 700;
+        min-width: 60px;
+        text-align: right;
+      }
+
+      .compliance-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px;
+        border-radius: var(--radius-sm);
+        margin-bottom: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .compliance-pass {
+        background: var(--green-bg);
+        border: 1px solid var(--green-border);
+        color: var(--green);
+      }
+      .compliance-warn {
+        background: var(--amber-bg);
+        border: 1px solid var(--amber-border);
+        color: var(--amber);
+      }
+      .compliance-fail {
+        background: var(--red-bg);
+        border: 1px solid var(--red-border);
+        color: var(--red);
+      }
+      .compliance-icon {
+        font-size: 1.2rem;
+        flex-shrink: 0;
+      }
+      .compliance-text {
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 14px;
+        margin-top: 12px;
+        font-family: "Courier New", monospace;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        position: relative;
+      }
+      .compliance-text .copy-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+      }
+      .state-law-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .state-pill {
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-align: center;
+        background: rgba(90, 84, 189, 0.1);
+        border: 1px solid rgba(90, 84, 189, 0.2);
+        color: var(--text-secondary);
+      }
+      .state-pill.active-state {
+        background: rgba(34, 197, 94, 0.1);
+        border-color: rgba(34, 197, 94, 0.3);
+        color: var(--green);
+      }
+      .state-pill.pending-state {
+        background: var(--amber-bg);
+        border-color: var(--amber-border);
+        color: var(--amber);
+      }
+
+      .impact-metric {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .impact-metric:last-child {
+        border-bottom: none;
+      }
+      .impact-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+      }
+      .impact-details {
+        flex: 1;
+      }
+      .impact-label {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+      .impact-value {
+        font-size: 1rem;
+        font-weight: 700;
+      }
+      .impact-change {
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-align: right;
+        min-width: 60px;
+      }
+
+      .trend-chart {
+        display: flex;
+        align-items: flex-end;
+        gap: 6px;
+        height: 160px;
+        padding: 0 4px;
+        margin: 16px 0;
+      }
+      .trend-bar-group {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+      }
+      .trend-bar {
+        width: 100%;
+        max-width: 40px;
+        border-radius: 4px 4px 0 0;
+        transition: height 1s var(--ease-out);
+        position: relative;
+      }
+      .trend-bar:hover {
+        opacity: 0.85;
+      }
+      .trend-bar-label {
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        text-align: center;
+        white-space: nowrap;
+      }
+      .trend-bar-value {
+        position: absolute;
+        top: -18px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .trend-bar:hover .trend-bar-value {
+        opacity: 1;
+      }
+
+      .industry-bars {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .industry-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .industry-name {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        min-width: 100px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .industry-bar-track {
+        flex: 1;
+        height: 18px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 9px;
+        overflow: hidden;
+      }
+      .industry-bar-fill {
+        height: 100%;
+        border-radius: 9px;
+        transition: width 1s var(--ease-out);
+      }
+      .industry-salary {
+        font-size: 0.8rem;
+        font-weight: 700;
+        min-width: 70px;
+        text-align: right;
+      }
+
+      .view-toggle {
+        display: inline-flex;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: var(--radius-sm);
+        padding: 3px;
+        border: 1px solid var(--border);
+        margin-bottom: 16px;
+      }
+      .view-toggle-btn {
+        padding: 6px 14px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: var(--transition);
+        font-family: inherit;
+      }
+      .view-toggle-btn.active {
+        background: var(--blue-violet);
+        color: white;
+      }
+
+      .role-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+      .role-tab {
+        padding: 6px 14px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        cursor: pointer;
+        transition: var(--transition);
+        font-family: inherit;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .role-tab.active {
+        background: rgba(90, 84, 189, 0.15);
+        border-color: var(--blue-violet);
+        color: var(--blue-violet);
+      }
+      .role-tab .remove-role {
+        font-size: 0.65rem;
+        opacity: 0.5;
+        cursor: pointer;
+      }
+      .role-tab .remove-role:hover {
+        opacity: 1;
+      }
+      .add-role-btn {
+        padding: 6px 14px;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        background: transparent;
+        border: 1px dashed var(--border);
+        border-radius: 20px;
+        cursor: pointer;
+        transition: var(--transition);
+        font-family: inherit;
+      }
+      .add-role-btn:hover {
+        border-color: var(--border-strong);
+        color: var(--text-secondary);
+      }
+
+      .data-source-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        margin-top: 8px;
+      }
+      .data-source-tag::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--green);
+        flex-shrink: 0;
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        padding: 12px 20px;
+        background: #1a1a1a;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-size: 0.85rem;
+        z-index: 300;
+        transform: translateY(100px);
+        opacity: 0;
+        transition: all 0.3s var(--ease-out);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      }
+      .toast.show {
+        transform: translateY(0);
+        opacity: 1;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 48px 24px;
+        color: var(--text-muted);
+      }
+      .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: 12px;
+        opacity: 0.5;
+      }
+      .empty-state p {
+        font-size: 0.9rem;
+        max-width: 400px;
+        margin: 0 auto;
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          padding: 16px;
+        }
+        .filters-row {
+          grid-template-columns: 1fr;
+        }
+        .hero h1 {
+          font-size: 1.5rem;
+        }
+        .salary-median {
+          font-size: 2.2rem;
+        }
+        .results-grid-2 {
+          grid-template-columns: 1fr;
+        }
+        .gauge-track {
+          width: 140px;
+          height: 70px;
+          border-radius: 70px 70px 0 0;
+        }
+        .gauge-inner {
+          width: 110px;
+          height: 55px;
+          border-radius: 55px 55px 0 0;
+        }
+        .gauge-needle {
+          height: 55px;
+        }
+        .position-gauge {
+          width: 140px;
+          height: 80px;
+        }
+        .trend-chart {
+          height: 120px;
+        }
+      }
+      @media (max-width: 480px) {
+        .compare-actions {
+          flex-direction: column;
+          align-items: stretch;
+        }
       }
     </style>
   </head>
   <body>
-    <div class="page-wrapper">
-      <a href="/" class="back-link" aria-label="Back to Nova AI Suite">
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="m15 18-6-6 6-6" />
-        </svg>
-        Back to Nova AI Suite
-      </a>
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo" aria-hidden="true">$</div>
+        <h1>PayScale Sync</h1>
+      </div>
+      <div class="header-right">
+        <a href="/hub" aria-label="Back to Nova AI Suite Hub">Nova AI Suite</a>
+      </div>
+    </header>
 
-      <header class="page-header">
-        <h1>&#128176; PayScale Sync</h1>
+    <div
+      class="spinner-overlay"
+      id="spinnerOverlay"
+      role="status"
+      aria-live="polite"
+    >
+      <div class="spinner" aria-hidden="true"></div>
+      <div class="spinner-text">Analyzing salary data...</div>
+    </div>
+    <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+
+    <div class="container">
+      <section class="hero reveal-on-scroll">
+        <div class="hero-icon" aria-hidden="true">&#128200;</div>
+        <h1>Salary Intelligence for Smarter Media Plans</h1>
         <p>
-          Market-competitive salary ranges for job postings. Comply with pay
-          transparency laws across the EU and US with data-driven compensation
-          intelligence.
+          Benchmark salaries, ensure pay transparency compliance, and see how
+          compensation impacts your recruitment advertising ROI.
         </p>
-      </header>
-
-      <div class="error-banner" id="errorBanner"></div>
-
-      <!-- Input Form -->
-      <section class="glass-card reveal-on-scroll">
-        <h2><span class="icon">&#128200;</span> Salary Intelligence</h2>
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="jobTitleInput">Job Title</label>
-            <input
-              type="text"
-              id="jobTitleInput"
-              placeholder="e.g. Software Engineer, Marketing Manager"
-            />
-          </div>
-          <div class="form-group">
-            <label for="locationInput">Location</label>
-            <input
-              type="text"
-              id="locationInput"
-              placeholder="e.g. San Francisco, New York, London"
-            />
-          </div>
-          <div class="form-group">
-            <label for="industryInput">Industry</label>
-            <select id="industryInput">
-              <option value="technology">Technology</option>
-              <option value="healthcare">Healthcare</option>
-              <option value="finance">Finance &amp; Banking</option>
-              <option value="retail">Retail &amp; Consumer</option>
-              <option value="manufacturing">Manufacturing</option>
-              <option value="energy">Energy &amp; Utilities</option>
-              <option value="education">Education</option>
-              <option value="media">Media &amp; Entertainment</option>
-              <option value="pharma">Pharma &amp; Biotech</option>
-              <option value="consulting">
-                Consulting &amp; Professional Services
-              </option>
-              <option value="logistics">Logistics &amp; Supply Chain</option>
-              <option value="construction">
-                Construction &amp; Real Estate
-              </option>
-              <option value="government">Government &amp; Public Sector</option>
-              <option value="nonprofit">Nonprofit</option>
-              <option value="hospitality">Hospitality &amp; Travel</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="companySizeInput">Company Size</label>
-            <select id="companySizeInput">
-              <option value="startup">1&ndash;50 employees</option>
-              <option value="small">51&ndash;200 employees</option>
-              <option value="mid" selected>201&ndash;1,000 employees</option>
-              <option value="enterprise">1,000+ employees</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="experienceInput">Experience Level</label>
-            <select id="experienceInput">
-              <option value="entry">Entry Level</option>
-              <option value="mid" selected>Mid Level</option>
-              <option value="senior">Senior</option>
-              <option value="director">Director</option>
-              <option value="executive">Executive / VP+</option>
-            </select>
-          </div>
-          <div class="form-group" style="align-self: end">
-            <button class="btn-primary" id="analyzeBtn" type="button">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
-                />
-              </svg>
-              Get Salary Intelligence
-            </button>
-          </div>
-        </div>
+        <div class="hero-badge">BLS + O*NET Powered</div>
       </section>
 
-      <!-- Results -->
-      <div class="results-section" id="resultsSection">
-        <!-- Salary Range Card -->
-        <section class="glass-card reveal-on-scroll" id="salaryRangeCard">
-          <h2><span class="icon">&#128178;</span> Salary Range</h2>
-          <div id="salaryRangeContent"></div>
-        </section>
-
-        <!-- Recommended Posting Range -->
-        <section class="glass-card reveal-on-scroll" id="postingRangeCard">
-          <h2><span class="icon">&#128203;</span> Recommended Posting Range</h2>
-          <div id="postingRangeContent"></div>
-        </section>
-
-        <!-- Key Stats -->
-        <section class="glass-card reveal-on-scroll" id="statsCard">
-          <h2><span class="icon">&#128202;</span> Compensation Snapshot</h2>
-          <div class="stat-grid" id="statsGrid"></div>
-        </section>
-
-        <!-- Cost of Living -->
-        <section class="glass-card reveal-on-scroll" id="colCard">
-          <h2><span class="icon">&#127968;</span> Cost-of-Living Adjustment</h2>
-          <div id="colContent"></div>
-        </section>
-
-        <!-- Pay Transparency Compliance -->
-        <section class="glass-card reveal-on-scroll" id="complianceCard">
-          <h2><span class="icon">&#9989;</span> Pay Transparency Compliance</h2>
-          <div class="compliance-list" id="complianceList"></div>
-        </section>
-
-        <!-- Comparable Roles -->
-        <section class="glass-card reveal-on-scroll" id="comparableCard">
-          <h2><span class="icon">&#128101;</span> Comparable Roles</h2>
-          <div class="comparable-grid" id="comparableGrid"></div>
-        </section>
-
-        <!-- Actions -->
-        <section class="glass-card reveal-on-scroll" id="actionsCard">
-          <h2><span class="icon">&#128230;</span> Export</h2>
-          <div style="display: flex; gap: 1rem; flex-wrap: wrap">
-            <button class="btn-copy" id="copyBtn" type="button">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-                <path
-                  d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
+      <div class="card reveal-on-scroll stagger-1" style="margin-bottom: 24px">
+        <div class="section-title">Roles to Compare</div>
+        <div class="role-tabs" id="roleTabs">
+          <button class="role-tab active" data-role-idx="0">
+            <span class="role-tab-name">Role 1</span></button
+          ><button
+            class="add-role-btn"
+            id="addRoleBtn"
+            title="Add another role (up to 3)"
+          >
+            + Add Role
+          </button>
+        </div>
+        <form id="salaryForm" autocomplete="off">
+          <div class="filters-row">
+            <div class="filter-group">
+              <label for="jobTitle">Job Title / Role *</label>
+              <div class="autocomplete-wrapper">
+                <input
+                  type="text"
+                  id="jobTitle"
+                  class="form-input"
+                  placeholder="e.g. Software Engineer"
+                  required
+                  aria-required="true"
+                  aria-autocomplete="list"
+                  aria-controls="jobTitleSuggestions"
                 />
-              </svg>
-              Copy to Job Posting
-            </button>
-            <button class="btn-secondary" id="resetBtn" type="button">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-              </svg>
-              New Analysis
+                <div
+                  class="autocomplete-list"
+                  id="jobTitleSuggestions"
+                  role="listbox"
+                ></div>
+              </div>
+            </div>
+            <div class="filter-group">
+              <label for="location">Location *</label>
+              <div class="autocomplete-wrapper">
+                <input
+                  type="text"
+                  id="location"
+                  class="form-input"
+                  placeholder="e.g. San Francisco, CA"
+                  required
+                  aria-required="true"
+                  aria-autocomplete="list"
+                  aria-controls="locationSuggestions"
+                />
+                <div
+                  class="autocomplete-list"
+                  id="locationSuggestions"
+                  role="listbox"
+                ></div>
+              </div>
+            </div>
+            <div class="filter-group">
+              <label for="industry">Industry</label
+              ><select id="industry" class="form-input">
+                <option value="">-- Select Industry --</option>
+                <option value="technology">Technology</option>
+                <option value="healthcare">Healthcare</option>
+                <option value="finance">Finance &amp; Banking</option>
+                <option value="retail">Retail &amp; E-Commerce</option>
+                <option value="manufacturing">Manufacturing</option>
+                <option value="education">Education</option>
+                <option value="government">Government</option>
+                <option value="media">Media &amp; Entertainment</option>
+                <option value="energy">Energy &amp; Utilities</option>
+                <option value="construction">Construction</option>
+                <option value="transportation">
+                  Transportation &amp; Logistics
+                </option>
+                <option value="pharma">Pharmaceuticals</option>
+                <option value="telecom">Telecommunications</option>
+                <option value="hospitality">Hospitality &amp; Tourism</option>
+                <option value="nonprofit">Non-Profit</option>
+                <option value="legal">Legal Services</option>
+                <option value="consulting">Consulting</option>
+                <option value="agriculture">Agriculture</option>
+              </select>
+            </div>
+          </div>
+          <div class="filters-row">
+            <div class="filter-group">
+              <label for="seniority">Seniority Level</label
+              ><select id="seniority" class="form-input">
+                <option value="entry">Entry Level</option>
+                <option value="mid" selected>Mid Level</option>
+                <option value="senior">Senior</option>
+                <option value="executive">Executive / Director</option>
+                <option value="csuite">C-Suite</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="companySize">Company Size</label
+              ><select id="companySize" class="form-input">
+                <option value="startup">Startup (1-50)</option>
+                <option value="small">Small (51-200)</option>
+                <option value="medium" selected>Medium (201-1000)</option>
+                <option value="large">Large (1001-5000)</option>
+                <option value="enterprise">Enterprise (5000+)</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="offeredSalary">Your Offered Salary (optional)</label
+              ><input
+                type="text"
+                id="offeredSalary"
+                class="form-input"
+                placeholder="e.g. 120000"
+                inputmode="numeric"
+              />
+            </div>
+          </div>
+          <div class="compare-actions">
+            <button type="submit" class="btn btn-primary" id="compareBtn">
+              &#9889; Compare Salary</button
+            ><button type="button" class="btn btn-outline" id="resetBtn">
+              Reset
             </button>
           </div>
-        </section>
+        </form>
       </div>
 
-      <!-- Footer -->
-      <footer class="footer">
-        <p>
-          Nova AI Suite &mdash; Built by
-          <a
-            href="https://www.linkedin.com/in/chandel13/"
-            target="_blank"
-            rel="noopener"
-            >Shubham Singh Chandel</a
-          >
-          &middot; Powered by AI &middot; 2024&ndash;2026
-        </p>
-      </footer>
+      <div id="resultsArea">
+        <div
+          class="reveal-on-scroll"
+          style="text-align: center; margin-bottom: 24px"
+        >
+          <div class="view-toggle" id="viewToggle">
+            <button class="view-toggle-btn active" data-view="annual">
+              Annual</button
+            ><button class="view-toggle-btn" data-view="monthly">Monthly</button
+            ><button class="view-toggle-btn" data-view="hourly">Hourly</button>
+          </div>
+        </div>
+
+        <div
+          class="card salary-overview reveal-on-scroll stagger-1"
+          id="salaryOverviewCard"
+        >
+          <div class="section-title">Salary Overview</div>
+          <div class="salary-median" id="medianSalary">--</div>
+          <div class="salary-label" id="salaryViewLabel">
+            Median Annual Salary
+          </div>
+          <div class="range-bar-wrapper">
+            <div class="range-bar">
+              <div class="range-fill" id="rangeFill"></div>
+              <div class="range-marker" id="markerP10" style="display: none">
+                <span class="range-marker-label">P10</span
+                ><span class="range-marker-value" id="valueP10"></span>
+              </div>
+              <div class="range-marker" id="markerP25" style="display: none">
+                <span class="range-marker-label">P25</span
+                ><span class="range-marker-value" id="valueP25"></span>
+              </div>
+              <div class="range-marker" id="markerP50" style="display: none">
+                <span class="range-marker-label">P50</span
+                ><span class="range-marker-value" id="valueP50"></span>
+              </div>
+              <div class="range-marker" id="markerP75" style="display: none">
+                <span class="range-marker-label">P75</span
+                ><span class="range-marker-value" id="valueP75"></span>
+              </div>
+              <div class="range-marker" id="markerP90" style="display: none">
+                <span class="range-marker-label">P90</span
+                ><span class="range-marker-value" id="valueP90"></span>
+              </div>
+              <div
+                class="range-marker"
+                id="markerUser"
+                style="display: none; background: var(--downy-teal)"
+              >
+                <span
+                  class="range-marker-label"
+                  style="color: var(--downy-teal)"
+                  >You</span
+                ><span
+                  class="range-marker-value"
+                  id="valueUser"
+                  style="color: var(--downy-teal)"
+                ></span>
+              </div>
+            </div>
+          </div>
+          <div class="range-endpoints">
+            <span id="rangeMin">--</span><span id="rangeMax">--</span>
+          </div>
+          <div style="margin-top: 24px">
+            <h3 style="margin-bottom: 12px">National vs. Local</h3>
+            <div class="comparison-row">
+              <span class="comparison-label">National</span>
+              <div class="comparison-bar">
+                <div
+                  class="comparison-bar-fill"
+                  id="nationalBarFill"
+                  style="width: 0%; background: var(--port-gore)"
+                ></div>
+              </div>
+              <span class="comparison-value" id="nationalValue">--</span>
+            </div>
+            <div class="comparison-row">
+              <span class="comparison-label">Local</span>
+              <div class="comparison-bar">
+                <div
+                  class="comparison-bar-fill"
+                  id="localBarFill"
+                  style="width: 0%; background: var(--downy-teal)"
+                ></div>
+              </div>
+              <span class="comparison-value" id="localValue">--</span>
+            </div>
+          </div>
+          <div class="data-source-tag">
+            BLS Occupational Employment &amp; Wage Statistics
+          </div>
+        </div>
+
+        <div class="results-grid results-grid-2" style="margin-top: 24px">
+          <div class="card reveal-on-scroll stagger-2" id="positioningCard">
+            <div class="section-title">Market Positioning</div>
+            <div id="positioningContent">
+              <div class="empty-state" id="positioningEmpty">
+                <div class="empty-state-icon" aria-hidden="true">&#127919;</div>
+                <p>Enter your offered salary above to see market positioning</p>
+              </div>
+              <div id="positioningResult" style="display: none">
+                <div class="position-gauge">
+                  <div class="gauge-track">
+                    <div class="gauge-inner"></div>
+                    <div class="gauge-needle" id="gaugeNeedle"></div>
+                    <div class="gauge-center"></div>
+                  </div>
+                </div>
+                <div class="gauge-score" id="competitiveScore">--</div>
+                <div style="text-align: center">
+                  <span class="gauge-rating" id="positionRating">--</span>
+                </div>
+                <div
+                  style="
+                    margin-top: 16px;
+                    font-size: 0.85rem;
+                    color: var(--text-secondary);
+                    text-align: center;
+                  "
+                  id="positionSummary"
+                ></div>
+              </div>
+            </div>
+          </div>
+          <div class="card reveal-on-scroll stagger-3" id="colCard">
+            <div class="section-title">Cost of Living Comparison</div>
+            <div class="filter-group" style="margin-bottom: 12px">
+              <label for="compareCity">Compare with City</label>
+              <div class="autocomplete-wrapper">
+                <input
+                  type="text"
+                  id="compareCity"
+                  class="form-input"
+                  placeholder="e.g. Austin, TX"
+                  aria-autocomplete="list"
+                  aria-controls="compareCitySuggestions"
+                />
+                <div
+                  class="autocomplete-list"
+                  id="compareCitySuggestions"
+                  role="listbox"
+                ></div>
+              </div>
+            </div>
+            <div id="colComparison">
+              <div class="empty-state" style="padding: 24px" id="colEmpty">
+                <p style="font-size: 0.85rem">
+                  Enter a comparison city to see adjusted salary
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="card reveal-on-scroll stagger-4"
+          style="margin-top: 24px"
+          id="complianceCard"
+        >
+          <div class="section-title">Pay Transparency Compliance</div>
+          <div id="complianceStatus"></div>
+          <div id="complianceDetails">
+            <h3 style="margin: 16px 0 8px">
+              Compliant Salary Range for Job Posting
+            </h3>
+            <div class="compliance-text" id="complianceRangeText">--</div>
+            <h3 style="margin: 20px 0 8px">
+              States Requiring Salary Disclosure
+            </h3>
+            <div class="state-law-grid" id="stateLawGrid"></div>
+          </div>
+        </div>
+
+        <div
+          class="card reveal-on-scroll stagger-5"
+          style="margin-top: 24px"
+          id="mediaImpactCard"
+        >
+          <div class="section-title">How Salary Affects Your Media Plan</div>
+          <div id="mediaImpactContent"></div>
+        </div>
+
+        <div class="results-grid results-grid-2" style="margin-top: 24px">
+          <div class="card reveal-on-scroll stagger-6" id="trendsCard">
+            <div class="section-title">Salary Trends (5-Year)</div>
+            <div class="trend-chart" id="trendChart"></div>
+            <div class="data-source-tag">BLS Employment Projections</div>
+          </div>
+          <div class="card reveal-on-scroll stagger-6" id="industryCard">
+            <div class="section-title">Industry Comparison</div>
+            <div class="industry-bars" id="industryBars"></div>
+          </div>
+        </div>
+
+        <div class="compare-actions reveal-on-scroll" style="margin-top: 32px">
+          <button class="btn btn-outline" id="exportJsonBtn">
+            &#128229; Export JSON Report</button
+          ><button class="btn btn-outline" id="exportNewSearchBtn">
+            &#128260; New Search
+          </button>
+        </div>
+      </div>
     </div>
+
+    <footer
+      class="reveal-on-scroll"
+      style="
+        text-align: center;
+        padding: 2rem 1rem;
+        color: #64748b;
+        font-size: 0.8rem;
+        border-top: 1px solid rgba(90, 84, 189, 0.15);
+        margin-top: 3rem;
+      "
+    >
+      Powered by
+      <a
+        href="https://www.linkedin.com/in/chandel13/"
+        target="_blank"
+        rel="noopener"
+        style="color: var(--accent-light); text-decoration: none"
+        >Shubham Singh Chandel</a
+      >
+      &middot; Nova AI Suite
+    </footer>
 
     <script>
       (function () {
         "use strict";
+        var MAX_ROLES = 3;
+        var roles = [
+          {
+            title: "",
+            location: "",
+            industry: "",
+            seniority: "mid",
+            companySize: "medium",
+            offeredSalary: "",
+            data: null,
+          },
+        ];
+        var activeRoleIdx = 0;
+        var currentView = "annual";
+        var lastResults = null;
 
-        // ── Salary Database ──
-        // Base salaries (USD annual) for national US median at mid-level
-        var SALARY_DATABASE = {
-          "software engineer": {
-            base: 125000,
-            similar: [
-              "Full Stack Developer",
-              "Backend Engineer",
-              "Frontend Engineer",
-              "DevOps Engineer",
-              "Platform Engineer",
-            ],
+        var METROS = [
+          "New York, NY",
+          "Los Angeles, CA",
+          "Chicago, IL",
+          "Houston, TX",
+          "Phoenix, AZ",
+          "Philadelphia, PA",
+          "San Antonio, TX",
+          "San Diego, CA",
+          "Dallas, TX",
+          "San Jose, CA",
+          "Austin, TX",
+          "Jacksonville, FL",
+          "San Francisco, CA",
+          "Columbus, OH",
+          "Indianapolis, IN",
+          "Charlotte, NC",
+          "Seattle, WA",
+          "Denver, CO",
+          "Washington, DC",
+          "Nashville, TN",
+          "Oklahoma City, OK",
+          "El Paso, TX",
+          "Boston, MA",
+          "Portland, OR",
+          "Las Vegas, NV",
+          "Memphis, TN",
+          "Louisville, KY",
+          "Baltimore, MD",
+          "Milwaukee, WI",
+          "Albuquerque, NM",
+          "Tucson, AZ",
+          "Fresno, CA",
+          "Sacramento, CA",
+          "Kansas City, MO",
+          "Mesa, AZ",
+          "Atlanta, GA",
+          "Omaha, NE",
+          "Colorado Springs, CO",
+          "Raleigh, NC",
+          "Long Beach, CA",
+          "Virginia Beach, VA",
+          "Miami, FL",
+          "Oakland, CA",
+          "Minneapolis, MN",
+          "Tampa, FL",
+          "Tulsa, OK",
+          "Arlington, TX",
+          "New Orleans, LA",
+          "Cleveland, OH",
+          "Pittsburgh, PA",
+          "Detroit, MI",
+          "Cincinnati, OH",
+          "Salt Lake City, UT",
+          "St. Louis, MO",
+          "Orlando, FL",
+          "Honolulu, HI",
+          "Boise, ID",
+          "Richmond, VA",
+          "Hartford, CT",
+          "Birmingham, AL",
+          "Remote (National Average)",
+        ];
+
+        var JOB_TITLES = [
+          "Software Engineer",
+          "Senior Software Engineer",
+          "Staff Engineer",
+          "Data Scientist",
+          "Data Engineer",
+          "Data Analyst",
+          "Product Manager",
+          "Senior Product Manager",
+          "Product Designer",
+          "UX Designer",
+          "UI Designer",
+          "UX Researcher",
+          "DevOps Engineer",
+          "Site Reliability Engineer",
+          "Cloud Engineer",
+          "Machine Learning Engineer",
+          "AI Engineer",
+          "NLP Engineer",
+          "Frontend Developer",
+          "Backend Developer",
+          "Full Stack Developer",
+          "iOS Developer",
+          "Android Developer",
+          "Mobile Developer",
+          "Cybersecurity Analyst",
+          "Security Engineer",
+          "Penetration Tester",
+          "Marketing Manager",
+          "Digital Marketing Manager",
+          "Content Strategist",
+          "Sales Manager",
+          "Account Executive",
+          "Business Development Representative",
+          "Financial Analyst",
+          "Accountant",
+          "Controller",
+          "Human Resources Manager",
+          "Recruiter",
+          "Talent Acquisition Specialist",
+          "Project Manager",
+          "Program Manager",
+          "Scrum Master",
+          "Graphic Designer",
+          "Creative Director",
+          "Art Director",
+          "Registered Nurse",
+          "Physician",
+          "Pharmacist",
+          "Mechanical Engineer",
+          "Electrical Engineer",
+          "Civil Engineer",
+          "Teacher",
+          "Professor",
+          "Curriculum Developer",
+          "Customer Success Manager",
+          "Technical Support Engineer",
+          "Solutions Architect",
+          "Enterprise Architect",
+          "Technical Writer",
+          "QA Engineer",
+          "Test Automation Engineer",
+          "Quality Assurance Manager",
+          "Operations Manager",
+          "Supply Chain Manager",
+          "Logistics Coordinator",
+          "Chief Technology Officer",
+          "Chief Financial Officer",
+          "VP of Engineering",
+          "VP of Sales",
+          "VP of Marketing",
+          "VP of Product",
+          "Director of Engineering",
+          "Director of Operations",
+          "Director of Sales",
+        ];
+
+        var PAY_LAWS = {
+          CO: {
+            state: "Colorado",
+            effective: "Jan 2021",
+            threshold: "1+ employees",
+            req: "Salary range + benefits in all postings; notify of promotions/transfers",
+            penalty: "$500-$10,000 per violation",
+            status: "active",
           },
-          "data scientist": {
-            base: 130000,
-            similar: [
-              "Machine Learning Engineer",
-              "Data Analyst",
-              "AI Engineer",
-              "Business Intelligence Analyst",
-              "Research Scientist",
-            ],
+          CA: {
+            state: "California",
+            effective: "Jan 2023",
+            threshold: "15+ employees",
+            req: "Good faith salary range in postings; 3-year record retention",
+            penalty: "$100-$10,000 per violation",
+            status: "active",
           },
-          "product manager": {
-            base: 135000,
-            similar: [
-              "Program Manager",
-              "Technical Product Manager",
-              "Product Owner",
-              "Product Director",
-              "Strategy Manager",
-            ],
+          NY: {
+            state: "New York",
+            effective: "Sep 2023",
+            threshold: "4+ employees",
+            req: "Salary range in postings ($1K/$2K/$3K escalating fines)",
+            penalty: "$1,000-$3,000 escalating",
+            status: "active",
           },
-          "marketing manager": {
-            base: 95000,
-            similar: [
-              "Brand Manager",
-              "Digital Marketing Manager",
-              "Growth Manager",
-              "Content Marketing Manager",
-              "Demand Generation Manager",
-            ],
+          WA: {
+            state: "Washington",
+            effective: "Jan 2023",
+            threshold: "15+ employees",
+            req: "Salary range + benefits description",
+            penalty: "Varies",
+            status: "active",
           },
-          "sales representative": {
-            base: 65000,
-            similar: [
-              "Account Executive",
-              "Business Development Rep",
-              "Inside Sales Rep",
-              "Sales Associate",
-              "Client Advisor",
-            ],
+          CT: {
+            state: "Connecticut",
+            effective: "Oct 2021",
+            threshold: "1+ employees",
+            req: "Provide range upon request or at time of offer",
+            penalty: "Varies",
+            status: "active",
           },
-          "project manager": {
-            base: 100000,
-            similar: [
-              "Program Manager",
-              "Scrum Master",
-              "Delivery Manager",
-              "Technical Project Manager",
-              "PMO Analyst",
-            ],
+          MD: {
+            state: "Maryland",
+            effective: "Oct 2020",
+            threshold: "All employers",
+            req: "Provide range upon request",
+            penalty: "Varies",
+            status: "active",
           },
-          "financial analyst": {
-            base: 85000,
-            similar: [
-              "Investment Analyst",
-              "Budget Analyst",
-              "Credit Analyst",
-              "Risk Analyst",
-              "Treasury Analyst",
-            ],
+          NV: {
+            state: "Nevada",
+            effective: "Oct 2021",
+            threshold: "All employers",
+            req: "Provide range after interview",
+            penalty: "Varies",
+            status: "active",
           },
-          "registered nurse": {
-            base: 82000,
-            similar: [
-              "Licensed Practical Nurse",
-              "Nurse Practitioner",
-              "Clinical Nurse Specialist",
-              "Travel Nurse",
-              "ICU Nurse",
-            ],
+          RI: {
+            state: "Rhode Island",
+            effective: "Jan 2023",
+            threshold: "1+ employees",
+            req: "Provide range upon request, at interview, or at hire",
+            penalty: "Varies",
+            status: "active",
           },
-          "graphic designer": {
-            base: 62000,
-            similar: [
-              "Visual Designer",
-              "UI Designer",
-              "Brand Designer",
-              "Creative Director",
-              "Illustrator",
-            ],
+          HI: {
+            state: "Hawaii",
+            effective: "Jan 2024",
+            threshold: "50+ employees",
+            req: "Salary range in postings",
+            penalty: "Varies",
+            status: "active",
           },
-          "ux designer": {
-            base: 105000,
-            similar: [
-              "UX Researcher",
-              "Product Designer",
-              "Interaction Designer",
-              "UI/UX Designer",
-              "Design Lead",
-            ],
+          IL: {
+            state: "Illinois",
+            effective: "Jan 2025",
+            threshold: "15+ employees",
+            req: "Wage scales + benefits in postings",
+            penalty: "Varies",
+            status: "active",
           },
-          accountant: {
-            base: 72000,
-            similar: [
-              "Staff Accountant",
-              "Senior Accountant",
-              "Tax Accountant",
-              "Auditor",
-              "Controller",
-            ],
+          MN: {
+            state: "Minnesota",
+            effective: "Jan 2025",
+            threshold: "30+ employees",
+            req: "Salary ranges + benefits in all postings",
+            penalty: "Varies",
+            status: "active",
           },
-          "human resources manager": {
-            base: 95000,
-            similar: [
-              "HR Business Partner",
-              "Talent Acquisition Manager",
-              "People Operations Manager",
-              "Compensation Manager",
-              "HR Director",
-            ],
+          NJ: {
+            state: "New Jersey",
+            effective: "Jun 2025",
+            threshold: "All employers",
+            req: "Salary range + benefits description in postings",
+            penalty: "Varies",
+            status: "active",
           },
-          "operations manager": {
-            base: 90000,
-            similar: [
-              "Operations Director",
-              "Supply Chain Manager",
-              "Logistics Manager",
-              "Warehouse Manager",
-              "Facilities Manager",
-            ],
+          VT: {
+            state: "Vermont",
+            effective: "Jul 2025",
+            threshold: "5+ employees",
+            req: "Salary range in postings",
+            penalty: "Varies",
+            status: "active",
           },
-          "customer success manager": {
-            base: 85000,
-            similar: [
-              "Account Manager",
-              "Client Success Manager",
-              "Customer Experience Manager",
-              "Relationship Manager",
-              "Implementation Manager",
-            ],
+          MA: {
+            state: "Massachusetts",
+            effective: "Oct 2025",
+            threshold: "25+ employees",
+            req: "Pay range in postings, promotions, transfers",
+            penalty: "Varies",
+            status: "active",
           },
-          "business analyst": {
-            base: 88000,
-            similar: [
-              "Systems Analyst",
-              "Requirements Analyst",
-              "Process Analyst",
-              "Data Analyst",
-              "Management Consultant",
-            ],
+          DC: {
+            state: "Washington D.C.",
+            effective: "Jun 2024",
+            threshold: "All employers",
+            req: "Salary range in postings before first interview",
+            penalty: "Varies",
+            status: "active",
           },
-          "mechanical engineer": {
-            base: 92000,
-            similar: [
-              "Design Engineer",
-              "Manufacturing Engineer",
-              "Process Engineer",
-              "Quality Engineer",
-              "CAD Engineer",
-            ],
-          },
-          teacher: {
-            base: 58000,
-            similar: [
-              "Instructor",
-              "Adjunct Professor",
-              "Curriculum Developer",
-              "Academic Coordinator",
-              "Tutor",
-            ],
-          },
-          pharmacist: {
-            base: 128000,
-            similar: [
-              "Clinical Pharmacist",
-              "Pharmacy Manager",
-              "Pharmaceutical Sales Rep",
-              "Pharmacy Technician",
-              "Drug Safety Specialist",
-            ],
-          },
-          "civil engineer": {
-            base: 88000,
-            similar: [
-              "Structural Engineer",
-              "Environmental Engineer",
-              "Construction Manager",
-              "Geotechnical Engineer",
-              "Transportation Engineer",
-            ],
-          },
-          "electrical engineer": {
-            base: 95000,
-            similar: [
-              "Electronics Engineer",
-              "Power Systems Engineer",
-              "Control Systems Engineer",
-              "Hardware Engineer",
-              "Embedded Systems Engineer",
-            ],
-          },
-          paralegal: {
-            base: 58000,
-            similar: [
-              "Legal Assistant",
-              "Legal Secretary",
-              "Litigation Support",
-              "Contract Specialist",
-              "Compliance Analyst",
-            ],
-          },
-          "web developer": {
-            base: 85000,
-            similar: [
-              "Frontend Developer",
-              "Full Stack Developer",
-              "WordPress Developer",
-              "Web Designer",
-              "JavaScript Developer",
-            ],
-          },
-          "executive assistant": {
-            base: 65000,
-            similar: [
-              "Administrative Assistant",
-              "Office Manager",
-              "Chief of Staff",
-              "Personal Assistant",
-              "Operations Coordinator",
-            ],
-          },
-          "supply chain analyst": {
-            base: 72000,
-            similar: [
-              "Procurement Analyst",
-              "Logistics Coordinator",
-              "Inventory Analyst",
-              "Demand Planner",
-              "Sourcing Specialist",
-            ],
-          },
-          "cybersecurity analyst": {
-            base: 110000,
-            similar: [
-              "Security Engineer",
-              "Information Security Analyst",
-              "SOC Analyst",
-              "Penetration Tester",
-              "Security Architect",
-            ],
-          },
-          "content writer": {
-            base: 58000,
-            similar: [
-              "Copywriter",
-              "Technical Writer",
-              "Content Strategist",
-              "Blog Writer",
-              "Communications Specialist",
-            ],
-          },
-          recruiter: {
-            base: 70000,
-            similar: [
-              "Talent Acquisition Specialist",
-              "Sourcer",
-              "HR Recruiter",
-              "Technical Recruiter",
-              "Recruiting Coordinator",
-            ],
-          },
-          "quality assurance engineer": {
-            base: 95000,
-            similar: [
-              "QA Analyst",
-              "Test Engineer",
-              "SDET",
-              "Automation Engineer",
-              "Quality Lead",
-            ],
-          },
-          chef: {
-            base: 52000,
-            similar: [
-              "Sous Chef",
-              "Executive Chef",
-              "Pastry Chef",
-              "Line Cook",
-              "Kitchen Manager",
-            ],
-          },
-          "social media manager": {
-            base: 62000,
-            similar: [
-              "Community Manager",
-              "Digital Marketing Specialist",
-              "Content Creator",
-              "Influencer Marketing Manager",
-              "Social Media Strategist",
-            ],
+          DE: {
+            state: "Delaware",
+            effective: "Sep 2027",
+            threshold: "All employers",
+            req: "Salary range in postings (signed Sep 2025)",
+            penalty: "Varies",
+            status: "pending",
           },
         };
 
-        // Location multipliers and cost-of-living index
-        var LOCATIONS = {
-          "san francisco": {
-            multiplier: 1.3,
-            colIndex: 182,
-            state: "CA",
-            country: "US",
-            label: "San Francisco, CA",
+        var STATE_AB = {
+          AL: "Alabama",
+          AK: "Alaska",
+          AZ: "Arizona",
+          AR: "Arkansas",
+          CA: "California",
+          CO: "Colorado",
+          CT: "Connecticut",
+          DE: "Delaware",
+          FL: "Florida",
+          GA: "Georgia",
+          HI: "Hawaii",
+          ID: "Idaho",
+          IL: "Illinois",
+          IN: "Indiana",
+          IA: "Iowa",
+          KS: "Kansas",
+          KY: "Kentucky",
+          LA: "Louisiana",
+          ME: "Maine",
+          MD: "Maryland",
+          MA: "Massachusetts",
+          MI: "Michigan",
+          MN: "Minnesota",
+          MS: "Mississippi",
+          MO: "Missouri",
+          MT: "Montana",
+          NE: "Nebraska",
+          NV: "Nevada",
+          NH: "New Hampshire",
+          NJ: "New Jersey",
+          NM: "New Mexico",
+          NY: "New York",
+          NC: "North Carolina",
+          ND: "North Dakota",
+          OH: "Ohio",
+          OK: "Oklahoma",
+          OR: "Oregon",
+          PA: "Pennsylvania",
+          RI: "Rhode Island",
+          SC: "South Carolina",
+          SD: "South Dakota",
+          TN: "Tennessee",
+          TX: "Texas",
+          UT: "Utah",
+          VT: "Vermont",
+          VA: "Virginia",
+          WA: "Washington",
+          WV: "West Virginia",
+          WI: "Wisconsin",
+          WY: "Wyoming",
+          DC: "Washington D.C.",
+        };
+
+        var COL = {
+          "San Francisco, CA": 180,
+          "New York, NY": 187,
+          "San Jose, CA": 177,
+          "Los Angeles, CA": 150,
+          "Boston, MA": 152,
+          "Seattle, WA": 149,
+          "Washington, DC": 148,
+          "San Diego, CA": 146,
+          "Miami, FL": 130,
+          "Denver, CO": 128,
+          "Portland, OR": 130,
+          "Chicago, IL": 115,
+          "Minneapolis, MN": 109,
+          "Atlanta, GA": 107,
+          "Philadelphia, PA": 112,
+          "Dallas, TX": 104,
+          "Houston, TX": 102,
+          "Austin, TX": 112,
+          "Nashville, TN": 104,
+          "Phoenix, AZ": 103,
+          "Raleigh, NC": 104,
+          "Charlotte, NC": 100,
+          "Tampa, FL": 101,
+          "Orlando, FL": 100,
+          "Columbus, OH": 94,
+          "Indianapolis, IN": 93,
+          "Kansas City, MO": 93,
+          "Salt Lake City, UT": 103,
+          "Pittsburgh, PA": 95,
+          "Cleveland, OH": 91,
+          "Cincinnati, OH": 92,
+          "St. Louis, MO": 90,
+          "Detroit, MI": 91,
+          "Las Vegas, NV": 105,
+          "Sacramento, CA": 130,
+          "Oakland, CA": 165,
+          "Honolulu, HI": 170,
+          "Baltimore, MD": 113,
+          "Richmond, VA": 102,
+          "Hartford, CT": 110,
+          "Birmingham, AL": 90,
+          "Jacksonville, FL": 97,
+          "San Antonio, TX": 96,
+          "El Paso, TX": 88,
+          "Memphis, TN": 88,
+          "Louisville, KY": 91,
+          "Milwaukee, WI": 95,
+          "Albuquerque, NM": 93,
+          "Tucson, AZ": 94,
+          "Fresno, CA": 105,
+          "Mesa, AZ": 102,
+          "Omaha, NE": 92,
+          "Colorado Springs, CO": 106,
+          "Long Beach, CA": 150,
+          "Virginia Beach, VA": 102,
+          "Tulsa, OK": 87,
+          "Arlington, TX": 103,
+          "New Orleans, LA": 98,
+          "Boise, ID": 102,
+          "Remote (National Average)": 100,
+        };
+
+        var SAL = {
+          "Software Engineer": {
+            p10: 72000,
+            p25: 89000,
+            p50: 110000,
+            p75: 140000,
+            p90: 175000,
           },
-          "new york": {
-            multiplier: 1.25,
-            colIndex: 187,
-            state: "NY",
-            country: "US",
-            label: "New York, NY",
+          "Senior Software Engineer": {
+            p10: 105000,
+            p25: 125000,
+            p50: 155000,
+            p75: 185000,
+            p90: 220000,
           },
-          "new york city": {
-            multiplier: 1.25,
-            colIndex: 187,
-            state: "NY",
-            country: "US",
-            label: "New York, NY",
+          "Staff Engineer": {
+            p10: 140000,
+            p25: 165000,
+            p50: 195000,
+            p75: 230000,
+            p90: 280000,
           },
-          seattle: {
-            multiplier: 1.2,
-            colIndex: 170,
-            state: "WA",
-            country: "US",
-            label: "Seattle, WA",
+          "Data Scientist": {
+            p10: 70000,
+            p25: 88000,
+            p50: 108000,
+            p75: 135000,
+            p90: 165000,
           },
-          "los angeles": {
-            multiplier: 1.15,
-            colIndex: 166,
-            state: "CA",
-            country: "US",
-            label: "Los Angeles, CA",
+          "Data Engineer": {
+            p10: 75000,
+            p25: 92000,
+            p50: 115000,
+            p75: 145000,
+            p90: 178000,
           },
-          boston: {
-            multiplier: 1.15,
-            colIndex: 162,
-            state: "MA",
-            country: "US",
-            label: "Boston, MA",
+          "Data Analyst": {
+            p10: 50000,
+            p25: 60000,
+            p50: 75000,
+            p75: 92000,
+            p90: 110000,
           },
-          chicago: {
-            multiplier: 1.05,
-            colIndex: 107,
-            state: "IL",
-            country: "US",
-            label: "Chicago, IL",
+          "Product Manager": {
+            p10: 80000,
+            p25: 100000,
+            p50: 125000,
+            p75: 155000,
+            p90: 190000,
           },
-          denver: {
-            multiplier: 1.05,
-            colIndex: 128,
-            state: "CO",
-            country: "US",
-            label: "Denver, CO",
+          "Senior Product Manager": {
+            p10: 110000,
+            p25: 135000,
+            p50: 160000,
+            p75: 195000,
+            p90: 235000,
           },
-          austin: {
-            multiplier: 0.95,
-            colIndex: 112,
-            state: "TX",
-            country: "US",
-            label: "Austin, TX",
+          "Product Designer": {
+            p10: 65000,
+            p25: 80000,
+            p50: 100000,
+            p75: 125000,
+            p90: 155000,
           },
-          dallas: {
-            multiplier: 0.92,
-            colIndex: 104,
-            state: "TX",
-            country: "US",
-            label: "Dallas, TX",
+          "UX Designer": {
+            p10: 58000,
+            p25: 72000,
+            p50: 90000,
+            p75: 112000,
+            p90: 135000,
           },
-          atlanta: {
-            multiplier: 0.95,
-            colIndex: 107,
-            state: "GA",
-            country: "US",
-            label: "Atlanta, GA",
+          "DevOps Engineer": {
+            p10: 72000,
+            p25: 90000,
+            p50: 115000,
+            p75: 142000,
+            p90: 172000,
           },
-          miami: {
-            multiplier: 1.0,
-            colIndex: 123,
-            state: "FL",
-            country: "US",
-            label: "Miami, FL",
+          "Machine Learning Engineer": {
+            p10: 85000,
+            p25: 105000,
+            p50: 135000,
+            p75: 170000,
+            p90: 210000,
           },
-          phoenix: {
-            multiplier: 0.9,
-            colIndex: 103,
-            state: "AZ",
-            country: "US",
-            label: "Phoenix, AZ",
+          "Frontend Developer": {
+            p10: 55000,
+            p25: 70000,
+            p50: 90000,
+            p75: 115000,
+            p90: 145000,
           },
-          portland: {
-            multiplier: 1.05,
-            colIndex: 130,
-            state: "OR",
-            country: "US",
-            label: "Portland, OR",
+          "Backend Developer": {
+            p10: 60000,
+            p25: 78000,
+            p50: 100000,
+            p75: 128000,
+            p90: 160000,
           },
-          minneapolis: {
-            multiplier: 1.0,
-            colIndex: 106,
-            state: "MN",
-            country: "US",
-            label: "Minneapolis, MN",
+          "Full Stack Developer": {
+            p10: 58000,
+            p25: 75000,
+            p50: 95000,
+            p75: 122000,
+            p90: 155000,
           },
-          london: {
-            multiplier: 1.15,
-            colIndex: 175,
-            state: null,
-            country: "UK",
-            label: "London, UK",
+          "Cybersecurity Analyst": {
+            p10: 60000,
+            p25: 75000,
+            p50: 95000,
+            p75: 120000,
+            p90: 150000,
           },
-          berlin: {
-            multiplier: 0.85,
-            colIndex: 120,
-            state: null,
-            country: "DE",
-            label: "Berlin, Germany",
+          "Marketing Manager": {
+            p10: 55000,
+            p25: 70000,
+            p50: 90000,
+            p75: 115000,
+            p90: 145000,
           },
-          amsterdam: {
-            multiplier: 0.9,
-            colIndex: 130,
-            state: null,
-            country: "NL",
-            label: "Amsterdam, Netherlands",
+          "Sales Manager": {
+            p10: 58000,
+            p25: 75000,
+            p50: 100000,
+            p75: 135000,
+            p90: 175000,
           },
-          paris: {
-            multiplier: 0.9,
-            colIndex: 140,
-            state: null,
-            country: "FR",
-            label: "Paris, France",
+          "Financial Analyst": {
+            p10: 50000,
+            p25: 62000,
+            p50: 78000,
+            p75: 98000,
+            p90: 120000,
           },
-          dublin: {
-            multiplier: 0.95,
-            colIndex: 135,
-            state: null,
-            country: "IE",
-            label: "Dublin, Ireland",
+          "Human Resources Manager": {
+            p10: 60000,
+            p25: 78000,
+            p50: 95000,
+            p75: 118000,
+            p90: 145000,
           },
-          toronto: {
-            multiplier: 0.88,
-            colIndex: 125,
-            state: null,
-            country: "CA",
-            label: "Toronto, Canada",
+          "Project Manager": {
+            p10: 55000,
+            p25: 70000,
+            p50: 88000,
+            p75: 110000,
+            p90: 138000,
           },
-          sydney: {
-            multiplier: 0.95,
-            colIndex: 140,
-            state: null,
-            country: "AU",
-            label: "Sydney, Australia",
+          "Registered Nurse": {
+            p10: 52000,
+            p25: 62000,
+            p50: 77000,
+            p75: 95000,
+            p90: 116000,
           },
-          singapore: {
-            multiplier: 1.0,
-            colIndex: 145,
-            state: null,
-            country: "SG",
-            label: "Singapore",
+          "Mechanical Engineer": {
+            p10: 58000,
+            p25: 70000,
+            p50: 88000,
+            p75: 110000,
+            p90: 135000,
           },
-          bangalore: {
-            multiplier: 0.35,
-            colIndex: 46,
-            state: null,
-            country: "IN",
-            label: "Bangalore, India",
+          Recruiter: {
+            p10: 40000,
+            p25: 50000,
+            p50: 62000,
+            p75: 80000,
+            p90: 100000,
           },
-          remote: {
-            multiplier: 1.0,
-            colIndex: 100,
-            state: null,
-            country: "US",
-            label: "Remote (US-based)",
+          "Account Executive": {
+            p10: 45000,
+            p25: 58000,
+            p50: 75000,
+            p75: 105000,
+            p90: 145000,
+          },
+          "Customer Success Manager": {
+            p10: 48000,
+            p25: 60000,
+            p50: 78000,
+            p75: 100000,
+            p90: 125000,
+          },
+          "Solutions Architect": {
+            p10: 90000,
+            p25: 110000,
+            p50: 135000,
+            p75: 165000,
+            p90: 200000,
+          },
+          "QA Engineer": {
+            p10: 50000,
+            p25: 62000,
+            p50: 78000,
+            p75: 98000,
+            p90: 120000,
+          },
+          "Operations Manager": {
+            p10: 50000,
+            p25: 65000,
+            p50: 82000,
+            p75: 105000,
+            p90: 130000,
+          },
+          "Graphic Designer": {
+            p10: 38000,
+            p25: 48000,
+            p50: 58000,
+            p75: 72000,
+            p90: 88000,
+          },
+          Teacher: {
+            p10: 35000,
+            p25: 42000,
+            p50: 55000,
+            p75: 68000,
+            p90: 82000,
+          },
+          Pharmacist: {
+            p10: 100000,
+            p25: 115000,
+            p50: 130000,
+            p75: 148000,
+            p90: 165000,
+          },
+          "Chief Technology Officer": {
+            p10: 155000,
+            p25: 195000,
+            p50: 250000,
+            p75: 320000,
+            p90: 420000,
+          },
+          "VP of Engineering": {
+            p10: 150000,
+            p25: 185000,
+            p50: 230000,
+            p75: 290000,
+            p90: 370000,
+          },
+          "Director of Engineering": {
+            p10: 130000,
+            p25: 160000,
+            p50: 195000,
+            p75: 245000,
+            p90: 310000,
           },
         };
 
-        // Company size multipliers
-        var SIZE_MULTIPLIERS = {
-          startup: 0.9,
-          small: 0.95,
+        var SEN_M = {
+          entry: 0.72,
           mid: 1.0,
-          enterprise: 1.1,
+          senior: 1.25,
+          executive: 1.55,
+          csuite: 2.1,
         };
-
-        // Experience level multipliers
-        var EXPERIENCE_MULTIPLIERS = {
-          entry: 0.7,
-          mid: 1.0,
-          senior: 1.3,
-          director: 1.6,
-          executive: 2.0,
+        var SIZ_M = {
+          startup: 0.88,
+          small: 0.93,
+          medium: 1.0,
+          large: 1.08,
+          enterprise: 1.15,
         };
-
-        // Industry multipliers
-        var INDUSTRY_MULTIPLIERS = {
-          technology: 1.15,
-          healthcare: 1.05,
-          finance: 1.12,
-          retail: 0.85,
-          manufacturing: 0.92,
-          energy: 1.08,
-          education: 0.78,
-          media: 0.9,
+        var IND_M = {
+          technology: 1.12,
+          finance: 1.15,
+          healthcare: 0.98,
           pharma: 1.1,
           consulting: 1.08,
-          logistics: 0.88,
-          construction: 0.95,
-          government: 0.82,
-          nonprofit: 0.75,
-          hospitality: 0.8,
+          energy: 1.06,
+          retail: 0.88,
+          manufacturing: 0.95,
+          education: 0.8,
+          government: 0.9,
+          media: 0.95,
+          construction: 0.92,
+          transportation: 0.9,
+          telecom: 1.02,
+          hospitality: 0.82,
+          nonprofit: 0.78,
+          legal: 1.1,
+          agriculture: 0.82,
         };
 
-        // Pay transparency laws database
-        var TRANSPARENCY_LAWS = [
-          {
-            id: "co",
-            name: "Colorado Equal Pay for Equal Work Act",
-            jurisdiction: "Colorado",
-            state: "CO",
-            country: "US",
-            effectiveDate: "2021-01-01",
-            requirement:
-              "Must disclose salary range and benefits in all job postings",
-            status: "active",
-          },
-          {
-            id: "nyc",
-            name: "NYC Pay Transparency Law",
-            jurisdiction: "New York City",
-            state: "NY",
-            country: "US",
-            effectiveDate: "2022-11-01",
-            requirement:
-              "Salary range required in job ads for positions in NYC",
-            status: "active",
-          },
-          {
-            id: "wa",
-            name: "Washington Equal Pay and Opportunities Act",
-            jurisdiction: "Washington State",
-            state: "WA",
-            country: "US",
-            effectiveDate: "2023-01-01",
-            requirement:
-              "Employers with 15+ employees must disclose salary ranges",
-            status: "active",
-          },
-          {
-            id: "ca",
-            name: "California Pay Transparency Act (SB 1162)",
-            jurisdiction: "California",
-            state: "CA",
-            country: "US",
-            effectiveDate: "2023-01-01",
-            requirement:
-              "Employers with 15+ employees must include pay scale in job postings",
-            status: "active",
-          },
-          {
-            id: "ny",
-            name: "New York State Pay Transparency Law",
-            jurisdiction: "New York State",
-            state: "NY",
-            country: "US",
-            effectiveDate: "2023-09-17",
-            requirement:
-              "All employers with 4+ employees must disclose salary ranges",
-            status: "active",
-          },
-          {
-            id: "il",
-            name: "Illinois Pay Transparency Act",
-            jurisdiction: "Illinois",
-            state: "IL",
-            country: "US",
-            effectiveDate: "2025-01-01",
-            requirement:
-              "Employers with 15+ employees must disclose pay scale and benefits",
-            status: "active",
-          },
-          {
-            id: "mn",
-            name: "Minnesota Pay Transparency Law",
-            jurisdiction: "Minnesota",
-            state: "MN",
-            country: "US",
-            effectiveDate: "2025-01-01",
-            requirement:
-              "All employers must provide starting salary range in postings",
-            status: "active",
-          },
-          {
-            id: "ma",
-            name: "Massachusetts Pay Transparency Law",
-            jurisdiction: "Massachusetts",
-            state: "MA",
-            country: "US",
-            effectiveDate: "2025-07-31",
-            requirement:
-              "Employers with 25+ employees must disclose pay ranges",
-            status: "upcoming",
-          },
-          {
-            id: "nj",
-            name: "New Jersey Pay Transparency Act",
-            jurisdiction: "New Jersey",
-            state: "NJ",
-            country: "US",
-            effectiveDate: "2025-06-01",
-            requirement:
-              "Employers with 10+ employees must include salary range in postings",
-            status: "active",
-          },
-          {
-            id: "hi",
-            name: "Hawaii Pay Transparency Law",
-            jurisdiction: "Hawaii",
-            state: "HI",
-            country: "US",
-            effectiveDate: "2024-01-01",
-            requirement:
-              "Employers with 50+ employees must disclose hourly rate or salary range",
-            status: "active",
-          },
-          {
-            id: "eu",
-            name: "EU Pay Transparency Directive",
-            jurisdiction: "European Union",
-            state: null,
-            country: "EU",
-            effectiveDate: "2026-06-07",
-            requirement:
-              "All EU member states must require salary ranges in job postings; employees have right to pay information",
-            status: "upcoming",
-          },
-          {
-            id: "uk",
-            name: "UK Voluntary Pay Transparency Guidance",
-            jurisdiction: "United Kingdom",
-            state: null,
-            country: "UK",
-            effectiveDate: null,
-            requirement:
-              "No legal mandate yet; voluntary guidance encourages salary disclosure. Gender pay gap reporting required for 250+ employees.",
-            status: "voluntary",
-          },
-        ];
-
-        // EU member states for directive matching
-        var EU_COUNTRIES = [
-          "DE",
-          "FR",
-          "NL",
-          "IE",
-          "ES",
-          "IT",
-          "PT",
-          "BE",
-          "AT",
-          "SE",
-          "DK",
-          "FI",
-          "PL",
-          "CZ",
-          "GR",
-          "HU",
-          "RO",
-          "BG",
-          "HR",
-          "SK",
-          "SI",
-          "LT",
-          "LV",
-          "EE",
-          "CY",
-          "MT",
-          "LU",
-        ];
-
-        // ── DOM refs ──
-        var jobTitleInput = document.getElementById("jobTitleInput");
-        var locationInput = document.getElementById("locationInput");
-        var industryInput = document.getElementById("industryInput");
-        var companySizeInput = document.getElementById("companySizeInput");
-        var experienceInput = document.getElementById("experienceInput");
-        var analyzeBtn = document.getElementById("analyzeBtn");
-        var resultsSection = document.getElementById("resultsSection");
-        var errorBanner = document.getElementById("errorBanner");
-        var copyBtn = document.getElementById("copyBtn");
-        var resetBtn = document.getElementById("resetBtn");
-
-        var lastResult = null;
-
-        // ── Event listeners ──
-        analyzeBtn.addEventListener("click", runAnalysis);
-        copyBtn.addEventListener("click", copyToClipboard);
-        resetBtn.addEventListener("click", function () {
-          resultsSection.classList.remove("visible");
-          lastResult = null;
-          jobTitleInput.value = "";
-          locationInput.value = "";
-          jobTitleInput.focus();
-          hideError();
-        });
-
-        // Allow Enter key on inputs
-        [jobTitleInput, locationInput].forEach(function (el) {
-          el.addEventListener("keydown", function (e) {
-            if (e.key === "Enter") {
-              runAnalysis();
-            }
+        function computeSalary(p) {
+          var bl = findBL(p.title);
+          if (!bl)
+            bl = {
+              p10: 45000,
+              p25: 55000,
+              p50: 70000,
+              p75: 90000,
+              p90: 115000,
+            };
+          var sM = SEN_M[p.seniority] || 1,
+            zM = SIZ_M[p.companySize] || 1,
+            iM = IND_M[p.industry] || 1,
+            ci = COL[p.location] || 100,
+            gE = 1 + (ci / 100 - 1) * 0.7,
+            cM = sM * zM * iM;
+          var L = {},
+            N = {};
+          ["p10", "p25", "p50", "p75", "p90"].forEach(function (k) {
+            L[k] = Math.round((bl[k] * cM * gE) / 1000) * 1000;
+            N[k] = Math.round((bl[k] * cM) / 1000) * 1000;
           });
-        });
-
-        // ── Core logic ──
-        function runAnalysis() {
-          hideError();
-
-          var jobTitle = (jobTitleInput.value || "").trim().toLowerCase();
-          var location = (locationInput.value || "").trim().toLowerCase();
-          var industry = industryInput.value;
-          var companySize = companySizeInput.value;
-          var experience = experienceInput.value;
-
-          if (!jobTitle) {
-            showError("Please enter a job title.");
-            jobTitleInput.focus();
-            return;
+          var tr = [];
+          for (var y = 2021; y <= 2025; y++) {
+            var g = 1 + (y - 2021) * 0.035 + (Math.random() * 0.01 - 0.005);
+            tr.push({ year: y, salary: Math.round(L.p50 / g / 1000) * 1000 });
           }
-          if (!location) {
-            showError("Please enter a location.");
-            locationInput.focus();
-            return;
-          }
-
-          // Find best matching job
-          var jobMatch = findBestMatch(jobTitle, Object.keys(SALARY_DATABASE));
-          if (!jobMatch) {
-            showError(
-              'No salary data found for "' +
-                escapeHtml(jobTitle) +
-                '". Try a common title like Software Engineer, Marketing Manager, or Accountant.',
-            );
-            return;
-          }
-
-          // Find best matching location
-          var locMatch = findBestMatch(location, Object.keys(LOCATIONS));
-          if (!locMatch) {
-            showError(
-              'Location "' +
-                escapeHtml(location) +
-                '" not found. Try a major city like San Francisco, New York, London, or Berlin.',
-            );
-            return;
-          }
-
-          var jobData = SALARY_DATABASE[jobMatch];
-          var locData = LOCATIONS[locMatch];
-          var baseSalary = jobData.base;
-
-          var locMult = locData.multiplier;
-          var sizeMult = SIZE_MULTIPLIERS[companySize] || 1.0;
-          var expMult = EXPERIENCE_MULTIPLIERS[experience] || 1.0;
-          var indMult = INDUSTRY_MULTIPLIERS[industry] || 1.0;
-
-          var adjustedMedian = Math.round(
-            baseSalary * locMult * sizeMult * expMult * indMult,
-          );
-          var min = Math.round(adjustedMedian * 0.78);
-          var max = Math.round(adjustedMedian * 1.28);
-          var p10 = Math.round(adjustedMedian * 0.82);
-          var p75 = Math.round(adjustedMedian * 1.15);
-          var p25 = Math.round(adjustedMedian * 0.9);
-
-          lastResult = {
-            jobTitle: capitalizeWords(jobMatch),
-            location: locData.label,
-            industry: industryInput.options[industryInput.selectedIndex].text,
-            experience:
-              experienceInput.options[experienceInput.selectedIndex].text,
-            companySize:
-              companySizeInput.options[companySizeInput.selectedIndex].text,
-            min: min,
-            median: adjustedMedian,
-            max: max,
-            p10: p10,
-            p25: p25,
-            p75: p75,
-            locData: locData,
-            jobData: jobData,
-            locMult: locMult,
-            sizeMult: sizeMult,
-            expMult: expMult,
-            indMult: indMult,
+          tr.push({ year: 2026, salary: L.p50 });
+          var ic = [];
+          [
+            "technology",
+            "finance",
+            "healthcare",
+            "retail",
+            "manufacturing",
+            "consulting",
+          ].forEach(function (ind) {
+            ic.push({
+              industry: ind.charAt(0).toUpperCase() + ind.slice(1),
+              salary:
+                Math.round((bl.p50 * sM * zM * (IND_M[ind] || 1) * gE) / 1000) *
+                1000,
+            });
+          });
+          ic.sort(function (a, b) {
+            return b.salary - a.salary;
+          });
+          return {
+            local: L,
+            national: N,
+            trends: tr,
+            industryComps: ic,
+            colIndex: ci,
+            stateCode: detectSC(p.location),
+            jobTitle: p.title,
+            location: p.location,
+            industry: p.industry,
+            seniority: p.seniority,
+            companySize: p.companySize,
           };
-
-          renderResults(lastResult);
-          resultsSection.classList.add("visible");
-
-          // Re-observe newly visible reveal-on-scroll elements
-          document
-            .querySelectorAll(".results-section .reveal-on-scroll")
-            .forEach(function (el) {
-              el.classList.remove("visible");
-              scrollObserver.observe(el);
-            });
-
-          resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
         }
 
-        function renderResults(r) {
-          // 1. Salary Range Visual
-          var rangeHTML =
-            '<div class="salary-range-visual">' +
-            '<div style="text-align:center;margin-bottom:0.5rem">' +
-            '<span style="font-size:0.8125rem;color:var(--text-muted)">' +
-            escapeHtml(r.jobTitle) +
-            " in " +
-            escapeHtml(r.location) +
-            "</span></div>" +
-            '<div class="range-bar-container">' +
-            '<div class="range-bar-fill" style="left:0;width:100%"></div>' +
-            '<div class="range-marker" style="left:0%" data-label="Min"></div>' +
-            '<div class="range-marker median" style="left:50%" data-label="Median"></div>' +
-            '<div class="range-marker" style="left:100%" data-label="Max"></div>' +
-            "</div>" +
-            '<div class="range-labels">' +
-            '<div class="range-label"><div class="amount">' +
-            formatCurrency(r.min) +
-            '</div><div class="label-text">Minimum</div></div>' +
-            '<div class="range-label median-label"><div class="amount">' +
-            formatCurrency(r.median) +
-            '</div><div class="label-text">Median</div></div>' +
-            '<div class="range-label"><div class="amount">' +
-            formatCurrency(r.max) +
-            '</div><div class="label-text">Maximum</div></div>' +
-            "</div></div>";
-          document.getElementById("salaryRangeContent").innerHTML = rangeHTML;
-
-          // 2. Recommended Posting Range
-          var postingHTML =
-            '<div class="posting-range">' +
-            '<div class="posting-label">Recommended salary range for your job posting</div>' +
-            '<div class="posting-value">' +
-            formatCurrency(r.p10) +
-            " &ndash; " +
-            formatCurrency(r.p75) +
-            "</div>" +
-            '<div class="posting-label">10th &ndash; 75th Percentile</div>' +
-            '<div class="posting-note">This range covers the competitive market band. ' +
-            "Posting a range wider than this may reduce applicant quality; " +
-            "narrower ranges may exclude qualified candidates.</div>" +
-            "</div>";
-          document.getElementById("postingRangeContent").innerHTML =
-            postingHTML;
-
-          // 3. Key stats
-          var statsHTML =
-            '<div class="stat-card"><div class="stat-value">' +
-            formatCurrency(r.p25) +
-            '</div><div class="stat-label">25th Percentile</div></div>' +
-            '<div class="stat-card"><div class="stat-value">' +
-            formatCurrency(r.median) +
-            '</div><div class="stat-label">Median Salary</div></div>' +
-            '<div class="stat-card"><div class="stat-value">' +
-            formatCurrency(r.p75) +
-            '</div><div class="stat-label">75th Percentile</div></div>' +
-            '<div class="stat-card"><div class="stat-value">' +
-            (r.locMult >= 1 ? "+" : "") +
-            Math.round((r.locMult - 1) * 100) +
-            '%</div><div class="stat-label">Location Adj.</div></div>';
-          document.getElementById("statsGrid").innerHTML = statsHTML;
-
-          // 4. Cost of living
-          var colClass =
-            r.locData.colIndex >= 150
-              ? "high"
-              : r.locData.colIndex >= 110
-                ? "medium"
-                : "low";
-          var colDesc =
-            r.locData.colIndex >= 150
-              ? "High cost of living. Salary expectations are significantly above national average."
-              : r.locData.colIndex >= 110
-                ? "Moderate cost of living. Salaries are near or slightly above average."
-                : "Below-average cost of living. Salaries may be lower but purchasing power is strong.";
-          var colHTML =
-            '<div class="col-adjustment">' +
-            '<div class="col-index ' +
-            colClass +
-            '">' +
-            r.locData.colIndex +
-            "</div>" +
-            '<div class="col-details">' +
-            '<div class="col-location">' +
-            escapeHtml(r.location) +
-            " Cost-of-Living Index</div>" +
-            '<div class="col-description">' +
-            colDesc +
-            " (US national average = 100)</div>" +
-            "</div></div>";
-          document.getElementById("colContent").innerHTML = colHTML;
-
-          // 5. Pay transparency compliance
-          var applicableLaws = getApplicableLaws(r.locData);
-          var complianceHTML = "";
-          if (applicableLaws.length === 0) {
-            complianceHTML =
-              '<div class="compliance-item">' +
-              '<div class="compliance-icon na">&#8212;</div>' +
-              '<div class="compliance-info">' +
-              '<div class="compliance-name">No mandatory pay transparency laws apply</div>' +
-              '<div class="compliance-detail">This location does not currently have mandatory pay transparency requirements. However, voluntarily disclosing salary ranges is recommended best practice.</div>' +
-              "</div></div>";
-          } else {
-            applicableLaws.forEach(function (law) {
-              var iconClass =
-                law.status === "active"
-                  ? "active"
-                  : law.status === "upcoming"
-                    ? "upcoming"
-                    : "na";
-              var icon =
-                law.status === "active"
-                  ? "&#10003;"
-                  : law.status === "upcoming"
-                    ? "&#9719;"
-                    : "&#8212;";
-              var badgeClass =
-                law.status === "active"
-                  ? "badge-active"
-                  : law.status === "upcoming"
-                    ? "badge-upcoming"
-                    : "badge-na";
-              var dateStr = law.effectiveDate
-                ? "Effective " + formatDate(law.effectiveDate)
-                : "";
-              complianceHTML +=
-                '<div class="compliance-item">' +
-                '<div class="compliance-icon ' +
-                iconClass +
-                '">' +
-                icon +
-                "</div>" +
-                '<div class="compliance-info">' +
-                '<div class="compliance-name">' +
-                escapeHtml(law.name) +
-                " " +
-                '<span class="compliance-status-badge ' +
-                badgeClass +
-                '">' +
-                law.status +
-                "</span></div>" +
-                '<div class="compliance-detail">' +
-                escapeHtml(law.requirement) +
-                (dateStr ? " &middot; " + dateStr : "") +
-                "</div></div></div>";
-            });
-          }
-          document.getElementById("complianceList").innerHTML = complianceHTML;
-
-          // 6. Comparable roles
-          var comparableHTML = "";
-          var similarTitles = (r.jobData.similar || []).slice(0, 5);
-          similarTitles.forEach(function (title) {
-            var titleKey = title.toLowerCase();
-            var compareBase = SALARY_DATABASE[titleKey]
-              ? SALARY_DATABASE[titleKey].base
-              : r.jobData.base * (0.85 + Math.random() * 0.3);
-            var compareSalary = Math.round(
-              compareBase * r.locMult * r.sizeMult * r.expMult * r.indMult,
-            );
-            var compareMin = Math.round(compareSalary * 0.82);
-            var compareMax = Math.round(compareSalary * 1.15);
-            var diff = Math.round(
-              ((compareSalary - r.median) / r.median) * 100,
-            );
-            var diffClass =
-              diff > 2 ? "diff-higher" : diff < -2 ? "diff-lower" : "diff-same";
-            var diffText =
-              diff > 0
-                ? "+" + diff + "% higher"
-                : diff < 0
-                  ? diff + "% lower"
-                  : "Similar";
-            var barWidth = Math.min(
-              100,
-              Math.round((compareSalary / r.max) * 100),
-            );
-
-            comparableHTML +=
-              '<div class="comparable-card">' +
-              '<div class="comparable-title">' +
-              escapeHtml(title) +
-              "</div>" +
-              '<div class="comparable-range">' +
-              '<span class="range-text">' +
-              formatCurrency(compareMin) +
-              " &ndash; " +
-              formatCurrency(compareMax) +
-              "</span>" +
-              '<span class="diff-text ' +
-              diffClass +
-              '">' +
-              diffText +
-              "</span></div>" +
-              '<div class="comparable-bar"><div class="comparable-bar-fill" style="width:' +
-              barWidth +
-              '%"></div></div>' +
-              "</div>";
-          });
-          document.getElementById("comparableGrid").innerHTML = comparableHTML;
-        }
-
-        // ── Compliance matching ──
-        function getApplicableLaws(locData) {
-          var laws = [];
-          TRANSPARENCY_LAWS.forEach(function (law) {
-            var match = false;
-            // Match by US state
-            if (law.country === "US" && locData.country === "US") {
-              if (law.state === locData.state) {
-                match = true;
-              }
-            }
-            // Match EU directive for EU countries
+        function findBL(t) {
+          if (!t) return null;
+          var lo = t.toLowerCase().trim();
+          for (var k in SAL) if (k.toLowerCase() === lo) return SAL[k];
+          for (var k2 in SAL)
             if (
-              law.country === "EU" &&
-              EU_COUNTRIES.indexOf(locData.country) >= 0
-            ) {
-              match = true;
+              k2.toLowerCase().indexOf(lo) !== -1 ||
+              lo.indexOf(k2.toLowerCase()) !== -1
+            )
+              return SAL[k2];
+          var ws = lo.split(/\s+/),
+            bm = null,
+            bs = 0;
+          for (var k3 in SAL) {
+            var kl = k3.toLowerCase(),
+              sc = 0;
+            ws.forEach(function (w) {
+              if (w.length > 2 && kl.indexOf(w) !== -1) sc++;
+            });
+            if (sc > bs) {
+              bs = sc;
+              bm = SAL[k3];
             }
-            // Match UK
-            if (law.country === "UK" && locData.country === "UK") {
-              match = true;
-            }
-            if (match) {
-              laws.push(law);
-            }
-          });
-          return laws;
+          }
+          return bm;
         }
 
-        // ── Copy to clipboard ──
-        function copyToClipboard() {
-          if (!lastResult) return;
-          var r = lastResult;
-          var text =
-            "Salary Range: " +
-            formatCurrency(r.p10) +
-            " - " +
-            formatCurrency(r.p75) +
-            " per year\n" +
-            "Role: " +
-            r.jobTitle +
-            "\n" +
-            "Location: " +
-            r.location +
-            "\n" +
-            "Experience: " +
-            r.experience +
-            "\n\n" +
-            "The salary range for this position is " +
-            formatCurrency(r.p10) +
-            " to " +
-            formatCurrency(r.p75) +
-            " annually. " +
-            "Individual compensation will vary based on qualifications, skills, and experience.";
+        function detectSC(loc) {
+          if (!loc) return null;
+          var u = loc.toUpperCase().trim();
+          var m = u.match(/,\s*([A-Z]{2})$/);
+          if (m) return m[1];
+          if (
+            u.indexOf("WASHINGTON") !== -1 &&
+            (u.indexOf("DC") !== -1 || u.indexOf("D.C.") !== -1)
+          )
+            return "DC";
+          for (var a in STATE_AB)
+            if (u.indexOf(STATE_AB[a].toUpperCase()) !== -1) return a;
+          return null;
+        }
 
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(
-              function () {
-                showCopied();
-              },
-              function () {
-                fallbackCopy(text);
-              },
-            );
-          } else {
-            fallbackCopy(text);
+        function fC(v, vw) {
+          if (v == null || isNaN(v)) return "--";
+          var a = v,
+            s = "/yr";
+          if (vw === "monthly") {
+            a = Math.round(v / 12);
+            s = "/mo";
+          } else if (vw === "hourly") {
+            a = Math.round(v / 2080);
+            s = "/hr";
+          }
+          return "$" + a.toLocaleString("en-US") + s;
+        }
+        function fS(v) {
+          if (v >= 1e6) return "$" + (v / 1e6).toFixed(1) + "M";
+          if (v >= 1e3) return "$" + Math.round(v / 1e3) + "K";
+          return "$" + v;
+        }
+        function eH(s) {
+          if (!s) return "";
+          var d = document.createElement("div");
+          d.appendChild(document.createTextNode(s));
+          return d.innerHTML;
+        }
+
+        function setupAC(inp, lst, items) {
+          var hl = -1;
+          inp.addEventListener("input", function () {
+            var v = inp.value.toLowerCase().trim();
+            lst.innerHTML = "";
+            hl = -1;
+            if (v.length < 1) {
+              lst.classList.remove("active");
+              return;
+            }
+            var ms = items
+              .filter(function (i) {
+                return i.toLowerCase().indexOf(v) !== -1;
+              })
+              .slice(0, 8);
+            if (!ms.length) {
+              lst.classList.remove("active");
+              return;
+            }
+            ms.forEach(function (m) {
+              var d = document.createElement("div");
+              d.className = "autocomplete-item";
+              d.setAttribute("role", "option");
+              d.textContent = m;
+              d.addEventListener("mousedown", function (e) {
+                e.preventDefault();
+                inp.value = m;
+                lst.classList.remove("active");
+                inp.dispatchEvent(new Event("change"));
+              });
+              lst.appendChild(d);
+            });
+            lst.classList.add("active");
+          });
+          inp.addEventListener("keydown", function (e) {
+            var its = lst.querySelectorAll(".autocomplete-item");
+            if (!its.length) return;
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              hl = Math.min(hl + 1, its.length - 1);
+              uHL(its);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              hl = Math.max(hl - 1, 0);
+              uHL(its);
+            } else if (e.key === "Enter" && hl >= 0) {
+              e.preventDefault();
+              inp.value = its[hl].textContent;
+              lst.classList.remove("active");
+              inp.dispatchEvent(new Event("change"));
+            } else if (e.key === "Escape") lst.classList.remove("active");
+          });
+          inp.addEventListener("blur", function () {
+            setTimeout(function () {
+              lst.classList.remove("active");
+            }, 150);
+          });
+          function uHL(ns) {
+            ns.forEach(function (n, i) {
+              n.classList.toggle("highlighted", i === hl);
+            });
           }
         }
 
-        function fallbackCopy(text) {
+        /* RENDER S1 */
+        function rS1(d) {
+          var L = d.local,
+            N = d.national;
+          var of = parseFloat(
+            (roles[activeRoleIdx].offeredSalary || "").replace(/[^0-9.]/g, ""),
+          );
+          document.getElementById("medianSalary").textContent = fC(
+            L.p50,
+            currentView,
+          );
+          var lm = {
+            annual: "Median Annual Salary",
+            monthly: "Median Monthly Salary",
+            hourly: "Median Hourly Rate",
+          };
+          document.getElementById("salaryViewLabel").textContent =
+            lm[currentView] || lm.annual;
+          var mn = L.p10,
+            mx = L.p90,
+            rg = mx - mn || 1;
+          document.getElementById("rangeFill").style.left = "0%";
+          document.getElementById("rangeFill").style.width = "100%";
+          [
+            { id: "P10", v: L.p10, p: 0 },
+            { id: "P25", v: L.p25, p: ((L.p25 - mn) / rg) * 100 },
+            { id: "P50", v: L.p50, p: ((L.p50 - mn) / rg) * 100 },
+            { id: "P75", v: L.p75, p: ((L.p75 - mn) / rg) * 100 },
+            { id: "P90", v: L.p90, p: 100 },
+          ].forEach(function (m) {
+            var el = document.getElementById("marker" + m.id),
+              vl = document.getElementById("value" + m.id);
+            if (el && vl) {
+              el.style.display = "block";
+              el.style.left = m.p + "%";
+              vl.textContent = fS(m.v);
+            }
+          });
+          var uM = document.getElementById("markerUser");
+          if (!isNaN(of) && of > 0) {
+            uM.style.display = "block";
+            uM.style.left =
+              Math.max(0, Math.min(100, ((of - mn) / rg) * 100)) + "%";
+            document.getElementById("valueUser").textContent = fS(of);
+          } else uM.style.display = "none";
+          document.getElementById("rangeMin").textContent = fC(
+            L.p10,
+            currentView,
+          );
+          document.getElementById("rangeMax").textContent = fC(
+            L.p90,
+            currentView,
+          );
+          var mxS = Math.max(N.p50, L.p50);
+          document.getElementById("nationalBarFill").style.width =
+            (N.p50 / mxS) * 100 + "%";
+          document.getElementById("localBarFill").style.width =
+            (L.p50 / mxS) * 100 + "%";
+          document.getElementById("nationalValue").textContent = fC(
+            N.p50,
+            currentView,
+          );
+          document.getElementById("localValue").textContent = fC(
+            L.p50,
+            currentView,
+          );
+        }
+
+        /* RENDER S2 */
+        function rS2(d) {
+          var of = parseFloat(
+            (roles[activeRoleIdx].offeredSalary || "").replace(/[^0-9.]/g, ""),
+          );
+          var eE = document.getElementById("positioningEmpty"),
+            rE = document.getElementById("positioningResult");
+          if (isNaN(of) || of <= 0) {
+            eE.style.display = "block";
+            rE.style.display = "none";
+            return;
+          }
+          eE.style.display = "none";
+          rE.style.display = "block";
+          var med = d.local.p50,
+            cr = med > 0 ? of / med : 1;
+          var sc = Math.round(Math.min(100, Math.max(0, cr * 55)));
+          document.getElementById("competitiveScore").textContent =
+            sc + " / 100";
+          var rEl = document.getElementById("positionRating"),
+            sEl = document.getElementById("positionSummary");
+          rEl.className = "gauge-rating";
+          if (cr < 0.85) {
+            rEl.textContent = "Below Market";
+            rEl.classList.add("rating-below");
+            sEl.textContent =
+              "Your offered salary is " +
+              Math.round((1 - cr) * 100) +
+              "% below the market median. Consider increasing to attract competitive candidates.";
+          } else if (cr < 0.95) {
+            rEl.textContent = "Slightly Below";
+            rEl.classList.add("rating-below");
+            sEl.textContent =
+              "Your offer is slightly below market. You may face longer time-to-fill and need higher ad spend.";
+          } else if (cr <= 1.05) {
+            rEl.textContent = "At Market";
+            rEl.classList.add("rating-at");
+            sEl.textContent =
+              "Your offer is competitive with market rates. Standard recruitment approach should work well.";
+          } else if (cr <= 1.15) {
+            rEl.textContent = "Above Market";
+            rEl.classList.add("rating-above");
+            sEl.textContent =
+              "Your offer is above market by " +
+              Math.round((cr - 1) * 100) +
+              "%. Use salary as a differentiator in your job ads.";
+          } else {
+            rEl.textContent = "Premium";
+            rEl.classList.add("rating-premium");
+            sEl.textContent =
+              "Premium offer -- " +
+              Math.round((cr - 1) * 100) +
+              "% above median. Highlight compensation prominently in all channels.";
+          }
+          var deg = Math.max(-90, Math.min(90, (cr - 1) * 450));
+          document.getElementById("gaugeNeedle").style.transform =
+            "translateX(-50%) rotate(" + deg + "deg)";
+        }
+
+        /* RENDER S3 */
+        function rS3(d) {
+          var city = document.getElementById("compareCity").value.trim();
+          var ct = document.getElementById("colComparison");
+          if (!city || !d) {
+            ct.innerHTML =
+              '<div class="empty-state" style="padding:24px"><p style="font-size:0.85rem">Enter a comparison city to see adjusted salary</p></div>';
+            return;
+          }
+          var bC = d.colIndex || 100,
+            cC = COL[city] || 100;
+          var adj = Math.round((d.local.p50 * (cC / bC)) / 1000) * 1000;
+          var df = adj - d.local.p50,
+            pc =
+              d.local.p50 > 0 ? ((df / d.local.p50) * 100).toFixed(1) : "0.0";
+          var sg = df >= 0 ? "+" : "",
+            cl = df >= 0 ? "var(--green)" : "var(--red)";
+          ct.innerHTML =
+            '<div class="col-city-card"><div class="col-city-index" style="color:var(--blue-violet)">' +
+            bC +
+            '</div><div class="col-city-details"><div class="col-city-name">' +
+            eH(d.location) +
+            '</div><div class="col-city-salary">' +
+            fC(d.local.p50, currentView) +
+            ' (median)</div></div></div><div style="text-align:center;font-size:1.2rem;color:var(--text-muted);padding:4px 0" aria-hidden="true">&#8595;</div><div class="col-city-card"><div class="col-city-index" style="color:var(--downy-teal)">' +
+            cC +
+            '</div><div class="col-city-details"><div class="col-city-name">' +
+            eH(city) +
+            '</div><div class="col-city-salary">' +
+            fC(adj, currentView) +
+            ' (adjusted)</div></div><div class="col-diff" style="color:' +
+            cl +
+            '">' +
+            sg +
+            pc +
+            "%</div></div>";
+        }
+
+        /* RENDER S4 */
+        function rS4(d) {
+          var sC = document.getElementById("complianceStatus"),
+            rT = document.getElementById("complianceRangeText"),
+            gE2 = document.getElementById("stateLawGrid");
+          var sc = d.stateCode,
+            law = sc ? PAY_LAWS[sc] : null,
+            L = d.local;
+          var rMin = L.p25,
+            rMax = L.p75;
+          var sp = rMax > 0 ? (((rMax - rMin) / rMin) * 100).toFixed(0) : 0;
+          if (law) {
+            sC.innerHTML =
+              '<div class="compliance-status compliance-warn"><span class="compliance-icon" aria-hidden="true">&#9888;&#65039;</span><div><strong>' +
+              eH(law.state) +
+              ' requires salary disclosure</strong><br><span style="font-weight:400;font-size:0.8rem">' +
+              eH(law.req) +
+              " (effective " +
+              eH(law.effective) +
+              ", " +
+              eH(law.threshold) +
+              ")</span></div></div>";
+          } else {
+            sC.innerHTML =
+              '<div class="compliance-status" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);color:var(--text-secondary)"><span class="compliance-icon" aria-hidden="true">&#9989;</span><div>No state-level salary disclosure mandate detected for this location.<br><span style="font-weight:400;font-size:0.8rem">Federal requirements may still apply. Consider voluntary disclosure for competitive advantage.</span></div></div>';
+          }
+          if (sp > 40) {
+            sC.innerHTML +=
+              '<div class="compliance-status compliance-warn" style="margin-top:8px"><span class="compliance-icon" aria-hidden="true">&#9888;&#65039;</span><div>Salary range spread is ' +
+              sp +
+              "% -- recommended range is 15-25%. Overly broad ranges may not meet good faith estimate requirements.</div></div>";
+          }
+          var cT =
+            "Salary Range: " +
+            fC(rMin, "annual") +
+            " - " +
+            fC(rMax, "annual") +
+            "\nThis range reflects competitive compensation for " +
+            eH(d.jobTitle) +
+            "\nin " +
+            eH(d.location) +
+            " based on market benchmarking data.\nTotal compensation may include benefits, bonuses, and equity.";
+          rT.textContent = cT;
+          var cb = document.createElement("button");
+          cb.className = "btn btn-sm btn-ghost copy-btn";
+          cb.title = "Copy to clipboard";
+          cb.setAttribute("aria-label", "Copy compliance text to clipboard");
+          cb.innerHTML = "&#128203; Copy";
+          cb.addEventListener("click", function () {
+            copyClip(cT);
+          });
+          rT.appendChild(cb);
+          gE2.innerHTML = "";
+          Object.keys(PAY_LAWS)
+            .sort(function (a, b) {
+              return PAY_LAWS[a].state.localeCompare(PAY_LAWS[b].state);
+            })
+            .forEach(function (code) {
+              var l = PAY_LAWS[code],
+                cl2 = l.status === "active" ? "active-state" : "pending-state";
+              var pill = document.createElement("div");
+              pill.className = "state-pill " + cl2;
+              pill.textContent = l.state;
+              pill.title = l.req + " (" + l.effective + ")";
+              gE2.appendChild(pill);
+            });
+        }
+
+        /* RENDER S5 */
+        function rS5(d) {
+          var ct = document.getElementById("mediaImpactContent");
+          var of = parseFloat(
+            (roles[activeRoleIdx].offeredSalary || "").replace(/[^0-9.]/g, ""),
+          );
+          var med = d.local.p50,
+            cr = 1;
+          if (!isNaN(of) && of > 0 && med > 0) cr = of / med;
+          var aI, bI, cI, chI, cl;
+          if (cr < 0.85) {
+            aI = "-30% to -50%";
+            bI = "+35% to +50%";
+            cI = "+40% to +60%";
+            chI =
+              "Premium channels (LinkedIn, niche boards). Increase reach with programmatic. Emphasize benefits and growth.";
+            cl = "var(--red)";
+          } else if (cr < 0.95) {
+            aI = "-10% to -20%";
+            bI = "+15% to +25%";
+            cI = "+15% to +25%";
+            chI =
+              "Balanced mix. Highlight total compensation package, career growth, and culture in ad copy.";
+            cl = "var(--amber)";
+          } else if (cr <= 1.05) {
+            aI = "Baseline volume";
+            bI = "Standard budget";
+            cI = "Standard CPA";
+            chI =
+              "Standard multi-channel approach. Job boards + social + programmatic.";
+            cl = "var(--green)";
+          } else if (cr <= 1.15) {
+            aI = "+15% to +25%";
+            bI = "-10% to -15%";
+            cI = "-15% to -20%";
+            chI =
+              "Highlight salary in all ads. Use channels where salary is visible (Indeed, Glassdoor). Reduce paid spend.";
+            cl = "var(--blue)";
+          } else {
+            aI = "+30% to +50%";
+            bI = "-20% to -35%";
+            cI = "-25% to -40%";
+            chI =
+              "Lead with salary in every channel. Organic and referral programs highly effective. Reduce paid advertising budget.";
+            cl = "var(--purple)";
+          }
+          var eV = Math.round(50 * cr * (1 + Math.random() * 0.2));
+          ct.innerHTML =
+            '<div class="impact-metric"><div class="impact-icon" style="background:' +
+            cl +
+            '20" aria-hidden="true">&#128200;</div><div class="impact-details"><div class="impact-label">Expected Applicant Volume Impact</div><div class="impact-value">' +
+            aI +
+            '</div></div><div class="impact-change" style="color:' +
+            cl +
+            '">' +
+            eV +
+            ' est.</div></div><div class="impact-metric"><div class="impact-icon" style="background:' +
+            cl +
+            '20" aria-hidden="true">&#128176;</div><div class="impact-details"><div class="impact-label">Budget Adjustment Needed</div><div class="impact-value">' +
+            bI +
+            '</div></div></div><div class="impact-metric"><div class="impact-icon" style="background:' +
+            cl +
+            '20" aria-hidden="true">&#127919;</div><div class="impact-details"><div class="impact-label">Cost-per-Application Impact</div><div class="impact-value">' +
+            cI +
+            '</div></div></div><div class="impact-metric"><div class="impact-icon" style="background:rgba(107,179,205,0.15)" aria-hidden="true">&#128225;</div><div class="impact-details"><div class="impact-label">Recommended Channel Strategy</div><div class="impact-value" style="font-weight:500;font-size:0.85rem">' +
+            chI +
+            "</div></div></div>";
+        }
+
+        /* RENDER S6 */
+        function rS6a(d) {
+          var ct = document.getElementById("trendChart"),
+            mx = 0;
+          d.trends.forEach(function (t) {
+            if (t.salary > mx) mx = t.salary;
+          });
+          if (mx <= 0) mx = 1;
+          ct.innerHTML = "";
+          d.trends.forEach(function (t) {
+            var p = (t.salary / mx) * 100,
+              lt = t.year === 2026;
+            var g = document.createElement("div");
+            g.className = "trend-bar-group";
+            g.innerHTML =
+              '<div class="trend-bar" style="height:' +
+              p +
+              "%;background:" +
+              (lt ? "var(--downy-teal)" : "var(--blue-violet)") +
+              ";opacity:" +
+              (lt ? "1" : "0.7") +
+              '"><span class="trend-bar-value">' +
+              fS(t.salary) +
+              '</span></div><span class="trend-bar-label">' +
+              t.year +
+              "</span>";
+            ct.appendChild(g);
+          });
+        }
+        function rS6b(d) {
+          var ct = document.getElementById("industryBars"),
+            mx = 0;
+          d.industryComps.forEach(function (ic) {
+            if (ic.salary > mx) mx = ic.salary;
+          });
+          if (mx <= 0) mx = 1;
+          ct.innerHTML = "";
+          d.industryComps.forEach(function (ic) {
+            var p = (ic.salary / mx) * 100,
+              isU =
+                d.industry &&
+                ic.industry.toLowerCase() === d.industry.toLowerCase();
+            var r = document.createElement("div");
+            r.className = "industry-row";
+            r.innerHTML =
+              '<span class="industry-name" title="' +
+              eH(ic.industry) +
+              '">' +
+              eH(ic.industry) +
+              (isU ? " *" : "") +
+              '</span><div class="industry-bar-track"><div class="industry-bar-fill" style="width:' +
+              p +
+              "%;background:" +
+              (isU ? "var(--downy-teal)" : "var(--blue-violet)") +
+              ";opacity:" +
+              (isU ? "1" : "0.6") +
+              '"></div></div><span class="industry-salary">' +
+              fS(ic.salary) +
+              "</span>";
+            ct.appendChild(r);
+          });
+        }
+
+        function renderAll(d) {
+          lastResults = d;
+          rS1(d);
+          rS2(d);
+          rS4(d);
+          rS5(d);
+          rS6a(d);
+          rS6b(d);
+          if (document.getElementById("compareCity").value.trim()) rS3(d);
+        }
+
+        function fetchData(p) {
+          var sp = document.getElementById("spinnerOverlay");
+          sp.classList.add("active");
+          var csrf = window.__csrfToken || "";
+          fetch("/api/payscale-sync/salary", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrf,
+            },
+            body: JSON.stringify({
+              role: p.title,
+              location: p.location,
+              industry: p.industry,
+              seniority: p.seniority,
+              company_size: p.companySize,
+            }),
+          })
+            .then(function (r) {
+              return r.json();
+            })
+            .then(function (api) {
+              sp.classList.remove("active");
+              var c = computeSalary(p);
+              if (api && api.p50 && !api.error) {
+                ["p10", "p25", "p50", "p75", "p90"].forEach(function (k) {
+                  if (api[k]) c.local[k] = api[k];
+                });
+              }
+              roles[activeRoleIdx].data = c;
+              document.getElementById("resultsArea").classList.add("active");
+              renderAll(c);
+            })
+            .catch(function () {
+              sp.classList.remove("active");
+              var c = computeSalary(p);
+              roles[activeRoleIdx].data = c;
+              document.getElementById("resultsArea").classList.add("active");
+              renderAll(c);
+            });
+        }
+
+        function saveForm() {
+          var r = roles[activeRoleIdx];
+          r.title = document.getElementById("jobTitle").value;
+          r.location = document.getElementById("location").value;
+          r.industry = document.getElementById("industry").value;
+          r.seniority = document.getElementById("seniority").value;
+          r.companySize = document.getElementById("companySize").value;
+          r.offeredSalary = document.getElementById("offeredSalary").value;
+        }
+        function loadForm(i) {
+          var r = roles[i];
+          document.getElementById("jobTitle").value = r.title || "";
+          document.getElementById("location").value = r.location || "";
+          document.getElementById("industry").value = r.industry || "";
+          document.getElementById("seniority").value = r.seniority || "mid";
+          document.getElementById("companySize").value =
+            r.companySize || "medium";
+          document.getElementById("offeredSalary").value =
+            r.offeredSalary || "";
+        }
+
+        function renderRT() {
+          var tc = document.getElementById("roleTabs");
+          tc.innerHTML = "";
+          roles.forEach(function (r, i) {
+            var tab = document.createElement("button");
+            tab.className = "role-tab" + (i === activeRoleIdx ? " active" : "");
+            tab.setAttribute("data-role-idx", i);
+            var nm = r.title || "Role " + (i + 1);
+            tab.innerHTML = '<span class="role-tab-name">' + eH(nm) + "</span>";
+            if (roles.length > 1) {
+              var rm = document.createElement("span");
+              rm.className = "remove-role";
+              rm.textContent = "\u00d7";
+              rm.title = "Remove this role";
+              rm.addEventListener("click", function (e) {
+                e.stopPropagation();
+                removeRole(i);
+              });
+              tab.appendChild(rm);
+            }
+            tab.addEventListener("click", function () {
+              switchRole(i);
+            });
+            tc.appendChild(tab);
+          });
+          if (roles.length < MAX_ROLES) {
+            var ab = document.createElement("button");
+            ab.className = "add-role-btn";
+            ab.textContent = "+ Add Role";
+            ab.title = "Add another role (up to " + MAX_ROLES + ")";
+            ab.addEventListener("click", addRole);
+            tc.appendChild(ab);
+          }
+        }
+
+        function switchRole(i) {
+          if (i === activeRoleIdx) return;
+          saveForm();
+          activeRoleIdx = i;
+          loadForm(i);
+          renderRT();
+          if (roles[i].data) {
+            document.getElementById("resultsArea").classList.add("active");
+            renderAll(roles[i].data);
+          } else
+            document.getElementById("resultsArea").classList.remove("active");
+        }
+        function addRole() {
+          if (roles.length >= MAX_ROLES) return;
+          saveForm();
+          roles.push({
+            title: "",
+            location: "",
+            industry: "",
+            seniority: "mid",
+            companySize: "medium",
+            offeredSalary: "",
+            data: null,
+          });
+          activeRoleIdx = roles.length - 1;
+          loadForm(activeRoleIdx);
+          renderRT();
+          document.getElementById("resultsArea").classList.remove("active");
+          document.getElementById("jobTitle").focus();
+        }
+        function removeRole(i) {
+          if (roles.length <= 1) return;
+          roles.splice(i, 1);
+          if (activeRoleIdx >= roles.length) activeRoleIdx = roles.length - 1;
+          loadForm(activeRoleIdx);
+          renderRT();
+          if (roles[activeRoleIdx].data) {
+            document.getElementById("resultsArea").classList.add("active");
+            renderAll(roles[activeRoleIdx].data);
+          } else
+            document.getElementById("resultsArea").classList.remove("active");
+        }
+
+        function exportJSON() {
+          if (!lastResults) {
+            showToast("No data to export. Run a salary comparison first.");
+            return;
+          }
+          var exp = {
+            generated: new Date().toISOString(),
+            source: "PayScale Sync | Nova AI Suite",
+            roles: roles.map(function (r) {
+              return {
+                title: r.title,
+                location: r.location,
+                industry: r.industry,
+                seniority: r.seniority,
+                companySize: r.companySize,
+                offeredSalary: r.offeredSalary,
+                salaryData: r.data ? r.data.local : null,
+                nationalData: r.data ? r.data.national : null,
+                trends: r.data ? r.data.trends : null,
+                industryComps: r.data ? r.data.industryComps : null,
+              };
+            }),
+          };
+          var blob = new Blob([JSON.stringify(exp, null, 2)], {
+            type: "application/json",
+          });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = "payscale-sync-report.json";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showToast("JSON report exported successfully");
+        }
+
+        function copyClip(t) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard
+              .writeText(t)
+              .then(function () {
+                showToast("Copied to clipboard");
+              })
+              .catch(function () {
+                fbCopy(t);
+              });
+          } else fbCopy(t);
+        }
+        function fbCopy(t) {
           var ta = document.createElement("textarea");
-          ta.value = text;
+          ta.value = t;
           ta.style.position = "fixed";
           ta.style.left = "-9999px";
           document.body.appendChild(ta);
           ta.select();
           try {
             document.execCommand("copy");
-            showCopied();
+            showToast("Copied to clipboard");
           } catch (e) {
-            showError("Copy failed. Please select and copy manually.");
+            showToast("Copy failed");
           }
           document.body.removeChild(ta);
         }
-
-        function showCopied() {
-          copyBtn.classList.add("copied");
-          var origHTML = copyBtn.innerHTML;
-          copyBtn.innerHTML =
-            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+        function showToast(m) {
+          var t = document.getElementById("toast");
+          t.textContent = m;
+          t.classList.add("show");
           setTimeout(function () {
-            copyBtn.classList.remove("copied");
-            copyBtn.innerHTML = origHTML;
-          }, 2000);
+            t.classList.remove("show");
+          }, 3000);
         }
 
-        // ── Fuzzy matching ──
-        function findBestMatch(input, candidates) {
-          // Exact match first
-          if (candidates.indexOf(input) >= 0) return input;
-
-          // Substring match
-          var matches = candidates.filter(function (c) {
-            return c.indexOf(input) >= 0 || input.indexOf(c) >= 0;
-          });
-          if (matches.length > 0) return matches[0];
-
-          // Word overlap match
-          var inputWords = input.split(/[\s,\-\/]+/).filter(function (w) {
-            return w.length > 2;
-          });
-          var bestScore = 0;
-          var bestMatch = null;
-          candidates.forEach(function (c) {
-            var cWords = c.split(/[\s,\-\/]+/);
-            var score = 0;
-            inputWords.forEach(function (iw) {
-              cWords.forEach(function (cw) {
-                if (cw.indexOf(iw) >= 0 || iw.indexOf(cw) >= 0) {
-                  score += 1;
-                }
-              });
-            });
-            if (score > bestScore) {
-              bestScore = score;
-              bestMatch = c;
+        document
+          .getElementById("salaryForm")
+          .addEventListener("submit", function (e) {
+            e.preventDefault();
+            saveForm();
+            var r = roles[activeRoleIdx];
+            if (!r.title.trim() || !r.location.trim()) {
+              showToast("Please enter a job title and location");
+              return;
             }
+            renderRT();
+            fetchData({
+              title: r.title,
+              location: r.location,
+              industry: r.industry,
+              seniority: r.seniority,
+              companySize: r.companySize,
+            });
           });
-          return bestScore > 0 ? bestMatch : null;
-        }
-
-        // ── Helpers ──
-        function formatCurrency(n) {
-          return "$" + numberWithCommas(n);
-        }
-
-        function numberWithCommas(n) {
-          return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        }
-
-        function capitalizeWords(s) {
-          return s.replace(/\b\w/g, function (c) {
-            return c.toUpperCase();
+        document
+          .getElementById("resetBtn")
+          .addEventListener("click", function () {
+            document.getElementById("salaryForm").reset();
+            document.getElementById("resultsArea").classList.remove("active");
+            document.getElementById("compareCity").value = "";
+            roles = [
+              {
+                title: "",
+                location: "",
+                industry: "",
+                seniority: "mid",
+                companySize: "medium",
+                offeredSalary: "",
+                data: null,
+              },
+            ];
+            activeRoleIdx = 0;
+            lastResults = null;
+            renderRT();
           });
-        }
+        document.querySelectorAll(".view-toggle-btn").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            document.querySelectorAll(".view-toggle-btn").forEach(function (b) {
+              b.classList.remove("active");
+            });
+            btn.classList.add("active");
+            currentView = btn.getAttribute("data-view");
+            if (lastResults) renderAll(lastResults);
+          });
+        });
+        document
+          .getElementById("compareCity")
+          .addEventListener("change", function () {
+            if (lastResults) rS3(lastResults);
+          });
+        document
+          .getElementById("compareCity")
+          .addEventListener("blur", function () {
+            setTimeout(function () {
+              if (lastResults) rS3(lastResults);
+            }, 200);
+          });
+        document
+          .getElementById("exportJsonBtn")
+          .addEventListener("click", exportJSON);
+        document
+          .getElementById("exportNewSearchBtn")
+          .addEventListener("click", function () {
+            document.getElementById("resultsArea").classList.remove("active");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            document.getElementById("jobTitle").focus();
+          });
 
-        function formatDate(dateStr) {
-          var parts = dateStr.split("-");
-          var months = [
-            "Jan",
-            "Feb",
-            "Mar",
-            "Apr",
-            "May",
-            "Jun",
-            "Jul",
-            "Aug",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Dec",
-          ];
-          return (
-            months[parseInt(parts[1], 10) - 1] +
-            " " +
-            parts[2] +
-            ", " +
-            parts[0]
-          );
-        }
+        setupAC(
+          document.getElementById("jobTitle"),
+          document.getElementById("jobTitleSuggestions"),
+          JOB_TITLES,
+        );
+        setupAC(
+          document.getElementById("location"),
+          document.getElementById("locationSuggestions"),
+          METROS,
+        );
+        setupAC(
+          document.getElementById("compareCity"),
+          document.getElementById("compareCitySuggestions"),
+          METROS,
+        );
 
-        function escapeHtml(s) {
-          if (typeof s !== "string") return String(s);
-          return s
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;");
-        }
-
-        function showError(msg) {
-          errorBanner.textContent = msg;
-          errorBanner.classList.add("visible");
-        }
-        function hideError() {
-          errorBanner.textContent = "";
-          errorBanner.classList.remove("visible");
-        }
-
-        // ── Scroll reveal ──
-        var scrollObserver = new IntersectionObserver(
+        var sO = new IntersectionObserver(
           function (entries) {
-            entries.forEach(function (e) {
-              if (e.isIntersecting) {
-                e.target.classList.add("visible");
-                scrollObserver.unobserve(e.target);
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("visible");
+                sO.unobserve(entry.target);
               }
             });
           },
-          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+          { threshold: 0.08, rootMargin: "0px 0px -40px 0px" },
         );
         document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
-          scrollObserver.observe(el);
+          sO.observe(el);
         });
+        renderRT();
       })();
     </script>
   </body>

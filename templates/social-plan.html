@@ -912,6 +912,80 @@
         }
       }
     </style>
+    <!-- PostHog Analytics (loaded only if API key is configured server-side) -->
+    <script>
+      !(function (t, e) {
+        var o, n, p, r;
+        e.__SV ||
+          ((window.posthog = e),
+          (e._i = []),
+          (e.init = function (i, s, a) {
+            function g(t, e) {
+              var o = e.split(".");
+              (2 == o.length && ((t = t[o[0]]), (e = o[1])),
+                (t[e] = function () {
+                  t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+                }));
+            }
+            (((p = t.createElement("script")).type = "text/javascript"),
+              (p.crossOrigin = "anonymous"),
+              (p.async = !0),
+              (p.src =
+                s.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") +
+                "/static/array.js"),
+              (r = t.getElementsByTagName("script")[0]).parentNode.insertBefore(
+                p,
+                r,
+              ));
+            var u = e;
+            for (
+              void 0 !== a ? (u = e[a] = []) : (a = "posthog"),
+                u.people = u.people || [],
+                u.toString = function (t) {
+                  var e = "posthog";
+                  return (
+                    "posthog" !== a && (e += "." + a),
+                    t || (e += " (stub)"),
+                    e
+                  );
+                },
+                u.people.toString = function () {
+                  return u.toString(1) + ".people (stub)";
+                },
+                o =
+                  "init capture register register_once unregister opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing identify alias people.set people.set_once set_config reset get_distinct_id getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep".split(
+                    " ",
+                  ),
+                n = 0;
+              n < o.length;
+              n++
+            )
+              g(u, o[n]);
+            e._i.push([i, s, a]);
+          }),
+          (e.__SV = 1));
+      })(document, window.posthog || []);
+    </script>
+    <script>
+      // Initialize PostHog only if the backend provides the key via a meta tag or inline
+      (function () {
+        // Fetch the PostHog key from the server config endpoint
+        fetch("/api/health")
+          .then((r) => r.json())
+          .then((d) => {
+            if (d && d.posthog_key) {
+              posthog.init(d.posthog_key, {
+                api_host: "https://us.i.posthog.com",
+                person_profiles: "identified_only",
+                autocapture: true,
+                capture_pageview: true,
+                capture_pageleave: true,
+              });
+            }
+          })
+          .catch(() => {});
+      })();
+    </script>
   </head>
   <body>
     <script>
@@ -1129,6 +1203,13 @@
           >
             Performance
           </div>
+          <div
+            class="tab"
+            data-tab="adspecs"
+            onclick="switchTab(this, 'adspecs')"
+          >
+            Ad Specs
+          </div>
         </div>
 
         <!-- Tab: Platforms -->
@@ -1195,6 +1276,51 @@
             benchmarks.
           </p>
           <div id="perfContent"></div>
+        </div>
+
+        <!-- Tab: Ad Specs -->
+        <div id="tab-adspecs" class="tab-content reveal-on-scroll">
+          <h3 class="section-title">
+            <span class="dot"></span>Platform Ad Specifications
+            <span
+              style="
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 0.6rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                padding: 2px 6px;
+                border-radius: 4px;
+                background: rgba(34, 197, 94, 0.15);
+                color: #22c55e;
+                border: 1px solid rgba(34, 197, 94, 0.3);
+                margin-left: 8px;
+                vertical-align: middle;
+              "
+            >
+              <span
+                style="
+                  width: 5px;
+                  height: 5px;
+                  border-radius: 50%;
+                  background: #22c55e;
+                "
+                aria-hidden="true"
+              ></span>
+              Live
+            </span>
+          </h3>
+          <p class="section-sub">
+            Real-time ad format specifications, image sizes, and character
+            limits per platform.
+          </p>
+          <div id="adSpecsContent">
+            <p style="color: var(--text-dim, #666); font-size: 0.85rem">
+              Ad specs data will appear here after plan generation.
+            </p>
+          </div>
         </div>
 
         <!-- Downloads -->
@@ -1362,6 +1488,7 @@
         renderCalendar(plan.content_calendar);
         renderBriefs(plan.creative_briefs);
         renderPerformance(plan.performance);
+        renderAdSpecs(plan.platform_ad_specs);
 
         results.scrollIntoView({ behavior: "smooth", block: "start" });
       }
@@ -1769,6 +1896,120 @@
         <strong>Lowest ROI:</strong> ${escapeHtml(perf.worst_roi_platform)} -- monitor closely, reduce spend if underperforming after week 2.
       </p>
     </div>`;
+      }
+
+      function renderAdSpecs(adSpecs) {
+        const container = document.getElementById("adSpecsContent");
+        if (!adSpecs || Object.keys(adSpecs).length === 0) {
+          container.innerHTML =
+            '<p style="color:var(--text-dim, #666);font-size:0.85rem;">No ad specification data available. The Firecrawl enrichment may not have returned data for this plan.</p>';
+          return;
+        }
+
+        let html =
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;">';
+
+        Object.entries(adSpecs).forEach(([platform, specs]) => {
+          const platformName =
+            platform.charAt(0).toUpperCase() + platform.slice(1);
+          html += `<div class="card" style="background:var(--card,rgba(17,17,17,0.8));border:1px solid var(--border,rgba(255,255,255,0.08));border-radius:12px;padding:20px;">`;
+          html += `<h4 style="font-size:1rem;font-weight:700;color:var(--accent-light,#818cf8);margin-bottom:12px;text-transform:capitalize;">${escapeHtml(platformName)}</h4>`;
+
+          if (typeof specs === "string") {
+            html += `<p style="font-size:0.85rem;color:var(--text-muted);">${escapeHtml(specs)}</p>`;
+          } else if (specs && typeof specs === "object") {
+            const formats = specs.formats || specs.ad_formats || specs.types;
+            if (Array.isArray(formats)) {
+              html += '<div style="margin-bottom:12px;">';
+              html +=
+                '<div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Ad Formats</div>';
+              formats.forEach((fmt) => {
+                const fmtName =
+                  typeof fmt === "string" ? fmt : fmt.name || fmt.type || "";
+                const fmtSize =
+                  typeof fmt === "object"
+                    ? fmt.size || fmt.dimensions || ""
+                    : "";
+                const fmtChars =
+                  typeof fmt === "object"
+                    ? fmt.character_limit || fmt.max_chars || ""
+                    : "";
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border,rgba(255,255,255,0.05));font-size:0.825rem;">`;
+                html += `<span style="color:var(--text,#d4d4d8);font-weight:500;">${escapeHtml(fmtName)}</span>`;
+                const details = [];
+                if (fmtSize) details.push(escapeHtml(String(fmtSize)));
+                if (fmtChars)
+                  details.push(escapeHtml(String(fmtChars)) + " chars");
+                if (details.length) {
+                  html += `<span style="color:var(--text-muted);font-size:0.75rem;">${details.join(" | ")}</span>`;
+                }
+                html += "</div>";
+              });
+              html += "</div>";
+            }
+
+            // Image sizes
+            const imageSizes =
+              specs.image_sizes || specs.creative_sizes || specs.sizes;
+            if (imageSizes && typeof imageSizes === "object") {
+              html +=
+                '<div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;margin-top:8px;">Image Sizes</div>';
+              Object.entries(imageSizes).forEach(([key, val]) => {
+                html += `<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:0.8rem;">`;
+                html += `<span style="color:var(--text);">${escapeHtml(key)}</span>`;
+                html += `<span style="color:var(--cyan-accent,#22d3ee);font-family:monospace;">${escapeHtml(String(val))}</span>`;
+                html += "</div>";
+              });
+            }
+
+            // Character limits
+            const charLimits =
+              specs.character_limits || specs.text_limits || specs.copy_limits;
+            if (charLimits && typeof charLimits === "object") {
+              html +=
+                '<div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;margin-top:8px;">Character Limits</div>';
+              Object.entries(charLimits).forEach(([key, val]) => {
+                html += `<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:0.8rem;">`;
+                html += `<span style="color:var(--text);">${escapeHtml(key)}</span>`;
+                html += `<span style="color:var(--warning,#fbbf24);font-weight:600;">${escapeHtml(String(val))}</span>`;
+                html += "</div>";
+              });
+            }
+
+            // Generic key-value fallback for other properties
+            const skipKeys = new Set([
+              "formats",
+              "ad_formats",
+              "types",
+              "image_sizes",
+              "creative_sizes",
+              "sizes",
+              "character_limits",
+              "text_limits",
+              "copy_limits",
+              "source",
+              "error",
+            ]);
+            Object.entries(specs).forEach(([key, val]) => {
+              if (skipKeys.has(key)) return;
+              if (typeof val === "string" || typeof val === "number") {
+                html += `<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:0.8rem;margin-top:2px;">`;
+                html += `<span style="color:var(--text-secondary);">${escapeHtml(key.replace(/_/g, " "))}</span>`;
+                html += `<span style="color:var(--text);">${escapeHtml(String(val))}</span>`;
+                html += "</div>";
+              }
+            });
+
+            if (specs.source) {
+              html += `<div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;text-align:right;">Source: ${escapeHtml(specs.source)}</div>`;
+            }
+          }
+
+          html += "</div>";
+        });
+
+        html += "</div>";
+        container.innerHTML = html;
       }
 
       // ── Downloads ──

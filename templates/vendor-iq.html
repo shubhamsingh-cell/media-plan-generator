@@ -443,6 +443,92 @@
       .comparison-table tr:hover td {
         background: rgba(99, 102, 241, 0.04);
       }
+      /* ── Live Pricing Badges & Button ── */
+      .source-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-left: 6px;
+        vertical-align: middle;
+      }
+      .source-badge.live {
+        background: rgba(34, 197, 94, 0.15);
+        color: #22c55e;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+      }
+      .source-badge.live::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #22c55e;
+        animation: livePulse 1.5s ease-in-out infinite;
+      }
+      .source-badge.benchmark {
+        background: rgba(161, 161, 161, 0.1);
+        color: #a1a1a1;
+        border: 1px solid rgba(161, 161, 161, 0.2);
+      }
+      @keyframes livePulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+      .btn-live-pricing {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: rgba(34, 197, 94, 0.12);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        color: #22c55e;
+        border-radius: 8px;
+        font-size: 0.825rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-top: 12px;
+      }
+      .btn-live-pricing:hover {
+        background: rgba(34, 197, 94, 0.2);
+        border-color: rgba(34, 197, 94, 0.5);
+      }
+      .btn-live-pricing:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn-live-pricing .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(34, 197, 94, 0.3);
+        border-top-color: #22c55e;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .source-badge.live::before {
+          animation: none;
+        }
+        .btn-live-pricing .spinner {
+          animation: none;
+        }
+      }
       .vendor-cell {
         display: flex;
         align-items: center;
@@ -752,6 +838,80 @@
         filter: none;
       }
     </style>
+    <!-- PostHog Analytics (loaded only if API key is configured server-side) -->
+    <script>
+      !(function (t, e) {
+        var o, n, p, r;
+        e.__SV ||
+          ((window.posthog = e),
+          (e._i = []),
+          (e.init = function (i, s, a) {
+            function g(t, e) {
+              var o = e.split(".");
+              (2 == o.length && ((t = t[o[0]]), (e = o[1])),
+                (t[e] = function () {
+                  t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+                }));
+            }
+            (((p = t.createElement("script")).type = "text/javascript"),
+              (p.crossOrigin = "anonymous"),
+              (p.async = !0),
+              (p.src =
+                s.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") +
+                "/static/array.js"),
+              (r = t.getElementsByTagName("script")[0]).parentNode.insertBefore(
+                p,
+                r,
+              ));
+            var u = e;
+            for (
+              void 0 !== a ? (u = e[a] = []) : (a = "posthog"),
+                u.people = u.people || [],
+                u.toString = function (t) {
+                  var e = "posthog";
+                  return (
+                    "posthog" !== a && (e += "." + a),
+                    t || (e += " (stub)"),
+                    e
+                  );
+                },
+                u.people.toString = function () {
+                  return u.toString(1) + ".people (stub)";
+                },
+                o =
+                  "init capture register register_once unregister opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing identify alias people.set people.set_once set_config reset get_distinct_id getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep".split(
+                    " ",
+                  ),
+                n = 0;
+              n < o.length;
+              n++
+            )
+              g(u, o[n]);
+            e._i.push([i, s, a]);
+          }),
+          (e.__SV = 1));
+      })(document, window.posthog || []);
+    </script>
+    <script>
+      // Initialize PostHog only if the backend provides the key via a meta tag or inline
+      (function () {
+        // Fetch the PostHog key from the server config endpoint
+        fetch("/api/health")
+          .then((r) => r.json())
+          .then((d) => {
+            if (d && d.posthog_key) {
+              posthog.init(d.posthog_key, {
+                api_host: "https://us.i.posthog.com",
+                person_profiles: "identified_only",
+                autocapture: true,
+                capture_pageview: true,
+                capture_pageleave: true,
+              });
+            }
+          })
+          .catch(() => {});
+      })();
+    </script>
   </head>
   <body>
     <!-- ═══ HEADER ═══ -->
@@ -895,6 +1055,30 @@
               <tbody id="tableBody"></tbody>
             </table>
           </div>
+          <button
+            class="btn-live-pricing"
+            id="btnLivePricing"
+            type="button"
+            style="display: none"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M23 4v6h-6" />
+              <path d="M1 20v-6h6" />
+              <path
+                d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+              />
+            </svg>
+            Refresh Live Pricing
+          </button>
         </section>
 
         <!-- Radar Charts -->
@@ -5441,6 +5625,7 @@
         var $allocSummary = document.getElementById("allocSummary");
 
         var selectedVendors = {};
+        window.__vendorIQ_selectedVendors = selectedVendors;
         var VENDOR_COLORS = [
           "#6366f1",
           "#22c55e",
@@ -5516,6 +5701,7 @@
             card.setAttribute("aria-checked", "true");
             card.querySelector(".check-indicator").textContent = "\u2713";
           }
+          window.__vendorIQ_selectedVendors = selectedVendors;
           updateSelectionUI();
         }
 
@@ -5825,6 +6011,139 @@
       document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
         scrollObserver.observe(el);
       });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // CSRF Token + Live Pricing via Firecrawl
+      // ═══════════════════════════════════════════════════════════════════
+      window.__csrfToken = "";
+      fetch("/api/csrf-token")
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          window.__csrfToken = d.token || "";
+        })
+        .catch(function () {});
+
+      (function () {
+        "use strict";
+        var livePricingBtn = document.getElementById("btnLivePricing");
+        var livePricingData = null;
+
+        // Show button when results panel becomes active
+        var observer = new MutationObserver(function () {
+          var panel = document.getElementById("resultsPanel");
+          if (panel && panel.classList.contains("active")) {
+            livePricingBtn.style.display = "inline-flex";
+          } else {
+            livePricingBtn.style.display = "none";
+          }
+        });
+        var panel = document.getElementById("resultsPanel");
+        if (panel) {
+          observer.observe(panel, {
+            attributes: true,
+            attributeFilter: ["class"],
+          });
+        }
+
+        livePricingBtn.addEventListener("click", async function () {
+          livePricingBtn.disabled = true;
+          livePricingBtn.innerHTML =
+            '<span class="spinner"></span> Fetching live prices...';
+
+          try {
+            var selectedKeys = Object.keys(
+              window.__vendorIQ_selectedVendors || {},
+            );
+            if (selectedKeys.length === 0) {
+              selectedKeys = ["indeed", "linkedin", "glassdoor"];
+            }
+
+            var resp = await fetch("/api/vendor-iq/live-pricing", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": window.__csrfToken,
+              },
+              body: JSON.stringify({ vendors: selectedKeys }),
+            });
+
+            if (!resp.ok) throw new Error("HTTP " + resp.status);
+            var result = await resp.json();
+
+            if (result.status === "ok" && result.vendors) {
+              livePricingData = result.vendors;
+              overlayLivePricing(livePricingData);
+              livePricingBtn.innerHTML =
+                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Refresh Live Pricing';
+            } else {
+              throw new Error(result.error || "No live data returned");
+            }
+          } catch (err) {
+            livePricingBtn.innerHTML =
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Refresh Live Pricing';
+            var errDiv = document.createElement("div");
+            errDiv.style.cssText =
+              "color:#f87171;font-size:0.8rem;margin-top:8px;";
+            errDiv.textContent = "Live pricing unavailable: " + err.message;
+            livePricingBtn.parentNode.appendChild(errDiv);
+            setTimeout(function () {
+              if (errDiv.parentNode) errDiv.parentNode.removeChild(errDiv);
+            }, 5000);
+          } finally {
+            livePricingBtn.disabled = false;
+          }
+        });
+
+        function overlayLivePricing(vendorData) {
+          var tbody = document.getElementById("tableBody");
+          if (!tbody) return;
+          var rows = tbody.querySelectorAll("tr");
+
+          rows.forEach(function (row) {
+            var nameCell = row.querySelector(".vendor-cell .name");
+            if (!nameCell) return;
+            var vendorName = nameCell.textContent.trim().toLowerCase();
+
+            var liveInfo = vendorData[vendorName];
+            if (!liveInfo || liveInfo.error) return;
+
+            var cells = row.querySelectorAll("td");
+            if (cells.length < 3) return;
+
+            // CPC cell (index 1)
+            var liveCpc = liveInfo.cpc || liveInfo.avg_cpc;
+            if (liveCpc && typeof liveCpc === "number") {
+              var existingCpc = cells[1].textContent.trim();
+              cells[1].innerHTML =
+                '<div style="line-height:1.6">' +
+                "<span>$" +
+                liveCpc.toFixed(2) +
+                '</span><span class="source-badge live">Live</span>' +
+                '<br><span style="color:var(--text-muted);font-size:0.75rem;text-decoration:line-through">' +
+                existingCpc +
+                '</span><span class="source-badge benchmark">Benchmark</span>' +
+                "</div>";
+            }
+
+            // CPA cell (index 2)
+            var liveCpa = liveInfo.cpa || liveInfo.avg_cpa;
+            if (liveCpa && typeof liveCpa === "number") {
+              var existingCpa = cells[2].textContent.trim();
+              cells[2].innerHTML =
+                '<div style="line-height:1.6">' +
+                "<span>$" +
+                liveCpa.toFixed(0) +
+                '</span><span class="source-badge live">Live</span>' +
+                '<br><span style="color:var(--text-muted);font-size:0.75rem;text-decoration:line-through">' +
+                existingCpa +
+                '</span><span class="source-badge benchmark">Benchmark</span>' +
+                "</div>";
+            }
+          });
+        }
+      })();
     </script>
     <footer
       class="reveal-on-scroll"

@@ -1370,6 +1370,80 @@
         transition-delay: 0.3s;
       }
     </style>
+    <!-- PostHog Analytics (loaded only if API key is configured server-side) -->
+    <script>
+      !(function (t, e) {
+        var o, n, p, r;
+        e.__SV ||
+          ((window.posthog = e),
+          (e._i = []),
+          (e.init = function (i, s, a) {
+            function g(t, e) {
+              var o = e.split(".");
+              (2 == o.length && ((t = t[o[0]]), (e = o[1])),
+                (t[e] = function () {
+                  t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+                }));
+            }
+            (((p = t.createElement("script")).type = "text/javascript"),
+              (p.crossOrigin = "anonymous"),
+              (p.async = !0),
+              (p.src =
+                s.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") +
+                "/static/array.js"),
+              (r = t.getElementsByTagName("script")[0]).parentNode.insertBefore(
+                p,
+                r,
+              ));
+            var u = e;
+            for (
+              void 0 !== a ? (u = e[a] = []) : (a = "posthog"),
+                u.people = u.people || [],
+                u.toString = function (t) {
+                  var e = "posthog";
+                  return (
+                    "posthog" !== a && (e += "." + a),
+                    t || (e += " (stub)"),
+                    e
+                  );
+                },
+                u.people.toString = function () {
+                  return u.toString(1) + ".people (stub)";
+                },
+                o =
+                  "init capture register register_once unregister opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing identify alias people.set people.set_once set_config reset get_distinct_id getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep".split(
+                    " ",
+                  ),
+                n = 0;
+              n < o.length;
+              n++
+            )
+              g(u, o[n]);
+            e._i.push([i, s, a]);
+          }),
+          (e.__SV = 1));
+      })(document, window.posthog || []);
+    </script>
+    <script>
+      // Initialize PostHog only if the backend provides the key via a meta tag or inline
+      (function () {
+        // Fetch the PostHog key from the server config endpoint
+        fetch("/api/health")
+          .then((r) => r.json())
+          .then((d) => {
+            if (d && d.posthog_key) {
+              posthog.init(d.posthog_key, {
+                api_host: "https://us.i.posthog.com",
+                person_profiles: "identified_only",
+                autocapture: true,
+                capture_pageview: true,
+                capture_pageleave: true,
+              });
+            }
+          })
+          .catch(() => {});
+      })();
+    </script>
   </head>
   <body>
     <script>
@@ -1704,6 +1778,48 @@
         <div class="glass-card reveal-on-scroll" style="margin-bottom: 32px">
           <span class="section-label">Recommendations</span>
           <div class="rec-list" id="recList"></div>
+        </div>
+
+        <!-- Live Job Posting Volume -->
+        <div
+          class="glass-card reveal-on-scroll"
+          id="jobPostingVolumeCard"
+          style="margin-bottom: 32px; display: none"
+        >
+          <span
+            class="section-label"
+            style="display: flex; align-items: center; gap: 8px"
+          >
+            Live Job Postings
+            <span
+              style="
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 0.65rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                padding: 2px 6px;
+                border-radius: 4px;
+                background: rgba(34, 197, 94, 0.15);
+                color: #22c55e;
+                border: 1px solid rgba(34, 197, 94, 0.3);
+              "
+            >
+              <span
+                style="
+                  width: 6px;
+                  height: 6px;
+                  border-radius: 50%;
+                  background: #22c55e;
+                "
+                aria-hidden="true"
+              ></span>
+              Live
+            </span>
+          </span>
+          <div id="jobPostingVolumeContent"></div>
         </div>
 
         <!-- Predictions -->
@@ -2054,6 +2170,7 @@
           );
           renderCost(data.cost_analysis || {});
           renderRecommendations(data.recommendations || []);
+          renderJobPostingVolume(data.job_posting_volume, data);
           renderPredictions(data.predictions || {});
         }
 
@@ -2349,6 +2466,96 @@
               "</span>";
             list.appendChild(item);
           });
+        }
+
+        function renderJobPostingVolume(volumeData, fullData) {
+          var card = document.getElementById("jobPostingVolumeCard");
+          var content = document.getElementById("jobPostingVolumeContent");
+          if (!volumeData || volumeData.source === "error") {
+            card.style.display = "none";
+            return;
+          }
+          card.style.display = "block";
+
+          var role = fullData.role || fullData.job_title || "this role";
+          var location = fullData.location || "";
+          var totalListings =
+            volumeData.total_listings || volumeData.total || 0;
+          var platforms = volumeData.platforms || volumeData.by_platform || {};
+          var trend = volumeData.trend || "";
+          var lastUpdated =
+            volumeData.last_updated || volumeData.timestamp || "";
+
+          var html =
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:12px;">';
+
+          // Main count card
+          html +=
+            '<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:16px;text-align:center;">';
+          html +=
+            '<div style="font-size:2rem;font-weight:800;color:var(--accent-light,#818cf8);">' +
+            totalListings.toLocaleString() +
+            "</div>";
+          html +=
+            '<div style="font-size:0.8rem;color:var(--text-secondary,#a1a1a1);margin-top:4px;">Active listings for ' +
+            escapeHtml(role);
+          if (location) html += " in " + escapeHtml(location);
+          html += "</div>";
+          if (trend) {
+            var trendColor =
+              trend === "increasing"
+                ? "#22c55e"
+                : trend === "decreasing"
+                  ? "#ef4444"
+                  : "#a1a1a1";
+            var trendArrow =
+              trend === "increasing"
+                ? "&#9650;"
+                : trend === "decreasing"
+                  ? "&#9660;"
+                  : "&#8722;";
+            html +=
+              '<div style="font-size:0.75rem;color:' +
+              trendColor +
+              ';margin-top:6px;font-weight:600;">' +
+              trendArrow +
+              " " +
+              escapeHtml(trend.charAt(0).toUpperCase() + trend.slice(1)) +
+              " trend</div>";
+          }
+          html += "</div>";
+
+          // Platform breakdown
+          var platformKeys = Object.keys(platforms);
+          platformKeys.forEach(function (pName) {
+            var pVal = platforms[pName];
+            var count =
+              typeof pVal === "number"
+                ? pVal
+                : pVal.count || pVal.listings || 0;
+            html +=
+              '<div style="background:var(--card,rgba(17,17,17,0.8));border:1px solid var(--border,rgba(255,255,255,0.08));border-radius:8px;padding:16px;text-align:center;">';
+            html +=
+              '<div style="font-size:1.5rem;font-weight:700;color:var(--text,#d4d4d8);">' +
+              count.toLocaleString() +
+              "</div>";
+            html +=
+              '<div style="font-size:0.8rem;color:var(--text-muted,#666666);margin-top:4px;">' +
+              escapeHtml(pName.charAt(0).toUpperCase() + pName.slice(1)) +
+              "</div>";
+            html += "</div>";
+          });
+
+          html += "</div>";
+
+          if (lastUpdated) {
+            html +=
+              '<div style="font-size:0.7rem;color:var(--text-muted,#666666);margin-top:10px;text-align:right;">Data sourced ' +
+              escapeHtml(lastUpdated) +
+              "</div>";
+          }
+
+          content.innerHTML = html;
         }
 
         function renderPredictions(predData) {
