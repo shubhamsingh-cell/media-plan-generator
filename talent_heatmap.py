@@ -58,6 +58,7 @@ def _lazy_research():
         return _research
     try:
         import research as _mod
+
         _research = _mod
         _HAS_RESEARCH = True
         return _mod
@@ -73,11 +74,14 @@ def _lazy_api():
         return _api_enrichment
     try:
         import api_enrichment as _mod
+
         _api_enrichment = _mod
         _HAS_API = True
         return _mod
     except ImportError:
-        logger.warning("api_enrichment not available; salary lookups will use fallbacks")
+        logger.warning(
+            "api_enrichment not available; salary lookups will use fallbacks"
+        )
         _HAS_API = False
         return None
 
@@ -88,6 +92,7 @@ def _lazy_orchestrator():
         return _data_orchestrator
     try:
         import data_orchestrator as _mod
+
         _data_orchestrator = _mod
         _HAS_ORCHESTRATOR = True
         return _mod
@@ -103,6 +108,7 @@ def _lazy_trends():
         return _trend_engine
     try:
         import trend_engine as _mod
+
         _trend_engine = _mod
         _HAS_TRENDS = True
         return _mod
@@ -225,38 +231,124 @@ ROLE_SALARY_MULTIPLIERS = {
 
 # Industry-specific talent density multipliers (relative to baseline)
 INDUSTRY_TALENT_DENSITY = {
-    "tech_engineering": {"san_francisco": 2.5, "san_jose": 2.8, "seattle": 2.2, "austin": 2.0,
-                         "new_york": 1.8, "boston": 1.9, "denver": 1.6, "raleigh": 1.7,
-                         "los_angeles": 1.5, "chicago": 1.3, "atlanta": 1.4, "dallas": 1.3,
-                         "portland": 1.5, "salt_lake_city": 1.4, "minneapolis": 1.2,
-                         "washington_dc": 1.5, "phoenix": 1.2, "charlotte": 1.1},
-    "healthcare_medical": {"boston": 2.2, "houston": 2.0, "nashville": 2.3, "new_york": 1.8,
-                           "philadelphia": 1.9, "cleveland": 1.8, "rochester_mn": 2.5,
-                           "baltimore": 1.7, "pittsburgh": 1.6, "minneapolis": 1.7,
-                           "chicago": 1.5, "los_angeles": 1.4, "san_francisco": 1.3,
-                           "dallas": 1.4, "atlanta": 1.5, "detroit": 1.3},
-    "finance_banking": {"new_york": 3.0, "charlotte": 2.2, "chicago": 1.8, "boston": 1.7,
-                        "san_francisco": 1.6, "washington_dc": 1.4, "dallas": 1.3,
-                        "philadelphia": 1.3, "hartford": 1.5, "des_moines": 1.4,
-                        "atlanta": 1.2, "minneapolis": 1.3, "omaha": 1.2},
-    "logistics_supply_chain": {"memphis": 2.5, "louisville": 2.3, "dallas": 1.8,
-                               "chicago": 1.7, "atlanta": 1.8, "indianapolis": 1.6,
-                               "columbus": 1.5, "kansas_city": 1.5, "houston": 1.4,
-                               "las_vegas": 1.2, "phoenix": 1.3, "jacksonville": 1.3},
-    "aerospace_defense": {"washington_dc": 2.5, "huntsville": 2.3, "san_diego": 2.0,
-                          "seattle": 1.8, "dallas": 1.6, "denver": 1.5, "los_angeles": 1.7,
-                          "tucson": 1.4, "phoenix": 1.3, "oklahoma_city": 1.4,
-                          "norfolk": 1.3, "baltimore": 1.2},
-    "retail_consumer": {"new_york": 1.5, "los_angeles": 1.4, "chicago": 1.3, "dallas": 1.3,
-                        "atlanta": 1.3, "houston": 1.2, "miami": 1.3, "phoenix": 1.2,
-                        "las_vegas": 1.1, "tampa": 1.1, "orlando": 1.2},
-    "energy_utilities": {"houston": 2.8, "dallas": 1.5, "denver": 1.6, "oklahoma_city": 1.8,
-                         "pittsburgh": 1.3, "new_orleans": 1.4, "anchorage": 1.5,
-                         "san_antonio": 1.2, "salt_lake_city": 1.2},
-    "construction_real_estate": {"houston": 1.8, "dallas": 1.7, "phoenix": 1.8,
-                                 "austin": 1.6, "las_vegas": 1.5, "denver": 1.5,
-                                 "atlanta": 1.4, "tampa": 1.4, "nashville": 1.3,
-                                 "charlotte": 1.3, "san_antonio": 1.2},
+    "tech_engineering": {
+        "san_francisco": 2.5,
+        "san_jose": 2.8,
+        "seattle": 2.2,
+        "austin": 2.0,
+        "new_york": 1.8,
+        "boston": 1.9,
+        "denver": 1.6,
+        "raleigh": 1.7,
+        "los_angeles": 1.5,
+        "chicago": 1.3,
+        "atlanta": 1.4,
+        "dallas": 1.3,
+        "portland": 1.5,
+        "salt_lake_city": 1.4,
+        "minneapolis": 1.2,
+        "washington_dc": 1.5,
+        "phoenix": 1.2,
+        "charlotte": 1.1,
+    },
+    "healthcare_medical": {
+        "boston": 2.2,
+        "houston": 2.0,
+        "nashville": 2.3,
+        "new_york": 1.8,
+        "philadelphia": 1.9,
+        "cleveland": 1.8,
+        "rochester_mn": 2.5,
+        "baltimore": 1.7,
+        "pittsburgh": 1.6,
+        "minneapolis": 1.7,
+        "chicago": 1.5,
+        "los_angeles": 1.4,
+        "san_francisco": 1.3,
+        "dallas": 1.4,
+        "atlanta": 1.5,
+        "detroit": 1.3,
+    },
+    "finance_banking": {
+        "new_york": 3.0,
+        "charlotte": 2.2,
+        "chicago": 1.8,
+        "boston": 1.7,
+        "san_francisco": 1.6,
+        "washington_dc": 1.4,
+        "dallas": 1.3,
+        "philadelphia": 1.3,
+        "hartford": 1.5,
+        "des_moines": 1.4,
+        "atlanta": 1.2,
+        "minneapolis": 1.3,
+        "omaha": 1.2,
+    },
+    "logistics_supply_chain": {
+        "memphis": 2.5,
+        "louisville": 2.3,
+        "dallas": 1.8,
+        "chicago": 1.7,
+        "atlanta": 1.8,
+        "indianapolis": 1.6,
+        "columbus": 1.5,
+        "kansas_city": 1.5,
+        "houston": 1.4,
+        "las_vegas": 1.2,
+        "phoenix": 1.3,
+        "jacksonville": 1.3,
+    },
+    "aerospace_defense": {
+        "washington_dc": 2.5,
+        "huntsville": 2.3,
+        "san_diego": 2.0,
+        "seattle": 1.8,
+        "dallas": 1.6,
+        "denver": 1.5,
+        "los_angeles": 1.7,
+        "tucson": 1.4,
+        "phoenix": 1.3,
+        "oklahoma_city": 1.4,
+        "norfolk": 1.3,
+        "baltimore": 1.2,
+    },
+    "retail_consumer": {
+        "new_york": 1.5,
+        "los_angeles": 1.4,
+        "chicago": 1.3,
+        "dallas": 1.3,
+        "atlanta": 1.3,
+        "houston": 1.2,
+        "miami": 1.3,
+        "phoenix": 1.2,
+        "las_vegas": 1.1,
+        "tampa": 1.1,
+        "orlando": 1.2,
+    },
+    "energy_utilities": {
+        "houston": 2.8,
+        "dallas": 1.5,
+        "denver": 1.6,
+        "oklahoma_city": 1.8,
+        "pittsburgh": 1.3,
+        "new_orleans": 1.4,
+        "anchorage": 1.5,
+        "san_antonio": 1.2,
+        "salt_lake_city": 1.2,
+    },
+    "construction_real_estate": {
+        "houston": 1.8,
+        "dallas": 1.7,
+        "phoenix": 1.8,
+        "austin": 1.6,
+        "las_vegas": 1.5,
+        "denver": 1.5,
+        "atlanta": 1.4,
+        "tampa": 1.4,
+        "nashville": 1.3,
+        "charlotte": 1.3,
+        "san_antonio": 1.2,
+    },
 }
 
 # Competition multipliers per industry
@@ -290,6 +382,7 @@ INDUSTRY_COMPETITION_FACTOR = {
 # 1. LOCATION RESOLUTION
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _resolve_location(location: str) -> Dict[str, Any]:
     """Resolve a location string to its data from research.py.
 
@@ -304,23 +397,31 @@ def _resolve_location(location: str) -> Dict[str, Any]:
         return {"type": "unknown", "key": location, "name": location, "data": {}}
 
     loc_lower = location.strip().lower()
-    loc_clean = re.sub(r'[^a-z0-9\s]', '', loc_lower).strip()
-    loc_underscore = re.sub(r'\s+', '_', loc_clean)
+    loc_clean = re.sub(r"[^a-z0-9\s]", "", loc_lower).strip()
+    loc_underscore = re.sub(r"\s+", "_", loc_clean)
 
     # 1. Check METRO_DATA
     metro_data = getattr(res, "METRO_DATA", {})
     # Direct key match
     if loc_underscore in metro_data:
         d = metro_data[loc_underscore]
-        return {"type": "metro", "key": loc_underscore,
-                "name": d.get("metro_name", location.title()), "data": d}
+        return {
+            "type": "metro",
+            "key": loc_underscore,
+            "name": d.get("metro_name", location.title()),
+            "data": d,
+        }
     # Try without underscores and partial match
     for key, d in metro_data.items():
         metro_name_lower = d.get("metro_name", "").lower()
         key_clean = key.replace("_", " ")
         if loc_clean == key_clean or loc_clean in metro_name_lower:
-            return {"type": "metro", "key": key,
-                    "name": d.get("metro_name", key.replace("_", " ").title()), "data": d}
+            return {
+                "type": "metro",
+                "key": key,
+                "name": d.get("metro_name", key.replace("_", " ").title()),
+                "data": d,
+            }
 
     # 2. Check COUNTRY_DATA (international locations)
     country_data = getattr(res, "COUNTRY_DATA", {})
@@ -328,8 +429,12 @@ def _resolve_location(location: str) -> Dict[str, Any]:
     if detect_country_fn:
         country = detect_country_fn(location)
         if country and country in country_data:
-            return {"type": "country", "key": country, "name": country,
-                    "data": country_data[country]}
+            return {
+                "type": "country",
+                "key": country,
+                "name": country,
+                "data": country_data[country],
+            }
 
     # 3. Check STATE_DATA
     state_data = getattr(res, "STATE_DATA", {})
@@ -337,8 +442,12 @@ def _resolve_location(location: str) -> Dict[str, Any]:
     loc_upper = location.strip().upper()
     if loc_upper in state_data:
         d = state_data[loc_upper]
-        return {"type": "state", "key": loc_upper,
-                "name": d.get("name", loc_upper), "data": d}
+        return {
+            "type": "state",
+            "key": loc_upper,
+            "name": d.get("name", loc_upper),
+            "data": d,
+        }
     # Check state name
     for abbr, d in state_data.items():
         if d.get("name", "").lower() == loc_lower:
@@ -347,12 +456,16 @@ def _resolve_location(location: str) -> Dict[str, Any]:
     # 4. Check metro data with city, state format ("Dallas, TX")
     parts = [p.strip() for p in location.split(",")]
     if len(parts) >= 2:
-        city_part = re.sub(r'[^a-z0-9\s]', '', parts[0].lower()).strip()
-        city_underscore = re.sub(r'\s+', '_', city_part)
+        city_part = re.sub(r"[^a-z0-9\s]", "", parts[0].lower()).strip()
+        city_underscore = re.sub(r"\s+", "_", city_part)
         if city_underscore in metro_data:
             d = metro_data[city_underscore]
-            return {"type": "metro", "key": city_underscore,
-                    "name": d.get("metro_name", location.title()), "data": d}
+            return {
+                "type": "metro",
+                "key": city_underscore,
+                "name": d.get("metro_name", location.title()),
+                "data": d,
+            }
 
     return {"type": "unknown", "key": location, "name": location, "data": {}}
 
@@ -369,8 +482,10 @@ def _get_all_metro_keys() -> List[str]:
 # 2. TALENT DENSITY
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def get_talent_density(role: str, locations: List[str],
-                       industry: str = "general_entry_level") -> List[Dict[str, Any]]:
+
+def get_talent_density(
+    role: str, locations: List[str], industry: str = "general_entry_level"
+) -> List[Dict[str, Any]]:
     """Calculate talent concentration per location for a given role.
 
     Uses population data, industry density multipliers, and metro employment
@@ -390,15 +505,17 @@ def get_talent_density(role: str, locations: List[str],
         loc_key = resolved["key"]
 
         if not data:
-            results.append({
-                "location": loc,
-                "display_name": loc,
-                "talent_density_score": 30,
-                "talent_pool_estimate": "Unknown",
-                "population": "N/A",
-                "top_industries": "N/A",
-                "rating": "Unknown",
-            })
+            results.append(
+                {
+                    "location": loc,
+                    "display_name": loc,
+                    "talent_density_score": 30,
+                    "talent_pool_estimate": "Unknown",
+                    "population": "N/A",
+                    "top_industries": "N/A",
+                    "rating": "Unknown",
+                }
+            )
             continue
 
         # Base density from population
@@ -426,33 +543,41 @@ def get_talent_density(role: str, locations: List[str],
         unemp = float(unemp_str.replace("%", "").strip()) if unemp_str else 4.0
         unemp_factor = 1.0 + (4.0 - unemp) * 0.02  # slight bonus for low unemployment
 
-        density_score = min(100, max(5, base_density * ind_mult * role_boost * unemp_factor))
+        density_score = min(
+            100, max(5, base_density * ind_mult * role_boost * unemp_factor)
+        )
 
         # Estimate talent pool
-        talent_pool = _estimate_talent_pool(pop_num, density_score, industry, role_lower)
+        talent_pool = _estimate_talent_pool(
+            pop_num, density_score, industry, role_lower
+        )
 
         # Rating
         rating = _density_rating(density_score)
 
-        results.append({
-            "location": loc,
-            "display_name": loc_name,
-            "location_key": loc_key,
-            "location_type": loc_type,
-            "talent_density_score": round(density_score, 1),
-            "talent_pool_estimate": talent_pool,
-            "population": pop_str,
-            "top_industries": top_ind,
-            "major_employers": data.get("major_employers", "N/A"),
-            "rating": rating,
-        })
+        results.append(
+            {
+                "location": loc,
+                "display_name": loc_name,
+                "location_key": loc_key,
+                "location_type": loc_type,
+                "talent_density_score": round(density_score, 1),
+                "talent_pool_estimate": talent_pool,
+                "population": pop_str,
+                "top_industries": top_ind,
+                "major_employers": data.get("major_employers", "N/A"),
+                "rating": rating,
+            }
+        )
 
     # Normalize scores relative to the set
     if results:
         max_score = max(r["talent_density_score"] for r in results)
         if max_score > 0:
             for r in results:
-                r["normalized_score"] = round(r["talent_density_score"] / max_score * 100, 1)
+                r["normalized_score"] = round(
+                    r["talent_density_score"] / max_score * 100, 1
+                )
 
     return sorted(results, key=lambda x: x["talent_density_score"], reverse=True)
 
@@ -461,14 +586,14 @@ def _parse_population(pop_str: str) -> int:
     """Parse population string like '2.5M metro' to integer."""
     if not pop_str:
         return 0
-    pop_clean = re.sub(r'[^0-9.MKBmkb]', '', str(pop_str))
+    pop_clean = re.sub(r"[^0-9.MKBmkb]", "", str(pop_str))
     try:
-        if 'B' in pop_clean.upper():
-            return int(float(pop_clean.upper().replace('B', '')) * 1_000_000_000)
-        elif 'M' in pop_clean.upper():
-            return int(float(pop_clean.upper().replace('M', '')) * 1_000_000)
-        elif 'K' in pop_clean.upper():
-            return int(float(pop_clean.upper().replace('K', '')) * 1_000)
+        if "B" in pop_clean.upper():
+            return int(float(pop_clean.upper().replace("B", "")) * 1_000_000_000)
+        elif "M" in pop_clean.upper():
+            return int(float(pop_clean.upper().replace("M", "")) * 1_000_000)
+        elif "K" in pop_clean.upper():
+            return int(float(pop_clean.upper().replace("K", "")) * 1_000)
         return int(float(pop_clean))
     except (ValueError, TypeError):
         return 0
@@ -502,18 +627,24 @@ def _role_matches_industries(role: str, industries: str) -> bool:
     return False
 
 
-def _estimate_talent_pool(population: int, density_score: float,
-                          industry: str, role: str) -> str:
+def _estimate_talent_pool(
+    population: int, density_score: float, industry: str, role: str
+) -> str:
     """Estimate the approximate talent pool size for a role in a location."""
     # Base percentage of population in workforce (~60%)
     workforce = population * 0.60
     # Industry share (~5-15% depending on industry)
     industry_share = {
-        "tech_engineering": 0.08, "healthcare_medical": 0.12,
-        "finance_banking": 0.07, "retail_consumer": 0.10,
-        "logistics_supply_chain": 0.06, "hospitality_travel": 0.09,
-        "construction_real_estate": 0.06, "education": 0.08,
-        "general_entry_level": 0.15, "blue_collar_trades": 0.08,
+        "tech_engineering": 0.08,
+        "healthcare_medical": 0.12,
+        "finance_banking": 0.07,
+        "retail_consumer": 0.10,
+        "logistics_supply_chain": 0.06,
+        "hospitality_travel": 0.09,
+        "construction_real_estate": 0.06,
+        "education": 0.08,
+        "general_entry_level": 0.15,
+        "blue_collar_trades": 0.08,
     }
     share = industry_share.get(industry, 0.07)
     # Role specificity factor (~1-10% of industry workers)
@@ -552,8 +683,10 @@ def _density_rating(score: float) -> str:
 # 3. SALARY MAP
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def get_salary_map(role: str, locations: List[str],
-                   industry: str = "general_entry_level") -> List[Dict[str, Any]]:
+
+def get_salary_map(
+    role: str, locations: List[str], industry: str = "general_entry_level"
+) -> List[Dict[str, Any]]:
     """Get salary data per location for a given role.
 
     Uses METRO_DATA median_salary with role-specific multipliers
@@ -578,17 +711,19 @@ def get_salary_map(role: str, locations: List[str],
         loc_name = resolved["name"]
 
         if not data:
-            results.append({
-                "location": loc,
-                "display_name": loc,
-                "estimated_salary": 0,
-                "median_salary": 0,
-                "coli": 100,
-                "adjusted_salary": 0,
-                "salary_range_low": 0,
-                "salary_range_high": 0,
-                "currency": "USD",
-            })
+            results.append(
+                {
+                    "location": loc,
+                    "display_name": loc,
+                    "estimated_salary": 0,
+                    "median_salary": 0,
+                    "coli": 100,
+                    "adjusted_salary": 0,
+                    "salary_range_low": 0,
+                    "salary_range_high": 0,
+                    "currency": "USD",
+                }
+            )
             continue
 
         median = data.get("median_salary", 50000)
@@ -609,17 +744,19 @@ def get_salary_map(role: str, locations: List[str],
         if resolved["type"] == "country":
             currency = data.get("currency", "USD")
 
-        results.append({
-            "location": loc,
-            "display_name": loc_name,
-            "estimated_salary": estimated,
-            "median_salary": median,
-            "coli": coli,
-            "adjusted_salary": adjusted,
-            "salary_range_low": range_low,
-            "salary_range_high": range_high,
-            "currency": currency,
-        })
+        results.append(
+            {
+                "location": loc,
+                "display_name": loc_name,
+                "estimated_salary": estimated,
+                "median_salary": median,
+                "coli": coli,
+                "adjusted_salary": adjusted,
+                "salary_range_low": range_low,
+                "salary_range_high": range_high,
+                "currency": currency,
+            }
+        )
 
     return sorted(results, key=lambda x: x["estimated_salary"], reverse=True)
 
@@ -628,8 +765,10 @@ def get_salary_map(role: str, locations: List[str],
 # 4. COMPETITION INDEX
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def get_competition_index(role: str, locations: List[str],
-                          industry: str = "general_entry_level") -> List[Dict[str, Any]]:
+
+def get_competition_index(
+    role: str, locations: List[str], industry: str = "general_entry_level"
+) -> List[Dict[str, Any]]:
     """Calculate hiring competition index per location.
 
     Higher score = more competition for candidates.
@@ -649,13 +788,15 @@ def get_competition_index(role: str, locations: List[str],
         loc_key = resolved["key"]
 
         if not data:
-            results.append({
-                "location": loc,
-                "display_name": loc,
-                "competition_score": 50,
-                "rating": "Moderate",
-                "factors": [],
-            })
+            results.append(
+                {
+                    "location": loc,
+                    "display_name": loc,
+                    "competition_score": 50,
+                    "rating": "Moderate",
+                    "factors": [],
+                }
+            )
             continue
 
         factors = []
@@ -686,29 +827,40 @@ def get_competition_index(role: str, locations: List[str],
         # Factor 4: Industry competition factor
         ind_score = ind_factor * 15
         if ind_factor >= 1.3:
-            factors.append(f"High-competition industry ({INDUSTRY_LABEL_MAP.get(industry, industry)})")
+            factors.append(
+                f"High-competition industry ({INDUSTRY_LABEL_MAP.get(industry, industry)})"
+            )
         elif ind_factor <= 0.8:
-            factors.append(f"Lower competition in {INDUSTRY_LABEL_MAP.get(industry, industry)}")
+            factors.append(
+                f"Lower competition in {INDUSTRY_LABEL_MAP.get(industry, industry)}"
+            )
 
         # Factor 5: Industry talent density (high density in this location = more competition)
         ind_density = INDUSTRY_TALENT_DENSITY.get(industry, {}).get(loc_key, 1.0)
         density_score = min(10, (ind_density - 1.0) * 8)
         if ind_density >= 2.0:
-            factors.append("Major talent hub -- many employers competing for same talent pool")
+            factors.append(
+                "Major talent hub -- many employers competing for same talent pool"
+            )
 
-        total_score = min(100, max(5, coli_score + unemp_score + size_score + ind_score + density_score))
+        total_score = min(
+            100,
+            max(5, coli_score + unemp_score + size_score + ind_score + density_score),
+        )
 
         rating = _competition_rating(total_score)
 
-        results.append({
-            "location": loc,
-            "display_name": loc_name,
-            "competition_score": round(total_score, 1),
-            "rating": rating,
-            "factors": factors[:3],  # Top 3 factors
-            "unemployment": unemp_str,
-            "coli": coli,
-        })
+        results.append(
+            {
+                "location": loc,
+                "display_name": loc_name,
+                "competition_score": round(total_score, 1),
+                "rating": rating,
+                "factors": factors[:3],  # Top 3 factors
+                "unemployment": unemp_str,
+                "coli": coli,
+            }
+        )
 
     return sorted(results, key=lambda x: x["competition_score"], reverse=True)
 
@@ -730,6 +882,7 @@ def _competition_rating(score: float) -> str:
 # 5. COST OF LIVING
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def get_cost_of_living_factor(locations: List[str]) -> List[Dict[str, Any]]:
     """Get cost-of-living index and factors per location.
 
@@ -744,7 +897,11 @@ def get_cost_of_living_factor(locations: List[str]) -> List[Dict[str, Any]]:
         loc_name = resolved["name"]
 
         coli = data.get("coli", 100) if data else 100
-        median = data.get("median_salary", data.get("median_household_income", 50000)) if data else 50000
+        median = (
+            data.get("median_salary", data.get("median_household_income", 50000))
+            if data
+            else 50000
+        )
 
         if coli >= 150:
             rating = "Very High"
@@ -762,15 +919,19 @@ def get_cost_of_living_factor(locations: List[str]) -> List[Dict[str, Any]]:
             rating = "Low"
             note = "Very affordable market -- strong purchasing power"
 
-        results.append({
-            "location": loc,
-            "display_name": loc_name,
-            "coli": coli,
-            "coli_rating": rating,
-            "median_salary": median,
-            "housing_note": note,
-            "relative_to_national": f"{coli - 100:+d}%" if coli != 100 else "National average",
-        })
+        results.append(
+            {
+                "location": loc,
+                "display_name": loc_name,
+                "coli": coli,
+                "coli_rating": rating,
+                "median_salary": median,
+                "housing_note": note,
+                "relative_to_national": (
+                    f"{coli - 100:+d}%" if coli != 100 else "National average"
+                ),
+            }
+        )
 
     return sorted(results, key=lambda x: x["coli"], reverse=True)
 
@@ -779,8 +940,10 @@ def get_cost_of_living_factor(locations: List[str]) -> List[Dict[str, Any]]:
 # 6. HIRING DIFFICULTY (Composite Score)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def calculate_hiring_difficulty(role: str, location: str,
-                                industry: str = "general_entry_level") -> Dict[str, Any]:
+
+def calculate_hiring_difficulty(
+    role: str, location: str, industry: str = "general_entry_level"
+) -> Dict[str, Any]:
     """Calculate composite hiring difficulty score for a role at a location.
 
     Combines talent density, competition, salary demands, and CoL into
@@ -812,10 +975,10 @@ def calculate_hiring_difficulty(role: str, location: str,
 
     # Weighted composite
     difficulty = (
-        density_difficulty * 0.30 +
-        competition_difficulty * 0.30 +
-        salary_difficulty * 0.20 +
-        col_difficulty * 0.20
+        density_difficulty * 0.30
+        + competition_difficulty * 0.30
+        + salary_difficulty * 0.20
+        + col_difficulty * 0.20
     )
     difficulty = round(min(100, max(0, difficulty)), 1)
 
@@ -838,7 +1001,9 @@ def calculate_hiring_difficulty(role: str, location: str,
     else:
         rating = "Very Easy"
         color = "#16A34A"
-        recommendation = "Abundant talent supply. Optimize for quality and cultural fit."
+        recommendation = (
+            "Abundant talent supply. Optimize for quality and cultural fit."
+        )
 
     return {
         "location": location,
@@ -869,9 +1034,14 @@ def calculate_hiring_difficulty(role: str, location: str,
 # 7. FIND OPTIMAL LOCATIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def find_optimal_locations(role: str, budget: float, num_hires: int,
-                           industry: str = "general_entry_level",
-                           max_results: int = 10) -> List[Dict[str, Any]]:
+
+def find_optimal_locations(
+    role: str,
+    budget: float,
+    num_hires: int,
+    industry: str = "general_entry_level",
+    max_results: int = 10,
+) -> List[Dict[str, Any]]:
     """Find the best locations to hire for a given role and budget.
 
     Ranks all metro areas by a composite score combining:
@@ -889,7 +1059,9 @@ def find_optimal_locations(role: str, budget: float, num_hires: int,
 
     with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as executor:
         futures = {
-            executor.submit(_score_location, metro, role, industry, budget_per_hire): metro
+            executor.submit(
+                _score_location, metro, role, industry, budget_per_hire
+            ): metro
             for metro in all_metros
         }
         for future in as_completed(futures):
@@ -914,8 +1086,9 @@ def find_optimal_locations(role: str, budget: float, num_hires: int,
     return top
 
 
-def _score_location(metro_key: str, role: str, industry: str,
-                    budget_per_hire: float) -> Optional[Dict[str, Any]]:
+def _score_location(
+    metro_key: str, role: str, industry: str, budget_per_hire: float
+) -> Optional[Dict[str, Any]]:
     """Score a single metro area for optimal location ranking."""
     res = _lazy_research()
     if not res:
@@ -943,7 +1116,9 @@ def _score_location(metro_key: str, role: str, industry: str,
 
     # Budget fit (lower salary relative to budget = better fit)
     if budget_per_hire > 0:
-        budget_fit = min(100, max(0, (1 - estimated_salary / (budget_per_hire * 3)) * 100))
+        budget_fit = min(
+            100, max(0, (1 - estimated_salary / (budget_per_hire * 3)) * 100)
+        )
     else:
         budget_fit = 50
 
@@ -962,10 +1137,10 @@ def _score_location(metro_key: str, role: str, industry: str,
 
     # Composite score
     composite = (
-        density_score * 0.30 +
-        cost_efficiency * 0.25 +
-        budget_fit * 0.25 +
-        competition_inv * 0.20
+        density_score * 0.30
+        + cost_efficiency * 0.25
+        + budget_fit * 0.25
+        + competition_inv * 0.20
     )
 
     return {
@@ -1009,8 +1184,10 @@ def _generate_location_reasoning(loc: Dict[str, Any], role: str, industry: str) 
 # 8. COMPARE LOCATIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def compare_locations(role: str, locations: List[str],
-                      industry: str = "general_entry_level") -> Dict[str, Any]:
+
+def compare_locations(
+    role: str, locations: List[str], industry: str = "general_entry_level"
+) -> Dict[str, Any]:
     """Side-by-side comparison of multiple locations for a given role.
 
     Returns comprehensive comparison dict with all metrics aligned.
@@ -1022,7 +1199,9 @@ def compare_locations(role: str, locations: List[str],
     with ThreadPoolExecutor(max_workers=4) as executor:
         f_density = executor.submit(get_talent_density, role, locations, industry)
         f_salary = executor.submit(get_salary_map, role, locations, industry)
-        f_competition = executor.submit(get_competition_index, role, locations, industry)
+        f_competition = executor.submit(
+            get_competition_index, role, locations, industry
+        )
         f_col = executor.submit(get_cost_of_living_factor, locations)
 
         density_data = _safe_result(f_density) or []
@@ -1050,42 +1229,46 @@ def compare_locations(role: str, locations: List[str],
         coli = l.get("coli", 100)
 
         # Higher density + lower competition + lower cost = better
-        rec_score = (density_score * 0.4 +
-                     (100 - comp_score) * 0.3 +
-                     (200 - coli) * 0.15 +
-                     max(0, 100 - salary / 1500) * 0.15)
+        rec_score = (
+            density_score * 0.4
+            + (100 - comp_score) * 0.3
+            + (200 - coli) * 0.15
+            + max(0, 100 - salary / 1500) * 0.15
+        )
         rec_score = round(min(100, max(0, rec_score)), 1)
 
-        comparisons.append({
-            "location": loc,
-            "display_name": d.get("display_name", loc),
-            "recommendation_score": rec_score,
-            "talent_density": {
-                "score": density_score,
-                "pool": d.get("talent_pool_estimate", "N/A"),
-                "rating": d.get("rating", "Unknown"),
-            },
-            "salary": {
-                "estimated": s.get("estimated_salary", 0),
-                "median": s.get("median_salary", 0),
-                "range_low": s.get("salary_range_low", 0),
-                "range_high": s.get("salary_range_high", 0),
-                "adjusted": s.get("adjusted_salary", 0),
-            },
-            "competition": {
-                "score": comp_score,
-                "rating": c.get("rating", "Unknown"),
-                "factors": c.get("factors", []),
-            },
-            "cost_of_living": {
-                "index": coli,
-                "rating": l.get("coli_rating", "Unknown"),
-                "vs_national": l.get("relative_to_national", "N/A"),
-            },
-            "population": d.get("population", "N/A"),
-            "top_industries": d.get("top_industries", "N/A"),
-            "major_employers": d.get("major_employers", "N/A"),
-        })
+        comparisons.append(
+            {
+                "location": loc,
+                "display_name": d.get("display_name", loc),
+                "recommendation_score": rec_score,
+                "talent_density": {
+                    "score": density_score,
+                    "pool": d.get("talent_pool_estimate", "N/A"),
+                    "rating": d.get("rating", "Unknown"),
+                },
+                "salary": {
+                    "estimated": s.get("estimated_salary", 0),
+                    "median": s.get("median_salary", 0),
+                    "range_low": s.get("salary_range_low", 0),
+                    "range_high": s.get("salary_range_high", 0),
+                    "adjusted": s.get("adjusted_salary", 0),
+                },
+                "competition": {
+                    "score": comp_score,
+                    "rating": c.get("rating", "Unknown"),
+                    "factors": c.get("factors", []),
+                },
+                "cost_of_living": {
+                    "index": coli,
+                    "rating": l.get("coli_rating", "Unknown"),
+                    "vs_national": l.get("relative_to_national", "N/A"),
+                },
+                "population": d.get("population", "N/A"),
+                "top_industries": d.get("top_industries", "N/A"),
+                "major_employers": d.get("major_employers", "N/A"),
+            }
+        )
 
     # Sort by recommendation score
     comparisons.sort(key=lambda x: x["recommendation_score"], reverse=True)
@@ -1116,6 +1299,7 @@ def _safe_result(future):
 # 9. EXCEL REPORT GENERATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     """Generate a Talent Supply Heatmap Excel workbook.
 
@@ -1145,7 +1329,9 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
 
     hdr_fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
     hdr_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    accent_fill = PatternFill(start_color=BLUE_PALE, end_color=BLUE_PALE, fill_type="solid")
+    accent_fill = PatternFill(
+        start_color=BLUE_PALE, end_color=BLUE_PALE, fill_type="solid"
+    )
     data_font = Font(name="Calibri", size=10, color="1E293B")
     bold_font = Font(name="Calibri", size=10, bold=True, color="1E293B")
     title_font = Font(name="Calibri", size=14, bold=True, color=NAVY)
@@ -1162,7 +1348,9 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
 
     role = analysis.get("role", "")
     industry = analysis.get("industry", "")
-    industry_label = analysis.get("industry_label", INDUSTRY_LABEL_MAP.get(industry, industry))
+    industry_label = analysis.get(
+        "industry_label", INDUSTRY_LABEL_MAP.get(industry, industry)
+    )
 
     # ── Sheet 1: Location Rankings ──
     ws1 = wb.active
@@ -1174,11 +1362,21 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     ws1["B2"].font = title_font
 
     ws1.merge_cells("B3:I3")
-    ws1["B3"] = f"Industry: {industry_label} | Generated {datetime.utcnow().strftime('%Y-%m-%d')} | Powered by Nova AI Suite"
+    ws1["B3"] = (
+        f"Industry: {industry_label} | Generated {datetime.utcnow().strftime('%Y-%m-%d')} | Powered by Nova AI Suite"
+    )
     ws1["B3"].font = subtitle_font
 
-    headers1 = ["Location", "Talent Density", "Talent Pool", "Competition",
-                "Estimated Salary", "Cost of Living", "Hiring Difficulty", "Recommendation"]
+    headers1 = [
+        "Location",
+        "Talent Density",
+        "Talent Pool",
+        "Competition",
+        "Estimated Salary",
+        "Cost of Living",
+        "Hiring Difficulty",
+        "Recommendation",
+    ]
     row = 5
     for i, h in enumerate(headers1):
         cell = ws1.cell(row=row, column=i + 2, value=h)
@@ -1190,20 +1388,40 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     locations = comparison.get("locations", [])
     row = 6
     for loc in locations:
-        ws1.cell(row=row, column=2, value=loc.get("display_name", loc.get("location", ""))).font = bold_font
+        ws1.cell(
+            row=row, column=2, value=loc.get("display_name", loc.get("location", ""))
+        ).font = bold_font
         td = loc.get("talent_density", {})
-        ws1.cell(row=row, column=3, value=f"{td.get('score', 0)}/100 ({td.get('rating', '')})").font = data_font
+        ws1.cell(
+            row=row,
+            column=3,
+            value=f"{td.get('score', 0)}/100 ({td.get('rating', '')})",
+        ).font = data_font
         ws1.cell(row=row, column=4, value=td.get("pool", "N/A")).font = data_font
         comp = loc.get("competition", {})
-        ws1.cell(row=row, column=5, value=f"{comp.get('score', 0)}/100 ({comp.get('rating', '')})").font = data_font
+        ws1.cell(
+            row=row,
+            column=5,
+            value=f"{comp.get('score', 0)}/100 ({comp.get('rating', '')})",
+        ).font = data_font
         sal = loc.get("salary", {})
-        ws1.cell(row=row, column=6, value=f"${sal.get('estimated', 0):,}").font = data_font
+        ws1.cell(row=row, column=6, value=f"${sal.get('estimated', 0):,}").font = (
+            data_font
+        )
         col = loc.get("cost_of_living", {})
-        ws1.cell(row=row, column=7, value=f"{col.get('index', 100)} ({col.get('rating', '')})").font = data_font
+        ws1.cell(
+            row=row,
+            column=7,
+            value=f"{col.get('index', 100)} ({col.get('rating', '')})",
+        ).font = data_font
         rec = loc.get("recommendation_score", 0)
         cell = ws1.cell(row=row, column=8, value=f"{rec}/100")
-        cell.font = green_font if rec >= 60 else (orange_font if rec >= 40 else red_font)
-        ws1.cell(row=row, column=9, value="Best" if loc.get("is_best") else "").font = green_font
+        cell.font = (
+            green_font if rec >= 60 else (orange_font if rec >= 40 else red_font)
+        )
+        ws1.cell(row=row, column=9, value="Best" if loc.get("is_best") else "").font = (
+            green_font
+        )
         for c in range(2, 10):
             ws1.cell(row=row, column=c).border = thin_border
         row += 1
@@ -1221,8 +1439,14 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     ws2["B2"] = f"Salary Comparison: {role}"
     ws2["B2"].font = title_font
 
-    headers2 = ["Location", "Estimated Salary", "Median Area Salary", "CoL Index",
-                "CoL-Adjusted Salary", "Salary Range"]
+    headers2 = [
+        "Location",
+        "Estimated Salary",
+        "Median Area Salary",
+        "CoL Index",
+        "CoL-Adjusted Salary",
+        "Salary Range",
+    ]
     row = 4
     for i, h in enumerate(headers2):
         cell = ws2.cell(row=row, column=i + 2, value=h)
@@ -1233,12 +1457,24 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     salary_data = analysis.get("salary_map", [])
     row = 5
     for s in salary_data:
-        ws2.cell(row=row, column=2, value=s.get("display_name", s.get("location", ""))).font = bold_font
-        ws2.cell(row=row, column=3, value=f"${s.get('estimated_salary', 0):,}").font = data_font
-        ws2.cell(row=row, column=4, value=f"${s.get('median_salary', 0):,}").font = data_font
+        ws2.cell(
+            row=row, column=2, value=s.get("display_name", s.get("location", ""))
+        ).font = bold_font
+        ws2.cell(row=row, column=3, value=f"${s.get('estimated_salary', 0):,}").font = (
+            data_font
+        )
+        ws2.cell(row=row, column=4, value=f"${s.get('median_salary', 0):,}").font = (
+            data_font
+        )
         ws2.cell(row=row, column=5, value=s.get("coli", 100)).font = data_font
-        ws2.cell(row=row, column=6, value=f"${s.get('adjusted_salary', 0):,}").font = data_font
-        ws2.cell(row=row, column=7, value=f"${s.get('salary_range_low', 0):,} - ${s.get('salary_range_high', 0):,}").font = data_font
+        ws2.cell(row=row, column=6, value=f"${s.get('adjusted_salary', 0):,}").font = (
+            data_font
+        )
+        ws2.cell(
+            row=row,
+            column=7,
+            value=f"${s.get('salary_range_low', 0):,} - ${s.get('salary_range_high', 0):,}",
+        ).font = data_font
         for c in range(2, 8):
             ws2.cell(row=row, column=c).border = thin_border
         row += 1
@@ -1256,8 +1492,15 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     ws3["B2"] = f"Hiring Difficulty Analysis: {role}"
     ws3["B2"].font = title_font
 
-    headers3 = ["Location", "Difficulty Score", "Rating", "Talent Scarcity",
-                "Competition", "Salary Pressure", "Cost of Living"]
+    headers3 = [
+        "Location",
+        "Difficulty Score",
+        "Rating",
+        "Talent Scarcity",
+        "Competition",
+        "Salary Pressure",
+        "Cost of Living",
+    ]
     row = 4
     for i, h in enumerate(headers3):
         cell = ws3.cell(row=row, column=i + 2, value=h)
@@ -1268,16 +1511,30 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     difficulties = analysis.get("difficulties", [])
     row = 5
     for d in difficulties:
-        ws3.cell(row=row, column=2, value=d.get("display_name", d.get("location", ""))).font = bold_font
+        ws3.cell(
+            row=row, column=2, value=d.get("display_name", d.get("location", ""))
+        ).font = bold_font
         score = d.get("difficulty_score", 0)
         cell = ws3.cell(row=row, column=3, value=f"{score}/100")
-        cell.font = red_font if score >= 60 else (orange_font if score >= 40 else green_font)
-        ws3.cell(row=row, column=4, value=d.get("difficulty_rating", "")).font = data_font
+        cell.font = (
+            red_font if score >= 60 else (orange_font if score >= 40 else green_font)
+        )
+        ws3.cell(row=row, column=4, value=d.get("difficulty_rating", "")).font = (
+            data_font
+        )
         comps = d.get("components", {})
-        ws3.cell(row=row, column=5, value=f"{comps.get('talent_scarcity', 0)}/100").font = data_font
-        ws3.cell(row=row, column=6, value=f"{comps.get('competition', 0)}/100").font = data_font
-        ws3.cell(row=row, column=7, value=f"{comps.get('salary_pressure', 0)}/100").font = data_font
-        ws3.cell(row=row, column=8, value=f"{comps.get('cost_of_living', 0)}/100").font = data_font
+        ws3.cell(
+            row=row, column=5, value=f"{comps.get('talent_scarcity', 0)}/100"
+        ).font = data_font
+        ws3.cell(row=row, column=6, value=f"{comps.get('competition', 0)}/100").font = (
+            data_font
+        )
+        ws3.cell(
+            row=row, column=7, value=f"{comps.get('salary_pressure', 0)}/100"
+        ).font = data_font
+        ws3.cell(
+            row=row, column=8, value=f"{comps.get('cost_of_living', 0)}/100"
+        ).font = data_font
         for c in range(2, 9):
             ws3.cell(row=row, column=c).border = thin_border
         row += 1
@@ -1295,8 +1552,16 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     ws4["B2"] = f"Optimal Hiring Locations: {role}"
     ws4["B2"].font = title_font
 
-    headers4 = ["Rank", "Location", "Score", "Talent Density", "Cost Efficiency",
-                "Budget Fit", "Est. Salary", "Reasoning"]
+    headers4 = [
+        "Rank",
+        "Location",
+        "Score",
+        "Talent Density",
+        "Cost Efficiency",
+        "Budget Fit",
+        "Est. Salary",
+        "Reasoning",
+    ]
     row = 4
     for i, h in enumerate(headers4):
         cell = ws4.cell(row=row, column=i + 2, value=h)
@@ -1311,10 +1576,18 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         ws4.cell(row=row, column=3, value=loc.get("location", "")).font = bold_font
         cell = ws4.cell(row=row, column=4, value=f"{loc.get('composite_score', 0)}/100")
         cell.font = green_font
-        ws4.cell(row=row, column=5, value=f"{loc.get('talent_density_score', 0)}/100").font = data_font
-        ws4.cell(row=row, column=6, value=f"{loc.get('cost_efficiency_score', 0)}/100").font = data_font
-        ws4.cell(row=row, column=7, value=f"{loc.get('budget_fit_score', 0)}/100").font = data_font
-        ws4.cell(row=row, column=8, value=f"${loc.get('estimated_salary', 0):,}").font = data_font
+        ws4.cell(
+            row=row, column=5, value=f"{loc.get('talent_density_score', 0)}/100"
+        ).font = data_font
+        ws4.cell(
+            row=row, column=6, value=f"{loc.get('cost_efficiency_score', 0)}/100"
+        ).font = data_font
+        ws4.cell(
+            row=row, column=7, value=f"{loc.get('budget_fit_score', 0)}/100"
+        ).font = data_font
+        ws4.cell(
+            row=row, column=8, value=f"${loc.get('estimated_salary', 0):,}"
+        ).font = data_font
         ws4.cell(row=row, column=9, value=loc.get("reasoning", "")).font = data_font
         ws4.cell(row=row, column=9).alignment = wrap_align
         for c in range(2, 10):
@@ -1341,8 +1614,14 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     ws5["B3"] = f"Based on {num_hires} hire(s) | Budget: ${analysis.get('budget', 0):,}"
     ws5["B3"].font = subtitle_font
 
-    headers5 = ["Location", "Salary/Hire", "Recruiting Cost Est.", "Total Cost/Hire",
-                "Total for All Hires", "Budget Fit"]
+    headers5 = [
+        "Location",
+        "Salary/Hire",
+        "Recruiting Cost Est.",
+        "Total Cost/Hire",
+        "Total for All Hires",
+        "Budget Fit",
+    ]
     row = 5
     for i, h in enumerate(headers5):
         cell = ws5.cell(row=row, column=i + 2, value=h)
@@ -1386,6 +1665,7 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
 # 10. POWERPOINT REPORT GENERATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
     """Generate a Talent Supply Heatmap PowerPoint presentation.
 
@@ -1425,12 +1705,23 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
         fill.solid()
         fill.fore_color.rgb = color
 
-    def _add_text_box(slide, left, top, width, height, text,
-                      font_size=12, bold=False, color=WHITE,
-                      alignment=PP_ALIGN.LEFT):
+    def _add_text_box(
+        slide,
+        left,
+        top,
+        width,
+        height,
+        text,
+        font_size=12,
+        bold=False,
+        color=WHITE,
+        alignment=PP_ALIGN.LEFT,
+    ):
         from pptx.util import Inches, Pt
+
         txBox = slide.shapes.add_textbox(
-            Inches(left), Inches(top), Inches(width), Inches(height))
+            Inches(left), Inches(top), Inches(width), Inches(height)
+        )
         tf = txBox.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
@@ -1444,9 +1735,14 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
     def _add_shape(slide, left, top, width, height, color):
         from pptx.util import Inches
         from pptx.enum.shapes import MSO_SHAPE
+
         shape = slide.shapes.add_shape(
             MSO_SHAPE.ROUNDED_RECTANGLE,
-            Inches(left), Inches(top), Inches(width), Inches(height))
+            Inches(left),
+            Inches(top),
+            Inches(width),
+            Inches(height),
+        )
         shape.fill.solid()
         shape.fill.fore_color.rgb = color
         shape.line.fill.background()
@@ -1456,22 +1752,63 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
     slide1 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide1, RGBColor(0x0F, 0x0F, 0x1E))
 
-    _add_text_box(slide1, 1.5, 2.0, 10, 1.0,
-                  "Talent Supply Heat Map", font_size=36, bold=True, color=DOWNY_TEAL)
-    _add_text_box(slide1, 1.5, 3.2, 10, 0.6,
-                  f"Role: {role} | Industry: {industry_label}", font_size=18, color=WHITE)
-    _add_text_box(slide1, 1.5, 4.0, 10, 0.5,
-                  f"Generated {datetime.utcnow().strftime('%B %d, %Y')} | Powered by Nova AI",
-                  font_size=12, color=MUTED_TEXT)
-    _add_text_box(slide1, 1.5, 6.5, 10, 0.4,
-                  "Nova AI Suite | https://media-plan-generator.onrender.com",
-                  font_size=10, color=MUTED_TEXT, alignment=PP_ALIGN.LEFT)
+    _add_text_box(
+        slide1,
+        1.5,
+        2.0,
+        10,
+        1.0,
+        "Talent Supply Heat Map",
+        font_size=36,
+        bold=True,
+        color=DOWNY_TEAL,
+    )
+    _add_text_box(
+        slide1,
+        1.5,
+        3.2,
+        10,
+        0.6,
+        f"Role: {role} | Industry: {industry_label}",
+        font_size=18,
+        color=WHITE,
+    )
+    _add_text_box(
+        slide1,
+        1.5,
+        4.0,
+        10,
+        0.5,
+        f"Generated {datetime.utcnow().strftime('%B %d, %Y')} | Powered by Nova AI",
+        font_size=12,
+        color=MUTED_TEXT,
+    )
+    _add_text_box(
+        slide1,
+        1.5,
+        6.5,
+        10,
+        0.4,
+        "Nova AI Suite | https://media-plan-generator.onrender.com",
+        font_size=10,
+        color=MUTED_TEXT,
+        alignment=PP_ALIGN.LEFT,
+    )
 
     # ── Slide 2: Location Rankings ──
     slide2 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide2, RGBColor(0x0F, 0x0F, 0x1E))
-    _add_text_box(slide2, 0.8, 0.4, 8, 0.6,
-                  "Location Rankings", font_size=24, bold=True, color=WHITE)
+    _add_text_box(
+        slide2,
+        0.8,
+        0.4,
+        8,
+        0.6,
+        "Location Rankings",
+        font_size=24,
+        bold=True,
+        color=WHITE,
+    )
 
     comparison = analysis.get("comparison", {})
     locations = comparison.get("locations", [])
@@ -1488,25 +1825,76 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
         sal = loc.get("salary", {})
         rec = loc.get("recommendation_score", 0)
 
-        _add_text_box(slide2, x + 0.15, y + 0.1, 3, 0.4,
-                      name, font_size=11, bold=True, color=DOWNY_TEAL)
-        _add_text_box(slide2, x + 3.5, y + 0.1, 2, 0.4,
-                      f"Density: {td.get('score', 0)}", font_size=10, color=WHITE)
-        _add_text_box(slide2, x + 5.5, y + 0.1, 2, 0.4,
-                      f"Competition: {comp.get('score', 0)}", font_size=10, color=WHITE)
-        _add_text_box(slide2, x + 7.5, y + 0.1, 2, 0.4,
-                      f"Salary: ${sal.get('estimated', 0):,}", font_size=10, color=WHITE)
+        _add_text_box(
+            slide2,
+            x + 0.15,
+            y + 0.1,
+            3,
+            0.4,
+            name,
+            font_size=11,
+            bold=True,
+            color=DOWNY_TEAL,
+        )
+        _add_text_box(
+            slide2,
+            x + 3.5,
+            y + 0.1,
+            2,
+            0.4,
+            f"Density: {td.get('score', 0)}",
+            font_size=10,
+            color=WHITE,
+        )
+        _add_text_box(
+            slide2,
+            x + 5.5,
+            y + 0.1,
+            2,
+            0.4,
+            f"Competition: {comp.get('score', 0)}",
+            font_size=10,
+            color=WHITE,
+        )
+        _add_text_box(
+            slide2,
+            x + 7.5,
+            y + 0.1,
+            2,
+            0.4,
+            f"Salary: ${sal.get('estimated', 0):,}",
+            font_size=10,
+            color=WHITE,
+        )
 
         rec_color = GREEN if rec >= 60 else (ORANGE if rec >= 40 else RED)
-        _add_text_box(slide2, x + 9.8, y + 0.1, 1.5, 0.4,
-                      f"Score: {rec}", font_size=10, bold=True, color=rec_color)
+        _add_text_box(
+            slide2,
+            x + 9.8,
+            y + 0.1,
+            1.5,
+            0.4,
+            f"Score: {rec}",
+            font_size=10,
+            bold=True,
+            color=rec_color,
+        )
         y += 0.72
 
     # ── Slide 3: Salary Comparison ──
     slide3 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide3, RGBColor(0x0F, 0x0F, 0x1E))
-    _add_text_box(slide3, 0.8, 0.4, 8, 0.6,
-                  "Salary Comparison", font_size=24, bold=True, color=WHITE)
+    _add_text_box(
+        slide3,
+        0.8,
+        0.4,
+        8,
+        0.6,
+        "Salary Comparison",
+        font_size=24,
+        bold=True,
+        color=WHITE,
+    )
 
     salary_data = analysis.get("salary_map", [])
     max_salary = max((s.get("estimated_salary", 1) for s in salary_data), default=1)
@@ -1519,15 +1907,33 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
 
         _add_text_box(slide3, 0.8, y, 3, 0.35, name, font_size=10, color=WHITE)
         _add_shape(slide3, 4.0, y + 0.05, bar_w, 0.25, BLUE_VIOLET)
-        _add_text_box(slide3, 4.0 + bar_w + 0.2, y, 2, 0.35,
-                      f"${est:,}", font_size=10, bold=True, color=DOWNY_TEAL)
+        _add_text_box(
+            slide3,
+            4.0 + bar_w + 0.2,
+            y,
+            2,
+            0.35,
+            f"${est:,}",
+            font_size=10,
+            bold=True,
+            color=DOWNY_TEAL,
+        )
         y += 0.48
 
     # ── Slide 4: Optimal Locations ──
     slide4 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide4, RGBColor(0x0F, 0x0F, 0x1E))
-    _add_text_box(slide4, 0.8, 0.4, 8, 0.6,
-                  "Optimal Hiring Locations", font_size=24, bold=True, color=WHITE)
+    _add_text_box(
+        slide4,
+        0.8,
+        0.4,
+        8,
+        0.6,
+        "Optimal Hiring Locations",
+        font_size=24,
+        bold=True,
+        color=WHITE,
+    )
 
     optimal = analysis.get("optimal_locations", [])
     y = 1.3
@@ -1541,20 +1947,61 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
         _add_shape(slide4, x, y, card_w, 1.8, CARD_BG)
 
         rank = loc.get("rank", i + 1)
-        _add_text_box(slide4, x + 0.15, y + 0.1, 0.5, 0.35,
-                      f"#{rank}", font_size=14, bold=True, color=DOWNY_TEAL)
-        _add_text_box(slide4, x + 0.7, y + 0.1, 4.5, 0.35,
-                      loc.get("location", ""), font_size=12, bold=True, color=WHITE)
-        _add_text_box(slide4, x + 0.15, y + 0.55, 5, 0.3,
-                      f"Score: {loc.get('composite_score', 0)} | Salary: ${loc.get('estimated_salary', 0):,} | CoL: {loc.get('coli', 100)}",
-                      font_size=9, color=MUTED_TEXT)
-        _add_text_box(slide4, x + 0.15, y + 0.95, 5, 0.7,
-                      loc.get("reasoning", ""), font_size=9, color=WHITE)
+        _add_text_box(
+            slide4,
+            x + 0.15,
+            y + 0.1,
+            0.5,
+            0.35,
+            f"#{rank}",
+            font_size=14,
+            bold=True,
+            color=DOWNY_TEAL,
+        )
+        _add_text_box(
+            slide4,
+            x + 0.7,
+            y + 0.1,
+            4.5,
+            0.35,
+            loc.get("location", ""),
+            font_size=12,
+            bold=True,
+            color=WHITE,
+        )
+        _add_text_box(
+            slide4,
+            x + 0.15,
+            y + 0.55,
+            5,
+            0.3,
+            f"Score: {loc.get('composite_score', 0)} | Salary: ${loc.get('estimated_salary', 0):,} | CoL: {loc.get('coli', 100)}",
+            font_size=9,
+            color=MUTED_TEXT,
+        )
+        _add_text_box(
+            slide4,
+            x + 0.15,
+            y + 0.95,
+            5,
+            0.7,
+            loc.get("reasoning", ""),
+            font_size=9,
+            color=WHITE,
+        )
 
     # Footer
-    _add_text_box(slide4, 0.8, 6.8, 11, 0.4,
-                  "Powered by Nova AI Suite | https://media-plan-generator.onrender.com",
-                  font_size=8, color=MUTED_TEXT, alignment=PP_ALIGN.CENTER)
+    _add_text_box(
+        slide4,
+        0.8,
+        6.8,
+        11,
+        0.4,
+        "Powered by Nova AI Suite | https://media-plan-generator.onrender.com",
+        font_size=8,
+        color=MUTED_TEXT,
+        alignment=PP_ALIGN.CENTER,
+    )
 
     buf = io.BytesIO()
     prs.save(buf)
@@ -1565,9 +2012,14 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
 # 11. ORCHESTRATOR -- run_heatmap_analysis
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def run_heatmap_analysis(role: str, industry: str = "general_entry_level",
-                         locations: Optional[List[str]] = None,
-                         budget: float = 0, num_hires: int = 5) -> Dict[str, Any]:
+
+def run_heatmap_analysis(
+    role: str,
+    industry: str = "general_entry_level",
+    locations: Optional[List[str]] = None,
+    budget: float = 0,
+    num_hires: int = 5,
+) -> Dict[str, Any]:
     """Single orchestrator function for the Talent Supply Heat Map.
 
     Thread-safe, never crashes (wraps all stages in try/except).
@@ -1606,34 +2058,60 @@ def run_heatmap_analysis(role: str, industry: str = "general_entry_level",
     # Normalize industry -- map common names to canonical keys
     if industry not in INDUSTRY_LABEL_MAP:
         _industry_alias_map = {
-            "technology": "tech_engineering", "tech": "tech_engineering",
-            "engineering": "tech_engineering", "software": "tech_engineering",
-            "it": "tech_engineering", "information technology": "tech_engineering",
-            "healthcare": "healthcare_medical", "medical": "healthcare_medical",
-            "health": "healthcare_medical", "nursing": "healthcare_medical",
-            "finance": "finance_banking", "banking": "finance_banking",
-            "financial": "finance_banking", "fintech": "finance_banking",
-            "retail": "retail_consumer", "consumer": "retail_consumer",
-            "ecommerce": "retail_consumer", "e-commerce": "retail_consumer",
-            "logistics": "logistics_supply_chain", "supply chain": "logistics_supply_chain",
-            "transportation": "logistics_supply_chain", "warehousing": "logistics_supply_chain",
-            "hospitality": "hospitality_travel", "travel": "hospitality_travel",
-            "hotel": "hospitality_travel", "restaurant": "hospitality_travel",
-            "construction": "construction_real_estate", "real estate": "construction_real_estate",
-            "education": "education", "teaching": "education",
-            "aerospace": "aerospace_defense", "defense": "aerospace_defense",
-            "pharma": "pharma_biotech", "biotech": "pharma_biotech",
+            "technology": "tech_engineering",
+            "tech": "tech_engineering",
+            "engineering": "tech_engineering",
+            "software": "tech_engineering",
+            "it": "tech_engineering",
+            "information technology": "tech_engineering",
+            "healthcare": "healthcare_medical",
+            "medical": "healthcare_medical",
+            "health": "healthcare_medical",
+            "nursing": "healthcare_medical",
+            "finance": "finance_banking",
+            "banking": "finance_banking",
+            "financial": "finance_banking",
+            "fintech": "finance_banking",
+            "retail": "retail_consumer",
+            "consumer": "retail_consumer",
+            "ecommerce": "retail_consumer",
+            "e-commerce": "retail_consumer",
+            "logistics": "logistics_supply_chain",
+            "supply chain": "logistics_supply_chain",
+            "transportation": "logistics_supply_chain",
+            "warehousing": "logistics_supply_chain",
+            "hospitality": "hospitality_travel",
+            "travel": "hospitality_travel",
+            "hotel": "hospitality_travel",
+            "restaurant": "hospitality_travel",
+            "construction": "construction_real_estate",
+            "real estate": "construction_real_estate",
+            "education": "education",
+            "teaching": "education",
+            "aerospace": "aerospace_defense",
+            "defense": "aerospace_defense",
+            "pharma": "pharma_biotech",
+            "biotech": "pharma_biotech",
             "pharmaceutical": "pharma_biotech",
-            "energy": "energy_utilities", "utilities": "energy_utilities",
-            "oil": "energy_utilities", "gas": "energy_utilities",
+            "energy": "energy_utilities",
+            "utilities": "energy_utilities",
+            "oil": "energy_utilities",
+            "gas": "energy_utilities",
             "insurance": "insurance",
-            "telecom": "telecommunications", "telecommunications": "telecommunications",
-            "automotive": "automotive", "manufacturing": "automotive",
-            "food": "food_beverage", "beverage": "food_beverage",
-            "media": "media_entertainment", "entertainment": "media_entertainment",
-            "legal": "legal_services", "law": "legal_services",
-            "mental health": "mental_health", "behavioral": "mental_health",
-            "blue collar": "blue_collar_trades", "trades": "blue_collar_trades",
+            "telecom": "telecommunications",
+            "telecommunications": "telecommunications",
+            "automotive": "automotive",
+            "manufacturing": "automotive",
+            "food": "food_beverage",
+            "beverage": "food_beverage",
+            "media": "media_entertainment",
+            "entertainment": "media_entertainment",
+            "legal": "legal_services",
+            "law": "legal_services",
+            "mental health": "mental_health",
+            "behavioral": "mental_health",
+            "blue collar": "blue_collar_trades",
+            "trades": "blue_collar_trades",
             "skilled trades": "blue_collar_trades",
         }
         normalized = _industry_alias_map.get(industry.lower().strip(), None)
@@ -1710,6 +2188,52 @@ def run_heatmap_analysis(role: str, industry: str = "general_entry_level",
         result["difficulties"] = []
         result["errors"].append(f"Hiring difficulty failed: {exc}")
 
+    # ── Enrich with BLS metro salary & FRED state economic data ──
+    try:
+        _lazy_api()
+        if _HAS_API and _api_enrichment:
+            metro_salaries: Dict[str, Any] = {}
+            state_economics: Dict[str, Any] = {}
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                metro_futures = {}
+                state_futures = {}
+                for loc in locations:
+                    metro_futures[loc] = pool.submit(
+                        _safe_call, _api_enrichment.fetch_metro_salary_data, loc
+                    )
+                    state_abbrev = ""
+                    if hasattr(_api_enrichment, "_resolve_state_abbrev"):
+                        state_abbrev = _api_enrichment._resolve_state_abbrev(loc)
+                    if state_abbrev:
+                        state_futures[loc] = pool.submit(
+                            _safe_call,
+                            _api_enrichment.fetch_fred_state_data,
+                            state_abbrev,
+                        )
+
+                for loc, fut in metro_futures.items():
+                    try:
+                        data = fut.result(timeout=12)
+                        if data:
+                            metro_salaries[loc] = data
+                    except Exception:
+                        pass
+
+                for loc, fut in state_futures.items():
+                    try:
+                        data = fut.result(timeout=12)
+                        if data:
+                            state_economics[loc] = data
+                    except Exception:
+                        pass
+
+            if metro_salaries:
+                result["metro_salary_data"] = metro_salaries
+            if state_economics:
+                result["state_economic_data"] = state_economics
+    except Exception as exc:
+        result["errors"].append(f"BLS/FRED enrichment failed: {exc}")
+
     result["analysis_time_ms"] = int((time.time() - start_time) * 1000)
 
     if result["errors"]:
@@ -1730,14 +2254,21 @@ def _auto_suggest_locations(role: str, industry: str) -> List[str]:
 
     # Generic top metros if no industry-specific data
     return [
-        "New York", "San Francisco", "Chicago", "Dallas", "Austin",
-        "Boston", "Seattle", "Denver",
+        "New York",
+        "San Francisco",
+        "Chicago",
+        "Dallas",
+        "Austin",
+        "Boston",
+        "Seattle",
+        "Denver",
     ]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # UTILITY HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _safe_call(fn, *args, **kwargs):
     """Call a function, returning None on any exception."""
@@ -1750,7 +2281,4 @@ def _safe_call(fn, *args, **kwargs):
 
 def get_industry_options() -> List[Dict[str, str]]:
     """Return industry options for the frontend dropdown."""
-    return [
-        {"value": key, "label": label}
-        for key, label in INDUSTRY_LABEL_MAP.items()
-    ]
+    return [{"value": key, "label": label} for key, label in INDUSTRY_LABEL_MAP.items()]

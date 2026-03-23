@@ -805,6 +805,26 @@ def _collect_market_overview(industry: str, locations: List[str]) -> Dict[str, A
         if jolts:
             data["jolts"] = jolts
             data["source"] = "api+" + data["source"]
+
+        # FRED state-level economic indicators per location
+        if hasattr(_api_enrichment, "fetch_fred_state_data") and hasattr(
+            _api_enrichment, "_resolve_state_abbrev"
+        ):
+            state_econ: Dict[str, Any] = {}
+            for loc in locations:
+                try:
+                    abbrev = _api_enrichment._resolve_state_abbrev(loc)
+                    if abbrev:
+                        fred_data = _api_enrichment.fetch_fred_state_data(abbrev)
+                        if fred_data:
+                            state_econ[loc] = fred_data
+                except Exception as exc:
+                    logger.warning("FRED state data for %s failed: %s", loc, exc)
+            if state_econ:
+                data["state_economic_indicators"] = state_econ
+                if "api" not in data["source"]:
+                    data["source"] = "api+" + data["source"]
+
     # Difficulty score
     score = 50
     supply = data["talent_supply"]

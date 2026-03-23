@@ -51,6 +51,11 @@ REQUEST_TIMEOUT: int = 15  # seconds
 TTL_JOB_BOARD: int = 86400  # 24 hours
 TTL_CAREERS: int = 21600  # 6 hours
 TTL_NEWS: int = 43200  # 12 hours
+TTL_JOB_VOLUME: int = 43200  # 12 hours
+TTL_JOB_DENSITY: int = 86400  # 24 hours
+TTL_COMPLIANCE: int = 604800  # 168 hours (weekly)
+TTL_SALARY: int = 604800  # 168 hours (weekly)
+TTL_AD_SPECS: int = 2592000  # 720 hours (monthly)
 
 # Ensure cache directory exists at import time
 try:
@@ -687,6 +692,663 @@ def fetch_recruitment_news(
     _cache_set(ckey, articles, TTL_NEWS)
     logger.info(f"Firecrawl fetched {len(articles)} news articles for: {safe_topic}")
     return articles
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PUBLIC API: scrape_job_posting_volume (HireSignal)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def scrape_job_posting_volume(role: str, location: str = "") -> dict[str, Any]:
+    """Scrape Indeed/LinkedIn for current job posting count by role and location.
+
+    Uses Firecrawl search to find job listing pages and extract approximate
+    counts of open positions for demand-signal analysis.
+
+    Args:
+        role: Job title or role to search for (e.g., "Software Engineer").
+        location: Optional location filter (e.g., "New York, NY").
+
+    Returns:
+        Dict with keys: role, location, estimated_openings, sources, trend,
+        source, last_updated.
+    """
+    safe_role = (role or "").strip()
+    safe_location = (location or "").strip()
+    if not safe_role:
+        return {
+            "role": "",
+            "location": safe_location,
+            "estimated_openings": 0,
+            "sources": [],
+            "trend": "unknown",
+            "source": "error",
+            "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+
+    ckey = _cache_key("scrape_job_posting_volume", safe_role, safe_location)
+    cached = _cache_get(ckey, TTL_JOB_VOLUME)
+    if cached is not None:
+        logger.debug(f"Firecrawl job volume cache hit: {safe_role} {safe_location}")
+        return cached
+
+    location_clause = f" {safe_location}" if safe_location else ""
+    query = (
+        f'"{safe_role}" jobs{location_clause} site:indeed.com OR site:linkedin.com/jobs'
+    )
+
+    search_payload: dict[str, Any] = {
+        "query": query,
+        "limit": 5,
+    }
+
+    fallback: dict[str, Any] = {
+        "role": safe_role,
+        "location": safe_location,
+        "estimated_openings": 0,
+        "sources": [],
+        "trend": "unknown",
+        "source": "unavailable",
+        "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+
+    try:
+        response = _firecrawl_request("/search", search_payload)
+        if not response or not response.get("success"):
+            logger.warning(f"Firecrawl job volume search failed for: {safe_role}")
+            return fallback
+
+        results = response.get("data") or []
+        sources: list[str] = []
+        total_estimate = 0
+
+        for item in results[:5]:
+            url = item.get("url") or item.get("metadata", {}).get("sourceURL") or ""
+            title = item.get("metadata", {}).get("title") or ""
+            description = item.get("metadata", {}).get("description") or ""
+            snippet = f"{title} {description}"
+
+            if url:
+                sources.append(url)
+
+            # Extract numbers from result snippets (e.g., "3,456 jobs found")
+            numbers = re.findall(
+                r"([\d,]+)\s*(?:jobs?|positions?|openings?|results?)",
+                snippet,
+                re.IGNORECASE,
+            )
+            for num_str in numbers:
+                try:
+                    parsed_num = int(num_str.replace(",", ""))
+                    if parsed_num > total_estimate:
+                        total_estimate = parsed_num
+                except ValueError:
+                    pass
+
+        # Determine trend based on volume
+        if total_estimate > 10000:
+            trend = "high_demand"
+        elif total_estimate > 1000:
+            trend = "moderate_demand"
+        elif total_estimate > 0:
+            trend = "low_demand"
+        else:
+            trend = "unknown"
+
+        result: dict[str, Any] = {
+            "role": safe_role,
+            "location": safe_location,
+            "estimated_openings": total_estimate,
+            "sources": sources[:5],
+            "trend": trend,
+            "source": "firecrawl_live",
+            "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+
+        _cache_set(ckey, result, TTL_JOB_VOLUME)
+        logger.info(f"Firecrawl job volume for {safe_role}: {total_estimate} openings")
+        return result
+
+    except (ValueError, TypeError, KeyError) as exc:
+        logger.error(
+            f"Error parsing job volume data for {safe_role}: {exc}", exc_info=True
+        )
+        return fallback
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PUBLIC API: scrape_job_density_by_location (Talent Heatmap)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def scrape_job_density_by_location(role: str, locations: list[str]) -> dict[str, Any]:
+    """Scrape job posting density across multiple locations for a role.
+
+    Queries Firecrawl search for each location to estimate relative posting
+    volume, enabling geographic demand comparison for talent heatmaps.
+
+    Args:
+        role: Job title or role to search for.
+        locations: List of city/region names to compare.
+
+    Returns:
+        Dict with keys: role, locations (dict of city->count), source,
+        last_updated.
+    """
+    safe_role = (role or "").strip()
+    safe_locations = [loc.strip() for loc in (locations or []) if loc and loc.strip()]
+
+    if not safe_role or not safe_locations:
+        return {
+            "role": safe_role,
+            "locations": {},
+            "source": "error",
+            "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+
+    ckey = _cache_key("scrape_job_density_by_location", safe_role, safe_locations)
+    cached = _cache_get(ckey, TTL_JOB_DENSITY)
+    if cached is not None:
+        logger.debug(f"Firecrawl job density cache hit: {safe_role}")
+        return cached
+
+    location_counts: dict[str, int] = {}
+
+    for loc in safe_locations:
+        query = f'"{safe_role}" jobs in {loc} site:indeed.com'
+        search_payload: dict[str, Any] = {
+            "query": query,
+            "limit": 3,
+        }
+
+        try:
+            response = _firecrawl_request("/search", search_payload)
+            if not response or not response.get("success"):
+                location_counts[loc] = 0
+                continue
+
+            results = response.get("data") or []
+            best_count = 0
+
+            for item in results[:3]:
+                title = item.get("metadata", {}).get("title") or ""
+                description = item.get("metadata", {}).get("description") or ""
+                snippet = f"{title} {description}"
+
+                numbers = re.findall(
+                    r"([\d,]+)\s*(?:jobs?|positions?|openings?|results?)",
+                    snippet,
+                    re.IGNORECASE,
+                )
+                for num_str in numbers:
+                    try:
+                        parsed_num = int(num_str.replace(",", ""))
+                        if parsed_num > best_count:
+                            best_count = parsed_num
+                    except ValueError:
+                        pass
+
+            location_counts[loc] = best_count
+
+        except (ValueError, TypeError, KeyError) as exc:
+            logger.error(f"Error scraping job density for {loc}: {exc}", exc_info=True)
+            location_counts[loc] = 0
+
+    result: dict[str, Any] = {
+        "role": safe_role,
+        "locations": location_counts,
+        "source": (
+            "firecrawl_live"
+            if any(v > 0 for v in location_counts.values())
+            else "unavailable"
+        ),
+        "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+
+    _cache_set(ckey, result, TTL_JOB_DENSITY)
+    logger.info(
+        f"Firecrawl job density for {safe_role}: {len(location_counts)} locations"
+    )
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PUBLIC API: scrape_compliance_updates (ComplianceGuard)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def scrape_compliance_updates() -> list[dict[str, Any]]:
+    """Scrape latest pay transparency and employment law updates.
+
+    Searches for recent legislative changes affecting recruitment advertising,
+    focusing on pay transparency laws, salary disclosure requirements, and
+    employment compliance regulations.
+
+    Returns:
+        List of dicts, each with: title, summary, jurisdiction,
+        effective_date, url. Returns empty list on failure.
+    """
+    ckey = _cache_key("scrape_compliance_updates")
+    cached = _cache_get(ckey, TTL_COMPLIANCE)
+    if cached is not None:
+        logger.debug("Firecrawl compliance updates cache hit")
+        return cached
+
+    search_payload: dict[str, Any] = {
+        "query": '"pay transparency law 2025 2026" OR "salary disclosure requirement new"',
+        "limit": 5,
+        "scrapeOptions": {
+            "formats": ["json"],
+            "jsonOptions": {
+                "prompt": (
+                    "Extract the law or regulation title, a brief 1-2 sentence summary, "
+                    "the jurisdiction (state, country, or city), "
+                    "the effective date if mentioned, and the page URL."
+                ),
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "title": {
+                            "type": "string",
+                            "description": "Law or regulation title",
+                        },
+                        "summary": {
+                            "type": "string",
+                            "description": "1-2 sentence summary",
+                        },
+                        "jurisdiction": {
+                            "type": "string",
+                            "description": "State, country, or city",
+                        },
+                        "effective_date": {
+                            "type": "string",
+                            "description": "Effective date if mentioned",
+                        },
+                    },
+                },
+            },
+            "onlyMainContent": True,
+        },
+    }
+
+    try:
+        response = _firecrawl_request("/search", search_payload)
+        if not response or not response.get("success"):
+            logger.warning("Firecrawl compliance updates search failed")
+            return []
+
+        results_raw = response.get("data") or []
+        updates: list[dict[str, Any]] = []
+
+        for item in results_raw[:5]:
+            extracted = item.get("json") or {}
+            url = item.get("url") or item.get("metadata", {}).get("sourceURL") or ""
+            title = (
+                extracted.get("title")
+                or item.get("metadata", {}).get("title")
+                or "Untitled"
+            )
+            summary = extracted.get("summary") or ""
+            jurisdiction = extracted.get("jurisdiction") or ""
+            effective_date = extracted.get("effective_date") or ""
+
+            updates.append(
+                {
+                    "title": title,
+                    "summary": summary,
+                    "jurisdiction": jurisdiction,
+                    "effective_date": effective_date,
+                    "url": url,
+                }
+            )
+
+        _cache_set(ckey, updates, TTL_COMPLIANCE)
+        logger.info(f"Firecrawl fetched {len(updates)} compliance updates")
+        return updates
+
+    except (ValueError, TypeError, KeyError) as exc:
+        logger.error(f"Error parsing compliance updates: {exc}", exc_info=True)
+        return []
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PUBLIC API: scrape_salary_data (PayScale Sync)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def scrape_salary_data(role: str, location: str = "") -> dict[str, Any]:
+    """Scrape salary benchmarks from Glassdoor/Levels.fyi.
+
+    Uses Firecrawl search to find salary data pages and extract compensation
+    ranges from search result snippets and scraped content.
+
+    Args:
+        role: Job title to look up salary data for.
+        location: Optional location for regional salary data.
+
+    Returns:
+        Dict with keys: role, location, salary_range (min/median/max),
+        sources, source, last_updated.
+    """
+    safe_role = (role or "").strip()
+    safe_location = (location or "").strip()
+
+    fallback: dict[str, Any] = {
+        "role": safe_role,
+        "location": safe_location,
+        "salary_range": {"min": 0, "median": 0, "max": 0},
+        "sources": [],
+        "source": "unavailable",
+        "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+
+    if not safe_role:
+        fallback["source"] = "error"
+        return fallback
+
+    ckey = _cache_key("scrape_salary_data", safe_role, safe_location)
+    cached = _cache_get(ckey, TTL_SALARY)
+    if cached is not None:
+        logger.debug(f"Firecrawl salary cache hit: {safe_role} {safe_location}")
+        return cached
+
+    location_clause = f" {safe_location}" if safe_location else ""
+    query = (
+        f'"{safe_role}" salary{location_clause} site:glassdoor.com OR site:levels.fyi'
+    )
+
+    search_payload: dict[str, Any] = {
+        "query": query,
+        "limit": 5,
+    }
+
+    try:
+        response = _firecrawl_request("/search", search_payload)
+        if not response or not response.get("success"):
+            logger.warning(f"Firecrawl salary search failed for: {safe_role}")
+            return fallback
+
+        results = response.get("data") or []
+        sources: list[str] = []
+        salary_values: list[int] = []
+
+        for item in results[:5]:
+            url = item.get("url") or item.get("metadata", {}).get("sourceURL") or ""
+            title = item.get("metadata", {}).get("title") or ""
+            description = item.get("metadata", {}).get("description") or ""
+            snippet = f"{title} {description}"
+
+            if url:
+                sources.append(url)
+
+            # Extract dollar amounts (e.g., "$85,000", "$120K", "$150,000/yr")
+            dollar_matches = re.findall(
+                r"\$\s?([\d,]+)(?:\s*[Kk])?\s*(?:/\s*(?:yr|year|annually))?",
+                snippet,
+            )
+            for match in dollar_matches:
+                try:
+                    val = int(match.replace(",", ""))
+                    # Normalize K values
+                    if val < 1000:
+                        val *= 1000
+                    if 20000 <= val <= 500000:
+                        salary_values.append(val)
+                except ValueError:
+                    pass
+
+        if salary_values:
+            salary_values.sort()
+            sal_min = salary_values[0]
+            sal_max = salary_values[-1]
+            sal_median = salary_values[len(salary_values) // 2]
+        else:
+            sal_min = sal_median = sal_max = 0
+
+        result: dict[str, Any] = {
+            "role": safe_role,
+            "location": safe_location,
+            "salary_range": {"min": sal_min, "median": sal_median, "max": sal_max},
+            "sources": sources[:5],
+            "source": "firecrawl_live" if salary_values else "unavailable",
+            "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+
+        _cache_set(ckey, result, TTL_SALARY)
+        logger.info(
+            f"Firecrawl salary for {safe_role}: "
+            f"${sal_min:,}-${sal_max:,} ({len(salary_values)} data points)"
+        )
+        return result
+
+    except (ValueError, TypeError, KeyError) as exc:
+        logger.error(f"Error parsing salary data for {safe_role}: {exc}", exc_info=True)
+        return fallback
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PUBLIC API: scrape_platform_ad_specs (Social Plan)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_AD_SPEC_URLS: dict[str, str] = {
+    "facebook": "https://www.facebook.com/business/ads-guide",
+    "linkedin": "https://business.linkedin.com/marketing-solutions/ads/ad-specifications",
+    "tiktok": "https://ads.tiktok.com/help/article/tiktok-ad-specs",
+}
+
+_FALLBACK_AD_SPECS: dict[str, dict[str, Any]] = {
+    "facebook": {
+        "platform": "Facebook",
+        "formats": ["Image", "Video", "Carousel", "Stories"],
+        "image_specs": {
+            "recommended_size": "1080x1080",
+            "aspect_ratio": "1:1",
+            "max_file_size_mb": 30,
+        },
+        "video_specs": {
+            "max_duration_sec": 240,
+            "recommended_resolution": "1080x1080",
+            "max_file_size_mb": 4000,
+        },
+        "text_limits": {"primary_text": 125, "headline": 40, "description": 30},
+        "source": "fallback_specs",
+    },
+    "linkedin": {
+        "platform": "LinkedIn",
+        "formats": ["Single Image", "Video", "Carousel", "Message Ad"],
+        "image_specs": {
+            "recommended_size": "1200x627",
+            "aspect_ratio": "1.91:1",
+            "max_file_size_mb": 5,
+        },
+        "video_specs": {
+            "max_duration_sec": 600,
+            "recommended_resolution": "1920x1080",
+            "max_file_size_mb": 200,
+        },
+        "text_limits": {"intro_text": 600, "headline": 70, "description": 100},
+        "source": "fallback_specs",
+    },
+    "tiktok": {
+        "platform": "TikTok",
+        "formats": ["In-Feed", "TopView", "Branded Hashtag", "Spark Ads"],
+        "image_specs": {
+            "recommended_size": "1080x1920",
+            "aspect_ratio": "9:16",
+            "max_file_size_mb": 10,
+        },
+        "video_specs": {
+            "max_duration_sec": 60,
+            "recommended_resolution": "1080x1920",
+            "max_file_size_mb": 500,
+        },
+        "text_limits": {"ad_text": 100, "display_name": 40},
+        "source": "fallback_specs",
+    },
+}
+
+
+def scrape_platform_ad_specs(platform: str) -> dict[str, Any]:
+    """Scrape current ad specifications for social media platforms.
+
+    Uses Firecrawl scrape with JSON extraction to pull structured ad spec
+    data from official platform documentation. Falls back to hardcoded
+    specs on failure.
+
+    Args:
+        platform: Platform identifier ("facebook", "linkedin", "tiktok").
+
+    Returns:
+        Dict with keys: platform, formats, image_specs, video_specs,
+        text_limits, source, last_updated.
+    """
+    platform_key = (platform or "").lower().strip()
+    fallback = _FALLBACK_AD_SPECS.get(platform_key) or {
+        "platform": platform_key.title(),
+        "formats": [],
+        "image_specs": {},
+        "video_specs": {},
+        "text_limits": {},
+        "source": "fallback_specs",
+    }
+
+    ckey = _cache_key("scrape_platform_ad_specs", platform_key)
+    cached = _cache_get(ckey, TTL_AD_SPECS)
+    if cached is not None:
+        logger.debug(f"Firecrawl ad specs cache hit: {platform_key}")
+        return cached
+
+    url = _AD_SPEC_URLS.get(platform_key)
+    if not url:
+        logger.warning(f"Unknown ad platform: {platform_key}, using fallback specs")
+        fallback["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        return fallback
+
+    scrape_payload: dict[str, Any] = {
+        "url": url,
+        "formats": ["json"],
+        "jsonOptions": {
+            "prompt": (
+                "Extract advertising specifications including: "
+                "available ad formats (image, video, carousel, stories, etc.), "
+                "image size requirements (recommended dimensions, aspect ratios, max file size), "
+                "video specifications (max duration, resolution, max file size), "
+                "text/character limits for headlines, descriptions, and primary text."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "formats": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Available ad format types",
+                    },
+                    "image_width": {
+                        "type": "integer",
+                        "description": "Recommended image width in pixels",
+                    },
+                    "image_height": {
+                        "type": "integer",
+                        "description": "Recommended image height in pixels",
+                    },
+                    "image_aspect_ratio": {
+                        "type": "string",
+                        "description": "Recommended aspect ratio",
+                    },
+                    "image_max_size_mb": {
+                        "type": "number",
+                        "description": "Max image file size in MB",
+                    },
+                    "video_max_duration_sec": {
+                        "type": "integer",
+                        "description": "Max video duration in seconds",
+                    },
+                    "video_resolution": {
+                        "type": "string",
+                        "description": "Recommended video resolution",
+                    },
+                    "video_max_size_mb": {
+                        "type": "number",
+                        "description": "Max video file size in MB",
+                    },
+                    "headline_limit": {
+                        "type": "integer",
+                        "description": "Max headline characters",
+                    },
+                    "description_limit": {
+                        "type": "integer",
+                        "description": "Max description characters",
+                    },
+                    "primary_text_limit": {
+                        "type": "integer",
+                        "description": "Max primary text characters",
+                    },
+                },
+            },
+        },
+        "onlyMainContent": True,
+    }
+
+    try:
+        response = _firecrawl_request("/scrape", scrape_payload)
+        if not response or not response.get("success"):
+            logger.warning(
+                f"Firecrawl ad specs scrape failed for {platform_key}, using fallback"
+            )
+            fallback["last_updated"] = time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+            )
+            return fallback
+
+        extracted = response.get("data", {}).get("json") or {}
+        fb = fallback  # shorthand
+
+        img_w = extracted.get("image_width") or 0
+        img_h = extracted.get("image_height") or 0
+        recommended_size = (
+            f"{img_w}x{img_h}"
+            if img_w and img_h
+            else fb.get("image_specs", {}).get("recommended_size", "")
+        )
+
+        result: dict[str, Any] = {
+            "platform": fb.get("platform") or platform_key.title(),
+            "formats": extracted.get("formats") or fb.get("formats", []),
+            "image_specs": {
+                "recommended_size": recommended_size,
+                "aspect_ratio": extracted.get("image_aspect_ratio")
+                or fb.get("image_specs", {}).get("aspect_ratio", ""),
+                "max_file_size_mb": extracted.get("image_max_size_mb")
+                or fb.get("image_specs", {}).get("max_file_size_mb", 0),
+            },
+            "video_specs": {
+                "max_duration_sec": extracted.get("video_max_duration_sec")
+                or fb.get("video_specs", {}).get("max_duration_sec", 0),
+                "recommended_resolution": extracted.get("video_resolution")
+                or fb.get("video_specs", {}).get("recommended_resolution", ""),
+                "max_file_size_mb": extracted.get("video_max_size_mb")
+                or fb.get("video_specs", {}).get("max_file_size_mb", 0),
+            },
+            "text_limits": {
+                "headline": extracted.get("headline_limit")
+                or fb.get("text_limits", {}).get("headline", 0),
+                "description": extracted.get("description_limit")
+                or fb.get("text_limits", {}).get("description", 0),
+                "primary_text": extracted.get("primary_text_limit")
+                or fb.get("text_limits", {}).get("primary_text", 0),
+            },
+            "source": "firecrawl_live",
+            "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+
+        _cache_set(ckey, result, TTL_AD_SPECS)
+        logger.info(f"Firecrawl scraped ad specs for {platform_key} successfully")
+        return result
+
+    except (ValueError, TypeError, KeyError) as exc:
+        logger.error(f"Error parsing ad specs for {platform_key}: {exc}", exc_info=True)
+        fallback["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        return fallback
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

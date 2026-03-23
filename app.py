@@ -15221,31 +15221,49 @@ def _analyze_compliance(data: dict) -> dict:
     """Analyze a job posting for compliance issues using LLM.
 
     Args:
-        data: Dict with keys text (job description), job_title, location.
+        data: Dict with keys text (job description), job_title, location, industry.
 
     Returns:
-        Dict with score, issues list, and recommendations.
+        Dict with score, issues list, recommendations, and compliance_reference.
     """
     text = data.get("text") or ""
     job_title = data.get("job_title") or ""
     location = data.get("location") or ""
+    industry = data.get("industry") or ""
+
+    # Fetch EEOC/OFCCP compliance reference data
+    eeoc_data: dict = {}
+    try:
+        from api_enrichment import fetch_eeoc_requirements
+
+        eeoc_data = fetch_eeoc_requirements(industry=industry, location=location)
+    except ImportError:
+        logger.warning("api_enrichment not available for EEOC data")
+    except Exception as exc:
+        logger.error("EEOC requirements fetch failed: %s", exc, exc_info=True)
 
     if not text:
-        return {
+        no_text_result: dict = {
             "error": "Job description text is required",
             "score": 0,
             "issues": [],
             "recommendations": [],
         }
+        if eeoc_data:
+            no_text_result["compliance_reference"] = eeoc_data
+        return no_text_result
 
     router = _lazy_llm_router()
     if not router:
-        return {
+        no_llm_result: dict = {
             "score": 0,
             "issues": [],
             "recommendations": ["LLM service unavailable. Please try again later."],
             "llm_available": False,
         }
+        if eeoc_data:
+            no_llm_result["compliance_reference"] = eeoc_data
+        return no_llm_result
 
     task_type = getattr(router, "TASK_VERIFICATION", "verification")
     prompt = (
@@ -15283,28 +15301,37 @@ def _analyze_compliance(data: dict) -> dict:
                 cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
                 cleaned = re.sub(r"\s*```$", "", cleaned)
             parsed = json.loads(cleaned)
-            return {
+            llm_result: dict = {
                 "score": parsed.get("score") or 0,
                 "issues": parsed.get("issues") or [],
                 "recommendations": parsed.get("recommendations") or [],
                 "llm_provider": result.get("provider") or "",
             }
+            if eeoc_data:
+                llm_result["compliance_reference"] = eeoc_data
+            return llm_result
         except (json.JSONDecodeError, ValueError):
             # LLM returned non-JSON; wrap as narrative
-            return {
+            narrative_result: dict = {
                 "score": 50,
                 "issues": [],
                 "recommendations": [response_text[:1000]],
                 "llm_provider": result.get("provider") or "",
             }
+            if eeoc_data:
+                narrative_result["compliance_reference"] = eeoc_data
+            return narrative_result
     except Exception as e:
         logger.error("Compliance LLM analysis failed: %s", e, exc_info=True)
-        return {
+        err_result: dict = {
             "score": 0,
             "issues": [],
             "recommendations": ["Analysis temporarily unavailable. Please try again."],
             "llm_available": False,
         }
+        if eeoc_data:
+            err_result["compliance_reference"] = eeoc_data
+        return err_result
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -20793,6 +20820,34 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     goals=data.get("goals", ["job_applications"]),
                     duration_weeks=data.get("duration_weeks", 4),
                 )
+
+                # Enrich with Firecrawl platform ad specs
+                if isinstance(result, dict):
+                    try:
+                        from firecrawl_enrichment import (
+                            scrape_platform_ad_specs as _fc_ad_specs,
+                        )
+
+                        ad_specs: dict = {}
+                        for platform_name in ("facebook", "linkedin", "tiktok"):
+                            try:
+                                specs = _fc_ad_specs(platform_name)
+                                if specs:
+                                    ad_specs[platform_name] = specs
+                            except (ValueError, TypeError, OSError) as spec_err:
+                                logger.error(
+                                    f"Firecrawl ad specs error for {platform_name}: {spec_err}",
+                                    exc_info=True,
+                                )
+                        if ad_specs:
+                            result["platform_ad_specs"] = ad_specs
+                    except Exception as specs_err:
+                        logger.error(
+                            "Firecrawl ad specs enrichment for social plan failed: %s",
+                            specs_err,
+                            exc_info=True,
+                        )
+
                 self._send_json(result)
             except Exception as e:
                 logger.error("Social plan generation error: %s", e, exc_info=True)
@@ -20864,6 +20919,54 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     budget=data.get("budget") or 0,
                     num_hires=data.get("num_hires", 5),
                 )
+
+                # Enrich with Census Bureau workforce demographics
+                try:
+                    from api_enrichment import fetch_census_workforce_data
+
+                    locations_list = data.get("locations") or []
+                    if isinstance(locations_list, str):
+                        locations_list = [locations_list]
+                    census_demographics: dict = {}
+                    for loc in locations_list[:10]:
+                        loc_str = loc if isinstance(loc, str) else str(loc)
+                        census = fetch_census_workforce_data(loc_str)
+                        if census:
+                            census_demographics[loc_str] = census
+                    if census_demographics:
+                        result["census_demographics"] = census_demographics
+                except Exception as census_err:
+                    logger.error(
+                        "Census enrichment for heatmap failed: %s",
+                        census_err,
+                        exc_info=True,
+                    )
+
+                # Enrich with Firecrawl live job density by location
+                try:
+                    from firecrawl_enrichment import (
+                        scrape_job_density_by_location as _fc_density,
+                    )
+
+                    hm_role = data.get("role") or ""
+                    hm_locations = data.get("locations") or []
+                    if isinstance(hm_locations, str):
+                        hm_locations = [hm_locations]
+                    hm_loc_strs = [
+                        loc if isinstance(loc, str) else str(loc)
+                        for loc in hm_locations[:15]
+                    ]
+                    if hm_role and hm_loc_strs:
+                        density_data = _fc_density(role=hm_role, locations=hm_loc_strs)
+                        if density_data and density_data.get("source") != "error":
+                            result["live_job_density"] = density_data
+                except Exception as density_err:
+                    logger.error(
+                        "Firecrawl job density enrichment for heatmap failed: %s",
+                        density_err,
+                        exc_info=True,
+                    )
+
                 self._send_json(result)
             except Exception as e:
                 logger.error("Talent heatmap analysis error: %s", e, exc_info=True)
@@ -21219,6 +21322,48 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         industry=data.get("industry", "general_entry_level"),
                         client_name=data.get("client_name", "Client"),
                     )
+
+                # Enrich with Google Trends hiring data
+                if isinstance(result, dict):
+                    try:
+                        from api_enrichment import fetch_hiring_trends
+
+                        hs_industry = (
+                            industry
+                            if "multipart/form-data"
+                            in (self.headers.get("Content-Type") or "")
+                            else (data.get("industry") or "")
+                        )
+                        if hs_industry:
+                            trends = fetch_hiring_trends(hs_industry)
+                            if trends:
+                                result["google_trends"] = trends
+                    except Exception as trends_err:
+                        logger.error(
+                            "Google Trends enrichment for HireSignal failed: %s",
+                            trends_err,
+                            exc_info=True,
+                        )
+
+                    # Enrich with Firecrawl job posting volume
+                    try:
+                        from firecrawl_enrichment import (
+                            scrape_job_posting_volume as _fc_volume,
+                        )
+
+                        hs_role = result.get("role") or result.get("job_title") or ""
+                        hs_loc = result.get("location") or ""
+                        if hs_role:
+                            volume_data = _fc_volume(role=hs_role, location=hs_loc)
+                            if volume_data and volume_data.get("source") != "error":
+                                result["job_posting_volume"] = volume_data
+                    except Exception as vol_err:
+                        logger.error(
+                            "Firecrawl job volume enrichment for HireSignal failed: %s",
+                            vol_err,
+                            exc_info=True,
+                        )
+
                 self._send_json(result)
             except Exception as e:
                 logger.error("HireSignal analyze error: %s", e, exc_info=True)
@@ -21315,6 +21460,26 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 status_code, result = handle_pulse_api(
                     path, method="POST", body=body_data
                 )
+
+                # Enrich with Google Trends hiring data
+                if status_code == 200 and isinstance(result, dict):
+                    try:
+                        from api_enrichment import fetch_hiring_trends
+
+                        industry = (
+                            body_data.get("industry") or body_data.get("sector") or ""
+                        )
+                        if industry:
+                            trends = fetch_hiring_trends(industry)
+                            if trends:
+                                result["google_trends"] = trends
+                    except Exception as trends_err:
+                        logger.error(
+                            "Google Trends enrichment for pulse failed: %s",
+                            trends_err,
+                            exc_info=True,
+                        )
+
                 if status_code == 200:
                     self._send_json(result)
                 else:
@@ -21512,6 +21677,24 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
                 data = json.loads(body_raw)
                 result = _analyze_compliance(data)
+
+                # Enrich with Firecrawl recent compliance law updates
+                if isinstance(result, dict):
+                    try:
+                        from firecrawl_enrichment import (
+                            scrape_compliance_updates as _fc_compliance,
+                        )
+
+                        law_updates = _fc_compliance()
+                        if law_updates:
+                            result["recent_law_updates"] = law_updates
+                    except Exception as comp_err:
+                        logger.error(
+                            "Firecrawl compliance updates enrichment failed: %s",
+                            comp_err,
+                            exc_info=True,
+                        )
+
                 self._send_json(result)
             except json.JSONDecodeError:
                 self.send_response(400)
@@ -21664,6 +21847,63 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(
                     json.dumps({"error": f"PPT generation failed: {e}"}).encode()
                 )
+        # ── VendorIQ: Live Pricing ──
+        elif path == "/api/vendor-iq/live-pricing":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                vendors_requested = data.get("vendors") or [
+                    "indeed",
+                    "linkedin",
+                    "glassdoor",
+                ]
+                from firecrawl_enrichment import scrape_job_board_pricing as _fc_pricing
+
+                vendors_result: dict = {}
+                for vendor_name in vendors_requested:
+                    try:
+                        vendors_result[vendor_name] = _fc_pricing(vendor_name)
+                    except (ValueError, TypeError, OSError) as ve:
+                        logger.error(
+                            f"VendorIQ pricing error for {vendor_name}: {ve}",
+                            exc_info=True,
+                        )
+                        vendors_result[vendor_name] = {
+                            "error": str(ve),
+                            "source": "error",
+                        }
+
+                self._send_json({"vendors": vendors_result, "status": "ok"})
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+            except Exception as e:
+                logger.error("VendorIQ live-pricing error: %s", e, exc_info=True)
+                self._send_json({"error": "Internal server error", "status": "error"})
+        # ── PayScale Sync: Salary Data ──
+        elif path == "/api/payscale-sync/salary":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from firecrawl_enrichment import scrape_salary_data as _fc_salary
+
+                result = _fc_salary(
+                    role=data.get("role") or "",
+                    location=data.get("location") or "",
+                )
+                self._send_json(result)
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+            except Exception as e:
+                logger.error("PayScale salary error: %s", e, exc_info=True)
+                self._send_json({"error": "Internal server error", "status": "error"})
         # ── Quick Wins: PDF/HTML Report ──
         elif path == "/api/report/html":
             try:

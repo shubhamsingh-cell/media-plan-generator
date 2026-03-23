@@ -13355,6 +13355,626 @@ def clear_cache(memory: bool = True, disk: bool = True) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Google Trends — Hiring trend data via pytrends
+# ---------------------------------------------------------------------------
+
+TRENDS_CACHE_TTL = 43200  # 12 hours for trends data
+
+
+def fetch_google_trends(keyword: str, timeframe: str = "today 3-m") -> dict:
+    """Fetch Google Trends data for a job-related keyword.
+
+    Args:
+        keyword: Search term (e.g., 'software engineer jobs')
+        timeframe: Timeframe string (default: last 3 months)
+
+    Returns:
+        Dict with trend data or empty dict on failure.
+    """
+    cache_key = f"gtrends_{hashlib.md5(f'{keyword}_{timeframe}'.encode()).hexdigest()}"
+    cached = _get_cached(cache_key)
+    if cached:
+        return cached
+
+    try:
+        from pytrends.request import TrendReq
+
+        pytrends = TrendReq(hl="en-US", tz=360, timeout=(10, 25))
+        pytrends.build_payload([keyword], timeframe=timeframe, geo="US")
+
+        interest = pytrends.interest_over_time()
+        if interest is None or interest.empty:
+            return {}
+
+        # Get the trend direction
+        values = interest[keyword].tolist()
+        recent_avg = (
+            sum(values[-4:]) / 4
+            if len(values) >= 4
+            else sum(values) / max(len(values), 1)
+        )
+        older_avg = sum(values[:4]) / 4 if len(values) >= 4 else recent_avg
+        trend_direction = (
+            "rising"
+            if recent_avg > older_avg * 1.1
+            else "declining" if recent_avg < older_avg * 0.9 else "stable"
+        )
+
+        # Related queries
+        related = pytrends.related_queries()
+        top_related: list = []
+        if keyword in related and related[keyword].get("top") is not None:
+            top_df = related[keyword]["top"]
+            top_related = top_df.head(5).to_dict("records") if not top_df.empty else []
+
+        result: dict = {
+            "keyword": keyword,
+            "timeframe": timeframe,
+            "current_interest": int(values[-1]) if values else 0,
+            "peak_interest": int(max(values)) if values else 0,
+            "trend_direction": trend_direction,
+            "trend_change_pct": round(
+                (recent_avg - older_avg) / max(older_avg, 1) * 100, 1
+            ),
+            "related_queries": top_related,
+            "data_points": len(values),
+            "source": "google_trends",
+        }
+
+        _set_cached(cache_key, result)
+        return result
+
+    except ImportError:
+        _log_warn("pytrends not installed -- Google Trends unavailable")
+        return {}
+    except Exception as e:
+        _log_warn(f"Google Trends fetch failed for '{keyword}': {e}")
+        return {}
+
+
+def fetch_hiring_trends(role: str, location: str = "") -> dict:
+    """Fetch hiring trend data for a specific role.
+
+    Args:
+        role: Job role name (e.g., 'Software Engineer')
+        location: Optional location qualifier (e.g., 'San Francisco')
+
+    Returns:
+        Dict with hiring trend data or empty dict on failure.
+    """
+    keyword = f"{role} jobs" + (f" {location}" if location else "")
+    return fetch_google_trends(keyword)
+
+
+# ---------------------------------------------------------------------------
+# Census Bureau ACS — Workforce demographics for metro areas
+# ---------------------------------------------------------------------------
+
+CENSUS_CACHE_TTL = 86400  # 24 hours for Census data
+
+# Top MSA FIPS codes for Census ACS queries
+_CENSUS_MSA_FIPS: dict[str, str] = {
+    "new york": "35620",
+    "los angeles": "31080",
+    "chicago": "16980",
+    "dallas": "19100",
+    "houston": "26420",
+    "washington dc": "47900",
+    "washington": "47900",
+    "san francisco": "41860",
+    "seattle": "42660",
+    "boston": "14460",
+    "atlanta": "12060",
+    "denver": "19740",
+    "austin": "12420",
+    "san diego": "41740",
+    "phoenix": "38060",
+    "minneapolis": "33460",
+    "detroit": "19820",
+    "miami": "33100",
+    "philadelphia": "37980",
+    "portland": "38900",
+    "charlotte": "16740",
+    "san jose": "41940",
+    "nashville": "34980",
+    "raleigh": "39580",
+    "salt lake city": "41620",
+    "columbus": "18140",
+    "indianapolis": "26900",
+    "san antonio": "41700",
+    "pittsburgh": "38300",
+    "tampa": "45300",
+    "orlando": "36740",
+}
+
+
+def fetch_census_workforce_data(location: str) -> dict:
+    """Fetch Census Bureau workforce demographics for a metro area.
+
+    Uses the American Community Survey (ACS) 5-year estimates to provide
+    population, median income, education, and labor force data.
+
+    Args:
+        location: City/metro name (e.g., 'San Francisco')
+
+    Returns:
+        Dict with population, median income, education, workforce data.
+        Empty dict if location not found or API unavailable.
+    """
+    api_key = os.environ.get("CENSUS_API_KEY") or ""
+    if not api_key:
+        return {}
+
+    cache_key = f"census_workforce_{location.lower().strip().replace(' ', '_')}"
+    cached = _get_cached(cache_key)
+    if cached:
+        return cached
+
+    # Resolve location to MSA FIPS
+    location_lower = location.lower().strip()
+    # Strip state abbreviations for matching (e.g., "San Francisco, CA" -> "san francisco")
+    location_clean = location_lower.split(",")[0].strip()
+    msa_fips: str | None = None
+    for metro, fips in _CENSUS_MSA_FIPS.items():
+        if metro in location_clean or location_clean in metro:
+            msa_fips = fips
+            break
+
+    if not msa_fips:
+        return {}
+
+    try:
+        # ACS 5-year estimates for MSA
+        variables = (
+            "B01003_001E,B19013_001E,"
+            "B15003_022E,B15003_023E,B15003_024E,B15003_025E,"
+            "B23025_002E,B23025_005E"
+        )
+        # B01003_001E = Total population
+        # B19013_001E = Median household income
+        # B15003_022E-025E = Bachelor's, Master's, Professional, Doctorate
+        # B23025_002E = Labor force
+        # B23025_005E = Unemployed
+
+        url = (
+            f"https://api.census.gov/data/2022/acs/acs5"
+            f"?get={variables}"
+            f"&for=metropolitan%20statistical%20area/micropolitan%20statistical%20area:{msa_fips}"
+            f"&key={api_key}"
+        )
+
+        data = _http_get_json(url, timeout=10)
+        if not data or len(data) < 2:
+            return {}
+
+        headers = data[0]
+        values = data[1]
+        row = dict(zip(headers, values))
+
+        population = int(row.get("B01003_001E") or 0)
+        median_income = int(row.get("B19013_001E") or 0)
+        bachelors = int(row.get("B15003_022E") or 0)
+        masters = int(row.get("B15003_023E") or 0)
+        professional = int(row.get("B15003_024E") or 0)
+        doctorate = int(row.get("B15003_025E") or 0)
+        labor_force = int(row.get("B23025_002E") or 0)
+        unemployed = int(row.get("B23025_005E") or 0)
+
+        college_educated = bachelors + masters + professional + doctorate
+        unemployment_rate = round(unemployed / max(labor_force, 1) * 100, 1)
+        college_rate = round(college_educated / max(population, 1) * 100, 1)
+
+        result: dict = {
+            "location": location,
+            "msa_fips": msa_fips,
+            "population": population,
+            "median_household_income": median_income,
+            "labor_force": labor_force,
+            "unemployment_rate": unemployment_rate,
+            "college_educated": college_educated,
+            "college_education_rate": college_rate,
+            "advanced_degrees": masters + professional + doctorate,
+            "source": "census_acs_2022",
+        }
+
+        _set_cached(cache_key, result)
+        return result
+
+    except (ValueError, TypeError, KeyError) as e:
+        _log_warn(f"Census workforce data parse error for {location}: {e}")
+        return {}
+    except Exception as e:
+        _log_warn(f"Census workforce fetch failed for {location}: {e}")
+        return {}
+
+
+# ---------------------------------------------------------------------------
+# API 31: FRED State-Level Economic Series
+# ---------------------------------------------------------------------------
+
+_STATE_FRED_SERIES: Dict[str, Dict[str, str]] = {
+    "CA": {"unemployment": "CAUR", "employment": "CAEM", "income": "CAPCPI"},
+    "TX": {"unemployment": "TXUR", "employment": "TXEM", "income": "TXPCPI"},
+    "NY": {"unemployment": "NYUR", "employment": "NYEM", "income": "NYPCPI"},
+    "FL": {"unemployment": "FLUR", "employment": "FLEM", "income": "FLPCPI"},
+    "IL": {"unemployment": "ILUR", "employment": "ILEM", "income": "ILPCPI"},
+    "PA": {"unemployment": "PAUR", "employment": "PAEM", "income": "PAPCPI"},
+    "OH": {"unemployment": "OHUR", "employment": "OHEM", "income": "OHPCPI"},
+    "GA": {"unemployment": "GAUR", "employment": "GAEM", "income": "GAPCPI"},
+    "NC": {"unemployment": "NCUR", "employment": "NCEM", "income": "NCPCPI"},
+    "MI": {"unemployment": "MIUR", "employment": "MIEM", "income": "MIPCPI"},
+    "WA": {"unemployment": "WAUR", "employment": "WAEM", "income": "WAPCPI"},
+    "MA": {"unemployment": "MAUR", "employment": "MAEM", "income": "MAPCPI"},
+    "CO": {"unemployment": "COUR", "employment": "COEM", "income": "COPCPI"},
+    "VA": {"unemployment": "VAUR", "employment": "VAEM", "income": "VAPCPI"},
+    "AZ": {"unemployment": "AZUR", "employment": "AZEM", "income": "AZPCPI"},
+}
+
+# Location string to state abbreviation mapping for resolving locations
+_LOCATION_TO_STATE: Dict[str, str] = {
+    "san francisco": "CA",
+    "los angeles": "CA",
+    "san diego": "CA",
+    "san mateo": "CA",
+    "san jose": "CA",
+    "sacramento": "CA",
+    "california": "CA",
+    "new york": "NY",
+    "nyc": "NY",
+    "manhattan": "NY",
+    "brooklyn": "NY",
+    "dallas": "TX",
+    "houston": "TX",
+    "austin": "TX",
+    "san antonio": "TX",
+    "texas": "TX",
+    "miami": "FL",
+    "orlando": "FL",
+    "tampa": "FL",
+    "jacksonville": "FL",
+    "florida": "FL",
+    "chicago": "IL",
+    "illinois": "IL",
+    "philadelphia": "PA",
+    "pittsburgh": "PA",
+    "pennsylvania": "PA",
+    "columbus": "OH",
+    "cleveland": "OH",
+    "cincinnati": "OH",
+    "ohio": "OH",
+    "atlanta": "GA",
+    "georgia": "GA",
+    "charlotte": "NC",
+    "raleigh": "NC",
+    "north carolina": "NC",
+    "detroit": "MI",
+    "michigan": "MI",
+    "seattle": "WA",
+    "washington state": "WA",
+    "boston": "MA",
+    "massachusetts": "MA",
+    "denver": "CO",
+    "colorado": "CO",
+    "virginia": "VA",
+    "richmond": "VA",
+    "arlington": "VA",
+    "phoenix": "AZ",
+    "arizona": "AZ",
+    "minneapolis": "MN",
+    "portland": "OR",
+}
+
+
+def _resolve_state_abbrev(location: str) -> str:
+    """Resolve a location string to a US state abbreviation.
+
+    Args:
+        location: City name, state name, or 'City, ST' format.
+
+    Returns:
+        Two-letter state abbreviation or empty string if unresolved.
+    """
+    loc = location.lower().strip()
+
+    # Try 'City, ST' or 'City, State' format
+    if "," in loc:
+        parts = [p.strip() for p in loc.split(",")]
+        state_part = parts[-1].upper().replace("USA", "").replace("US", "").strip()
+        if len(state_part) == 2 and state_part in _STATE_FRED_SERIES:
+            return state_part
+
+    # Try direct lookup
+    for pattern, abbrev in _LOCATION_TO_STATE.items():
+        if pattern in loc or loc in pattern:
+            return abbrev
+
+    # Try matching 2-letter abbreviation in the location string
+    for token in loc.replace(",", " ").split():
+        upper = token.upper().strip()
+        if len(upper) == 2 and upper in _STATE_FRED_SERIES:
+            return upper
+
+    return ""
+
+
+def fetch_fred_state_data(state_abbrev: str) -> Dict[str, Any]:
+    """Fetch state-level economic data from FRED.
+
+    Fetches unemployment rate for the given US state using FRED API.
+    Uses existing FRED_API_KEY from environment.
+
+    Args:
+        state_abbrev: Two-letter US state abbreviation (e.g., 'CA', 'TX').
+
+    Returns:
+        Dict with state economic indicators or empty dict on failure.
+    """
+    state_abbrev = state_abbrev.upper().strip()
+    series_map = _STATE_FRED_SERIES.get(state_abbrev)
+    if not series_map:
+        return {}
+
+    api_key = os.environ.get("FRED_API_KEY") or ""
+    if not api_key:
+        return {}
+
+    cache_k = _cache_key("fred_state", state_abbrev)
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        return cached
+
+    result: Dict[str, Any] = {
+        "state": state_abbrev,
+        "source": "FRED",
+    }
+
+    # Fetch unemployment rate (primary series)
+    ur_series = series_map.get("unemployment", "")
+    if ur_series:
+        try:
+            url = (
+                f"https://api.stlouisfed.org/fred/series/observations"
+                f"?series_id={ur_series}&api_key={api_key}&file_type=json"
+                f"&sort_order=desc&limit=1"
+            )
+            resp = _http_get_json(url, timeout=6)
+            if resp and "observations" in resp and resp["observations"]:
+                obs = resp["observations"][0]
+                val = obs.get("value") or ""
+                if val and val != ".":
+                    result["unemployment_rate"] = {
+                        "value": float(val),
+                        "date": obs.get("date") or "",
+                        "series_id": ur_series,
+                    }
+        except (
+            urllib.error.HTTPError,
+            urllib.error.URLError,
+            json.JSONDecodeError,
+            ValueError,
+            OSError,
+        ) as e:
+            _log_warn(f"FRED state unemployment {ur_series} failed: {e}")
+
+    # Fetch per-capita income (secondary series)
+    inc_series = series_map.get("income", "")
+    if inc_series:
+        try:
+            url = (
+                f"https://api.stlouisfed.org/fred/series/observations"
+                f"?series_id={inc_series}&api_key={api_key}&file_type=json"
+                f"&sort_order=desc&limit=1"
+            )
+            resp = _http_get_json(url, timeout=6)
+            if resp and "observations" in resp and resp["observations"]:
+                obs = resp["observations"][0]
+                val = obs.get("value") or ""
+                if val and val != ".":
+                    result["per_capita_income"] = {
+                        "value": float(val),
+                        "date": obs.get("date") or "",
+                        "series_id": inc_series,
+                    }
+        except (
+            urllib.error.HTTPError,
+            urllib.error.URLError,
+            json.JSONDecodeError,
+            ValueError,
+            OSError,
+        ) as e:
+            _log_warn(f"FRED state income {inc_series} failed: {e}")
+
+    if len(result) > 2:  # more than just state + source
+        _set_cached(cache_k, result)
+        return result
+
+    return {}
+
+
+# ---------------------------------------------------------------------------
+# API 32: EEOC/OFCCP Compliance Reference Data
+# ---------------------------------------------------------------------------
+
+_EEOC_REQUIREMENTS: Dict[str, Any] = {
+    "eeo_tagline": (
+        "We are an equal opportunity employer. All qualified applicants will "
+        "receive consideration for employment without regard to race, color, "
+        "religion, sex, sexual orientation, gender identity, national origin, "
+        "disability, or veteran status."
+    ),
+    "ofccp_veteran": (
+        "This employer is a Government contractor subject to the Vietnam Era "
+        "Veterans' Readjustment Assistance Act of 1974, as amended by the "
+        "Jobs for Veterans Act of 2002, 38 U.S.C. 4212 (VEVRAA)."
+    ),
+    "ofccp_disability": (
+        "This employer is committed to providing equal employment "
+        "opportunities to qualified individuals with disabilities under "
+        "Section 503 of the Rehabilitation Act of 1973, as amended."
+    ),
+    "pay_transparency_federal": (
+        "The contractor will not discharge or in any other manner "
+        "discriminate against employees or applicants because they have "
+        "inquired about, discussed, or disclosed their own pay or the pay "
+        "of another employee or applicant."
+    ),
+    "ada_accommodation": (
+        "If you need a reasonable accommodation for any part of the "
+        "employment process, please contact Human Resources."
+    ),
+    "e_verify": (
+        "This employer participates in E-Verify and will provide the "
+        "federal government with your Form I-9 information to confirm "
+        "that you are authorized to work in the U.S."
+    ),
+}
+
+_INDUSTRY_COMPLIANCE_NOTES: Dict[str, Dict[str, Any]] = {
+    "healthcare_medical": {
+        "additional_requirements": [
+            "HIPAA privacy training disclosure",
+            "Background check and drug screening notice",
+            "Professional license verification notice",
+        ],
+        "risk_level": "high",
+    },
+    "finance_banking": {
+        "additional_requirements": [
+            "FINRA background check disclosure",
+            "Credit check consent notice",
+            "Securities licensing requirements",
+        ],
+        "risk_level": "high",
+    },
+    "tech_engineering": {
+        "additional_requirements": [
+            "Export control (ITAR/EAR) compliance notice for defense-related roles",
+            "Non-compete/NDA disclosure requirements vary by state",
+        ],
+        "risk_level": "medium",
+    },
+    "construction_real_estate": {
+        "additional_requirements": [
+            "OSHA safety training requirements",
+            "Drug-free workplace notice",
+            "State contractor license verification",
+        ],
+        "risk_level": "medium",
+    },
+    "education": {
+        "additional_requirements": [
+            "Background check and fingerprinting notice",
+            "Professional certification verification",
+            "Title IX compliance statement",
+        ],
+        "risk_level": "medium",
+    },
+    "logistics_supply_chain": {
+        "additional_requirements": [
+            "DOT physical examination notice for CDL roles",
+            "Drug and alcohol testing disclosure",
+            "FMCSA compliance for commercial drivers",
+        ],
+        "risk_level": "medium",
+    },
+}
+
+_STATE_PAY_TRANSPARENCY: Dict[str, Dict[str, Any]] = {
+    "CA": {
+        "required": True,
+        "law": "SB 1162",
+        "effective": "2023-01-01",
+        "requirement": "Salary range must be included in all job postings",
+    },
+    "CO": {
+        "required": True,
+        "law": "Equal Pay for Equal Work Act",
+        "effective": "2021-01-01",
+        "requirement": "Salary range and benefits in all job postings",
+    },
+    "NY": {
+        "required": True,
+        "law": "NY Pay Transparency Law",
+        "effective": "2023-09-17",
+        "requirement": "Salary range in job advertisements",
+    },
+    "WA": {
+        "required": True,
+        "law": "SB 5761",
+        "effective": "2023-01-01",
+        "requirement": "Salary range and benefits description in postings",
+    },
+    "IL": {
+        "required": True,
+        "law": "IL Equal Pay Act Amendment",
+        "effective": "2025-01-01",
+        "requirement": "Pay scale and benefits in job postings (15+ employees)",
+    },
+    "MA": {
+        "required": True,
+        "law": "MA Pay Transparency Act",
+        "effective": "2025-07-31",
+        "requirement": "Salary range in postings (25+ employees)",
+    },
+}
+
+
+def fetch_eeoc_requirements(industry: str = "", location: str = "") -> Dict[str, Any]:
+    """Fetch EEOC/OFCCP compliance requirements for job postings.
+
+    Returns structured compliance reference data including required EEO
+    taglines, OFCCP statements, and industry/state-specific requirements.
+    Currently uses curated reference data; structured for future API integration.
+
+    Args:
+        industry: Industry key (e.g., 'healthcare_medical', 'tech_engineering').
+        location: Location string for state pay-transparency lookup.
+
+    Returns:
+        Dict with compliance requirements, industry notes, and pay transparency rules.
+    """
+    result: Dict[str, Any] = {
+        "source": "eeoc_ofccp_reference",
+        "required_statements": {
+            "eeo_tagline": _EEOC_REQUIREMENTS["eeo_tagline"],
+            "ofccp_veteran": _EEOC_REQUIREMENTS["ofccp_veteran"],
+            "ofccp_disability": _EEOC_REQUIREMENTS["ofccp_disability"],
+            "pay_transparency_federal": _EEOC_REQUIREMENTS["pay_transparency_federal"],
+            "ada_accommodation": _EEOC_REQUIREMENTS["ada_accommodation"],
+            "e_verify": _EEOC_REQUIREMENTS["e_verify"],
+        },
+        "industry_specific": {},
+        "pay_transparency": {},
+    }
+
+    # Industry-specific compliance notes
+    if industry:
+        industry_lower = industry.lower().strip()
+        notes = _INDUSTRY_COMPLIANCE_NOTES.get(industry_lower)
+        if not notes:
+            # Try partial matching
+            for key, val in _INDUSTRY_COMPLIANCE_NOTES.items():
+                if key in industry_lower or industry_lower in key:
+                    notes = val
+                    break
+        if notes:
+            result["industry_specific"] = notes
+
+    # State pay-transparency requirements
+    if location:
+        state = _resolve_state_abbrev(location)
+        if state:
+            pt = _STATE_PAY_TRANSPARENCY.get(state)
+            if pt:
+                result["pay_transparency"] = {
+                    "state": state,
+                    **pt,
+                }
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # CLI entry point for testing
 # ---------------------------------------------------------------------------
 

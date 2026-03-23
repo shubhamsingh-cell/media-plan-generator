@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import budget_engine as _budget_engine
+
     _HAS_BUDGET_ENGINE = True
 except ImportError:
     _budget_engine = None  # type: ignore
@@ -36,6 +37,7 @@ except ImportError:
 
 try:
     import trend_engine as _trend_engine
+
     _HAS_TREND_ENGINE = True
 except ImportError:
     _trend_engine = None  # type: ignore
@@ -43,6 +45,7 @@ except ImportError:
 
 try:
     import collar_intelligence as _collar_intel
+
     _HAS_COLLAR_INTEL = True
 except ImportError:
     _collar_intel = None  # type: ignore
@@ -52,11 +55,21 @@ try:
     from shared_utils import INDUSTRY_LABEL_MAP, parse_budget
 except ImportError:
     INDUSTRY_LABEL_MAP = {}
+
     def parse_budget(v, *, default=100_000.0):  # type: ignore
         try:
             return float(v)
         except (TypeError, ValueError):
             return default
+
+
+try:
+    import api_enrichment as _api_enrichment
+
+    _HAS_API_ENRICHMENT = True
+except ImportError:
+    _api_enrichment = None  # type: ignore
+    _HAS_API_ENRICHMENT = False
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CONSTANTS
@@ -253,6 +266,7 @@ _FALLBACK_HIRE_RATE: float = 0.02
 # HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _safe_div(num: float, den: float, default: float = 0.0) -> float:
     """Division that never raises ZeroDivisionError."""
     return num / den if den != 0 else default
@@ -273,7 +287,7 @@ def _resolve_industry_key(industry: str) -> str:
     for label, key in SIMULATOR_INDUSTRY_MAP.items():
         if label.lower() == industry_lower:
             return key
-    for key in (INDUSTRY_LABEL_MAP or {}):
+    for key in INDUSTRY_LABEL_MAP or {}:
         if industry_lower in key or key in industry_lower:
             return key
     return "general_entry_level"
@@ -285,7 +299,7 @@ def _resolve_collar_type(roles: str, industry: str) -> str:
         # Fall back to industry-based collar
         if _HAS_COLLAR_INTEL:
             ind_key = _resolve_industry_key(industry)
-            default_collar = getattr(_collar_intel, '_INDUSTRY_DEFAULT_COLLAR', {})
+            default_collar = getattr(_collar_intel, "_INDUSTRY_DEFAULT_COLLAR", {})
             return default_collar.get(ind_key, "white_collar")
         return "white_collar"
 
@@ -301,8 +315,19 @@ def _resolve_collar_type(roles: str, industry: str) -> str:
 
     # Keyword fallback
     roles_lower = roles.lower()
-    blue_kw = {"driver", "warehouse", "forklift", "construction", "mechanic",
-               "welder", "laborer", "factory", "production", "cook", "cleaner"}
+    blue_kw = {
+        "driver",
+        "warehouse",
+        "forklift",
+        "construction",
+        "mechanic",
+        "welder",
+        "laborer",
+        "factory",
+        "production",
+        "cook",
+        "cleaner",
+    }
     grey_kw = {"nurse", "therapist", "technician", "emt", "paramedic", "medical"}
     if any(kw in roles_lower for kw in blue_kw):
         return "blue_collar"
@@ -311,8 +336,9 @@ def _resolve_collar_type(roles: str, industry: str) -> str:
     return "white_collar"
 
 
-def _get_channel_cpc(channel_key: str, industry_key: str, collar_type: str,
-                     location: str = "") -> float:
+def _get_channel_cpc(
+    channel_key: str, industry_key: str, collar_type: str, location: str = ""
+) -> float:
     """Get CPC for a channel using trend_engine if available, else fallback."""
     ch_info = SIMULATOR_CHANNELS.get(channel_key, {})
     platform = ch_info.get("platform")
@@ -338,6 +364,39 @@ def _get_channel_cpc(channel_key: str, industry_key: str, collar_type: str,
     return _FALLBACK_CPC.get(channel_key, 0.85)
 
 
+# National median annual wage (all occupations) for normalization
+_NATIONAL_MEDIAN_WAGE: float = 59_540.0
+
+
+def _get_metro_salary_multiplier(location: str) -> float:
+    """Get a CPC/budget multiplier based on BLS metro-level salary data.
+
+    Higher-wage metros have higher recruitment advertising costs.
+    Returns a multiplier centered around 1.0 (national average).
+
+    Args:
+        location: Location string (city name or 'City, ST' format).
+
+    Returns:
+        Float multiplier (0.8-1.4 range). 1.0 if data unavailable.
+    """
+    if not _HAS_API_ENRICHMENT or not _api_enrichment:
+        return 1.0
+
+    try:
+        metro_data = _api_enrichment.fetch_metro_salary_data(location)
+        if not metro_data:
+            return 1.0
+        annual_mean = metro_data.get("annual_mean_wage") or 0
+        if annual_mean <= 0:
+            return 1.0
+        # Ratio to national median, clamped to 0.8-1.4
+        ratio = annual_mean / _NATIONAL_MEDIAN_WAGE
+        return max(0.8, min(1.4, ratio))
+    except Exception:
+        return 1.0
+
+
 def _get_channel_apply_rate(channel_key: str, collar_type: str) -> float:
     """Get apply rate for a channel, adjusted by collar type."""
     base_rate = _FALLBACK_APPLY_RATE.get(channel_key, 0.05)
@@ -345,7 +404,9 @@ def _get_channel_apply_rate(channel_key: str, collar_type: str) -> float:
     if _HAS_BUDGET_ENGINE:
         category = SIMULATOR_CHANNELS.get(channel_key, {}).get("category", "job_board")
         try:
-            collar_mult = _budget_engine._get_collar_apply_rate_adjustment(category, collar_type)
+            collar_mult = _budget_engine._get_collar_apply_rate_adjustment(
+                category, collar_type
+            )
             return round(base_rate * collar_mult, 4)
         except Exception:
             pass
@@ -406,6 +467,7 @@ def _score_roi(cost_per_hire: float, industry_key: str) -> int:
 # ═══════════════════════════════════════════════════════════════════════════════
 # CORE PUBLIC FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def get_default_allocation(
     total_budget: float,
@@ -475,7 +537,9 @@ def get_default_allocation(
                 # Normalize to 100%
                 total_pct = sum(mapped.values())
                 if total_pct > 0:
-                    base_alloc = {k: round(v / total_pct * 100, 1) for k, v in mapped.items()}
+                    base_alloc = {
+                        k: round(v / total_pct * 100, 1) for k, v in mapped.items()
+                    }
         except Exception as e:
             logger.debug("collar_intelligence blended allocation failed: %s", e)
 
@@ -487,7 +551,9 @@ def get_default_allocation(
     total_pct = sum(channel_allocations.values())
     if abs(total_pct - 100.0) > 0.1:
         factor = 100.0 / total_pct
-        channel_allocations = {k: round(v * factor, 1) for k, v in channel_allocations.items()}
+        channel_allocations = {
+            k: round(v * factor, 1) for k, v in channel_allocations.items()
+        }
         # Fix rounding residual
         diff = 100.0 - sum(channel_allocations.values())
         if abs(diff) > 0.01:
@@ -534,6 +600,9 @@ def simulate_scenario(
     collar_type = _resolve_collar_type(roles, industry)
     hire_rate = _get_hire_rate(collar_type)
 
+    # Metro salary multiplier adjusts CPC based on local wage levels
+    metro_mult = _get_metro_salary_multiplier(locations) if locations else 1.0
+
     # Normalize allocations to sum to 100
     pct_sum = sum(channel_allocations.values())
     if pct_sum <= 0:
@@ -553,6 +622,8 @@ def simulate_scenario(
         total_spend += dollars
 
         cpc = _get_channel_cpc(ch_key, industry_key, collar_type, locations)
+        # Adjust CPC by metro wage level (higher wages = higher ad costs)
+        cpc = round(cpc * metro_mult, 2)
         apply_rate = _get_channel_apply_rate(ch_key, collar_type)
 
         if cpc > 0:
@@ -611,6 +682,7 @@ def simulate_scenario(
             "industry_key": industry_key,
             "collar_type": collar_type,
             "hire_rate": hire_rate,
+            "metro_salary_multiplier": round(metro_mult, 3),
             "roles": roles,
             "locations": locations,
             "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
@@ -629,23 +701,29 @@ def compare_scenarios(scenarios_list: List[Dict[str, Any]]) -> Dict[str, Any]:
         blended_cpc, best_scenario_index, per-channel deltas.
     """
     if not scenarios_list:
-        return {"error": "No scenarios provided", "scenarios": [], "best_scenario_index": -1}
+        return {
+            "error": "No scenarios provided",
+            "scenarios": [],
+            "best_scenario_index": -1,
+        }
 
     scenario_summaries = []
     for i, sc in enumerate(scenarios_list):
         summary = sc.get("summary", {})
-        scenario_summaries.append({
-            "index": i,
-            "label": f"Scenario {i + 1}",
-            "total_budget": summary.get("total_budget", 0),
-            "total_clicks": summary.get("total_clicks", 0),
-            "total_applies": summary.get("total_applies", 0),
-            "total_hires": summary.get("total_hires", 0),
-            "blended_cpc": summary.get("blended_cpc", 0),
-            "blended_cpa": summary.get("blended_cpa", 0),
-            "blended_cph": summary.get("blended_cph", 0),
-            "roi_score": summary.get("roi_score", 0),
-        })
+        scenario_summaries.append(
+            {
+                "index": i,
+                "label": f"Scenario {i + 1}",
+                "total_budget": summary.get("total_budget", 0),
+                "total_clicks": summary.get("total_clicks", 0),
+                "total_applies": summary.get("total_applies", 0),
+                "total_hires": summary.get("total_hires", 0),
+                "blended_cpc": summary.get("blended_cpc", 0),
+                "blended_cpa": summary.get("blended_cpa", 0),
+                "blended_cph": summary.get("blended_cph", 0),
+                "roi_score": summary.get("roi_score", 0),
+            }
+        )
 
     # Determine best scenario based on composite score:
     # maximize hires, minimize CPA
@@ -673,20 +751,29 @@ def compare_scenarios(scenarios_list: List[Dict[str, Any]]) -> Dict[str, Any]:
             sc_ch = sc.get("channels", {}).get(ch_key, {})
             sc_pct = sc_ch.get("percentage", 0)
             sc_dollars = sc_ch.get("dollar_amount", 0)
-            deltas.append({
-                "scenario_index": i,
-                "percentage": sc_pct,
-                "dollar_amount": sc_dollars,
-                "pct_delta": round(sc_pct - base_pct, 1) if i > 0 else 0,
-                "dollar_delta": round(sc_dollars - base_dollars, 2) if i > 0 else 0,
-                "applies": sc_ch.get("projected_applies", 0),
-                "hires": sc_ch.get("projected_hires", 0),
-            })
+            deltas.append(
+                {
+                    "scenario_index": i,
+                    "percentage": sc_pct,
+                    "dollar_amount": sc_dollars,
+                    "pct_delta": round(sc_pct - base_pct, 1) if i > 0 else 0,
+                    "dollar_delta": round(sc_dollars - base_dollars, 2) if i > 0 else 0,
+                    "applies": sc_ch.get("projected_applies", 0),
+                    "hires": sc_ch.get("projected_hires", 0),
+                }
+            )
         channel_deltas[ch_key] = deltas
 
     # Identify best/worst per metric
     metrics_best_worst: Dict[str, Dict[str, int]] = {}
-    for metric in ("total_clicks", "total_applies", "total_hires", "blended_cpa", "blended_cpc", "roi_score"):
+    for metric in (
+        "total_clicks",
+        "total_applies",
+        "total_hires",
+        "blended_cpa",
+        "blended_cpc",
+        "roi_score",
+    ):
         values = [s.get(metric, 0) for s in scenario_summaries]
         # For CPA/CPC lower is better; for others higher is better
         if metric in ("blended_cpa", "blended_cpc", "blended_cph"):
@@ -704,10 +791,14 @@ def compare_scenarios(scenarios_list: List[Dict[str, Any]]) -> Dict[str, Any]:
         "channel_deltas": channel_deltas,
         "metrics_best_worst": metrics_best_worst,
         "recommendation": (
-            f"Scenario {best_idx + 1} delivers the best overall outcome "
-            f"with {scenario_summaries[best_idx]['total_hires']} projected hires "
-            f"at ${scenario_summaries[best_idx]['blended_cpa']:.2f} CPA."
-        ) if scenario_summaries else "",
+            (
+                f"Scenario {best_idx + 1} delivers the best overall outcome "
+                f"with {scenario_summaries[best_idx]['total_hires']} projected hires "
+                f"at ${scenario_summaries[best_idx]['blended_cpa']:.2f} CPA."
+            )
+            if scenario_summaries
+            else ""
+        ),
     }
 
 
@@ -767,9 +858,9 @@ def optimize_for_goal(
             channel_scores[ch_key] = applies_per_dollar
         else:  # balanced
             channel_scores[ch_key] = (
-                cpa_efficiency * 0.3 +
-                hires_per_dollar * 1000 * 0.4 +
-                applies_per_dollar * 0.3
+                cpa_efficiency * 0.3
+                + hires_per_dollar * 1000 * 0.4
+                + applies_per_dollar * 0.3
             )
 
     # Step 2: Convert scores to allocations
@@ -798,7 +889,9 @@ def optimize_for_goal(
             optimized_alloc[max_ch] = round(optimized_alloc[max_ch] + diff, 1)
 
     # Step 3: Run simulation with optimized allocation
-    scenario = simulate_scenario(optimized_alloc, total_budget, industry, roles, locations)
+    scenario = simulate_scenario(
+        optimized_alloc, total_budget, industry, roles, locations
+    )
 
     return {
         "channel_allocations": optimized_alloc,
@@ -810,6 +903,7 @@ def optimize_for_goal(
 # ═══════════════════════════════════════════════════════════════════════════════
 # EXPORT FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def export_scenario_excel(
     scenarios: List[Dict[str, Any]],
@@ -853,11 +947,19 @@ def export_scenario_excel(
     font_hero_label = Font(name="Calibri", size=9, color="78716C")
 
     fill_navy = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
-    fill_sapphire = PatternFill(start_color=SAPPHIRE, end_color=SAPPHIRE, fill_type="solid")
-    fill_light = PatternFill(start_color=BLUE_LIGHT, end_color=BLUE_LIGHT, fill_type="solid")
-    fill_off_white = PatternFill(start_color=OFF_WHITE, end_color=OFF_WHITE, fill_type="solid")
+    fill_sapphire = PatternFill(
+        start_color=SAPPHIRE, end_color=SAPPHIRE, fill_type="solid"
+    )
+    fill_light = PatternFill(
+        start_color=BLUE_LIGHT, end_color=BLUE_LIGHT, fill_type="solid"
+    )
+    fill_off_white = PatternFill(
+        start_color=OFF_WHITE, end_color=OFF_WHITE, fill_type="solid"
+    )
     fill_white = PatternFill(start_color=WHITE, end_color=WHITE, fill_type="solid")
-    fill_green = PatternFill(start_color=GREEN_BG, end_color=GREEN_BG, fill_type="solid")
+    fill_green = PatternFill(
+        start_color=GREEN_BG, end_color=GREEN_BG, fill_type="solid"
+    )
     fill_red = PatternFill(start_color=RED_BG, end_color=RED_BG, fill_type="solid")
 
     align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -896,8 +998,11 @@ def export_scenario_excel(
 
     row += 1
     ws1.merge_cells(start_row=row, start_column=2, end_row=row, end_column=5)
-    cell = ws1.cell(row=row, column=2,
-                    value=f"Generated: {datetime.datetime.now().strftime('%B %d, %Y')}")
+    cell = ws1.cell(
+        row=row,
+        column=2,
+        value=f"Generated: {datetime.datetime.now().strftime('%B %d, %Y')}",
+    )
     cell.font = Font(name="Calibri", italic=True, size=9, color="78716C")
 
     # Scenario summary cards
@@ -970,7 +1075,16 @@ def export_scenario_excel(
             ws2.cell(row=row, column=c).fill = fill_navy
 
         row += 1
-        headers = ["Channel", "Allocation %", "Spend", "Clicks", "Applies", "Hires", "CPA", "ROI"]
+        headers = [
+            "Channel",
+            "Allocation %",
+            "Spend",
+            "Clicks",
+            "Applies",
+            "Hires",
+            "CPA",
+            "ROI",
+        ]
         for col_idx, h in enumerate(headers):
             cell = ws2.cell(row=row, column=2 + col_idx, value=h)
             cell.font = font_header
@@ -1053,8 +1167,9 @@ def export_scenario_excel(
                 cell.fill = fill_red
 
         # Best indicator
-        cell = ws3.cell(row=row, column=3 + len(scenarios),
-                        value=f"Scenario {best_for_metric + 1}")
+        cell = ws3.cell(
+            row=row, column=3 + len(scenarios), value=f"Scenario {best_for_metric + 1}"
+        )
         cell.font = Font(name="Calibri", bold=True, size=10, color=GREEN)
         cell.alignment = align_center
         cell.border = border_thin
@@ -1105,11 +1220,23 @@ def export_scenario_ppt(
         fill.solid()
         fill.fore_color.rgb = color
 
-    def _add_text_box(slide, left, top, width, height, text, font_size=12,
-                      bold=False, color=DARK_TEXT, alignment=PP_ALIGN.LEFT):
+    def _add_text_box(
+        slide,
+        left,
+        top,
+        width,
+        height,
+        text,
+        font_size=12,
+        bold=False,
+        color=DARK_TEXT,
+        alignment=PP_ALIGN.LEFT,
+    ):
         from pptx.enum.shapes import MSO_SHAPE
-        txBox = slide.shapes.add_textbox(Inches(left), Inches(top),
-                                         Inches(width), Inches(height))
+
+        txBox = slide.shapes.add_textbox(
+            Inches(left), Inches(top), Inches(width), Inches(height)
+        )
         tf = txBox.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
@@ -1123,22 +1250,57 @@ def export_scenario_ppt(
     # ── Slide 1: Title ──
     slide1 = prs.slides.add_slide(prs.slide_layouts[6])  # blank
     _add_bg(slide1, NAVY)
-    _add_text_box(slide1, 1, 1.5, 11, 1, "BUDGET SIMULATOR",
-                  font_size=36, bold=True, color=WHITE_C, alignment=PP_ALIGN.CENTER)
-    _add_text_box(slide1, 1, 3, 11, 0.8, f"Multi-Scenario Analysis for {client_name}",
-                  font_size=20, color=TEAL, alignment=PP_ALIGN.CENTER)
-    _add_text_box(slide1, 1, 4.5, 11, 0.5,
-                  f"Generated {datetime.datetime.now().strftime('%B %d, %Y')} | Powered by Nova AI Suite",
-                  font_size=12, color=MUTED, alignment=PP_ALIGN.CENTER)
+    _add_text_box(
+        slide1,
+        1,
+        1.5,
+        11,
+        1,
+        "BUDGET SIMULATOR",
+        font_size=36,
+        bold=True,
+        color=WHITE_C,
+        alignment=PP_ALIGN.CENTER,
+    )
+    _add_text_box(
+        slide1,
+        1,
+        3,
+        11,
+        0.8,
+        f"Multi-Scenario Analysis for {client_name}",
+        font_size=20,
+        color=TEAL,
+        alignment=PP_ALIGN.CENTER,
+    )
+    _add_text_box(
+        slide1,
+        1,
+        4.5,
+        11,
+        0.5,
+        f"Generated {datetime.datetime.now().strftime('%B %d, %Y')} | Powered by Nova AI Suite",
+        font_size=12,
+        color=MUTED,
+        alignment=PP_ALIGN.CENTER,
+    )
 
     # ── Slides 2-4: Scenario breakdown ──
     for sc_idx, sc in enumerate(scenarios):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         _add_bg(slide, OFF_WHITE_C)
 
-        _add_text_box(slide, 0.5, 0.3, 12, 0.6,
-                      f"Scenario {sc_idx + 1}",
-                      font_size=24, bold=True, color=NAVY)
+        _add_text_box(
+            slide,
+            0.5,
+            0.3,
+            12,
+            0.6,
+            f"Scenario {sc_idx + 1}",
+            font_size=24,
+            bold=True,
+            color=NAVY,
+        )
 
         summary = sc.get("summary", {})
         # Hero metrics
@@ -1154,24 +1316,39 @@ def export_scenario_ppt(
             x = x_start + mi * 3.1
             # Metric card background
             from pptx.enum.shapes import MSO_SHAPE
+
             shape = slide.shapes.add_shape(
                 MSO_SHAPE.ROUNDED_RECTANGLE,
-                Inches(x), Inches(1.1), Inches(2.8), Inches(1.2)
+                Inches(x),
+                Inches(1.1),
+                Inches(2.8),
+                Inches(1.2),
             )
             shape.fill.solid()
             shape.fill.fore_color.rgb = WHITE_C
             shape.line.color.rgb = RGBColor(0xDD, 0xDB, 0xFF)
             shape.line.width = Pt(1)
 
-            _add_text_box(slide, x + 0.2, 1.2, 2.4, 0.3, mlabel,
-                          font_size=10, color=MUTED)
-            _add_text_box(slide, x + 0.2, 1.5, 2.4, 0.5, mval,
-                          font_size=22, bold=True, color=BLUE)
+            _add_text_box(
+                slide, x + 0.2, 1.2, 2.4, 0.3, mlabel, font_size=10, color=MUTED
+            )
+            _add_text_box(
+                slide, x + 0.2, 1.5, 2.4, 0.5, mval, font_size=22, bold=True, color=BLUE
+            )
 
         # Channel table
         channels = sc.get("channels", {})
-        _add_text_box(slide, 0.5, 2.6, 12, 0.4, "Channel Allocation",
-                      font_size=14, bold=True, color=NAVY)
+        _add_text_box(
+            slide,
+            0.5,
+            2.6,
+            12,
+            0.4,
+            "Channel Allocation",
+            font_size=14,
+            bold=True,
+            color=NAVY,
+        )
 
         y = 3.1
         # Header row
@@ -1181,7 +1358,10 @@ def export_scenario_ppt(
         for hi, h in enumerate(headers):
             shape = slide.shapes.add_shape(
                 MSO_SHAPE.RECTANGLE,
-                Inches(x), Inches(y), Inches(col_widths[hi]), Inches(0.35)
+                Inches(x),
+                Inches(y),
+                Inches(col_widths[hi]),
+                Inches(0.35),
             )
             shape.fill.solid()
             shape.fill.fore_color.rgb = BLUE
@@ -1212,10 +1392,15 @@ def export_scenario_ppt(
             for ci, val in enumerate(row_data):
                 shape = slide.shapes.add_shape(
                     MSO_SHAPE.RECTANGLE,
-                    Inches(x), Inches(y), Inches(col_widths[ci]), Inches(0.3)
+                    Inches(x),
+                    Inches(y),
+                    Inches(col_widths[ci]),
+                    Inches(0.3),
                 )
                 shape.fill.solid()
-                shape.fill.fore_color.rgb = OFF_WHITE_C if (CHANNEL_KEYS.index(ch_key) % 2 == 0) else WHITE_C
+                shape.fill.fore_color.rgb = (
+                    OFF_WHITE_C if (CHANNEL_KEYS.index(ch_key) % 2 == 0) else WHITE_C
+                )
                 shape.line.fill.background()
                 tf = shape.text_frame
                 p = tf.paragraphs[0]
@@ -1229,8 +1414,17 @@ def export_scenario_ppt(
     # ── Slide 5: Comparison ──
     slide_comp = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide_comp, OFF_WHITE_C)
-    _add_text_box(slide_comp, 0.5, 0.3, 12, 0.6,
-                  "Scenario Comparison", font_size=24, bold=True, color=NAVY)
+    _add_text_box(
+        slide_comp,
+        0.5,
+        0.3,
+        12,
+        0.6,
+        "Scenario Comparison",
+        font_size=24,
+        bold=True,
+        color=NAVY,
+    )
 
     comp_scenarios = comparison.get("scenarios", [])
     comp_metrics = [
@@ -1296,8 +1490,10 @@ def export_scenario_ppt(
                 MSO_SHAPE.RECTANGLE, Inches(x), Inches(y), Inches(2.5), Inches(0.4)
             )
             shape.fill.solid()
-            is_best = (si == best_for)
-            shape.fill.fore_color.rgb = RGBColor(0xE6, 0xF2, 0xE0) if is_best else WHITE_C
+            is_best = si == best_for
+            shape.fill.fore_color.rgb = (
+                RGBColor(0xE6, 0xF2, 0xE0) if is_best else WHITE_C
+            )
             shape.line.fill.background()
             tf = shape.text_frame
             p = tf.paragraphs[0]
@@ -1312,12 +1508,33 @@ def export_scenario_ppt(
     # ── Slide 6: Recommendation ──
     slide_rec = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide_rec, NAVY)
-    _add_text_box(slide_rec, 1, 1.5, 11, 1, "RECOMMENDATION",
-                  font_size=32, bold=True, color=WHITE_C, alignment=PP_ALIGN.CENTER)
+    _add_text_box(
+        slide_rec,
+        1,
+        1.5,
+        11,
+        1,
+        "RECOMMENDATION",
+        font_size=32,
+        bold=True,
+        color=WHITE_C,
+        alignment=PP_ALIGN.CENTER,
+    )
 
-    rec_text = comparison.get("recommendation", f"Scenario {best_idx + 1} is the recommended allocation.")
-    _add_text_box(slide_rec, 1.5, 3, 10, 1.5, rec_text,
-                  font_size=16, color=TEAL, alignment=PP_ALIGN.CENTER)
+    rec_text = comparison.get(
+        "recommendation", f"Scenario {best_idx + 1} is the recommended allocation."
+    )
+    _add_text_box(
+        slide_rec,
+        1.5,
+        3,
+        10,
+        1.5,
+        rec_text,
+        font_size=16,
+        color=TEAL,
+        alignment=PP_ALIGN.CENTER,
+    )
 
     if comp_scenarios and best_idx < len(comp_scenarios):
         best_sc = comp_scenarios[best_idx]
@@ -1326,12 +1543,30 @@ def export_scenario_ppt(
             f"CPA: ${best_sc.get('blended_cpa', 0):,.2f}  |  "
             f"ROI: {best_sc.get('roi_score', 0)}/10"
         )
-        _add_text_box(slide_rec, 1.5, 4.8, 10, 0.6, details,
-                      font_size=14, bold=True, color=WHITE_C, alignment=PP_ALIGN.CENTER)
+        _add_text_box(
+            slide_rec,
+            1.5,
+            4.8,
+            10,
+            0.6,
+            details,
+            font_size=14,
+            bold=True,
+            color=WHITE_C,
+            alignment=PP_ALIGN.CENTER,
+        )
 
-    _add_text_box(slide_rec, 1, 6.2, 11, 0.4,
-                  "Powered by Nova AI Suite | Budget Simulator",
-                  font_size=10, color=MUTED, alignment=PP_ALIGN.CENTER)
+    _add_text_box(
+        slide_rec,
+        1,
+        6.2,
+        11,
+        0.4,
+        "Powered by Nova AI Suite | Budget Simulator",
+        font_size=10,
+        color=MUTED,
+        alignment=PP_ALIGN.CENTER,
+    )
 
     buf = io.BytesIO()
     prs.save(buf)
