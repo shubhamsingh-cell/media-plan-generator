@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 _RESEND_ENDPOINT = "https://api.resend.com/emails"
 
 # Core credentials -- module is entirely disabled when API key is absent
-_API_KEY: str = os.environ.get("RESEND_API_KEY", "").strip()
+_API_KEY: str = os.environ.get("RESEND_API_KEY") or "".strip()
 
 # "From" address: Resend requires a verified domain.  The onboarding@resend.dev
 # address is provided by Resend for initial testing before domain verification.
@@ -56,7 +56,7 @@ _FROM_EMAIL: str = os.environ.get(
 ).strip()
 
 # "To" address: required alongside RESEND_API_KEY for the module to activate.
-_TO_EMAIL: str = os.environ.get("ALERT_EMAIL_TO", "").strip()
+_TO_EMAIL: str = os.environ.get("ALERT_EMAIL_TO") or "".strip()
 
 # Rate limiting
 _HOURLY_LIMIT: int = int(os.environ.get("RESEND_HOURLY_LIMIT", "10"))
@@ -80,6 +80,7 @@ def _get_server_version() -> str:
     if not _SERVER_VERSION:
         try:
             from monitoring import VERSION
+
             _SERVER_VERSION = VERSION
         except Exception:
             _SERVER_VERSION = "unknown"
@@ -149,7 +150,8 @@ def _can_send(dedup_key: str = "") -> bool:
         if len(_send_timestamps) >= _HOURLY_LIMIT:
             logger.info(
                 "email_alerts: hourly rate limit reached (%d/%d), skipping",
-                len(_send_timestamps), _HOURLY_LIMIT,
+                len(_send_timestamps),
+                _HOURLY_LIMIT,
             )
             _email_stats["total_rate_limited"] += 1
             return False
@@ -164,7 +166,10 @@ def _can_send(dedup_key: str = "") -> bool:
                     logger.debug(
                         "email_alerts: dedup suppressed (key=%s, age=%.0fs, "
                         "window=%.0fs, level=%d)",
-                        dedup_key[:60], now - last_sent, window, level,
+                        dedup_key[:60],
+                        now - last_sent,
+                        window,
+                        level,
                     )
                     _email_stats["total_deduplicated"] += 1
                     return False
@@ -203,6 +208,7 @@ def _record_send(dedup_key: str = "") -> None:
 # CORE EMAIL SENDER
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _send_email(to: str, subject: str, html: str) -> bool:
     """Send a single email via the Resend API.
 
@@ -240,10 +246,11 @@ def _send_email(to: str, subject: str, html: str) -> bool:
     try:
         with urllib.request.urlopen(req, timeout=_SEND_TIMEOUT) as resp:
             resp_data = json.loads(resp.read().decode("utf-8"))
-            email_id = resp_data.get("id", "")
+            email_id = resp_data.get("id") or ""
             logger.info(
                 "email_alerts: sent email (id=%s, subject=%s)",
-                email_id, subject[:80],
+                email_id,
+                subject[:80],
             )
             with _lock:
                 _email_stats["total_sent"] += 1
@@ -257,9 +264,14 @@ def _send_email(to: str, subject: str, html: str) -> bool:
             error_body = http_err.read().decode("utf-8")[:500]
         except Exception:
             pass
-        error_detail = f"HTTP {http_err.code}: {error_body[:200]}" if error_body else f"HTTP {http_err.code}"
+        error_detail = (
+            f"HTTP {http_err.code}: {error_body[:200]}"
+            if error_body
+            else f"HTTP {http_err.code}"
+        )
         logger.warning(
-            "email_alerts: Resend API %s", error_detail,
+            "email_alerts: Resend API %s",
+            error_detail,
         )
         with _lock:
             _email_stats["total_failed"] += 1
@@ -283,6 +295,7 @@ def _send_email(to: str, subject: str, html: str) -> bool:
 # HTML TEMPLATES
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _build_footer() -> str:
     """Build the standard HTML footer with timestamp and server info."""
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -303,12 +316,12 @@ def _build_footer() -> str:
 def _wrap_html(body_content: str) -> str:
     """Wrap body content in a full HTML email structure."""
     return (
-        '<!DOCTYPE html>'
+        "<!DOCTYPE html>"
         '<html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
         "</head>"
         '<body style="margin:0; padding:0; background-color:#f5f5f5;'
-        ' font-family:-apple-system, BlinkMacSystemFont, Segoe UI, Roboto,'
+        " font-family:-apple-system, BlinkMacSystemFont, Segoe UI, Roboto,"
         ' Helvetica Neue, Arial, sans-serif;">'
         '<div style="max-width:600px; margin:20px auto; background:#ffffff;'
         ' border-radius:8px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.1);">'
@@ -442,11 +455,7 @@ def _build_digest_html(stats: Dict[str, Any]) -> str:
         '<th style="padding:12px 16px; text-align:right; font-size:13px;'
         ' color:#666666; text-transform:uppercase; letter-spacing:0.5px;">Value</th>'
         "</tr></thead>"
-        "<tbody>"
-        + "".join(rows)
-        + "</tbody></table>"
-        + _build_footer()
-        + "</div>"
+        "<tbody>" + "".join(rows) + "</tbody></table>" + _build_footer() + "</div>"
     )
 
     return _wrap_html(header + body)
@@ -460,8 +469,7 @@ def _html_escape(text: str) -> str:
     is stdlib, keeping the import list minimal for consistency).
     """
     return (
-        text
-        .replace("&", "&amp;")
+        text.replace("&", "&amp;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
         .replace('"', "&quot;")
@@ -472,6 +480,7 @@ def _html_escape(text: str) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 # PUBLIC ALERT FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def send_error_alert(
     error_type: str,
@@ -664,6 +673,7 @@ def send_custom_alert(subject: str, html_body: str) -> None:
 # STATUS & DIAGNOSTICS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def get_alert_status() -> Dict[str, Any]:
     """Return the current status of the email alert system.
 
@@ -689,10 +699,10 @@ def get_alert_status() -> Dict[str, Any]:
         "emails_sent_this_hour": len(active_timestamps),
         "remaining_this_hour": max(0, _HOURLY_LIMIT - len(active_timestamps)),
         "dedup_cache_size": dedup_count,
-        "total_sent": stats_snapshot.get("total_sent", 0),
-        "total_failed": stats_snapshot.get("total_failed", 0),
-        "total_rate_limited": stats_snapshot.get("total_rate_limited", 0),
-        "total_deduplicated": stats_snapshot.get("total_deduplicated", 0),
+        "total_sent": stats_snapshot.get("total_sent") or 0,
+        "total_failed": stats_snapshot.get("total_failed") or 0,
+        "total_rate_limited": stats_snapshot.get("total_rate_limited") or 0,
+        "total_deduplicated": stats_snapshot.get("total_deduplicated") or 0,
         "last_sent_time": stats_snapshot.get("last_sent_time"),
         "last_sent_subject": stats_snapshot.get("last_sent_subject"),
         "last_error": stats_snapshot.get("last_error"),
@@ -713,9 +723,17 @@ def diagnose_resend() -> Dict[str, Any]:
 
     # Check env vars
     if not _API_KEY:
-        return {"ok": False, "detail": "RESEND_API_KEY not set", "config_warnings": warnings_list}
+        return {
+            "ok": False,
+            "detail": "RESEND_API_KEY not set",
+            "config_warnings": warnings_list,
+        }
     if not _TO_EMAIL:
-        return {"ok": False, "detail": "ALERT_EMAIL_TO not set", "config_warnings": warnings_list}
+        return {
+            "ok": False,
+            "detail": "ALERT_EMAIL_TO not set",
+            "config_warnings": warnings_list,
+        }
 
     # Check from_email configuration
     if _FROM_EMAIL == "onboarding@resend.dev":
@@ -738,7 +756,7 @@ def diagnose_resend() -> Dict[str, Any]:
             resp_data = json.loads(resp.read().decode("utf-8"))
 
         # Check if any domains are verified
-        domains = resp_data.get("data", [])
+        domains = resp_data.get("data") or []
         verified = [d for d in domains if d.get("status") == "verified"]
         if not verified and _FROM_EMAIL != "onboarding@resend.dev":
             warnings_list.append(
@@ -748,7 +766,11 @@ def diagnose_resend() -> Dict[str, Any]:
             verified_names = [d.get("name", "?") for d in verified]
             # Check if from_email domain matches a verified domain
             from_domain = _FROM_EMAIL.split("@")[-1] if "@" in _FROM_EMAIL else ""
-            if from_domain and from_domain not in verified_names and _FROM_EMAIL != "onboarding@resend.dev":
+            if (
+                from_domain
+                and from_domain not in verified_names
+                and _FROM_EMAIL != "onboarding@resend.dev"
+            ):
                 warnings_list.append(
                     f"Sender domain '{from_domain}' not in verified domains: {verified_names}"
                 )
@@ -774,7 +796,11 @@ def diagnose_resend() -> Dict[str, Any]:
         return {"ok": False, "detail": detail, "config_warnings": warnings_list}
 
     except Exception as exc:
-        return {"ok": False, "detail": f"{type(exc).__name__}: {exc}", "config_warnings": warnings_list}
+        return {
+            "ok": False,
+            "detail": f"{type(exc).__name__}: {exc}",
+            "config_warnings": warnings_list,
+        }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

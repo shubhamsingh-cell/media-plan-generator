@@ -1,7 +1,7 @@
 """Regression tests for NoneType safety patterns.
 
-Project rule: use `data.get("key") or ""` instead of `data.get("key", "")`.
-The `.get("key", "")` pattern fails when the key exists but has value None.
+Project rule: use `data.get("key") or ""` instead of `data.get("key") or ""`.
+The `.get("key") or ""` pattern fails when the key exists but has value None.
 
 Exception: os.environ.get() calls are fine with default values since
 environment variables are always strings when set.
@@ -18,7 +18,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 def _strip_environ_gets(source: str) -> str:
     """Remove os.environ.get() calls from source so they are not counted.
 
-    os.environ.get("KEY", "") is safe because env vars are always str|None,
+    os.environ.get("KEY") or "" is safe because env vars are always str|None,
     never a non-string value. The rule only applies to data dict .get() calls.
     """
     # Remove lines containing os.environ.get to avoid false positives
@@ -28,10 +28,10 @@ def _strip_environ_gets(source: str) -> str:
 
 
 class TestGetWithDefaultString:
-    """No .get("key", "") patterns should remain (excluding os.environ)."""
+    """No .get("key") or "" patterns should remain (excluding os.environ)."""
 
     def test_no_get_with_empty_string_default(self, app_source: str) -> None:
-        """app.py must not use .get('key', '') for data dicts.
+        """app.py must not use .get('key') or '' for data dicts.
 
         All such patterns should be converted to: .get('key') or ''
         """
@@ -44,21 +44,21 @@ class TestGetWithDefaultString:
         )
 
     def test_no_get_with_single_quote_default(self, app_source: str) -> None:
-        """app.py must not use .get('key', '') with single-quoted empty string."""
+        """app.py must not use .get('key') or '' with single-quoted empty string."""
         filtered = _strip_environ_gets(app_source)
         pattern = re.compile(r"\.get\(\s*[\"'][^\"']+[\"']\s*,\s*''\s*\)")
         matches = pattern.findall(filtered)
         assert len(matches) == 0, (
-            f"Found {len(matches)} unsafe .get('key', '') patterns "
+            f"Found {len(matches)} unsafe .get('key') or '' patterns "
             f"(should use `or ''` instead): {matches[:5]}"
         )
 
 
 class TestGetWithDefaultZero:
-    """No .get("key", 0) patterns should remain."""
+    """No .get("key") or 0 patterns should remain."""
 
     def test_no_get_with_zero_default(self, app_source: str) -> None:
-        """app.py must not use .get('key', 0) for data dicts.
+        """app.py must not use .get('key') or 0 for data dicts.
 
         Should use: .get('key') or 0
         """
@@ -66,7 +66,7 @@ class TestGetWithDefaultZero:
         pattern = re.compile(r'\.get\(\s*["\'][^"\']+["\']\s*,\s*0\s*\)')
         matches = pattern.findall(filtered)
         assert len(matches) == 0, (
-            f"Found {len(matches)} unsafe .get('key', 0) patterns "
+            f"Found {len(matches)} unsafe .get('key') or 0 patterns "
             f"(should use `or 0` instead): {matches[:5]}"
         )
 

@@ -723,7 +723,7 @@ def _detect_collar(role: str, industry: str) -> str:
     if _collar_intelligence:
         try:
             result = _collar_intelligence.classify_collar(role)
-            ci_collar = result.get("collar", "")
+            ci_collar = result.get("collar") or ""
             if ci_collar in (
                 "blue_collar",
                 "white_collar",
@@ -786,7 +786,7 @@ def _collect_market_overview(industry: str, locations: List[str]) -> Dict[str, A
         "growth_rate": kb.get("growth_rate", 0.05),
         "avg_time_to_fill": kb.get("avg_time_to_fill", 40),
         "turnover_rate": kb.get("turnover_rate", 0.15),
-        "top_roles": kb.get("top_roles", []),
+        "top_roles": kb.get("top_roles") or [],
         "talent_supply": kb.get("talent_supply", "moderate"),
         "demand_trend": kb.get("demand_trend", "stable"),
         "source": "knowledge_base",
@@ -912,11 +912,11 @@ def _collect_channel_performance(industry: str, collar_type: str) -> Dict[str, A
             data["source"] = "trend_engine"
             for plat, m in benchmarks.items():
                 data["channels"][plat] = {
-                    "cpc": m.get("cpc", {}).get("value", 0),
-                    "cpa": m.get("cpa", {}).get("value", 0) if "cpa" in m else None,
-                    "ctr": m.get("ctr", {}).get("value", 0) if "ctr" in m else None,
+                    "cpc": m.get("cpc", {}).get("value") or 0,
+                    "cpa": m.get("cpa", {}).get("value") or 0 if "cpa" in m else None,
+                    "ctr": m.get("ctr", {}).get("value") or 0 if "ctr" in m else None,
                     "conv_rate": (
-                        m.get("conv_rate", {}).get("value", 0)
+                        m.get("conv_rate", {}).get("value") or 0
                         if "conv_rate" in m
                         else None
                     ),
@@ -1067,9 +1067,9 @@ def _collect_seasonal_trends(industry: str) -> Dict[str, Any]:
 
 def _build_executive_summary(report: Dict[str, Any]) -> str:
     paras: List[str] = []
-    ind = _industry_label(report.get("industry", ""))
+    ind = _industry_label(report.get("industry") or "")
     role_cat = report.get("role_category", "the target role category")
-    locs = ", ".join(report.get("locations", [])[:3]) or "multiple regions"
+    locs = ", ".join(report.get("locations") or [][:3]) or "multiple regions"
 
     paras.append(
         f"This market intelligence report analyzes the recruitment landscape for "
@@ -1100,7 +1100,7 @@ def _build_executive_summary(report: Dict[str, Any]) -> str:
         )
 
     ch = report.get("channel_performance", {})
-    ranked = ch.get("ranked_by_cpc", [])
+    ranked = ch.get("ranked_by_cpc") or []
     if ranked:
         cheapest = ranked[0]
         paras.append(
@@ -1120,7 +1120,7 @@ def _build_recommendations(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     collar = report.get("collar_type", "white_collar")
     diff = overview.get("difficulty_score", 50)
 
-    ranked = ch.get("ranked_by_cpc", [])
+    ranked = ch.get("ranked_by_cpc") or []
     if ranked:
         c = ranked[0]
         recs.append(
@@ -1133,7 +1133,7 @@ def _build_recommendations(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             }
         )
 
-    trough = seasonal.get("trough_months", [])
+    trough = seasonal.get("trough_months") or []
     if trough:
         mn = {
             1: "Jan",
@@ -1224,7 +1224,7 @@ def _build_recommendations(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             }
         )
 
-    comps = report.get("competitor_analysis", {}).get("competitors", [])
+    comps = report.get("competitor_analysis", {}).get("competitors") or []
     if comps:
         recs.append(
             {
@@ -1236,7 +1236,7 @@ def _build_recommendations(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             }
         )
 
-    recs.sort(key=lambda r: r.get("impact_score", 0), reverse=True)
+    recs.sort(key=lambda r: r.get("impact_score") or 0, reverse=True)
     return recs
 
 
@@ -1268,7 +1268,7 @@ def generate_report(data: Dict[str, Any]) -> Dict[str, Any]:
     role_category = data.get("role_category", "general")
     locations = data.get("locations", ["United States"])
     time_period = data.get("time_period", "quarterly")
-    competitors = data.get("competitors", [])
+    competitors = data.get("competitors") or []
 
     collar_type = _detect_collar(role_category, industry)
 
@@ -1406,9 +1406,9 @@ def generate_intel_excel(report_data: Dict[str, Any]) -> bytes:
             cell.border = thin_border
             cell.alignment = l_align
 
-    ind_label = _industry_label(report_data.get("industry", ""))
+    ind_label = _industry_label(report_data.get("industry") or "")
     role_cat = report_data.get("role_category", "N/A").replace("_", " ").title()
-    locs = ", ".join(report_data.get("locations", [])[:5])
+    locs = ", ".join(report_data.get("locations") or [][:5])
     meta = report_data.get("report_metadata", {})
 
     # -- Sheet 1: Overview --
@@ -1446,7 +1446,7 @@ def generate_intel_excel(report_data: Dict[str, Any]) -> bytes:
         ws.cell(row=4 + i, column=2, value=lbl).font = sub_font
         ws.cell(row=4 + i, column=3, value=val).font = body_font
 
-    summary = report_data.get("executive_summary", "")
+    summary = report_data.get("executive_summary") or ""
     if summary:
         ws.merge_cells("B12:D12")
         ws.cell(row=12, column=2, value="Executive Summary").font = Font(
@@ -1488,7 +1488,7 @@ def generate_intel_excel(report_data: Dict[str, Any]) -> bytes:
     for idx, (name, m) in enumerate(channels.items()):
         r = 5 + idx
         ws2.cell(row=r, column=2, value=name.replace("_", " ").title())
-        ws2.cell(row=r, column=3, value=f"${m.get('cpc', 0):.2f}")
+        ws2.cell(row=r, column=3, value=f"${m.get('cpc') or 0:.2f}")
         cpa = m.get("cpa")
         ws2.cell(row=r, column=4, value=f"${cpa:.2f}" if cpa else "N/A")
         ctr = m.get("ctr")
@@ -1530,11 +1530,11 @@ def generate_intel_excel(report_data: Dict[str, Any]) -> bytes:
     for idx, (loc, sal) in enumerate(by_loc.items()):
         r = 5 + idx
         ws3.cell(row=r, column=2, value=loc)
-        ws3.cell(row=r, column=3, value=_fmt_currency(sal.get("p10", 0)))
-        ws3.cell(row=r, column=4, value=_fmt_currency(sal.get("p25", 0)))
-        ws3.cell(row=r, column=5, value=_fmt_currency(sal.get("median", 0)))
-        ws3.cell(row=r, column=6, value=_fmt_currency(sal.get("p75", 0)))
-        ws3.cell(row=r, column=7, value=_fmt_currency(sal.get("p90", 0)))
+        ws3.cell(row=r, column=3, value=_fmt_currency(sal.get("p10") or 0))
+        ws3.cell(row=r, column=4, value=_fmt_currency(sal.get("p25") or 0))
+        ws3.cell(row=r, column=5, value=_fmt_currency(sal.get("median") or 0))
+        ws3.cell(row=r, column=6, value=_fmt_currency(sal.get("p75") or 0))
+        ws3.cell(row=r, column=7, value=_fmt_currency(sal.get("p90") or 0))
         ws3.cell(row=r, column=8, value=sal.get("coli", "N/A"))
         _data_row(ws3, r, 2, 8, alt=(idx % 2 == 1))
 
@@ -1606,17 +1606,17 @@ def generate_intel_excel(report_data: Dict[str, Any]) -> bytes:
         ws5.cell(row=4, column=2 + i, value=h)
     _hdr_row(ws5, 4, 2, 6)
 
-    for idx, rec in enumerate(report_data.get("recommendations", [])):
+    for idx, rec in enumerate(report_data.get("recommendations") or []):
         r = 5 + idx
         ws5.cell(row=r, column=2, value=idx + 1)
-        ws5.cell(row=r, column=3, value=rec.get("title", ""))
-        ws5.cell(row=r, column=4, value=rec.get("description", ""))
-        ws5.cell(row=r, column=5, value=rec.get("impact", "").upper())
-        ws5.cell(row=r, column=6, value=rec.get("category", ""))
+        ws5.cell(row=r, column=3, value=rec.get("title") or "")
+        ws5.cell(row=r, column=4, value=rec.get("description") or "")
+        ws5.cell(row=r, column=5, value=rec.get("impact") or "".upper())
+        ws5.cell(row=r, column=6, value=rec.get("category") or "")
         _data_row(ws5, r, 2, 6, alt=(idx % 2 == 1))
 
     # -- Sheet 6: Competitor Analysis (if present) --
-    comps = report_data.get("competitor_analysis", {}).get("competitors", [])
+    comps = report_data.get("competitor_analysis", {}).get("competitors") or []
     if comps:
         ws6 = wb.create_sheet("Competitors")
         ws6.sheet_properties.tabColor = _XL_BLUE
@@ -1639,9 +1639,11 @@ def generate_intel_excel(report_data: Dict[str, Any]) -> bytes:
 
         for idx, comp in enumerate(comps):
             r = 5 + idx
-            ws6.cell(row=r, column=2, value=comp.get("name", ""))
+            ws6.cell(row=r, column=2, value=comp.get("name") or "")
             ws6.cell(row=r, column=3, value=comp.get("estimated_openings", "N/A"))
-            ws6.cell(row=r, column=4, value=", ".join(comp.get("primary_channels", [])))
+            ws6.cell(
+                row=r, column=4, value=", ".join(comp.get("primary_channels") or [])
+            )
             ws6.cell(row=r, column=5, value=comp.get("employer_brand_strength", "N/A"))
             _data_row(ws6, r, 2, 5, alt=(idx % 2 == 1))
 
@@ -1676,9 +1678,9 @@ def generate_intel_ppt(report_data: Dict[str, Any]) -> bytes:
     dark_text = RGBColor(0x1E, 0x1E, 0x2E)
     muted = RGBColor(0x64, 0x74, 0x8B)
 
-    ind_label = _industry_label(report_data.get("industry", ""))
+    ind_label = _industry_label(report_data.get("industry") or "")
     role_cat = report_data.get("role_category", "N/A").replace("_", " ").title()
-    locs = ", ".join(report_data.get("locations", [])[:3])
+    locs = ", ".join(report_data.get("locations") or [][:3])
 
     def _bg(slide, color):
         slide.background.fill.solid()
@@ -1847,7 +1849,7 @@ def generate_intel_ppt(report_data: Dict[str, Any]) -> bytes:
             2.65,
             card_w - 0.4,
             0.5,
-            f"${m.get('cpc', 0):.2f}",
+            f"${m.get('cpc') or 0:.2f}",
             sz=20,
             bold=True,
             color=white,
@@ -1911,8 +1913,8 @@ def generate_intel_ppt(report_data: Dict[str, Any]) -> bytes:
     for idx, (loc, sal) in enumerate(list(by_loc.items())[:6]):
         y = y_off + idx * 0.9
         _tb(s4, 1.0, y, 2.5, 0.4, loc, sz=11, bold=True, color=dark_text)
-        med = sal.get("median", 0)
-        max_sal = max((s.get("median", 0) for s in by_loc.values()), default=1) or 1
+        med = sal.get("median") or 0
+        max_sal = max((s.get("median") or 0 for s in by_loc.values()), default=1) or 1
         bar_w = max(0.5, (med / max_sal) * 7.0)
         _rect(s4, 3.5, y + 0.05, bar_w, 0.35, downy)
         _tb(
@@ -1936,7 +1938,7 @@ def generate_intel_ppt(report_data: Dict[str, Any]) -> bytes:
             7.0,
             10.0,
             0.3,
-            f"Aggregate median: {_fmt_currency(agg.get('median', 0))}  |  Range: {_fmt_currency(agg.get('min_p10', 0))} - {_fmt_currency(agg.get('max_p90', 0))}",
+            f"Aggregate median: {_fmt_currency(agg.get('median') or 0)}  |  Range: {_fmt_currency(agg.get('min_p10') or 0)} - {_fmt_currency(agg.get('max_p90') or 0)}",
             sz=10,
             bold=True,
             color=port_gore,
@@ -2012,7 +2014,7 @@ def generate_intel_ppt(report_data: Dict[str, Any]) -> bytes:
         )
 
     advice = report_data.get("seasonal_trends", {}).get("hiring_advice", {})
-    note = advice.get("note", "")
+    note = advice.get("note") or ""
     if note:
         _tb(s5, 0.8, 6.3, 11.5, 0.8, note, sz=10, color=port_gore)
 
@@ -2022,7 +2024,7 @@ def generate_intel_ppt(report_data: Dict[str, Any]) -> bytes:
     _rect(s6, 0, 0, 13.333, 1.1, port_gore)
     _tb(s6, 0.8, 0.2, 11, 0.7, "Key Recommendations", sz=24, bold=True, color=white)
 
-    recs = report_data.get("recommendations", [])
+    recs = report_data.get("recommendations") or []
     for idx, rec in enumerate(recs[:6]):
         y = 1.4 + idx * 0.95
         impact = rec.get("impact", "medium")
@@ -2038,13 +2040,20 @@ def generate_intel_ppt(report_data: Dict[str, Any]) -> bytes:
             y,
             4.0,
             0.35,
-            rec.get("title", ""),
+            rec.get("title") or "",
             sz=11,
             bold=True,
             color=dark_text,
         )
         _tb(
-            s6, 1.1, y + 0.35, 10.5, 0.35, rec.get("description", ""), sz=9, color=muted
+            s6,
+            1.1,
+            y + 0.35,
+            10.5,
+            0.35,
+            rec.get("description") or "",
+            sz=9,
+            color=muted,
         )
         _tb(
             s6,
@@ -2204,8 +2213,8 @@ def generate_market_intel_report(
     report["seasonal_patterns"] = {
         "monthly_multipliers": seasonal.get("monthly", {}),
         "hiring_advice": seasonal.get("hiring_advice", {}),
-        "peak_months": seasonal.get("peak_months", []),
-        "trough_months": seasonal.get("trough_months", []),
+        "peak_months": seasonal.get("peak_months") or [],
+        "trough_months": seasonal.get("trough_months") or [],
     }
 
     # CPC trends stub

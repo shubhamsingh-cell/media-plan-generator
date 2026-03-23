@@ -21,19 +21,27 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Brand Colors (print-friendly adaptations)
 # ---------------------------------------------------------------------------
-PORT_GORE = "#202058"       # Navy -- headings
-BLUE_VIOLET = "#5A54BD"     # Purple accent
-DOWNY_TEAL = "#6BB3CD"      # Secondary accent
-TAPESTRY_PINK = "#B5669C"   # Tertiary accent
-RAW_SIENNA = "#CE9047"      # Warm accent
-TEXT_DARK = "#1a1a2e"        # Body text
-TEXT_MUTED = "#555566"       # Secondary text
-BORDER_LIGHT = "#d0d0e0"    # Table borders
-BG_ZEBRA = "#f4f4f9"        # Zebra row background
+PORT_GORE = "#202058"  # Navy -- headings
+BLUE_VIOLET = "#5A54BD"  # Purple accent
+DOWNY_TEAL = "#6BB3CD"  # Secondary accent
+TAPESTRY_PINK = "#B5669C"  # Tertiary accent
+RAW_SIENNA = "#CE9047"  # Warm accent
+TEXT_DARK = "#1a1a2e"  # Body text
+TEXT_MUTED = "#555566"  # Secondary text
+BORDER_LIGHT = "#d0d0e0"  # Table borders
+BG_ZEBRA = "#f4f4f9"  # Zebra row background
 BG_WHITE = "#ffffff"
 
 # Bar chart colors (cycle through brand palette)
-BAR_COLORS = [BLUE_VIOLET, DOWNY_TEAL, TAPESTRY_PINK, RAW_SIENNA, PORT_GORE, "#7C6BC4", "#4A9CB5"]
+BAR_COLORS = [
+    BLUE_VIOLET,
+    DOWNY_TEAL,
+    TAPESTRY_PINK,
+    RAW_SIENNA,
+    PORT_GORE,
+    "#7C6BC4",
+    "#4A9CB5",
+]
 
 
 def _safe(value: Any) -> str:
@@ -111,18 +119,20 @@ def generate_plan_html_report(
     report_timestamp = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
 
     # Safely extract fields
-    budget = plan_data.get("budget", 0)
-    channels = plan_data.get("channels", [])
-    roles = plan_data.get("roles", [])
-    locations = plan_data.get("locations", [])
+    budget = plan_data.get("budget") or 0
+    channels = plan_data.get("channels") or []
+    roles = plan_data.get("roles") or []
+    locations = plan_data.get("locations") or []
     market_intel = plan_data.get("market_intelligence", {})
-    recommendations = plan_data.get("recommendations", [])
+    recommendations = plan_data.get("recommendations") or []
 
     # ── Build HTML sections ──
 
     # Executive Summary
     roles_display = ", ".join(_safe(r) for r in roles) if roles else "Not specified"
-    locations_display = ", ".join(_safe(loc) for loc in locations) if locations else "Not specified"
+    locations_display = (
+        ", ".join(_safe(loc) for loc in locations) if locations else "Not specified"
+    )
 
     exec_summary_html = f"""
     <div class="section">
@@ -156,23 +166,25 @@ def generate_plan_html_report(
     channel_rows = []
     for i, ch in enumerate(channels):
         bg = f' style="background-color: {BG_ZEBRA};"' if i % 2 == 1 else ""
-        channel_rows.append(f"""
+        channel_rows.append(
+            f"""
         <tr{bg}>
           <td style="font-weight: 600;">{_safe(ch.get('name', 'N/A'))}</td>
-          <td class="num">{_format_pct(ch.get('allocation_pct', 0))}</td>
-          <td class="num">{_format_currency(ch.get('spend', 0))}</td>
-          <td class="num">{_format_currency(ch.get('cpc', 0))}</td>
-          <td class="num">{_format_currency(ch.get('cpa', 0))}</td>
-          <td class="num">{_format_number(ch.get('projected_clicks', 0))}</td>
-          <td class="num">{_format_number(ch.get('projected_applies', 0))}</td>
-          <td class="num">{_format_number(ch.get('projected_hires', 0))}</td>
-        </tr>""")
+          <td class="num">{_format_pct(ch.get('allocation_pct') or 0)}</td>
+          <td class="num">{_format_currency(ch.get('spend') or 0)}</td>
+          <td class="num">{_format_currency(ch.get('cpc') or 0)}</td>
+          <td class="num">{_format_currency(ch.get('cpa') or 0)}</td>
+          <td class="num">{_format_number(ch.get('projected_clicks') or 0)}</td>
+          <td class="num">{_format_number(ch.get('projected_applies') or 0)}</td>
+          <td class="num">{_format_number(ch.get('projected_hires') or 0)}</td>
+        </tr>"""
+        )
 
     # Compute totals
-    total_spend = sum(float(ch.get("spend", 0) or 0) for ch in channels)
-    total_clicks = sum(float(ch.get("projected_clicks", 0) or 0) for ch in channels)
-    total_applies = sum(float(ch.get("projected_applies", 0) or 0) for ch in channels)
-    total_hires = sum(float(ch.get("projected_hires", 0) or 0) for ch in channels)
+    total_spend = sum(float(ch.get("spend") or 0 or 0) for ch in channels)
+    total_clicks = sum(float(ch.get("projected_clicks") or 0 or 0) for ch in channels)
+    total_applies = sum(float(ch.get("projected_applies") or 0 or 0) for ch in channels)
+    total_hires = sum(float(ch.get("projected_hires") or 0 or 0) for ch in channels)
 
     channel_table_html = f"""
     <div class="section page-break-before">
@@ -211,19 +223,24 @@ def generate_plan_html_report(
 
     # Budget Breakdown (CSS horizontal bar chart)
     bar_items = []
-    max_pct = max((float(ch.get("allocation_pct", 0) or 0) for ch in channels), default=1) or 1
+    max_pct = (
+        max((float(ch.get("allocation_pct") or 0 or 0) for ch in channels), default=1)
+        or 1
+    )
     for i, ch in enumerate(channels):
-        pct = float(ch.get("allocation_pct", 0) or 0)
+        pct = float(ch.get("allocation_pct") or 0 or 0)
         bar_width = (pct / max_pct) * 100  # Relative to largest bar
         color = BAR_COLORS[i % len(BAR_COLORS)]
-        bar_items.append(f"""
+        bar_items.append(
+            f"""
         <div class="bar-row">
           <div class="bar-label">{_safe(ch.get('name', 'N/A'))}</div>
           <div class="bar-track">
             <div class="bar-fill" style="width: {bar_width:.1f}%; background-color: {color};"></div>
           </div>
-          <div class="bar-value">{_format_pct(pct)} &middot; {_format_currency(ch.get('spend', 0))}</div>
-        </div>""")
+          <div class="bar-value">{_format_pct(pct)} &middot; {_format_currency(ch.get('spend') or 0)}</div>
+        </div>"""
+        )
 
     budget_chart_html = f"""
     <div class="section">
@@ -262,9 +279,7 @@ def generate_plan_html_report(
     # Recommendations
     rec_html = ""
     if recommendations:
-        rec_items = "".join(
-            f'<li>{_safe(str(r))}</li>' for r in recommendations
-        )
+        rec_items = "".join(f"<li>{_safe(str(r))}</li>" for r in recommendations)
         rec_html = f"""
         <div class="section">
           <h2>Recommendations</h2>

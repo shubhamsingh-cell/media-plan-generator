@@ -94,13 +94,19 @@ _LEVEL_LABEL_MAP = {
 # Stats tracking (module-level, thread-safe)
 # ---------------------------------------------------------------------------
 
+
 class _Stats:
     """Internal counters for shipped/dropped records and flush errors."""
 
     __slots__ = (
-        "_lock", "records_shipped", "records_dropped",
-        "flush_errors", "last_flush_time",
-        "last_error", "last_error_time", "last_error_status",
+        "_lock",
+        "records_shipped",
+        "records_dropped",
+        "flush_errors",
+        "last_flush_time",
+        "last_error",
+        "last_error_time",
+        "last_error_status",
     )
 
     def __init__(self) -> None:
@@ -121,7 +127,9 @@ class _Stats:
         with self._lock:
             self.records_dropped += count
 
-    def add_flush_error(self, error_msg: str = "", http_status: Optional[int] = None) -> None:
+    def add_flush_error(
+        self, error_msg: str = "", http_status: Optional[int] = None
+    ) -> None:
         with self._lock:
             self.flush_errors += 1
             self.last_error = error_msg[:500] if error_msg else None
@@ -140,14 +148,20 @@ class _Stats:
                 "flush_errors": self.flush_errors,
                 "last_flush_time": self.last_flush_time,
                 "last_flush_iso": (
-                    datetime.fromtimestamp(self.last_flush_time, tz=timezone.utc).isoformat()
-                    if self.last_flush_time else None
+                    datetime.fromtimestamp(
+                        self.last_flush_time, tz=timezone.utc
+                    ).isoformat()
+                    if self.last_flush_time
+                    else None
                 ),
                 "last_error": self.last_error,
                 "last_error_time": self.last_error_time,
                 "last_error_iso": (
-                    datetime.fromtimestamp(self.last_error_time, tz=timezone.utc).isoformat()
-                    if self.last_error_time else None
+                    datetime.fromtimestamp(
+                        self.last_error_time, tz=timezone.utc
+                    ).isoformat()
+                    if self.last_error_time
+                    else None
                 ),
                 "last_error_status": self.last_error_status,
             }
@@ -160,6 +174,7 @@ _stats = _Stats()
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_request_id() -> str:
     """Retrieve the current request ID from monitoring, or empty string.
 
@@ -168,6 +183,7 @@ def _get_request_id() -> str:
     """
     try:
         from monitoring import get_request_id
+
         return get_request_id()
     except (ImportError, AttributeError):
         return ""
@@ -200,7 +216,8 @@ def _format_record_to_json(record: logging.LogRecord) -> str:
         "logger_name": record.name,
         "timestamp_iso": datetime.fromtimestamp(
             record.created, tz=timezone.utc
-        ).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+        ).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
+        + "Z",
         "module": record.module,
         "funcName": record.funcName,
         "lineno": record.lineno,
@@ -218,14 +235,32 @@ def _format_record_to_json(record: logging.LogRecord) -> str:
 
     # Extra fields (skip standard LogRecord attributes)
     _standard_attrs = {
-        "name", "msg", "args", "created", "relativeCreated", "exc_info",
-        "exc_text", "stack_info", "lineno", "funcName", "pathname",
-        "filename", "module", "levelno", "levelname", "msecs",
-        "thread", "threadName", "process", "processName", "message",
+        "name",
+        "msg",
+        "args",
+        "created",
+        "relativeCreated",
+        "exc_info",
+        "exc_text",
+        "stack_info",
+        "lineno",
+        "funcName",
+        "pathname",
+        "filename",
+        "module",
+        "levelno",
+        "levelname",
+        "msecs",
+        "thread",
+        "threadName",
+        "process",
+        "processName",
+        "message",
         "taskName",
     }
     extras = {
-        k: v for k, v in record.__dict__.items()
+        k: v
+        for k, v in record.__dict__.items()
         if k not in _standard_attrs and not k.startswith("_")
     }
     if extras:
@@ -234,16 +269,19 @@ def _format_record_to_json(record: logging.LogRecord) -> str:
     try:
         return json.dumps(entry, default=str, ensure_ascii=False)
     except (TypeError, ValueError):
-        return json.dumps({
-            "message": record.getMessage(),
-            "level": record.levelname,
-            "error": "log_serialization_failed",
-        })
+        return json.dumps(
+            {
+                "message": record.getMessage(),
+                "level": record.levelname,
+                "error": "log_serialization_failed",
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
 # GrafanaLokiHandler
 # ---------------------------------------------------------------------------
+
 
 class GrafanaLokiHandler(logging.Handler):
     """Ships structured JSON logs to Grafana Cloud Loki.
@@ -327,7 +365,9 @@ class GrafanaLokiHandler(logging.Handler):
                 if overflow > 0:
                     # Partition into high-priority (error/critical) and normal
                     _high = [r for r in self._buffer if r[0] in ("error", "critical")]
-                    _low = [r for r in self._buffer if r[0] not in ("error", "critical")]
+                    _low = [
+                        r for r in self._buffer if r[0] not in ("error", "critical")
+                    ]
                     # Drop from low-priority (newest first from low) to free space
                     drop_count = min(overflow, len(_low))
                     if drop_count > 0:
@@ -366,7 +406,9 @@ class GrafanaLokiHandler(logging.Handler):
 
     # -- Internal -----------------------------------------------------------
 
-    def _requeue_records(self, records: list, max_retries: int, should_retry: bool) -> None:
+    def _requeue_records(
+        self, records: list, max_retries: int, should_retry: bool
+    ) -> None:
         """Put failed records back into the buffer for retry.
 
         Args:
@@ -433,14 +475,16 @@ class GrafanaLokiHandler(logging.Handler):
         # Build the Loki push payload
         streams: List[Dict[str, Any]] = []
         for level_label, values in streams_map.items():
-            streams.append({
-                "stream": {
-                    "app": _APP_LABEL,
-                    "env": self._env_label,
-                    "level": level_label,
-                },
-                "values": values,
-            })
+            streams.append(
+                {
+                    "stream": {
+                        "app": _APP_LABEL,
+                        "env": self._env_label,
+                        "level": level_label,
+                    },
+                    "values": values,
+                }
+            )
 
         payload = json.dumps({"streams": streams}).encode("utf-8")
 
@@ -470,11 +514,17 @@ class GrafanaLokiHandler(logging.Handler):
                 error_body = http_err.read().decode("utf-8", errors="replace")[:500]
             except Exception:
                 pass
-            error_msg = f"HTTP {http_err.code}: {error_body}" if error_body else f"HTTP {http_err.code}"
+            error_msg = (
+                f"HTTP {http_err.code}: {error_body}"
+                if error_body
+                else f"HTTP {http_err.code}"
+            )
             _stats.add_flush_error(error_msg=error_msg, http_status=http_err.code)
             logger.warning(
                 "grafana_logger: Loki push failed (%d records) -- HTTP %d: %s",
-                len(records), http_err.code, error_body[:200],
+                len(records),
+                http_err.code,
+                error_body[:200],
             )
             # Retry on transient server errors (5xx, 429); skip retry on
             # auth errors (401/403) which won't resolve on retry
@@ -487,7 +537,9 @@ class GrafanaLokiHandler(logging.Handler):
             _stats.add_flush_error(error_msg=error_msg)
             logger.warning(
                 "grafana_logger: Loki push failed (%d records) -- %s: %s",
-                len(records), type(exc).__name__, exc,
+                len(records),
+                type(exc).__name__,
+                exc,
             )
             # Network errors are always retryable
             self._requeue_records(records, _MAX_FLUSH_RETRIES, should_retry=True)
@@ -499,13 +551,15 @@ class GrafanaLokiHandler(logging.Handler):
             _stats.add_dropped(len(records))
             logger.warning(
                 "grafana_logger: unexpected Loki push error (%d records dropped): %s",
-                len(records), exc,
+                len(records),
+                exc,
             )
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def setup_grafana_logging(
     root_logger: Optional[logging.Logger] = None,
@@ -536,13 +590,13 @@ def setup_grafana_logging(
         if setup_grafana_logging(logging.getLogger()):
             print("Grafana Loki logging active")
     """
-    loki_url = os.environ.get("GRAFANA_LOKI_URL", "").strip()
-    api_key = os.environ.get("GRAFANA_API_KEY", "").strip()
+    loki_url = os.environ.get("GRAFANA_LOKI_URL") or "".strip()
+    api_key = os.environ.get("GRAFANA_API_KEY") or "".strip()
 
     if not loki_url or not api_key:
         return False
 
-    user_id = os.environ.get("GRAFANA_USER_ID", "").strip()
+    user_id = os.environ.get("GRAFANA_USER_ID") or "".strip()
     env_label = os.environ.get("RENDER_ENV", "development")
 
     auth_header = _build_auth_header(user_id, api_key)
@@ -588,9 +642,9 @@ def diagnose_grafana() -> Dict[str, Any]:
 
     Returns a dict with: ok (bool), detail (str), http_status (int|None).
     """
-    loki_url = os.environ.get("GRAFANA_LOKI_URL", "").strip()
-    api_key = os.environ.get("GRAFANA_API_KEY", "").strip()
-    user_id = os.environ.get("GRAFANA_USER_ID", "").strip()
+    loki_url = os.environ.get("GRAFANA_LOKI_URL") or "".strip()
+    api_key = os.environ.get("GRAFANA_API_KEY") or "".strip()
+    user_id = os.environ.get("GRAFANA_USER_ID") or "".strip()
 
     # Check env vars first
     if not loki_url:
@@ -606,29 +660,46 @@ def diagnose_grafana() -> Dict[str, Any]:
     auth_header = _build_auth_header(user_id, api_key)
 
     # Build a minimal test payload
-    test_payload = json.dumps({
-        "streams": [{
-            "stream": {
-                "app": _APP_LABEL,
-                "env": os.environ.get("RENDER_ENV", "development"),
-                "level": "info",
-            },
-            "values": [[
-                str(int(time.time() * 1_000_000_000)),
-                json.dumps({"message": "grafana_logger diagnostic ping", "level": "INFO"}),
-            ]],
-        }]
-    }).encode("utf-8")
+    test_payload = json.dumps(
+        {
+            "streams": [
+                {
+                    "stream": {
+                        "app": _APP_LABEL,
+                        "env": os.environ.get("RENDER_ENV", "development"),
+                        "level": "info",
+                    },
+                    "values": [
+                        [
+                            str(int(time.time() * 1_000_000_000)),
+                            json.dumps(
+                                {
+                                    "message": "grafana_logger diagnostic ping",
+                                    "level": "INFO",
+                                }
+                            ),
+                        ]
+                    ],
+                }
+            ]
+        }
+    ).encode("utf-8")
 
     try:
         req = urllib.request.Request(
-            push_url, data=test_payload, method="POST",
+            push_url,
+            data=test_payload,
+            method="POST",
             headers={"Content-Type": "application/json", "Authorization": auth_header},
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             _ = resp.read()
             status_code = resp.status
-        return {"ok": True, "detail": f"Loki push OK (URL: {push_url})", "http_status": status_code}
+        return {
+            "ok": True,
+            "detail": f"Loki push OK (URL: {push_url})",
+            "http_status": status_code,
+        }
 
     except urllib.error.HTTPError as http_err:
         error_body = ""
@@ -648,7 +719,15 @@ def diagnose_grafana() -> Dict[str, Any]:
         return {"ok": False, "detail": detail, "http_status": http_err.code}
 
     except urllib.error.URLError as url_err:
-        return {"ok": False, "detail": f"Connection failed: {url_err.reason}", "http_status": None}
+        return {
+            "ok": False,
+            "detail": f"Connection failed: {url_err.reason}",
+            "http_status": None,
+        }
 
     except Exception as exc:
-        return {"ok": False, "detail": f"{type(exc).__name__}: {exc}", "http_status": None}
+        return {
+            "ok": False,
+            "detail": f"{type(exc).__name__}: {exc}",
+            "http_status": None,
+        }

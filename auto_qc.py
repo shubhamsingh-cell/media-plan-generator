@@ -490,7 +490,7 @@ class AutoQC:
 
     def _test_05_claude_api_key(self) -> TestResult:
         """ANTHROPIC_API_KEY is set."""
-        key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        key = os.environ.get("ANTHROPIC_API_KEY") or "".strip()
         ok = len(key) > 10
         return TestResult("claude_api_key", ok, "Set" if ok else "Missing or too short")
 
@@ -507,8 +507,8 @@ class AutoQC:
                 return TestResult(
                     "data_matrix_health", True, "Pending (first check not yet run)"
                 )
-            hp = status.get("health_pct", 0)
-            errors = status.get("summary", {}).get("error", 0)
+            hp = status.get("health_pct") or 0
+            errors = status.get("summary", {}).get("error") or 0
             ok = hp >= 80.0 and errors == 0
             return TestResult(
                 "data_matrix_health", ok, f"health={hp}%, errors={errors}"
@@ -542,7 +542,7 @@ class AutoQC:
             nova_instance = nova_mod.Nova()
             tools = nova_instance.get_tool_definitions()
             count = len(tools)
-            tool_names = [t.get("name", "") for t in tools]
+            tool_names = [t.get("name") or "" for t in tools]
             v3_tools = ["query_collar_strategy", "query_market_trends"]
             missing_v3 = [t for t in v3_tools if t not in tool_names]
             ok = count >= 23 and not missing_v3
@@ -592,8 +592,8 @@ class AutoQC:
         try:
             result = self._internal_chat("what is joveo")
             has_response = bool(result.get("response"))
-            mentions_joveo = "joveo" in result.get("response", "").lower()
-            confidence = result.get("confidence", 0)
+            mentions_joveo = "joveo" in result.get("response") or "".lower()
+            confidence = result.get("confidence") or 0
             ok = has_response and mentions_joveo and confidence >= 0.85
             return TestResult(
                 "chat_learned_answer",
@@ -623,7 +623,7 @@ class AutoQC:
         try:
             result = self._internal_chat("")
             has_response = bool(result.get("response"))
-            no_error = "error" not in result.get("response", "").lower()
+            no_error = "error" not in result.get("response") or "".lower()
             ok = has_response and no_error
             return TestResult(
                 "chat_empty_message",
@@ -637,7 +637,7 @@ class AutoQC:
         """Salary query without location triggers clarification."""
         try:
             result = self._internal_chat("what is the average salary of a nurse")
-            resp_lower = result.get("response", "").lower()
+            resp_lower = result.get("response") or "".lower()
             asks_location = any(
                 w in resp_lower
                 for w in ["country", "region", "location", "where", "which"]
@@ -957,12 +957,12 @@ class AutoQC:
                     failures.append(f"{role}: collar_type invalid (got {ct})")
                     continue
                 # confidence > 0.3
-                conf = result.get("confidence", 0)
+                conf = result.get("confidence") or 0
                 if not (isinstance(conf, (int, float)) and conf > 0.3):
                     failures.append(f"{role}: confidence <= 0.3 (got {conf})")
                     continue
                 # method is non-empty
-                method = result.get("method", "")
+                method = result.get("method") or ""
                 if not method:
                     failures.append(f"{role}: method is empty")
 
@@ -1062,7 +1062,7 @@ class AutoQC:
             result = do.enrich_collar_intelligence(
                 role="Truck Driver", industry="logistics"
             )
-            collar_type = result.get("collar_type", "")
+            collar_type = result.get("collar_type") or ""
             ok = bool(collar_type) and collar_type != ""
             detail = (
                 f"collar_type={collar_type}"
@@ -1263,7 +1263,7 @@ class AutoQC:
             if not sources:
                 # Also check inside structured_confidence
                 if sc and isinstance(sc, dict):
-                    sources = sc.get("sources", [])
+                    sources = sc.get("sources") or []
             if not sources:
                 failures.append("No source attribution found")
 
@@ -1313,8 +1313,8 @@ class AutoQC:
                 importlib.import_module("data_contracts")
             dc = sys.modules["data_contracts"]
             result = dc.validate_all_kb()
-            passed = result.get("passed", 0)
-            total = result.get("total", 0)
+            passed = result.get("passed") or 0
+            total = result.get("total") or 0
             ok = result.get("failed", 1) == 0
             detail = f"{passed}/{total} KB files pass schema validation"
             return TestResult("kb_data_contracts", ok, detail)
@@ -1380,7 +1380,7 @@ class AutoQC:
                 and ("channels" in result or "channel_allocations" in result)
             )
             if has_keys:
-                budget = result.get("total_budget", 0)
+                budget = result.get("total_budget") or 0
                 ch = result.get("channels") or result.get("channel_allocations", {})
                 n_channels = len(ch) if isinstance(ch, (list, dict)) else 0
                 detail = f"Regression scenario 0 (healthcare): ${budget:,.0f} budget, {n_channels} channels"
@@ -1400,9 +1400,9 @@ class AutoQC:
             ef = sys.modules["eval_framework"]
             suite = ef.EvalSuite()
             result = suite.run_eval("budget")
-            score_pct = result.get("score_pct", 0)
-            passed = result.get("passed", 0)
-            total = result.get("total_cases", 0)
+            score_pct = result.get("score_pct") or 0
+            passed = result.get("passed") or 0
+            total = result.get("total_cases") or 0
             ok = score_pct >= 95
             detail = f"Budget sanity eval: {score_pct}% ({passed}/{total})"
             return TestResult("eval_budget_sanity", ok, detail)
@@ -1419,9 +1419,9 @@ class AutoQC:
             ef = sys.modules["eval_framework"]
             suite = ef.EvalSuite()
             result = suite.run_eval("collar")
-            score_pct = result.get("score_pct", 0)
-            passed = result.get("passed", 0)
-            total = result.get("total_cases", 0)
+            score_pct = result.get("score_pct") or 0
+            passed = result.get("passed") or 0
+            total = result.get("total_cases") or 0
             ok = score_pct >= 90
             detail = f"Collar consistency eval: {score_pct}% ({passed}/{total})"
             return TestResult("eval_collar_consistency", ok, detail)
@@ -1498,7 +1498,7 @@ class AutoQC:
                 )
             )
             if ok:
-                total_count = sum(item.get("count", 0) for item in result)
+                total_count = sum(item.get("count") or 0 for item in result)
                 ok = ok and total_count == 50
                 detail = f"Role decomposition: 50 engineers -> {len(result)} seniority levels, sum={total_count}"
             else:
@@ -1583,7 +1583,7 @@ class AutoQC:
                 "metadata": {"total_budget": 100000},
             }
             result = be.simulate_budget_change(base_allocation, delta_budget=20000)
-            new_total = result.get("new_budget", 0)
+            new_total = result.get("new_budget") or 0
             ok = abs(new_total - 120000) < 0.01
             detail = f"What-if simulator: $100K + $20K = ${new_total}"
             return TestResult("what_if_simulator", ok, detail)
@@ -1635,10 +1635,10 @@ class AutoQC:
         """LLM Provider -- at least 1 of 4 LLM providers has API key configured."""
         try:
             keys = {
-                "gemini": os.environ.get("GEMINI_API_KEY", "").strip(),
-                "groq": os.environ.get("GROQ_API_KEY", "").strip(),
-                "cerebras": os.environ.get("CEREBRAS_API_KEY", "").strip(),
-                "claude": os.environ.get("ANTHROPIC_API_KEY", "").strip(),
+                "gemini": os.environ.get("GEMINI_API_KEY") or "".strip(),
+                "groq": os.environ.get("GROQ_API_KEY") or "".strip(),
+                "cerebras": os.environ.get("CEREBRAS_API_KEY") or "".strip(),
+                "claude": os.environ.get("ANTHROPIC_API_KEY") or "".strip(),
             }
             available = [name for name, key in keys.items() if key]
             ok = len(available) >= 1
@@ -1735,8 +1735,8 @@ class AutoQC:
                 rationale="AutoQC test verifying audit trail works",
             )
             stats = audit.get_stats()
-            ok = isinstance(stats, dict) and stats.get("total_entries", 0) > 0
-            detail = f"Audit trail: {stats.get('total_entries', 0)} entries, stages={list(stats.get('stages', {}).keys())[:5]}"
+            ok = isinstance(stats, dict) and stats.get("total_entries") or 0 > 0
+            detail = f"Audit trail: {stats.get('total_entries') or 0} entries, stages={list(stats.get('stages', {}).keys())[:5]}"
             return TestResult("audit_trail", ok, detail)
         except ImportError:
             return TestResult("audit_trail", False, "monitoring module not available")
@@ -1929,11 +1929,9 @@ class AutoQC:
 
             ok_config = CLAUDE_OPUS in PROVIDER_CONFIG
             ok_routing = all(CLAUDE_OPUS in route for route in TASK_ROUTING.values())
-            ok_model = (
-                PROVIDER_CONFIG.get(CLAUDE_OPUS, {})
-                .get("model", "")
-                .startswith("claude-opus")
-            )
+            ok_model = PROVIDER_CONFIG.get(CLAUDE_OPUS, {}).get(
+                "model"
+            ) or "".startswith("claude-opus")
             ok = ok_config and ok_routing and ok_model
             detail = f"Config={ok_config}, Routing={ok_routing}, Model={PROVIDER_CONFIG.get(CLAUDE_OPUS, {}).get('model', 'N/A')}"
             return TestResult("claude_opus_provider", ok, detail)
@@ -1964,7 +1962,7 @@ class AutoQC:
             ]
             # Check _is_enabled -- should match whether RESEND_API_KEY is set
             is_enabled_fn = getattr(mod, "_is_enabled", None)
-            has_key = bool(os.environ.get("RESEND_API_KEY", "").strip())
+            has_key = bool(os.environ.get("RESEND_API_KEY") or "".strip())
             enabled_val = is_enabled_fn() if callable(is_enabled_fn) else None
             enabled_consistent = (
                 (enabled_val is True) if has_key else (enabled_val is False)
@@ -2024,7 +2022,7 @@ class AutoQC:
             stats_result = stats_fn() if stats_callable else None
             stats_is_dict = isinstance(stats_result, dict)
             # setup_grafana_logging behavior depends on env vars
-            has_env = bool(os.environ.get("GRAFANA_LOKI_URL", "").strip())
+            has_env = bool(os.environ.get("GRAFANA_LOKI_URL") or "".strip())
             if setup_callable:
                 setup_result = setup_fn()
                 # When env vars are set, setup should return True (or a truthy handler)
@@ -2050,7 +2048,7 @@ class AutoQC:
             stats = mod.get_grafana_stats()
             required_keys = ["records_shipped", "records_dropped", "flush_errors"]
             missing = [k for k in required_keys if k not in stats]
-            has_env = bool(os.environ.get("GRAFANA_LOKI_URL", "").strip())
+            has_env = bool(os.environ.get("GRAFANA_LOKI_URL") or "".strip())
             # When env vars are set, counters may be non-zero (operational data)
             # When env vars are NOT set, all counters should be 0
             if has_env:
@@ -2104,8 +2102,10 @@ class AutoQC:
                 importlib.import_module("supabase_cache")
             mod = sys.modules["supabase_cache"]
             has_env = bool(
-                os.environ.get("SUPABASE_URL", "").strip()
-                and os.environ.get("SUPABASE_ANON_KEY", "").strip()
+                os.environ.get("SUPABASE_URL")
+                or "".strip()
+                and os.environ.get("SUPABASE_ANON_KEY")
+                or "".strip()
             )
             errors = []
             stats = mod.get_supabase_stats()
@@ -2197,7 +2197,7 @@ class AutoQC:
                 )
 
             alloc_sum = sum(
-                ch.get("dollar_amount", ch.get("dollars", 0))
+                ch.get("dollar_amount", ch.get("dollars") or 0)
                 for ch in channel_allocs.values()
                 if isinstance(ch, dict)
             )
@@ -2359,10 +2359,10 @@ class AutoQC:
             result = self._internal_chat(
                 "What is the CPC for underwater basket weaving jobs in Narnia?"
             )
-            response = result.get("response", "")
+            response = result.get("response") or ""
             if not response:
                 # If we got an error or timeout, that's acceptable -- no hallucination
-                err = result.get("error", "")
+                err = result.get("error") or ""
                 if err:
                     return TestResult(
                         "nova_hallucination_guard",
@@ -2376,12 +2376,13 @@ class AutoQC:
             resp_lower = response.lower()
 
             # Detect if Nova is running in rule-based mode (no LLM keys)
-            sources = result.get("sources", [])
+            sources = result.get("sources") or []
             sources_str = " ".join(str(s) for s in sources).lower() if sources else ""
             is_rule_based = (
                 "rule-based" in sources_str
                 or "knowledge_base" in sources_str
-                or not os.environ.get("ANTHROPIC_API_KEY", "").strip()
+                or not os.environ.get("ANTHROPIC_API_KEY")
+                or "".strip()
             )
 
             # Check for fabricated dollar amounts (patterns like $X.XX or $XX)
@@ -3098,13 +3099,13 @@ class AutoQC:
         test_type = test.get("type", "chat_query")
 
         if test_type == "chat_query":
-            query = test.get("query", "")
-            expected_patterns = test.get("expected_patterns", [])
+            query = test.get("query") or ""
+            expected_patterns = test.get("expected_patterns") or []
             min_confidence = test.get("min_confidence", 0.3)
 
             result = self._internal_chat(query)
-            resp_lower = result.get("response", "").lower()
-            confidence = result.get("confidence", 0)
+            resp_lower = result.get("response") or "".lower()
+            confidence = result.get("confidence") or 0
 
             pattern_matches = sum(
                 1 for p in expected_patterns if re.search(p, resp_lower, re.IGNORECASE)
@@ -3122,7 +3123,7 @@ class AutoQC:
             )
 
         elif test_type == "endpoint_check":
-            endpoint = test.get("endpoint", "")
+            endpoint = test.get("endpoint") or ""
             expected_field = test.get("expected_field", "status")
             try:
                 # Internal module check instead of HTTP
@@ -3175,10 +3176,10 @@ class AutoQC:
         new_tests.extend(self._analyze_data_matrix_patterns())
 
         # Deduplicate: don't add tests with identical queries
-        existing_queries = {t.get("query", "") for t in self._dynamic_tests}
+        existing_queries = {t.get("query") or "" for t in self._dynamic_tests}
         added = 0
         for test in new_tests:
-            query = test.get("query", "")
+            query = test.get("query") or ""
             if query and query not in existing_queries:
                 self._dynamic_tests.append(test)
                 existing_queries.add(query)
@@ -3212,16 +3213,16 @@ class AutoQC:
                 return new_tests
 
             cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-            recent = [entry for entry in logs if entry.get("timestamp", "") >= cutoff]
+            recent = [entry for entry in logs if entry.get("timestamp") or "" >= cutoff]
 
             # Find failed requests
             failures = [e for e in recent if e.get("status") == "error"]
             for fail in failures[:5]:  # Max 5 new tests from failures
                 industry = fail.get("industry", "unknown")
                 client = fail.get("client_name", "Unknown")
-                error_msg = fail.get("error_message", "")
-                roles = fail.get("roles", [])
-                locations = fail.get("locations", [])
+                error_msg = fail.get("error_message") or ""
+                roles = fail.get("roles") or []
+                locations = fail.get("locations") or []
 
                 # Generate a test that exercises the same query pattern
                 if roles and locations:
@@ -3280,8 +3281,8 @@ class AutoQC:
             metrics = get_nova_metrics()
 
             # If error rate is high (>10%), add a stress test
-            total = metrics.get("total_requests", 0)
-            errors = metrics.get("api_errors", 0)
+            total = metrics.get("total_requests") or 0
+            errors = metrics.get("api_errors") or 0
             if total > 10 and errors / total > 0.1:
                 new_tests.append(
                     {
@@ -3296,7 +3297,7 @@ class AutoQC:
                 )
 
             # If P95 latency is very high (>15s), add latency-sensitive test
-            p95 = metrics.get("latency_ms", {}).get("p95", 0)
+            p95 = metrics.get("latency_ms", {}).get("p95") or 0
             if p95 > 15000:
                 new_tests.append(
                     {
@@ -3325,9 +3326,9 @@ class AutoQC:
             telemetry = do.get_fallback_telemetry()
 
             # Top queries hitting fallback become test cases
-            top_fallbacks = telemetry.get("top_queries", [])
+            top_fallbacks = telemetry.get("top_queries") or []
             for i, entry in enumerate(top_fallbacks[:3]):
-                query_key = entry.get("query", "")
+                query_key = entry.get("query") or ""
                 fn_name = entry.get("function", "unknown")
                 if query_key:
                     # The query key is normalized, reconstruct a test query
@@ -3447,7 +3448,7 @@ class AutoQC:
                             expired_keys = [
                                 k
                                 for k, v in do._api_result_cache.items()
-                                if now >= v.get("expires", 0)
+                                if now >= v.get("expires") or 0
                             ]
                             for k in expired_keys:
                                 do._api_result_cache.pop(k, None)
@@ -3512,7 +3513,8 @@ class AutoQC:
                                 expired = [
                                     jid
                                     for jid, jdata in jobs.items()
-                                    if now - jdata.get("created", 0) > 1800  # 30 min
+                                    if now - jdata.get("created")
+                                    or 0 > 1800  # 30 min
                                     or jdata.get("status") in ("completed", "failed")
                                 ]
                                 for jid in expired:
@@ -3558,7 +3560,7 @@ class AutoQC:
                         mon = sys.modules["monitoring"]
                         audit = mon.AuditLogger.instance()
                         stats = audit.get_stats()
-                        if stats.get("total_entries", 0) >= audit._MAX_ENTRIES:
+                        if stats.get("total_entries") or 0 >= audit._MAX_ENTRIES:
                             # Trigger a persist to flush oldest entries
                             audit._persist()
                             action_taken = True
@@ -3614,7 +3616,7 @@ class AutoQC:
         if failed_count == 0:
             return
 
-        failures = run_result.get("failures", [])
+        failures = run_result.get("failures") or []
         failure_names = [f["name"] for f in failures[:5]]
         healed = run_result.get("healed") or 0
         total = run_result.get("total") or 0
@@ -3792,9 +3794,9 @@ class AutoQC:
             if QC_RESULTS_FILE.exists():
                 with open(QC_RESULTS_FILE) as f:
                     data = json.load(f)
-                self._run_history = data.get("history", [])
-                self._run_count = data.get("run_count", 0)
-                self._weekly_count = data.get("weekly_count", 0)
+                self._run_history = data.get("history") or []
+                self._run_count = data.get("run_count") or 0
+                self._weekly_count = data.get("weekly_count") or 0
                 logger.info("AutoQC: loaded %d historical runs", len(self._run_history))
         except Exception as e:
             logger.warning("AutoQC: failed to load history: %s", e)

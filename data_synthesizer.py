@@ -53,6 +53,7 @@ try:
         normalize_platform as _std_platform,
         CANONICAL_INDUSTRIES as _CANON_IND,
     )
+
     _HAS_STANDARDIZER = True
 except ImportError:
     _HAS_STANDARDIZER = False
@@ -143,13 +144,13 @@ _INDUSTRY_TO_KB_KEY: Dict[str, str] = {
     "maritime": "transportation_logistics",
     "maritime_marine": "transportation_logistics",
     "rideshare": "transportation_logistics",
-    "blue_collar": "transportation_logistics",          # C5 FIX: was "manufacturing"
-    "blue_collar_trades": "transportation_logistics",   # C5 FIX: was "manufacturing"
+    "blue_collar": "transportation_logistics",  # C5 FIX: was "manufacturing"
+    "blue_collar_trades": "transportation_logistics",  # C5 FIX: was "manufacturing"
     # Manufacturing (C1 fix: NAICS 31-33 is broad manufacturing, not food-only)
     "manufacturing": "manufacturing",
     "automotive": "manufacturing",
-    "aerospace": "manufacturing",               # kept — aerospace IS manufacturing
-    "aerospace_defense": "manufacturing",       # defense manufacturing
+    "aerospace": "manufacturing",  # kept — aerospace IS manufacturing
+    "aerospace_defense": "manufacturing",  # defense manufacturing
     "industrial": "manufacturing",
     "semiconductor": "manufacturing",
     # Financial Services
@@ -164,8 +165,8 @@ _INDUSTRY_TO_KB_KEY: Dict[str, str] = {
     "energy_utilities": "government_utilities",
     "public_sector": "government_utilities",
     # C5 FIX: education and professional services get proper mappings
-    "education": "government_utilities",            # C5 FIX: was "technology"
-    "professional_services": "technology",          # C5 FIX: was "financial_services"
+    "education": "government_utilities",  # C5 FIX: was "technology"
+    "professional_services": "technology",  # C5 FIX: was "financial_services"
     "legal_services": "financial_services",
     "nonprofit": "government_utilities",
     "general": "retail_hospitality",
@@ -180,29 +181,143 @@ _INDUSTRY_TO_KB_KEY: Dict[str, str] = {
 # See trend_engine.get_benchmark() for authoritative ad platform benchmarks.
 # ---------------------------------------------------------------------------
 _ROLE_SALARY_FALLBACKS: Dict[str, Dict[str, int]] = {
-    "software":        {"median": 130000, "min": 90000, "p25": 110000, "p75": 155000, "max": 200000},
-    "engineer":        {"median": 120000, "min": 80000, "p25": 100000, "p75": 145000, "max": 190000},
-    "data scientist":  {"median": 135000, "min": 95000, "p25": 115000, "p75": 160000, "max": 210000},
-    "data":            {"median": 120000, "min": 80000, "p25": 100000, "p75": 145000, "max": 185000},
-    "product manager": {"median": 140000, "min": 100000, "p25": 120000, "p75": 165000, "max": 220000},
-    "product":         {"median": 130000, "min": 90000, "p25": 110000, "p75": 155000, "max": 200000},
-    "designer":        {"median": 110000, "min": 70000, "p25": 90000,  "p75": 135000, "max": 170000},
-    "ux":              {"median": 115000, "min": 75000, "p25": 95000,  "p75": 140000, "max": 175000},
-    "devops":          {"median": 135000, "min": 95000, "p25": 115000, "p75": 160000, "max": 200000},
-    "marketing":       {"median": 85000,  "min": 55000, "p25": 70000,  "p75": 105000, "max": 140000},
-    "sales":           {"median": 90000,  "min": 50000, "p25": 70000,  "p75": 115000, "max": 160000},
-    "hr":              {"median": 75000,  "min": 50000, "p25": 62000,  "p75": 92000,  "max": 120000},
-    "analyst":         {"median": 85000,  "min": 55000, "p25": 70000,  "p75": 105000, "max": 140000},
-    "manager":         {"median": 105000, "min": 70000, "p25": 85000,  "p75": 130000, "max": 170000},
-    "director":        {"median": 155000, "min": 110000, "p25": 130000, "p75": 180000, "max": 250000},
-    "nurse":           {"median": 82000,  "min": 58000, "p25": 70000,  "p75": 98000,  "max": 120000},
-    "driver":          {"median": 52000,  "min": 38000, "p25": 45000,  "p75": 62000,  "max": 78000},
-    "warehouse":       {"median": 42000,  "min": 32000, "p25": 37000,  "p75": 50000,  "max": 60000},
-    "mechanic":        {"median": 52000,  "min": 36000, "p25": 44000,  "p75": 62000,  "max": 75000},
-    "electrician":     {"median": 60000,  "min": 42000, "p25": 50000,  "p75": 72000,  "max": 90000},
-    "accountant":      {"median": 78000,  "min": 52000, "p25": 65000,  "p75": 95000,  "max": 125000},
-    "teacher":         {"median": 62000,  "min": 42000, "p25": 52000,  "p75": 75000,  "max": 95000},
-    "construction":    {"median": 55000,  "min": 38000, "p25": 46000,  "p75": 68000,  "max": 85000},
+    "software": {
+        "median": 130000,
+        "min": 90000,
+        "p25": 110000,
+        "p75": 155000,
+        "max": 200000,
+    },
+    "engineer": {
+        "median": 120000,
+        "min": 80000,
+        "p25": 100000,
+        "p75": 145000,
+        "max": 190000,
+    },
+    "data scientist": {
+        "median": 135000,
+        "min": 95000,
+        "p25": 115000,
+        "p75": 160000,
+        "max": 210000,
+    },
+    "data": {
+        "median": 120000,
+        "min": 80000,
+        "p25": 100000,
+        "p75": 145000,
+        "max": 185000,
+    },
+    "product manager": {
+        "median": 140000,
+        "min": 100000,
+        "p25": 120000,
+        "p75": 165000,
+        "max": 220000,
+    },
+    "product": {
+        "median": 130000,
+        "min": 90000,
+        "p25": 110000,
+        "p75": 155000,
+        "max": 200000,
+    },
+    "designer": {
+        "median": 110000,
+        "min": 70000,
+        "p25": 90000,
+        "p75": 135000,
+        "max": 170000,
+    },
+    "ux": {"median": 115000, "min": 75000, "p25": 95000, "p75": 140000, "max": 175000},
+    "devops": {
+        "median": 135000,
+        "min": 95000,
+        "p25": 115000,
+        "p75": 160000,
+        "max": 200000,
+    },
+    "marketing": {
+        "median": 85000,
+        "min": 55000,
+        "p25": 70000,
+        "p75": 105000,
+        "max": 140000,
+    },
+    "sales": {
+        "median": 90000,
+        "min": 50000,
+        "p25": 70000,
+        "p75": 115000,
+        "max": 160000,
+    },
+    "hr": {"median": 75000, "min": 50000, "p25": 62000, "p75": 92000, "max": 120000},
+    "analyst": {
+        "median": 85000,
+        "min": 55000,
+        "p25": 70000,
+        "p75": 105000,
+        "max": 140000,
+    },
+    "manager": {
+        "median": 105000,
+        "min": 70000,
+        "p25": 85000,
+        "p75": 130000,
+        "max": 170000,
+    },
+    "director": {
+        "median": 155000,
+        "min": 110000,
+        "p25": 130000,
+        "p75": 180000,
+        "max": 250000,
+    },
+    "nurse": {"median": 82000, "min": 58000, "p25": 70000, "p75": 98000, "max": 120000},
+    "driver": {"median": 52000, "min": 38000, "p25": 45000, "p75": 62000, "max": 78000},
+    "warehouse": {
+        "median": 42000,
+        "min": 32000,
+        "p25": 37000,
+        "p75": 50000,
+        "max": 60000,
+    },
+    "mechanic": {
+        "median": 52000,
+        "min": 36000,
+        "p25": 44000,
+        "p75": 62000,
+        "max": 75000,
+    },
+    "electrician": {
+        "median": 60000,
+        "min": 42000,
+        "p25": 50000,
+        "p75": 72000,
+        "max": 90000,
+    },
+    "accountant": {
+        "median": 78000,
+        "min": 52000,
+        "p25": 65000,
+        "p75": 95000,
+        "max": 125000,
+    },
+    "teacher": {
+        "median": 62000,
+        "min": 42000,
+        "p25": 52000,
+        "p75": 75000,
+        "max": 95000,
+    },
+    "construction": {
+        "median": 55000,
+        "min": 38000,
+        "p25": 46000,
+        "p75": 68000,
+        "max": 85000,
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -210,29 +325,167 @@ _ROLE_SALARY_FALLBACKS: Dict[str, Dict[str, int]] = {
 # Single source of truth -- referenced by fuse_job_market_demand().
 # ---------------------------------------------------------------------------
 _ROLE_DEMAND_FALLBACKS: Dict[str, Dict[str, Any]] = {
-    "software":        {"job_postings": 150000, "search_interest": "High",      "talent_pool": 2500000, "competition_index": 7.2, "trend": "Growing (+8% YoY)"},
-    "engineer":        {"job_postings": 200000, "search_interest": "High",      "talent_pool": 3000000, "competition_index": 6.8, "trend": "Growing (+6% YoY)"},
-    "data scientist":  {"job_postings": 45000,  "search_interest": "Very High", "talent_pool": 800000,  "competition_index": 8.5, "trend": "Growing (+15% YoY)"},
-    "data":            {"job_postings": 120000, "search_interest": "High",      "talent_pool": 2000000, "competition_index": 7.0, "trend": "Growing (+10% YoY)"},
-    "product manager": {"job_postings": 60000,  "search_interest": "High",      "talent_pool": 900000,  "competition_index": 7.5, "trend": "Growing (+5% YoY)"},
-    "product":         {"job_postings": 80000,  "search_interest": "High",      "talent_pool": 1200000, "competition_index": 6.5, "trend": "Growing (+5% YoY)"},
-    "designer":        {"job_postings": 55000,  "search_interest": "Medium",    "talent_pool": 1100000, "competition_index": 5.8, "trend": "Stable (+2% YoY)"},
-    "ux":              {"job_postings": 40000,  "search_interest": "High",      "talent_pool": 700000,  "competition_index": 6.5, "trend": "Growing (+7% YoY)"},
-    "devops":          {"job_postings": 50000,  "search_interest": "High",      "talent_pool": 600000,  "competition_index": 8.0, "trend": "Growing (+12% YoY)"},
-    "marketing":       {"job_postings": 100000, "search_interest": "Medium",    "talent_pool": 2500000, "competition_index": 4.5, "trend": "Stable (+1% YoY)"},
-    "sales":           {"job_postings": 180000, "search_interest": "Medium",    "talent_pool": 4000000, "competition_index": 4.0, "trend": "Stable (+1% YoY)"},
-    "hr":              {"job_postings": 60000,  "search_interest": "Medium",    "talent_pool": 1500000, "competition_index": 4.2, "trend": "Stable (+2% YoY)"},
-    "analyst":         {"job_postings": 90000,  "search_interest": "High",      "talent_pool": 1800000, "competition_index": 5.5, "trend": "Growing (+6% YoY)"},
-    "manager":         {"job_postings": 250000, "search_interest": "High",      "talent_pool": 5000000, "competition_index": 5.0, "trend": "Stable (+2% YoY)"},
-    "director":        {"job_postings": 40000,  "search_interest": "Medium",    "talent_pool": 800000,  "competition_index": 5.5, "trend": "Stable (+1% YoY)"},
-    "nurse":           {"job_postings": 200000, "search_interest": "Very High", "talent_pool": 4000000, "competition_index": 9.0, "trend": "Growing (+12% YoY)"},
-    "driver":          {"job_postings": 300000, "search_interest": "High",      "talent_pool": 3500000, "competition_index": 8.5, "trend": "Growing (+10% YoY)"},
-    "warehouse":       {"job_postings": 250000, "search_interest": "High",      "talent_pool": 3000000, "competition_index": 7.5, "trend": "Growing (+8% YoY)"},
-    "mechanic":        {"job_postings": 80000,  "search_interest": "Medium",    "talent_pool": 1200000, "competition_index": 6.0, "trend": "Stable (+3% YoY)"},
-    "electrician":     {"job_postings": 70000,  "search_interest": "High",      "talent_pool": 900000,  "competition_index": 7.5, "trend": "Growing (+6% YoY)"},
-    "accountant":      {"job_postings": 85000,  "search_interest": "Medium",    "talent_pool": 1800000, "competition_index": 4.8, "trend": "Stable (+2% YoY)"},
-    "teacher":         {"job_postings": 120000, "search_interest": "Medium",    "talent_pool": 3500000, "competition_index": 3.5, "trend": "Stable (+1% YoY)"},
-    "construction":    {"job_postings": 180000, "search_interest": "High",      "talent_pool": 2500000, "competition_index": 7.0, "trend": "Growing (+5% YoY)"},
+    "software": {
+        "job_postings": 150000,
+        "search_interest": "High",
+        "talent_pool": 2500000,
+        "competition_index": 7.2,
+        "trend": "Growing (+8% YoY)",
+    },
+    "engineer": {
+        "job_postings": 200000,
+        "search_interest": "High",
+        "talent_pool": 3000000,
+        "competition_index": 6.8,
+        "trend": "Growing (+6% YoY)",
+    },
+    "data scientist": {
+        "job_postings": 45000,
+        "search_interest": "Very High",
+        "talent_pool": 800000,
+        "competition_index": 8.5,
+        "trend": "Growing (+15% YoY)",
+    },
+    "data": {
+        "job_postings": 120000,
+        "search_interest": "High",
+        "talent_pool": 2000000,
+        "competition_index": 7.0,
+        "trend": "Growing (+10% YoY)",
+    },
+    "product manager": {
+        "job_postings": 60000,
+        "search_interest": "High",
+        "talent_pool": 900000,
+        "competition_index": 7.5,
+        "trend": "Growing (+5% YoY)",
+    },
+    "product": {
+        "job_postings": 80000,
+        "search_interest": "High",
+        "talent_pool": 1200000,
+        "competition_index": 6.5,
+        "trend": "Growing (+5% YoY)",
+    },
+    "designer": {
+        "job_postings": 55000,
+        "search_interest": "Medium",
+        "talent_pool": 1100000,
+        "competition_index": 5.8,
+        "trend": "Stable (+2% YoY)",
+    },
+    "ux": {
+        "job_postings": 40000,
+        "search_interest": "High",
+        "talent_pool": 700000,
+        "competition_index": 6.5,
+        "trend": "Growing (+7% YoY)",
+    },
+    "devops": {
+        "job_postings": 50000,
+        "search_interest": "High",
+        "talent_pool": 600000,
+        "competition_index": 8.0,
+        "trend": "Growing (+12% YoY)",
+    },
+    "marketing": {
+        "job_postings": 100000,
+        "search_interest": "Medium",
+        "talent_pool": 2500000,
+        "competition_index": 4.5,
+        "trend": "Stable (+1% YoY)",
+    },
+    "sales": {
+        "job_postings": 180000,
+        "search_interest": "Medium",
+        "talent_pool": 4000000,
+        "competition_index": 4.0,
+        "trend": "Stable (+1% YoY)",
+    },
+    "hr": {
+        "job_postings": 60000,
+        "search_interest": "Medium",
+        "talent_pool": 1500000,
+        "competition_index": 4.2,
+        "trend": "Stable (+2% YoY)",
+    },
+    "analyst": {
+        "job_postings": 90000,
+        "search_interest": "High",
+        "talent_pool": 1800000,
+        "competition_index": 5.5,
+        "trend": "Growing (+6% YoY)",
+    },
+    "manager": {
+        "job_postings": 250000,
+        "search_interest": "High",
+        "talent_pool": 5000000,
+        "competition_index": 5.0,
+        "trend": "Stable (+2% YoY)",
+    },
+    "director": {
+        "job_postings": 40000,
+        "search_interest": "Medium",
+        "talent_pool": 800000,
+        "competition_index": 5.5,
+        "trend": "Stable (+1% YoY)",
+    },
+    "nurse": {
+        "job_postings": 200000,
+        "search_interest": "Very High",
+        "talent_pool": 4000000,
+        "competition_index": 9.0,
+        "trend": "Growing (+12% YoY)",
+    },
+    "driver": {
+        "job_postings": 300000,
+        "search_interest": "High",
+        "talent_pool": 3500000,
+        "competition_index": 8.5,
+        "trend": "Growing (+10% YoY)",
+    },
+    "warehouse": {
+        "job_postings": 250000,
+        "search_interest": "High",
+        "talent_pool": 3000000,
+        "competition_index": 7.5,
+        "trend": "Growing (+8% YoY)",
+    },
+    "mechanic": {
+        "job_postings": 80000,
+        "search_interest": "Medium",
+        "talent_pool": 1200000,
+        "competition_index": 6.0,
+        "trend": "Stable (+3% YoY)",
+    },
+    "electrician": {
+        "job_postings": 70000,
+        "search_interest": "High",
+        "talent_pool": 900000,
+        "competition_index": 7.5,
+        "trend": "Growing (+6% YoY)",
+    },
+    "accountant": {
+        "job_postings": 85000,
+        "search_interest": "Medium",
+        "talent_pool": 1800000,
+        "competition_index": 4.8,
+        "trend": "Stable (+2% YoY)",
+    },
+    "teacher": {
+        "job_postings": 120000,
+        "search_interest": "Medium",
+        "talent_pool": 3500000,
+        "competition_index": 3.5,
+        "trend": "Stable (+1% YoY)",
+    },
+    "construction": {
+        "job_postings": 180000,
+        "search_interest": "High",
+        "talent_pool": 2500000,
+        "competition_index": 7.0,
+        "trend": "Growing (+5% YoY)",
+    },
 }
 
 
@@ -354,8 +607,12 @@ def _trend_direction(values: List[float]) -> str:
     """Determine trend direction from a time series (oldest first)."""
     if len(values) < 2:
         return "stable"
-    first_half = statistics.mean(values[: len(values) // 2]) if values[: len(values) // 2] else 0
-    second_half = statistics.mean(values[len(values) // 2:]) if values[len(values) // 2:] else 0
+    first_half = (
+        statistics.mean(values[: len(values) // 2]) if values[: len(values) // 2] else 0
+    )
+    second_half = (
+        statistics.mean(values[len(values) // 2 :]) if values[len(values) // 2 :] else 0
+    )
     if first_half == 0:
         return "stable"
     change_pct = (second_half - first_half) / abs(first_half)
@@ -379,11 +636,13 @@ def _kb_industry_benchmarks(kb: dict, industry: str) -> dict:
     if _HAS_STANDARDIZER:
         canonical = _std_industry(industry)
         meta = _CANON_IND.get(canonical, {})
-        kb_key = meta.get("kb_key", "")
+        kb_key = meta.get("kb_key") or ""
         if kb_key:
             logger.debug(
                 "KB industry resolved via standardizer: %s -> %s -> kb_key=%s",
-                industry, canonical, kb_key,
+                industry,
+                canonical,
+                kb_key,
             )
     # 2. Fallback to hardcoded dict
     if not kb_key:
@@ -439,7 +698,7 @@ def _kb_recruitment_benchmarks(kb: dict, industry: str) -> dict:
     if _HAS_STANDARDIZER:
         canonical = _std_industry(industry)
         meta = _CANON_IND.get(canonical, {})
-        deep_key = meta.get("deep_bench_key", "")
+        deep_key = meta.get("deep_bench_key") or ""
         if deep_key:
             result = benchmarks.get(deep_key, {})
     # 2. Fallback: try exact key, then common variants
@@ -640,13 +899,15 @@ _INDUSTRY_TO_GOOGLE_ADS_CATEGORY: Dict[str, str] = {
 }
 
 
-
 def _parse_salary_range(range_str: str) -> Tuple[Optional[float], Optional[float]]:
     """Parse a salary range string like '$80,000 - $120,000' or '80K-120K'."""
     if not range_str or range_str == "Not available":
         return None, None
     import re
-    nums = re.findall(r'[\d,]+\.?\d*', str(range_str).replace("K", "000").replace("k", "000"))
+
+    nums = re.findall(
+        r"[\d,]+\.?\d*", str(range_str).replace("K", "000").replace("k", "000")
+    )
     floats = []
     for n in nums:
         try:
@@ -771,7 +1032,7 @@ def _score_section(section: dict) -> float:
         if isinstance(d, dict):
             meta = d.get("_meta")
             if isinstance(meta, dict):
-                sc = meta.get("source_count", 0)
+                sc = meta.get("source_count") or 0
                 kv = meta.get("kb_validated", False)
                 source_counts.append(sc)
                 kb_validated_flags.append(kv)
@@ -832,26 +1093,34 @@ def fuse_salary_intelligence(
       - Flags outliers (> 2 std dev from median)
       - Produces: min, median, max, p25, p75, source_count, confidence
     """
-    roles = input_data.get("roles", []) or input_data.get("target_roles", []) or []
+    roles = input_data.get("roles") or [] or input_data.get("target_roles") or [] or []
     if isinstance(roles, str):
         roles = [r.strip() for r in roles.split(",") if r.strip()]
     # Normalize dict-format roles (e.g. {"title": "...", "count": 5}) to strings
-    roles = [r.get("title", "") if isinstance(r, dict) else r for r in roles]
+    roles = [r.get("title") or "" if isinstance(r, dict) else r for r in roles]
     roles = [r for r in roles if isinstance(r, str) and r.strip()]
 
-    industry = input_data.get("industry", "")
+    industry = input_data.get("industry") or ""
     result: Dict[str, Any] = {}
 
     # Source data accessors
     bls_salaries = enriched.get("salary_data", {})
     onet_data = enriched.get("onet_data", {})
-    onet_occupations = onet_data.get("occupations", {}) if isinstance(onet_data, dict) else {}
+    onet_occupations = (
+        onet_data.get("occupations", {}) if isinstance(onet_data, dict) else {}
+    )
     datausa_occ = enriched.get("datausa_occupation", enriched.get("datausa_data", {}))
-    datausa_occupations = datausa_occ.get("occupations", {}) if isinstance(datausa_occ, dict) else {}
+    datausa_occupations = (
+        datausa_occ.get("occupations", {}) if isinstance(datausa_occ, dict) else {}
+    )
     cos_data = enriched.get("careeronestop_data", {})
-    cos_occupations = cos_data.get("occupations", {}) if isinstance(cos_data, dict) else {}
+    cos_occupations = (
+        cos_data.get("occupations", {}) if isinstance(cos_data, dict) else {}
+    )
     jooble_data = enriched.get("jooble_data", {})
-    jooble_market = jooble_data.get("job_market", {}) if isinstance(jooble_data, dict) else {}
+    jooble_market = (
+        jooble_data.get("job_market", {}) if isinstance(jooble_data, dict) else {}
+    )
 
     # KB salary trends
     kb_salary = _kb_salary_trends(kb)
@@ -885,7 +1154,9 @@ def fuse_salary_intelligence(
         if isinstance(datausa_entry, dict):
             datausa_wage = _safe_float(datausa_entry.get("average_wage"))
             if datausa_wage > 0:
-                salary_points.append((datausa_wage, _weight_for_source("DataUSA"), "DataUSA"))
+                salary_points.append(
+                    (datausa_wage, _weight_for_source("DataUSA"), "DataUSA")
+                )
 
         # --- CareerOneStop salary ---
         cos_entry = cos_occupations.get(role, {})
@@ -895,7 +1166,9 @@ def fuse_salary_intelligence(
             if isinstance(cos_salary_data, dict):
                 cos_median = _safe_float(cos_salary_data.get("median"))
                 if cos_median > 0:
-                    salary_points.append((cos_median, _weight_for_source(cos_source), cos_source))
+                    salary_points.append(
+                        (cos_median, _weight_for_source(cos_source), cos_source)
+                    )
 
         # --- Jooble salary range (parse midpoint) ---
         jooble_role_data = jooble_market.get(role, {})
@@ -903,32 +1176,43 @@ def fuse_salary_intelligence(
             # Jooble data is keyed by location
             for loc_key, loc_data in jooble_role_data.items():
                 if isinstance(loc_data, dict):
-                    jooble_salary = loc_data.get("salary_range", "")
+                    jooble_salary = loc_data.get("salary_range") or ""
                     low, high = _parse_salary_range(str(jooble_salary))
                     if low and high:
                         midpoint = (low + high) / 2
-                        jooble_src = jooble_data.get("source", "Jooble Market Benchmarks")
-                        salary_points.append((midpoint, _weight_for_source(jooble_src), jooble_src))
+                        jooble_src = jooble_data.get(
+                            "source", "Jooble Market Benchmarks"
+                        )
+                        salary_points.append(
+                            (midpoint, _weight_for_source(jooble_src), jooble_src)
+                        )
                         break  # Use first location with salary data
 
         # --- Fallback: Use knowledge base benchmarks if no API data ---
         if not salary_points:
             kb_benchmarks = kb.get("benchmarks", {}) if isinstance(kb, dict) else {}
             # Try industry-specific salary from KB
-            industry_salaries = kb_benchmarks.get("salary_ranges", kb_benchmarks.get("compensation", {}))
+            industry_salaries = kb_benchmarks.get(
+                "salary_ranges", kb_benchmarks.get("compensation", {})
+            )
 
             # Use module-level _ROLE_SALARY_FALLBACKS (single source of truth)
             role_lower = role.lower()
             for keyword, sal_data in _ROLE_SALARY_FALLBACKS.items():
                 if keyword in role_lower:
-                    salary_points.append((sal_data["median"], 0.3, "Industry Benchmark"))
+                    salary_points.append(
+                        (sal_data["median"], 0.3, "Industry Benchmark")
+                    )
                     break
             else:
                 # Generic professional fallback
                 salary_points.append((85000, 0.2, "General Benchmark"))
 
         # If only fallback data, use the full fallback structure with percentiles
-        if len(salary_points) == 1 and salary_points[0][2] in ("Industry Benchmark", "General Benchmark"):
+        if len(salary_points) == 1 and salary_points[0][2] in (
+            "Industry Benchmark",
+            "General Benchmark",
+        ):
             # Use module-level _ROLE_SALARY_FALLBACKS (single source of truth)
             role_lower = role.lower()
             for keyword, sal_data in _ROLE_SALARY_FALLBACKS.items():
@@ -944,16 +1228,31 @@ def fuse_salary_intelligence(
                         "p90": sal_data["max"],
                         "sources": ["Industry Benchmark"],
                         "outlier_flags": [],
-                        "kb_validation": {"validated": False, "deviation": 0.0, "flag": "fallback_data"},
+                        "kb_validation": {
+                            "validated": False,
+                            "deviation": 0.0,
+                            "flag": "fallback_data",
+                        },
                         "_meta": {"source_count": 1, "kb_validated": False},
                     }
                     break
             else:
                 result[role] = {
-                    "median": 85000, "mean": 85000, "min": 55000, "max": 140000,
-                    "p10": 55000, "p25": 68000, "p75": 105000, "p90": 140000,
-                    "sources": ["General Benchmark"], "outlier_flags": [],
-                    "kb_validation": {"validated": False, "deviation": 0.0, "flag": "fallback_data"},
+                    "median": 85000,
+                    "mean": 85000,
+                    "min": 55000,
+                    "max": 140000,
+                    "p10": 55000,
+                    "p25": 68000,
+                    "p75": 105000,
+                    "p90": 140000,
+                    "sources": ["General Benchmark"],
+                    "outlier_flags": [],
+                    "kb_validation": {
+                        "validated": False,
+                        "deviation": 0.0,
+                        "flag": "fallback_data",
+                    },
                     "_meta": {"source_count": 1, "kb_validated": False},
                 }
             continue
@@ -970,9 +1269,15 @@ def fuse_salary_intelligence(
 
         # Remove outliers before computing final values
         outlier_flags = _flag_outliers(values)
-        clean_values = [v for v, is_outlier in zip(values, outlier_flags) if not is_outlier]
-        clean_weights = [w for w, is_outlier in zip(weights, outlier_flags) if not is_outlier]
-        flagged_sources = [s for s, is_outlier in zip(sources, outlier_flags) if is_outlier]
+        clean_values = [
+            v for v, is_outlier in zip(values, outlier_flags) if not is_outlier
+        ]
+        clean_weights = [
+            w for w, is_outlier in zip(weights, outlier_flags) if not is_outlier
+        ]
+        flagged_sources = [
+            s for s, is_outlier in zip(sources, outlier_flags) if is_outlier
+        ]
 
         if not clean_values:
             clean_values = values
@@ -985,12 +1290,28 @@ def fuse_salary_intelligence(
         p10 = _safe_float(bls_entry.get("p10")) if isinstance(bls_entry, dict) else 0.0
         p90 = _safe_float(bls_entry.get("p90")) if isinstance(bls_entry, dict) else 0.0
         if p10 <= 0:
-            p10 = _percentile(sorted_vals, 10) if len(sorted_vals) >= 3 else round(w_median * 0.65, 0)
+            p10 = (
+                _percentile(sorted_vals, 10)
+                if len(sorted_vals) >= 3
+                else round(w_median * 0.65, 0)
+            )
         if p90 <= 0:
-            p90 = _percentile(sorted_vals, 90) if len(sorted_vals) >= 3 else round(w_median * 1.45, 0)
+            p90 = (
+                _percentile(sorted_vals, 90)
+                if len(sorted_vals) >= 3
+                else round(w_median * 1.45, 0)
+            )
 
-        p25 = _percentile(sorted_vals, 25) if len(sorted_vals) >= 3 else round(w_median * 0.82, 0)
-        p75 = _percentile(sorted_vals, 75) if len(sorted_vals) >= 3 else round(w_median * 1.18, 0)
+        p25 = (
+            _percentile(sorted_vals, 25)
+            if len(sorted_vals) >= 3
+            else round(w_median * 0.82, 0)
+        )
+        p75 = (
+            _percentile(sorted_vals, 75)
+            if len(sorted_vals) >= 3
+            else round(w_median * 1.18, 0)
+        )
 
         # KB validation
         kb_validation = {"validated": False, "deviation": 0.0, "flag": None}
@@ -998,21 +1319,25 @@ def fuse_salary_intelligence(
         if _HAS_STANDARDIZER:
             _canon = _std_industry(industry)
             _meta = _CANON_IND.get(_canon, {})
-            kb_industry_key = _meta.get("kb_key", "")
+            kb_industry_key = _meta.get("kb_key") or ""
         if not kb_industry_key:
             kb_industry_key = _INDUSTRY_TO_KB_KEY.get(industry, "")
         if kb_industry_key and kb_by_industry:
             industry_salary_data = kb_by_industry.get(kb_industry_key, {})
             if isinstance(industry_salary_data, dict):
                 # Try to extract a comparable salary benchmark from KB
-                kb_salary_growth = _safe_float(industry_salary_data.get("salary_growth_moderation"))
+                kb_salary_growth = _safe_float(
+                    industry_salary_data.get("salary_growth_moderation")
+                )
                 # KB doesn't store absolute salary -- use overall median as proxy
                 overall_data = kb_salary.get("overall", {})
                 if isinstance(overall_data, dict):
                     kb_median_str = overall_data.get("median_2025")
                     kb_median = _safe_float(kb_median_str)
                     if kb_median > 0:
-                        kb_validation = validate_with_knowledge_base(w_median, kb_median, tolerance=0.50)
+                        kb_validation = validate_with_knowledge_base(
+                            w_median, kb_median, tolerance=0.50
+                        )
 
         result[role] = {
             "median": round(w_median),
@@ -1032,7 +1357,6 @@ def fuse_salary_intelligence(
             },
         }
 
-
     # --- Enrich from recruitment benchmarks KB ---
     _rb = _kb_recruitment_benchmarks(kb, industry)
     if _rb:
@@ -1040,7 +1364,9 @@ def fuse_salary_intelligence(
             if isinstance(_rv, dict):
                 _rv["industry_cpa_benchmark"] = _rb.get("cpa", {}).get("median", None)
                 _rv["industry_cph_benchmark"] = _rb.get("cph", {}).get("median", None)
-                _rv["industry_time_to_fill"] = _rb.get("time_to_fill", {}).get("median", None)
+                _rv["industry_time_to_fill"] = _rb.get("time_to_fill", {}).get(
+                    "median", None
+                )
 
     # --- Enrich from DataUSA location data (previously orphaned) ---
     _dusa_loc = enriched.get("datausa_location_data", {})
@@ -1093,31 +1419,50 @@ def fuse_job_market_demand(
       - Market temperature: hot / warm / cool / cold
       - Trend direction: growing / stable / declining
     """
-    roles = input_data.get("roles", []) or input_data.get("target_roles", []) or []
+    roles = input_data.get("roles") or [] or input_data.get("target_roles") or [] or []
     if isinstance(roles, str):
         roles = [r.strip() for r in roles.split(",") if r.strip()]
-    roles = [r.get("title", "") if isinstance(r, dict) else r for r in roles]
+    roles = [r.get("title") or "" if isinstance(r, dict) else r for r in roles]
     roles = [r for r in roles if isinstance(r, str) and r.strip()]
-    locations = input_data.get("locations", [])
+    locations = input_data.get("locations") or []
     if isinstance(locations, str):
         locations = [l.strip() for l in locations.split(",") if l.strip()]
     locations = [
-        ", ".join(filter(None, [l.get("city", ""), l.get("state", ""), l.get("country", "")]))
-        if isinstance(l, dict) else l for l in locations
+        (
+            ", ".join(
+                filter(
+                    None,
+                    [l.get("city") or "", l.get("state") or "", l.get("country") or ""],
+                )
+            )
+            if isinstance(l, dict)
+            else l
+        )
+        for l in locations
     ]
     locations = [l for l in locations if isinstance(l, str) and l.strip()]
 
-    industry = input_data.get("industry", "")
+    industry = input_data.get("industry") or ""
 
     # Source data
     adzuna_data = enriched.get("job_market", enriched.get("adzuna_data", {}))
     jooble_data = enriched.get("jooble_data", {})
-    jooble_market = jooble_data.get("job_market", {}) if isinstance(jooble_data, dict) else {}
-    google_trends = enriched.get("search_trends", enriched.get("google_trends_data", {}))
-    google_ads = enriched.get("google_ads_data", enriched.get("google_ads_keyword_data", {}))
-    google_ads_keywords = google_ads.get("keywords", {}) if isinstance(google_ads, dict) else {}
+    jooble_market = (
+        jooble_data.get("job_market", {}) if isinstance(jooble_data, dict) else {}
+    )
+    google_trends = enriched.get(
+        "search_trends", enriched.get("google_trends_data", {})
+    )
+    google_ads = enriched.get(
+        "google_ads_data", enriched.get("google_ads_keyword_data", {})
+    )
+    google_ads_keywords = (
+        google_ads.get("keywords", {}) if isinstance(google_ads, dict) else {}
+    )
     linkedin_data = enriched.get("linkedin_ads_data", {})
-    linkedin_roles = linkedin_data.get("roles", {}) if isinstance(linkedin_data, dict) else {}
+    linkedin_roles = (
+        linkedin_data.get("roles", {}) if isinstance(linkedin_data, dict) else {}
+    )
 
     # KB industry data
     kb_industry = _kb_industry_benchmarks(kb, industry)
@@ -1145,7 +1490,9 @@ def fuse_job_market_demand(
                 if isinstance(loc_data, dict):
                     total_jooble += _safe_int(loc_data.get("total_job_postings"))
             if total_jooble > 0:
-                posting_volumes.append((total_jooble, jooble_data.get("source", "Jooble")))
+                posting_volumes.append(
+                    (total_jooble, jooble_data.get("source", "Jooble"))
+                )
 
         total_postings = sum(v for v, _ in posting_volumes)
         posting_source_count = len(posting_volumes)
@@ -1161,19 +1508,27 @@ def fuse_job_market_demand(
 
         # Google Trends
         if isinstance(google_trends, dict):
-            trends_data = google_trends.get("trends", google_trends.get("interest_over_time", {}))
+            trends_data = google_trends.get(
+                "trends", google_trends.get("interest_over_time", {})
+            )
             if isinstance(trends_data, dict):
                 role_trend = trends_data.get(role, trends_data.get(f"{role} jobs", {}))
                 if isinstance(role_trend, dict):
-                    trend_values = [_safe_float(v) for v in role_trend.values() if _safe_float(v) > 0]
+                    trend_values = [
+                        _safe_float(v)
+                        for v in role_trend.values()
+                        if _safe_float(v) > 0
+                    ]
                 elif isinstance(role_trend, list):
-                    trend_values = [_safe_float(v) for v in role_trend if _safe_float(v) > 0]
+                    trend_values = [
+                        _safe_float(v) for v in role_trend if _safe_float(v) > 0
+                    ]
 
         # --- Professional supply (LinkedIn) ---
         linkedin_role = linkedin_roles.get(role, {})
         audience_str = ""
         if isinstance(linkedin_role, dict):
-            audience_str = str(linkedin_role.get("estimated_audience", ""))
+            audience_str = str(linkedin_role.get("estimated_audience") or "")
 
         talent_pool = _parse_audience_number(audience_str)
 
@@ -1188,12 +1543,20 @@ def fuse_job_market_demand(
                     break
             if fallback_demand is None:
                 # Generic professional fallback
-                fallback_demand = {"job_postings": 75000, "search_interest": "Medium", "talent_pool": 1500000, "competition_index": 5.0, "trend": "Stable (+2% YoY)"}
+                fallback_demand = {
+                    "job_postings": 75000,
+                    "search_interest": "Medium",
+                    "talent_pool": 1500000,
+                    "competition_index": 5.0,
+                    "trend": "Stable (+2% YoY)",
+                }
 
             total_postings = fallback_demand["job_postings"]
             search_volume = total_postings // 10  # Estimate monthly search volume
             talent_pool = fallback_demand["talent_pool"]
-            competition_index = fallback_demand["competition_index"] / 100.0  # Normalize
+            competition_index = (
+                fallback_demand["competition_index"] / 100.0
+            )  # Normalize
             posting_volumes = [(total_postings, "Industry Benchmark")]
             posting_source_count = 1
             trend_dir = fallback_demand["trend"]
@@ -1225,7 +1588,7 @@ def fuse_job_market_demand(
         kb_validated = False
         if kb_industry:
             # Check if industry has known hiring strength
-            hiring_strength = kb_industry.get("hiring_strength", "")
+            hiring_strength = kb_industry.get("hiring_strength") or ""
             if hiring_strength:
                 kb_validated = True
 
@@ -1239,7 +1602,7 @@ def fuse_job_market_demand(
             "market_temperature": temperature,
             "kb_industry_context": {
                 "hiring_strength": kb_industry.get("hiring_strength", "N/A"),
-                "demand_drivers": kb_industry.get("demand_drivers", []),
+                "demand_drivers": kb_industry.get("demand_drivers") or [],
                 "outlook": kb_industry.get("outlook", "N/A"),
             },
             "_meta": {
@@ -1255,7 +1618,9 @@ def fuse_job_market_demand(
             loc_sources: List[str] = []
 
             # Jooble per-location
-            jooble_loc = jooble_role.get(loc, {}) if isinstance(jooble_role, dict) else {}
+            jooble_loc = (
+                jooble_role.get(loc, {}) if isinstance(jooble_role, dict) else {}
+            )
             if isinstance(jooble_loc, dict):
                 jlp = _safe_int(jooble_loc.get("total_job_postings"))
                 if jlp > 0:
@@ -1264,12 +1629,16 @@ def fuse_job_market_demand(
 
             jooble_activity = ""
             if isinstance(jooble_loc, dict):
-                jooble_activity = jooble_loc.get("market_activity", "")
+                jooble_activity = jooble_loc.get("market_activity") or ""
 
             location_breakdown[loc] = {
                 "postings": loc_posting,
-                "market_activity": jooble_activity or ("High" if loc_posting > 3000 else
-                                                       "Medium" if loc_posting > 500 else "Low"),
+                "market_activity": jooble_activity
+                or (
+                    "High"
+                    if loc_posting > 3000
+                    else "Medium" if loc_posting > 500 else "Low"
+                ),
                 "sources": loc_sources,
             }
 
@@ -1278,15 +1647,18 @@ def fuse_job_market_demand(
 
         result[role] = role_result
 
-
     # --- Enrich from workforce trends KB ---
     _wt = _kb_workforce_trends(kb)
     if _wt:
         for _rk, _rv in result.items():
             if isinstance(_rv, dict):
                 _rv["workforce_trends"] = {
-                    "gen_z_platform_preferences": _wt.get("job_search_behavior", {}).get("platform_usage", {}),
-                    "remote_work_trends": _wt.get("workplace_expectations", {}).get("flexibility", {}),
+                    "gen_z_platform_preferences": _wt.get(
+                        "job_search_behavior", {}
+                    ).get("platform_usage", {}),
+                    "remote_work_trends": _wt.get("workplace_expectations", {}).get(
+                        "flexibility", {}
+                    ),
                 }
 
     # --- Enrich from Google Trends (previously orphaned) ---
@@ -1316,8 +1688,9 @@ def _parse_audience_number(audience_str: str) -> int:
     if not audience_str:
         return 0
     import re
+
     audience_str = str(audience_str).upper()
-    nums = re.findall(r'([\d.]+)\s*([MK]?)', audience_str)
+    nums = re.findall(r"([\d.]+)\s*([MK]?)", audience_str)
     values: List[float] = []
     for num_str, suffix in nums:
         try:
@@ -1356,28 +1729,43 @@ def fuse_location_profiles(
       - Talent density (workforce / population)
       - Infrastructure quality score
     """
-    locations = input_data.get("locations", [])
+    locations = input_data.get("locations") or []
     if isinstance(locations, str):
         locations = [l.strip() for l in locations.split(",") if l.strip()]
     locations = [
-        ", ".join(filter(None, [l.get("city", ""), l.get("state", ""), l.get("country", "")]))
-        if isinstance(l, dict) else l for l in locations
+        (
+            ", ".join(
+                filter(
+                    None,
+                    [l.get("city") or "", l.get("state") or "", l.get("country") or ""],
+                )
+            )
+            if isinstance(l, dict)
+            else l
+        )
+        for l in locations
     ]
     locations = [l for l in locations if isinstance(l, str) and l.strip()]
 
     # Source data
     census_data = enriched.get("location_demographics", enriched.get("census_data", {}))
     geonames_raw = enriched.get("geonames_data", {})
-    geonames_locations = geonames_raw.get("locations", {}) if isinstance(geonames_raw, dict) else {}
+    geonames_locations = (
+        geonames_raw.get("locations", {}) if isinstance(geonames_raw, dict) else {}
+    )
     teleport_raw = enriched.get("teleport_data", {})
-    teleport_cities = teleport_raw.get("cities", {}) if isinstance(teleport_raw, dict) else {}
+    teleport_cities = (
+        teleport_raw.get("cities", {}) if isinstance(teleport_raw, dict) else {}
+    )
     countries_data = enriched.get("country_data", enriched.get("countries_data", {}))
     imf_raw = enriched.get("imf_indicators", enriched.get("imf_data", {}))
     imf_countries = imf_raw.get("countries", {}) if isinstance(imf_raw, dict) else {}
     world_bank = enriched.get("global_indicators", enriched.get("world_bank_data", {}))
     currency_rates = enriched.get("currency_rates", {})
     datausa_loc = enriched.get("datausa_location", {})
-    datausa_locations = datausa_loc.get("locations", {}) if isinstance(datausa_loc, dict) else {}
+    datausa_locations = (
+        datausa_loc.get("locations", {}) if isinstance(datausa_loc, dict) else {}
+    )
 
     # KB regional data
     kb_us = _kb_regional_data(kb, "united_states")
@@ -1401,8 +1789,8 @@ def fuse_location_profiles(
                 source_count += 1
             if median_income > 0:
                 loc_profile["median_household_income"] = median_income
-            loc_profile["state_name"] = census_entry.get("state_name", "")
-            loc_profile["geo_level"] = census_entry.get("geo_level", "")
+            loc_profile["state_name"] = census_entry.get("state_name") or ""
+            loc_profile["geo_level"] = census_entry.get("geo_level") or ""
             loc_profile["demographics_source"] = census_entry.get("source", "Census")
 
         # --- DataUSA location data ---
@@ -1423,11 +1811,11 @@ def fuse_location_profiles(
                 "latitude": _safe_float(geo_entry.get("latitude")),
                 "longitude": _safe_float(geo_entry.get("longitude")),
             }
-            loc_profile["timezone"] = geo_entry.get("timezone", "")
+            loc_profile["timezone"] = geo_entry.get("timezone") or ""
             geo_pop = _safe_int(geo_entry.get("population"))
             if geo_pop > 0 and "population" not in loc_profile:
                 loc_profile["population"] = geo_pop
-            loc_profile["country_code"] = geo_entry.get("country_code", "")
+            loc_profile["country_code"] = geo_entry.get("country_code") or ""
             source_count += 1
 
         # --- Teleport quality of life ---
@@ -1463,12 +1851,12 @@ def fuse_location_profiles(
 
         if isinstance(country_entry, dict) and country_entry:
             loc_profile["country_info"] = {
-                "name": country_entry.get("name", ""),
+                "name": country_entry.get("name") or "",
                 "population": _safe_int(country_entry.get("population")),
                 "currencies": country_entry.get("currencies", {}),
                 "languages": country_entry.get("languages", {}),
-                "region": country_entry.get("region", ""),
-                "subregion": country_entry.get("subregion", ""),
+                "region": country_entry.get("region") or "",
+                "subregion": country_entry.get("subregion") or "",
             }
             source_count += 1
 
@@ -1490,7 +1878,9 @@ def fuse_location_profiles(
         # --- World Bank ---
         if isinstance(world_bank, dict):
             for wb_key, wb_entry in world_bank.items():
-                if isinstance(wb_entry, dict) and (wb_key.lower() in loc.lower() or loc.lower() in wb_key.lower()):
+                if isinstance(wb_entry, dict) and (
+                    wb_key.lower() in loc.lower() or loc.lower() in wb_key.lower()
+                ):
                     loc_profile["world_bank_indicators"] = {
                         "unemployment_rate": wb_entry.get("unemployment_rate"),
                         "gdp_growth": wb_entry.get("gdp_growth"),
@@ -1502,12 +1892,10 @@ def fuse_location_profiles(
 
         # --- Currency rates ---
         if isinstance(currency_rates, dict) and currency_rates:
-            loc_profile["currency_rates_usd"] = dict(
-                list(currency_rates.items())[:10]
-            )
+            loc_profile["currency_rates_usd"] = dict(list(currency_rates.items())[:10])
 
         # --- Talent density ---
-        population = loc_profile.get("population", 0)
+        population = loc_profile.get("population") or 0
         if population > 0:
             # Estimate workforce as ~48% of population (standard labor force participation)
             workforce_estimate = int(population * 0.48)
@@ -1523,7 +1911,9 @@ def fuse_location_profiles(
                 if score > 0:
                     infra_scores.append(score)
             if infra_scores:
-                loc_profile["infrastructure_score"] = round(statistics.mean(infra_scores), 2)
+                loc_profile["infrastructure_score"] = round(
+                    statistics.mean(infra_scores), 2
+                )
 
         # --- KB validation ---
         loc_lower = loc.lower()
@@ -1541,7 +1931,6 @@ def fuse_location_profiles(
 
         result[loc] = loc_profile
 
-
     # --- Enrich from regional hiring KB ---
     _rh_regions = kb.get("regional_hiring", {}).get("regions", {})
     if _rh_regions:
@@ -1553,17 +1942,31 @@ def fuse_location_profiles(
                     if isinstance(_region_data, dict):
                         for _market_key, _market_data in _region_data.items():
                             if isinstance(_market_data, dict):
-                                _mname = (_market_data.get("name", "") or "").lower()
+                                _mname = (_market_data.get("name") or "" or "").lower()
                                 if _lk.lower() in _mname or _lk_lower in _market_key:
                                     _lv["regional_intelligence"] = {
                                         "region": _region_key,
                                         "market": _market_key,
-                                        "top_job_boards": _market_data.get("top_job_boards", []),
-                                        "dominant_industries": _market_data.get("dominant_industries", []),
-                                        "talent_dynamics": _market_data.get("talent_dynamics", {}),
-                                        "hiring_regulations": _market_data.get("hiring_regulations", {}),
-                                        "cultural_norms": _market_data.get("cultural_norms", {}),
-                                        "cpa_benchmark": _market_data.get("cpa_benchmark", {}),
+                                        "top_job_boards": _market_data.get(
+                                            "top_job_boards"
+                                        )
+                                        or [],
+                                        "dominant_industries": _market_data.get(
+                                            "dominant_industries"
+                                        )
+                                        or [],
+                                        "talent_dynamics": _market_data.get(
+                                            "talent_dynamics", {}
+                                        ),
+                                        "hiring_regulations": _market_data.get(
+                                            "hiring_regulations", {}
+                                        ),
+                                        "cultural_norms": _market_data.get(
+                                            "cultural_norms", {}
+                                        ),
+                                        "cpa_benchmark": _market_data.get(
+                                            "cpa_benchmark", {}
+                                        ),
                                     }
                                     break
 
@@ -1626,17 +2029,19 @@ def fuse_ad_platform_analysis(
       - ROI projection
       - Recommended daily budget range
     """
-    roles = input_data.get("roles", []) or input_data.get("target_roles", []) or []
+    roles = input_data.get("roles") or [] or input_data.get("target_roles") or [] or []
     if isinstance(roles, str):
         roles = [r.strip() for r in roles.split(",") if r.strip()]
-    roles = [r.get("title", "") if isinstance(r, dict) else r for r in roles]
+    roles = [r.get("title") or "" if isinstance(r, dict) else r for r in roles]
     roles = [r for r in roles if isinstance(r, str) and r.strip()]
 
-    budget = _safe_float(input_data.get("budget", 0))
-    industry = input_data.get("industry", "")
+    budget = _safe_float(input_data.get("budget") or 0)
+    industry = input_data.get("industry") or ""
 
     # Source data
-    google_ads = enriched.get("google_ads_data", enriched.get("google_ads_keyword_data", {}))
+    google_ads = enriched.get(
+        "google_ads_data", enriched.get("google_ads_keyword_data", {})
+    )
     meta_ads = enriched.get("meta_ads_data", {})
     bing_ads = enriched.get("bing_ads_data", {})
     tiktok_ads = enriched.get("tiktok_ads_data", {})
@@ -1649,11 +2054,41 @@ def fuse_ad_platform_analysis(
 
     # Platform fit scores by role type
     PLATFORM_FIT = {
-        "google": {"professional": 0.85, "technical": 0.80, "hourly": 0.75, "executive": 0.80, "default": 0.80},
-        "meta": {"professional": 0.60, "technical": 0.50, "hourly": 0.85, "executive": 0.40, "default": 0.65},
-        "bing": {"professional": 0.70, "technical": 0.65, "hourly": 0.55, "executive": 0.70, "default": 0.60},
-        "tiktok": {"professional": 0.35, "technical": 0.30, "hourly": 0.80, "executive": 0.15, "default": 0.45},
-        "linkedin": {"professional": 0.95, "technical": 0.85, "hourly": 0.30, "executive": 0.95, "default": 0.75},
+        "google": {
+            "professional": 0.85,
+            "technical": 0.80,
+            "hourly": 0.75,
+            "executive": 0.80,
+            "default": 0.80,
+        },
+        "meta": {
+            "professional": 0.60,
+            "technical": 0.50,
+            "hourly": 0.85,
+            "executive": 0.40,
+            "default": 0.65,
+        },
+        "bing": {
+            "professional": 0.70,
+            "technical": 0.65,
+            "hourly": 0.55,
+            "executive": 0.70,
+            "default": 0.60,
+        },
+        "tiktok": {
+            "professional": 0.35,
+            "technical": 0.30,
+            "hourly": 0.80,
+            "executive": 0.15,
+            "default": 0.45,
+        },
+        "linkedin": {
+            "professional": 0.95,
+            "technical": 0.85,
+            "hourly": 0.30,
+            "executive": 0.95,
+            "default": 0.75,
+        },
     }
 
     result: Dict[str, Any] = {}
@@ -1692,7 +2127,7 @@ def fuse_ad_platform_analysis(
             "data_priority": 3,
         }
         # Add top keywords for ad copy recommendations
-        top_kw = gads_kb.get("top_performing_keywords", [])
+        top_kw = gads_kb.get("top_performing_keywords") or []
         if top_kw:
             google_entry["joveo_top_keywords"] = [
                 {
@@ -1703,8 +2138,8 @@ def fuse_ad_platform_analysis(
                 for kw in top_kw[:5]
             ]
         # Cross-validate: if live API CPC exists, compare to KB benchmark
-        live_cpc = google_entry.get("avg_cpc", 0)
-        kb_blended_cpc = gads_kb.get("blended_cpc", 0)
+        live_cpc = google_entry.get("avg_cpc") or 0
+        kb_blended_cpc = gads_kb.get("blended_cpc") or 0
         if isinstance(live_cpc, (int, float)) and live_cpc > 0 and kb_blended_cpc:
             deviation = abs(live_cpc - kb_blended_cpc) / kb_blended_cpc
             google_entry["cpc_kb_cross_validation"] = {
@@ -1712,8 +2147,11 @@ def fuse_ad_platform_analysis(
                 "kb_benchmark_cpc": kb_blended_cpc,
                 "deviation_pct": round(deviation * 100, 1),
                 "within_tolerance": deviation <= 0.50,
-                "note": "Live CPC within expected range" if deviation <= 0.50
-                        else "Live CPC deviates significantly from Joveo 2025 benchmarks",
+                "note": (
+                    "Live CPC within expected range"
+                    if deviation <= 0.50
+                    else "Live CPC deviates significantly from Joveo 2025 benchmarks"
+                ),
             }
 
     # --- Enrich with Appcast 2026 search/social CPC data ---
@@ -1781,36 +2219,169 @@ def fuse_ad_platform_analysis(
     # See trend_engine.get_benchmark() for authoritative CPC/CPA/CPM data.
     # Check if all platforms returned empty/zero data
     _all_empty = all(
-        isinstance(result.get(pk), dict) and result[pk].get("avg_cpc", 0) == 0
-        and result[pk].get("avg_cpm", 0) == 0 and result[pk].get("avg_cpa", 0) == 0
+        isinstance(result.get(pk), dict)
+        and result[pk].get("avg_cpc")
+        or 0 == 0
+        and result[pk].get("avg_cpm")
+        or 0 == 0
+        and result[pk].get("avg_cpa")
+        or 0 == 0
         for pk in ("google", "meta", "bing", "tiktok", "linkedin")
         if pk in result
     )
     if _all_empty:
         _PLATFORM_BENCHMARKS = {
-            "Google Ads": {"cpc": 2.69, "cpm": 3.12, "cpa": 48.96, "audience_reach": "5.6B+ monthly searches", "daily_budget_range": "$50 - $500", "best_for": "Active job seekers, high intent"},
-            "Meta (Facebook/Instagram)": {"cpc": 1.72, "cpm": 7.19, "cpa": 18.68, "audience_reach": "3.0B+ monthly active users", "daily_budget_range": "$20 - $300", "best_for": "Passive candidates, employer branding"},
-            "LinkedIn Ads": {"cpc": 5.26, "cpm": 6.59, "cpa": 56.08, "audience_reach": "1.0B+ professionals", "daily_budget_range": "$50 - $1,000", "best_for": "Professional/white-collar roles, B2B"},
-            "TikTok Ads": {"cpc": 1.00, "cpm": 10.00, "cpa": 20.00, "audience_reach": "1.5B+ monthly active users", "daily_budget_range": "$20 - $200", "best_for": "Gen-Z talent, hourly/retail roles"},
-            "Microsoft/Bing Ads": {"cpc": 1.54, "cpm": 2.00, "cpa": 41.44, "audience_reach": "1.0B+ monthly searches", "daily_budget_range": "$30 - $300", "best_for": "Professional candidates, desktop users"},
-            "Snapchat Ads": {"cpc": 1.30, "cpm": 2.95, "cpa": 22.00, "audience_reach": "750M+ monthly active users", "daily_budget_range": "$20 - $150", "best_for": "Young hourly workforce, retail/hospitality"},
-            "X (Twitter) Ads": {"cpc": 1.35, "cpm": 6.46, "cpa": 28.00, "audience_reach": "500M+ monthly active users", "daily_budget_range": "$30 - $200", "best_for": "Tech talent, thought leadership"},
-            "Programmatic Display (DSP)": {"cpc": 0.63, "cpm": 2.80, "cpa": 15.00, "audience_reach": "Billions of impressions across open web", "daily_budget_range": "$100 - $2,000", "best_for": "Scale hiring, retargeting, geo-targeting"},
-            "Roku/CTV Advertising": {"cpc": 0.00, "cpm": 25.00, "cpa": 45.00, "audience_reach": "80M+ US households", "daily_budget_range": "$200 - $5,000", "best_for": "Employer branding, mass-market roles"},
-            "Spotify Audio Ads": {"cpc": 0.00, "cpm": 15.00, "cpa": 35.00, "audience_reach": "600M+ monthly active users", "daily_budget_range": "$50 - $500", "best_for": "Brand awareness, commuter audience"},
-            "Reddit Ads": {"cpc": 0.75, "cpm": 3.50, "cpa": 25.00, "audience_reach": "1.7B+ monthly active users", "daily_budget_range": "$20 - $200", "best_for": "Tech/engineering communities, niche targeting"},
-            "Indeed Sponsored Jobs": {"cpc": 0.50, "cpm": 0.00, "cpa": 22.00, "audience_reach": "350M+ monthly unique visitors", "daily_budget_range": "$30 - $500", "best_for": "Direct applicants, all industries"},
-            "ZipRecruiter Sponsored": {"cpc": 1.50, "cpm": 0.00, "cpa": 28.00, "audience_reach": "25M+ monthly active job seekers", "daily_budget_range": "$16 - $300", "best_for": "SMB hiring, quick fills"},
+            "Google Ads": {
+                "cpc": 2.69,
+                "cpm": 3.12,
+                "cpa": 48.96,
+                "audience_reach": "5.6B+ monthly searches",
+                "daily_budget_range": "$50 - $500",
+                "best_for": "Active job seekers, high intent",
+            },
+            "Meta (Facebook/Instagram)": {
+                "cpc": 1.72,
+                "cpm": 7.19,
+                "cpa": 18.68,
+                "audience_reach": "3.0B+ monthly active users",
+                "daily_budget_range": "$20 - $300",
+                "best_for": "Passive candidates, employer branding",
+            },
+            "LinkedIn Ads": {
+                "cpc": 5.26,
+                "cpm": 6.59,
+                "cpa": 56.08,
+                "audience_reach": "1.0B+ professionals",
+                "daily_budget_range": "$50 - $1,000",
+                "best_for": "Professional/white-collar roles, B2B",
+            },
+            "TikTok Ads": {
+                "cpc": 1.00,
+                "cpm": 10.00,
+                "cpa": 20.00,
+                "audience_reach": "1.5B+ monthly active users",
+                "daily_budget_range": "$20 - $200",
+                "best_for": "Gen-Z talent, hourly/retail roles",
+            },
+            "Microsoft/Bing Ads": {
+                "cpc": 1.54,
+                "cpm": 2.00,
+                "cpa": 41.44,
+                "audience_reach": "1.0B+ monthly searches",
+                "daily_budget_range": "$30 - $300",
+                "best_for": "Professional candidates, desktop users",
+            },
+            "Snapchat Ads": {
+                "cpc": 1.30,
+                "cpm": 2.95,
+                "cpa": 22.00,
+                "audience_reach": "750M+ monthly active users",
+                "daily_budget_range": "$20 - $150",
+                "best_for": "Young hourly workforce, retail/hospitality",
+            },
+            "X (Twitter) Ads": {
+                "cpc": 1.35,
+                "cpm": 6.46,
+                "cpa": 28.00,
+                "audience_reach": "500M+ monthly active users",
+                "daily_budget_range": "$30 - $200",
+                "best_for": "Tech talent, thought leadership",
+            },
+            "Programmatic Display (DSP)": {
+                "cpc": 0.63,
+                "cpm": 2.80,
+                "cpa": 15.00,
+                "audience_reach": "Billions of impressions across open web",
+                "daily_budget_range": "$100 - $2,000",
+                "best_for": "Scale hiring, retargeting, geo-targeting",
+            },
+            "Roku/CTV Advertising": {
+                "cpc": 0.00,
+                "cpm": 25.00,
+                "cpa": 45.00,
+                "audience_reach": "80M+ US households",
+                "daily_budget_range": "$200 - $5,000",
+                "best_for": "Employer branding, mass-market roles",
+            },
+            "Spotify Audio Ads": {
+                "cpc": 0.00,
+                "cpm": 15.00,
+                "cpa": 35.00,
+                "audience_reach": "600M+ monthly active users",
+                "daily_budget_range": "$50 - $500",
+                "best_for": "Brand awareness, commuter audience",
+            },
+            "Reddit Ads": {
+                "cpc": 0.75,
+                "cpm": 3.50,
+                "cpa": 25.00,
+                "audience_reach": "1.7B+ monthly active users",
+                "daily_budget_range": "$20 - $200",
+                "best_for": "Tech/engineering communities, niche targeting",
+            },
+            "Indeed Sponsored Jobs": {
+                "cpc": 0.50,
+                "cpm": 0.00,
+                "cpa": 22.00,
+                "audience_reach": "350M+ monthly unique visitors",
+                "daily_budget_range": "$30 - $500",
+                "best_for": "Direct applicants, all industries",
+            },
+            "ZipRecruiter Sponsored": {
+                "cpc": 1.50,
+                "cpm": 0.00,
+                "cpa": 28.00,
+                "audience_reach": "25M+ monthly active job seekers",
+                "daily_budget_range": "$16 - $300",
+                "best_for": "SMB hiring, quick fills",
+            },
         }
 
         # Industry-specific platform fit scores
         _INDUSTRY_PLATFORM_FIT = {
-            "tech_engineering": {"LinkedIn Ads": 9, "Google Ads": 8, "Reddit Ads": 7, "Meta (Facebook/Instagram)": 6, "X (Twitter) Ads": 7, "Programmatic Display (DSP)": 8},
-            "healthcare_medical": {"Indeed Sponsored Jobs": 9, "Google Ads": 8, "Meta (Facebook/Instagram)": 7, "LinkedIn Ads": 6, "Programmatic Display (DSP)": 8},
-            "retail_consumer": {"Meta (Facebook/Instagram)": 9, "TikTok Ads": 8, "Snapchat Ads": 7, "Google Ads": 7, "Programmatic Display (DSP)": 8},
-            "finance_banking": {"LinkedIn Ads": 9, "Google Ads": 8, "Microsoft/Bing Ads": 7, "Meta (Facebook/Instagram)": 6, "Programmatic Display (DSP)": 7},
-            "blue_collar_trades": {"Indeed Sponsored Jobs": 9, "Meta (Facebook/Instagram)": 8, "Google Ads": 7, "TikTok Ads": 6, "Programmatic Display (DSP)": 8},
-            "hospitality_travel": {"Indeed Sponsored Jobs": 9, "Meta (Facebook/Instagram)": 8, "TikTok Ads": 8, "Snapchat Ads": 7, "Programmatic Display (DSP)": 7},
+            "tech_engineering": {
+                "LinkedIn Ads": 9,
+                "Google Ads": 8,
+                "Reddit Ads": 7,
+                "Meta (Facebook/Instagram)": 6,
+                "X (Twitter) Ads": 7,
+                "Programmatic Display (DSP)": 8,
+            },
+            "healthcare_medical": {
+                "Indeed Sponsored Jobs": 9,
+                "Google Ads": 8,
+                "Meta (Facebook/Instagram)": 7,
+                "LinkedIn Ads": 6,
+                "Programmatic Display (DSP)": 8,
+            },
+            "retail_consumer": {
+                "Meta (Facebook/Instagram)": 9,
+                "TikTok Ads": 8,
+                "Snapchat Ads": 7,
+                "Google Ads": 7,
+                "Programmatic Display (DSP)": 8,
+            },
+            "finance_banking": {
+                "LinkedIn Ads": 9,
+                "Google Ads": 8,
+                "Microsoft/Bing Ads": 7,
+                "Meta (Facebook/Instagram)": 6,
+                "Programmatic Display (DSP)": 7,
+            },
+            "blue_collar_trades": {
+                "Indeed Sponsored Jobs": 9,
+                "Meta (Facebook/Instagram)": 8,
+                "Google Ads": 7,
+                "TikTok Ads": 6,
+                "Programmatic Display (DSP)": 8,
+            },
+            "hospitality_travel": {
+                "Indeed Sponsored Jobs": 9,
+                "Meta (Facebook/Instagram)": 8,
+                "TikTok Ads": 8,
+                "Snapchat Ads": 7,
+                "Programmatic Display (DSP)": 7,
+            },
         }
         industry_fit = _INDUSTRY_PLATFORM_FIT.get(industry, {})
 
@@ -1820,7 +2391,13 @@ def fuse_ad_platform_analysis(
             fit_score = industry_fit.get(pname, 5)  # default fit = 5
             roi_proj = round(10 - (pdata["cpa"] / 10), 1) if pdata["cpa"] > 0 else 5.0
             roi_proj = max(1.0, min(10.0, roi_proj))
-            platform_key = pname.lower().replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_")
+            platform_key = (
+                pname.lower()
+                .replace(" ", "_")
+                .replace("(", "")
+                .replace(")", "")
+                .replace("/", "_")
+            )
             result[platform_key] = {
                 "platform_name": pname,
                 "source": "Industry Benchmark (2024-2025)",
@@ -1832,7 +2409,11 @@ def fuse_ad_platform_analysis(
                 "audience_reach": pdata["audience_reach"],
                 "fit_score": fit_score / 10.0,  # Normalize to 0-1 scale
                 "roi_projection": roi_proj,
-                "roi_projection_applications": round(budget / pdata["cpa"], 0) if pdata["cpa"] > 0 and budget > 0 else 0.0,
+                "roi_projection_applications": (
+                    round(budget / pdata["cpa"], 0)
+                    if pdata["cpa"] > 0 and budget > 0
+                    else 0.0
+                ),
                 "daily_budget_range": pdata["daily_budget_range"],
                 "best_for": pdata["best_for"],
                 "cpc_kb_validation": {},
@@ -1849,9 +2430,10 @@ def fuse_ad_platform_analysis(
     for platform_key, platform_data in result.items():
         if isinstance(platform_data, dict) and not platform_key.startswith("_"):
             composite = (
-                platform_data.get("fit_score", 0) * 0.4
+                platform_data.get("fit_score")
+                or 0 * 0.4
                 + (1.0 - min(platform_data.get("avg_cpc", 5.0) / 10.0, 1.0)) * 0.3
-                + min(platform_data.get("estimated_reach", 0) / 1_000_000, 1.0) * 0.3
+                + min(platform_data.get("estimated_reach") or 0 / 1_000_000, 1.0) * 0.3
             )
             rankings.append((platform_key, round(composite, 3)))
 
@@ -1859,7 +2441,6 @@ def fuse_ad_platform_analysis(
     result["_platform_ranking"] = [
         {"platform": p, "composite_score": s} for p, s in rankings
     ]
-
 
     # --- Enrich from platform intelligence KB (91 platforms) ---
     _pi = kb.get("platform_intelligence", {}).get("platforms", {})
@@ -1870,16 +2451,18 @@ def fuse_ad_platform_analysis(
                 if _deep:
                     _pv["deep_intelligence"] = {
                         "monthly_visitors": _deep.get("monthly_visitors"),
-                        "candidate_demographics": _deep.get("candidate_demographics", {}),
-                        "best_for": _deep.get("best_for", []),
+                        "candidate_demographics": _deep.get(
+                            "candidate_demographics", {}
+                        ),
+                        "best_for": _deep.get("best_for") or [],
                         "programmatic_compatible": _deep.get("programmatic_compatible"),
                         "apply_rate": _deep.get("apply_rate"),
                         "mobile_traffic_pct": _deep.get("mobile_traffic_pct"),
-                        "dei_features": _deep.get("dei_features", []),
-                        "ai_features": _deep.get("ai_features", []),
-                        "ats_integrations": _deep.get("ats_integrations", []),
-                        "pros": _deep.get("pros", []),
-                        "cons": _deep.get("cons", []),
+                        "dei_features": _deep.get("dei_features") or [],
+                        "ai_features": _deep.get("ai_features") or [],
+                        "ats_integrations": _deep.get("ats_integrations") or [],
+                        "pros": _deep.get("pros") or [],
+                        "cons": _deep.get("cons") or [],
                     }
 
     # --- Enrich from supply ecosystem KB ---
@@ -1914,13 +2497,47 @@ def _classify_role_type(roles: List[str]) -> str:
 
     role_text = " ".join(r.lower() for r in roles)
 
-    executive_kw = ["director", "vp", "vice president", "chief", "cto", "cfo",
-                     "ceo", "coo", "cmo", "head of", "svp", "evp"]
-    technical_kw = ["engineer", "developer", "programmer", "data scientist",
-                    "devops", "architect", "analyst", "scientist"]
-    hourly_kw = ["driver", "warehouse", "retail", "cashier", "barista", "cook",
-                 "server", "housekeeper", "janitor", "laborer", "assembler",
-                 "technician", "aide", "assistant", "clerk"]
+    executive_kw = [
+        "director",
+        "vp",
+        "vice president",
+        "chief",
+        "cto",
+        "cfo",
+        "ceo",
+        "coo",
+        "cmo",
+        "head of",
+        "svp",
+        "evp",
+    ]
+    technical_kw = [
+        "engineer",
+        "developer",
+        "programmer",
+        "data scientist",
+        "devops",
+        "architect",
+        "analyst",
+        "scientist",
+    ]
+    hourly_kw = [
+        "driver",
+        "warehouse",
+        "retail",
+        "cashier",
+        "barista",
+        "cook",
+        "server",
+        "housekeeper",
+        "janitor",
+        "laborer",
+        "assembler",
+        "technician",
+        "aide",
+        "assistant",
+        "clerk",
+    ]
 
     if any(kw in role_text for kw in executive_kw):
         return "executive"
@@ -1979,7 +2596,7 @@ def _build_platform_entry(
         if sv > 0:
             search_volumes.append(sv)
 
-        audience = _parse_audience_number(str(entry.get("estimated_audience", "")))
+        audience = _parse_audience_number(str(entry.get("estimated_audience") or ""))
         if audience > 0:
             audience_values.append(audience)
 
@@ -1992,9 +2609,13 @@ def _build_platform_entry(
     # KB validation for CPC
     kb_cpc_val = 0.0
     if isinstance(kb_cpc_entry, dict):
-        kb_cpc_str = (kb_cpc_entry.get("average_cpc")
-                      or kb_cpc_entry.get("average_cpc_range", "")
-                      or kb_cpc_entry.get("job_ad_cpc_range", ""))
+        kb_cpc_str = (
+            kb_cpc_entry.get("average_cpc")
+            or kb_cpc_entry.get("average_cpc_range")
+            or ""
+            or kb_cpc_entry.get("job_ad_cpc_range")
+            or ""
+        )
         low, high = _parse_salary_range(str(kb_cpc_str))
         if low and high:
             kb_cpc_val = (low + high) / 2
@@ -2003,7 +2624,9 @@ def _build_platform_entry(
 
     cpc_validation = {}
     if avg_cpc > 0 and kb_cpc_val > 0:
-        cpc_validation = validate_with_knowledge_base(avg_cpc, kb_cpc_val, tolerance=0.40)
+        cpc_validation = validate_with_knowledge_base(
+            avg_cpc, kb_cpc_val, tolerance=0.40
+        )
 
     # ROI projection
     roi_projection = 0.0
@@ -2033,7 +2656,9 @@ def _build_platform_entry(
             "min": daily_budget_min,
             "max": daily_budget_max,
         },
-        "platform_summary": platform_summary if isinstance(platform_summary, dict) else {},
+        "platform_summary": (
+            platform_summary if isinstance(platform_summary, dict) else {}
+        ),
         "_meta": {
             "source_count": source_count + (1 if kb_validated_flag else 0),
             "kb_validated": kb_validated_flag,
@@ -2083,7 +2708,7 @@ def _build_meta_platform_entry(
             v = _safe_float(fb.get("cost_per_application"))
             if v > 0:
                 fb_cpa.append(v)
-            a = _parse_audience_number(str(fb.get("estimated_audience_size", "")))
+            a = _parse_audience_number(str(fb.get("estimated_audience_size") or ""))
             if a > 0:
                 audience_values.append(a)
 
@@ -2112,12 +2737,18 @@ def _build_meta_platform_entry(
     # KB CPC validation
     kb_cpc_val = 0.0
     if isinstance(kb_cpc_entry, dict):
-        kb_str = kb_cpc_entry.get("median_cpc_jan_2026") or kb_cpc_entry.get("median_cpc_peak_nov_2025", "")
+        kb_str = (
+            kb_cpc_entry.get("median_cpc_jan_2026")
+            or kb_cpc_entry.get("median_cpc_peak_nov_2025")
+            or ""
+        )
         kb_cpc_val = _safe_float(kb_str)
 
     cpc_validation = {}
     if avg_cpc > 0 and kb_cpc_val > 0:
-        cpc_validation = validate_with_knowledge_base(avg_cpc, kb_cpc_val, tolerance=0.40)
+        cpc_validation = validate_with_knowledge_base(
+            avg_cpc, kb_cpc_val, tolerance=0.40
+        )
 
     roi_projection = round(budget / avg_cpa, 0) if avg_cpa > 0 and budget > 0 else 0.0
     daily_min = round(avg_cpc * 10, 2) if avg_cpc > 0 else 15.0
@@ -2139,7 +2770,9 @@ def _build_meta_platform_entry(
         "cpc_kb_validation": cpc_validation,
         "roi_projection_applications": roi_projection,
         "recommended_daily_budget": {"min": daily_min, "max": daily_max},
-        "platform_summary": platform_summary if isinstance(platform_summary, dict) else {},
+        "platform_summary": (
+            platform_summary if isinstance(platform_summary, dict) else {}
+        ),
         "_meta": {
             "source_count": source_count + (1 if kb_validated_flag else 0),
             "kb_validated": kb_validated_flag,
@@ -2163,9 +2796,10 @@ def fuse_competitive_intelligence(
       - Industry hiring trends
       - Market positioning insights
     """
-    company_name = (input_data.get("company_name", "")
-                    or input_data.get("client_name", ""))
-    industry = input_data.get("industry", "")
+    company_name = (
+        input_data.get("company_name") or "" or input_data.get("client_name") or ""
+    )
+    industry = input_data.get("industry") or ""
 
     # Source data
     wiki_data = enriched.get("company_info", enriched.get("wikipedia_data", {}))
@@ -2186,27 +2820,27 @@ def fuse_competitive_intelligence(
     company_profile: Dict[str, Any] = {"name": company_name}
 
     if isinstance(wiki_data, dict) and wiki_data:
-        company_profile["description"] = wiki_data.get("description", "")
-        company_profile["summary"] = wiki_data.get("summary", "")[:500]
-        company_profile["wikipedia_url"] = wiki_data.get("url", "")
+        company_profile["description"] = wiki_data.get("description") or ""
+        company_profile["summary"] = wiki_data.get("summary") or ""[:500]
+        company_profile["wikipedia_url"] = wiki_data.get("url") or ""
         if wiki_data.get("description") or wiki_data.get("summary"):
             source_count += 1
 
     if isinstance(clearbit_data, dict) and clearbit_data:
-        company_profile["domain"] = clearbit_data.get("domain", "")
-        company_profile["logo_url"] = clearbit_data.get("logo", "")
+        company_profile["domain"] = clearbit_data.get("domain") or ""
+        company_profile["logo_url"] = clearbit_data.get("logo") or ""
         company_profile["clearbit_category"] = clearbit_data.get("category", {})
-        company_profile["clearbit_tags"] = clearbit_data.get("tags", [])
+        company_profile["clearbit_tags"] = clearbit_data.get("tags") or []
         if clearbit_data.get("domain"):
             source_count += 1
 
     if isinstance(sec_data, dict) and sec_data:
-        company_profile["sec_ticker"] = sec_data.get("ticker", "")
-        company_profile["sec_cik"] = sec_data.get("cik", "")
-        company_profile["sec_sic"] = sec_data.get("sic", "")
-        company_profile["sec_sic_description"] = sec_data.get("sic_description", "")
+        company_profile["sec_ticker"] = sec_data.get("ticker") or ""
+        company_profile["sec_cik"] = sec_data.get("cik") or ""
+        company_profile["sec_sic"] = sec_data.get("sic") or ""
+        company_profile["sec_sic_description"] = sec_data.get("sic_description") or ""
         company_profile["is_public"] = bool(sec_data.get("ticker"))
-        filings = sec_data.get("recent_filings", [])
+        filings = sec_data.get("recent_filings") or []
         if isinstance(filings, list):
             company_profile["recent_filings_count"] = len(filings)
         if sec_data.get("ticker"):
@@ -2220,8 +2854,10 @@ def fuse_competitive_intelligence(
         for comp_name, logo_data in competitor_logos.items():
             comp_entry: Dict[str, Any] = {"name": comp_name}
             if isinstance(logo_data, dict):
-                comp_entry["logo_url"] = logo_data.get("logo", logo_data.get("url", ""))
-                comp_entry["domain"] = logo_data.get("domain", "")
+                comp_entry["logo_url"] = logo_data.get(
+                    "logo", logo_data.get("url") or ""
+                )
+                comp_entry["domain"] = logo_data.get("domain") or ""
             elif isinstance(logo_data, str):
                 comp_entry["logo_url"] = logo_data
             competitors_info[comp_name] = comp_entry
@@ -2233,7 +2869,9 @@ def fuse_competitive_intelligence(
 
     if isinstance(industry_employment, dict) and industry_employment:
         hiring_trends["employment_count"] = industry_employment.get("employment")
-        hiring_trends["average_weekly_wage"] = industry_employment.get("avg_weekly_wage")
+        hiring_trends["average_weekly_wage"] = industry_employment.get(
+            "avg_weekly_wage"
+        )
         hiring_trends["establishment_count"] = industry_employment.get("establishments")
         hiring_trends["source"] = industry_employment.get("source", "BLS QCEW")
         source_count += 1
@@ -2247,8 +2885,12 @@ def fuse_competitive_intelligence(
         ai_trends = kb_market_trends.get("ai_in_recruiting", {})
         market_state = kb_market_trends.get("great_stay_low_hire_low_fire", {})
         hiring_trends["market_context"] = {
-            "ai_adoption": _get_nested(ai_trends, "adoption_rates",
-                                       "organizations_using_ai_2025", default="N/A"),
+            "ai_adoption": _get_nested(
+                ai_trends,
+                "adoption_rates",
+                "organizations_using_ai_2025",
+                default="N/A",
+            ),
             "market_state": market_state.get("title", "N/A"),
             "key_indicators": market_state.get("key_indicators", {}),
         }
@@ -2268,7 +2910,6 @@ def fuse_competitive_intelligence(
         "kb_validated": kb_validated,
     }
 
-
     # --- Enrich from company_info API (Clearbit, previously orphaned) ---
     _cinfo = enriched.get("company_info", {})
     if isinstance(_cinfo, dict) and _cinfo:
@@ -2277,15 +2918,15 @@ def fuse_competitive_intelligence(
             "industry": _cinfo.get("industry"),
             "employee_count": _cinfo.get("metrics", {}).get("employees"),
             "annual_revenue": _cinfo.get("metrics", {}).get("annualRevenue"),
-            "tech_stack": _cinfo.get("tech", []),
-            "tags": _cinfo.get("tags", []),
+            "tech_stack": _cinfo.get("tech") or [],
+            "tags": _cinfo.get("tags") or [],
         }
 
     # --- Enrich from company_metadata API (Wikipedia, previously orphaned) ---
     _cmeta = enriched.get("company_metadata", {})
     if isinstance(_cmeta, dict) and _cmeta:
         result["company_wikipedia"] = {
-            "description": _cmeta.get("extract", _cmeta.get("description", "")),
+            "description": _cmeta.get("extract", _cmeta.get("description") or ""),
             "founded": _cmeta.get("founded"),
             "headquarters": _cmeta.get("headquarters"),
             "url": _cmeta.get("url"),
@@ -2296,7 +2937,7 @@ def fuse_competitive_intelligence(
     if isinstance(_sec, dict) and _sec:
         result["company_sec"] = {
             "cik": _sec.get("cik"),
-            "filings": _sec.get("recent_filings", [])[:5],
+            "filings": _sec.get("recent_filings") or [][:5],
             "sic_code": _sec.get("sic"),
             "fiscal_year_end": _sec.get("fiscal_year_end"),
         }
@@ -2328,11 +2969,11 @@ def _assess_data_quality(enriched: dict) -> Dict[str, Any]:
             "quality_tier": "none",
         }
 
-    called = len(summary.get("apis_called", []))
-    succeeded = len(summary.get("apis_succeeded", []))
-    failed = len(summary.get("apis_failed", []))
-    skipped = len(summary.get("apis_skipped", []))
-    elapsed = summary.get("total_time_seconds", 0)
+    called = len(summary.get("apis_called") or [])
+    succeeded = len(summary.get("apis_succeeded") or [])
+    failed = len(summary.get("apis_failed") or [])
+    skipped = len(summary.get("apis_skipped") or [])
+    elapsed = summary.get("total_time_seconds") or 0
 
     success_rate = (succeeded / called * 100) if called > 0 else 0.0
 
@@ -2355,9 +2996,10 @@ def _assess_data_quality(enriched: dict) -> Dict[str, Any]:
         "success_rate": round(success_rate, 1),
         "total_time_seconds": elapsed,
         "quality_tier": quality_tier,
-        "succeeded_list": summary.get("apis_succeeded", []),
-        "failed_list": summary.get("apis_failed", []),
+        "succeeded_list": summary.get("apis_succeeded") or [],
+        "failed_list": summary.get("apis_failed") or [],
     }
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # FUSE: WORKFORCE INSIGHTS
@@ -2379,14 +3021,28 @@ def fuse_workforce_insights(enriched: dict, kb: dict, industry: str) -> dict:
     if gen_z:
         result["gen_z_insights"] = {
             "workforce_share": gen_z.get("workforce_share"),
-            "job_search_platforms": gen_z.get("job_search_behavior", {}).get("platform_usage", {}),
-            "mobile_vs_desktop": gen_z.get("job_search_behavior", {}).get("mobile_vs_desktop", {}),
-            "social_media_habits": gen_z.get("job_search_behavior", {}).get("social_media_habits", {}),
+            "job_search_platforms": gen_z.get("job_search_behavior", {}).get(
+                "platform_usage", {}
+            ),
+            "mobile_vs_desktop": gen_z.get("job_search_behavior", {}).get(
+                "mobile_vs_desktop", {}
+            ),
+            "social_media_habits": gen_z.get("job_search_behavior", {}).get(
+                "social_media_habits", {}
+            ),
             "workplace_expectations": {
-                "flexibility": gen_z.get("workplace_expectations", {}).get("flexibility", {}),
-                "mental_health": gen_z.get("workplace_expectations", {}).get("mental_health", {}),
-                "dei": gen_z.get("workplace_expectations", {}).get("dei_expectations", {}),
-                "purpose": gen_z.get("workplace_expectations", {}).get("purpose_driven_work", {}),
+                "flexibility": gen_z.get("workplace_expectations", {}).get(
+                    "flexibility", {}
+                ),
+                "mental_health": gen_z.get("workplace_expectations", {}).get(
+                    "mental_health", {}
+                ),
+                "dei": gen_z.get("workplace_expectations", {}).get(
+                    "dei_expectations", {}
+                ),
+                "purpose": gen_z.get("workplace_expectations", {}).get(
+                    "purpose_driven_work", {}
+                ),
             },
             "salary_expectations": gen_z.get("salary_expectations", {}),
             "tenure": gen_z.get("tenure_and_job_hopping", {}),
@@ -2408,18 +3064,27 @@ def fuse_workforce_insights(enriched: dict, kb: dict, industry: str) -> dict:
         industry_lower = industry.lower() if industry else ""
         for rkey, rval in reports.items():
             if isinstance(rval, dict):
-                title = (rval.get("title", "") or "").lower()
-                findings = rval.get("key_findings", [])
+                title = (rval.get("title") or "" or "").lower()
+                findings = rval.get("key_findings") or []
                 # Include if industry-relevant or general recruitment
-                if industry_lower in title or "recruit" in title or "hiring" in title or "benchmark" in title:
-                    relevant_reports.append({
-                        "key": rkey,
-                        "title": rval.get("title", ""),
-                        "publisher": rval.get("publisher", ""),
-                        "year": rval.get("year"),
-                        "finding_count": len(findings),
-                        "top_findings": findings[:3] if isinstance(findings, list) else [],
-                    })
+                if (
+                    industry_lower in title
+                    or "recruit" in title
+                    or "hiring" in title
+                    or "benchmark" in title
+                ):
+                    relevant_reports.append(
+                        {
+                            "key": rkey,
+                            "title": rval.get("title") or "",
+                            "publisher": rval.get("publisher") or "",
+                            "year": rval.get("year"),
+                            "finding_count": len(findings),
+                            "top_findings": (
+                                findings[:3] if isinstance(findings, list) else []
+                            ),
+                        }
+                    )
         result["relevant_research"] = relevant_reports[:10]  # Top 10 relevant reports
 
     # ── Appcast 2026 Benchmark Report: structured occupation-level data ──
@@ -2445,19 +3110,32 @@ def fuse_workforce_insights(enriched: dict, kb: dict, industry: str) -> dict:
             if cph_data.get(appcast_occupation):
                 occupation_benchmarks["cph"] = cph_data[appcast_occupation]
             if apply_rate_data.get(appcast_occupation):
-                occupation_benchmarks["apply_rate"] = apply_rate_data[appcast_occupation]
+                occupation_benchmarks["apply_rate"] = apply_rate_data[
+                    appcast_occupation
+                ]
             if cost_per_screen.get(appcast_occupation):
-                occupation_benchmarks["cost_per_screen"] = cost_per_screen[appcast_occupation]
+                occupation_benchmarks["cost_per_screen"] = cost_per_screen[
+                    appcast_occupation
+                ]
             if cost_per_interview.get(appcast_occupation):
-                occupation_benchmarks["cost_per_interview"] = cost_per_interview[appcast_occupation]
+                occupation_benchmarks["cost_per_interview"] = cost_per_interview[
+                    appcast_occupation
+                ]
             if cost_per_offer.get(appcast_occupation):
-                occupation_benchmarks["cost_per_offer"] = cost_per_offer[appcast_occupation]
+                occupation_benchmarks["cost_per_offer"] = cost_per_offer[
+                    appcast_occupation
+                ]
 
         # Full funnel median costs (industry-wide)
         full_funnel = {}
-        for funnel_key in ("overall_median_cpc", "overall_median_cpa",
-                           "overall_median_cps", "overall_median_cpi",
-                           "overall_median_cpo", "overall_median_cph"):
+        for funnel_key in (
+            "overall_median_cpc",
+            "overall_median_cpa",
+            "overall_median_cps",
+            "overall_median_cpi",
+            "overall_median_cpo",
+            "overall_median_cph",
+        ):
             val = appcast_bm.get(funnel_key)
             if val:
                 full_funnel[funnel_key] = val
@@ -2471,7 +3149,9 @@ def fuse_workforce_insights(enriched: dict, kb: dict, industry: str) -> dict:
         result["appcast_2026_benchmarks"] = {
             "source": "Appcast 10th Annual Recruitment Marketing Benchmark Report (2026)",
             "data_year": 2025,
-            "data_analyzed": appcast_bm.get("data_analyzed", "302M clicks, 27.4M applies"),
+            "data_analyzed": appcast_bm.get(
+                "data_analyzed", "302M clicks, 27.4M applies"
+            ),
             "data_priority": 3,
             "occupation_benchmarks": occupation_benchmarks,
             "full_funnel_costs": full_funnel,
@@ -2497,8 +3177,12 @@ def fuse_workforce_insights(enriched: dict, kb: dict, industry: str) -> dict:
             "total_keywords": gads_kb.get("total_keywords"),
             "total_spend": gads_kb.get("total_spend"),
             "top_keywords": [
-                {"keyword": kw.get("keyword"), "cpc": kw.get("cpc"), "ctr_pct": kw.get("ctr_pct")}
-                for kw in (gads_kb.get("top_performing_keywords", []) or [])[:5]
+                {
+                    "keyword": kw.get("keyword"),
+                    "cpc": kw.get("cpc"),
+                    "ctr_pct": kw.get("ctr_pct"),
+                }
+                for kw in (gads_kb.get("top_performing_keywords") or [] or [])[:5]
             ],
         }
 
@@ -2513,8 +3197,6 @@ def fuse_workforce_insights(enriched: dict, kb: dict, industry: str) -> dict:
         result["job_type_trends"] = jt_trends
 
     return result
-
-
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2554,8 +3236,8 @@ def synthesize(
 
     logger.info(
         "Starting data synthesis (roles=%s, locations=%s, industry=%s)",
-        len(input_data.get("roles", [])),
-        len(input_data.get("locations", [])),
+        len(input_data.get("roles") or []),
+        len(input_data.get("locations") or []),
         input_data.get("industry", "N/A"),
     )
 
@@ -2603,7 +3285,7 @@ def synthesize(
         synthesis["competitive_intelligence"] = {}
 
     try:
-        _industry = input_data.get("industry", "")
+        _industry = input_data.get("industry") or ""
         synthesis["workforce_insights"] = fuse_workforce_insights(
             enriched, knowledge_base, _industry
         )
@@ -2707,11 +3389,14 @@ Respond with ONLY the JSON object, no markdown formatting or code blocks."""
             task_type=TASK_NARRATIVE,
         )
 
-        text = (result or {}).get("text", "")
+        text = (result or {}).get("text") or ""
         provider = (result or {}).get("provider", "unknown")
         if text:
-            logger.info("AI narratives generated via %s/%s",
-                        provider, (result or {}).get("model", "unknown"))
+            logger.info(
+                "AI narratives generated via %s/%s",
+                provider,
+                (result or {}).get("model", "unknown"),
+            )
 
         if not text:
             return {}
@@ -2726,12 +3411,20 @@ Respond with ONLY the JSON object, no markdown formatting or code blocks."""
         narratives = _json.loads(text)
 
         # Validate expected keys
-        expected_keys = {"executive_summary", "strategic_recommendations",
-                         "competitive_insights", "risk_assessment"}
+        expected_keys = {
+            "executive_summary",
+            "strategic_recommendations",
+            "competitive_insights",
+            "risk_assessment",
+        }
         if not isinstance(narratives, dict):
             return {}
         # Only keep expected keys
-        return {k: v for k, v in narratives.items() if k in expected_keys and isinstance(v, str)}
+        return {
+            k: v
+            for k, v in narratives.items()
+            if k in expected_keys and isinstance(v, str)
+        }
 
     except Exception as exc:
         logger.warning("AI narrative generation failed: %s", exc)
@@ -2750,33 +3443,35 @@ def _build_narrative_context(
     parts = []
 
     # Input parameters
-    roles = input_data.get("roles", input_data.get("target_roles", []))
+    roles = input_data.get("roles", input_data.get("target_roles") or [])
     if isinstance(roles, list):
-        role_names = [r.get("title", str(r)) if isinstance(r, dict) else str(r) for r in roles[:5]]
+        role_names = [
+            r.get("title", str(r)) if isinstance(r, dict) else str(r) for r in roles[:5]
+        ]
         parts.append(f"Roles: {', '.join(role_names)}")
 
-    locations = input_data.get("locations", [])
+    locations = input_data.get("locations") or []
     if isinstance(locations, list):
         loc_names = []
         for loc in locations[:5]:
             if isinstance(loc, dict):
-                city = loc.get("city", "")
-                state = loc.get("state", "")
-                country = loc.get("country", "")
+                city = loc.get("city") or ""
+                state = loc.get("state") or ""
+                country = loc.get("country") or ""
                 loc_names.append(f"{city}, {state}, {country}".strip(", "))
             else:
                 loc_names.append(str(loc))
         parts.append(f"Locations: {', '.join(loc_names)}")
 
-    industry = input_data.get("industry", "")
+    industry = input_data.get("industry") or ""
     if industry:
         parts.append(f"Industry: {industry}")
 
-    budget = input_data.get("budget", 0)
+    budget = input_data.get("budget") or 0
     if budget:
         parts.append(f"Budget: ${budget:,.0f}")
 
-    company = input_data.get("company_name", "")
+    company = input_data.get("company_name") or ""
     if company:
         parts.append(f"Company: {company}")
 
@@ -2785,10 +3480,10 @@ def _build_narrative_context(
     if salary_data:
         for role_key, sal in salary_data.items():
             if isinstance(sal, dict) and sal.get("median"):
-                sources_str = ", ".join(sal.get("sources", [])[:3])
+                sources_str = ", ".join(sal.get("sources") or [][:3])
                 parts.append(
                     f"Salary ({role_key}): median ${sal['median']:,}, "
-                    f"range ${sal.get('p25', 0):,}-${sal.get('p75', 0):,}, "
+                    f"range ${sal.get('p25') or 0:,}-${sal.get('p75') or 0:,}, "
                     f"sources: {sources_str}"
                 )
 
@@ -2797,9 +3492,9 @@ def _build_narrative_context(
     if isinstance(demand, dict):
         for role_key, demand_data in demand.items():
             if isinstance(demand_data, dict):
-                temp = demand_data.get("market_temperature", "")
-                competition = demand_data.get("competition_index", "")
-                posting_vol = demand_data.get("posting_volume", "")
+                temp = demand_data.get("market_temperature") or ""
+                competition = demand_data.get("competition_index") or ""
+                posting_vol = demand_data.get("posting_volume") or ""
                 if temp or competition:
                     parts.append(
                         f"Demand ({role_key}): temperature={temp}, "
@@ -2809,14 +3504,18 @@ def _build_narrative_context(
     # Confidence scores
     confidence = synthesis.get("confidence_scores", {})
     if confidence:
-        parts.append(f"Data quality: overall={confidence.get('overall', 0):.2f}, "
-                      f"grade={confidence.get('data_quality_grade', 'N/A')}")
+        parts.append(
+            f"Data quality: overall={confidence.get('overall') or 0:.2f}, "
+            f"grade={confidence.get('data_quality_grade', 'N/A')}"
+        )
 
     # Data quality
     dq = synthesis.get("data_quality", {})
     if dq:
-        parts.append(f"APIs: {dq.get('apis_succeeded', 0)}/{dq.get('apis_called', 0)} succeeded, "
-                      f"quality_tier={dq.get('quality_tier', 'unknown')}")
+        parts.append(
+            f"APIs: {dq.get('apis_succeeded') or 0}/{dq.get('apis_called') or 0} succeeded, "
+            f"quality_tier={dq.get('quality_tier', 'unknown')}"
+        )
 
     # Ad platform analysis (top platforms)
     ad_platforms = synthesis.get("ad_platform_analysis", {})
@@ -2824,7 +3523,9 @@ def _build_narrative_context(
         top_platforms = []
         for plat_key, plat_data in list(ad_platforms.items())[:5]:
             if isinstance(plat_data, dict) and plat_data.get("recommended_cpc"):
-                top_platforms.append(f"{plat_key} (CPC: {plat_data['recommended_cpc']})")
+                top_platforms.append(
+                    f"{plat_key} (CPC: {plat_data['recommended_cpc']})"
+                )
         if top_platforms:
             parts.append(f"Top platforms: {', '.join(top_platforms)}")
 

@@ -37,6 +37,7 @@ try:
         get_soc_code as _std_get_soc_code,
         CANONICAL_ROLES as _CANON_ROLES,
     )
+
     _HAS_STANDARDIZER = True
 except ImportError:
     _HAS_STANDARDIZER = False
@@ -50,35 +51,32 @@ except ImportError:
 # SOC major group -> collar type mapping
 SOC_COLLAR_MAP: Dict[str, str] = {
     # White collar (professional, management, office)
-    "11": "white_collar",   # Management
-    "13": "white_collar",   # Business and Financial Operations
-    "15": "white_collar",   # Computer and Mathematical
-    "17": "white_collar",   # Architecture and Engineering
-    "19": "white_collar",   # Life, Physical, and Social Science
-    "23": "white_collar",   # Legal
-    "25": "white_collar",   # Educational Instruction and Library
-    "27": "white_collar",   # Arts, Design, Entertainment, Sports, Media
-
+    "11": "white_collar",  # Management
+    "13": "white_collar",  # Business and Financial Operations
+    "15": "white_collar",  # Computer and Mathematical
+    "17": "white_collar",  # Architecture and Engineering
+    "19": "white_collar",  # Life, Physical, and Social Science
+    "23": "white_collar",  # Legal
+    "25": "white_collar",  # Educational Instruction and Library
+    "27": "white_collar",  # Arts, Design, Entertainment, Sports, Media
     # Grey collar (licensed/clinical, skilled hybrid)
-    "21": "grey_collar",    # Community and Social Service
-    "29": "grey_collar",    # Healthcare Practitioners and Technical
-
+    "21": "grey_collar",  # Community and Social Service
+    "29": "grey_collar",  # Healthcare Practitioners and Technical
     # Pink collar (admin, care, service)
-    "31": "pink_collar",    # Healthcare Support
-    "39": "pink_collar",    # Personal Care and Service
-    "43": "pink_collar",    # Office and Administrative Support
-
+    "31": "pink_collar",  # Healthcare Support
+    "39": "pink_collar",  # Personal Care and Service
+    "43": "pink_collar",  # Office and Administrative Support
     # Blue collar (manual, trades, operations)
-    "33": "blue_collar",    # Protective Service
-    "35": "blue_collar",    # Food Preparation and Serving
-    "37": "blue_collar",    # Building and Grounds Cleaning/Maintenance
-    "41": "blue_collar",    # Sales (retail/field)
-    "45": "blue_collar",    # Farming, Fishing, and Forestry
-    "47": "blue_collar",    # Construction and Extraction
-    "49": "blue_collar",    # Installation, Maintenance, and Repair
-    "51": "blue_collar",    # Production
-    "53": "blue_collar",    # Transportation and Material Moving
-    "55": "blue_collar",    # Military Specific
+    "33": "blue_collar",  # Protective Service
+    "35": "blue_collar",  # Food Preparation and Serving
+    "37": "blue_collar",  # Building and Grounds Cleaning/Maintenance
+    "41": "blue_collar",  # Sales (retail/field)
+    "45": "blue_collar",  # Farming, Fishing, and Forestry
+    "47": "blue_collar",  # Construction and Extraction
+    "49": "blue_collar",  # Installation, Maintenance, and Repair
+    "51": "blue_collar",  # Production
+    "53": "blue_collar",  # Transportation and Material Moving
+    "55": "blue_collar",  # Military Specific
 }
 
 
@@ -87,53 +85,173 @@ SOC_COLLAR_MAP: Dict[str, str] = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _BLUE_COLLAR_KEYWORDS = {
-    "driver", "cdl", "trucker", "delivery", "courier", "warehouse", "forklift",
-    "picker", "packer", "stocker", "dock", "loader", "mover", "shipping",
-    "receiving", "material handler", "laborer", "construction", "carpenter",
-    "electrician", "plumber", "hvac", "welder", "machinist", "painter",
-    "roofer", "ironworker", "crane", "heavy equipment", "concrete",
-    "mechanic", "technician", "installer", "maintenance", "janitor",
-    "custodian", "landscaper", "pest control", "factory", "assembly",
-    "production", "machine operator", "line worker", "manufacturing",
-    "cook", "chef", "dishwasher", "server", "bartender", "barista",
-    "housekeeper", "cleaner", "security guard", "farmer", "fisherman",
-    "mining", "oil rig", "deckhand", "marine", "seaman", "boatswain",
-    "rigger", "scaffolder", "bricklayer", "glazier", "tiler",
+    "driver",
+    "cdl",
+    "trucker",
+    "delivery",
+    "courier",
+    "warehouse",
+    "forklift",
+    "picker",
+    "packer",
+    "stocker",
+    "dock",
+    "loader",
+    "mover",
+    "shipping",
+    "receiving",
+    "material handler",
+    "laborer",
+    "construction",
+    "carpenter",
+    "electrician",
+    "plumber",
+    "hvac",
+    "welder",
+    "machinist",
+    "painter",
+    "roofer",
+    "ironworker",
+    "crane",
+    "heavy equipment",
+    "concrete",
+    "mechanic",
+    "technician",
+    "installer",
+    "maintenance",
+    "janitor",
+    "custodian",
+    "landscaper",
+    "pest control",
+    "factory",
+    "assembly",
+    "production",
+    "machine operator",
+    "line worker",
+    "manufacturing",
+    "cook",
+    "chef",
+    "dishwasher",
+    "server",
+    "bartender",
+    "barista",
+    "housekeeper",
+    "cleaner",
+    "security guard",
+    "farmer",
+    "fisherman",
+    "mining",
+    "oil rig",
+    "deckhand",
+    "marine",
+    "seaman",
+    "boatswain",
+    "rigger",
+    "scaffolder",
+    "bricklayer",
+    "glazier",
+    "tiler",
 }
 
 _WHITE_COLLAR_KEYWORDS = {
-    "engineer", "developer", "programmer", "architect", "scientist",
-    "analyst", "manager", "director", "vp", "vice president", "ceo",
-    "cto", "cfo", "coo", "executive", "consultant", "attorney", "lawyer",
-    "counsel", "accountant", "auditor", "controller", "actuary",
-    "underwriter", "professor", "researcher", "physician", "surgeon",
-    "specialist", "psychologist", "pharmacist", "product manager",
-    "project manager", "program manager", "data scientist", "designer",
-    "strategist", "planner", "broker", "trader", "portfolio",
-    "compliance", "regulatory",
+    "engineer",
+    "developer",
+    "programmer",
+    "architect",
+    "scientist",
+    "analyst",
+    "manager",
+    "director",
+    "vp",
+    "vice president",
+    "ceo",
+    "cto",
+    "cfo",
+    "coo",
+    "executive",
+    "consultant",
+    "attorney",
+    "lawyer",
+    "counsel",
+    "accountant",
+    "auditor",
+    "controller",
+    "actuary",
+    "underwriter",
+    "professor",
+    "researcher",
+    "physician",
+    "surgeon",
+    "specialist",
+    "psychologist",
+    "pharmacist",
+    "product manager",
+    "project manager",
+    "program manager",
+    "data scientist",
+    "designer",
+    "strategist",
+    "planner",
+    "broker",
+    "trader",
+    "portfolio",
+    "compliance",
+    "regulatory",
 }
 
 _GREY_COLLAR_KEYWORDS = {
-    "nurse", "rn", "lpn", "cna", "medical assistant", "dental",
-    "phlebotomist", "emt", "paramedic", "therapist", "counselor",
-    "social worker", "respiratory", "radiology", "surgical tech",
-    "pharmacy tech", "lab technician", "medical technologist",
-    "occupational therapist", "physical therapist", "speech pathologist",
-    "dietitian", "optician", "audiologist",
+    "nurse",
+    "rn",
+    "lpn",
+    "cna",
+    "medical assistant",
+    "dental",
+    "phlebotomist",
+    "emt",
+    "paramedic",
+    "therapist",
+    "counselor",
+    "social worker",
+    "respiratory",
+    "radiology",
+    "surgical tech",
+    "pharmacy tech",
+    "lab technician",
+    "medical technologist",
+    "occupational therapist",
+    "physical therapist",
+    "speech pathologist",
+    "dietitian",
+    "optician",
+    "audiologist",
 }
 
 _PINK_COLLAR_KEYWORDS = {
-    "receptionist", "secretary", "administrative", "admin assistant",
-    "office manager", "clerk", "data entry", "bookkeeper",
-    "customer service", "call center", "support specialist",
-    "caregiver", "home health aide", "childcare", "nanny",
-    "teacher aide", "teaching assistant", "library",
+    "receptionist",
+    "secretary",
+    "administrative",
+    "admin assistant",
+    "office manager",
+    "clerk",
+    "data entry",
+    "bookkeeper",
+    "customer service",
+    "call center",
+    "support specialist",
+    "caregiver",
+    "home health aide",
+    "childcare",
+    "nanny",
+    "teacher aide",
+    "teaching assistant",
+    "library",
 }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 3. CLASSIFICATION ENGINE
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def classify_collar(
     role: str,
@@ -178,7 +296,9 @@ def classify_collar(
             pass
 
     if resolved_soc:
-        major_group = resolved_soc.split("-")[0] if "-" in resolved_soc else resolved_soc[:2]
+        major_group = (
+            resolved_soc.split("-")[0] if "-" in resolved_soc else resolved_soc[:2]
+        )
         collar = SOC_COLLAR_MAP.get(major_group)
         if collar:
             indicators.append(f"SOC major group {major_group}")
@@ -194,7 +314,9 @@ def classify_collar(
                 tier_collar = _TIER_TO_COLLAR.get(tier.lower())
                 if tier_collar:
                     sub_type = _get_sub_type(role_lower, tier_collar)
-                    return _build_result(tier_collar, 0.85, "standardizer_tier", sub_type, indicators)
+                    return _build_result(
+                        tier_collar, 0.85, "standardizer_tier", sub_type, indicators
+                    )
         except Exception:
             pass
 
@@ -203,7 +325,9 @@ def classify_collar(
     if collar and kw_confidence >= 0.60:
         indicators.extend([f"keyword: {kw}" for kw in matched_keywords[:3]])
         sub_type = _get_sub_type(role_lower, collar)
-        return _build_result(collar, kw_confidence, "keyword_match", sub_type, indicators)
+        return _build_result(
+            collar, kw_confidence, "keyword_match", sub_type, indicators
+        )
 
     # Method 4: Industry-based fallback
     if industry:
@@ -212,7 +336,9 @@ def classify_collar(
         if ind_collar:
             indicators.append(f"industry default: {industry}")
             sub_type = _get_sub_type(role_lower, ind_collar)
-            return _build_result(ind_collar, 0.45, "industry_fallback", sub_type, indicators)
+            return _build_result(
+                ind_collar, 0.45, "industry_fallback", sub_type, indicators
+            )
 
     # Ultimate fallback
     return _default_result("white_collar", 0.25, "no_match")
@@ -223,7 +349,7 @@ _TIER_TO_COLLAR: Dict[str, str] = {
     "executive": "white_collar",
     "professional": "white_collar",
     "skilled": "blue_collar",  # skilled trades
-    "entry": "blue_collar",    # entry-level hourly
+    "entry": "blue_collar",  # entry-level hourly
     "clinical": "grey_collar",
 }
 
@@ -257,7 +383,10 @@ _INDUSTRY_DEFAULT_COLLAR: Dict[str, str] = {
 def _keyword_classify(role_lower: str) -> Tuple[Optional[str], float, List[str]]:
     """Classify via keyword matching. Returns (collar, confidence, matched_keywords)."""
     matches: Dict[str, List[str]] = {
-        "blue_collar": [], "white_collar": [], "grey_collar": [], "pink_collar": [],
+        "blue_collar": [],
+        "white_collar": [],
+        "grey_collar": [],
+        "pink_collar": [],
     }
 
     for kw in _BLUE_COLLAR_KEYWORDS:
@@ -294,32 +423,61 @@ def _keyword_classify(role_lower: str) -> Tuple[Optional[str], float, List[str]]
 def _get_sub_type(role_lower: str, collar: str) -> str:
     """Determine more specific sub-type within a collar classification."""
     if collar == "blue_collar":
-        if any(kw in role_lower for kw in ("driver", "cdl", "trucker", "delivery", "courier")):
+        if any(
+            kw in role_lower
+            for kw in ("driver", "cdl", "trucker", "delivery", "courier")
+        ):
             return "transportation"
-        if any(kw in role_lower for kw in ("warehouse", "forklift", "picker", "dock", "shipping")):
+        if any(
+            kw in role_lower
+            for kw in ("warehouse", "forklift", "picker", "dock", "shipping")
+        ):
             return "warehouse_logistics"
-        if any(kw in role_lower for kw in ("construction", "carpenter", "electrician", "plumber", "welder")):
+        if any(
+            kw in role_lower
+            for kw in ("construction", "carpenter", "electrician", "plumber", "welder")
+        ):
             return "skilled_trades"
-        if any(kw in role_lower for kw in ("factory", "assembly", "production", "machine", "manufacturing")):
+        if any(
+            kw in role_lower
+            for kw in ("factory", "assembly", "production", "machine", "manufacturing")
+        ):
             return "manufacturing"
-        if any(kw in role_lower for kw in ("cook", "chef", "server", "bartender", "barista")):
+        if any(
+            kw in role_lower
+            for kw in ("cook", "chef", "server", "bartender", "barista")
+        ):
             return "food_service"
         if any(kw in role_lower for kw in ("security", "guard", "loss prevention")):
             return "protective_service"
-        if any(kw in role_lower for kw in ("mechanic", "technician", "installer", "maintenance")):
+        if any(
+            kw in role_lower
+            for kw in ("mechanic", "technician", "installer", "maintenance")
+        ):
             return "maintenance_repair"
         return "general_labor"
 
     if collar == "white_collar":
-        if any(kw in role_lower for kw in ("engineer", "developer", "programmer", "architect", "devops")):
+        if any(
+            kw in role_lower
+            for kw in ("engineer", "developer", "programmer", "architect", "devops")
+        ):
             return "technology"
-        if any(kw in role_lower for kw in ("executive", "ceo", "cto", "cfo", "vp", "director")):
+        if any(
+            kw in role_lower
+            for kw in ("executive", "ceo", "cto", "cfo", "vp", "director")
+        ):
             return "executive"
         if any(kw in role_lower for kw in ("analyst", "consultant", "strategist")):
             return "business_professional"
-        if any(kw in role_lower for kw in ("attorney", "lawyer", "counsel", "paralegal")):
+        if any(
+            kw in role_lower for kw in ("attorney", "lawyer", "counsel", "paralegal")
+        ):
             return "legal"
-        if any(kw in role_lower for kw in ("accountant", "auditor", "controller", "actuary")):
+        if any(
+            kw in role_lower
+            for kw in ("accountant", "auditor", "controller", "actuary")
+        ):
             return "finance"
         if any(kw in role_lower for kw in ("manager", "project", "product", "program")):
             return "management"
@@ -337,11 +495,18 @@ def _get_sub_type(role_lower: str, collar: str) -> str:
         return "clinical_support"
 
     if collar == "pink_collar":
-        if any(kw in role_lower for kw in ("receptionist", "secretary", "admin", "clerk")):
+        if any(
+            kw in role_lower for kw in ("receptionist", "secretary", "admin", "clerk")
+        ):
             return "administrative"
-        if any(kw in role_lower for kw in ("customer service", "call center", "support")):
+        if any(
+            kw in role_lower for kw in ("customer service", "call center", "support")
+        ):
             return "customer_service"
-        if any(kw in role_lower for kw in ("caregiver", "home health", "childcare", "nanny")):
+        if any(
+            kw in role_lower
+            for kw in ("caregiver", "home health", "childcare", "nanny")
+        ):
             return "care_service"
         return "general_service"
 
@@ -349,8 +514,11 @@ def _get_sub_type(role_lower: str, collar: str) -> str:
 
 
 def _build_result(
-    collar: str, confidence: float, method: str,
-    sub_type: str, indicators: List[str],
+    collar: str,
+    confidence: float,
+    method: str,
+    sub_type: str,
+    indicators: List[str],
 ) -> Dict[str, Any]:
     """Build a standardized classification result."""
     strategy = _COLLAR_TO_STRATEGY.get(collar, "targeted")
@@ -369,10 +537,10 @@ def _default_result(collar: str, confidence: float, method: str) -> Dict[str, An
 
 
 _COLLAR_TO_STRATEGY: Dict[str, str] = {
-    "blue_collar": "volume",    # High volume, low cost, mobile-first
-    "white_collar": "targeted", # Targeted, professional platforms, quality over quantity
+    "blue_collar": "volume",  # High volume, low cost, mobile-first
+    "white_collar": "targeted",  # Targeted, professional platforms, quality over quantity
     "grey_collar": "targeted",  # Niche boards, clinical networks
-    "pink_collar": "volume",    # Volume-oriented but different channels than blue collar
+    "pink_collar": "volume",  # Volume-oriented but different channels than blue collar
 }
 
 
@@ -388,16 +556,35 @@ COLLAR_STRATEGY: Dict[str, Dict[str, Any]] = {
             "social_media": 0.20,
             "regional_local": 0.15,
         },
-        "preferred_platforms": ["Indeed", "Facebook", "ZipRecruiter", "Google Search Ads", "Snagajob", "Craigslist", "Talroo", "Jobcase"],
+        "preferred_platforms": [
+            "Indeed",
+            "Facebook",
+            "ZipRecruiter",
+            "Google Search Ads",
+            "Snagajob",
+            "Craigslist",
+            "Talroo",
+            "Jobcase",
+        ],
         "messaging_tone": "Direct, benefits-focused, mobile-first. Lead with pay rate, schedule, and location.",
-        "ad_format_priority": ["mobile_display", "social_feed", "sms", "push_notification"],
+        "ad_format_priority": [
+            "mobile_display",
+            "social_feed",
+            "sms",
+            "push_notification",
+        ],
         "application_complexity": "Minimal: name, phone, 1-click apply. No resume required.",
         "time_to_fill_benchmark_days": 14,
         "avg_cpa_range": [8, 25],
         "avg_cpc_range": [0.25, 1.20],
         "avg_cph_range": [2500, 5500],
         "peak_job_seeking_hours": ["6-8 AM", "5-9 PM", "Weekends"],
-        "top_retention_factors": ["pay", "schedule_flexibility", "proximity", "benefits"],
+        "top_retention_factors": [
+            "pay",
+            "schedule_flexibility",
+            "proximity",
+            "benefits",
+        ],
         "mobile_apply_pct": 0.78,
         "avg_apply_rate": 0.065,
         "key_insight": "Blue collar candidates search on mobile (78%), prefer short applications (<2 min), and prioritize pay transparency. Programmatic and Indeed dominate.",
@@ -411,16 +598,34 @@ COLLAR_STRATEGY: Dict[str, Dict[str, Any]] = {
             "social_media": 0.10,
             "search": 0.05,
         },
-        "preferred_platforms": ["LinkedIn", "Indeed", "Glassdoor", "Dice", "BuiltIn", "AngelList"],
+        "preferred_platforms": [
+            "LinkedIn",
+            "Indeed",
+            "Glassdoor",
+            "Dice",
+            "BuiltIn",
+            "AngelList",
+        ],
         "messaging_tone": "Career-growth focused. Highlight culture, remote/hybrid options, DEI, and total compensation.",
-        "ad_format_priority": ["linkedin_inmail", "search_ads", "display_retargeting", "email_campaigns"],
+        "ad_format_priority": [
+            "linkedin_inmail",
+            "search_ads",
+            "display_retargeting",
+            "email_campaigns",
+        ],
         "application_complexity": "Standard: resume upload, optional cover letter. 5-10 min process acceptable.",
         "time_to_fill_benchmark_days": 38,
         "avg_cpa_range": [20, 75],
         "avg_cpc_range": [1.50, 5.00],
         "avg_cph_range": [6000, 22000],
         "peak_job_seeking_hours": ["7-9 AM", "12-1 PM", "8-10 PM"],
-        "top_retention_factors": ["career_growth", "compensation", "remote_flexibility", "culture", "learning"],
+        "top_retention_factors": [
+            "career_growth",
+            "compensation",
+            "remote_flexibility",
+            "culture",
+            "learning",
+        ],
         "mobile_apply_pct": 0.45,
         "avg_apply_rate": 0.042,
         "key_insight": "White collar candidates research companies extensively (Glassdoor, LinkedIn). Employer brand matters more than CPC. LinkedIn InMail has 3x response rate vs job board applications.",
@@ -433,16 +638,33 @@ COLLAR_STRATEGY: Dict[str, Dict[str, Any]] = {
             "social_media": 0.15,
             "regional_local": 0.05,
         },
-        "preferred_platforms": ["Indeed", "Vivian Health", "NurseFly", "Health eCareers", "LinkedIn"],
+        "preferred_platforms": [
+            "Indeed",
+            "Vivian Health",
+            "NurseFly",
+            "Health eCareers",
+            "LinkedIn",
+        ],
         "messaging_tone": "Credential-aware. Highlight licensure support, shift flexibility, sign-on bonuses, and continuing education.",
-        "ad_format_priority": ["niche_job_boards", "social_feed", "search_ads", "email"],
+        "ad_format_priority": [
+            "niche_job_boards",
+            "social_feed",
+            "search_ads",
+            "email",
+        ],
         "application_complexity": "Credential-focused: license verification, certifications required. 5-15 min process.",
         "time_to_fill_benchmark_days": 28,
         "avg_cpa_range": [15, 50],
         "avg_cpc_range": [0.80, 3.00],
         "avg_cph_range": [5000, 15000],
         "peak_job_seeking_hours": ["6-8 AM", "7-10 PM", "Weekends"],
-        "top_retention_factors": ["schedule_flexibility", "pay", "sign_on_bonus", "patient_ratio", "burnout_support"],
+        "top_retention_factors": [
+            "schedule_flexibility",
+            "pay",
+            "sign_on_bonus",
+            "patient_ratio",
+            "burnout_support",
+        ],
         "mobile_apply_pct": 0.62,
         "avg_apply_rate": 0.048,
         "key_insight": "Grey collar (nurses, therapists, techs) are in critical shortage. Sign-on bonuses ($5K-$20K) are standard. Niche boards (Vivian, NurseFly) convert 2x better than general boards.",
@@ -454,7 +676,13 @@ COLLAR_STRATEGY: Dict[str, Dict[str, Any]] = {
             "social_media": 0.25,
             "regional_local": 0.15,
         },
-        "preferred_platforms": ["Indeed", "Facebook", "Snagajob", "Care.com", "LinkedIn"],
+        "preferred_platforms": [
+            "Indeed",
+            "Facebook",
+            "Snagajob",
+            "Care.com",
+            "LinkedIn",
+        ],
         "messaging_tone": "People-focused. Highlight work environment, team culture, growth opportunities, and benefits.",
         "ad_format_priority": ["social_feed", "mobile_display", "search_ads", "email"],
         "application_complexity": "Simple: resume optional, quick apply preferred. 3-5 min process.",
@@ -463,7 +691,13 @@ COLLAR_STRATEGY: Dict[str, Dict[str, Any]] = {
         "avg_cpc_range": [0.50, 1.80],
         "avg_cph_range": [3000, 7000],
         "peak_job_seeking_hours": ["7-9 AM", "12-2 PM", "6-9 PM"],
-        "top_retention_factors": ["work_environment", "pay", "benefits", "schedule", "growth"],
+        "top_retention_factors": [
+            "work_environment",
+            "pay",
+            "benefits",
+            "schedule",
+            "growth",
+        ],
         "mobile_apply_pct": 0.68,
         "avg_apply_rate": 0.055,
         "key_insight": "Pink collar roles (admin, customer service, care) respond well to Facebook ads and local targeting. Culture messaging outperforms compensation messaging.",
@@ -500,7 +734,12 @@ COLLAR_HIRING_PATTERNS: Dict[str, Dict[str, Any]] = {
         "pink_collar_pct": 5,
         "primary_collar": "white_collar",
         "blue_collar_roles": ["warehouse tech", "cable installer", "field tech"],
-        "white_collar_roles": ["software engineer", "data scientist", "product manager", "designer"],
+        "white_collar_roles": [
+            "software engineer",
+            "data scientist",
+            "product manager",
+            "designer",
+        ],
         "grey_collar_roles": ["network technician", "hardware engineer"],
         "pink_collar_roles": ["admin assistant", "office manager"],
         "blue_collar_cpa_range": [12, 28],
@@ -548,7 +787,13 @@ COLLAR_HIRING_PATTERNS: Dict[str, Dict[str, Any]] = {
         "grey_collar_pct": 0,
         "pink_collar_pct": 5,
         "primary_collar": "blue_collar",
-        "blue_collar_roles": ["electrician", "plumber", "welder", "carpenter", "HVAC tech"],
+        "blue_collar_roles": [
+            "electrician",
+            "plumber",
+            "welder",
+            "carpenter",
+            "HVAC tech",
+        ],
         "white_collar_roles": ["project manager", "estimator", "safety officer"],
         "pink_collar_roles": ["admin assistant", "dispatcher"],
         "blue_collar_cpa_range": [12, 35],
@@ -562,8 +807,17 @@ COLLAR_HIRING_PATTERNS: Dict[str, Dict[str, Any]] = {
         "grey_collar_pct": 0,
         "pink_collar_pct": 15,
         "primary_collar": "blue_collar",
-        "blue_collar_roles": ["truck driver", "warehouse worker", "forklift operator", "dock worker"],
-        "white_collar_roles": ["logistics manager", "supply chain analyst", "operations director"],
+        "blue_collar_roles": [
+            "truck driver",
+            "warehouse worker",
+            "forklift operator",
+            "dock worker",
+        ],
+        "white_collar_roles": [
+            "logistics manager",
+            "supply chain analyst",
+            "operations director",
+        ],
         "pink_collar_roles": ["dispatcher", "customer service", "data entry"],
         "blue_collar_cpa_range": [10, 28],
         "white_collar_cpa_range": [25, 52],
@@ -578,7 +832,13 @@ COLLAR_HIRING_PATTERNS: Dict[str, Dict[str, Any]] = {
         "grey_collar_pct": 0,
         "pink_collar_pct": 25,
         "primary_collar": "blue_collar",
-        "blue_collar_roles": ["cook", "server", "bartender", "housekeeper", "dishwasher"],
+        "blue_collar_roles": [
+            "cook",
+            "server",
+            "bartender",
+            "housekeeper",
+            "dishwasher",
+        ],
         "white_collar_roles": ["hotel manager", "revenue manager", "marketing"],
         "pink_collar_roles": ["front desk", "concierge", "reservations agent"],
         "blue_collar_cpa_range": [6, 20],
@@ -594,7 +854,11 @@ COLLAR_HIRING_PATTERNS: Dict[str, Dict[str, Any]] = {
         "grey_collar_pct": 0,
         "pink_collar_pct": 10,
         "primary_collar": "blue_collar",
-        "blue_collar_roles": ["construction laborer", "heavy equipment operator", "scaffold erector"],
+        "blue_collar_roles": [
+            "construction laborer",
+            "heavy equipment operator",
+            "scaffold erector",
+        ],
         "white_collar_roles": ["architect", "civil engineer", "project manager"],
         "pink_collar_roles": ["admin", "coordinator", "permitting clerk"],
         "blue_collar_cpa_range": [12, 30],
@@ -609,8 +873,16 @@ COLLAR_HIRING_PATTERNS: Dict[str, Dict[str, Any]] = {
         "pink_collar_pct": 5,
         "primary_collar": "white_collar",
         "blue_collar_roles": ["lab assistant", "packaging operator", "warehouse"],
-        "white_collar_roles": ["research scientist", "clinical researcher", "regulatory affairs"],
-        "grey_collar_roles": ["lab technician", "quality control analyst", "pharmacy tech"],
+        "white_collar_roles": [
+            "research scientist",
+            "clinical researcher",
+            "regulatory affairs",
+        ],
+        "grey_collar_roles": [
+            "lab technician",
+            "quality control analyst",
+            "pharmacy tech",
+        ],
         "blue_collar_cpa_range": [12, 28],
         "white_collar_cpa_range": [40, 110],
         "grey_collar_cpa_range": [22, 55],
@@ -624,8 +896,17 @@ COLLAR_HIRING_PATTERNS: Dict[str, Dict[str, Any]] = {
         "grey_collar_pct": 5,
         "pink_collar_pct": 5,
         "primary_collar": "white_collar",
-        "blue_collar_roles": ["machinist", "assembly technician", "welder", "sheet metal worker"],
-        "white_collar_roles": ["aerospace engineer", "systems engineer", "program manager"],
+        "blue_collar_roles": [
+            "machinist",
+            "assembly technician",
+            "welder",
+            "sheet metal worker",
+        ],
+        "white_collar_roles": [
+            "aerospace engineer",
+            "systems engineer",
+            "program manager",
+        ],
         "grey_collar_roles": ["avionics technician", "quality inspector"],
         "blue_collar_cpa_range": [15, 35],
         "white_collar_cpa_range": [35, 80],
@@ -638,7 +919,12 @@ COLLAR_HIRING_PATTERNS: Dict[str, Dict[str, Any]] = {
         "grey_collar_pct": 10,
         "pink_collar_pct": 5,
         "primary_collar": "blue_collar",
-        "blue_collar_roles": ["lineman", "pipeline worker", "plant operator", "field tech"],
+        "blue_collar_roles": [
+            "lineman",
+            "pipeline worker",
+            "plant operator",
+            "field tech",
+        ],
         "white_collar_roles": ["petroleum engineer", "geologist", "project manager"],
         "grey_collar_roles": ["environmental technician", "safety specialist"],
         "blue_collar_cpa_range": [14, 32],
@@ -668,7 +954,13 @@ COLLAR_HIRING_PATTERNS: Dict[str, Dict[str, Any]] = {
         "grey_collar_pct": 0,
         "pink_collar_pct": 15,
         "primary_collar": "blue_collar",
-        "blue_collar_roles": ["cook", "line cook", "dishwasher", "baker", "food production"],
+        "blue_collar_roles": [
+            "cook",
+            "line cook",
+            "dishwasher",
+            "baker",
+            "food production",
+        ],
         "white_collar_roles": ["restaurant manager", "brand manager", "food scientist"],
         "pink_collar_roles": ["cashier", "host", "barista"],
         "blue_collar_cpa_range": [5, 18],
@@ -683,7 +975,11 @@ COLLAR_HIRING_PATTERNS: Dict[str, Dict[str, Any]] = {
         "pink_collar_pct": 5,
         "primary_collar": "blue_collar",
         "blue_collar_roles": ["assembly worker", "auto mechanic", "painter", "welder"],
-        "white_collar_roles": ["automotive engineer", "design engineer", "plant manager"],
+        "white_collar_roles": [
+            "automotive engineer",
+            "design engineer",
+            "plant manager",
+        ],
         "grey_collar_roles": ["quality inspector", "diagnostic technician"],
         "blue_collar_cpa_range": [10, 25],
         "white_collar_cpa_range": [25, 55],
@@ -696,7 +992,12 @@ COLLAR_HIRING_PATTERNS: Dict[str, Dict[str, Any]] = {
         "grey_collar_pct": 5,
         "pink_collar_pct": 5,
         "primary_collar": "blue_collar",
-        "blue_collar_roles": ["deckhand", "marine diesel mechanic", "rigger", "crane operator"],
+        "blue_collar_roles": [
+            "deckhand",
+            "marine diesel mechanic",
+            "rigger",
+            "crane operator",
+        ],
         "white_collar_roles": ["marine engineer", "naval architect", "port manager"],
         "grey_collar_roles": ["marine surveyor", "safety officer"],
         "blue_collar_cpa_range": [15, 35],
@@ -725,6 +1026,7 @@ COLLAR_HIRING_PATTERNS: Dict[str, Dict[str, Any]] = {
 # 6. BLENDED ALLOCATION ENGINE
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def get_blended_allocation(
     roles: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
@@ -746,8 +1048,12 @@ def get_blended_allocation(
     if not roles:
         # Default to mixed
         return {
-            "collar_breakdown": {"blue_collar": 0.25, "white_collar": 0.25,
-                                 "grey_collar": 0.25, "pink_collar": 0.25},
+            "collar_breakdown": {
+                "blue_collar": 0.25,
+                "white_collar": 0.25,
+                "grey_collar": 0.25,
+                "pink_collar": 0.25,
+            },
             "blended_channel_mix": COLLAR_STRATEGY["white_collar"]["channel_mix"],
             "primary_collar": "white_collar",
             "strategy_summary": "Balanced strategy (no role data provided).",
@@ -757,31 +1063,40 @@ def get_blended_allocation(
     # Classify each role and weight by count
     classified = []
     collar_counts: Dict[str, int] = {
-        "blue_collar": 0, "white_collar": 0, "grey_collar": 0, "pink_collar": 0,
+        "blue_collar": 0,
+        "white_collar": 0,
+        "grey_collar": 0,
+        "pink_collar": 0,
     }
     total_count = 0
 
     for r in roles:
-        role_name = r.get("role", "")
+        role_name = r.get("role") or ""
         count = max(1, r.get("count", 1))
-        industry = r.get("industry", "")
-        pre_collar = r.get("collar_type", "")
+        industry = r.get("industry") or ""
+        pre_collar = r.get("collar_type") or ""
 
         if pre_collar and pre_collar in collar_counts:
             collar = pre_collar
-            classification = {"collar_type": collar, "confidence": 1.0, "method": "pre_classified"}
+            classification = {
+                "collar_type": collar,
+                "confidence": 1.0,
+                "method": "pre_classified",
+            }
         else:
             classification = classify_collar(role_name, industry)
             collar = classification["collar_type"]
 
         collar_counts[collar] += count
         total_count += count
-        classified.append({
-            "role": role_name,
-            "count": count,
-            "collar_type": collar,
-            "confidence": classification.get("confidence", 0.5),
-        })
+        classified.append(
+            {
+                "role": role_name,
+                "count": count,
+                "collar_type": collar,
+                "confidence": classification.get("confidence", 0.5),
+            }
+        )
 
     # Compute percentages
     collar_pcts: Dict[str, float] = {}
@@ -793,12 +1108,16 @@ def get_blended_allocation(
     for collar, pct in collar_pcts.items():
         if pct > 0 and collar in COLLAR_STRATEGY:
             for channel, alloc in COLLAR_STRATEGY[collar]["channel_mix"].items():
-                blended_channels[channel] = blended_channels.get(channel, 0) + (alloc * pct)
+                blended_channels[channel] = blended_channels.get(channel, 0) + (
+                    alloc * pct
+                )
 
     # Normalize to sum to 1.0
     total_alloc = sum(blended_channels.values())
     if total_alloc > 0:
-        blended_channels = {k: round(v / total_alloc, 3) for k, v in blended_channels.items()}
+        blended_channels = {
+            k: round(v / total_alloc, 3) for k, v in blended_channels.items()
+        }
 
     # Primary collar
     primary = max(collar_pcts, key=collar_pcts.get) if collar_pcts else "white_collar"
@@ -806,9 +1125,13 @@ def get_blended_allocation(
 
     # Strategy summary
     if primary_pct >= 0.80:
-        summary = f"Strongly {primary.replace('_', ' ')} focused ({primary_pct:.0%}). {COLLAR_STRATEGY.get(primary, {}).get('key_insight', '')}"
+        summary = f"Strongly {primary.replace('_', ' ')} focused ({primary_pct:.0%}). {COLLAR_STRATEGY.get(primary, {}).get('key_insight') or ''}"
     elif primary_pct >= 0.50:
-        secondary = sorted(collar_pcts, key=collar_pcts.get, reverse=True)[1] if len(collar_pcts) > 1 else primary
+        secondary = (
+            sorted(collar_pcts, key=collar_pcts.get, reverse=True)[1]
+            if len(collar_pcts) > 1
+            else primary
+        )
         summary = f"Primarily {primary.replace('_', ' ')} ({primary_pct:.0%}) with significant {secondary.replace('_', ' ')} ({collar_pcts.get(secondary, 0):.0%}) component. Blended strategy recommended."
     else:
         summary = "Diverse collar mix. Blended multi-channel strategy required for optimal reach across all segments."
@@ -822,7 +1145,9 @@ def get_blended_allocation(
     }
 
 
-def get_collar_comparison(collar_a: str = "blue_collar", collar_b: str = "white_collar") -> Dict[str, Any]:
+def get_collar_comparison(
+    collar_a: str = "blue_collar", collar_b: str = "white_collar"
+) -> Dict[str, Any]:
     """Return a side-by-side comparison of two collar types.
 
     Useful for the PPT "Collar Strategy" slide and Nova chat comparisons.
@@ -837,13 +1162,28 @@ def get_collar_comparison(collar_a: str = "blue_collar", collar_b: str = "white_
             "cpc_range": {collar_a: a["avg_cpc_range"], collar_b: b["avg_cpc_range"]},
             "cpa_range": {collar_a: a["avg_cpa_range"], collar_b: b["avg_cpa_range"]},
             "cph_range": {collar_a: a["avg_cph_range"], collar_b: b["avg_cph_range"]},
-            "time_to_fill": {collar_a: a["time_to_fill_benchmark_days"], collar_b: b["time_to_fill_benchmark_days"]},
-            "apply_rate": {collar_a: a["avg_apply_rate"], collar_b: b["avg_apply_rate"]},
-            "mobile_pct": {collar_a: a["mobile_apply_pct"], collar_b: b["mobile_apply_pct"]},
-            "top_platforms": {collar_a: a["preferred_platforms"][:4], collar_b: b["preferred_platforms"][:4]},
+            "time_to_fill": {
+                collar_a: a["time_to_fill_benchmark_days"],
+                collar_b: b["time_to_fill_benchmark_days"],
+            },
+            "apply_rate": {
+                collar_a: a["avg_apply_rate"],
+                collar_b: b["avg_apply_rate"],
+            },
+            "mobile_pct": {
+                collar_a: a["mobile_apply_pct"],
+                collar_b: b["mobile_apply_pct"],
+            },
+            "top_platforms": {
+                collar_a: a["preferred_platforms"][:4],
+                collar_b: b["preferred_platforms"][:4],
+            },
             "channel_mix": {collar_a: a["channel_mix"], collar_b: b["channel_mix"]},
             "messaging": {collar_a: a["messaging_tone"], collar_b: b["messaging_tone"]},
-            "retention": {collar_a: a["top_retention_factors"], collar_b: b["top_retention_factors"]},
+            "retention": {
+                collar_a: a["top_retention_factors"],
+                collar_b: b["top_retention_factors"],
+            },
         },
         "key_differences": [
             f"CPC: {collar_a.replace('_',' ')} is {round(a['avg_cpc_range'][1]/b['avg_cpc_range'][1]*100 - 100)}% {'cheaper' if a['avg_cpc_range'][1] < b['avg_cpc_range'][1] else 'more expensive'} than {collar_b.replace('_',' ')}",
@@ -913,116 +1253,264 @@ INDUSTRY_SENIORITY_ADJUSTMENTS: Dict[str, Dict[str, float]] = {
 # ── Keyword -> role family mapping for fuzzy matching ──
 _ROLE_FAMILY_KEYWORDS: Dict[str, List[str]] = {
     "software_engineer": [
-        "software", "developer", "programmer", "frontend", "backend",
-        "fullstack", "full-stack", "full stack", "devops", "sre",
-        "site reliability", "web developer", "mobile developer",
-        "ios developer", "android developer",
+        "software",
+        "developer",
+        "programmer",
+        "frontend",
+        "backend",
+        "fullstack",
+        "full-stack",
+        "full stack",
+        "devops",
+        "sre",
+        "site reliability",
+        "web developer",
+        "mobile developer",
+        "ios developer",
+        "android developer",
     ],
     "data_scientist": [
-        "data scientist", "machine learning", "ml engineer",
-        "ai engineer", "deep learning", "nlp engineer",
-        "data engineer", "data analyst",
+        "data scientist",
+        "machine learning",
+        "ml engineer",
+        "ai engineer",
+        "deep learning",
+        "nlp engineer",
+        "data engineer",
+        "data analyst",
     ],
     "product_manager": [
-        "product manager", "product owner", "program manager",
-        "project manager", "scrum master", "agile coach",
+        "product manager",
+        "product owner",
+        "program manager",
+        "project manager",
+        "scrum master",
+        "agile coach",
     ],
     "designer": [
-        "designer", "ux", "ui", "graphic design", "visual design",
-        "interaction design", "creative director",
+        "designer",
+        "ux",
+        "ui",
+        "graphic design",
+        "visual design",
+        "interaction design",
+        "creative director",
     ],
     "nurse": [
-        "nurse", "rn ", " rn", "lpn", "cna", "registered nurse",
-        "licensed practical nurse", "nursing",
+        "nurse",
+        "rn ",
+        " rn",
+        "lpn",
+        "cna",
+        "registered nurse",
+        "licensed practical nurse",
+        "nursing",
     ],
     "physician": [
-        "physician", "doctor", "surgeon", "md ", " md",
-        "medical director", "attending", "resident physician",
+        "physician",
+        "doctor",
+        "surgeon",
+        "md ",
+        " md",
+        "medical director",
+        "attending",
+        "resident physician",
         "hospitalist",
     ],
     "pharmacist": [
-        "pharmacist", "pharmacy manager", "clinical pharmacist",
+        "pharmacist",
+        "pharmacy manager",
+        "clinical pharmacist",
         "pharmacy director",
     ],
     "therapist": [
-        "therapist", "counselor", "psychologist", "social worker",
-        "behavioral health", "mental health", "occupational therapist",
-        "physical therapist", "speech pathologist", "speech therapist",
+        "therapist",
+        "counselor",
+        "psychologist",
+        "social worker",
+        "behavioral health",
+        "mental health",
+        "occupational therapist",
+        "physical therapist",
+        "speech pathologist",
+        "speech therapist",
     ],
     "warehouse_worker": [
-        "warehouse", "picker", "packer", "forklift", "dock worker",
-        "shipping clerk", "receiving clerk", "material handler",
-        "stocker", "loader",
+        "warehouse",
+        "picker",
+        "packer",
+        "forklift",
+        "dock worker",
+        "shipping clerk",
+        "receiving clerk",
+        "material handler",
+        "stocker",
+        "loader",
     ],
     "driver": [
-        "driver", "cdl", "trucker", "truck driver", "delivery",
-        "courier", "chauffeur", "bus driver", "transit operator",
+        "driver",
+        "cdl",
+        "trucker",
+        "truck driver",
+        "delivery",
+        "courier",
+        "chauffeur",
+        "bus driver",
+        "transit operator",
     ],
     "construction_worker": [
-        "construction", "laborer", "concrete", "roofer", "ironworker",
-        "scaffolder", "bricklayer", "glazier", "tiler", "framer",
+        "construction",
+        "laborer",
+        "concrete",
+        "roofer",
+        "ironworker",
+        "scaffolder",
+        "bricklayer",
+        "glazier",
+        "tiler",
+        "framer",
         "heavy equipment operator",
     ],
     "electrician": [
-        "electrician", "electrical apprentice", "journeyman electrician",
-        "master electrician", "electrical technician",
+        "electrician",
+        "electrical apprentice",
+        "journeyman electrician",
+        "master electrician",
+        "electrical technician",
     ],
     "plumber": [
-        "plumber", "pipefitter", "steamfitter", "plumbing",
+        "plumber",
+        "pipefitter",
+        "steamfitter",
+        "plumbing",
         "journeyman plumber",
     ],
     "mechanic": [
-        "mechanic", "auto mechanic", "diesel mechanic",
-        "aircraft mechanic", "maintenance technician",
-        "hvac", "hvac technician",
+        "mechanic",
+        "auto mechanic",
+        "diesel mechanic",
+        "aircraft mechanic",
+        "maintenance technician",
+        "hvac",
+        "hvac technician",
     ],
     "retail_associate": [
-        "retail associate", "store associate", "sales associate",
-        "retail clerk", "store clerk", "merchandise",
+        "retail associate",
+        "store associate",
+        "sales associate",
+        "retail clerk",
+        "store clerk",
+        "merchandise",
     ],
     "cashier": [
-        "cashier", "checkout", "point of sale", "pos clerk",
+        "cashier",
+        "checkout",
+        "point of sale",
+        "pos clerk",
     ],
     "restaurant_worker": [
-        "cook", "chef", "line cook", "sous chef", "dishwasher",
-        "server", "waiter", "waitress", "bartender", "barista",
-        "food prep", "kitchen",
+        "cook",
+        "chef",
+        "line cook",
+        "sous chef",
+        "dishwasher",
+        "server",
+        "waiter",
+        "waitress",
+        "bartender",
+        "barista",
+        "food prep",
+        "kitchen",
     ],
     "hotel_staff": [
-        "hotel", "front desk", "concierge", "housekeeper",
-        "housekeeping", "bellhop", "valet", "reservations agent",
+        "hotel",
+        "front desk",
+        "concierge",
+        "housekeeper",
+        "housekeeping",
+        "bellhop",
+        "valet",
+        "reservations agent",
     ],
     "teacher": [
-        "teacher", "instructor", "professor", "educator",
-        "tutor", "teaching", "faculty",
+        "teacher",
+        "instructor",
+        "professor",
+        "educator",
+        "tutor",
+        "teaching",
+        "faculty",
     ],
     "accountant": [
-        "accountant", "auditor", "bookkeeper", "controller",
-        "cpa ", " cpa", "tax preparer", "tax analyst",
+        "accountant",
+        "auditor",
+        "bookkeeper",
+        "controller",
+        "cpa ",
+        " cpa",
+        "tax preparer",
+        "tax analyst",
     ],
     "analyst": [
-        "analyst", "business analyst", "financial analyst",
-        "operations analyst", "research analyst", "intelligence analyst",
+        "analyst",
+        "business analyst",
+        "financial analyst",
+        "operations analyst",
+        "research analyst",
+        "intelligence analyst",
     ],
     "sales_rep": [
-        "sales rep", "sales representative", "account executive",
-        "business development", "bdr", "sdr", "account manager",
-        "territory manager", "sales associate",
+        "sales rep",
+        "sales representative",
+        "account executive",
+        "business development",
+        "bdr",
+        "sdr",
+        "account manager",
+        "territory manager",
+        "sales associate",
     ],
     "marketing_specialist": [
-        "marketing", "content writer", "seo", "sem", "social media",
-        "brand manager", "communications", "public relations",
-        "copywriter", "digital marketing",
+        "marketing",
+        "content writer",
+        "seo",
+        "sem",
+        "social media",
+        "brand manager",
+        "communications",
+        "public relations",
+        "copywriter",
+        "digital marketing",
     ],
     "hr_specialist": [
-        "hr ", " hr", "human resources", "recruiter", "talent acquisition",
-        "people operations", "compensation", "benefits analyst",
-        "hrbp", "hr generalist",
+        "hr ",
+        " hr",
+        "human resources",
+        "recruiter",
+        "talent acquisition",
+        "people operations",
+        "compensation",
+        "benefits analyst",
+        "hrbp",
+        "hr generalist",
     ],
     "executive": [
-        "executive", "ceo", "cto", "cfo", "coo", "cmo", "cio",
-        "chief", "president", "vice president", "vp ", " vp",
-        "svp", "evp", "managing director", "partner",
+        "executive",
+        "ceo",
+        "cto",
+        "cfo",
+        "coo",
+        "cmo",
+        "cio",
+        "chief",
+        "president",
+        "vice president",
+        "vp ",
+        " vp",
+        "svp",
+        "evp",
+        "managing director",
+        "partner",
     ],
 }
 
@@ -1070,7 +1558,9 @@ def _match_role_family(role: str) -> str:
 
         logger.debug(
             "Matched role '%s' -> family '%s' (matches=%d)",
-            role, best_family, best_match_count,
+            role,
+            best_family,
+            best_match_count,
         )
         return best_family
 
@@ -1118,12 +1608,18 @@ def decompose_role(
         family = _match_role_family(role)
 
         # Step 2: Get base seniority splits
-        base_splits = ROLE_SENIORITY_SPLITS.get(family, ROLE_SENIORITY_SPLITS["analyst"])
+        base_splits = ROLE_SENIORITY_SPLITS.get(
+            family, ROLE_SENIORITY_SPLITS["analyst"]
+        )
         # Work on a mutable copy
         splits: Dict[str, float] = dict(base_splits)
 
         # Step 3: Apply industry adjustments (if applicable)
-        ind_key = industry.strip().lower().replace(" ", "_").replace("-", "_") if industry else ""
+        ind_key = (
+            industry.strip().lower().replace(" ", "_").replace("-", "_")
+            if industry
+            else ""
+        )
         if ind_key and ind_key in INDUSTRY_SENIORITY_ADJUSTMENTS:
             adjustments = INDUSTRY_SENIORITY_ADJUSTMENTS[ind_key]
             for seniority, factor in adjustments.items():
@@ -1143,7 +1639,9 @@ def decompose_role(
 
         # Floor allocation + remainder distribution
         floored: Dict[str, int] = {s: int(rc) for s, rc in raw_counts.items()}
-        remainders: Dict[str, float] = {s: rc - floored[s] for s, rc in raw_counts.items()}
+        remainders: Dict[str, float] = {
+            s: rc - floored[s] for s, rc in raw_counts.items()
+        }
         allocated = sum(floored.values())
         shortfall = count - allocated
 
@@ -1174,40 +1672,55 @@ def decompose_role(
             cpa_mult = SENIORITY_CPA_MULTIPLIERS.get(seniority, 1.0)
             pct = round(sub_count / count, 4) if count > 0 else 0.0
 
-            results.append({
-                "title": title,
-                "count": sub_count,
-                "seniority": seniority,
-                "cpa_multiplier": cpa_mult,
-                "collar_type": collar_type,
-                "pct_of_total": pct,
-            })
+            results.append(
+                {
+                    "title": title,
+                    "count": sub_count,
+                    "seniority": seniority,
+                    "cpa_multiplier": cpa_mult,
+                    "collar_type": collar_type,
+                    "pct_of_total": pct,
+                }
+            )
 
         # Sort by seniority order for consistent output
-        _SENIORITY_ORDER = {"junior": 0, "mid": 1, "senior": 2, "lead": 3, "executive": 4}
+        _SENIORITY_ORDER = {
+            "junior": 0,
+            "mid": 1,
+            "senior": 2,
+            "lead": 3,
+            "executive": 4,
+        }
         results.sort(key=lambda d: _SENIORITY_ORDER.get(d["seniority"], 99))
 
         logger.debug(
             "Decomposed role='%s' count=%d into %d seniority segments (family=%s)",
-            role, count, len(results), family,
+            role,
+            count,
+            len(results),
+            family,
         )
         return results
 
     except Exception:
         logger.exception(
             "Error in decompose_role(role='%s', count=%d, industry='%s')",
-            role, count, industry,
+            role,
+            count,
+            industry,
         )
         # Fallback: return single-item list with the original role
         collar_info = classify_collar(role, industry)
-        return [{
-            "title": role.strip() if role.strip() else "Unknown Role",
-            "count": max(count, 1),
-            "seniority": "mid",
-            "cpa_multiplier": 1.0,
-            "collar_type": collar_info.get("collar_type", "white_collar"),
-            "pct_of_total": 1.0,
-        }]
+        return [
+            {
+                "title": role.strip() if role.strip() else "Unknown Role",
+                "count": max(count, 1),
+                "seniority": "mid",
+                "cpa_multiplier": 1.0,
+                "collar_type": collar_info.get("collar_type", "white_collar"),
+                "pct_of_total": 1.0,
+            }
+        ]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1219,123 +1732,206 @@ def decompose_role(
 # 8a. Top skills per role family (sourced from O*NET knowledge/skill categories)
 ROLE_SKILLS_MAP: Dict[str, List[str]] = {
     "software_engineer": [
-        "Python", "JavaScript", "SQL", "Cloud (AWS/GCP/Azure)",
-        "Git", "Agile/Scrum", "System Design",
+        "Python",
+        "JavaScript",
+        "SQL",
+        "Cloud (AWS/GCP/Azure)",
+        "Git",
+        "Agile/Scrum",
+        "System Design",
     ],
     "data_scientist": [
-        "Python", "Machine Learning", "SQL", "Statistics",
-        "TensorFlow/PyTorch", "Data Visualization",
+        "Python",
+        "Machine Learning",
+        "SQL",
+        "Statistics",
+        "TensorFlow/PyTorch",
+        "Data Visualization",
     ],
     "product_manager": [
-        "Product Strategy", "Agile/Scrum", "Data Analysis",
-        "User Research", "Roadmapping", "Stakeholder Management",
+        "Product Strategy",
+        "Agile/Scrum",
+        "Data Analysis",
+        "User Research",
+        "Roadmapping",
+        "Stakeholder Management",
     ],
     "designer": [
-        "Figma/Sketch", "User Research", "Prototyping",
-        "Visual Design", "Design Systems", "Accessibility",
+        "Figma/Sketch",
+        "User Research",
+        "Prototyping",
+        "Visual Design",
+        "Design Systems",
+        "Accessibility",
     ],
     "nurse": [
-        "Patient Assessment", "Medication Administration",
-        "Electronic Health Records", "BLS/ACLS",
-        "Patient Education", "Clinical Documentation",
+        "Patient Assessment",
+        "Medication Administration",
+        "Electronic Health Records",
+        "BLS/ACLS",
+        "Patient Education",
+        "Clinical Documentation",
     ],
     "physician": [
-        "Clinical Diagnosis", "Patient Assessment",
-        "Electronic Health Records", "Medical Procedures",
-        "Clinical Research", "Board Certification",
+        "Clinical Diagnosis",
+        "Patient Assessment",
+        "Electronic Health Records",
+        "Medical Procedures",
+        "Clinical Research",
+        "Board Certification",
     ],
     "pharmacist": [
-        "Medication Dispensing", "Drug Interaction Analysis",
-        "Patient Counseling", "Pharmacy Management Systems",
-        "Regulatory Compliance", "Compounding",
+        "Medication Dispensing",
+        "Drug Interaction Analysis",
+        "Patient Counseling",
+        "Pharmacy Management Systems",
+        "Regulatory Compliance",
+        "Compounding",
     ],
     "therapist": [
-        "Therapeutic Techniques", "Patient Assessment",
-        "Treatment Planning", "Clinical Documentation",
-        "Crisis Intervention", "Cultural Competency",
+        "Therapeutic Techniques",
+        "Patient Assessment",
+        "Treatment Planning",
+        "Clinical Documentation",
+        "Crisis Intervention",
+        "Cultural Competency",
     ],
     "warehouse_worker": [
-        "Forklift Operation", "Inventory Management",
-        "RF Scanner", "Safety Protocols",
-        "Order Picking", "Physical Stamina",
+        "Forklift Operation",
+        "Inventory Management",
+        "RF Scanner",
+        "Safety Protocols",
+        "Order Picking",
+        "Physical Stamina",
     ],
     "driver": [
-        "CDL License", "DOT Regulations", "Route Navigation",
-        "Vehicle Inspection", "Hours of Service",
+        "CDL License",
+        "DOT Regulations",
+        "Route Navigation",
+        "Vehicle Inspection",
+        "Hours of Service",
         "Defensive Driving",
     ],
     "construction_worker": [
-        "Blueprint Reading", "Power Tools", "Safety Protocols",
-        "Physical Stamina", "OSHA Compliance",
-        "Material Handling", "Concrete Work",
+        "Blueprint Reading",
+        "Power Tools",
+        "Safety Protocols",
+        "Physical Stamina",
+        "OSHA Compliance",
+        "Material Handling",
+        "Concrete Work",
     ],
     "electrician": [
-        "NEC Code Knowledge", "Electrical Troubleshooting",
-        "Blueprint Reading", "Safety Protocols",
-        "Conduit Bending", "PLC Programming",
+        "NEC Code Knowledge",
+        "Electrical Troubleshooting",
+        "Blueprint Reading",
+        "Safety Protocols",
+        "Conduit Bending",
+        "PLC Programming",
     ],
     "plumber": [
-        "Pipe Fitting", "Blueprint Reading", "Plumbing Codes",
-        "Welding", "Safety Protocols", "Drain Cleaning",
+        "Pipe Fitting",
+        "Blueprint Reading",
+        "Plumbing Codes",
+        "Welding",
+        "Safety Protocols",
+        "Drain Cleaning",
     ],
     "mechanic": [
-        "Diagnostic Equipment", "Engine Repair",
-        "Electrical Systems", "Brake Systems",
-        "Preventive Maintenance", "ASE Certification",
+        "Diagnostic Equipment",
+        "Engine Repair",
+        "Electrical Systems",
+        "Brake Systems",
+        "Preventive Maintenance",
+        "ASE Certification",
     ],
     "retail_associate": [
-        "Customer Service", "POS Systems", "Merchandising",
-        "Inventory Management", "Cash Handling",
+        "Customer Service",
+        "POS Systems",
+        "Merchandising",
+        "Inventory Management",
+        "Cash Handling",
         "Product Knowledge",
     ],
     "cashier": [
-        "Cash Handling", "POS Systems", "Customer Service",
-        "Basic Math", "Attention to Detail",
+        "Cash Handling",
+        "POS Systems",
+        "Customer Service",
+        "Basic Math",
+        "Attention to Detail",
     ],
     "restaurant_worker": [
-        "Food Safety (ServSafe)", "Customer Service",
-        "POS Systems", "Time Management",
-        "Team Collaboration", "Physical Stamina",
+        "Food Safety (ServSafe)",
+        "Customer Service",
+        "POS Systems",
+        "Time Management",
+        "Team Collaboration",
+        "Physical Stamina",
     ],
     "hotel_staff": [
-        "Guest Relations", "Reservation Systems",
-        "Customer Service", "Multitasking",
-        "Conflict Resolution", "Attention to Detail",
+        "Guest Relations",
+        "Reservation Systems",
+        "Customer Service",
+        "Multitasking",
+        "Conflict Resolution",
+        "Attention to Detail",
     ],
     "teacher": [
-        "Curriculum Development", "Classroom Management",
-        "Differentiated Instruction", "Assessment Design",
-        "Educational Technology", "Student Engagement",
+        "Curriculum Development",
+        "Classroom Management",
+        "Differentiated Instruction",
+        "Assessment Design",
+        "Educational Technology",
+        "Student Engagement",
     ],
     "accountant": [
-        "GAAP/IFRS", "Tax Preparation", "Financial Reporting",
-        "Excel/Spreadsheets", "Audit Procedures",
+        "GAAP/IFRS",
+        "Tax Preparation",
+        "Financial Reporting",
+        "Excel/Spreadsheets",
+        "Audit Procedures",
         "ERP Systems (SAP/Oracle)",
     ],
     "analyst": [
-        "Data Analysis", "Excel/Spreadsheets", "SQL",
-        "Data Visualization", "Statistical Analysis",
+        "Data Analysis",
+        "Excel/Spreadsheets",
+        "SQL",
+        "Data Visualization",
+        "Statistical Analysis",
         "Presentation Skills",
     ],
     "sales_rep": [
-        "CRM Software", "Prospecting", "Negotiation",
-        "Pipeline Management", "Presentation Skills",
+        "CRM Software",
+        "Prospecting",
+        "Negotiation",
+        "Pipeline Management",
+        "Presentation Skills",
         "Account Management",
     ],
     "marketing_specialist": [
-        "Digital Marketing", "Content Strategy", "SEO/SEM",
-        "Marketing Analytics", "Social Media Management",
+        "Digital Marketing",
+        "Content Strategy",
+        "SEO/SEM",
+        "Marketing Analytics",
+        "Social Media Management",
         "Campaign Management",
     ],
     "hr_specialist": [
-        "Talent Acquisition", "HRIS Systems", "Employment Law",
-        "Compensation Analysis", "Employee Relations",
+        "Talent Acquisition",
+        "HRIS Systems",
+        "Employment Law",
+        "Compensation Analysis",
+        "Employee Relations",
         "Performance Management",
     ],
     "executive": [
-        "Strategic Planning", "Leadership", "P&L Management",
-        "Board Relations", "Organizational Design",
-        "Change Management", "M&A Experience",
+        "Strategic Planning",
+        "Leadership",
+        "P&L Management",
+        "Board Relations",
+        "Organizational Design",
+        "Change Management",
+        "M&A Experience",
     ],
 }
 
@@ -1363,7 +1959,6 @@ SKILL_SCARCITY: Dict[str, float] = {
     "Design Systems": 0.45,
     "Accessibility": 0.50,
     "Educational Technology": 0.35,
-
     # ── Healthcare / clinical skills ──
     "BLS/ACLS": 0.40,
     "Patient Assessment": 0.45,
@@ -1384,7 +1979,6 @@ SKILL_SCARCITY: Dict[str, float] = {
     "Treatment Planning": 0.40,
     "Crisis Intervention": 0.50,
     "Cultural Competency": 0.30,
-
     # ── Blue collar / trades skills ──
     "CDL License": 0.60,
     "Forklift Operation": 0.30,
@@ -1416,7 +2010,6 @@ SKILL_SCARCITY: Dict[str, float] = {
     "Brake Systems": 0.32,
     "Preventive Maintenance": 0.25,
     "ASE Certification": 0.45,
-
     # ── Business / general professional skills ──
     "Data Analysis": 0.30,
     "Excel/Spreadsheets": 0.15,
@@ -1448,7 +2041,6 @@ SKILL_SCARCITY: Dict[str, float] = {
     "Compensation Analysis": 0.42,
     "Employee Relations": 0.30,
     "Performance Management": 0.28,
-
     # ── Leadership / executive skills ──
     "Strategic Planning": 0.45,
     "Leadership": 0.30,
@@ -1459,7 +2051,6 @@ SKILL_SCARCITY: Dict[str, float] = {
     "M&A Experience": 0.72,
     "Project Management": 0.25,
     "Regulatory Compliance": 0.40,
-
     # ── Service industry skills ──
     "Customer Service": 0.12,
     "POS Systems": 0.10,
@@ -1475,7 +2066,6 @@ SKILL_SCARCITY: Dict[str, float] = {
     "Reservation Systems": 0.20,
     "Multitasking": 0.08,
     "Conflict Resolution": 0.25,
-
     # ── Education skills ──
     "Curriculum Development": 0.40,
     "Classroom Management": 0.35,
@@ -1522,7 +2112,9 @@ def analyze_skills_gap(
         family = _match_role_family(role)
 
         # Look up required skills
-        required_skills = ROLE_SKILLS_MAP.get(family, ROLE_SKILLS_MAP.get("analyst", []))
+        required_skills = ROLE_SKILLS_MAP.get(
+            family, ROLE_SKILLS_MAP.get("analyst") or []
+        )
 
         # Partition skills into scarce vs abundant
         scarce_skills: List[Dict[str, Any]] = []
@@ -1588,8 +2180,12 @@ def analyze_skills_gap(
         logger.debug(
             "Skills gap for role='%s' (family=%s): scarcity=%.3f, difficulty=%.3f, "
             "scarce=%d, abundant=%d",
-            role, family, overall_scarcity, hiring_difficulty,
-            len(scarce_skills), len(abundant_skills),
+            role,
+            family,
+            overall_scarcity,
+            hiring_difficulty,
+            len(scarce_skills),
+            len(abundant_skills),
         )
 
         return {
@@ -1605,7 +2201,9 @@ def analyze_skills_gap(
     except Exception:
         logger.exception(
             "Error in analyze_skills_gap(role='%s', location='%s', industry='%s')",
-            role, location, industry,
+            role,
+            location,
+            industry,
         )
         return {
             "role_family": "analyst",

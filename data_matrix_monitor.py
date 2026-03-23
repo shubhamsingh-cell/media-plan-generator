@@ -32,17 +32,22 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-_CHECK_INTERVAL = 12 * 3600   # 12 hours
-_INITIAL_DELAY = 60           # wait 60s after startup before first check
-_MAX_HEAL_LOG = 20            # keep last N heal actions
+_CHECK_INTERVAL = 12 * 3600  # 12 hours
+_INITIAL_DELAY = 60  # wait 60s after startup before first check
+_MAX_HEAL_LOG = 20  # keep last N heal actions
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
 # Env vars to track for config drift detection (hash only, never store values)
 _TRACKED_ENV_VARS = [
-    "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY",
-    "CEREBRAS_API_KEY", "SENTRY_DSN", "POSTHOG_API_KEY",
-    "UPSTASH_REDIS_REST_URL", "SUPABASE_URL",
+    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "GROQ_API_KEY",
+    "CEREBRAS_API_KEY",
+    "SENTRY_DSN",
+    "POSTHOG_API_KEY",
+    "UPSTASH_REDIS_REST_URL",
+    "SUPABASE_URL",
 ]
 
 # Required KB JSON files that all products depend on
@@ -73,48 +78,48 @@ _REQUIRED_KB_FILES = [
 
 EXPECTED_MATRIX: Dict[str, Dict[str, str]] = {
     "excel_ppt": {
-        "json_files":           "YES",
-        "api_enrichment":       "YES",
-        "research":             "YES",
-        "data_synthesizer":     "YES",
-        "budget_engine":        "YES",
-        "standardizer":         "YES",
-        "claude_api":           "NO",
-        "trend_engine":         "YES",
-        "collar_intelligence":  "YES",
+        "json_files": "YES",
+        "api_enrichment": "YES",
+        "research": "YES",
+        "data_synthesizer": "YES",
+        "budget_engine": "YES",
+        "standardizer": "YES",
+        "claude_api": "NO",
+        "trend_engine": "YES",
+        "collar_intelligence": "YES",
     },
     "nova_chat": {
-        "json_files":           "YES",
-        "api_enrichment":       "VIA_ORCHESTRATOR",
-        "research":             "VIA_ORCHESTRATOR",
-        "data_synthesizer":     "NO",
-        "budget_engine":        "VIA_ORCHESTRATOR",
-        "standardizer":         "VIA_ORCHESTRATOR",
-        "claude_api":           "YES",
-        "trend_engine":         "VIA_ORCHESTRATOR",
-        "collar_intelligence":  "VIA_ORCHESTRATOR",
+        "json_files": "YES",
+        "api_enrichment": "VIA_ORCHESTRATOR",
+        "research": "VIA_ORCHESTRATOR",
+        "data_synthesizer": "NO",
+        "budget_engine": "VIA_ORCHESTRATOR",
+        "standardizer": "VIA_ORCHESTRATOR",
+        "claude_api": "YES",
+        "trend_engine": "VIA_ORCHESTRATOR",
+        "collar_intelligence": "VIA_ORCHESTRATOR",
     },
     "slack_bot": {
-        "json_files":           "YES",
-        "api_enrichment":       "VIA_ORCHESTRATOR",
-        "research":             "VIA_ORCHESTRATOR",
-        "data_synthesizer":     "NO",
-        "budget_engine":        "VIA_ORCHESTRATOR",
-        "standardizer":         "VIA_ORCHESTRATOR",
-        "claude_api":           "YES",
-        "trend_engine":         "VIA_ORCHESTRATOR",
-        "collar_intelligence":  "VIA_ORCHESTRATOR",
+        "json_files": "YES",
+        "api_enrichment": "VIA_ORCHESTRATOR",
+        "research": "VIA_ORCHESTRATOR",
+        "data_synthesizer": "NO",
+        "budget_engine": "VIA_ORCHESTRATOR",
+        "standardizer": "VIA_ORCHESTRATOR",
+        "claude_api": "YES",
+        "trend_engine": "VIA_ORCHESTRATOR",
+        "collar_intelligence": "VIA_ORCHESTRATOR",
     },
     "ppt_generator": {
-        "json_files":           "YES",
-        "api_enrichment":       "PARTIAL",
-        "research":             "YES",
-        "data_synthesizer":     "PARTIAL",
-        "budget_engine":        "PARTIAL",
-        "standardizer":         "NO",
-        "claude_api":           "NO",
-        "trend_engine":         "PARTIAL",
-        "collar_intelligence":  "PARTIAL",
+        "json_files": "YES",
+        "api_enrichment": "PARTIAL",
+        "research": "YES",
+        "data_synthesizer": "PARTIAL",
+        "budget_engine": "PARTIAL",
+        "standardizer": "NO",
+        "claude_api": "NO",
+        "trend_engine": "PARTIAL",
+        "collar_intelligence": "PARTIAL",
     },
 }
 
@@ -154,11 +159,11 @@ _TIER2_MODULE_CHECKS: Dict[str, Dict[str, str]] = {
 
 # Map data layers to orchestrator lazy-loader function names and global var names
 _ORCH_LAYER_MAP = {
-    "api_enrichment":      ("_lazy_api", "_api_enrichment"),
-    "research":            ("_lazy_research", "_research"),
-    "budget_engine":       ("_lazy_budget", "_budget_engine"),
-    "standardizer":        ("_lazy_standardizer", "_standardizer"),
-    "trend_engine":        ("_lazy_trend_engine", "_trend_engine"),
+    "api_enrichment": ("_lazy_api", "_api_enrichment"),
+    "research": ("_lazy_research", "_research"),
+    "budget_engine": ("_lazy_budget", "_budget_engine"),
+    "standardizer": ("_lazy_standardizer", "_standardizer"),
+    "trend_engine": ("_lazy_trend_engine", "_trend_engine"),
     "collar_intelligence": ("_lazy_collar_intel", "_collar_intel"),
 }
 
@@ -166,6 +171,7 @@ _ORCH_LAYER_MAP = {
 # ═══════════════════════════════════════════════════════════════════════════════
 # MONITOR CLASS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class DataMatrixMonitor:
     """Probes all 4 products x 9 data layers and tracks health status."""
@@ -194,8 +200,10 @@ class DataMatrixMonitor:
             daemon=True,
         )
         self._thread.start()
-        logger.info("DataMatrixMonitor: background thread started (interval=%ds)",
-                     _CHECK_INTERVAL)
+        logger.info(
+            "DataMatrixMonitor: background thread started (interval=%ds)",
+            _CHECK_INTERVAL,
+        )
 
     def get_status(self) -> Dict[str, Any]:
         """Return the latest matrix check result for the endpoint."""
@@ -203,8 +211,10 @@ class DataMatrixMonitor:
             if self._last_result is None:
                 return {
                     "status": "pending",
-                    "message": ("First check has not completed yet. "
-                                f"Initial check runs {_INITIAL_DELAY}s after startup."),
+                    "message": (
+                        "First check has not completed yet. "
+                        f"Initial check runs {_INITIAL_DELAY}s after startup."
+                    ),
                     "check_interval_hours": _CHECK_INTERVAL / 3600,
                 }
             result = dict(self._last_result)
@@ -224,8 +234,7 @@ class DataMatrixMonitor:
         start = time.time()
         self._json_probe_cache = None  # reset per-check cache
         matrix_results: Dict[str, Dict[str, Any]] = {}
-        counts = {"ok": 0, "error": 0, "partial": 0,
-                  "ok_expected_no": 0, "healed": 0}
+        counts = {"ok": 0, "error": 0, "partial": 0, "ok_expected_no": 0, "healed": 0}
 
         for product, layers in EXPECTED_MATRIX.items():
             product_results: Dict[str, Any] = {}
@@ -237,8 +246,10 @@ class DataMatrixMonitor:
                     cell = "ok_expected_no"
                     counts["ok_expected_no"] += 1
                     product_results[layer] = {
-                        "expected": "NO", "actual": "n/a",
-                        "health": cell, "detail": "Not used by this product",
+                        "expected": "NO",
+                        "actual": "n/a",
+                        "health": cell,
+                        "detail": "Not used by this product",
                     }
                     continue
                 elif expected == "PARTIAL":
@@ -269,7 +280,7 @@ class DataMatrixMonitor:
                     "expected": expected,
                     "actual": probe.get("status", "error"),
                     "health": cell,
-                    "detail": probe.get("detail", ""),
+                    "detail": probe.get("detail") or "",
                 }
             matrix_results[product] = product_results
 
@@ -287,7 +298,9 @@ class DataMatrixMonitor:
                         importlib.reload(sys.modules[spec["module"]])
                     else:
                         importlib.import_module(spec["module"])
-                    reprobe = self._probe_tier2_module(spec["module"], spec.get("check_attr"))
+                    reprobe = self._probe_tier2_module(
+                        spec["module"], spec.get("check_attr")
+                    )
                     if reprobe.get("status") == "ok":
                         counts["healed"] += 1
                         probe = reprobe
@@ -298,8 +311,8 @@ class DataMatrixMonitor:
                     counts["error"] += 1
             tier2_results[mod_key] = {
                 "status": probe.get("status", "error"),
-                "detail": probe.get("detail", ""),
-                "description": spec.get("description", ""),
+                "detail": probe.get("detail") or "",
+                "description": spec.get("description") or "",
             }
 
         # Probe extended v3.1 health indicators
@@ -315,7 +328,12 @@ class DataMatrixMonitor:
 
         elapsed = round(time.time() - start, 3)
         total_cells = sum(counts.values())
-        healthy = counts["ok"] + counts["ok_expected_no"] + counts["partial"] + counts["healed"]
+        healthy = (
+            counts["ok"]
+            + counts["ok_expected_no"]
+            + counts["partial"]
+            + counts["healed"]
+        )
         health_pct = round(healthy / total_cells * 100, 1) if total_cells else 0
 
         result = {
@@ -338,8 +356,12 @@ class DataMatrixMonitor:
 
         logger.info(
             "DataMatrixMonitor: check #%d -- %s (%.1f%% healthy, %d errors, %d healed, %.3fs)",
-            self._check_count, result["status"], health_pct,
-            counts["error"], counts["healed"], elapsed,
+            self._check_count,
+            result["status"],
+            health_pct,
+            counts["error"],
+            counts["healed"],
+            elapsed,
         )
         return result
 
@@ -376,8 +398,9 @@ class DataMatrixMonitor:
             elif layer == "claude_api":
                 return self._probe_claude_api(product)
             elif layer == "data_synthesizer":
-                return self._probe_direct_module(product, "data_synthesizer",
-                                                  check_attr="synthesize")
+                return self._probe_direct_module(
+                    product, "data_synthesizer", check_attr="synthesize"
+                )
             elif layer in _ORCH_LAYER_MAP:
                 return self._probe_data_layer(product, layer)
             return {"status": "error", "detail": f"Unknown layer: {layer}"}
@@ -413,7 +436,7 @@ class DataMatrixMonitor:
         """Check Claude API availability."""
         if product in ("excel_ppt", "ppt_generator"):
             return {"status": "ok_expected_no", "detail": "Not used by this product"}
-        key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        key = os.environ.get("ANTHROPIC_API_KEY") or "".strip()
         if key:
             return {"status": "ok", "detail": "ANTHROPIC_API_KEY is set"}
         return {"status": "error", "detail": "ANTHROPIC_API_KEY not set"}
@@ -432,74 +455,91 @@ class DataMatrixMonitor:
             if layer == "research":
                 return self._check_sys_module("research")
             # PARTIAL for others: PPT receives pre-computed data from app.py
-            return {"status": "partial",
-                    "detail": "Receives pre-computed data from app.py pipeline"}
+            return {
+                "status": "partial",
+                "detail": "Receives pre-computed data from app.py pipeline",
+            }
         return {"status": "error", "detail": f"Unknown product: {product}"}
 
-    def _probe_direct_module(self, product: str, module_name: str,
-                              check_attr: Optional[str] = None) -> Dict[str, Any]:
+    def _probe_direct_module(
+        self, product: str, module_name: str, check_attr: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Probe a module that's directly imported (not via orchestrator)."""
         if product == "excel_ppt":
             return self._check_sys_module(module_name, check_attr)
         elif product in ("nova_chat", "slack_bot"):
-            return {"status": "ok_expected_no",
-                    "detail": "Intentionally excluded (too heavy for real-time chat)"}
+            return {
+                "status": "ok_expected_no",
+                "detail": "Intentionally excluded (too heavy for real-time chat)",
+            }
         elif product == "ppt_generator":
             # PPT receives synthesized data from app.py
-            return {"status": "partial",
-                    "detail": "Receives pre-computed synthesized data from app.py"}
+            return {
+                "status": "partial",
+                "detail": "Receives pre-computed synthesized data from app.py",
+            }
         return {"status": "error", "detail": f"Unknown product: {product}"}
 
     # ── Probe helpers ─────────────────────────────────────────────────────
 
-    def _check_sys_module(self, module_name: str,
-                           check_attr: Optional[str] = None) -> Dict[str, Any]:
+    def _check_sys_module(
+        self, module_name: str, check_attr: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Check if a module is loaded in sys.modules."""
         if module_name not in sys.modules:
-            return {"status": "error",
-                    "detail": f"{module_name} not in sys.modules"}
+            return {"status": "error", "detail": f"{module_name} not in sys.modules"}
         mod = sys.modules[module_name]
         if check_attr and not hasattr(mod, check_attr):
-            return {"status": "error",
-                    "detail": f"{module_name}.{check_attr} missing"}
+            return {"status": "error", "detail": f"{module_name}.{check_attr} missing"}
         return {"status": "ok", "detail": f"{module_name} loaded"}
 
-    def _check_orchestrator_lazy(self, lazy_fn_name: str,
-                                  underlying_module: str) -> Dict[str, Any]:
+    def _check_orchestrator_lazy(
+        self, lazy_fn_name: str, underlying_module: str
+    ) -> Dict[str, Any]:
         """Check if a data_orchestrator lazy-loader returns a valid module."""
         try:
             if "data_orchestrator" not in sys.modules:
-                return {"status": "error",
-                        "detail": "data_orchestrator not loaded"}
+                return {"status": "error", "detail": "data_orchestrator not loaded"}
             do = sys.modules["data_orchestrator"]
             lazy_fn = getattr(do, lazy_fn_name, None)
             if lazy_fn is None:
-                return {"status": "error",
-                        "detail": f"data_orchestrator.{lazy_fn_name} not found"}
+                return {
+                    "status": "error",
+                    "detail": f"data_orchestrator.{lazy_fn_name} not found",
+                }
             result = lazy_fn()
             if result is None:
-                return {"status": "error",
-                        "detail": f"{underlying_module} failed via orchestrator"}
-            return {"status": "ok",
-                    "detail": f"{underlying_module} available via orchestrator"}
+                return {
+                    "status": "error",
+                    "detail": f"{underlying_module} failed via orchestrator",
+                }
+            return {
+                "status": "ok",
+                "detail": f"{underlying_module} available via orchestrator",
+            }
         except Exception as e:
             return {"status": "error", "detail": str(e)}
 
-    def _probe_tier2_module(self, module_name: str,
-                             check_attr: Optional[str] = None) -> Dict[str, Any]:
+    def _probe_tier2_module(
+        self, module_name: str, check_attr: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Probe a Tier 2/3 infrastructure module by importability."""
         try:
             if module_name in sys.modules:
                 mod = sys.modules[module_name]
                 if check_attr and not hasattr(mod, check_attr):
-                    return {"status": "error",
-                            "detail": f"{module_name} loaded but {check_attr} missing"}
+                    return {
+                        "status": "error",
+                        "detail": f"{module_name} loaded but {check_attr} missing",
+                    }
                 return {"status": "ok", "detail": f"{module_name} loaded and healthy"}
             # Try importing
             mod = importlib.import_module(module_name)
             if check_attr and not hasattr(mod, check_attr):
-                return {"status": "error",
-                        "detail": f"{module_name} importable but {check_attr} missing"}
+                return {
+                    "status": "error",
+                    "detail": f"{module_name} importable but {check_attr} missing",
+                }
             return {"status": "ok", "detail": f"{module_name} importable and healthy"}
         except Exception as e:
             return {"status": "error", "detail": f"{module_name} import failed: {e}"}
@@ -514,13 +554,19 @@ class DataMatrixMonitor:
                 lr = sys.modules["llm_router"]
                 status = lr.get_router_status()
                 providers = status.get("providers", {})
-                available = sum(1 for p in providers.values()
-                                if isinstance(p, dict) and p.get("available", False))
+                available = sum(
+                    1
+                    for p in providers.values()
+                    if isinstance(p, dict) and p.get("available", False)
+                )
                 results["llm_providers"] = {
                     "status": "ok" if available > 0 else "error",
                     "detail": f"{available}/{len(providers)} providers available",
-                    "providers": {k: v.get("available", False) for k, v in providers.items()
-                                  if isinstance(v, dict)},
+                    "providers": {
+                        k: v.get("available", False)
+                        for k, v in providers.items()
+                        if isinstance(v, dict)
+                    },
                 }
             else:
                 results["llm_providers"] = {
@@ -528,7 +574,9 @@ class DataMatrixMonitor:
                     "detail": "llm_router not loaded yet",
                 }
         except Exception as e:
-            logger.error("extended_health: llm_providers probe failed: %s", e, exc_info=True)
+            logger.error(
+                "extended_health: llm_providers probe failed: %s", e, exc_info=True
+            )
             results["llm_providers"] = {"status": "error", "detail": str(e)}
 
         # 2. Async job queue depth
@@ -539,7 +587,11 @@ class DataMatrixMonitor:
                 total = len(jobs)
                 by_status = {}
                 for jdata in jobs.values():
-                    s = jdata.get("status", "unknown") if isinstance(jdata, dict) else "unknown"
+                    s = (
+                        jdata.get("status", "unknown")
+                        if isinstance(jdata, dict)
+                        else "unknown"
+                    )
                     by_status[s] = by_status.get(s, 0) + 1
                 results["async_job_queue"] = {
                     "status": "ok" if total < 100 else "error",
@@ -549,10 +601,14 @@ class DataMatrixMonitor:
                 }
             else:
                 results["async_job_queue"] = {
-                    "status": "ok", "detail": "app not loaded (0 jobs)", "total": 0,
+                    "status": "ok",
+                    "detail": "app not loaded (0 jobs)",
+                    "total": 0,
                 }
         except Exception as e:
-            logger.error("extended_health: async_job_queue probe failed: %s", e, exc_info=True)
+            logger.error(
+                "extended_health: async_job_queue probe failed: %s", e, exc_info=True
+            )
             results["async_job_queue"] = {"status": "error", "detail": str(e)}
 
         # 3. API key usage tracking
@@ -571,7 +627,11 @@ class DataMatrixMonitor:
                 if has_key:
                     keys_configured += 1
             results["api_keys"] = {
-                "status": "ok" if keys_configured >= 2 else ("partial" if keys_configured >= 1 else "error"),
+                "status": (
+                    "ok"
+                    if keys_configured >= 2
+                    else ("partial" if keys_configured >= 1 else "error")
+                ),
                 "detail": f"{keys_configured}/4 API keys configured",
                 "providers": provider_status,
             }
@@ -596,7 +656,9 @@ class DataMatrixMonitor:
                 "stale_files": stale_files[:5],
             }
         except Exception as e:
-            logger.error("extended_health: kb_freshness probe failed: %s", e, exc_info=True)
+            logger.error(
+                "extended_health: kb_freshness probe failed: %s", e, exc_info=True
+            )
             results["kb_freshness"] = {"status": "error", "detail": str(e)}
 
         # 5. Eval score trend
@@ -605,7 +667,7 @@ class DataMatrixMonitor:
                 ef = sys.modules["eval_framework"]
                 suite = ef.EvalSuite()
                 scores = suite.run_full_eval()
-                overall = scores.get("overall_score", 0)
+                overall = scores.get("overall_score") or 0
                 # categories is Dict[str, float] from run_full_eval() --
                 # type-guard: if values are dicts (future change), extract score_pct;
                 # if floats (current), use directly.
@@ -615,11 +677,15 @@ class DataMatrixMonitor:
                     if isinstance(v, (int, float)):
                         safe_cats[k] = v
                     elif isinstance(v, dict):
-                        safe_cats[k] = v.get("score_pct", v.get("score", 0))
+                        safe_cats[k] = v.get("score_pct", v.get("score") or 0)
                     else:
                         safe_cats[k] = 0
                 results["eval_score"] = {
-                    "status": "ok" if overall >= 85 else ("partial" if overall >= 70 else "error"),
+                    "status": (
+                        "ok"
+                        if overall >= 85
+                        else ("partial" if overall >= 70 else "error")
+                    ),
                     "detail": f"Overall eval score: {overall}%",
                     "score": overall,
                     "categories": safe_cats,
@@ -630,16 +696,27 @@ class DataMatrixMonitor:
                     "detail": "eval_framework not loaded",
                 }
         except Exception as e:
-            logger.error("extended_health: eval_score probe failed: %s", e, exc_info=True)
+            logger.error(
+                "extended_health: eval_score probe failed: %s", e, exc_info=True
+            )
             results["eval_score"] = {"status": "error", "detail": str(e)}
 
         # 6. Regression baseline age
         try:
-            baseline_path = Path(__file__).resolve().parent / "data" / "persistent" / "regression_baseline.json"
+            baseline_path = (
+                Path(__file__).resolve().parent
+                / "data"
+                / "persistent"
+                / "regression_baseline.json"
+            )
             if baseline_path.exists():
                 age_days = (time.time() - baseline_path.stat().st_mtime) / 86400
                 results["regression_baseline"] = {
-                    "status": "ok" if age_days < 30 else ("partial" if age_days < 60 else "error"),
+                    "status": (
+                        "ok"
+                        if age_days < 30
+                        else ("partial" if age_days < 60 else "error")
+                    ),
                     "detail": f"Baseline age: {age_days:.1f} days",
                     "age_days": round(age_days, 1),
                 }
@@ -649,7 +726,11 @@ class DataMatrixMonitor:
                     "detail": "No baseline saved yet (first run will create it)",
                 }
         except Exception as e:
-            logger.error("extended_health: regression_baseline probe failed: %s", e, exc_info=True)
+            logger.error(
+                "extended_health: regression_baseline probe failed: %s",
+                e,
+                exc_info=True,
+            )
             results["regression_baseline"] = {"status": "error", "detail": str(e)}
 
         # 7. v3.5 Conversational routing health
@@ -670,33 +751,48 @@ class DataMatrixMonitor:
                     results["v35_routing"] = {
                         "status": "ok" if all_present else "error",
                         "detail": (
-                            "v3.5 inverted routing active" if all_present
+                            "v3.5 inverted routing active"
+                            if all_present
                             else f"missing: conv={has_conv}, patterns={has_patterns}, tool_check={has_tool_check}"
                         ),
                         "version": "3.5" if all_present else "3.4",
                     }
                 else:
-                    results["v35_routing"] = {"status": "partial", "detail": "Nova class not found"}
+                    results["v35_routing"] = {
+                        "status": "partial",
+                        "detail": "Nova class not found",
+                    }
             else:
-                results["v35_routing"] = {"status": "partial", "detail": "nova module not loaded"}
+                results["v35_routing"] = {
+                    "status": "partial",
+                    "detail": "nova module not loaded",
+                }
         except Exception as e:
-            logger.error("extended_health: v35_routing probe failed: %s", e, exc_info=True)
+            logger.error(
+                "extended_health: v35_routing probe failed: %s", e, exc_info=True
+            )
             results["v35_routing"] = {"status": "error", "detail": str(e)}
 
         return results
 
     # ── Self-healing ──────────────────────────────────────────────────────
 
-    def _self_heal(self, product: str, layer: str,
-                    probe_result: Dict[str, Any]) -> bool:
+    def _self_heal(
+        self, product: str, layer: str, probe_result: Dict[str, Any]
+    ) -> bool:
         """Attempt to fix a broken connection. Returns True if action taken."""
         healed = False
 
         # Strategy 1: Re-import failed modules (only for direct-import products)
-        if (layer in ("api_enrichment", "research", "data_synthesizer",
-                       "budget_engine", "standardizer",
-                       "trend_engine", "collar_intelligence")
-                and product in ("excel_ppt", "ppt_generator")):
+        if layer in (
+            "api_enrichment",
+            "research",
+            "data_synthesizer",
+            "budget_engine",
+            "standardizer",
+            "trend_engine",
+            "collar_intelligence",
+        ) and product in ("excel_ppt", "ppt_generator"):
             try:
                 if layer in sys.modules:
                     importlib.reload(sys.modules[layer])
@@ -714,11 +810,9 @@ class DataMatrixMonitor:
                 try:
                     importlib.import_module("data_orchestrator")
                     healed = True
-                    self._record_heal(product, layer,
-                                      "import_data_orchestrator", True)
+                    self._record_heal(product, layer, "import_data_orchestrator", True)
                 except Exception as e:
-                    self._record_heal(product, layer,
-                                      "import_data_orchestrator", False)
+                    self._record_heal(product, layer, "import_data_orchestrator", False)
                     logger.warning("Self-heal import data_orchestrator failed: %s", e)
 
         # Strategy 2b: Reset orchestrator lazy-load sentinel
@@ -732,13 +826,12 @@ class DataMatrixMonitor:
                         if current is do._IMPORT_FAILED:
                             setattr(do, global_name, None)
                         healed = True
-                        self._record_heal(product, layer,
-                                          "reset_orchestrator_sentinel", True)
+                        self._record_heal(
+                            product, layer, "reset_orchestrator_sentinel", True
+                        )
             except Exception as e:
-                self._record_heal(product, layer,
-                                  "reset_orchestrator_sentinel", False)
-                logger.warning("Self-heal reset sentinel for %s failed: %s",
-                               layer, e)
+                self._record_heal(product, layer, "reset_orchestrator_sentinel", False)
+                logger.warning("Self-heal reset sentinel for %s failed: %s", layer, e)
 
         # Strategy 3: Reset Nova's _orchestrator if it's False
         if product in ("nova_chat", "slack_bot"):
@@ -753,11 +846,11 @@ class DataMatrixMonitor:
                         else:
                             nova_mod._orchestrator = None
                         healed = True
-                        self._record_heal(product, layer,
-                                          "reset_nova_orchestrator", True)
+                        self._record_heal(
+                            product, layer, "reset_nova_orchestrator", True
+                        )
             except Exception as e:
-                self._record_heal(product, layer,
-                                  "reset_nova_orchestrator", False)
+                self._record_heal(product, layer, "reset_nova_orchestrator", False)
                 logger.warning("Self-heal reset nova orchestrator failed: %s", e)
 
         # Strategy 4: Evict stale orchestrator API cache entries
@@ -769,21 +862,25 @@ class DataMatrixMonitor:
                     expired = []
                     with do._api_cache_lock:
                         for k, v in do._api_result_cache.items():
-                            if now >= v.get("expires", 0):
+                            if now >= v.get("expires") or 0:
                                 expired.append(k)
                         for k in expired:
                             do._api_result_cache.pop(k, None)
                     if expired:
                         self._record_heal(
-                            product, layer,
-                            f"cleared_{len(expired)}_stale_cache_entries", True)
+                            product,
+                            layer,
+                            f"cleared_{len(expired)}_stale_cache_entries",
+                            True,
+                        )
             except Exception as e:
                 logger.warning("Self-heal cache clear failed: %s", e)
 
         return healed
 
-    def _record_heal(self, product: str, layer: str,
-                      action: str, success: bool) -> None:
+    def _record_heal(
+        self, product: str, layer: str, action: str, success: bool
+    ) -> None:
         """Record a healing action (bounded, thread-safe)."""
         entry = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -797,8 +894,14 @@ class DataMatrixMonitor:
             if len(self._heal_log) > _MAX_HEAL_LOG:
                 self._heal_log = self._heal_log[-_MAX_HEAL_LOG:]
         level = logging.INFO if success else logging.WARNING
-        logger.log(level, "DataMatrixMonitor: heal %s/%s -- %s (success=%s)",
-                   product, layer, action, success)
+        logger.log(
+            level,
+            "DataMatrixMonitor: heal %s/%s -- %s (success=%s)",
+            product,
+            layer,
+            action,
+            success,
+        )
 
     # ── Memory pressure auto-recovery ─────────────────────────────────────
 
@@ -822,6 +925,7 @@ class DataMatrixMonitor:
                             break
             except (FileNotFoundError, PermissionError, ValueError):
                 import resource as _res
+
                 rss = _res.getrusage(_res.RUSAGE_SELF).ru_maxrss
                 if sys.platform == "darwin":
                     rss_mb = rss / (1024 * 1024)  # bytes -> MB on macOS
@@ -841,8 +945,11 @@ class DataMatrixMonitor:
                     do = sys.modules["data_orchestrator"]
                     now = time.time()
                     with do._api_cache_lock:
-                        expired = [k for k, v in do._api_result_cache.items()
-                                   if now >= v.get("expires", 0)]
+                        expired = [
+                            k
+                            for k, v in do._api_result_cache.items()
+                            if now >= v.get("expires") or 0
+                        ]
                         for k in expired:
                             do._api_result_cache.pop(k, None)
                     if expired:
@@ -872,7 +979,9 @@ class DataMatrixMonitor:
                 self._record_heal("system", "memory", action, True)
             logger.warning(
                 "DataMatrixMonitor: memory pressure recovery (RSS=%.0fMB): %s",
-                rss_mb, "; ".join(actions))
+                rss_mb,
+                "; ".join(actions),
+            )
 
         except Exception as e:
             logger.debug("Memory pressure check failed: %s", e)
@@ -909,8 +1018,8 @@ class DataMatrixMonitor:
             return {"status": "ok", "drifted_vars": []}
 
         logger.warning(
-            "DataMatrixMonitor: config drift detected for: %s",
-            ", ".join(drifted))
+            "DataMatrixMonitor: config drift detected for: %s", ", ".join(drifted)
+        )
 
         # Attempt module reload for affected components
         _VAR_TO_MODULE = {
@@ -930,14 +1039,20 @@ class DataMatrixMonitor:
                 try:
                     importlib.reload(sys.modules[mod_name])
                     reloaded.append(mod_name)
-                    self._record_heal("system", "config_drift",
-                                      f"reloaded {mod_name} (env {var} changed)",
-                                      True)
+                    self._record_heal(
+                        "system",
+                        "config_drift",
+                        f"reloaded {mod_name} (env {var} changed)",
+                        True,
+                    )
                 except Exception as e:
-                    logger.warning("Config drift: failed to reload %s: %s",
-                                   mod_name, e)
-                    self._record_heal("system", "config_drift",
-                                      f"reload {mod_name} failed: {e}", False)
+                    logger.warning("Config drift: failed to reload %s: %s", mod_name, e)
+                    self._record_heal(
+                        "system",
+                        "config_drift",
+                        f"reload {mod_name} failed: {e}",
+                        False,
+                    )
 
         # Update snapshot to avoid re-alerting
         self._env_snapshot = current

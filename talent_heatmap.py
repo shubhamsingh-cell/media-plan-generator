@@ -413,7 +413,7 @@ def _resolve_location(location: str) -> Dict[str, Any]:
         }
     # Try without underscores and partial match
     for key, d in metro_data.items():
-        metro_name_lower = d.get("metro_name", "").lower()
+        metro_name_lower = d.get("metro_name") or "".lower()
         key_clean = key.replace("_", " ")
         if loc_clean == key_clean or loc_clean in metro_name_lower:
             return {
@@ -450,7 +450,7 @@ def _resolve_location(location: str) -> Dict[str, Any]:
         }
     # Check state name
     for abbr, d in state_data.items():
-        if d.get("name", "").lower() == loc_lower:
+        if d.get("name") or "".lower() == loc_lower:
             return {"type": "state", "key": abbr, "name": d["name"], "data": d}
 
     # 4. Check metro data with city, state format ("Dallas, TX")
@@ -528,13 +528,13 @@ def get_talent_density(
         ind_mult = ind_density_map.get(loc_key, 1.0)
 
         # Role relevance boost -- check if metro's top industries align with role
-        top_ind = data.get("top_industries", "")
+        top_ind = data.get("top_industries") or ""
         role_boost = 1.0
         if _role_matches_industries(role_lower, top_ind):
             role_boost = 1.2
 
         # Major employers boost
-        employers = data.get("major_employers", "")
+        employers = data.get("major_employers") or ""
         if employers and len(employers.split(",")) >= 4:
             role_boost *= 1.05
 
@@ -1021,9 +1021,9 @@ def calculate_hiring_difficulty(
             "cost_of_living": round(col_difficulty, 1),
         },
         "details": {
-            "talent_density_score": d.get("talent_density_score", 0),
+            "talent_density_score": d.get("talent_density_score") or 0,
             "talent_pool": d.get("talent_pool_estimate", "N/A"),
-            "competition_score": c.get("competition_score", 0),
+            "competition_score": c.get("competition_score") or 0,
             "estimated_salary": estimated_salary,
             "coli": coli,
         },
@@ -1100,7 +1100,7 @@ def _score_location(
         return None
 
     metro_name = data.get("metro_name", metro_key.replace("_", " ").title())
-    state = data.get("state", "")
+    state = data.get("state") or ""
     median_salary = data.get("median_salary", 50000)
     coli = data.get("coli", 100)
     pop = _parse_population(data.get("population", "0"))
@@ -1157,21 +1157,21 @@ def _score_location(
         "coli": coli,
         "population": data.get("population", "N/A"),
         "unemployment": unemp_str,
-        "major_employers": data.get("major_employers", ""),
-        "top_industries": data.get("top_industries", ""),
+        "major_employers": data.get("major_employers") or "",
+        "top_industries": data.get("top_industries") or "",
     }
 
 
 def _generate_location_reasoning(loc: Dict[str, Any], role: str, industry: str) -> str:
     """Generate a brief reasoning for why this location is recommended."""
     reasons = []
-    if loc.get("talent_density_score", 0) >= 60:
+    if loc.get("talent_density_score") or 0 >= 60:
         reasons.append("strong talent pool")
-    if loc.get("cost_efficiency_score", 0) >= 60:
+    if loc.get("cost_efficiency_score") or 0 >= 60:
         reasons.append("cost-effective")
-    if loc.get("budget_fit_score", 0) >= 60:
+    if loc.get("budget_fit_score") or 0 >= 60:
         reasons.append("good budget fit")
-    if loc.get("competition_score", 0) <= 40:
+    if loc.get("competition_score") or 0 <= 40:
         reasons.append("lower hiring competition")
 
     if not reasons:
@@ -1248,16 +1248,16 @@ def compare_locations(
                     "rating": d.get("rating", "Unknown"),
                 },
                 "salary": {
-                    "estimated": s.get("estimated_salary", 0),
-                    "median": s.get("median_salary", 0),
-                    "range_low": s.get("salary_range_low", 0),
-                    "range_high": s.get("salary_range_high", 0),
-                    "adjusted": s.get("adjusted_salary", 0),
+                    "estimated": s.get("estimated_salary") or 0,
+                    "median": s.get("median_salary") or 0,
+                    "range_low": s.get("salary_range_low") or 0,
+                    "range_high": s.get("salary_range_high") or 0,
+                    "adjusted": s.get("adjusted_salary") or 0,
                 },
                 "competition": {
                     "score": comp_score,
                     "rating": c.get("rating", "Unknown"),
-                    "factors": c.get("factors", []),
+                    "factors": c.get("factors") or [],
                 },
                 "cost_of_living": {
                     "index": coli,
@@ -1346,8 +1346,8 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
 
     wb = Workbook()
 
-    role = analysis.get("role", "")
-    industry = analysis.get("industry", "")
+    role = analysis.get("role") or ""
+    industry = analysis.get("industry") or ""
     industry_label = analysis.get(
         "industry_label", INDUSTRY_LABEL_MAP.get(industry, industry)
     )
@@ -1385,36 +1385,36 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         cell.alignment = center_align
 
     comparison = analysis.get("comparison", {})
-    locations = comparison.get("locations", [])
+    locations = comparison.get("locations") or []
     row = 6
     for loc in locations:
         ws1.cell(
-            row=row, column=2, value=loc.get("display_name", loc.get("location", ""))
+            row=row, column=2, value=loc.get("display_name", loc.get("location") or "")
         ).font = bold_font
         td = loc.get("talent_density", {})
         ws1.cell(
             row=row,
             column=3,
-            value=f"{td.get('score', 0)}/100 ({td.get('rating', '')})",
+            value=f"{td.get('score') or 0}/100 ({td.get('rating') or ''})",
         ).font = data_font
         ws1.cell(row=row, column=4, value=td.get("pool", "N/A")).font = data_font
         comp = loc.get("competition", {})
         ws1.cell(
             row=row,
             column=5,
-            value=f"{comp.get('score', 0)}/100 ({comp.get('rating', '')})",
+            value=f"{comp.get('score') or 0}/100 ({comp.get('rating') or ''})",
         ).font = data_font
         sal = loc.get("salary", {})
-        ws1.cell(row=row, column=6, value=f"${sal.get('estimated', 0):,}").font = (
+        ws1.cell(row=row, column=6, value=f"${sal.get('estimated') or 0:,}").font = (
             data_font
         )
         col = loc.get("cost_of_living", {})
         ws1.cell(
             row=row,
             column=7,
-            value=f"{col.get('index', 100)} ({col.get('rating', '')})",
+            value=f"{col.get('index', 100)} ({col.get('rating') or ''})",
         ).font = data_font
-        rec = loc.get("recommendation_score", 0)
+        rec = loc.get("recommendation_score") or 0
         cell = ws1.cell(row=row, column=8, value=f"{rec}/100")
         cell.font = (
             green_font if rec >= 60 else (orange_font if rec >= 40 else red_font)
@@ -1454,26 +1454,26 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         cell.fill = hdr_fill
         cell.alignment = center_align
 
-    salary_data = analysis.get("salary_map", [])
+    salary_data = analysis.get("salary_map") or []
     row = 5
     for s in salary_data:
         ws2.cell(
-            row=row, column=2, value=s.get("display_name", s.get("location", ""))
+            row=row, column=2, value=s.get("display_name", s.get("location") or "")
         ).font = bold_font
-        ws2.cell(row=row, column=3, value=f"${s.get('estimated_salary', 0):,}").font = (
-            data_font
-        )
-        ws2.cell(row=row, column=4, value=f"${s.get('median_salary', 0):,}").font = (
+        ws2.cell(
+            row=row, column=3, value=f"${s.get('estimated_salary') or 0:,}"
+        ).font = data_font
+        ws2.cell(row=row, column=4, value=f"${s.get('median_salary') or 0:,}").font = (
             data_font
         )
         ws2.cell(row=row, column=5, value=s.get("coli", 100)).font = data_font
-        ws2.cell(row=row, column=6, value=f"${s.get('adjusted_salary', 0):,}").font = (
-            data_font
-        )
+        ws2.cell(
+            row=row, column=6, value=f"${s.get('adjusted_salary') or 0:,}"
+        ).font = data_font
         ws2.cell(
             row=row,
             column=7,
-            value=f"${s.get('salary_range_low', 0):,} - ${s.get('salary_range_high', 0):,}",
+            value=f"${s.get('salary_range_low') or 0:,} - ${s.get('salary_range_high') or 0:,}",
         ).font = data_font
         for c in range(2, 8):
             ws2.cell(row=row, column=c).border = thin_border
@@ -1508,32 +1508,32 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         cell.fill = hdr_fill
         cell.alignment = center_align
 
-    difficulties = analysis.get("difficulties", [])
+    difficulties = analysis.get("difficulties") or []
     row = 5
     for d in difficulties:
         ws3.cell(
-            row=row, column=2, value=d.get("display_name", d.get("location", ""))
+            row=row, column=2, value=d.get("display_name", d.get("location") or "")
         ).font = bold_font
-        score = d.get("difficulty_score", 0)
+        score = d.get("difficulty_score") or 0
         cell = ws3.cell(row=row, column=3, value=f"{score}/100")
         cell.font = (
             red_font if score >= 60 else (orange_font if score >= 40 else green_font)
         )
-        ws3.cell(row=row, column=4, value=d.get("difficulty_rating", "")).font = (
+        ws3.cell(row=row, column=4, value=d.get("difficulty_rating") or "").font = (
             data_font
         )
         comps = d.get("components", {})
         ws3.cell(
-            row=row, column=5, value=f"{comps.get('talent_scarcity', 0)}/100"
-        ).font = data_font
-        ws3.cell(row=row, column=6, value=f"{comps.get('competition', 0)}/100").font = (
-            data_font
-        )
-        ws3.cell(
-            row=row, column=7, value=f"{comps.get('salary_pressure', 0)}/100"
+            row=row, column=5, value=f"{comps.get('talent_scarcity') or 0}/100"
         ).font = data_font
         ws3.cell(
-            row=row, column=8, value=f"{comps.get('cost_of_living', 0)}/100"
+            row=row, column=6, value=f"{comps.get('competition') or 0}/100"
+        ).font = data_font
+        ws3.cell(
+            row=row, column=7, value=f"{comps.get('salary_pressure') or 0}/100"
+        ).font = data_font
+        ws3.cell(
+            row=row, column=8, value=f"{comps.get('cost_of_living') or 0}/100"
         ).font = data_font
         for c in range(2, 9):
             ws3.cell(row=row, column=c).border = thin_border
@@ -1569,26 +1569,28 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         cell.fill = hdr_fill
         cell.alignment = center_align
 
-    optimal = analysis.get("optimal_locations", [])
+    optimal = analysis.get("optimal_locations") or []
     row = 5
     for loc in optimal:
-        ws4.cell(row=row, column=2, value=f"#{loc.get('rank', '')}").font = bold_font
-        ws4.cell(row=row, column=3, value=loc.get("location", "")).font = bold_font
-        cell = ws4.cell(row=row, column=4, value=f"{loc.get('composite_score', 0)}/100")
+        ws4.cell(row=row, column=2, value=f"#{loc.get('rank') or ''}").font = bold_font
+        ws4.cell(row=row, column=3, value=loc.get("location") or "").font = bold_font
+        cell = ws4.cell(
+            row=row, column=4, value=f"{loc.get('composite_score') or 0}/100"
+        )
         cell.font = green_font
         ws4.cell(
-            row=row, column=5, value=f"{loc.get('talent_density_score', 0)}/100"
+            row=row, column=5, value=f"{loc.get('talent_density_score') or 0}/100"
         ).font = data_font
         ws4.cell(
-            row=row, column=6, value=f"{loc.get('cost_efficiency_score', 0)}/100"
+            row=row, column=6, value=f"{loc.get('cost_efficiency_score') or 0}/100"
         ).font = data_font
         ws4.cell(
-            row=row, column=7, value=f"{loc.get('budget_fit_score', 0)}/100"
+            row=row, column=7, value=f"{loc.get('budget_fit_score') or 0}/100"
         ).font = data_font
         ws4.cell(
-            row=row, column=8, value=f"${loc.get('estimated_salary', 0):,}"
+            row=row, column=8, value=f"${loc.get('estimated_salary') or 0:,}"
         ).font = data_font
-        ws4.cell(row=row, column=9, value=loc.get("reasoning", "")).font = data_font
+        ws4.cell(row=row, column=9, value=loc.get("reasoning") or "").font = data_font
         ws4.cell(row=row, column=9).alignment = wrap_align
         for c in range(2, 10):
             ws4.cell(row=row, column=c).border = thin_border
@@ -1611,7 +1613,9 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
 
     num_hires = analysis.get("num_hires", 5)
     ws5.merge_cells("B3:G3")
-    ws5["B3"] = f"Based on {num_hires} hire(s) | Budget: ${analysis.get('budget', 0):,}"
+    ws5["B3"] = (
+        f"Based on {num_hires} hire(s) | Budget: ${analysis.get('budget') or 0:,}"
+    )
     ws5["B3"].font = subtitle_font
 
     headers5 = [
@@ -1630,7 +1634,7 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         cell.alignment = center_align
 
     row = 6
-    budget = analysis.get("budget", 0)
+    budget = analysis.get("budget") or 0
     for loc in locations:
         sal = loc.get("salary", {})
         estimated = sal.get("estimated", 50000)
@@ -1639,7 +1643,9 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         total_per_hire = estimated + recruiting_cost
         total_all = total_per_hire * num_hires
 
-        ws5.cell(row=row, column=2, value=loc.get("display_name", "")).font = bold_font
+        ws5.cell(row=row, column=2, value=loc.get("display_name") or "").font = (
+            bold_font
+        )
         ws5.cell(row=row, column=3, value=f"${estimated:,}").font = data_font
         ws5.cell(row=row, column=4, value=f"${recruiting_cost:,}").font = data_font
         ws5.cell(row=row, column=5, value=f"${total_per_hire:,}").font = data_font
@@ -1696,8 +1702,8 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
 
-    role = analysis.get("role", "")
-    industry_label = analysis.get("industry_label", "")
+    role = analysis.get("role") or ""
+    industry_label = analysis.get("industry_label") or ""
 
     def _add_bg(slide, color):
         bg = slide.background
@@ -1811,7 +1817,7 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
     )
 
     comparison = analysis.get("comparison", {})
-    locations = comparison.get("locations", [])
+    locations = comparison.get("locations") or []
 
     y = 1.3
     for i, loc in enumerate(locations[:8]):
@@ -1819,11 +1825,11 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
         card_w = 11.5
         _add_shape(slide2, x, y, card_w, 0.65, CARD_BG)
 
-        name = loc.get("display_name", loc.get("location", ""))
+        name = loc.get("display_name", loc.get("location") or "")
         td = loc.get("talent_density", {})
         comp = loc.get("competition", {})
         sal = loc.get("salary", {})
-        rec = loc.get("recommendation_score", 0)
+        rec = loc.get("recommendation_score") or 0
 
         _add_text_box(
             slide2,
@@ -1842,7 +1848,7 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
             y + 0.1,
             2,
             0.4,
-            f"Density: {td.get('score', 0)}",
+            f"Density: {td.get('score') or 0}",
             font_size=10,
             color=WHITE,
         )
@@ -1852,7 +1858,7 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
             y + 0.1,
             2,
             0.4,
-            f"Competition: {comp.get('score', 0)}",
+            f"Competition: {comp.get('score') or 0}",
             font_size=10,
             color=WHITE,
         )
@@ -1862,7 +1868,7 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
             y + 0.1,
             2,
             0.4,
-            f"Salary: ${sal.get('estimated', 0):,}",
+            f"Salary: ${sal.get('estimated') or 0:,}",
             font_size=10,
             color=WHITE,
         )
@@ -1896,13 +1902,13 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
         color=WHITE,
     )
 
-    salary_data = analysis.get("salary_map", [])
+    salary_data = analysis.get("salary_map") or []
     max_salary = max((s.get("estimated_salary", 1) for s in salary_data), default=1)
 
     y = 1.3
     for s in salary_data[:10]:
-        name = s.get("display_name", s.get("location", ""))
-        est = s.get("estimated_salary", 0)
+        name = s.get("display_name", s.get("location") or "")
+        est = s.get("estimated_salary") or 0
         bar_w = max(0.3, (est / max_salary) * 8)
 
         _add_text_box(slide3, 0.8, y, 3, 0.35, name, font_size=10, color=WHITE)
@@ -1935,7 +1941,7 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
         color=WHITE,
     )
 
-    optimal = analysis.get("optimal_locations", [])
+    optimal = analysis.get("optimal_locations") or []
     y = 1.3
     card_w = 5.5
     for i, loc in enumerate(optimal[:6]):
@@ -1964,7 +1970,7 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
             y + 0.1,
             4.5,
             0.35,
-            loc.get("location", ""),
+            loc.get("location") or "",
             font_size=12,
             bold=True,
             color=WHITE,
@@ -1975,7 +1981,7 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
             y + 0.55,
             5,
             0.3,
-            f"Score: {loc.get('composite_score', 0)} | Salary: ${loc.get('estimated_salary', 0):,} | CoL: {loc.get('coli', 100)}",
+            f"Score: {loc.get('composite_score') or 0} | Salary: ${loc.get('estimated_salary') or 0:,} | CoL: {loc.get('coli', 100)}",
             font_size=9,
             color=MUTED_TEXT,
         )
@@ -1985,7 +1991,7 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
             y + 0.95,
             5,
             0.7,
-            loc.get("reasoning", ""),
+            loc.get("reasoning") or "",
             font_size=9,
             color=WHITE,
         )
@@ -2182,7 +2188,7 @@ def run_heatmap_analysis(
         for loc in locations:
             diff = calculate_hiring_difficulty(role, loc, industry)
             difficulties.append(diff)
-        difficulties.sort(key=lambda x: x.get("difficulty_score", 0), reverse=True)
+        difficulties.sort(key=lambda x: x.get("difficulty_score") or 0, reverse=True)
         result["difficulties"] = difficulties
     except Exception as exc:
         result["difficulties"] = []

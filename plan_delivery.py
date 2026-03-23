@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _RESEND_ENDPOINT = "https://api.resend.com/emails"
-_API_KEY: str = os.environ.get("RESEND_API_KEY", "").strip()
+_API_KEY: str = os.environ.get("RESEND_API_KEY") or "".strip()
 _FROM_EMAIL: str = os.environ.get(
     "RESEND_FROM_EMAIL",
     "onboarding@resend.dev",
@@ -91,9 +91,7 @@ def _check_and_record_rate_limit(ip: str) -> bool:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Basic email format check -- not RFC 5322 compliant but catches common errors
-_EMAIL_RE = re.compile(
-    r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
-)
+_EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 
 
 def _validate_email(email: str) -> bool:
@@ -106,6 +104,7 @@ def _validate_email(email: str) -> bool:
 # ═══════════════════════════════════════════════════════════════════════════════
 # HTML EMAIL TEMPLATE
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _safe(value: Any) -> str:
     """HTML-escape user-provided values."""
@@ -144,13 +143,13 @@ def _build_email_html(
         Summary data with optional keys: industry, budget, num_channels,
         total_clicks, total_applies, total_hires, top_channels (list of str).
     """
-    industry = _safe(plan_summary.get("industry", ""))
-    budget = _format_currency(plan_summary.get("budget", 0))
-    num_channels = _safe(plan_summary.get("num_channels", ""))
-    total_clicks = _safe(plan_summary.get("total_clicks", ""))
-    total_applies = _safe(plan_summary.get("total_applies", ""))
-    total_hires = _safe(plan_summary.get("total_hires", ""))
-    top_channels = plan_summary.get("top_channels", [])
+    industry = _safe(plan_summary.get("industry") or "")
+    budget = _format_currency(plan_summary.get("budget") or 0)
+    num_channels = _safe(plan_summary.get("num_channels") or "")
+    total_clicks = _safe(plan_summary.get("total_clicks") or "")
+    total_applies = _safe(plan_summary.get("total_applies") or "")
+    total_hires = _safe(plan_summary.get("total_hires") or "")
+    top_channels = plan_summary.get("top_channels") or []
 
     now_utc = datetime.now(timezone.utc).strftime("%B %d, %Y at %H:%M UTC")
 
@@ -280,6 +279,7 @@ def _build_email_html(
 # PUBLIC API
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def send_plan_email(
     recipient_email: str,
     client_name: str,
@@ -314,7 +314,9 @@ def send_plan_email(
     """
     # ── Validate API key ──
     if not _API_KEY:
-        logger.warning("plan_delivery: RESEND_API_KEY not set -- email delivery disabled")
+        logger.warning(
+            "plan_delivery: RESEND_API_KEY not set -- email delivery disabled"
+        )
         return {
             "success": False,
             "message": "Email delivery is not configured. RESEND_API_KEY environment variable is required.",
@@ -357,7 +359,9 @@ def send_plan_email(
             with open(zip_file_path, "rb") as f:
                 attachment_bytes = f.read()
         except (OSError, IOError) as e:
-            logger.warning("plan_delivery: failed to read ZIP file %s: %s", zip_file_path, e)
+            logger.warning(
+                "plan_delivery: failed to read ZIP file %s: %s", zip_file_path, e
+            )
             return {
                 "success": False,
                 "message": f"Failed to read attachment file: {e}",
@@ -393,10 +397,12 @@ def send_plan_email(
     try:
         with urllib.request.urlopen(req, timeout=_SEND_TIMEOUT) as resp:
             resp_data = json.loads(resp.read().decode("utf-8"))
-            message_id = resp_data.get("id", "")
+            message_id = resp_data.get("id") or ""
             logger.info(
                 "plan_delivery: email sent (id=%s, to=%s, client=%s)",
-                message_id, recipient_email, client_name[:40],
+                message_id,
+                recipient_email,
+                client_name[:40],
             )
             # Rate limit already recorded atomically in _check_and_record_rate_limit
             return {

@@ -79,8 +79,10 @@ logger = logging.getLogger(__name__)
 # Configuration
 # ---------------------------------------------------------------------------
 
-_SUPABASE_URL: Optional[str] = os.environ.get("SUPABASE_URL", "").strip() or None
-_SUPABASE_ANON_KEY: Optional[str] = os.environ.get("SUPABASE_ANON_KEY", "").strip() or None
+_SUPABASE_URL: Optional[str] = os.environ.get("SUPABASE_URL") or "".strip() or None
+_SUPABASE_ANON_KEY: Optional[str] = (
+    os.environ.get("SUPABASE_ANON_KEY") or "".strip() or None
+)
 
 # Module is enabled only when both env vars are set.
 _ENABLED: bool = bool(_SUPABASE_URL and _SUPABASE_ANON_KEY)
@@ -159,6 +161,7 @@ def _log_info(msg: str) -> None:
 # Time helpers
 # ---------------------------------------------------------------------------
 
+
 def _now_iso() -> str:
     """Current UTC time as ISO 8601 string with timezone."""
     return datetime.now(timezone.utc).isoformat()
@@ -189,6 +192,7 @@ def _is_expired(expires_at_str: str) -> bool:
 # ---------------------------------------------------------------------------
 # HTTP transport layer
 # ---------------------------------------------------------------------------
+
 
 def _build_headers(extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
     """Build standard Supabase REST API headers."""
@@ -258,9 +262,7 @@ def _http_request(
                 error_body = exc.read().decode("utf-8", errors="replace")[:200]
             except Exception:
                 pass
-            _record_error(
-                f"HTTP {exc.code} {method} {url}: {error_body}"
-            )
+            _record_error(f"HTTP {exc.code} {method} {url}: {error_body}")
             return None
 
         except urllib.error.URLError as exc:
@@ -318,9 +320,7 @@ def _http_request_status(
                 error_body = exc.read().decode("utf-8", errors="replace")[:200]
             except Exception:
                 pass
-            _record_error(
-                f"HTTP {exc.code} {method} {url}: {error_body}"
-            )
+            _record_error(f"HTTP {exc.code} {method} {url}: {error_body}")
             return exc.code
 
         except Exception as exc:
@@ -333,6 +333,7 @@ def _http_request_status(
 # ---------------------------------------------------------------------------
 # Core cache operations
 # ---------------------------------------------------------------------------
+
 
 def cache_get(key: str) -> Optional[Any]:
     """Fetch a value from the Supabase cache.
@@ -352,9 +353,7 @@ def cache_get(key: str) -> Optional[Any]:
         return None
 
     encoded_key = urllib.parse.quote(key, safe="")
-    url = _rest_url(
-        f"{_TABLE}?key=eq.{encoded_key}&select=data,expires_at"
-    )
+    url = _rest_url(f"{_TABLE}?key=eq.{encoded_key}&select=data,expires_at")
 
     result = _http_request(url, method="GET")
 
@@ -383,6 +382,7 @@ def _fire_and_forget_hit_increment(key: str) -> None:
     This is a non-blocking operation. If it fails, we silently ignore the
     error -- hit tracking is nice-to-have, not critical.
     """
+
     def _increment():
         try:
             encoded_key = urllib.parse.quote(key, safe="")
@@ -395,12 +395,10 @@ def _fire_and_forget_hit_increment(key: str) -> None:
             # so we use a simple approach: fetch current, increment, write back.
             # This has a minor race condition on hit_count, which is acceptable
             # for analytics-only data.
-            fetch_url = _rest_url(
-                f"{_TABLE}?key=eq.{encoded_key}&select=hit_count"
-            )
+            fetch_url = _rest_url(f"{_TABLE}?key=eq.{encoded_key}&select=hit_count")
             result = _http_request(fetch_url, method="GET")
             if result and isinstance(result, list) and len(result) > 0:
-                current = result[0].get("hit_count", 0) or 0
+                current = result[0].get("hit_count") or 0 or 0
                 body = json.dumps({"hit_count": current + 1}).encode("utf-8")
                 _http_request(url, method="PATCH", body=body, headers=headers)
         except Exception:
@@ -434,9 +432,11 @@ def cache_set(
         return False
 
     url = _rest_url(_TABLE)
-    headers = _build_headers({
-        "Prefer": "resolution=merge-duplicates,return=minimal",
-    })
+    headers = _build_headers(
+        {
+            "Prefer": "resolution=merge-duplicates,return=minimal",
+        }
+    )
 
     payload = {
         "key": key,
@@ -455,9 +455,7 @@ def cache_set(
 
     # Use _http_request_status because return=minimal yields an empty body.
     # A 2xx status confirms the upsert succeeded.
-    status = _http_request_status(
-        url, method="POST", body=body, headers=headers
-    )
+    status = _http_request_status(url, method="POST", body=body, headers=headers)
 
     if status is not None and 200 <= status < 300:
         _stat_inc("writes")
@@ -509,9 +507,11 @@ def cache_cleanup() -> int:
 
     # Use Prefer: return=representation to get deleted rows back so we
     # can count them.
-    headers = _build_headers({
-        "Prefer": "return=representation",
-    })
+    headers = _build_headers(
+        {
+            "Prefer": "return=representation",
+        }
+    )
 
     result = _http_request(url, method="DELETE", headers=headers)
 
@@ -543,22 +543,18 @@ def cache_stats() -> Dict[str, Any]:
     result: Dict[str, Any] = {"enabled": True}
 
     # Total entries.
-    url_total = _rest_url(
-        f"{_TABLE}?select=key&limit=0"
-    )
+    url_total = _rest_url(f"{_TABLE}?select=key&limit=0")
     # PostgREST supports count via Prefer: count=exact header.
     headers_count = _build_headers({"Prefer": "count=exact"})
 
     try:
-        req = urllib.request.Request(
-            url_total, method="HEAD", headers=headers_count
-        )
+        req = urllib.request.Request(url_total, method="HEAD", headers=headers_count)
         with urllib.request.urlopen(
             req, timeout=_HTTP_TIMEOUT, context=_SSL_CTX
         ) as resp:
             # PostgREST returns count in Content-Range header:
             # "0-N/total" or "*/total" for HEAD.
-            content_range = resp.headers.get("Content-Range", "")
+            content_range = resp.headers.get("Content-Range") or ""
             resp.read()  # consume body
             if "/" in content_range:
                 total_str = content_range.split("/")[-1]
@@ -572,17 +568,13 @@ def cache_stats() -> Dict[str, Any]:
     # Expired entries count.
     now_iso = _now_iso()
     encoded_now = urllib.parse.quote(now_iso, safe="")
-    url_expired = _rest_url(
-        f"{_TABLE}?expires_at=lt.{encoded_now}&select=key&limit=0"
-    )
+    url_expired = _rest_url(f"{_TABLE}?expires_at=lt.{encoded_now}&select=key&limit=0")
     try:
-        req = urllib.request.Request(
-            url_expired, method="HEAD", headers=headers_count
-        )
+        req = urllib.request.Request(url_expired, method="HEAD", headers=headers_count)
         with urllib.request.urlopen(
             req, timeout=_HTTP_TIMEOUT, context=_SSL_CTX
         ) as resp:
-            content_range = resp.headers.get("Content-Range", "")
+            content_range = resp.headers.get("Content-Range") or ""
             resp.read()
             if "/" in content_range:
                 expired_str = content_range.split("/")[-1]
@@ -594,9 +586,7 @@ def cache_stats() -> Dict[str, Any]:
         result["expired_error"] = str(exc)
 
     # Per-category breakdown.
-    url_cats = _rest_url(
-        f"{_TABLE}?select=category"
-    )
+    url_cats = _rest_url(f"{_TABLE}?select=category")
     cat_data = _http_request(url_cats, method="GET")
     if isinstance(cat_data, list):
         by_category: Dict[str, int] = {}
@@ -613,6 +603,7 @@ def cache_stats() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Batch operations
 # ---------------------------------------------------------------------------
+
 
 def cache_get_many(keys: List[str]) -> Dict[str, Any]:
     """Fetch multiple cache entries in a single request.
@@ -632,12 +623,8 @@ def cache_get_many(keys: List[str]) -> Dict[str, Any]:
 
     # PostgREST in-filter syntax: key=in.(val1,val2,val3)
     # Keys are quoted to handle special characters.
-    quoted_keys = ",".join(
-        f'"{k}"' for k in keys
-    )
-    url = _rest_url(
-        f"{_TABLE}?key=in.({quoted_keys})&select=key,data,expires_at"
-    )
+    quoted_keys = ",".join(f'"{k}"' for k in keys)
+    url = _rest_url(f"{_TABLE}?key=in.({quoted_keys})&select=key,data,expires_at")
 
     result = _http_request(url, method="GET")
     _stat_inc("batch_gets")
@@ -688,9 +675,11 @@ def cache_set_many(entries: List[Dict[str, Any]]) -> int:
         return 0
 
     url = _rest_url(_TABLE)
-    headers = _build_headers({
-        "Prefer": "resolution=merge-duplicates,return=minimal",
-    })
+    headers = _build_headers(
+        {
+            "Prefer": "resolution=merge-duplicates,return=minimal",
+        }
+    )
 
     now = _now_iso()
     rows = []
@@ -701,14 +690,16 @@ def cache_set_many(entries: List[Dict[str, Any]]) -> int:
             continue
         ttl = entry.get("ttl", DEFAULT_TTL)
         category = entry.get("category", "general")
-        rows.append({
-            "key": key,
-            "data": data,
-            "created_at": now,
-            "expires_at": _expires_iso(ttl),
-            "category": category,
-            "hit_count": 0,
-        })
+        rows.append(
+            {
+                "key": key,
+                "data": data,
+                "created_at": now,
+                "expires_at": _expires_iso(ttl),
+                "category": category,
+                "hit_count": 0,
+            }
+        )
 
     if not rows:
         return 0
@@ -720,9 +711,7 @@ def cache_set_many(entries: List[Dict[str, Any]]) -> int:
         return 0
 
     # Use _http_request_status because return=minimal yields an empty body.
-    status = _http_request_status(
-        url, method="POST", body=body, headers=headers
-    )
+    status = _http_request_status(url, method="POST", body=body, headers=headers)
 
     if status is not None and 200 <= status < 300:
         count = len(rows)
@@ -736,6 +725,7 @@ def cache_set_many(entries: List[Dict[str, Any]]) -> int:
 # ---------------------------------------------------------------------------
 # Integration helper
 # ---------------------------------------------------------------------------
+
 
 def get_or_set(
     key: str,
@@ -794,6 +784,7 @@ def get_or_set(
 # Local stats (in-process counters, not Supabase table stats)
 # ---------------------------------------------------------------------------
 
+
 def get_supabase_stats() -> Dict[str, Any]:
     """Return local in-process stats for Supabase cache operations.
 
@@ -811,12 +802,13 @@ def get_supabase_stats() -> Dict[str, Any]:
 
     snapshot["enabled"] = _ENABLED
     snapshot["supabase_url"] = (
-        _SUPABASE_URL[:30] + "..." if _SUPABASE_URL and len(_SUPABASE_URL) > 30
+        _SUPABASE_URL[:30] + "..."
+        if _SUPABASE_URL and len(_SUPABASE_URL) > 30
         else _SUPABASE_URL
     )
 
     # Compute hit rate.
-    total_lookups = snapshot.get("hits", 0) + snapshot.get("misses", 0)
+    total_lookups = snapshot.get("hits") or 0 + snapshot.get("misses") or 0
     if total_lookups > 0:
         snapshot["hit_rate"] = round(snapshot["hits"] / total_lookups, 4)
     else:
@@ -861,9 +853,7 @@ def start_cleanup_thread(interval_hours: int = 6) -> Optional[threading.Thread]:
     interval_seconds = interval_hours * 3600
 
     def _cleanup_loop():
-        _log_info(
-            f"Cleanup thread started (interval: {interval_hours}h)"
-        )
+        _log_info(f"Cleanup thread started (interval: {interval_hours}h)")
         while not _cleanup_stop_event.is_set():
             try:
                 deleted = cache_cleanup()
@@ -910,6 +900,4 @@ if _ENABLED:
         else f"Supabase cache enabled: {_SUPABASE_URL}"
     )
 else:
-    _log_info(
-        "Supabase cache disabled: SUPABASE_URL or SUPABASE_ANON_KEY not set"
-    )
+    _log_info("Supabase cache disabled: SUPABASE_URL or SUPABASE_ANON_KEY not set")

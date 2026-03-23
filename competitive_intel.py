@@ -458,12 +458,12 @@ def _build_comparison_matrix(
             "employee_count": emp_str,
             "employee_count_raw": emp if isinstance(emp, (int, float)) else 0,
             "is_public": profile.get("is_public", False),
-            "stock_ticker": profile.get("stock_ticker", ""),
+            "stock_ticker": profile.get("stock_ticker") or "",
             "headquarters": profile.get("headquarters", "N/A"),
             "founded": profile.get("founded", "N/A"),
             "glassdoor_rating": profile.get("glassdoor_rating"),
-            "employer_brand_strength": profile.get("employer_brand_strength", ""),
-            "logo_url": profile.get("logo_url", ""),
+            "employer_brand_strength": profile.get("employer_brand_strength") or "",
+            "logo_url": profile.get("logo_url") or "",
         }
 
     matrix.append(_row(company, is_primary=True))
@@ -543,8 +543,8 @@ def compare_hiring_activity(
 
     # Determine overall hiring difficulty based on available data
     result["hiring_difficulty"] = _assess_hiring_difficulty(
-        result.get("industry_competitors", []),
-        result.get("competitors_hiring", []),
+        result.get("industry_competitors") or [],
+        result.get("competitors_hiring") or [],
         industry,
     )
 
@@ -614,10 +614,10 @@ def compare_ad_benchmarks(
                 for plat_key, data in benchmarks.items():
                     result["platforms"][plat_key] = {
                         "name": PLATFORM_DISPLAY.get(plat_key, plat_key),
-                        "cpc": round(data.get("value", 0), 2),
-                        "cpa": round(data.get("cpa_value", 0), 2),
+                        "cpc": round(data.get("value") or 0, 2),
+                        "cpa": round(data.get("cpa_value") or 0, 2),
                         "ctr": (
-                            round(data.get("ctr_value", 0) * 100, 2)
+                            round(data.get("ctr_value") or 0 * 100, 2)
                             if data.get("ctr_value")
                             else None
                         ),
@@ -821,7 +821,7 @@ def generate_competitive_brief(analysis_results: Dict[str, Any]) -> Dict[str, An
     brief["competitive_narrative"] = _generate_competitive_narrative(
         {
             "company": brief.get("company", {}),
-            "competitors": brief.get("competitors", [])[:5],  # Cap for token budget
+            "competitors": brief.get("competitors") or [][:5],  # Cap for token budget
             "hiring_activity": brief.get("hiring_activity", {}),
             "ad_benchmarks": brief.get("ad_benchmarks", {}),
         }
@@ -845,7 +845,7 @@ def _generate_recommendations(brief: Dict[str, Any]) -> List[Dict[str, str]]:
 
         for plat_key, data in benchmarks.items():
             cpa = data.get("cpa", float("inf"))
-            ctr = data.get("ctr", 0) or 0
+            ctr = data.get("ctr") or 0 or 0
             if cpa < lowest_cpa:
                 lowest_cpa = cpa
                 lowest_cpa_plat = data.get("name", plat_key)
@@ -915,7 +915,7 @@ def _generate_recommendations(brief: Dict[str, Any]) -> List[Dict[str, str]]:
     trends = brief.get("market_trends", {})
     companies = trends.get("companies", {})
     company_profile = brief.get("company", {})
-    company_name = company_profile.get("name", "")
+    company_name = company_profile.get("name") or ""
     if company_name in companies:
         trend = companies[company_name].get("trend", "stable")
         if trend == "declining":
@@ -961,7 +961,7 @@ def _generate_recommendations(brief: Dict[str, Any]) -> List[Dict[str, str]]:
         )
 
     # 5. Competitor count check
-    comp_count = len(brief.get("competitors", []))
+    comp_count = len(brief.get("competitors") or [])
     if comp_count >= 3:
         recs.append(
             {
@@ -1041,7 +1041,7 @@ def generate_competitive_excel(
 
     ws1.merge_cells("B3:F3")
     ws1["B3"] = (
-        f"Generated {brief.get('generated_at', '')[:10]} | Powered by Nova AI Suite"
+        f"Generated {brief.get('generated_at') or ''[:10]} | Powered by Nova AI Suite"
     )
     ws1["B3"].font = subtitle_font
 
@@ -1093,7 +1093,7 @@ def generate_competitive_excel(
     ws2["B2"] = "Competitor Comparison Matrix"
     ws2["B2"].font = title_font
 
-    matrix = brief.get("comparison_matrix", [])
+    matrix = brief.get("comparison_matrix") or []
     if matrix:
         headers = [
             "Company",
@@ -1112,7 +1112,7 @@ def generate_competitive_excel(
             cell.alignment = center_align
 
         for ri, entry in enumerate(matrix, start=5):
-            ws2.cell(row=ri, column=2, value=entry.get("name", "")).font = (
+            ws2.cell(row=ri, column=2, value=entry.get("name") or "").font = (
                 bold_font if entry.get("is_primary") else data_font
             )
             ws2.cell(row=ri, column=3, value=entry.get("industry", "N/A")).font = (
@@ -1127,7 +1127,7 @@ def generate_competitive_excel(
                 value="Public" if entry.get("is_public") else "Private",
             ).font = data_font
             ws2.cell(
-                row=ri, column=6, value=entry.get("stock_ticker", "") or "-"
+                row=ri, column=6, value=entry.get("stock_ticker") or "" or "-"
             ).font = data_font
             ws2.cell(row=ri, column=7, value=entry.get("headquarters", "N/A")).font = (
                 data_font
@@ -1174,10 +1174,10 @@ def generate_competitive_excel(
             ws3.cell(row=row, column=2, value=data.get("name", plat_key)).font = (
                 bold_font
             )
-            ws3.cell(row=row, column=3, value=f"${data.get('cpc', 0):.2f}").font = (
+            ws3.cell(row=row, column=3, value=f"${data.get('cpc') or 0:.2f}").font = (
                 data_font
             )
-            ws3.cell(row=row, column=4, value=f"${data.get('cpa', 0):.2f}").font = (
+            ws3.cell(row=row, column=4, value=f"${data.get('cpa') or 0:.2f}").font = (
                 data_font
             )
             ctr_val = data.get("ctr")
@@ -1239,7 +1239,7 @@ def generate_competitive_excel(
     ws4["B2"] = "Strategic Recommendations"
     ws4["B2"].font = title_font
 
-    recs = brief.get("recommendations", [])
+    recs = brief.get("recommendations") or []
     row = 4
     for i, rec in enumerate(recs, start=1):
         priority = rec.get("priority", "medium")
@@ -1255,7 +1255,7 @@ def generate_competitive_excel(
         ws4[f"B{row}"].fill = pri_fill
         ws4[f"B{row}"].alignment = center_align
 
-        ws4[f"C{row}"] = rec.get("title", "")
+        ws4[f"C{row}"] = rec.get("title") or ""
         ws4[f"C{row}"].font = bold_font
 
         ws4[f"D{row}"] = priority.upper()
@@ -1265,7 +1265,7 @@ def generate_competitive_excel(
 
         row += 1
         ws4.merge_cells(f"C{row}:F{row}")
-        ws4[f"C{row}"] = rec.get("description", "")
+        ws4[f"C{row}"] = rec.get("description") or ""
         ws4[f"C{row}"].font = data_font
         ws4[f"C{row}"].alignment = wrap_align
         row += 2
@@ -1414,7 +1414,7 @@ def generate_competitive_ppt(
         4.5,
         11,
         0.5,
-        f"Generated {brief.get('generated_at', '')[:10]} | Powered by Nova AI Suite",
+        f"Generated {brief.get('generated_at') or ''[:10]} | Powered by Nova AI Suite",
         font_size=12,
         color=MUTED_TEXT,
     )
@@ -1442,7 +1442,7 @@ def generate_competitive_ppt(
         ("Founded", str(company.get("founded", "N/A"))),
         ("Headquarters", company.get("headquarters", "N/A")),
         ("Status", "Public" if company.get("is_public") else "Private"),
-        ("Ticker", company.get("stock_ticker", "") or "N/A"),
+        ("Ticker", company.get("stock_ticker") or "" or "N/A"),
         ("Glassdoor", str(company.get("glassdoor_rating", "N/A") or "N/A")),
     ]
 
@@ -1502,7 +1502,7 @@ def generate_competitive_ppt(
         color=WHITE,
     )
 
-    matrix = brief.get("comparison_matrix", [])
+    matrix = brief.get("comparison_matrix") or []
     if matrix:
         # Table header
         col_headers = ["Company", "Industry", "Employees", "Status", "Glassdoor"]
@@ -1538,7 +1538,7 @@ def generate_competitive_ppt(
             )
             x = x_start
             values = [
-                entry.get("name", ""),
+                entry.get("name") or "",
                 entry.get("industry", "N/A"),
                 entry.get("employee_count", "N/A"),
                 "Public" if entry.get("is_public") else "Private",
@@ -1679,8 +1679,8 @@ def generate_competitive_ppt(
             ctr_val = data.get("ctr")
             values = [
                 data.get("name", plat_key),
-                f"${data.get('cpc', 0):.2f}",
-                f"${data.get('cpa', 0):.2f}",
+                f"${data.get('cpc') or 0:.2f}",
+                f"${data.get('cpa') or 0:.2f}",
                 f"{ctr_val:.1f}%" if ctr_val else "N/A",
                 data.get("trend_direction", "stable").title(),
             ]
@@ -1698,7 +1698,7 @@ def generate_competitive_ppt(
                 )
                 x += w
 
-    industry_label = brief.get("ad_benchmarks", {}).get("industry_label", "")
+    industry_label = brief.get("ad_benchmarks", {}).get("industry_label") or ""
     if industry_label:
         _add_text_box(
             slide5,
@@ -1727,7 +1727,7 @@ def generate_competitive_ppt(
         color=WHITE,
     )
 
-    recs = brief.get("recommendations", [])
+    recs = brief.get("recommendations") or []
     priority_colors = {
         "high": RGBColor(0xDC, 0x26, 0x26),
         "medium": RAW_SIENNA,
@@ -1775,7 +1775,7 @@ def generate_competitive_ppt(
             y + 0.1,
             card_width - 1.2,
             0.4,
-            rec.get("title", ""),
+            rec.get("title") or "",
             font_size=12,
             bold=True,
             color=DOWNY_TEAL,
@@ -1787,7 +1787,7 @@ def generate_competitive_ppt(
             y + 0.55,
             card_width - 0.3,
             0.85,
-            rec.get("description", ""),
+            rec.get("description") or "",
             font_size=9,
             color=WHITE,
         )

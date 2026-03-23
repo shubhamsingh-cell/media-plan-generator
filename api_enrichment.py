@@ -975,7 +975,7 @@ def _http_get_json(
 
     # Determine whether to allow SSL fallback based on environment config.
     # SSL verification is strict by default. Set ALLOW_UNVERIFIED_SSL=1 to enable fallback (not recommended).
-    _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
+    _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL") or "".strip() == "1"
     ssl_contexts = [_DEFAULT_SSL_CTX]
     if _allow_unverified:
         ssl_contexts.append(_get_unverified_ssl_ctx())
@@ -1040,7 +1040,7 @@ def _http_post_json(
             for k, v in headers.items():
                 req.add_header(k, v)
 
-        _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
+        _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL") or "".strip() == "1"
         ssl_contexts = [_DEFAULT_SSL_CTX]
         if _allow_unverified:
             ssl_contexts.append(_get_unverified_ssl_ctx())
@@ -1139,7 +1139,7 @@ def _http_get_json_with_retry(
             for k, v in headers.items():
                 req.add_header(k, v)
 
-        _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
+        _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL") or "".strip() == "1"
         _ssl_ctxs = [_DEFAULT_SSL_CTX]
         if _allow_unverified:
             _ssl_ctxs.append(_get_unverified_ssl_ctx())
@@ -1353,7 +1353,7 @@ def _fetch_bls_salary(role: str, soc_code: str) -> Optional[Dict[str, Any]]:
     series_p10 = f"OEUN0000000000000{soc_clean}11"  # annual 10th pct
     series_p90 = f"OEUN0000000000000{soc_clean}15"  # annual 90th pct
 
-    api_key = os.environ.get("BLS_API_KEY", "")
+    api_key = os.environ.get("BLS_API_KEY") or ""
 
     # Try v2 first (higher limits, 500/day with key), then fall back to v1
     # (25 queries/day, no key needed).
@@ -1388,11 +1388,11 @@ def _fetch_bls_salary(role: str, soc_code: str) -> Optional[Dict[str, Any]]:
         return None
 
     result: Dict[str, Any] = {"source": "BLS OES"}
-    series_list = resp.get("Results", {}).get("series", [])
+    series_list = resp.get("Results", {}).get("series") or []
 
     for series in series_list:
         sid = series.get("seriesID") or ""
-        data_points = series.get("data", [])
+        data_points = series.get("data") or []
         if not data_points:
             continue
         # Take the most recent value
@@ -1645,7 +1645,7 @@ def _http_get_text(url: str, timeout: int = API_TIMEOUT) -> Optional[str]:
     req.add_header(
         "User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)"
     )
-    _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
+    _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL") or "".strip() == "1"
     _ssl_ctxs = [_DEFAULT_SSL_CTX]
     if _allow_unverified:
         _ssl_ctxs.append(_get_unverified_ssl_ctx())
@@ -1987,7 +1987,7 @@ def fetch_company_logo(domain: str) -> Optional[str]:
 
     # Strategy 1: Clearbit Logo API (higher quality)
     clearbit_url = f"https://logo.clearbit.com/{domain}"
-    _allow_unverified_logo = os.environ.get("ALLOW_UNVERIFIED_SSL", "").strip() == "1"
+    _allow_unverified_logo = os.environ.get("ALLOW_UNVERIFIED_SSL") or "".strip() == "1"
     _logo_ctxs = [_DEFAULT_SSL_CTX]
     if _allow_unverified_logo:
         _logo_ctxs.append(_get_unverified_ssl_ctx())
@@ -2128,8 +2128,8 @@ def fetch_job_market(roles: List[str], locations: List[str]) -> Dict[str, Any]:
     Fetch job market data from Adzuna (if API keys are available).
     Returns posting counts, average salaries, and competition levels.
     """
-    app_id = os.environ.get("ADZUNA_APP_ID", "")
-    app_key = os.environ.get("ADZUNA_APP_KEY", "")
+    app_id = os.environ.get("ADZUNA_APP_ID") or ""
+    app_key = os.environ.get("ADZUNA_APP_KEY") or ""
 
     if not app_id or not app_key:
         _log_info("Adzuna API keys not set; using benchmark fallbacks")
@@ -2329,7 +2329,7 @@ def fetch_company_info(
         )
         search_resp = _http_get_json(search_url, timeout=5)
         if search_resp and "query" in search_resp:
-            results = search_resp["query"].get("search", [])
+            results = search_resp["query"].get("search") or []
             for sr in results:
                 title = sr.get("title") or ""
                 if not title:
@@ -2636,7 +2636,7 @@ def fetch_fred_indicators() -> Dict[str, Any]:
     Uses the FRED API if a key is available, otherwise returns None.
     A free API key can be obtained at https://fred.stlouisfed.org/docs/api/api_key.html
     """
-    api_key = os.environ.get("FRED_API_KEY", "")
+    api_key = os.environ.get("FRED_API_KEY") or ""
     if not api_key:
         _log_info("FRED_API_KEY not set; skipping FRED indicators")
         return {}
@@ -3302,8 +3302,8 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
     if cached is not None:
         return cached
 
-    username = os.environ.get("ONET_USERNAME", "")
-    password = os.environ.get("ONET_PASSWORD", "")
+    username = os.environ.get("ONET_USERNAME") or ""
+    password = os.environ.get("ONET_PASSWORD") or ""
     use_live = bool(username and password)
 
     result: Dict[str, Any] = {"source": "O*NET", "occupations": {}}
@@ -3365,7 +3365,7 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
                         req_s, timeout=8, context=ctx
                     ) as resp_s:
                         skills_data = json.loads(resp_s.read().decode())
-                    elements = skills_data.get("element", [])
+                    elements = skills_data.get("element") or []
                     occ_data["skills"] = [
                         e.get("name") or "" for e in elements[:8] if e.get("name")
                     ]
@@ -3380,7 +3380,7 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
                         req_k, timeout=8, context=ctx
                     ) as resp_k:
                         know_data = json.loads(resp_k.read().decode())
-                    elements = know_data.get("element", [])
+                    elements = know_data.get("element") or []
                     occ_data["knowledge"] = [
                         e.get("name") or "" for e in elements[:6] if e.get("name")
                     ]
@@ -3395,10 +3395,10 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
                         req_t, timeout=8, context=ctx
                     ) as resp_t:
                         tech_data = json.loads(resp_t.read().decode())
-                    categories = tech_data.get("category", [])
+                    categories = tech_data.get("category") or []
                     tech_skills = []
                     for cat in categories[:5]:
-                        for ex in cat.get("example", [])[:2]:
+                        for ex in cat.get("example") or [][:2]:
                             name = ex.get("name") or ""
                             if name:
                                 tech_skills.append(name)
@@ -3452,7 +3452,7 @@ def fetch_onet_job_zone(soc_code: str) -> Optional[Dict[str, Any]]:
     try:
         import base64
 
-        username = os.environ.get("ONET_USERNAME", "")
+        username = os.environ.get("ONET_USERNAME") or ""
         if not username:
             return None
 
@@ -3856,7 +3856,7 @@ def fetch_country_data(locations: List[str]) -> Dict[str, Any]:
                 "region": country.get("region") or "",
                 "subregion": country.get("subregion") or "",
                 "population": country.get("population") or 0,
-                "timezones": country.get("timezones", []),
+                "timezones": country.get("timezones") or [],
             }
 
             # Extract currency info
@@ -4432,7 +4432,7 @@ def fetch_datausa_occupation_stats(roles: List[str]) -> Dict[str, Any]:
     if not roles:
         return {}
 
-    _datausa_disabled = os.environ.get("DATAUSA_DISABLED", "").strip() in (
+    _datausa_disabled = os.environ.get("DATAUSA_DISABLED") or "".strip() in (
         "1",
         "true",
         "yes",
@@ -4478,7 +4478,7 @@ def fetch_datausa_occupation_stats(roles: List[str]) -> Dict[str, Any]:
 
                 occ_id = None
                 if search_data and isinstance(search_data, dict):
-                    results = search_data.get("results", [])
+                    results = search_data.get("results") or []
                     if results:
                         occ_id = results[0].get("id") or ""
 
@@ -4628,7 +4628,7 @@ def fetch_datausa_location_data(locations: List[str]) -> Dict[str, Any]:
     if not locations:
         return {}
 
-    _datausa_disabled = os.environ.get("DATAUSA_DISABLED", "").strip() in (
+    _datausa_disabled = os.environ.get("DATAUSA_DISABLED") or "".strip() in (
         "1",
         "true",
         "yes",
@@ -5656,7 +5656,7 @@ def _call_google_ads_keyword_ideas(
 def _parse_keyword_ideas(api_response: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Parse the generateKeywordIdeas response into a flat list of keyword data."""
     results = []
-    for result in api_response.get("results", []):
+    for result in api_response.get("results") or []:
         text = result.get("text") or ""
         metrics = result.get("keywordIdeaMetrics", {})
 
@@ -5756,11 +5756,13 @@ def fetch_google_ads_data(roles: List[str], locations: List[str]) -> Dict[str, A
         _log_info("Returning cached Google Ads data")
         return cached
 
-    developer_token = os.environ.get("GOOGLE_ADS_DEVELOPER_TOKEN", "").strip()
-    refresh_token = os.environ.get("GOOGLE_ADS_REFRESH_TOKEN", "").strip()
-    client_id = os.environ.get("GOOGLE_ADS_CLIENT_ID", "").strip()
-    client_secret = os.environ.get("GOOGLE_ADS_CLIENT_SECRET", "").strip()
-    customer_id = os.environ.get("GOOGLE_ADS_CUSTOMER_ID", "").strip().replace("-", "")
+    developer_token = os.environ.get("GOOGLE_ADS_DEVELOPER_TOKEN") or "".strip()
+    refresh_token = os.environ.get("GOOGLE_ADS_REFRESH_TOKEN") or "".strip()
+    client_id = os.environ.get("GOOGLE_ADS_CLIENT_ID") or "".strip()
+    client_secret = os.environ.get("GOOGLE_ADS_CLIENT_SECRET") or "".strip()
+    customer_id = os.environ.get("GOOGLE_ADS_CUSTOMER_ID") or "".strip().replace(
+        "-", ""
+    )
 
     has_credentials = all(
         [developer_token, refresh_token, client_id, client_secret, customer_id]
@@ -6703,8 +6705,8 @@ def fetch_meta_ads_data(
         _log_info("Returning cached Meta Ads data.")
         return cached  # type: ignore[return-value]
 
-    access_token: str = os.environ.get("META_ACCESS_TOKEN", "").strip()
-    ad_account_id: str = os.environ.get("META_AD_ACCOUNT_ID", "").strip()
+    access_token: str = os.environ.get("META_ACCESS_TOKEN") or "".strip()
+    ad_account_id: str = os.environ.get("META_AD_ACCOUNT_ID") or "".strip()
     use_api: bool = bool(access_token and ad_account_id)
 
     if use_api:
@@ -7279,7 +7281,7 @@ def _bing_ads_soap_request(
         with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
             body = json.loads(resp.read().decode("utf-8"))
 
-        for idea in body.get("KeywordIdeas", []):
+        for idea in body.get("KeywordIdeas") or []:
             kw_text = idea.get("Keyword") or ""
             avg_searches = idea.get("AvgMonthlySearches") or 0
             competition = idea.get("Competition", "UNKNOWN")
@@ -7332,11 +7334,11 @@ def _bing_ads_soap_request(
         with urllib.request.urlopen(req2, timeout=30, context=ctx2) as resp2:
             traffic_body = json.loads(resp2.read().decode("utf-8"))
 
-        campaigns = traffic_body.get("CampaignEstimates", [])
+        campaigns = traffic_body.get("CampaignEstimates") or []
         if campaigns:
-            ad_groups = campaigns[0].get("AdGroupEstimates", [])
+            ad_groups = campaigns[0].get("AdGroupEstimates") or []
             if ad_groups:
-                kw_estimates = ad_groups[0].get("KeywordEstimates", [])
+                kw_estimates = ad_groups[0].get("KeywordEstimates") or []
                 for idx, est in enumerate(kw_estimates):
                     if idx >= len(keywords):
                         break
@@ -7449,11 +7451,11 @@ def fetch_bing_ads_data(
     # ------------------------------------------------------------------
     # Attempt live API call
     # ------------------------------------------------------------------
-    developer_token = os.environ.get("BING_ADS_DEVELOPER_TOKEN", "").strip()
-    client_id = os.environ.get("BING_ADS_CLIENT_ID", "").strip()
-    refresh_token = os.environ.get("BING_ADS_REFRESH_TOKEN", "").strip()
-    customer_id = os.environ.get("BING_ADS_CUSTOMER_ID", "").strip()
-    account_id = os.environ.get("BING_ADS_ACCOUNT_ID", "").strip()
+    developer_token = os.environ.get("BING_ADS_DEVELOPER_TOKEN") or "".strip()
+    client_id = os.environ.get("BING_ADS_CLIENT_ID") or "".strip()
+    refresh_token = os.environ.get("BING_ADS_REFRESH_TOKEN") or "".strip()
+    customer_id = os.environ.get("BING_ADS_CUSTOMER_ID") or "".strip()
+    account_id = os.environ.get("BING_ADS_ACCOUNT_ID") or "".strip()
 
     has_credentials = all(
         [developer_token, client_id, refresh_token, customer_id, account_id]
@@ -8057,8 +8059,8 @@ def fetch_tiktok_ads_data(roles: List[str], locations: List[str]) -> Dict[str, A
     if cached is not None:
         return cached
 
-    access_token = os.environ.get("TIKTOK_ACCESS_TOKEN", "").strip()
-    advertiser_id = os.environ.get("TIKTOK_ADVERTISER_ID", "").strip()
+    access_token = os.environ.get("TIKTOK_ACCESS_TOKEN") or "".strip()
+    advertiser_id = os.environ.get("TIKTOK_ADVERTISER_ID") or "".strip()
     has_credentials = bool(access_token and advertiser_id)
 
     if has_credentials:
@@ -8812,8 +8814,8 @@ def fetch_linkedin_ads_data(
     if cached is not None:
         return cached
 
-    token = os.environ.get("LINKEDIN_ACCESS_TOKEN", "").strip()
-    ad_account = os.environ.get("LINKEDIN_AD_ACCOUNT_ID", "").strip()
+    token = os.environ.get("LINKEDIN_ACCESS_TOKEN") or "".strip()
+    ad_account = os.environ.get("LINKEDIN_AD_ACCOUNT_ID") or "".strip()
     has_credentials = bool(token) and bool(ad_account)
 
     if has_credentials:
@@ -9830,8 +9832,8 @@ def fetch_careeronestop_data(roles: List[str], locations: List[str]) -> Dict[str
     if cached is not None:
         return cached
 
-    api_key = os.environ.get("CAREERONESTOP_API_KEY", "").strip()
-    user_id = os.environ.get("CAREERONESTOP_USER_ID", "").strip()
+    api_key = os.environ.get("CAREERONESTOP_API_KEY") or "".strip()
+    user_id = os.environ.get("CAREERONESTOP_USER_ID") or "".strip()
     use_api = bool(api_key and user_id)
 
     if not use_api:
@@ -11219,7 +11221,7 @@ def fetch_jooble_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
     dict
         A structured dict with keys: source, job_market, platform_summary.
     """
-    api_key = os.environ.get("JOOBLE_API_KEY", "").strip()
+    api_key = os.environ.get("JOOBLE_API_KEY") or "".strip()
     use_api = bool(api_key)
     source = "Jooble API" if use_api else "Jooble Market Benchmarks"
     job_market: Dict[str, Dict[str, Any]] = {}
@@ -11245,7 +11247,7 @@ def fetch_jooble_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
                 api_resp = _jooble_api_post(api_key, role, location)
 
                 if api_resp is not None:
-                    jobs = api_resp.get("jobs", [])
+                    jobs = api_resp.get("jobs") or []
                     total_count = api_resp.get("totalCount") or 0
                     salary_range = _parse_salary_from_jobs(jobs)
                     top_companies = _extract_top_companies(jobs)
@@ -11286,7 +11288,7 @@ def fetch_jooble_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
                     "total_job_postings": fb["total_job_postings"],
                     "salary_range": fb["salary_range"],
                     "market_activity": fb["market_activity"],
-                    "top_companies": fb.get("top_companies", []),
+                    "top_companies": fb.get("top_companies") or [],
                     "freshness": fb["freshness"],
                 }
 
@@ -11478,7 +11480,7 @@ def fetch_bls_jolts(
             "endyear": str(end_year),
         }
 
-        api_key = os.environ.get("BLS_API_KEY", "")
+        api_key = os.environ.get("BLS_API_KEY") or ""
         if api_key:
             payload["registrationkey"] = api_key
 
@@ -11497,7 +11499,7 @@ def fetch_bls_jolts(
         if not resp or resp.get("status") != "REQUEST_SUCCEEDED":
             return None
 
-        series_data = resp.get("Results", {}).get("series", [])
+        series_data = resp.get("Results", {}).get("series") or []
         if not series_data or not series_data[0].get("data"):
             return None
 
@@ -11643,7 +11645,7 @@ def fetch_fred_employment_series(
         return cached
 
     try:
-        api_key = os.environ.get("FRED_API_KEY", "")
+        api_key = os.environ.get("FRED_API_KEY") or ""
         if not api_key:
             return None
 
@@ -11671,7 +11673,7 @@ def fetch_fred_employment_series(
         if not resp:
             return None
 
-        observations = resp.get("observations", [])
+        observations = resp.get("observations") or []
         if not observations:
             return None
 
@@ -12326,7 +12328,7 @@ def fetch_ilo_labour_data(locations: List[str]) -> Dict[str, Any]:
             )
             resp = _http_get_json(url, timeout=12)
             if resp and "dataSets" in resp:
-                datasets = resp.get("dataSets", [])
+                datasets = resp.get("dataSets") or []
                 if datasets:
                     series = datasets[0].get("series", {})
                     # Get first series with observations
@@ -13729,7 +13731,7 @@ def fetch_fred_state_data(state_abbrev: str) -> Dict[str, Any]:
     }
 
     # Fetch unemployment rate (primary series)
-    ur_series = series_map.get("unemployment", "")
+    ur_series = series_map.get("unemployment") or ""
     if ur_series:
         try:
             url = (
@@ -13757,7 +13759,7 @@ def fetch_fred_state_data(state_abbrev: str) -> Dict[str, Any]:
             _log_warn(f"FRED state unemployment {ur_series} failed: {e}")
 
     # Fetch per-capita income (secondary series)
-    inc_series = series_map.get("income", "")
+    inc_series = series_map.get("income") or ""
     if inc_series:
         try:
             url = (

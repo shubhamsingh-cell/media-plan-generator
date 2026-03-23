@@ -722,7 +722,7 @@ def audit_line_item(
         grade (A-F), finding (overspend/underspend/optimal/no_data),
         savings_potential_dollars, efficiency_score (0-100)
     """
-    platform = item.get("platform", _resolve_platform(item.get("channel", "")))
+    platform = item.get("platform", _resolve_platform(item.get("channel") or ""))
     budget = item.get("budget", 0.0)
     planned_cpc = item.get("cpc")
     planned_cpa = item.get("cpa")
@@ -912,7 +912,7 @@ def identify_missing_channels(
     for channel_name, info in recommended.items():
         # Check if this channel (or its platform) is already in the plan
         ch_lower = channel_name.lower().strip()
-        platform = info.get("platform", "")
+        platform = info.get("platform") or ""
 
         # Flexible matching: check if any current channel maps to same platform
         # or has similar name
@@ -1032,19 +1032,19 @@ def generate_recommendations(
 
     # 1. Flag overspend channels (highest priority)
     overspend_items = [ar for ar in audit_results if ar.get("finding") == "overspend"]
-    overspend_items.sort(key=lambda x: x.get("savings_potential", 0), reverse=True)
+    overspend_items.sort(key=lambda x: x.get("savings_potential") or 0, reverse=True)
 
     for ar in overspend_items:
-        savings = ar.get("savings_potential", 0)
+        savings = ar.get("savings_potential") or 0
         recommendations.append(
             {
                 "priority": "high",
                 "priority_num": priority_counter,
                 "action": f"Reduce {ar['channel']} CPC/CPA to benchmark levels",
-                "channel": ar.get("channel", ""),
+                "channel": ar.get("channel") or "",
                 "detail": (
-                    f"Planned CPC ${ar.get('planned_cpc', 0):.2f} is {ar.get('cpc_variance_pct', 0):.0f}% above "
-                    f"benchmark ${ar.get('benchmark_cpc', 0):.2f}. "
+                    f"Planned CPC ${ar.get('planned_cpc') or 0:.2f} is {ar.get('cpc_variance_pct') or 0:.0f}% above "
+                    f"benchmark ${ar.get('benchmark_cpc') or 0:.2f}. "
                     f"Potential savings: ${savings:,.0f}. "
                     f"Negotiate rates, optimize targeting, or consider alternative vendors."
                 ),
@@ -1078,13 +1078,13 @@ def generate_recommendations(
                 "priority": "medium",
                 "priority_num": priority_counter,
                 "action": f"Review {ar['channel']} pricing",
-                "channel": ar.get("channel", ""),
+                "channel": ar.get("channel") or "",
                 "detail": (
-                    f"{ar.get('channel', '')} costs are slightly above benchmarks (Grade: {ar.get('grade', 'C')}). "
-                    f"{ar.get('detail', '')}"
+                    f"{ar.get('channel') or ''} costs are slightly above benchmarks (Grade: {ar.get('grade', 'C')}). "
+                    f"{ar.get('detail') or ''}"
                 ),
                 "category": "review",
-                "savings": ar.get("savings_potential", 0),
+                "savings": ar.get("savings_potential") or 0,
             }
         )
         priority_counter += 1
@@ -1108,15 +1108,15 @@ def generate_recommendations(
     # 5. Budget rebalancing suggestion (if we have multiple channels)
     optimal_items = [ar for ar in audit_results if ar.get("finding") == "optimal"]
     if optimal_items and overspend_items:
-        best_channel = max(optimal_items, key=lambda x: x.get("efficiency_score", 0))
+        best_channel = max(optimal_items, key=lambda x: x.get("efficiency_score") or 0)
         recommendations.append(
             {
                 "priority": "medium",
                 "priority_num": priority_counter,
                 "action": f"Reallocate overspend budget to {best_channel['channel']}",
-                "channel": best_channel.get("channel", ""),
+                "channel": best_channel.get("channel") or "",
                 "detail": (
-                    f"{best_channel['channel']} has the best efficiency score ({best_channel.get('efficiency_score', 0):.0f}/100, "
+                    f"{best_channel['channel']} has the best efficiency score ({best_channel.get('efficiency_score') or 0:.0f}/100, "
                     f"Grade {best_channel.get('grade', 'C')}). "
                     f"Move savings from overpriced channels here for maximum ROI."
                 ),
@@ -1184,11 +1184,11 @@ def generate_audit_scorecard(
         }
 
     # Budget efficiency score: weighted average of line item scores
-    total_budget = sum(ar.get("planned_budget", 0) for ar in audit_results)
+    total_budget = sum(ar.get("planned_budget") or 0 for ar in audit_results)
     if total_budget > 0:
         weighted_score = (
             sum(
-                ar.get("efficiency_score", 50) * ar.get("planned_budget", 0)
+                ar.get("efficiency_score", 50) * ar.get("planned_budget") or 0
                 for ar in audit_results
             )
             / total_budget
@@ -1233,7 +1233,7 @@ def generate_audit_scorecard(
     # Channel grades
     channel_grades = [
         {
-            "channel": ar.get("channel", ""),
+            "channel": ar.get("channel") or "",
             "grade": ar.get("grade", "C"),
             "score": ar.get("efficiency_score", 50),
             "finding": ar.get("finding", "no_data"),
@@ -1389,9 +1389,9 @@ def generate_audit_excel(
     wb = Workbook()
 
     scorecard = report_data.get("scorecard", {})
-    audit_results = report_data.get("audit_results", [])
-    missing_channels = report_data.get("missing_channels", [])
-    recommendations = report_data.get("recommendations", [])
+    audit_results = report_data.get("audit_results") or []
+    missing_channels = report_data.get("missing_channels") or []
+    recommendations = report_data.get("recommendations") or []
     savings = report_data.get("savings", {})
 
     # ── Helpers ─────────────────────────────────────────────────────────
@@ -1468,7 +1468,7 @@ def generate_audit_excel(
     ws1.cell(
         row=row,
         column=COL_START + 3,
-        value=f"{scorecard.get('budget_efficiency_score', 0)}/100",
+        value=f"{scorecard.get('budget_efficiency_score') or 0}/100",
     ).font = f_metric_value
     ws1.cell(row=row, column=COL_START + 4, value="Channel Coverage").font = (
         f_hero_label
@@ -1476,13 +1476,13 @@ def generate_audit_excel(
     ws1.cell(
         row=row,
         column=COL_START + 5,
-        value=f"{scorecard.get('channel_coverage_score', 0)}/100",
+        value=f"{scorecard.get('channel_coverage_score') or 0}/100",
     ).font = f_metric_value
     row += 2
 
     # Savings Banner
-    total_savings = savings.get("total_savings", 0)
-    total_budget = savings.get("total_budget", 0)
+    total_savings = savings.get("total_savings") or 0
+    total_budget = savings.get("total_budget") or 0
     row = _write_section_header(ws1, row, "SAVINGS OPPORTUNITY")
     row += 1
     if total_savings > 0:
@@ -1492,7 +1492,7 @@ def generate_audit_excel(
         ws1.cell(
             row=row + 1,
             column=COL_START,
-            value=f"{savings.get('savings_pct', 0)}% of total planned budget (${total_budget:,.0f})",
+            value=f"{savings.get('savings_pct') or 0}% of total planned budget (${total_budget:,.0f})",
         ).font = f_footnote
     else:
         ws1.cell(
@@ -1510,10 +1510,10 @@ def generate_audit_excel(
     row = _write_section_header(ws1, row, "FINDINGS SUMMARY")
     labels = ["Optimal", "Needs Review", "Overspend", "Insufficient Data"]
     values_list = [
-        findings.get("optimal", 0),
-        findings.get("review", 0),
-        findings.get("overspend", 0),
-        findings.get("no_data", 0),
+        findings.get("optimal") or 0,
+        findings.get("review") or 0,
+        findings.get("overspend") or 0,
+        findings.get("no_data") or 0,
     ]
     for i, (label, val) in enumerate(zip(labels, values_list)):
         col = COL_START + i
@@ -1539,8 +1539,8 @@ def generate_audit_excel(
     )
     for ar in audit_results:
         grade = ar.get("grade", "C")
-        cpc_var = ar.get("cpc_variance_pct", 0)
-        sav = ar.get("savings_potential", 0)
+        cpc_var = ar.get("cpc_variance_pct") or 0
+        sav = ar.get("savings_potential") or 0
 
         def _var_str(v):
             arrow = "+" if v > 0 else ""
@@ -1559,10 +1559,10 @@ def generate_audit_excel(
             ws1,
             row,
             [
-                ar.get("channel", ""),
+                ar.get("channel") or "",
                 grade,
-                f"{ar.get('efficiency_score', 0):.0f}",
-                _finding_text(ar.get("finding", "")),
+                f"{ar.get('efficiency_score') or 0:.0f}",
+                _finding_text(ar.get("finding") or ""),
                 _var_str(cpc_var),
                 f"${sav:,.0f}" if sav > 0 else "-",
             ],
@@ -1607,7 +1607,7 @@ def generate_audit_excel(
 
     for ar in audit_results:
         grade = ar.get("grade", "C")
-        cpc_var = ar.get("cpc_variance_pct", 0)
+        cpc_var = ar.get("cpc_variance_pct") or 0
         planned_cpc = ar.get("planned_cpc")
         planned_cpa = ar.get("planned_cpa")
 
@@ -1628,15 +1628,15 @@ def generate_audit_excel(
             ws2,
             row,
             [
-                ar.get("channel", ""),
-                f"${ar.get('planned_budget', 0):,.2f}",
+                ar.get("channel") or "",
+                f"${ar.get('planned_budget') or 0:,.2f}",
                 f"${planned_cpc:.2f}" if planned_cpc is not None else "N/A",
-                f"${ar.get('benchmark_cpc', 0):.2f}",
+                f"${ar.get('benchmark_cpc') or 0:.2f}",
                 f"{'+' if cpc_var > 0 else ''}{cpc_var:.1f}%",
                 f"${planned_cpa:.2f}" if planned_cpa is not None else "N/A",
-                f"${ar.get('benchmark_cpa', 0):.2f}",
+                f"${ar.get('benchmark_cpa') or 0:.2f}",
                 grade,
-                _finding_text(ar.get("finding", "")),
+                _finding_text(ar.get("finding") or ""),
             ],
             fonts=fonts_row,
             fills=fills_row,
@@ -1646,9 +1646,9 @@ def generate_audit_excel(
     # Detail notes
     row = _write_section_header(ws2, row, "ANALYSIS NOTES", col_end=10)
     for ar in audit_results:
-        detail = ar.get("detail", "")
+        detail = ar.get("detail") or ""
         if detail:
-            ws2.cell(row=row, column=COL_START, value=ar.get("channel", "")).font = (
+            ws2.cell(row=row, column=COL_START, value=ar.get("channel") or "").font = (
                 f_body_bold
             )
             ws2.cell(row=row, column=COL_START + 1, value=detail).font = f_body
@@ -1706,9 +1706,9 @@ def generate_audit_excel(
                 ws3,
                 row,
                 [
-                    mc.get("channel", ""),
+                    mc.get("channel") or "",
                     importance.upper(),
-                    mc.get("reason", ""),
+                    mc.get("reason") or "",
                 ],
                 fonts=[f_body_bold, imp_font, f_body],
                 fills=[None, imp_fill, None],
@@ -1759,15 +1759,15 @@ def generate_audit_excel(
             pri_font = f_body
             pri_fill = fill_light
 
-        rec_savings = rec.get("savings", 0)
+        rec_savings = rec.get("savings") or 0
         row = _write_table_row(
             ws4,
             row,
             [
-                str(rec.get("priority_num", "")),
+                str(rec.get("priority_num") or ""),
                 priority.upper(),
-                rec.get("action", ""),
-                rec.get("detail", ""),
+                rec.get("action") or "",
+                rec.get("detail") or "",
                 f"${rec_savings:,.0f}" if rec_savings > 0 else "-",
             ],
             fonts=[
@@ -1781,7 +1781,7 @@ def generate_audit_excel(
         )
 
     row += 2
-    ws4.cell(row=row, column=COL_START, value=savings.get("narrative", "")).font = (
+    ws4.cell(row=row, column=COL_START, value=savings.get("narrative") or "").font = (
         f_footnote
     )
 
@@ -1852,9 +1852,9 @@ def generate_audit_ppt(
     prs.slide_height = Inches(7.5)
 
     scorecard = report_data.get("scorecard", {})
-    audit_results = report_data.get("audit_results", [])
-    missing_channels = report_data.get("missing_channels", [])
-    recommendations = report_data.get("recommendations", [])
+    audit_results = report_data.get("audit_results") or []
+    missing_channels = report_data.get("missing_channels") or []
+    recommendations = report_data.get("recommendations") or []
     savings = report_data.get("savings", {})
 
     # ── Helpers ─────────────────────────────────────────────────────
@@ -1935,9 +1935,9 @@ def generate_audit_ppt(
 
     # Key metric cards
     overall_grade = scorecard.get("overall_grade", "N/A")
-    efficiency = scorecard.get("budget_efficiency_score", 0)
-    coverage = scorecard.get("channel_coverage_score", 0)
-    total_savings_val = savings.get("total_savings", 0)
+    efficiency = scorecard.get("budget_efficiency_score") or 0
+    coverage = scorecard.get("channel_coverage_score") or 0
+    total_savings_val = savings.get("total_savings") or 0
 
     cards = [
         ("Overall Grade", overall_grade, ""),
@@ -1992,8 +1992,8 @@ def generate_audit_ppt(
 
     # Industry & channel count
     industry_label = INDUSTRY_LABEL_MAP.get(
-        report_data.get("industry", ""),
-        report_data.get("industry", "").replace("_", " ").title(),
+        report_data.get("industry") or "",
+        report_data.get("industry") or "".replace("_", " ").title(),
     )
     _add_text_box(
         slide1,
@@ -2001,8 +2001,8 @@ def generate_audit_ppt(
         Inches(5.0),
         Inches(6),
         Inches(0.4),
-        f"Industry: {industry_label}  |  Channels Analyzed: {scorecard.get('channel_count', 0)}  |  "
-        f"Missing Channels: {scorecard.get('missing_channel_count', 0)}",
+        f"Industry: {industry_label}  |  Channels Analyzed: {scorecard.get('channel_count') or 0}  |  "
+        f"Missing Channels: {scorecard.get('missing_channel_count') or 0}",
         FONT_BODY,
         11,
         WARM_GRAY,
@@ -2050,9 +2050,9 @@ def generate_audit_ppt(
     # Channel grade cards (up to 8)
     max_channels = min(len(audit_results), 8)
     for i, ar in enumerate(
-        sorted(audit_results, key=lambda x: x.get("efficiency_score", 0), reverse=True)[
-            :max_channels
-        ]
+        sorted(
+            audit_results, key=lambda x: x.get("efficiency_score") or 0, reverse=True
+        )[:max_channels]
     ):
         col = i % 4
         r = i // 4
@@ -2071,7 +2071,7 @@ def generate_audit_ppt(
             top + Inches(0.1),
             Inches(2.0),
             Inches(0.3),
-            ar.get("channel", ""),
+            ar.get("channel") or "",
             FONT_TITLE,
             12,
             NAVY,
@@ -2092,14 +2092,14 @@ def generate_audit_ppt(
         )
 
         metrics_lines = [
-            f"Budget: ${ar.get('planned_budget', 0):,.0f}",
+            f"Budget: ${ar.get('planned_budget') or 0:,.0f}",
             (
-                f"CPC: ${ar.get('planned_cpc', 0):.2f} (Bench: ${ar.get('benchmark_cpc', 0):.2f})"
+                f"CPC: ${ar.get('planned_cpc') or 0:.2f} (Bench: ${ar.get('benchmark_cpc') or 0:.2f})"
                 if ar.get("planned_cpc")
                 else "CPC: N/A"
             ),
-            f"Variance: {ar.get('cpc_variance_pct', 0):+.0f}%",
-            f"Finding: {_finding_text(ar.get('finding', ''))}",
+            f"Variance: {ar.get('cpc_variance_pct') or 0:+.0f}%",
+            f"Finding: {_finding_text(ar.get('finding') or '')}",
         ]
         for m_idx, m_text in enumerate(metrics_lines):
             _add_text_box(
@@ -2167,7 +2167,7 @@ def generate_audit_ppt(
             Inches(2.15),
             Inches(10),
             Inches(0.4),
-            f"{savings.get('savings_pct', 0)}% of your ${savings.get('total_budget', 0):,.0f} total planned budget",
+            f"{savings.get('savings_pct') or 0}% of your ${savings.get('total_budget') or 0:,.0f} total planned budget",
             FONT_BODY,
             12,
             MUTED_TEXT,
@@ -2198,7 +2198,7 @@ def generate_audit_ppt(
         )
 
     # Per-channel savings breakdown
-    channel_savings = savings.get("channel_savings", [])
+    channel_savings = savings.get("channel_savings") or []
     if channel_savings:
         _add_text_box(
             slide3,
@@ -2221,7 +2221,7 @@ def generate_audit_ppt(
                 top,
                 Inches(3.5),
                 Inches(0.4),
-                cs.get("channel", ""),
+                cs.get("channel") or "",
                 FONT_BODY,
                 11,
                 DARK_TEXT,
@@ -2233,7 +2233,7 @@ def generate_audit_ppt(
                 top,
                 Inches(2.5),
                 Inches(0.4),
-                f"${cs.get('savings', 0):,.0f}",
+                f"${cs.get('savings') or 0:,.0f}",
                 FONT_BODY,
                 11,
                 GREEN,
@@ -2245,7 +2245,7 @@ def generate_audit_ppt(
                 top,
                 Inches(2),
                 Inches(0.4),
-                f"({cs.get('savings_pct', 0):.0f}% of channel budget)",
+                f"({cs.get('savings_pct') or 0:.0f}% of channel budget)",
                 FONT_BODY,
                 9,
                 MUTED_TEXT,
@@ -2334,7 +2334,7 @@ def generate_audit_ppt(
                 top + Inches(0.55),
                 Inches(3.4),
                 Inches(0.3),
-                mc.get("channel", ""),
+                mc.get("channel") or "",
                 FONT_TITLE,
                 13,
                 NAVY,
@@ -2348,7 +2348,7 @@ def generate_audit_ppt(
                 top + Inches(0.9),
                 Inches(3.4),
                 Inches(1.0),
-                mc.get("reason", ""),
+                mc.get("reason") or "",
                 FONT_BODY,
                 9,
                 MUTED_TEXT,
@@ -2454,7 +2454,7 @@ def generate_audit_ppt(
             top + Inches(0.08),
             Inches(5),
             Inches(0.35),
-            rec.get("action", ""),
+            rec.get("action") or "",
             FONT_TITLE,
             11,
             NAVY,
@@ -2462,7 +2462,7 @@ def generate_audit_ppt(
         )
 
         # Savings if any
-        rec_savings = rec.get("savings", 0)
+        rec_savings = rec.get("savings") or 0
         if rec_savings > 0:
             _add_text_box(
                 slide5,
@@ -2485,7 +2485,7 @@ def generate_audit_ppt(
         Inches(6.3),
         Inches(11.5),
         Inches(0.5),
-        savings.get("narrative", ""),
+        savings.get("narrative") or "",
         FONT_BODY,
         10,
         TEAL,
@@ -2576,7 +2576,7 @@ def run_full_audit(
             audit_results.append(audit)
 
         # 5. Identify missing channels
-        current_channels = [item.get("channel", "") for item in line_items]
+        current_channels = [item.get("channel") or "" for item in line_items]
         missing_channels = identify_missing_channels(
             current_channels, industry, roles, collar_type
         )
@@ -2605,7 +2605,7 @@ def run_full_audit(
             "recommendations": recs,
             "scorecard": scorecard,
             "channel_count": len(line_items),
-            "total_planned_budget": sum(item.get("budget", 0) for item in line_items),
+            "total_planned_budget": sum(item.get("budget") or 0 for item in line_items),
             "generated_at": datetime.datetime.now().isoformat(),
         }
 

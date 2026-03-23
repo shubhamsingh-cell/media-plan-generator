@@ -446,7 +446,7 @@ class MetricsCollector:
 
         with self._req_lock:
             # Generate P99 latency
-            gen_lats = sorted(self._latencies.get("/api/generate", []))
+            gen_lats = sorted(self._latencies.get("/api/generate") or [])
             gen_p99 = _percentile(gen_lats, 99) if gen_lats else 0.0
             results["generate_p99_ms"] = {
                 "target": SLO_TARGETS["generate_p99_ms"]["target"],
@@ -456,7 +456,7 @@ class MetricsCollector:
             }
 
             # Chat P99 latency
-            chat_lats = sorted(self._latencies.get("/api/chat", []))
+            chat_lats = sorted(self._latencies.get("/api/chat") or [])
             chat_p99 = _percentile(chat_lats, 99) if chat_lats else 0.0
             results["chat_p99_ms"] = {
                 "target": SLO_TARGETS["chat_p99_ms"]["target"],

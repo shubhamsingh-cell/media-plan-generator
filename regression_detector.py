@@ -73,7 +73,7 @@ _SEVERITY_LEVELS: List[Tuple[float, str]] = [
     (50.0, "critical"),
     (30.0, "high"),
     (15.0, "medium"),
-    (0.0,  "low"),
+    (0.0, "low"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -83,46 +83,86 @@ _SEVERITY_LEVELS: List[Tuple[float, str]] = [
 
 _CHANNEL_PRESETS: Dict[str, Dict[str, float]] = {
     "healthcare_medical": {
-        "programmatic_dsp": 22, "global_boards": 15, "niche_boards": 30,
-        "social_media": 10, "regional_boards": 10, "employer_branding": 8,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 22,
+        "global_boards": 15,
+        "niche_boards": 30,
+        "social_media": 10,
+        "regional_boards": 10,
+        "employer_branding": 8,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
     "tech_engineering": {
-        "programmatic_dsp": 30, "global_boards": 15, "niche_boards": 20,
-        "social_media": 18, "regional_boards": 5, "employer_branding": 7,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 30,
+        "global_boards": 15,
+        "niche_boards": 20,
+        "social_media": 18,
+        "regional_boards": 5,
+        "employer_branding": 7,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
     "retail_consumer": {
-        "programmatic_dsp": 38, "global_boards": 22, "niche_boards": 8,
-        "social_media": 20, "regional_boards": 7, "employer_branding": 3,
-        "apac_regional": 1, "emea_regional": 1,
+        "programmatic_dsp": 38,
+        "global_boards": 22,
+        "niche_boards": 8,
+        "social_media": 20,
+        "regional_boards": 7,
+        "employer_branding": 3,
+        "apac_regional": 1,
+        "emea_regional": 1,
     },
     "logistics_supply_chain": {
-        "programmatic_dsp": 35, "global_boards": 20, "niche_boards": 12,
-        "social_media": 10, "regional_boards": 15, "employer_branding": 5,
-        "apac_regional": 2, "emea_regional": 1,
+        "programmatic_dsp": 35,
+        "global_boards": 20,
+        "niche_boards": 12,
+        "social_media": 10,
+        "regional_boards": 15,
+        "employer_branding": 5,
+        "apac_regional": 2,
+        "emea_regional": 1,
     },
     "finance_banking": {
-        "programmatic_dsp": 25, "global_boards": 18, "niche_boards": 25,
-        "social_media": 10, "regional_boards": 7, "employer_branding": 10,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 25,
+        "global_boards": 18,
+        "niche_boards": 25,
+        "social_media": 10,
+        "regional_boards": 7,
+        "employer_branding": 10,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
     "hospitality_travel": {
-        "programmatic_dsp": 38, "global_boards": 22, "niche_boards": 8,
-        "social_media": 20, "regional_boards": 7, "employer_branding": 3,
-        "apac_regional": 1, "emea_regional": 1,
+        "programmatic_dsp": 38,
+        "global_boards": 22,
+        "niche_boards": 8,
+        "social_media": 20,
+        "regional_boards": 7,
+        "employer_branding": 3,
+        "apac_regional": 1,
+        "emea_regional": 1,
     },
     "general_entry_level": {
-        "programmatic_dsp": 35, "global_boards": 20, "niche_boards": 15,
-        "social_media": 12, "regional_boards": 8, "employer_branding": 5,
-        "apac_regional": 3, "emea_regional": 2,
+        "programmatic_dsp": 35,
+        "global_boards": 20,
+        "niche_boards": 15,
+        "social_media": 12,
+        "regional_boards": 8,
+        "employer_branding": 5,
+        "apac_regional": 3,
+        "emea_regional": 2,
     },
 }
 
 _DEFAULT_CHANNEL_PCT: Dict[str, float] = {
-    "programmatic_dsp": 35, "global_boards": 20, "niche_boards": 15,
-    "social_media": 12, "regional_boards": 8, "employer_branding": 5,
-    "apac_regional": 3, "emea_regional": 2,
+    "programmatic_dsp": 35,
+    "global_boards": 20,
+    "niche_boards": 15,
+    "social_media": 12,
+    "regional_boards": 8,
+    "employer_branding": 5,
+    "apac_regional": 3,
+    "emea_regional": 2,
 }
 
 # ---------------------------------------------------------------------------
@@ -150,7 +190,11 @@ REFERENCE_SCENARIOS: List[Dict[str, Any]] = [
         "industry": "tech_engineering",
         "budget": 200_000,
         "roles": [
-            {"title": "Software Engineer", "count": 10, "tier": "Professional / White-Collar"},
+            {
+                "title": "Software Engineer",
+                "count": 10,
+                "tier": "Professional / White-Collar",
+            },
         ],
         "locations": [
             {"city": "San Francisco", "state": "CA", "country": "US"},
@@ -189,7 +233,11 @@ REFERENCE_SCENARIOS: List[Dict[str, Any]] = [
         "industry": "finance_banking",
         "budget": 50_000,
         "roles": [
-            {"title": "Financial Analyst", "count": 5, "tier": "Professional / White-Collar"},
+            {
+                "title": "Financial Analyst",
+                "count": 5,
+                "tier": "Professional / White-Collar",
+            },
         ],
         "locations": [
             {"city": "New York", "state": "NY", "country": "US"},
@@ -215,7 +263,11 @@ REFERENCE_SCENARIOS: List[Dict[str, Any]] = [
         "industry": "tech_engineering",
         "budget": 120_000,
         "roles": [
-            {"title": "Software Developer", "count": 20, "tier": "Professional / White-Collar"},
+            {
+                "title": "Software Developer",
+                "count": 20,
+                "tier": "Professional / White-Collar",
+            },
         ],
         "locations": [
             {"city": "London", "state": "", "country": "United Kingdom"},
@@ -229,7 +281,11 @@ REFERENCE_SCENARIOS: List[Dict[str, Any]] = [
         "budget": 100_000,
         "roles": [
             {"title": "Warehouse Worker", "count": 30, "tier": "Hourly / Entry-Level"},
-            {"title": "Data Analyst", "count": 10, "tier": "Professional / White-Collar"},
+            {
+                "title": "Data Analyst",
+                "count": 10,
+                "tier": "Professional / White-Collar",
+            },
         ],
         "locations": [
             {"city": "Houston", "state": "TX", "country": "US"},
@@ -242,7 +298,11 @@ REFERENCE_SCENARIOS: List[Dict[str, Any]] = [
         "industry": "tech_engineering",
         "budget": 25_000,
         "roles": [
-            {"title": "VP of Engineering", "count": 1, "tier": "Executive / Leadership"},
+            {
+                "title": "VP of Engineering",
+                "count": 1,
+                "tier": "Executive / Leadership",
+            },
         ],
         "locations": [
             {"city": "Boston", "state": "MA", "country": "US"},
@@ -288,6 +348,7 @@ def _ensure_budget_engine() -> bool:
         if _MODULE_DIR not in sys.path:
             sys.path.insert(0, _MODULE_DIR)
         import budget_engine as _be  # type: ignore[import-untyped]
+
         _budget_engine = _be
         return True
     except Exception as exc:
@@ -299,6 +360,7 @@ def _ensure_budget_engine() -> bool:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _pct_change(baseline_val: float, current_val: float) -> float:
     """Return absolute percentage change between two values.
@@ -338,9 +400,7 @@ def _extract_channel_allocation_pcts(
     try:
         for ch_name, ch_data in channel_allocations.items():
             if isinstance(ch_data, dict):
-                result[ch_name] = round(
-                    float(ch_data.get("percentage", 0.0)), 2
-                )
+                result[ch_name] = round(float(ch_data.get("percentage", 0.0)), 2)
             else:
                 result[ch_name] = 0.0
     except Exception:
@@ -352,7 +412,7 @@ def _total_projected_hires(result: Dict[str, Any]) -> int:
     """Safely extract total projected hires from a budget engine result."""
     try:
         tp = result.get("total_projected", {})
-        return int(tp.get("hires", 0))
+        return int(tp.get("hires") or 0)
     except Exception:
         return 0
 
@@ -378,6 +438,7 @@ def _collar_type_from_result(result: Dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 # Core public API
 # ---------------------------------------------------------------------------
+
 
 def run_scenario(scenario: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -424,9 +485,9 @@ def run_scenario(scenario: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         industry = scenario.get("industry", "general_entry_level")
-        budget = float(scenario.get("budget", 0))
-        roles = list(scenario.get("roles", []))
-        locations = list(scenario.get("locations", []))
+        budget = float(scenario.get("budget") or 0)
+        roles = list(scenario.get("roles") or [])
+        locations = list(scenario.get("locations") or [])
         channel_pcts = _channel_pcts_for_industry(industry)
 
         result = _budget_engine.calculate_budget_allocation(
@@ -490,7 +551,7 @@ def run_regression_check() -> Dict[str, Dict[str, Any]]:
                 "total_budget": outcome.get("total_budget", 0.0),
                 "channel_allocations": outcome.get("channel_allocations", {}),
                 "projected_cpa": outcome.get("projected_cpa", 0.0),
-                "projected_hires": outcome.get("projected_hires", 0),
+                "projected_hires": outcome.get("projected_hires") or 0,
                 "collar_type": outcome.get("collar_type", "unknown"),
                 "error": outcome.get("error"),
             }
@@ -512,6 +573,7 @@ def run_regression_check() -> Dict[str, Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Baseline persistence
 # ---------------------------------------------------------------------------
+
 
 def save_baseline(results: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -537,6 +599,7 @@ def save_baseline(results: Dict[str, Any]) -> Dict[str, Any]:
         # Add a creation timestamp (stdlib only -- no datetime needed)
         try:
             import time
+
             payload["created_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         except Exception:
             pass
@@ -581,6 +644,7 @@ def load_baseline() -> Optional[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Baseline comparison
 # ---------------------------------------------------------------------------
+
 
 def compare_to_baseline(current: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -645,29 +709,35 @@ def compare_to_baseline(current: Dict[str, Any]) -> Dict[str, Any]:
             # Skip comparison if either side had an error
             if cur_metrics.get("error") or base_metrics.get("error"):
                 if cur_metrics.get("error") and not base_metrics.get("error"):
-                    alerts.append({
-                        "scenario": scenario_name,
-                        "metric": "execution_error",
-                        "baseline": "success",
-                        "current": str(cur_metrics["error"]),
-                        "drift_pct": 100.0,
-                        "severity": "critical",
-                    })
+                    alerts.append(
+                        {
+                            "scenario": scenario_name,
+                            "metric": "execution_error",
+                            "baseline": "success",
+                            "current": str(cur_metrics["error"]),
+                            "drift_pct": 100.0,
+                            "severity": "critical",
+                        }
+                    )
                 continue
 
             # -- CPA drift --
             _compare_scalar(
-                alerts, scenario_name, "projected_cpa",
-                float(base_metrics.get("projected_cpa", 0)),
-                float(cur_metrics.get("projected_cpa", 0)),
+                alerts,
+                scenario_name,
+                "projected_cpa",
+                float(base_metrics.get("projected_cpa") or 0),
+                float(cur_metrics.get("projected_cpa") or 0),
                 THRESHOLD_CPA_DRIFT_PCT,
             )
 
             # -- Hire projection drift --
             _compare_scalar(
-                alerts, scenario_name, "projected_hires",
-                float(base_metrics.get("projected_hires", 0)),
-                float(cur_metrics.get("projected_hires", 0)),
+                alerts,
+                scenario_name,
+                "projected_hires",
+                float(base_metrics.get("projected_hires") or 0),
+                float(cur_metrics.get("projected_hires") or 0),
                 THRESHOLD_HIRE_DRIFT_PCT,
             )
 
@@ -680,9 +750,11 @@ def compare_to_baseline(current: Dict[str, Any]) -> Dict[str, Any]:
                 base_pct = float(base_allocs.get(channel, 0.0))
                 cur_pct = float(cur_allocs.get(channel, 0.0))
                 _compare_scalar(
-                    alerts, scenario_name,
+                    alerts,
+                    scenario_name,
                     f"channel_allocation:{channel}",
-                    base_pct, cur_pct,
+                    base_pct,
+                    cur_pct,
                     THRESHOLD_ALLOCATION_DRIFT_PCT,
                 )
 
@@ -712,14 +784,16 @@ def _compare_scalar(
     try:
         drift = _pct_change(baseline_val, current_val)
         if drift > threshold_pct:
-            alerts.append({
-                "scenario": scenario_name,
-                "metric": metric_name,
-                "baseline": round(baseline_val, 4),
-                "current": round(current_val, 4),
-                "drift_pct": round(drift, 2),
-                "severity": _severity_for_drift(drift),
-            })
+            alerts.append(
+                {
+                    "scenario": scenario_name,
+                    "metric": metric_name,
+                    "baseline": round(baseline_val, 4),
+                    "current": round(current_val, 4),
+                    "drift_pct": round(drift, 2),
+                    "severity": _severity_for_drift(drift),
+                }
+            )
     except Exception:
         pass  # never crash the comparison loop
 
@@ -727,6 +801,7 @@ def _compare_scalar(
 # ---------------------------------------------------------------------------
 # Pretty-printing utilities
 # ---------------------------------------------------------------------------
+
 
 def format_run_results(results: Dict[str, Dict[str, Any]]) -> str:
     """Return a human-readable summary of a regression run."""
@@ -744,10 +819,18 @@ def format_run_results(results: Dict[str, Dict[str, Any]]) -> str:
             lines.append(f"  ERROR: {metrics['error']}")
             continue
 
-        lines.append(f"    Budget:           ${metrics.get('total_budget', 0):>12,.2f}")
-        lines.append(f"    Projected CPA:    ${metrics.get('projected_cpa', 0):>12,.2f}")
-        lines.append(f"    Projected Hires:   {metrics.get('projected_hires', 0):>12,}")
-        lines.append(f"    Collar Type:       {metrics.get('collar_type', 'unknown'):>12}")
+        lines.append(
+            f"    Budget:           ${metrics.get('total_budget') or 0:>12,.2f}"
+        )
+        lines.append(
+            f"    Projected CPA:    ${metrics.get('projected_cpa') or 0:>12,.2f}"
+        )
+        lines.append(
+            f"    Projected Hires:   {metrics.get('projected_hires') or 0:>12,}"
+        )
+        lines.append(
+            f"    Collar Type:       {metrics.get('collar_type', 'unknown'):>12}"
+        )
 
         ch = metrics.get("channel_allocations", {})
         if ch:
@@ -772,15 +855,11 @@ def format_comparison_report(report: Dict[str, Any]) -> str:
         lines.append("=" * 72)
         return "\n".join(lines)
 
-    lines.append(
-        f"  Scenarios checked: {report.get('scenarios_checked', 0)}"
-    )
-    lines.append(
-        f"  Total alerts:      {report.get('total_alerts', 0)}"
-    )
+    lines.append(f"  Scenarios checked: {report.get('scenarios_checked') or 0}")
+    lines.append(f"  Total alerts:      {report.get('total_alerts') or 0}")
     lines.append("")
 
-    alerts = report.get("alerts", [])
+    alerts = report.get("alerts") or []
     if not alerts:
         lines.append("  No regressions detected. All metrics within thresholds.")
     else:
@@ -797,18 +876,12 @@ def format_comparison_report(report: Dict[str, Any]) -> str:
             lines.append(f"  [{severity.upper()}] ({len(sev_alerts)} alert(s))")
             lines.append(f"  {'─' * 40}")
             for a in sev_alerts:
-                lines.append(
-                    f"    Scenario: {a['scenario']}"
-                )
-                lines.append(
-                    f"    Metric:   {a['metric']}"
-                )
+                lines.append(f"    Scenario: {a['scenario']}")
+                lines.append(f"    Metric:   {a['metric']}")
                 lines.append(
                     f"    Baseline: {a['baseline']}  ->  Current: {a['current']}"
                 )
-                lines.append(
-                    f"    Drift:    {a['drift_pct']:.1f}%"
-                )
+                lines.append(f"    Drift:    {a['drift_pct']:.1f}%")
                 lines.append("")
 
     lines.append("=" * 72)
@@ -818,6 +891,7 @@ def format_comparison_report(report: Dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     """CLI entry point.  Returns 0 on success, 1 on regression alerts."""
@@ -875,7 +949,7 @@ def main() -> int:
         print(format_comparison_report(report))
         if report.get("error"):
             return 1
-        if report.get("total_alerts", 0) > 0:
+        if report.get("total_alerts") or 0 > 0:
             return 1
         return 0
 

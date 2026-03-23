@@ -355,7 +355,7 @@ def _get_channel_cpc(
                 month=month,
             )
             if result and isinstance(result, dict):
-                val = result.get("value", 0)
+                val = result.get("value") or 0
                 if isinstance(val, (int, float)) and val > 0:
                     return float(val)
         except Exception:
@@ -714,14 +714,14 @@ def compare_scenarios(scenarios_list: List[Dict[str, Any]]) -> Dict[str, Any]:
             {
                 "index": i,
                 "label": f"Scenario {i + 1}",
-                "total_budget": summary.get("total_budget", 0),
-                "total_clicks": summary.get("total_clicks", 0),
-                "total_applies": summary.get("total_applies", 0),
-                "total_hires": summary.get("total_hires", 0),
-                "blended_cpc": summary.get("blended_cpc", 0),
-                "blended_cpa": summary.get("blended_cpa", 0),
-                "blended_cph": summary.get("blended_cph", 0),
-                "roi_score": summary.get("roi_score", 0),
+                "total_budget": summary.get("total_budget") or 0,
+                "total_clicks": summary.get("total_clicks") or 0,
+                "total_applies": summary.get("total_applies") or 0,
+                "total_hires": summary.get("total_hires") or 0,
+                "blended_cpc": summary.get("blended_cpc") or 0,
+                "blended_cpa": summary.get("blended_cpa") or 0,
+                "blended_cph": summary.get("blended_cph") or 0,
+                "roi_score": summary.get("roi_score") or 0,
             }
         )
 
@@ -744,13 +744,13 @@ def compare_scenarios(scenarios_list: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     for ch_key in CHANNEL_KEYS:
         deltas = []
-        base_pct = base_channels.get(ch_key, {}).get("percentage", 0)
-        base_dollars = base_channels.get(ch_key, {}).get("dollar_amount", 0)
+        base_pct = base_channels.get(ch_key, {}).get("percentage") or 0
+        base_dollars = base_channels.get(ch_key, {}).get("dollar_amount") or 0
 
         for i, sc in enumerate(scenarios_list):
             sc_ch = sc.get("channels", {}).get(ch_key, {})
-            sc_pct = sc_ch.get("percentage", 0)
-            sc_dollars = sc_ch.get("dollar_amount", 0)
+            sc_pct = sc_ch.get("percentage") or 0
+            sc_dollars = sc_ch.get("dollar_amount") or 0
             deltas.append(
                 {
                     "scenario_index": i,
@@ -758,8 +758,8 @@ def compare_scenarios(scenarios_list: List[Dict[str, Any]]) -> Dict[str, Any]:
                     "dollar_amount": sc_dollars,
                     "pct_delta": round(sc_pct - base_pct, 1) if i > 0 else 0,
                     "dollar_delta": round(sc_dollars - base_dollars, 2) if i > 0 else 0,
-                    "applies": sc_ch.get("projected_applies", 0),
-                    "hires": sc_ch.get("projected_hires", 0),
+                    "applies": sc_ch.get("projected_applies") or 0,
+                    "hires": sc_ch.get("projected_hires") or 0,
                 }
             )
         channel_deltas[ch_key] = deltas
@@ -1043,7 +1043,7 @@ def export_scenario_excel(
             cell.fill = fill
 
     # Best scenario indicator
-    best_idx = comparison.get("best_scenario_index", 0)
+    best_idx = comparison.get("best_scenario_index") or 0
     row += 2
     ws1.merge_cells(start_row=row, start_column=2, end_row=row, end_column=5)
     rec = comparison.get("recommendation", f"Scenario {best_idx + 1} is recommended.")
@@ -1099,13 +1099,13 @@ def export_scenario_excel(
 
             values = [
                 ch.get("label", ch_key),
-                f"{ch.get('percentage', 0):.1f}%",
-                f"${ch.get('dollar_amount', 0):,.0f}",
-                f"{ch.get('projected_clicks', 0):,}",
-                f"{ch.get('projected_applies', 0):,}",
-                f"{ch.get('projected_hires', 0):,}",
-                f"${ch.get('cpa', 0):,.2f}",
-                f"{ch.get('roi_score', 0)}/10",
+                f"{ch.get('percentage') or 0:.1f}%",
+                f"${ch.get('dollar_amount') or 0:,.0f}",
+                f"{ch.get('projected_clicks') or 0:,}",
+                f"{ch.get('projected_applies') or 0:,}",
+                f"{ch.get('projected_hires') or 0:,}",
+                f"${ch.get('cpa') or 0:,.2f}",
+                f"{ch.get('roi_score') or 0}/10",
             ]
             for col_idx, v in enumerate(values):
                 cell = ws2.cell(row=row, column=2 + col_idx, value=v)
@@ -1149,7 +1149,7 @@ def export_scenario_excel(
         ws3.cell(row=row, column=2, value=label).font = font_body_bold
         ws3.cell(row=row, column=2).border = border_thin
 
-        best_for_metric = mbw.get(key, {}).get("best", 0)
+        best_for_metric = mbw.get(key, {}).get("best") or 0
         worst_for_metric = mbw.get(key, {}).get("worst", -1)
 
         for i, sc in enumerate(scenarios):
@@ -1305,10 +1305,10 @@ def export_scenario_ppt(
         summary = sc.get("summary", {})
         # Hero metrics
         hero_metrics = [
-            ("Hires", f"{summary.get('total_hires', 0):,}"),
-            ("Applies", f"{summary.get('total_applies', 0):,}"),
-            ("CPA", f"${summary.get('blended_cpa', 0):,.2f}"),
-            ("ROI", f"{summary.get('roi_score', 0)}/10"),
+            ("Hires", f"{summary.get('total_hires') or 0:,}"),
+            ("Applies", f"{summary.get('total_applies') or 0:,}"),
+            ("CPA", f"${summary.get('blended_cpa') or 0:,.2f}"),
+            ("ROI", f"{summary.get('roi_score') or 0}/10"),
         ]
 
         x_start = 0.5
@@ -1380,12 +1380,12 @@ def export_scenario_ppt(
             ch = channels.get(ch_key, {})
             row_data = [
                 ch.get("label", ch_key),
-                f"{ch.get('percentage', 0):.0f}%",
-                f"${ch.get('dollar_amount', 0):,.0f}",
-                f"{ch.get('projected_clicks', 0):,}",
-                f"{ch.get('projected_applies', 0):,}",
-                f"{ch.get('projected_hires', 0):,}",
-                f"${ch.get('cpa', 0):,.0f}",
+                f"{ch.get('percentage') or 0:.0f}%",
+                f"${ch.get('dollar_amount') or 0:,.0f}",
+                f"{ch.get('projected_clicks') or 0:,}",
+                f"{ch.get('projected_applies') or 0:,}",
+                f"{ch.get('projected_hires') or 0:,}",
+                f"${ch.get('cpa') or 0:,.0f}",
             ]
 
             x = 0.5
@@ -1426,7 +1426,7 @@ def export_scenario_ppt(
         color=NAVY,
     )
 
-    comp_scenarios = comparison.get("scenarios", [])
+    comp_scenarios = comparison.get("scenarios") or []
     comp_metrics = [
         ("Total Hires", "total_hires"),
         ("Total Applies", "total_applies"),
@@ -1456,7 +1456,7 @@ def export_scenario_ppt(
         x += w
 
     y += 0.4
-    best_idx = comparison.get("best_scenario_index", 0)
+    best_idx = comparison.get("best_scenario_index") or 0
     mbw = comparison.get("metrics_best_worst", {})
 
     for mlabel, mkey in comp_metrics:
@@ -1476,7 +1476,7 @@ def export_scenario_ppt(
         p.font.color.rgb = DARK_TEXT
         x += 3.5
 
-        best_for = mbw.get(mkey, {}).get("best", 0)
+        best_for = mbw.get(mkey, {}).get("best") or 0
         for si, s in enumerate(comp_scenarios):
             val = s.get(mkey, 0)
             if mkey in ("blended_cpa", "blended_cpc", "blended_cph"):
@@ -1539,9 +1539,9 @@ def export_scenario_ppt(
     if comp_scenarios and best_idx < len(comp_scenarios):
         best_sc = comp_scenarios[best_idx]
         details = (
-            f"Projected Hires: {best_sc.get('total_hires', 0):,}  |  "
-            f"CPA: ${best_sc.get('blended_cpa', 0):,.2f}  |  "
-            f"ROI: {best_sc.get('roi_score', 0)}/10"
+            f"Projected Hires: {best_sc.get('total_hires') or 0:,}  |  "
+            f"CPA: ${best_sc.get('blended_cpa') or 0:,.2f}  |  "
+            f"ROI: {best_sc.get('roi_score') or 0}/10"
         )
         _add_text_box(
             slide_rec,

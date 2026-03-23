@@ -126,7 +126,7 @@ def _generate_narrative(
 # ═══════════════════════════════════════════════════════════════════════════════
 # SENTRY ERROR TRACKING
 # ═══════════════════════════════════════════════════════════════════════════════
-_SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()
+_SENTRY_DSN = os.environ.get("SENTRY_DSN") or "".strip()
 if _SENTRY_DSN:
     try:
         import sentry_sdk
@@ -941,8 +941,8 @@ def log_request(
         "client_name": data.get("client_name") or data.get("company_name", "Unknown"),
         "industry": data.get("industry", "Unknown"),
         "budget": data.get("budget", "Not specified"),
-        "roles": data.get("target_roles") or data.get("roles", []),
-        "locations": data.get("locations", []),
+        "roles": data.get("target_roles") or data.get("roles") or [],
+        "locations": data.get("locations") or [],
         "work_environment": data.get("work_environment", "Not specified"),
         "status": status,
         "file_size_bytes": file_size,
@@ -952,7 +952,8 @@ def log_request(
         "enrichment_apis": (
             data.get("_enriched", {})
             .get("enrichment_summary", {})
-            .get("apis_succeeded", [])
+            .get("apis_succeeded")
+            or []
             if isinstance(data.get("_enriched"), dict)
             else []
         ),
@@ -1721,8 +1722,8 @@ def _verify_plan_data(data):
     # Build a concise snapshot of key plan data points for verification
     client = data.get("client_name", "Client")
     industry = data.get("industry_label", data.get("industry") or "")
-    locations = data.get("locations", [])
-    roles = data.get("roles", [])
+    locations = data.get("locations") or []
+    roles = data.get("roles") or []
     budget = data.get("budget", "N/A")
     budget_alloc = data.get("_budget_allocation", {})
 
@@ -1851,7 +1852,7 @@ OR
                 parsed = json.loads(json_match.group())
                 return {
                     "status": "verified" if parsed.get("verified") else "issues_found",
-                    "issues": parsed.get("issues", []),
+                    "issues": parsed.get("issues") or [],
                     "severity": parsed.get("severity", "none"),
                     "provider": result.get("provider", "unknown"),
                 }
@@ -2069,7 +2070,7 @@ def generate_excel(data):
         display_currency_code = loc_currency
 
     industry = data.get("industry", "general_entry_level")
-    roles_raw = data.get("target_roles") or data.get("roles", [])
+    roles_raw = data.get("target_roles") or data.get("roles") or []
     # Normalize: roles can be list-of-strings or list-of-dicts with "title" key
     roles = []
     for r in roles_raw:
@@ -2160,8 +2161,8 @@ def generate_excel(data):
         except Exception:
             pass  # Silently skip if image insertion fails
 
-    job_cat_labels = data.get("job_category_labels", [])
-    client_competitors = data.get("competitors", [])
+    job_cat_labels = data.get("job_category_labels") or []
+    client_competitors = data.get("competitors") or []
     # CRITICAL: Filter out self from client-specified competitors (prevents self-as-competitor bug)
     _company_name_for_filter = (data.get("client_name") or "" or "").lower().strip()
     if _company_name_for_filter and client_competitors:
@@ -2271,7 +2272,7 @@ def generate_excel(data):
             )
             ws_overview.cell(row=row, column=3).alignment = wrap_alignment
             row += 1
-        _geo_recs = _geo_ctx.get("recommendations", [])
+        _geo_recs = _geo_ctx.get("recommendations") or []
         if _geo_recs:
             ws_overview.cell(
                 row=row, column=2, value=f"  Key Recommendations:"
@@ -2633,7 +2634,7 @@ def generate_excel(data):
     seasonal_advice = research.get_seasonal_hiring_advice(industry)
     style_section_header(ws_exec, exec_row, 2, 7, "Seasonal Hiring Calendar")
     exec_row += 1
-    peak_months_str = ", ".join(seasonal_advice.get("peak_months", []))
+    peak_months_str = ", ".join(seasonal_advice.get("peak_months") or [])
     ramp_start = seasonal_advice.get("ramp_start") or ""
     seasonal_note = seasonal_advice.get("note") or ""
     ws_exec.cell(
@@ -2838,13 +2839,13 @@ def generate_excel(data):
             "DEI-focused channels included to ensure inclusive hiring"
         )
     # Job category specific recommendations
-    jc_keys = data.get("job_categories", [])
+    jc_keys = data.get("job_categories") or []
     jc_db = db.get("job_categories", {})
     if jc_keys:
         for jck in jc_keys[:2]:
             jc_data = jc_db.get(jck, {})
             if jc_data:
-                bp = jc_data.get("best_practices", [])
+                bp = jc_data.get("best_practices") or []
                 if bp:
                     recommendations.append(f"{jc_data.get('label', jck)}: {bp[0]}")
     # Role-specific recommendations (enhanced with tier classification)
@@ -3923,7 +3924,7 @@ def generate_excel(data):
             exec_row += 1
 
         # Top performing keywords
-        _top_kw = _gads_cat.get("top_performing_keywords", [])
+        _top_kw = _gads_cat.get("top_performing_keywords") or []
         if _top_kw:
             exec_row += 1
             ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
@@ -4850,7 +4851,7 @@ def generate_excel(data):
             _ap["global_boards"] = max(5, _ap["global_boards"] - 3)
 
     # Role seniority adjustment
-    _rl = data.get("roles", []) or data.get("target_roles", []) or []
+    _rl = data.get("roles") or [] or data.get("target_roles") or [] or []
     if _rl:
         _rt = " ".join(r.lower() for r in _rl)
         _sr = sum(
@@ -6119,7 +6120,7 @@ def generate_excel(data):
     )
     lm_row += 1
 
-    for i, trend in enumerate(ind_metrics.get("key_trends", []), 1):
+    for i, trend in enumerate(ind_metrics.get("key_trends") or [], 1):
         ws_labour.cell(row=lm_row, column=2, value=f"Trend {i}").font = Font(
             name="Calibri", bold=True, size=10, color="438765"
         )
@@ -6133,7 +6134,7 @@ def generate_excel(data):
         lm_row += 1
 
     # ── Section 4: Location-Specific Context ──
-    loc_contexts = labour_data.get("location_contexts", [])
+    loc_contexts = labour_data.get("location_contexts") or []
     if loc_contexts:
         lm_row += 1
         ws_labour.merge_cells(f"B{lm_row}:D{lm_row}")
@@ -6372,7 +6373,7 @@ def generate_excel(data):
         for reg_entry in hiring_regs:
             reg_state = reg_entry.get("state") or ""
             reg_loc = reg_entry.get("location") or ""
-            reg_list = reg_entry.get("regulations", [])
+            reg_list = reg_entry.get("regulations") or []
             compliance_note = reg_entry.get("compliance_note") or ""
 
             ws_labour.cell(
@@ -6434,13 +6435,13 @@ def generate_excel(data):
 
     # Look up industry-specific niche channels for this plan
     _niche_channels_for_industry = INDUSTRY_NICHE_CHANNELS.get(
-        industry, INDUSTRY_NICHE_CHANNELS.get("general_entry_level", [])
+        industry, INDUSTRY_NICHE_CHANNELS.get("general_entry_level") or []
     )
 
-    selected_strategies = data.get("channel_strategies", [])
+    selected_strategies = data.get("channel_strategies") or []
     if not selected_strategies:
         all_strats = db.get("channel_strategies", {})
-        selected_strategies = all_strats.get("awareness", []) + all_strats.get(
+        selected_strategies = all_strats.get("awareness") or [] + all_strats.get(
             "hiring", []
         )
 
@@ -6693,7 +6694,7 @@ def generate_excel(data):
     # Fallback to INDUSTRY_NICHE_CHANNELS if DB niche list is empty
     if not _db_niche:
         _db_niche = INDUSTRY_NICHE_CHANNELS.get(
-            industry, INDUSTRY_NICHE_CHANNELS.get("general_entry_level", [])
+            industry, INDUSTRY_NICHE_CHANNELS.get("general_entry_level") or []
         )
     niche_channels = data.get("selected_niche", _db_niche) if include_niche else []
     global_channels = (
@@ -6765,16 +6766,16 @@ def generate_excel(data):
     row = 5
     nt = db["non_traditional_channels"]
     categories = [
-        ("CPQA (Cost Per Qualified Applicant)", nt.get("cpqa", [])),
-        ("Data Partners / Candidate Re-engagement", nt.get("data_partners", [])),
-        ("Media Channels", nt.get("media_channels", [])),
+        ("CPQA (Cost Per Qualified Applicant)", nt.get("cpqa") or []),
+        ("Data Partners / Candidate Re-engagement", nt.get("data_partners") or []),
+        ("Media Channels", nt.get("media_channels") or []),
     ]
     if include_programmatic:
-        categories.append(("DSPs (Demand-Side Platforms)", nt.get("dsps", [])))
-    categories.append(("Government Job Boards", nt.get("gov_job_boards", [])))
-    categories.append(("Early-Career Channels", nt.get("early_career_channels", [])))
+        categories.append(("DSPs (Demand-Side Platforms)", nt.get("dsps") or []))
+    categories.append(("Government Job Boards", nt.get("gov_job_boards") or []))
+    categories.append(("Early-Career Channels", nt.get("early_career_channels") or []))
     if include_employer_brand:
-        categories.append(("Employer Branding", nt.get("employer_branding", [])))
+        categories.append(("Employer Branding", nt.get("employer_branding") or []))
 
     # Add industry-specific non-traditional channels
     _industry_nt = nt.get("industry_specific", {})
@@ -6806,13 +6807,13 @@ def generate_excel(data):
         )[:10],
     }
     if include_programmatic:
-        joveo_nt_cats["DSP Partners (Joveo Network)"] = joveo_pubs.get(
-            "by_category", {}
-        ).get("DSP", [])[:10]
+        joveo_nt_cats["DSP Partners (Joveo Network)"] = (
+            joveo_pubs.get("by_category", {}).get("DSP") or [][:10]
+        )
     if include_social:
-        joveo_nt_cats["Social Media Advertising"] = joveo_pubs.get(
-            "by_category", {}
-        ).get("Social Media", [])[:10]
+        joveo_nt_cats["Social Media Advertising"] = (
+            joveo_pubs.get("by_category", {}).get("Social Media") or [][:10]
+        )
 
     for cat_name, channels in categories:
         cell = ws_nontrad.cell(row=row, column=2, value=cat_name)
@@ -6845,20 +6846,20 @@ def generate_excel(data):
     # Add alternate supply categories from channels_db
     alt_supply = nt.get("alternate_supply", {})
     alt_supply_sections = [
-        ("Competitor Supply Channels", nt.get("competitor_supply_channels", [])),
-        ("Alternate Staffing Partners", alt_supply.get("staffing_partners", [])),
+        ("Competitor Supply Channels", nt.get("competitor_supply_channels") or []),
+        ("Alternate Staffing Partners", alt_supply.get("staffing_partners") or []),
     ]
     if include_programmatic:
-        alt_supply_sections.append(("Alternate DSPs", alt_supply.get("dsps", [])))
+        alt_supply_sections.append(("Alternate DSPs", alt_supply.get("dsps") or []))
     alt_supply_sections.append(
-        ("Influencer Marketing", alt_supply.get("influencer_marketing", []))
+        ("Influencer Marketing", alt_supply.get("influencer_marketing") or [])
     )
     alt_supply_sections.append(
-        ("Programmatic Audio", alt_supply.get("programmatic_audio", []))
+        ("Programmatic Audio", alt_supply.get("programmatic_audio") or [])
     )
     if include_social:
         alt_supply_sections.append(
-            ("Social Media Advertising", alt_supply.get("social_media_ads", []))
+            ("Social Media Advertising", alt_supply.get("social_media_ads") or [])
         )
     for cat_name, items in alt_supply_sections:
         if items:
@@ -6973,11 +6974,11 @@ def generate_excel(data):
             cell.border = thin_border
         row += 1
 
-        country_boards = global_research.get("country_boards", [])
+        country_boards = global_research.get("country_boards") or []
         for cb in country_boards:
             country_name = cb.get("country") or ""
             board_data = cb.get("data", {})
-            boards = board_data.get("boards", [])
+            boards = board_data.get("boards") or []
             monthly = board_data.get("monthly_spend", "N/A")
             for idx, board in enumerate(boards):
                 style_body_cell(ws_global, row, 2, country_name if idx == 0 else "")
@@ -7048,7 +7049,7 @@ def generate_excel(data):
                 ws_global.cell(row=row, column=2).font = Font(
                     name="Calibri", bold=True, size=10
                 )
-                channels_list = strat.get("channels", [])
+                channels_list = strat.get("channels") or []
                 style_body_cell(
                     ws_global,
                     row,
@@ -7067,7 +7068,7 @@ def generate_excel(data):
                 ws_global.cell(row=row, column=2).font = Font(
                     name="Calibri", bold=True, size=10
                 )
-                kpis_list = strat.get("kpis", [])
+                kpis_list = strat.get("kpis") or []
                 style_body_cell(
                     ws_global,
                     row,
@@ -7180,7 +7181,7 @@ def generate_excel(data):
             cell.border = thin_border
         row += 1
 
-        women_boards = gs.get("women_specific_boards", [])
+        women_boards = gs.get("women_specific_boards") or []
         for board in women_boards:
             style_body_cell(ws_dei, row, 2, board.get("name") or "")
             style_body_cell(ws_dei, row, 3, board.get("focus") or "")
@@ -7209,7 +7210,8 @@ def generate_excel(data):
         dei_channels = (
             db.get("traditional_channels", {})
             .get("niche_by_industry", {})
-            .get("diversity_dei", [])
+            .get("diversity_dei")
+            or []
         )
         for ch in dei_channels:
             style_body_cell(ws_dei, row, 2, ch)
@@ -7263,7 +7265,7 @@ def generate_excel(data):
                 style_body_cell(ws_innov, row, 3, channel_data.get("description") or "")
                 style_body_cell(ws_innov, row, 4, channel_data.get("use_case") or "")
                 style_body_cell(ws_innov, row, 5, channel_data.get("billing") or "")
-                best_for = channel_data.get("best_for", [])
+                best_for = channel_data.get("best_for") or []
                 style_body_cell(
                     ws_innov,
                     row,
@@ -7304,7 +7306,7 @@ def generate_excel(data):
 
         for channel_key, channel_data in innovative.items():
             if isinstance(channel_data, dict):
-                platforms = channel_data.get("platforms", [])
+                platforms = channel_data.get("platforms") or []
                 if platforms:
                     style_body_cell(
                         ws_innov, row, 2, channel_key.replace("_", " ").title()
@@ -7401,7 +7403,7 @@ def generate_excel(data):
                 name="Calibri", bold=True, size=10
             )
             style_body_cell(ws_budget, row, 3, region_data.get("spend") or "")
-            top_countries = region_data.get("top_countries", [])
+            top_countries = region_data.get("top_countries") or []
             style_body_cell(ws_budget, row, 4, ", ".join(top_countries))
             if row % 2 == 0:
                 for c in range(2, 5):
@@ -7453,7 +7455,7 @@ def generate_excel(data):
                             tier_ranges.append(
                                 f"{tier_key.replace('_cpa', '').title()}: {t_range}"
                             )
-                        t_pubs = tier.get("publishers", [])
+                        t_pubs = tier.get("publishers") or []
                         if isinstance(t_pubs, list):
                             tier_publishers.extend(t_pubs[:3])
                 cpa_range_str = " | ".join(tier_ranges) if tier_ranges else "N/A"
@@ -7775,7 +7777,7 @@ def generate_excel(data):
             ).font = Font(name="Calibri", italic=True, size=8, color="999999")
 
     # ── Job Category Insights Sheet (if categories selected) ──
-    job_categories = data.get("job_categories", [])
+    job_categories = data.get("job_categories") or []
     job_cat_db = db.get("job_categories", {})
     if job_categories and job_cat_db:
         ws_jc = wb.create_sheet("Job Category Insights")
@@ -7803,7 +7805,7 @@ def generate_excel(data):
 
         ws_jc.merge_cells("B3:F3")
         ws_jc["B3"].value = (
-            f"Categories: {', '.join(data.get('job_category_labels', []))}  |  Industry: {data.get('industry_label', industry)}"
+            f"Categories: {', '.join(data.get('job_category_labels') or [])}  |  Industry: {data.get('industry_label', industry)}"
         )
         ws_jc["B3"].font = Font(name="Calibri", italic=True, size=10, color="FFFFFF")
         ws_jc["B3"].fill = PatternFill(
@@ -7892,7 +7894,7 @@ def generate_excel(data):
             ws_jc.cell(row=jc_row, column=2, value="Typical Roles").font = Font(
                 name="Calibri", bold=True, size=11, color="1B2A4A"
             )
-            example_roles = cat.get("example_roles", [])
+            example_roles = cat.get("example_roles") or []
             ws_jc.cell(row=jc_row, column=3, value=", ".join(example_roles)).font = (
                 body_font
             )
@@ -7908,12 +7910,12 @@ def generate_excel(data):
             channel_sections = [
                 (
                     "Primary Channels (Joveo Supply)",
-                    rec_ch.get("primary", []),
+                    rec_ch.get("primary") or [],
                     "00B050",
                 ),
-                ("Secondary Channels", rec_ch.get("secondary", []), "4472C4"),
-                ("Social & Paid Media", rec_ch.get("social", []), "ED7D31"),
-                ("Niche / Specialized", rec_ch.get("niche", []), "0A66C9"),
+                ("Secondary Channels", rec_ch.get("secondary") or [], "4472C4"),
+                ("Social & Paid Media", rec_ch.get("social") or [], "ED7D31"),
+                ("Niche / Specialized", rec_ch.get("niche") or [], "0A66C9"),
             ]
             ch_headers = ["Category", "Channels", "Strategy Notes", "Data Source"]
             for i, h in enumerate(ch_headers):
@@ -7978,7 +7980,7 @@ def generate_excel(data):
                 name="Calibri", bold=True, size=11, color="00B050"
             )
             ws_jc.cell(row=jc_row, column=2).border = thin_border
-            joveo_fit = cat.get("joveo_supply_fit", [])
+            joveo_fit = cat.get("joveo_supply_fit") or []
             ws_jc.cell(row=jc_row, column=3, value=", ".join(joveo_fit)).font = (
                 body_font
             )
@@ -7992,7 +7994,7 @@ def generate_excel(data):
                 name="Calibri", bold=True, size=11, color="ED7D31"
             )
             ws_jc.cell(row=jc_row, column=2).border = thin_border
-            comp_ch = cat.get("competitor_channels", [])
+            comp_ch = cat.get("competitor_channels") or []
             ws_jc.cell(row=jc_row, column=3, value=", ".join(comp_ch)).font = body_font
             ws_jc.cell(row=jc_row, column=3).border = thin_border
             ws_jc.merge_cells(f"C{jc_row}:F{jc_row}")
@@ -8006,7 +8008,7 @@ def generate_excel(data):
                 row=jc_row, column=2, value="Best Practices & Recommendations"
             ).font = Font(name="Calibri", bold=True, size=11, color="1B2A4A")
             jc_row += 1
-            for bp in cat.get("best_practices", []):
+            for bp in cat.get("best_practices") or []:
                 ws_jc.cell(row=jc_row, column=2, value=f"  \u2022  {bp}").font = (
                     body_font
                 )
@@ -8309,7 +8311,7 @@ def generate_excel(data):
             ws_edu.row_dimensions[row].height = 45
 
         # Add Joveo university job board partners
-        uni_pubs = joveo_pubs.get("by_category", {}).get("University Job Board", [])
+        uni_pubs = joveo_pubs.get("by_category", {}).get("University Job Board") or []
         if uni_pubs:
             row += 2
             ws_edu.merge_cells(start_row=row, start_column=2, end_row=row, end_column=3)
@@ -10536,7 +10538,7 @@ def generate_excel(data):
         ind_label = ind_platforms.get("label", industry.replace("_", " ").title())
 
         # Get locations for regional context
-        locs = data.get("locations", [])
+        locs = data.get("locations") or []
         loc_context = ", ".join(locs[:3]) if locs else "US"
 
         ws_media.merge_cells("B2:G2")
@@ -11543,10 +11545,10 @@ def generate_excel(data):
                     ),
                 ),
             ]
-            _cb_tags = _clearbit_co.get("tags", [])
+            _cb_tags = _clearbit_co.get("tags") or []
             if isinstance(_cb_tags, list) and _cb_tags:
                 _cb_fields.append(("Tags", ", ".join(str(t) for t in _cb_tags[:8])))
-            _cb_tech = _clearbit_co.get("tech_stack", [])
+            _cb_tech = _clearbit_co.get("tech_stack") or []
             if isinstance(_cb_tech, list) and _cb_tech:
                 _cb_fields.append(
                     ("Tech Stack", ", ".join(str(t) for t in _cb_tech[:10]))
@@ -11624,7 +11626,7 @@ def generate_excel(data):
         _sec_co = _comp_intel.get("company_sec", {})
         if isinstance(_sec_co, dict) and _sec_co:
             _sec_cik = _sec_co.get("cik")
-            _sec_filings = _sec_co.get("filings", [])
+            _sec_filings = _sec_co.get("filings") or []
             _sec_sic = _sec_co.get("sic_code")
             _sec_fy = _sec_co.get("fiscal_year_end")
             if _sec_cik or _sec_filings:
@@ -12010,7 +12012,7 @@ def generate_excel(data):
             ba_row += 1
 
         # Warnings
-        _warnings = _budget_alloc.get("warnings", [])
+        _warnings = _budget_alloc.get("warnings") or []
         if _warnings and isinstance(_warnings, list):
             ba_row += 1
             for w in _warnings:
@@ -12102,7 +12104,7 @@ def generate_excel(data):
                 ba_row += 1
 
         # Optimization recommendations
-        _recs = _budget_alloc.get("recommendations", [])
+        _recs = _budget_alloc.get("recommendations") or []
         if _recs and isinstance(_recs, list):
             ba_row += 1
             style_section_header(ws_ba, ba_row, 2, 11, "Optimization Recommendations")
@@ -12771,7 +12773,7 @@ def generate_excel(data):
                     proj_row += 1
 
                 # Warnings subsection
-                _proj_warnings = _budget_alloc.get("warnings", [])
+                _proj_warnings = _budget_alloc.get("warnings") or []
                 if _proj_warnings and isinstance(_proj_warnings, list):
                     proj_row += 1
                     ws_proj.merge_cells(f"B{proj_row}:F{proj_row}")
@@ -12789,7 +12791,7 @@ def generate_excel(data):
                         proj_row += 1
 
                 # Recommendations subsection
-                _proj_recs = _budget_alloc.get("recommendations", [])
+                _proj_recs = _budget_alloc.get("recommendations") or []
                 if _proj_recs and isinstance(_proj_recs, list):
                     proj_row += 1
                     ws_proj.merge_cells(f"B{proj_row}:F{proj_row}")
@@ -12813,7 +12815,7 @@ def generate_excel(data):
                         proj_row += 1
 
             # ── Optimization Suggestions ──
-            _proj_opt_sugg = _budget_alloc.get("optimization_suggestions", [])
+            _proj_opt_sugg = _budget_alloc.get("optimization_suggestions") or []
             if _proj_opt_sugg and isinstance(_proj_opt_sugg, list):
                 proj_row += 2
                 ws_proj.merge_cells(f"B{proj_row}:L{proj_row}")
@@ -13199,7 +13201,7 @@ def generate_excel(data):
     # ── Sheet: Sources & References ──
     _wf_for_refs = _synth.get("workforce_insights", {})
     _relevant_research = (
-        _wf_for_refs.get("relevant_research", [])
+        _wf_for_refs.get("relevant_research") or []
         if isinstance(_wf_for_refs, dict)
         else []
     )
@@ -13267,7 +13269,7 @@ def generate_excel(data):
                 _r_title = report.get("title", "N/A")
                 _r_publisher = report.get("publisher", "N/A")
                 _r_year = report.get("year", "N/A")
-                _r_findings = report.get("top_findings", [])
+                _r_findings = report.get("top_findings") or []
                 _r_count = report.get("finding_count") or 0
                 if isinstance(_r_findings, list) and _r_findings:
                     _findings_display = "; ".join(str(f)[:120] for f in _r_findings[:3])
@@ -13357,7 +13359,7 @@ def generate_excel(data):
                     reg_row += 2
 
                     # Top Job Boards
-                    _top_boards = _ri.get("top_job_boards", [])
+                    _top_boards = _ri.get("top_job_boards") or []
                     if isinstance(_top_boards, list) and _top_boards:
                         ws_reg.cell(
                             row=reg_row, column=2, value="Top Job Boards"
@@ -13431,7 +13433,7 @@ def generate_excel(data):
                         reg_row += 1
 
                     # Dominant Industries
-                    _dom_ind = _ri.get("dominant_industries", [])
+                    _dom_ind = _ri.get("dominant_industries") or []
                     if isinstance(_dom_ind, list) and _dom_ind:
                         ws_reg.cell(
                             row=reg_row, column=2, value="Dominant Industries"
@@ -13710,7 +13712,7 @@ def generate_excel(data):
                 if isinstance(sec_data, dict):
                     _sec_score = sec_data.get("score", sec_data.get("confidence") or 0)
                     _sec_sources = sec_data.get(
-                        "sources", sec_data.get("apis_used", [])
+                        "sources", sec_data.get("apis_used") or []
                     )
                 elif isinstance(sec_data, (int, float)):
                     _sec_score = sec_data
@@ -13779,13 +13781,13 @@ def generate_excel(data):
         _failed_apis = []
         if isinstance(_data_quality, dict):
             _failed_apis = _data_quality.get(
-                "failed_apis", _data_quality.get("circuit_broken", [])
+                "failed_apis", _data_quality.get("circuit_broken") or []
             )
         if not _failed_apis:
             # Try enrichment summary
             _enr_sum = data.get("_enriched", {}).get("enrichment_summary", {})
             if isinstance(_enr_sum, dict):
-                _failed_apis = _enr_sum.get("apis_failed", [])
+                _failed_apis = _enr_sum.get("apis_failed") or []
 
         if _failed_apis and isinstance(_failed_apis, list):
             style_section_header(
@@ -13822,7 +13824,7 @@ def generate_excel(data):
     # When roles span both blue/white collar types, generate a dedicated comparison sheet
     if _HAS_COLLAR_INTEL:
         try:
-            _roles_list = data.get("roles", data.get("target_roles", []))
+            _roles_list = data.get("roles", data.get("target_roles") or [])
             _industry_key = data.get("industry", "general_entry_level")
             if _roles_list and isinstance(_roles_list, list) and len(_roles_list) >= 2:
                 _collar_results = []
@@ -14107,7 +14109,7 @@ def generate_excel(data):
                         if not trend or not isinstance(trend, dict):
                             continue
 
-                        history = trend.get("history", [])
+                        history = trend.get("history") or []
                         # Build year->value lookup from history list
                         _year_vals = {
                             h["year"]: h.get("value") or 0
@@ -14289,7 +14291,7 @@ def generate_excel(data):
         else {}
     )
     _apis_used_list = (
-        _enrichment_summary.get("apis_succeeded", []) if _enrichment_summary else []
+        _enrichment_summary.get("apis_succeeded") or [] if _enrichment_summary else []
     )
     _apis_used_str = ", ".join(_apis_used_list[:8]) if _apis_used_list else ""
 
@@ -15898,7 +15900,7 @@ def _generate_ab_test(data: dict) -> dict:
             break
 
     # Check for Claude API
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY") or "".strip()
     if anthropic_key:
         try:
             result = _generate_ab_test_with_claude(
@@ -16017,7 +16019,7 @@ def _generate_ab_test_with_claude(
             resp_data = json.loads(resp.read().decode("utf-8"))
 
         content_text = ""
-        for block in resp_data.get("content", []):
+        for block in resp_data.get("content") or []:
             if block.get("type") == "text":
                 content_text += block.get("text") or ""
 
@@ -16550,14 +16552,14 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
                     # Per-minute check
                     key_entry["usage_minute"] = [
-                        t for t in key_entry.get("usage_minute", []) if now - t < 60
+                        t for t in key_entry.get("usage_minute") or [] if now - t < 60
                     ]
                     if len(key_entry["usage_minute"]) >= tier_limits["rpm"]:
                         return False
 
                     # Per-day check
                     key_entry["usage_day"] = [
-                        t for t in key_entry.get("usage_day", []) if now - t < 86400
+                        t for t in key_entry.get("usage_day") or [] if now - t < 86400
                     ]
                     if len(key_entry["usage_day"]) >= tier_limits["rpd"]:
                         return False
@@ -16773,7 +16775,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             infra = result["infrastructure"]
             # -- Sentry --
             try:
-                _sentry_dsn = os.environ.get("SENTRY_DSN", "").strip()
+                _sentry_dsn = os.environ.get("SENTRY_DSN") or "".strip()
                 if _sentry_dsn:
                     import sentry_sdk as _sk
 
@@ -16844,7 +16846,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     },
                 }
             except Exception:
-                _ph_key = os.environ.get("POSTHOG_API_KEY", "").strip()
+                _ph_key = os.environ.get("POSTHOG_API_KEY") or "".strip()
                 infra["posthog"] = {
                     "name": "PostHog",
                     "status": "ok" if _ph_key else "disabled",
@@ -16904,7 +16906,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 _graf_dropped = _graf_data.get("records_dropped") or 0
                 _graf_errors = _graf_data.get("flush_errors") or 0
                 _graf_last_err = _graf_data.get("last_error")
-                _graf_url = os.environ.get("GRAFANA_LOKI_URL", "").strip()
+                _graf_url = os.environ.get("GRAFANA_LOKI_URL") or "".strip()
                 # Status: degraded if configured but currently failing
                 _graf_status = "disabled"
                 if _graf_url:
@@ -17014,7 +17016,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     },
                 }
             except Exception:
-                _resend_key = os.environ.get("RESEND_API_KEY", "").strip()
+                _resend_key = os.environ.get("RESEND_API_KEY") or "".strip()
                 infra["resend"] = {
                     "name": "Resend Email",
                     "status": "ok" if _resend_key else "disabled",
@@ -17378,7 +17380,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
             # ---- Communication ----
             comms = result["communication"]
-            _slack_token = os.environ.get("SLACK_BOT_TOKEN", "").strip()
+            _slack_token = os.environ.get("SLACK_BOT_TOKEN") or "".strip()
             comms["slack"] = {
                 "name": "Slack Bot",
                 "status": "ok" if _slack_token else "disabled",
@@ -17511,13 +17513,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             if not self._check_admin_auth():
                 self.send_error(401, "Unauthorized")
                 return
-            _slack_bot_token = os.environ.get("SLACK_BOT_TOKEN", "")
-            _slack_signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
+            _slack_bot_token = os.environ.get("SLACK_BOT_TOKEN") or ""
+            _slack_signing_secret = os.environ.get("SLACK_SIGNING_SECRET") or ""
             diag = {
                 "slack_bot_token": "SET" if _slack_bot_token else "NOT SET",
                 "slack_signing_secret": "SET" if _slack_signing_secret else "NOT SET",
                 "anthropic_api_key": (
-                    "SET" if os.environ.get("ANTHROPIC_API_KEY", "") else "NOT SET"
+                    "SET" if os.environ.get("ANTHROPIC_API_KEY") or "" else "NOT SET"
                 ),
                 "event_endpoint": "/api/slack/events",
                 "event_endpoint_url": os.environ.get(
@@ -17536,12 +17538,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 )
                 diag["nova_engine"] = "LOADED" if bot._iq_engine else "NOT LOADED"
                 diag["learned_answers_count"] = len(
-                    bot.learned_answers.get("answers", [])
+                    bot.learned_answers.get("answers") or []
                 )
                 diag["unanswered_count"] = len(
                     [
                         q
-                        for q in bot.unanswered.get("questions", [])
+                        for q in bot.unanswered.get("questions") or []
                         if q.get("status") == "pending"
                     ]
                 )
@@ -17559,7 +17561,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 checks.append(
                     "MISSING: Set SLACK_SIGNING_SECRET env var in Render dashboard"
                 )
-            if not os.environ.get("ANTHROPIC_API_KEY", ""):
+            if not os.environ.get("ANTHROPIC_API_KEY") or "":
                 checks.append(
                     "MISSING: Set ANTHROPIC_API_KEY for Nova chatbot intelligence"
                 )
@@ -18024,10 +18026,10 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     tier_name = entry.get("tier", "free")
                     tier_limits = API_KEY_TIERS.get(tier_name, API_KEY_TIERS["free"])
                     minute_usage = len(
-                        [t for t in entry.get("usage_minute", []) if now - t < 60]
+                        [t for t in entry.get("usage_minute") or [] if now - t < 60]
                     )
                     day_usage = len(
-                        [t for t in entry.get("usage_day", []) if now - t < 86400]
+                        [t for t in entry.get("usage_day") or [] if now - t < 86400]
                     )
                     usage_data[masked] = {
                         "tier": tier_name,
@@ -18735,7 +18737,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             client_name_input = (data.get("client_name") or "").strip()
             requester_name_input = (data.get("requester_name") or "").strip()
             requester_email_input = (data.get("requester_email") or "").strip()
-            roles_input = data.get("target_roles") or data.get("roles", [])
+            roles_input = data.get("target_roles") or data.get("roles") or []
 
             _missing = []
             if not client_name_input:
@@ -18767,8 +18769,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             data["requester_email"] = requester_email_input
 
             # Validate critical input fields (non-blocking: store warnings, don't 400)
-            _roles_input = data.get("target_roles") or data.get("roles", [])
-            _locs_input = data.get("locations", [])
+            _roles_input = data.get("target_roles") or data.get("roles") or []
+            _locs_input = data.get("locations") or []
             _budget_input = str(
                 data.get("budget") or "" or data.get("budget_range") or "" or ""
             ).strip()
@@ -18925,9 +18927,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                     ).strip()
                                 _bval_ba = parse_budget(_bstr_ba)
 
-                                _roles_raw = gen_data.get(
-                                    "target_roles"
-                                ) or gen_data.get("roles", [])
+                                _roles_raw = (
+                                    gen_data.get("target_roles")
+                                    or gen_data.get("roles")
+                                    or []
+                                )
                                 _roles_for_ba = []
                                 for r in (
                                     _roles_raw if isinstance(_roles_raw, list) else []
@@ -18951,7 +18955,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                             }
                                         )
 
-                                _locs_raw = gen_data.get("locations", [])
+                                _locs_raw = gen_data.get("locations") or []
                                 _locs_for_ba = []
                                 for loc in (
                                     _locs_raw if isinstance(_locs_raw, list) else []
@@ -19384,7 +19388,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                     r["_role_tier"] = std_get_role_tier(title)
 
                     # -- Normalize locations (attach region/market keys) --
-                    raw_locs = data.get("locations", [])
+                    raw_locs = data.get("locations") or []
                     if isinstance(raw_locs, list):
                         parsed_locs = []
                         for loc in raw_locs:
@@ -19482,7 +19486,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             company_name = (
                 data.get("client_name") or "" or data.get("company_name") or ""
             )
-            roles_list = data.get("target_roles") or data.get("roles", [])
+            roles_list = data.get("target_roles") or data.get("roles") or []
             if isinstance(roles_list, str):
                 roles_list = [r.strip() for r in roles_list.split(",") if r.strip()]
             industry_profile = classify_industry(industry_raw, company_name, roles_list)
@@ -19592,7 +19596,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     )
 
                     # Build role dicts from string list
-                    _roles_raw = data.get("target_roles") or data.get("roles", [])
+                    _roles_raw = data.get("target_roles") or data.get("roles") or []
                     _roles_for_ba = []
                     for r in (_roles_raw if isinstance(_roles_raw, list) else []):
                         if isinstance(r, str):
@@ -19615,7 +19619,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             )
 
                     # Build location dicts from string list
-                    _locs_raw = data.get("locations", [])
+                    _locs_raw = data.get("locations") or []
                     _locs_for_ba = []
                     for loc in (_locs_raw if isinstance(_locs_raw, list) else []):
                         if isinstance(loc, str):
@@ -19831,7 +19835,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         budget=str(
                             data.get("budget") or "" or data.get("budget_range") or ""
                         ),
-                        roles=data.get("target_roles") or data.get("roles", []),
+                        roles=data.get("target_roles") or data.get("roles") or [],
                         gen_time=generation_time,
                         file_size=len(zip_bytes),
                     )
@@ -20015,7 +20019,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             # Verify Slack request signature -- SECURITY: never skip on error
             # in production. Only skip if SLACK_SIGNING_SECRET is not configured
             # (i.e., the Slack bot is intentionally disabled).
-            _slack_signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
+            _slack_signing_secret = os.environ.get("SLACK_SIGNING_SECRET") or ""
             if _slack_signing_secret:
                 try:
                     from nova_slack import get_nova_bot
@@ -20538,7 +20542,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 data = json.loads(body)
                 from budget_simulator import compare_scenarios, simulate_scenario
 
-                raw_scenarios = data.get("scenarios", [])
+                raw_scenarios = data.get("scenarios") or []
                 # Pre-simulate scenarios if they are raw configs (no "summary" key)
                 simulated = []
                 for sc in raw_scenarios:
@@ -20578,7 +20582,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 from budget_simulator import export_scenario_excel
 
                 excel_bytes = export_scenario_excel(
-                    data.get("scenarios", []),
+                    data.get("scenarios") or [],
                     data.get("comparison", {}),
                     data.get("client_name", "Simulation"),
                 )
@@ -20607,7 +20611,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 from budget_simulator import export_scenario_ppt
 
                 ppt_bytes = export_scenario_ppt(
-                    data.get("scenarios", []),
+                    data.get("scenarios") or [],
                     data.get("comparison", {}),
                     data.get("client_name", "Simulation"),
                 )
@@ -20637,7 +20641,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 from nova_export import export_conversation_html
 
                 html_content = export_conversation_html(
-                    data.get("conversation_history", []),
+                    data.get("conversation_history") or [],
                     data.get("metadata", {}),
                 )
                 html_bytes = html_content.encode("utf-8")
@@ -20714,7 +20718,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
                 result = run_full_analysis(
                     company_name=data.get("company_name") or "",
-                    competitors=data.get("competitors", []),
+                    competitors=data.get("competitors") or [],
                     industry=data.get("industry", "general_entry_level"),
                     roles=data.get("roles"),
                 )
@@ -21578,7 +21582,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     cell.alignment = Alignment(horizontal="center")
                     cell.border = border_thin
 
-                channels = data.get("channels", [])
+                channels = data.get("channels") or []
                 total_spend = 0
                 total_apps = 0
                 total_hires = 0

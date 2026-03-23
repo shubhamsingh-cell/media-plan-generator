@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 _orchestrator = None
 _orchestrator_lock = threading.Lock()
 
+
 def _get_orchestrator():
     global _orchestrator
     if _orchestrator is None:
@@ -43,6 +44,7 @@ def _get_orchestrator():
             if _orchestrator is None:
                 try:
                     import data_orchestrator
+
                     _orchestrator = data_orchestrator
                     logger.info("Nova: data_orchestrator loaded")
                 except Exception as e:
@@ -50,11 +52,13 @@ def _get_orchestrator():
                     _orchestrator = False  # sentinel: tried and failed
     return _orchestrator if _orchestrator is not False else None
 
+
 # v3 lazy-loaded modules
 _trend_engine = None
 _trend_engine_lock = threading.Lock()
 _collar_intel = None
 _collar_intel_lock = threading.Lock()
+
 
 def _get_trend_engine():
     global _trend_engine
@@ -63,10 +67,12 @@ def _get_trend_engine():
             if _trend_engine is None:
                 try:
                     import trend_engine
+
                     _trend_engine = trend_engine
                 except Exception:
                     _trend_engine = False
     return _trend_engine if _trend_engine is not False else None
+
 
 def _get_collar_intel():
     global _collar_intel
@@ -75,10 +81,12 @@ def _get_collar_intel():
             if _collar_intel is None:
                 try:
                     import collar_intelligence
+
                     _collar_intel = collar_intelligence
                 except Exception:
                     _collar_intel = False
     return _collar_intel if _collar_intel is not False else None
+
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -91,8 +99,12 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 JOVEO_PRIMARY_COLOR = "#0066CC"
 MAX_HISTORY_TURNS = 6
 MAX_MESSAGE_LENGTH = 4000
-CLAUDE_MODEL_PRIMARY = "claude-haiku-4-5-20251001"    # Fast + cheap for simple/medium queries
-CLAUDE_MODEL_COMPLEX = "claude-sonnet-4-20250514"      # Deep reasoning for complex strategy queries
+CLAUDE_MODEL_PRIMARY = (
+    "claude-haiku-4-5-20251001"  # Fast + cheap for simple/medium queries
+)
+CLAUDE_MODEL_COMPLEX = (
+    "claude-sonnet-4-20250514"  # Deep reasoning for complex strategy queries
+)
 
 # Response cache settings
 RESPONSE_CACHE_TTL = 7 * 86400  # 7 days
@@ -100,6 +112,7 @@ RESPONSE_CACHE_FILE = DATA_DIR / "nova_response_cache.json"
 MAX_RESPONSE_CACHE_SIZE = 200
 _response_cache: Dict[str, Any] = {}
 _response_cache_lock = threading.Lock()
+
 
 # ---------------------------------------------------------------------------
 # Nova Metrics Tracker (lightweight, thread-safe)
@@ -133,8 +146,13 @@ class _NovaMetrics:
         with self._lock:
             self.cache_hits += 1
 
-    def record_claude_call(self, input_tokens: int = 0, output_tokens: int = 0,
-                           cache_creation: int = 0, cache_read: int = 0) -> None:
+    def record_claude_call(
+        self,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        cache_creation: int = 0,
+        cache_read: int = 0,
+    ) -> None:
         with self._lock:
             self.claude_api_calls += 1
             self.total_input_tokens += input_tokens
@@ -163,12 +181,13 @@ class _NovaMetrics:
             path: One of 'conversational', 'tool', 'claude', 'suppressed'.
         """
         with self._lock:
-            if not hasattr(self, '_chat_paths'):
+            if not hasattr(self, "_chat_paths"):
                 self._chat_paths: Dict[str, int] = {}
             self._chat_paths[path] = self._chat_paths.get(path, 0) + 1
             # Also forward to MetricsCollector singleton if available
             try:
                 from monitoring import MetricsCollector
+
                 mc = MetricsCollector()
                 mc.record_chat(path)
             except Exception:
@@ -177,8 +196,12 @@ class _NovaMetrics:
     def snapshot(self) -> Dict[str, Any]:
         """Return a metrics snapshot for the /api/nova/metrics endpoint."""
         with self._lock:
-            total = (self.learned_answer_hits + self.cache_hits +
-                     self.claude_api_calls + self.rule_based_calls)
+            total = (
+                self.learned_answer_hits
+                + self.cache_hits
+                + self.claude_api_calls
+                + self.rule_based_calls
+            )
             lats = sorted(self._latencies) if self._latencies else []
             avg_lat = round(sum(lats) / len(lats), 1) if lats else 0
             p95_lat = round(lats[int(len(lats) * 0.95)] if lats else 0, 1)
@@ -189,7 +212,9 @@ class _NovaMetrics:
             # Cache read tokens are 90% cheaper
             cache_read_cost = self.total_cache_read_tokens / 1_000_000 * 0.1
             cache_creation_cost = self.total_cache_creation_tokens / 1_000_000 * 1.25
-            total_cost = input_cost + output_cost + cache_read_cost + cache_creation_cost
+            total_cost = (
+                input_cost + output_cost + cache_read_cost + cache_creation_cost
+            )
 
             return {
                 "total_requests": total,
@@ -200,7 +225,8 @@ class _NovaMetrics:
                     "rule_based": self.rule_based_calls,
                 },
                 "cache_hit_rate_pct": round(
-                    (self.learned_answer_hits + self.cache_hits) / max(1, total) * 100, 1
+                    (self.learned_answer_hits + self.cache_hits) / max(1, total) * 100,
+                    1,
                 ),
                 "tokens": {
                     "total_input": self.total_input_tokens,
@@ -221,83 +247,246 @@ class _NovaMetrics:
                     "samples": len(lats),
                 },
                 "api_errors": self.api_errors,
-                "chat_routing": dict(getattr(self, '_chat_paths', {})),
+                "chat_routing": dict(getattr(self, "_chat_paths", {})),
                 "model": f"{CLAUDE_MODEL_PRIMARY} (simple/medium) / {CLAUDE_MODEL_COMPLEX} (complex)",
                 "uptime_seconds": round(time.time() - self._start_time, 1),
             }
+
 
 _nova_metrics = _NovaMetrics()
 
 # Country name aliases for fuzzy matching
 _COUNTRY_ALIASES: Dict[str, str] = {
-    "us": "United States", "usa": "United States", "united states": "United States",
-    "america": "United States", "uk": "United Kingdom", "britain": "United Kingdom",
-    "united kingdom": "United Kingdom", "england": "United Kingdom",
-    "germany": "Germany", "deutschland": "Germany",
-    "france": "France", "india": "India", "australia": "Australia",
-    "canada": "Canada", "japan": "Japan", "italy": "Italy",
-    "netherlands": "Netherlands", "holland": "Netherlands",
-    "spain": "Spain", "brazil": "Brazil", "mexico": "Mexico",
-    "south africa": "South Africa", "ireland": "Ireland",
-    "singapore": "Singapore", "uae": "United Arab Emirates",
-    "saudi arabia": "Saudi Arabia", "poland": "Poland",
-    "sweden": "Sweden", "norway": "Norway", "denmark": "Denmark",
-    "switzerland": "Switzerland", "belgium": "Belgium", "austria": "Austria",
-    "south korea": "South Korea", "korea": "South Korea",
-    "new zealand": "New Zealand", "china": "China",
-    "philippines": "Philippines", "indonesia": "Indonesia",
-    "malaysia": "Malaysia", "thailand": "Thailand", "vietnam": "Vietnam",
-    "argentina": "Argentina", "colombia": "Colombia", "chile": "Chile",
-    "portugal": "Portugal", "czech republic": "Czech Republic",
-    "romania": "Romania", "hungary": "Hungary", "turkey": "Turkey",
-    "nigeria": "Nigeria", "kenya": "Kenya", "egypt": "Egypt",
-    "israel": "Israel", "taiwan": "Taiwan",
+    "us": "United States",
+    "usa": "United States",
+    "united states": "United States",
+    "america": "United States",
+    "uk": "United Kingdom",
+    "britain": "United Kingdom",
+    "united kingdom": "United Kingdom",
+    "england": "United Kingdom",
+    "germany": "Germany",
+    "deutschland": "Germany",
+    "france": "France",
+    "india": "India",
+    "australia": "Australia",
+    "canada": "Canada",
+    "japan": "Japan",
+    "italy": "Italy",
+    "netherlands": "Netherlands",
+    "holland": "Netherlands",
+    "spain": "Spain",
+    "brazil": "Brazil",
+    "mexico": "Mexico",
+    "south africa": "South Africa",
+    "ireland": "Ireland",
+    "singapore": "Singapore",
+    "uae": "United Arab Emirates",
+    "saudi arabia": "Saudi Arabia",
+    "poland": "Poland",
+    "sweden": "Sweden",
+    "norway": "Norway",
+    "denmark": "Denmark",
+    "switzerland": "Switzerland",
+    "belgium": "Belgium",
+    "austria": "Austria",
+    "south korea": "South Korea",
+    "korea": "South Korea",
+    "new zealand": "New Zealand",
+    "china": "China",
+    "philippines": "Philippines",
+    "indonesia": "Indonesia",
+    "malaysia": "Malaysia",
+    "thailand": "Thailand",
+    "vietnam": "Vietnam",
+    "argentina": "Argentina",
+    "colombia": "Colombia",
+    "chile": "Chile",
+    "portugal": "Portugal",
+    "czech republic": "Czech Republic",
+    "romania": "Romania",
+    "hungary": "Hungary",
+    "turkey": "Turkey",
+    "nigeria": "Nigeria",
+    "kenya": "Kenya",
+    "egypt": "Egypt",
+    "israel": "Israel",
+    "taiwan": "Taiwan",
 }
 
 # US state aliases -- map to United States so budget/publisher lookups work
 _US_STATE_ALIASES: Dict[str, str] = {
-    "alabama": "Alabama", "alaska": "Alaska", "arizona": "Arizona", "arkansas": "Arkansas",
-    "california": "California", "colorado": "Colorado", "connecticut": "Connecticut",
-    "delaware": "Delaware", "florida": "Florida", "georgia": "Georgia", "hawaii": "Hawaii",
-    "idaho": "Idaho", "illinois": "Illinois", "indiana": "Indiana", "iowa": "Iowa",
-    "kansas": "Kansas", "kentucky": "Kentucky", "louisiana": "Louisiana", "maine": "Maine",
-    "maryland": "Maryland", "massachusetts": "Massachusetts", "michigan": "Michigan",
-    "minnesota": "Minnesota", "mississippi": "Mississippi", "missouri": "Missouri",
-    "montana": "Montana", "nebraska": "Nebraska", "nevada": "Nevada",
-    "new hampshire": "New Hampshire", "new jersey": "New Jersey", "new mexico": "New Mexico",
-    "new york": "New York", "north carolina": "North Carolina", "north dakota": "North Dakota",
-    "ohio": "Ohio", "oklahoma": "Oklahoma", "oregon": "Oregon", "pennsylvania": "Pennsylvania",
-    "rhode island": "Rhode Island", "south carolina": "South Carolina", "south dakota": "South Dakota",
-    "tennessee": "Tennessee", "texas": "Texas", "utah": "Utah", "vermont": "Vermont",
-    "virginia": "Virginia", "washington": "Washington", "west virginia": "West Virginia",
-    "wisconsin": "Wisconsin", "wyoming": "Wyoming",
+    "alabama": "Alabama",
+    "alaska": "Alaska",
+    "arizona": "Arizona",
+    "arkansas": "Arkansas",
+    "california": "California",
+    "colorado": "Colorado",
+    "connecticut": "Connecticut",
+    "delaware": "Delaware",
+    "florida": "Florida",
+    "georgia": "Georgia",
+    "hawaii": "Hawaii",
+    "idaho": "Idaho",
+    "illinois": "Illinois",
+    "indiana": "Indiana",
+    "iowa": "Iowa",
+    "kansas": "Kansas",
+    "kentucky": "Kentucky",
+    "louisiana": "Louisiana",
+    "maine": "Maine",
+    "maryland": "Maryland",
+    "massachusetts": "Massachusetts",
+    "michigan": "Michigan",
+    "minnesota": "Minnesota",
+    "mississippi": "Mississippi",
+    "missouri": "Missouri",
+    "montana": "Montana",
+    "nebraska": "Nebraska",
+    "nevada": "Nevada",
+    "new hampshire": "New Hampshire",
+    "new jersey": "New Jersey",
+    "new mexico": "New Mexico",
+    "new york": "New York",
+    "north carolina": "North Carolina",
+    "north dakota": "North Dakota",
+    "ohio": "Ohio",
+    "oklahoma": "Oklahoma",
+    "oregon": "Oregon",
+    "pennsylvania": "Pennsylvania",
+    "rhode island": "Rhode Island",
+    "south carolina": "South Carolina",
+    "south dakota": "South Dakota",
+    "tennessee": "Tennessee",
+    "texas": "Texas",
+    "utah": "Utah",
+    "vermont": "Vermont",
+    "virginia": "Virginia",
+    "washington": "Washington",
+    "west virginia": "West Virginia",
+    "wisconsin": "Wisconsin",
+    "wyoming": "Wyoming",
     # Common abbreviations
-    "ca": "California", "tx": "Texas", "ny": "New York", "fl": "Florida",
-    "il": "Illinois", "pa": "Pennsylvania", "oh": "Ohio", "nc": "North Carolina",
-    "mi": "Michigan", "nj": "New Jersey", "va": "Virginia", "wa": "Washington",
-    "ma": "Massachusetts", "az": "Arizona", "co": "Colorado", "mn": "Minnesota",
-    "wi": "Wisconsin", "mo": "Missouri", "md": "Maryland", "in": "Indiana",
-    "tn": "Tennessee", "ct": "Connecticut", "or": "Oregon", "la": "Louisiana",
-    "sc": "South Carolina", "ky": "Kentucky", "ok": "Oklahoma", "ga": "Georgia",
+    "ca": "California",
+    "tx": "Texas",
+    "ny": "New York",
+    "fl": "Florida",
+    "il": "Illinois",
+    "pa": "Pennsylvania",
+    "oh": "Ohio",
+    "nc": "North Carolina",
+    "mi": "Michigan",
+    "nj": "New Jersey",
+    "va": "Virginia",
+    "wa": "Washington",
+    "ma": "Massachusetts",
+    "az": "Arizona",
+    "co": "Colorado",
+    "mn": "Minnesota",
+    "wi": "Wisconsin",
+    "mo": "Missouri",
+    "md": "Maryland",
+    "in": "Indiana",
+    "tn": "Tennessee",
+    "ct": "Connecticut",
+    "or": "Oregon",
+    "la": "Louisiana",
+    "sc": "South Carolina",
+    "ky": "Kentucky",
+    "ok": "Oklahoma",
+    "ga": "Georgia",
 }
 
 # Role keywords for intent detection
 _ROLE_KEYWORDS: Dict[str, List[str]] = {
     "nursing": ["nurse", "nursing", "rn", "lpn", "cna", "registered nurse"],
-    "engineering": ["engineer", "engineering", "developer", "programmer", "coder", "devops", "sre"],
-    "technology": ["tech", "software", "data scientist", "data engineer", "ml engineer", "ai engineer"],
-    "healthcare": ["doctor", "physician", "therapist", "pharmacist", "medical", "clinical",
-                    "dental", "veterinary", "paramedic", "emt"],
+    "engineering": [
+        "engineer",
+        "engineering",
+        "developer",
+        "programmer",
+        "coder",
+        "devops",
+        "sre",
+    ],
+    "technology": [
+        "tech",
+        "software",
+        "data scientist",
+        "data engineer",
+        "ml engineer",
+        "ai engineer",
+    ],
+    "healthcare": [
+        "doctor",
+        "physician",
+        "therapist",
+        "pharmacist",
+        "medical",
+        "clinical",
+        "dental",
+        "veterinary",
+        "paramedic",
+        "emt",
+    ],
     "retail": ["retail", "cashier", "store associate", "merchandiser", "store manager"],
-    "hospitality": ["chef", "cook", "waiter", "waitress", "bartender", "hotel", "restaurant"],
-    "transportation": ["driver", "trucker", "cdl", "logistics", "warehouse", "forklift",
-                       "blue collar", "blue-collar"],
+    "hospitality": [
+        "chef",
+        "cook",
+        "waiter",
+        "waitress",
+        "bartender",
+        "hotel",
+        "restaurant",
+    ],
+    "transportation": [
+        "driver",
+        "trucker",
+        "cdl",
+        "logistics",
+        "warehouse",
+        "forklift",
+        "blue collar",
+        "blue-collar",
+    ],
     "finance": ["accountant", "analyst", "banker", "financial", "auditor", "actuary"],
-    "executive": ["executive", "director", "vp", "vice president", "c-suite", "cfo", "cto", "ceo"],
-    "hourly": ["hourly", "part-time", "part time", "entry-level", "entry level", "seasonal", "gig",
-               "blue collar", "blue-collar"],
-    "education": ["teacher", "professor", "instructor", "educator", "principal", "tutor"],
-    "construction": ["construction", "carpenter", "plumber", "electrician", "mason", "welder"],
+    "executive": [
+        "executive",
+        "director",
+        "vp",
+        "vice president",
+        "c-suite",
+        "cfo",
+        "cto",
+        "ceo",
+    ],
+    "hourly": [
+        "hourly",
+        "part-time",
+        "part time",
+        "entry-level",
+        "entry level",
+        "seasonal",
+        "gig",
+        "blue collar",
+        "blue-collar",
+    ],
+    "education": [
+        "teacher",
+        "professor",
+        "instructor",
+        "educator",
+        "principal",
+        "tutor",
+    ],
+    "construction": [
+        "construction",
+        "carpenter",
+        "plumber",
+        "electrician",
+        "mason",
+        "welder",
+    ],
     "sales": ["sales", "account executive", "business development", "bdr", "sdr"],
     "marketing": ["marketing", "seo", "content", "social media manager", "brand"],
     "remote": ["remote", "work from home", "wfh", "distributed", "virtual"],
@@ -310,13 +499,34 @@ _METRIC_KEYWORDS: Dict[str, List[str]] = {
     "cph": ["cost per hire", "cost-per-hire", "cph", "hiring cost"],
     "salary": ["salary", "compensation", "pay", "wage", "earnings", "income"],
     "budget": ["budget", "spend", "allocation", "investment", "roi"],
-    "time_to_fill": ["time to fill", "time-to-fill", "days to fill", "time to hire",
-                      "time-to-hire", "ttf"],
-    "apply_rate": ["apply rate", "application rate", "conversion rate", "cvr",
-                    "conversion funnel", "recruitment funnel"],
-    "benchmark": ["benchmark", "average", "industry average", "standard", "comparison",
-                   "programmatic", "programmatic job advertising", "kpi", "measure success",
-                   "metrics that matter"],
+    "time_to_fill": [
+        "time to fill",
+        "time-to-fill",
+        "days to fill",
+        "time to hire",
+        "time-to-hire",
+        "ttf",
+    ],
+    "apply_rate": [
+        "apply rate",
+        "application rate",
+        "conversion rate",
+        "cvr",
+        "conversion funnel",
+        "recruitment funnel",
+    ],
+    "benchmark": [
+        "benchmark",
+        "average",
+        "industry average",
+        "standard",
+        "comparison",
+        "programmatic",
+        "programmatic job advertising",
+        "kpi",
+        "measure success",
+        "metrics that matter",
+    ],
 }
 
 # ---------------------------------------------------------------------------
@@ -324,36 +534,215 @@ _METRIC_KEYWORDS: Dict[str, List[str]] = {
 # ---------------------------------------------------------------------------
 _CACHE_STOP_WORDS = frozenset(
     {
-        "what", "is", "the", "a", "an", "how", "does", "can", "for", "in",
-        "of", "to", "and", "or", "my", "our", "we", "do", "are", "it",
-        "this", "that", "which", "with", "about", "on", "at", "be", "by",
-        "from", "has", "have", "i", "me", "you", "your", "they", "their",
-        "was", "were", "been", "being", "will", "would", "could", "should",
-        "may", "might", "shall", "not", "no", "so", "if", "but", "up",
-        "out", "there", "here", "when", "where", "why", "who", "whom",
+        "what",
+        "is",
+        "the",
+        "a",
+        "an",
+        "how",
+        "does",
+        "can",
+        "for",
+        "in",
+        "of",
+        "to",
+        "and",
+        "or",
+        "my",
+        "our",
+        "we",
+        "do",
+        "are",
+        "it",
+        "this",
+        "that",
+        "which",
+        "with",
+        "about",
+        "on",
+        "at",
+        "be",
+        "by",
+        "from",
+        "has",
+        "have",
+        "i",
+        "me",
+        "you",
+        "your",
+        "they",
+        "their",
+        "was",
+        "were",
+        "been",
+        "being",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "not",
+        "no",
+        "so",
+        "if",
+        "but",
+        "up",
+        "out",
+        "there",
+        "here",
+        "when",
+        "where",
+        "why",
+        "who",
+        "whom",
     }
 )
 
 # Preloaded learned answers (same as nova_slack.py)
 _PRELOADED_ANSWERS = [
-    {"question": "how many publishers does joveo have", "answer": "Joveo has **10,238+ Supply Partners** across **70+ countries**, including major job boards, niche boards, programmatic platforms, and social channels.", "keywords": ["publishers", "supply partners", "how many"], "confidence": 0.95},
-    {"question": "what is joveo", "answer": "Joveo is a **programmatic recruitment marketing PLATFORM** -- not a job board or publisher. It's the AI-powered technology layer that sits above publishers and **distributes and optimizes your job ads across 10,238+ supply partners** (including Indeed, LinkedIn, Google Jobs, ZipRecruiter, niche boards, and thousands more) across 70+ countries. Think of it as the intelligent engine that manages your entire recruitment advertising spend -- automatically optimizing bids, budgets, and distribution across all channels to maximize applications per dollar.", "keywords": ["joveo", "what is"], "confidence": 0.95},
-    {"question": "what countries does joveo operate in", "answer": "Joveo operates across **70+ countries** including the US, UK, Canada, Germany, France, India, Australia, Japan, UAE, Brazil, and many more across EMEA, APAC, and AMER regions.", "keywords": ["countries", "regions", "operate"], "confidence": 0.90},
-    {"question": "what is programmatic job advertising", "answer": "Programmatic job advertising uses **data-driven automation** to buy, place, and optimize job ads in real-time across multiple channels. It maximizes ROI by dynamically adjusting bids, budgets, and targeting based on performance data. Average CPC ranges from $0.50-$2.50 depending on role and industry.", "keywords": ["programmatic", "advertising", "explain"], "confidence": 0.90},
-    {"question": "what is cpc cpa cph", "answer": "**CPC** (Cost Per Click): You pay each time a candidate clicks your job ad ($0.50-$5.00 typical).\n**CPA** (Cost Per Application): You pay when a candidate completes an application ($5-$50 typical).\n**CPH** (Cost Per Hire): Total cost to fill a position ($1,500-$10,000+ depending on role).\nCPC is best for volume, CPA for quality, CPH for executive/niche roles.", "keywords": ["cpc", "cpa", "cph", "cost per"], "confidence": 0.95},
-    {"question": "what pricing models does joveo support", "answer": "Joveo supports multiple pricing models: **CPC** (Cost Per Click), **CPA** (Cost Per Application), **TCPA** (Target CPA with auto-optimization), **Flat CPC**, **ORG** (Organic/free postings), and **PPP** (Pay Per Post). The optimal model depends on your hiring volume and role type.", "keywords": ["pricing", "models", "commission"], "confidence": 0.90},
-    {"question": "top job boards in the us", "answer": "The top job boards in the US by traffic and performance:\n1. **Indeed** -- largest globally, CPC model\n2. **LinkedIn** -- best for white-collar/professional\n3. **ZipRecruiter** -- strong AI matching, high volume\n4. **Google Search Ads** -- high-intent job seekers\n5. **Glassdoor** (merging into Indeed) -- employer brand focused\n6. **Snagajob** -- hourly/blue-collar leader\n7. **Dice** -- tech-specific\n8. **Handshake** -- early career/campus\nAs per our recommendation, pairing these with Joveo's programmatic distribution maximizes reach.", "keywords": ["top", "job boards", "us", "united states", "best"], "confidence": 0.85},
-    {"question": "what happened to monster and careerbuilder", "answer": "Monster and CareerBuilder filed for **Chapter 11 bankruptcy** in July 2025. They were acquired by **Bold Holdings for $28M**. Monster Europe has been shut down (DNS killed). CareerBuilder continues operating in the US under new ownership but with reduced scale.", "keywords": ["monster", "careerbuilder", "bankruptcy", "shut down"], "confidence": 0.95},
-    {"question": "what is glassdoor status", "answer": "Glassdoor's operations are **merging into Indeed** (both owned by Recruit Holdings). The Glassdoor CEO stepped down in late 2025. The platform still operates but is increasingly integrated with Indeed's infrastructure.", "keywords": ["glassdoor", "status", "indeed"], "confidence": 0.90},
-    {"question": "best boards for nursing hiring", "answer": "Top job boards for **nursing/healthcare** hiring:\n1. **Health eCareers** -- largest healthcare niche board\n2. **Nurse.com** -- RN-focused\n3. **NursingJobs.us** -- US nursing specific\n4. **Indeed** -- high-volume nursing traffic\n5. **Vivian Health** -- travel nursing marketplace\n6. **Incredible Health** -- RN matching platform\n7. **AlliedHealthJobs** -- allied health professionals\nRecommended channel mix: 30% niche boards, 22% programmatic, 15% global boards.", "keywords": ["nursing", "nurse", "healthcare", "boards"], "confidence": 0.90},
-    {"question": "best boards for blue collar hiring", "answer": "Top channels for **blue-collar/hourly** hiring:\n1. **Indeed** -- highest blue-collar volume and reach\n2. **Facebook Jobs** -- mobile-first, massive reach for hourly workers\n3. **ZipRecruiter** -- strong AI matching for high-volume hourly\n4. **Google Search Ads** -- captures high-intent 'jobs near me' searches\n5. **Snagajob** -- largest hourly-focused job board\n6. **Craigslist** -- local trades, service, gig roles\n7. **Jobcase** -- community-driven platform for hourly workforce\nBudget tip: 40%+ should go to programmatic/mobile-first channels via Joveo.", "keywords": ["blue collar", "hourly", "warehouse", "driver", "trades"], "confidence": 0.90},
-    {"question": "joveo vs competitors", "answer": "**Important**: Joveo is a programmatic recruitment marketing PLATFORM, not a job board. Individual publishers like Indeed, LinkedIn, Google Jobs, ZipRecruiter are all part of Joveo's 10,238+ supply partner network -- they are NOT alternatives to Joveo, they are channels Joveo distributes across.\n\nJoveo's key differentiators as a platform:\n- **Broadest global reach**: 10,238+ Supply Partners across 70+ countries -- the largest publisher network in the industry\n- **AI-driven optimization**: Real-time bid optimization maximizes ROI across ALL your publishers simultaneously\n- **Multiple pricing models**: CPC, CPA, TCPA, Flat CPC, ORG, and PPP -- more flexibility than any alternative\n- **Platform-level intelligence**: Instead of manually managing each job board, Joveo automatically distributes and optimizes spend across the entire network\n- **Superior cost efficiency**: AI algorithms continuously optimize spend allocation for maximum hires per dollar\n\nUsing Joveo means you get Indeed + LinkedIn + Google Jobs + ZipRecruiter + thousands more -- all optimized together.", "keywords": ["competitor", "vs", "compare", "alternative", "better than"], "confidence": 0.95},
+    {
+        "question": "how many publishers does joveo have",
+        "answer": "Joveo has **10,238+ Supply Partners** across **70+ countries**, including major job boards, niche boards, programmatic platforms, and social channels.",
+        "keywords": ["publishers", "supply partners", "how many"],
+        "confidence": 0.95,
+    },
+    {
+        "question": "what is joveo",
+        "answer": "Joveo is a **programmatic recruitment marketing PLATFORM** -- not a job board or publisher. It's the AI-powered technology layer that sits above publishers and **distributes and optimizes your job ads across 10,238+ supply partners** (including Indeed, LinkedIn, Google Jobs, ZipRecruiter, niche boards, and thousands more) across 70+ countries. Think of it as the intelligent engine that manages your entire recruitment advertising spend -- automatically optimizing bids, budgets, and distribution across all channels to maximize applications per dollar.",
+        "keywords": ["joveo", "what is"],
+        "confidence": 0.95,
+    },
+    {
+        "question": "what countries does joveo operate in",
+        "answer": "Joveo operates across **70+ countries** including the US, UK, Canada, Germany, France, India, Australia, Japan, UAE, Brazil, and many more across EMEA, APAC, and AMER regions.",
+        "keywords": ["countries", "regions", "operate"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "what is programmatic job advertising",
+        "answer": "Programmatic job advertising uses **data-driven automation** to buy, place, and optimize job ads in real-time across multiple channels. It maximizes ROI by dynamically adjusting bids, budgets, and targeting based on performance data. Average CPC ranges from $0.50-$2.50 depending on role and industry.",
+        "keywords": ["programmatic", "advertising", "explain"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "what is cpc cpa cph",
+        "answer": "**CPC** (Cost Per Click): You pay each time a candidate clicks your job ad ($0.50-$5.00 typical).\n**CPA** (Cost Per Application): You pay when a candidate completes an application ($5-$50 typical).\n**CPH** (Cost Per Hire): Total cost to fill a position ($1,500-$10,000+ depending on role).\nCPC is best for volume, CPA for quality, CPH for executive/niche roles.",
+        "keywords": ["cpc", "cpa", "cph", "cost per"],
+        "confidence": 0.95,
+    },
+    {
+        "question": "what pricing models does joveo support",
+        "answer": "Joveo supports multiple pricing models: **CPC** (Cost Per Click), **CPA** (Cost Per Application), **TCPA** (Target CPA with auto-optimization), **Flat CPC**, **ORG** (Organic/free postings), and **PPP** (Pay Per Post). The optimal model depends on your hiring volume and role type.",
+        "keywords": ["pricing", "models", "commission"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "top job boards in the us",
+        "answer": "The top job boards in the US by traffic and performance:\n1. **Indeed** -- largest globally, CPC model\n2. **LinkedIn** -- best for white-collar/professional\n3. **ZipRecruiter** -- strong AI matching, high volume\n4. **Google Search Ads** -- high-intent job seekers\n5. **Glassdoor** (merging into Indeed) -- employer brand focused\n6. **Snagajob** -- hourly/blue-collar leader\n7. **Dice** -- tech-specific\n8. **Handshake** -- early career/campus\nAs per our recommendation, pairing these with Joveo's programmatic distribution maximizes reach.",
+        "keywords": ["top", "job boards", "us", "united states", "best"],
+        "confidence": 0.85,
+    },
+    {
+        "question": "what happened to monster and careerbuilder",
+        "answer": "Monster and CareerBuilder filed for **Chapter 11 bankruptcy** in July 2025. They were acquired by **Bold Holdings for $28M**. Monster Europe has been shut down (DNS killed). CareerBuilder continues operating in the US under new ownership but with reduced scale.",
+        "keywords": ["monster", "careerbuilder", "bankruptcy", "shut down"],
+        "confidence": 0.95,
+    },
+    {
+        "question": "what is glassdoor status",
+        "answer": "Glassdoor's operations are **merging into Indeed** (both owned by Recruit Holdings). The Glassdoor CEO stepped down in late 2025. The platform still operates but is increasingly integrated with Indeed's infrastructure.",
+        "keywords": ["glassdoor", "status", "indeed"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "best boards for nursing hiring",
+        "answer": "Top job boards for **nursing/healthcare** hiring:\n1. **Health eCareers** -- largest healthcare niche board\n2. **Nurse.com** -- RN-focused\n3. **NursingJobs.us** -- US nursing specific\n4. **Indeed** -- high-volume nursing traffic\n5. **Vivian Health** -- travel nursing marketplace\n6. **Incredible Health** -- RN matching platform\n7. **AlliedHealthJobs** -- allied health professionals\nRecommended channel mix: 30% niche boards, 22% programmatic, 15% global boards.",
+        "keywords": ["nursing", "nurse", "healthcare", "boards"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "best boards for blue collar hiring",
+        "answer": "Top channels for **blue-collar/hourly** hiring:\n1. **Indeed** -- highest blue-collar volume and reach\n2. **Facebook Jobs** -- mobile-first, massive reach for hourly workers\n3. **ZipRecruiter** -- strong AI matching for high-volume hourly\n4. **Google Search Ads** -- captures high-intent 'jobs near me' searches\n5. **Snagajob** -- largest hourly-focused job board\n6. **Craigslist** -- local trades, service, gig roles\n7. **Jobcase** -- community-driven platform for hourly workforce\nBudget tip: 40%+ should go to programmatic/mobile-first channels via Joveo.",
+        "keywords": ["blue collar", "hourly", "warehouse", "driver", "trades"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "joveo vs competitors",
+        "answer": "**Important**: Joveo is a programmatic recruitment marketing PLATFORM, not a job board. Individual publishers like Indeed, LinkedIn, Google Jobs, ZipRecruiter are all part of Joveo's 10,238+ supply partner network -- they are NOT alternatives to Joveo, they are channels Joveo distributes across.\n\nJoveo's key differentiators as a platform:\n- **Broadest global reach**: 10,238+ Supply Partners across 70+ countries -- the largest publisher network in the industry\n- **AI-driven optimization**: Real-time bid optimization maximizes ROI across ALL your publishers simultaneously\n- **Multiple pricing models**: CPC, CPA, TCPA, Flat CPC, ORG, and PPP -- more flexibility than any alternative\n- **Platform-level intelligence**: Instead of manually managing each job board, Joveo automatically distributes and optimizes spend across the entire network\n- **Superior cost efficiency**: AI algorithms continuously optimize spend allocation for maximum hires per dollar\n\nUsing Joveo means you get Indeed + LinkedIn + Google Jobs + ZipRecruiter + thousands more -- all optimized together.",
+        "keywords": ["competitor", "vs", "compare", "alternative", "better than"],
+        "confidence": 0.95,
+    },
     # ---- Comprehensive Joveo Product Knowledge (from joveo.com, March 2026) ----
-    {"question": "joveo product suite", "answer": "Joveo offers a **complete end-to-end recruitment marketing platform** with 3 core products:\n\n**1. MOJO Pro -- Programmatic Job Advertising Platform**\n- AI-driven programmatic job ad distribution across 10,238+ supply partners\n- Real-time bid optimization using machine learning\n- Multi-channel campaign management (job boards, search engines, social media, display, niche/community/DEI publishers)\n- Dynamic budget allocation that auto-shifts spend to top-performing sources\n- Automation rules to optimize bids and enable/disable publishers\n- Consolidated global recruitment media buying with local market control\n- Unified analytics dashboard with impression-to-hire insights\n- Multiple pricing models: CPC, CPA, TCPA, Flat CPC, ORG, PPP\n- Real-time performance reporting across all sources in one view\n\n**2. MOJO Go -- Recruiter OS**\n- One-click multi-board job posting for recruiters\n- Simultaneously create, edit, and post jobs on multiple job boards\n- Feeds hiring goals into MOJO Pro for smarter programmatic decisions\n- Streamlined recruiter workflow\n\n**3. Career Site CMS**\n- AI-powered career site builder (create beautiful branded career pages with simple prompts)\n- Dynamic landing pages and microsites\n- SEO optimization built-in\n- Apply flow optimization to minimize candidate drop-off\n- Mobile-first responsive design\n- Conversion tracking and analytics\n\n**4. Candidate Engagement CRM**\n- Candidate engagement-first CRM\n- Auto-match candidates to best-suited jobs\n- Prospect management and nurturing\n- Reduce recruiter workload through automation\n\n**Plus: 100+ ATS integrations** including iCIMS, Bullhorn, Workday (Design Approved partner as of Jan 2026), SAP, Salesforce, Greenhouse, SmartRecruiters, Oracle, Cornerstone OnDemand, and more.", "keywords": ["joveo products", "mojo", "features", "platform", "offer", "good choice", "capabilities", "what does joveo do", "why joveo"], "confidence": 0.95},
-    {"question": "why joveo for recruitment marketing", "answer": "Joveo is the best choice for recruitment marketing because it's not just one tool -- it's the **entire recruitment marketing technology stack**:\n\n**AI-Powered Optimization**: Joveo's machine learning continuously optimizes bids, budgets, and source mix across 10,238+ publishers to maximize applications per dollar. Customers see **50%+ reduction in CPA** on average.\n\n**Programmatic Intelligence**: Instead of manually managing each job board, Joveo automatically distributes your jobs across the right channels at the right time and price. The AI agent analyzes job descriptions, candidate behavior, and market signals to make real-time decisions.\n\n**Full-Funnel Visibility**: Unified analytics from impression to hire across ALL sources in one dashboard. Compare performance across job sites, track cost-per-hire, and see exactly where your budget delivers results.\n\n**Career Site + Apply Flow Optimization**: AI-built career sites with conversion optimization reduce candidate drop-off. Every click from ad to application is optimized.\n\n**Global + Local**: Consolidated global media buying with local market control. Access global, local, niche, community, and DEI publishers in 70+ countries.\n\n**100+ ATS Integrations**: Works with whatever ATS you use -- iCIMS, Workday, Greenhouse, Bullhorn, SAP, and many more.\n\n**Workday Design Approved**: As of January 2026, Joveo is a Workday Design Approved partner with 35+ Workday clients already using the platform.\n\n**Proven Results**: Global staffing agencies have consolidated their recruitment media buying and cut cost per application by more than 50% with Joveo.", "keywords": ["why joveo", "good choice", "best", "recommend", "should i use", "worth it", "benefits"], "confidence": 0.95},
-    {"question": "mojo pro features", "answer": "**MOJO Pro** is Joveo's flagship programmatic job advertising platform:\n\n- **AI-Driven Source Selection**: Machine learning analyzes which publishers deliver the best candidates for each job type, location, and budget level\n- **Real-Time Bid Optimization**: Automated bid management adjusts CPC/CPA bids in real-time based on performance\n- **Dynamic Budget Allocation**: Automatically shifts spend from underperforming sources to top performers\n- **Automation Rules**: Set rules to optimize bids, pause/enable publishers, and manage campaigns automatically\n- **Unified Analytics Dashboard**: Monitor campaign performance and costs across ALL sources in real-time\n- **Impression-to-Hire Tracking**: Full-funnel visibility from ad impression through click, apply, to hire\n- **Global Media Consolidation**: Manage recruitment advertising across 70+ countries from one platform\n- **Local Market Control**: While centralizing strategy, local teams can influence country-specific job advertising\n- **Multi-Channel Distribution**: Job boards, search engines, social media, display ads, niche boards, community boards, DEI publishers\n- **Multiple Pricing Models**: CPC, CPA, TCPA, Flat CPC, ORG, PPP\n- **Publisher Performance Comparison**: Side-by-side source performance analysis\n- **Labor Market Intelligence**: Real-time competitive signals and labor market data\n- **Apply Flow Optimization**: Reduce candidate drop-offs and improve conversions", "keywords": ["mojo pro", "mojo features", "programmatic features", "platform features"], "confidence": 0.95},
-    {"question": "joveo ats integrations", "answer": "Joveo integrates with **100+ Applicant Tracking Systems (ATS)** including:\n\n**Enterprise ATS**: Workday (Design Approved partner, Jan 2026), SAP SuccessFactors, Oracle Recruiting, Cornerstone OnDemand\n**Mid-Market ATS**: iCIMS, Greenhouse, SmartRecruiters, Lever, BambooHR\n**Staffing ATS**: Bullhorn, Avionte, JobDiva, TempWorks\n**CRM/ATS Hybrids**: Salesforce, Jobvite\n**Others**: Taleo, PageUp, JazzHR, Breezy HR, Recruitee, and many more\n\nThe integrations enable automatic job feed ingestion, application routing, conversion tracking, and impression-to-hire analytics. Workday users specifically benefit from Joveo's Design Approved integration with 35+ Workday clients already on the platform.", "keywords": ["ats", "integration", "workday", "icims", "bullhorn", "greenhouse", "connects", "compatible"], "confidence": 0.95},
-    {"question": "joveo career site", "answer": "Joveo's **Career Site CMS** lets you build stunning, branded career destinations with AI:\n\n- **AI-Powered Site Builder**: Create beautiful on-brand career pages with just a few simple prompts\n- **Dynamic Landing Pages**: Build microsites and landing pages for specific campaigns, events, or role types\n- **SEO Optimization**: Built-in search engine optimization to drive organic candidate traffic\n- **Apply Flow Optimization**: Streamlined application process that minimizes candidate drop-off and maximizes conversions\n- **Mobile-First Design**: Responsive layouts optimized for all devices\n- **Conversion Tracking**: Full analytics integration to measure career site performance\n- **ATS Integration**: Seamlessly connects with 100+ applicant tracking systems\n- **Brand Customization**: Templates and design tools to match your employer brand\n- **Multi-Language Support**: Support for global career sites\n\nThe career site feeds directly into MOJO Pro's analytics, giving you unified tracking from first visit through application to hire.", "keywords": ["career site", "cms", "landing page", "employer brand", "career page"], "confidence": 0.95},
+    {
+        "question": "joveo product suite",
+        "answer": "Joveo offers a **complete end-to-end recruitment marketing platform** with 3 core products:\n\n**1. MOJO Pro -- Programmatic Job Advertising Platform**\n- AI-driven programmatic job ad distribution across 10,238+ supply partners\n- Real-time bid optimization using machine learning\n- Multi-channel campaign management (job boards, search engines, social media, display, niche/community/DEI publishers)\n- Dynamic budget allocation that auto-shifts spend to top-performing sources\n- Automation rules to optimize bids and enable/disable publishers\n- Consolidated global recruitment media buying with local market control\n- Unified analytics dashboard with impression-to-hire insights\n- Multiple pricing models: CPC, CPA, TCPA, Flat CPC, ORG, PPP\n- Real-time performance reporting across all sources in one view\n\n**2. MOJO Go -- Recruiter OS**\n- One-click multi-board job posting for recruiters\n- Simultaneously create, edit, and post jobs on multiple job boards\n- Feeds hiring goals into MOJO Pro for smarter programmatic decisions\n- Streamlined recruiter workflow\n\n**3. Career Site CMS**\n- AI-powered career site builder (create beautiful branded career pages with simple prompts)\n- Dynamic landing pages and microsites\n- SEO optimization built-in\n- Apply flow optimization to minimize candidate drop-off\n- Mobile-first responsive design\n- Conversion tracking and analytics\n\n**4. Candidate Engagement CRM**\n- Candidate engagement-first CRM\n- Auto-match candidates to best-suited jobs\n- Prospect management and nurturing\n- Reduce recruiter workload through automation\n\n**Plus: 100+ ATS integrations** including iCIMS, Bullhorn, Workday (Design Approved partner as of Jan 2026), SAP, Salesforce, Greenhouse, SmartRecruiters, Oracle, Cornerstone OnDemand, and more.",
+        "keywords": [
+            "joveo products",
+            "mojo",
+            "features",
+            "platform",
+            "offer",
+            "good choice",
+            "capabilities",
+            "what does joveo do",
+            "why joveo",
+        ],
+        "confidence": 0.95,
+    },
+    {
+        "question": "why joveo for recruitment marketing",
+        "answer": "Joveo is the best choice for recruitment marketing because it's not just one tool -- it's the **entire recruitment marketing technology stack**:\n\n**AI-Powered Optimization**: Joveo's machine learning continuously optimizes bids, budgets, and source mix across 10,238+ publishers to maximize applications per dollar. Customers see **50%+ reduction in CPA** on average.\n\n**Programmatic Intelligence**: Instead of manually managing each job board, Joveo automatically distributes your jobs across the right channels at the right time and price. The AI agent analyzes job descriptions, candidate behavior, and market signals to make real-time decisions.\n\n**Full-Funnel Visibility**: Unified analytics from impression to hire across ALL sources in one dashboard. Compare performance across job sites, track cost-per-hire, and see exactly where your budget delivers results.\n\n**Career Site + Apply Flow Optimization**: AI-built career sites with conversion optimization reduce candidate drop-off. Every click from ad to application is optimized.\n\n**Global + Local**: Consolidated global media buying with local market control. Access global, local, niche, community, and DEI publishers in 70+ countries.\n\n**100+ ATS Integrations**: Works with whatever ATS you use -- iCIMS, Workday, Greenhouse, Bullhorn, SAP, and many more.\n\n**Workday Design Approved**: As of January 2026, Joveo is a Workday Design Approved partner with 35+ Workday clients already using the platform.\n\n**Proven Results**: Global staffing agencies have consolidated their recruitment media buying and cut cost per application by more than 50% with Joveo.",
+        "keywords": [
+            "why joveo",
+            "good choice",
+            "best",
+            "recommend",
+            "should i use",
+            "worth it",
+            "benefits",
+        ],
+        "confidence": 0.95,
+    },
+    {
+        "question": "mojo pro features",
+        "answer": "**MOJO Pro** is Joveo's flagship programmatic job advertising platform:\n\n- **AI-Driven Source Selection**: Machine learning analyzes which publishers deliver the best candidates for each job type, location, and budget level\n- **Real-Time Bid Optimization**: Automated bid management adjusts CPC/CPA bids in real-time based on performance\n- **Dynamic Budget Allocation**: Automatically shifts spend from underperforming sources to top performers\n- **Automation Rules**: Set rules to optimize bids, pause/enable publishers, and manage campaigns automatically\n- **Unified Analytics Dashboard**: Monitor campaign performance and costs across ALL sources in real-time\n- **Impression-to-Hire Tracking**: Full-funnel visibility from ad impression through click, apply, to hire\n- **Global Media Consolidation**: Manage recruitment advertising across 70+ countries from one platform\n- **Local Market Control**: While centralizing strategy, local teams can influence country-specific job advertising\n- **Multi-Channel Distribution**: Job boards, search engines, social media, display ads, niche boards, community boards, DEI publishers\n- **Multiple Pricing Models**: CPC, CPA, TCPA, Flat CPC, ORG, PPP\n- **Publisher Performance Comparison**: Side-by-side source performance analysis\n- **Labor Market Intelligence**: Real-time competitive signals and labor market data\n- **Apply Flow Optimization**: Reduce candidate drop-offs and improve conversions",
+        "keywords": [
+            "mojo pro",
+            "mojo features",
+            "programmatic features",
+            "platform features",
+        ],
+        "confidence": 0.95,
+    },
+    {
+        "question": "joveo ats integrations",
+        "answer": "Joveo integrates with **100+ Applicant Tracking Systems (ATS)** including:\n\n**Enterprise ATS**: Workday (Design Approved partner, Jan 2026), SAP SuccessFactors, Oracle Recruiting, Cornerstone OnDemand\n**Mid-Market ATS**: iCIMS, Greenhouse, SmartRecruiters, Lever, BambooHR\n**Staffing ATS**: Bullhorn, Avionte, JobDiva, TempWorks\n**CRM/ATS Hybrids**: Salesforce, Jobvite\n**Others**: Taleo, PageUp, JazzHR, Breezy HR, Recruitee, and many more\n\nThe integrations enable automatic job feed ingestion, application routing, conversion tracking, and impression-to-hire analytics. Workday users specifically benefit from Joveo's Design Approved integration with 35+ Workday clients already on the platform.",
+        "keywords": [
+            "ats",
+            "integration",
+            "workday",
+            "icims",
+            "bullhorn",
+            "greenhouse",
+            "connects",
+            "compatible",
+        ],
+        "confidence": 0.95,
+    },
+    {
+        "question": "joveo career site",
+        "answer": "Joveo's **Career Site CMS** lets you build stunning, branded career destinations with AI:\n\n- **AI-Powered Site Builder**: Create beautiful on-brand career pages with just a few simple prompts\n- **Dynamic Landing Pages**: Build microsites and landing pages for specific campaigns, events, or role types\n- **SEO Optimization**: Built-in search engine optimization to drive organic candidate traffic\n- **Apply Flow Optimization**: Streamlined application process that minimizes candidate drop-off and maximizes conversions\n- **Mobile-First Design**: Responsive layouts optimized for all devices\n- **Conversion Tracking**: Full analytics integration to measure career site performance\n- **ATS Integration**: Seamlessly connects with 100+ applicant tracking systems\n- **Brand Customization**: Templates and design tools to match your employer brand\n- **Multi-Language Support**: Support for global career sites\n\nThe career site feeds directly into MOJO Pro's analytics, giving you unified tracking from first visit through application to hire.",
+        "keywords": [
+            "career site",
+            "cms",
+            "landing page",
+            "employer brand",
+            "career page",
+        ],
+        "confidence": 0.95,
+    },
 ]
 
 _PARTIAL_MATCH_THRESHOLD = 0.35
@@ -362,23 +751,60 @@ _PARTIAL_MATCH_THRESHOLD = 0.35
 # Country -> Currency mapping (MEDIUM 1 fix)
 # ---------------------------------------------------------------------------
 _COUNTRY_CURRENCY: Dict[str, str] = {
-    "India": "INR", "United Kingdom": "GBP", "Germany": "EUR",
-    "France": "EUR", "Italy": "EUR", "Spain": "EUR", "Netherlands": "EUR",
-    "Belgium": "EUR", "Austria": "EUR", "Ireland": "EUR", "Portugal": "EUR",
-    "Finland": "EUR", "Greece": "EUR", "Luxembourg": "EUR", "Slovakia": "EUR",
-    "Slovenia": "EUR", "Estonia": "EUR", "Latvia": "EUR", "Lithuania": "EUR",
-    "Malta": "EUR", "Cyprus": "EUR",
-    "Japan": "JPY", "China": "CNY", "South Korea": "KRW",
-    "Brazil": "BRL", "Mexico": "MXN", "Canada": "CAD",
-    "Australia": "AUD", "New Zealand": "NZD",
-    "Switzerland": "CHF", "Sweden": "SEK", "Norway": "NOK", "Denmark": "DKK",
-    "Poland": "PLN", "Czech Republic": "CZK", "Hungary": "HUF",
-    "Romania": "RON", "Turkey": "TRY",
-    "South Africa": "ZAR", "Nigeria": "NGN", "Kenya": "KES", "Egypt": "EGP",
-    "Israel": "ILS", "United Arab Emirates": "AED", "Saudi Arabia": "SAR",
-    "Singapore": "SGD", "Malaysia": "MYR", "Thailand": "THB",
-    "Indonesia": "IDR", "Philippines": "PHP", "Vietnam": "VND",
-    "Taiwan": "TWD", "Colombia": "COP", "Chile": "CLP",
+    "India": "INR",
+    "United Kingdom": "GBP",
+    "Germany": "EUR",
+    "France": "EUR",
+    "Italy": "EUR",
+    "Spain": "EUR",
+    "Netherlands": "EUR",
+    "Belgium": "EUR",
+    "Austria": "EUR",
+    "Ireland": "EUR",
+    "Portugal": "EUR",
+    "Finland": "EUR",
+    "Greece": "EUR",
+    "Luxembourg": "EUR",
+    "Slovakia": "EUR",
+    "Slovenia": "EUR",
+    "Estonia": "EUR",
+    "Latvia": "EUR",
+    "Lithuania": "EUR",
+    "Malta": "EUR",
+    "Cyprus": "EUR",
+    "Japan": "JPY",
+    "China": "CNY",
+    "South Korea": "KRW",
+    "Brazil": "BRL",
+    "Mexico": "MXN",
+    "Canada": "CAD",
+    "Australia": "AUD",
+    "New Zealand": "NZD",
+    "Switzerland": "CHF",
+    "Sweden": "SEK",
+    "Norway": "NOK",
+    "Denmark": "DKK",
+    "Poland": "PLN",
+    "Czech Republic": "CZK",
+    "Hungary": "HUF",
+    "Romania": "RON",
+    "Turkey": "TRY",
+    "South Africa": "ZAR",
+    "Nigeria": "NGN",
+    "Kenya": "KES",
+    "Egypt": "EGP",
+    "Israel": "ILS",
+    "United Arab Emirates": "AED",
+    "Saudi Arabia": "SAR",
+    "Singapore": "SGD",
+    "Malaysia": "MYR",
+    "Thailand": "THB",
+    "Indonesia": "IDR",
+    "Philippines": "PHP",
+    "Vietnam": "VND",
+    "Taiwan": "TWD",
+    "Colombia": "COP",
+    "Chile": "CLP",
     "Argentina": "ARS",
     # US defaults to USD (not listed -- absence means USD)
 }
@@ -395,6 +821,7 @@ def _get_currency_for_country(country: Optional[str]) -> str:
 # Role validation (CRITICAL 1 fix -- nonsense/invented role detection)
 # ---------------------------------------------------------------------------
 
+
 def _validate_role_is_real(role: str) -> Dict[str, Any]:
     """Check whether a role string maps to a recognized job title.
 
@@ -410,7 +837,12 @@ def _validate_role_is_real(role: str) -> Dict[str, Any]:
         {"is_valid": bool, "confidence": float, "method": str, "canonical": str}
     """
     if not role or not role.strip():
-        return {"is_valid": False, "confidence": 0.0, "method": "empty", "canonical": ""}
+        return {
+            "is_valid": False,
+            "confidence": 0.0,
+            "method": "empty",
+            "canonical": "",
+        }
 
     role_clean = role.strip()
     role_lower = role_clean.lower()
@@ -421,80 +853,255 @@ def _validate_role_is_real(role: str) -> Dict[str, Any]:
     # This is a heuristic -- we check if the NON-job words in the input form
     # a majority and are not recognized as industry/domain qualifiers.
     _DOMAIN_QUALIFIERS = {
-        "senior", "junior", "lead", "chief", "staff", "principal", "head",
-        "associate", "assistant", "entry", "level", "remote", "part", "time",
-        "full", "contract", "temporary", "freelance", "intern", "1", "2", "3",
-        "i", "ii", "iii", "iv", "v", "global", "regional", "national", "local",
-        "clinical", "medical", "technical", "digital", "mobile", "cloud",
-        "data", "it", "hr", "qa", "bi",
+        "senior",
+        "junior",
+        "lead",
+        "chief",
+        "staff",
+        "principal",
+        "head",
+        "associate",
+        "assistant",
+        "entry",
+        "level",
+        "remote",
+        "part",
+        "time",
+        "full",
+        "contract",
+        "temporary",
+        "freelance",
+        "intern",
+        "1",
+        "2",
+        "3",
+        "i",
+        "ii",
+        "iii",
+        "iv",
+        "v",
+        "global",
+        "regional",
+        "national",
+        "local",
+        "clinical",
+        "medical",
+        "technical",
+        "digital",
+        "mobile",
+        "cloud",
+        "data",
+        "it",
+        "hr",
+        "qa",
+        "bi",
         # Industry/domain qualifiers that are legitimate in role titles
-        "software", "hardware", "mechanical", "electrical", "civil", "chemical",
-        "aerospace", "biomedical", "environmental", "industrial", "structural",
-        "network", "systems", "database", "web", "front", "back", "end",
-        "devops", "machine", "learning", "artificial", "intelligence", "ai", "ml",
-        "product", "project", "program", "operations", "supply", "chain",
-        "marketing", "sales", "business", "financial", "investment", "risk",
-        "compliance", "regulatory", "legal", "human", "resources", "talent",
-        "customer", "service", "support", "quality", "assurance", "control",
-        "research", "development", "manufacturing", "production", "process",
-        "logistics", "distribution", "procurement", "warehouse", "retail",
-        "healthcare", "health", "care", "dental", "pharmacy", "nursing",
-        "education", "training", "social", "media", "content", "creative",
-        "graphic", "ux", "ui", "user", "experience", "interface", "visual",
-        "security", "information", "cyber", "safety", "general", "field",
-        "inside", "outside", "real", "estate", "insurance", "public",
-        "corporate", "commercial", "residential", "office", "plant", "site",
+        "software",
+        "hardware",
+        "mechanical",
+        "electrical",
+        "civil",
+        "chemical",
+        "aerospace",
+        "biomedical",
+        "environmental",
+        "industrial",
+        "structural",
+        "network",
+        "systems",
+        "database",
+        "web",
+        "front",
+        "back",
+        "end",
+        "devops",
+        "machine",
+        "learning",
+        "artificial",
+        "intelligence",
+        "ai",
+        "ml",
+        "product",
+        "project",
+        "program",
+        "operations",
+        "supply",
+        "chain",
+        "marketing",
+        "sales",
+        "business",
+        "financial",
+        "investment",
+        "risk",
+        "compliance",
+        "regulatory",
+        "legal",
+        "human",
+        "resources",
+        "talent",
+        "customer",
+        "service",
+        "support",
+        "quality",
+        "assurance",
+        "control",
+        "research",
+        "development",
+        "manufacturing",
+        "production",
+        "process",
+        "logistics",
+        "distribution",
+        "procurement",
+        "warehouse",
+        "retail",
+        "healthcare",
+        "health",
+        "care",
+        "dental",
+        "pharmacy",
+        "nursing",
+        "education",
+        "training",
+        "social",
+        "media",
+        "content",
+        "creative",
+        "graphic",
+        "ux",
+        "ui",
+        "user",
+        "experience",
+        "interface",
+        "visual",
+        "security",
+        "information",
+        "cyber",
+        "safety",
+        "general",
+        "field",
+        "inside",
+        "outside",
+        "real",
+        "estate",
+        "insurance",
+        "public",
+        "corporate",
+        "commercial",
+        "residential",
+        "office",
+        "plant",
+        "site",
     }
 
     # Early nonsense check: if 2+ words in the role are clearly
     # not job-related and not domain qualifiers, it's likely nonsense
     _NONSENSE_INDICATORS = {
-        "quantum", "blockchain", "cosmic", "neural", "holographic",
-        "metaverse", "consciousness", "synergy", "galactic", "astral",
-        "interdimensional", "psychic", "mystical", "ethereal", "crypto",
-        "nft", "tokenomics", "vibes", "chakra", "transcendental",
-        "hyperloop", "telekinetic", "paranormal", "intergalactic",
-        "multiversal", "hyperdimensional", "telepathic", "interdimensional",
-        "spacetime", "antimatter", "plasma", "warp", "singularity",
-        "omniscient", "clairvoyant", "alchemist", "sorcerer", "wizard",
-        "shaman", "druid", "warlock", "necromancer", "divination",
+        "quantum",
+        "blockchain",
+        "cosmic",
+        "neural",
+        "holographic",
+        "metaverse",
+        "consciousness",
+        "synergy",
+        "galactic",
+        "astral",
+        "interdimensional",
+        "psychic",
+        "mystical",
+        "ethereal",
+        "crypto",
+        "nft",
+        "tokenomics",
+        "vibes",
+        "chakra",
+        "transcendental",
+        "hyperloop",
+        "telekinetic",
+        "paranormal",
+        "intergalactic",
+        "multiversal",
+        "hyperdimensional",
+        "telepathic",
+        "interdimensional",
+        "spacetime",
+        "antimatter",
+        "plasma",
+        "warp",
+        "singularity",
+        "omniscient",
+        "clairvoyant",
+        "alchemist",
+        "sorcerer",
+        "wizard",
+        "shaman",
+        "druid",
+        "warlock",
+        "necromancer",
+        "divination",
     }
     nonsense_word_count = len(input_words & _NONSENSE_INDICATORS)
     if nonsense_word_count >= 1:
-        logger.info("Role validation: nonsense indicator words found in '%s': %s",
-                     role_clean, input_words & _NONSENSE_INDICATORS)
-        return {"is_valid": False, "confidence": 0.0, "method": "nonsense_indicator",
-                "canonical": role_lower}
+        logger.info(
+            "Role validation: nonsense indicator words found in '%s': %s",
+            role_clean,
+            input_words & _NONSENSE_INDICATORS,
+        )
+        return {
+            "is_valid": False,
+            "confidence": 0.0,
+            "method": "nonsense_indicator",
+            "canonical": role_lower,
+        }
 
     # Tier 1: standardizer SOC code lookup WITH cross-validation
     try:
         from standardizer import normalize_role, get_soc_code, CANONICAL_ROLES
+
         canon = normalize_role(role_clean)
         if canon and canon in CANONICAL_ROLES:
             # Cross-validate: check that the canonical role's name/aliases
             # have meaningful overlap with the input (not just substring noise)
             canon_words = set(canon.replace("_", " ").split())
-            aliases = CANONICAL_ROLES[canon].get("aliases", [])
+            aliases = CANONICAL_ROLES[canon].get("aliases") or []
             # Check: did the input contain the canonical name or a close alias?
             canon_name_spaced = canon.replace("_", " ")
             if canon_name_spaced in role_lower:
-                return {"is_valid": True, "confidence": 0.95, "method": "soc_exact",
-                        "canonical": canon}
+                return {
+                    "is_valid": True,
+                    "confidence": 0.95,
+                    "method": "soc_exact",
+                    "canonical": canon,
+                }
             # Check aliases for close match
             for alias in aliases:
                 if alias.lower() in role_lower:
-                    return {"is_valid": True, "confidence": 0.93, "method": "soc_alias",
-                            "canonical": canon}
+                    return {
+                        "is_valid": True,
+                        "confidence": 0.93,
+                        "method": "soc_alias",
+                        "canonical": canon,
+                    }
             # Check word overlap (at least 50% of canonical words in input)
             overlap = input_words & canon_words
             if len(overlap) >= max(1, len(canon_words) * 0.5):
-                return {"is_valid": True, "confidence": 0.85, "method": "soc_word_overlap",
-                        "canonical": canon}
+                return {
+                    "is_valid": True,
+                    "confidence": 0.85,
+                    "method": "soc_word_overlap",
+                    "canonical": canon,
+                }
             # Fallthrough: standardizer matched via loose substring but
             # cross-validation failed -- do NOT trust this match
-            logger.debug("Role validation: standardizer matched '%s' -> '%s' "
-                         "but cross-validation failed (input_words=%s, canon_words=%s)",
-                         role_clean, canon, input_words, canon_words)
+            logger.debug(
+                "Role validation: standardizer matched '%s' -> '%s' "
+                "but cross-validation failed (input_words=%s, canon_words=%s)",
+                role_clean,
+                canon,
+                input_words,
+                canon_words,
+            )
     except ImportError:
         pass
     except Exception:
@@ -505,14 +1112,17 @@ def _validate_role_is_real(role: str) -> Dict[str, Any]:
     if ci:
         try:
             classification = ci.classify_collar(role=role_clean)
-            collar_conf = classification.get("confidence", 0)
-            method = classification.get("method", "")
+            collar_conf = classification.get("confidence") or 0
+            method = classification.get("method") or ""
             # Only trust high-confidence classifications from SOC or keyword
             # methods (not the low-confidence "no_match" fallback)
             if collar_conf >= 0.60 and method not in ("no_match", "no_role_provided"):
-                return {"is_valid": True, "confidence": collar_conf,
-                        "method": f"collar_{method}",
-                        "canonical": role_lower}
+                return {
+                    "is_valid": True,
+                    "confidence": collar_conf,
+                    "method": f"collar_{method}",
+                    "canonical": role_lower,
+                }
         except Exception:
             pass
 
@@ -520,24 +1130,84 @@ def _validate_role_is_real(role: str) -> Dict[str, Any]:
     for category, keywords in _ROLE_KEYWORDS.items():
         for kw in keywords:
             if kw in role_lower:
-                return {"is_valid": True, "confidence": 0.70,
-                        "method": "keyword_match", "canonical": role_lower}
+                return {
+                    "is_valid": True,
+                    "confidence": 0.70,
+                    "method": "keyword_match",
+                    "canonical": role_lower,
+                }
 
     # Tier 4: Check if any individual word in the role matches common job words
     # BUT require that nonsense-qualifying words don't dominate
     _COMMON_JOB_WORDS = {
-        "engineer", "developer", "manager", "director", "analyst", "designer",
-        "specialist", "coordinator", "administrator", "assistant", "associate",
-        "consultant", "supervisor", "technician", "operator", "clerk", "agent",
-        "representative", "officer", "inspector", "instructor", "teacher",
-        "professor", "nurse", "driver", "mechanic", "chef", "cook", "waiter",
-        "cashier", "accountant", "auditor", "lawyer", "attorney", "physician",
-        "surgeon", "therapist", "pharmacist", "scientist", "researcher",
-        "architect", "plumber", "electrician", "carpenter", "welder",
-        "painter", "janitor", "custodian", "guard", "worker", "laborer",
-        "handler", "picker", "packer", "loader", "installer", "dispatcher",
-        "recruiter", "trainer", "writer", "editor", "reporter", "producer",
-        "executive", "president", "intern", "apprentice", "fellow",
+        "engineer",
+        "developer",
+        "manager",
+        "director",
+        "analyst",
+        "designer",
+        "specialist",
+        "coordinator",
+        "administrator",
+        "assistant",
+        "associate",
+        "consultant",
+        "supervisor",
+        "technician",
+        "operator",
+        "clerk",
+        "agent",
+        "representative",
+        "officer",
+        "inspector",
+        "instructor",
+        "teacher",
+        "professor",
+        "nurse",
+        "driver",
+        "mechanic",
+        "chef",
+        "cook",
+        "waiter",
+        "cashier",
+        "accountant",
+        "auditor",
+        "lawyer",
+        "attorney",
+        "physician",
+        "surgeon",
+        "therapist",
+        "pharmacist",
+        "scientist",
+        "researcher",
+        "architect",
+        "plumber",
+        "electrician",
+        "carpenter",
+        "welder",
+        "painter",
+        "janitor",
+        "custodian",
+        "guard",
+        "worker",
+        "laborer",
+        "handler",
+        "picker",
+        "packer",
+        "loader",
+        "installer",
+        "dispatcher",
+        "recruiter",
+        "trainer",
+        "writer",
+        "editor",
+        "reporter",
+        "producer",
+        "executive",
+        "president",
+        "intern",
+        "apprentice",
+        "fellow",
     }
     job_word_matches = input_words & _COMMON_JOB_WORDS
     non_qualifier_words = input_words - _DOMAIN_QUALIFIERS - _COMMON_JOB_WORDS
@@ -545,21 +1215,33 @@ def _validate_role_is_real(role: str) -> Dict[str, Any]:
         # If the role has recognizable job words AND the non-job, non-qualifier
         # words are not excessive, accept it
         if len(non_qualifier_words) <= len(job_word_matches) + 1:
-            return {"is_valid": True, "confidence": 0.55, "method": "common_job_word",
-                    "canonical": role_lower}
+            return {
+                "is_valid": True,
+                "confidence": 0.55,
+                "method": "common_job_word",
+                "canonical": role_lower,
+            }
         else:
             # Too many unrecognized words -- likely nonsense with a real word thrown in
-            logger.debug("Role validation: job words found (%s) but too many unknown words (%s)",
-                         job_word_matches, non_qualifier_words)
+            logger.debug(
+                "Role validation: job words found (%s) but too many unknown words (%s)",
+                job_word_matches,
+                non_qualifier_words,
+            )
 
     # No match -- likely nonsense or invented role
-    return {"is_valid": False, "confidence": 0.0, "method": "no_match",
-            "canonical": role_lower}
+    return {
+        "is_valid": False,
+        "confidence": 0.0,
+        "method": "no_match",
+        "canonical": role_lower,
+    }
 
 
 # ---------------------------------------------------------------------------
 # Multi-country detection (MEDIUM 2 fix)
 # ---------------------------------------------------------------------------
+
 
 def _detect_all_countries(text: str) -> List[str]:
     """Detect ALL country names mentioned in the text (not just the first).
@@ -572,10 +1254,10 @@ def _detect_all_countries(text: str) -> List[str]:
 
     sorted_aliases = sorted(_COUNTRY_ALIASES.keys(), key=len, reverse=True)
     for alias in sorted_aliases:
-        pattern = r'\b' + re.escape(alias) + r'\b'
+        pattern = r"\b" + re.escape(alias) + r"\b"
         if re.search(pattern, text_lower):
             if len(alias) <= 2:
-                upper_pat = r'\b' + re.escape(alias.upper()) + r'\b'
+                upper_pat = r"\b" + re.escape(alias.upper()) + r"\b"
                 if not re.search(upper_pat, text):
                     continue
             canonical = _COUNTRY_ALIASES[alias]
@@ -631,7 +1313,7 @@ def _check_learned_answers(question: str) -> Optional[Dict[str, Any]]:
         if learned_file.exists():
             with open(learned_file, "r", encoding="utf-8") as f:
                 disk_data = json.load(f)
-                disk_answers = disk_data.get("answers", [])
+                disk_answers = disk_data.get("answers") or []
                 all_answers.extend(disk_answers)
     except Exception as exc:
         logger.warning("Could not load learned answers from disk: %s", exc)
@@ -648,7 +1330,7 @@ def _check_learned_answers(question: str) -> Optional[Dict[str, Any]]:
     best_score: float = 0.0
 
     for entry in all_answers:
-        a_question = entry.get("question", "")
+        a_question = entry.get("question") or ""
         a_words = _extract_keywords(a_question)
         if not a_words:
             continue
@@ -660,7 +1342,7 @@ def _check_learned_answers(question: str) -> Optional[Dict[str, Any]]:
         # If the query mentions a specific country, penalize answers that are
         # about a DIFFERENT country (or US-specific when query is non-US).
         a_country = _detect_country(a_question)
-        a_answer_text = entry.get("answer", "")
+        a_answer_text = entry.get("answer") or ""
         a_answer_country = _detect_country(a_answer_text)
         # Effective answer country: check both question and answer text
         effective_a_country = a_country or a_answer_country
@@ -669,8 +1351,11 @@ def _check_learned_answers(question: str) -> Optional[Dict[str, Any]]:
             if q_country != effective_a_country:
                 # Country mismatch -- heavy penalty
                 score *= 0.2
-                logger.debug("Learned answer country mismatch: query=%s, answer=%s, penalty applied",
-                             q_country, effective_a_country)
+                logger.debug(
+                    "Learned answer country mismatch: query=%s, answer=%s, penalty applied",
+                    q_country,
+                    effective_a_country,
+                )
         elif q_country and not effective_a_country:
             # Query has country context but answer is generic -- mild penalty
             # (generic answers are OK but not ideal for country-specific queries)
@@ -685,15 +1370,22 @@ def _check_learned_answers(question: str) -> Optional[Dict[str, Any]]:
             if not (q_roles & effective_a_roles):
                 # Role category mismatch -- significant penalty
                 score *= 0.3
-                logger.debug("Learned answer role mismatch: query=%s, answer=%s, penalty applied",
-                             q_roles, effective_a_roles)
+                logger.debug(
+                    "Learned answer role mismatch: query=%s, answer=%s, penalty applied",
+                    q_roles,
+                    effective_a_roles,
+                )
 
         if score > best_score:
             best_score = score
             best_match = entry
 
     if best_match and best_score >= _PARTIAL_MATCH_THRESHOLD:
-        logger.info("Learned answer match (score=%.2f): %s", best_score, best_match.get("question", ""))
+        logger.info(
+            "Learned answer match (score=%.2f): %s",
+            best_score,
+            best_match.get("question") or "",
+        )
         return {
             "response": best_match["answer"],
             "confidence": min(best_score * 1.2, 1.0),
@@ -713,7 +1405,7 @@ def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
     with _response_cache_lock:
         if key in _response_cache:
             entry = _response_cache[key]
-            if entry.get("expires", 0) > now:
+            if entry.get("expires") or 0 > now:
                 logger.info("Nova cache HIT (memory)")
                 return entry.get("data")
             else:
@@ -726,7 +1418,7 @@ def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
                 disk_cache = json.load(f)
             if key in disk_cache:
                 entry = disk_cache[key]
-                if entry.get("expires", 0) > now:
+                if entry.get("expires") or 0 > now:
                     logger.info("Nova cache HIT (disk)")
                     data = entry.get("data")
                     # Promote to memory
@@ -739,7 +1431,9 @@ def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _set_response_cache(key: str, data: Dict[str, Any], ttl: int = RESPONSE_CACHE_TTL) -> None:
+def _set_response_cache(
+    key: str, data: Dict[str, Any], ttl: int = RESPONSE_CACHE_TTL
+) -> None:
     """Write to memory cache (with LRU eviction) + disk (atomic write).
 
     Both memory and disk writes are protected by _response_cache_lock to
@@ -753,7 +1447,9 @@ def _set_response_cache(key: str, data: Dict[str, Any], ttl: int = RESPONSE_CACH
         _response_cache[key] = entry
         if len(_response_cache) > MAX_RESPONSE_CACHE_SIZE:
             # Evict oldest entry
-            oldest_key = min(_response_cache, key=lambda k: _response_cache[k].get("created", 0))
+            oldest_key = min(
+                _response_cache, key=lambda k: _response_cache[k].get("created") or 0
+            )
             del _response_cache[oldest_key]
 
         # 2) Disk write (atomic via tmp + rename, evict expired on write)
@@ -767,7 +1463,9 @@ def _set_response_cache(key: str, data: Dict[str, Any], ttl: int = RESPONSE_CACH
                     disk_cache = {}
 
             # Evict expired entries
-            disk_cache = {k: v for k, v in disk_cache.items() if v.get("expires", 0) > now}
+            disk_cache = {
+                k: v for k, v in disk_cache.items() if v.get("expires") or 0 > now
+            }
             disk_cache[key] = entry
 
             # Atomic write via temp file + rename
@@ -798,11 +1496,26 @@ def _classify_query_complexity(user_message: str) -> Tuple[int, str]:
 
     # Complex keywords -> 4096, Sonnet
     complex_patterns = [
-        "budget", "plan", "strategy", "compare", "versus", " vs ",
-        "allocat", "media plan", "hiring plan", "project",
-        "how should i", "recommend", "analyze", "analysis",
-        "blue collar", "white collar", "collar strategy",
-        "build me", "create a", "design a",
+        "budget",
+        "plan",
+        "strategy",
+        "compare",
+        "versus",
+        " vs ",
+        "allocat",
+        "media plan",
+        "hiring plan",
+        "project",
+        "how should i",
+        "recommend",
+        "analyze",
+        "analysis",
+        "blue collar",
+        "white collar",
+        "collar strategy",
+        "build me",
+        "create a",
+        "design a",
     ]
     if any(p in msg_lower for p in complex_patterns):
         return (4096, CLAUDE_MODEL_COMPLEX)
@@ -831,13 +1544,39 @@ def _classify_query_complexity(user_message: str) -> Tuple[int, str]:
 
 # Industry keywords
 _INDUSTRY_KEYWORDS: Dict[str, List[str]] = {
-    "healthcare": ["healthcare", "health care", "hospital", "medical", "pharma", "biotech"],
-    "technology": ["technology", "tech", "software", "saas", "it", "information technology"],
+    "healthcare": [
+        "healthcare",
+        "health care",
+        "hospital",
+        "medical",
+        "pharma",
+        "biotech",
+    ],
+    "technology": [
+        "technology",
+        "tech",
+        "software",
+        "saas",
+        "it",
+        "information technology",
+    ],
     "finance": ["finance", "banking", "insurance", "financial", "fintech"],
     "retail": ["retail", "e-commerce", "ecommerce", "store", "shopping"],
     "hospitality": ["hospitality", "hotel", "restaurant", "tourism", "travel"],
-    "manufacturing": ["manufacturing", "industrial", "production", "factory", "automotive"],
-    "transportation": ["transportation", "logistics", "trucking", "shipping", "supply chain"],
+    "manufacturing": [
+        "manufacturing",
+        "industrial",
+        "production",
+        "factory",
+        "automotive",
+    ],
+    "transportation": [
+        "transportation",
+        "logistics",
+        "trucking",
+        "shipping",
+        "supply chain",
+    ],
     "construction": ["construction", "real estate", "building", "contractor"],
     "education": ["education", "school", "university", "academic", "k-12"],
     "energy": ["energy", "oil", "gas", "renewable", "solar", "utility"],
@@ -848,6 +1587,7 @@ _INDUSTRY_KEYWORDS: Dict[str, List[str]] = {
 # ═══════════════════════════════════════════════════════════════════════════════
 # JOVEO IQ ENGINE
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class Nova:
     """Nova chatbot engine.
@@ -920,7 +1660,7 @@ class Nova:
     def get_system_prompt(self) -> str:
         """Build the compressed system prompt for Claude."""
         publishers = self._data_cache.get("joveo_publishers", {})
-        total_pubs = publishers.get("total_active_publishers", 0)
+        total_pubs = publishers.get("total_active_publishers") or 0
         pub_countries = list(publishers.get("by_country", {}).keys())
 
         supply = self._data_cache.get("global_supply", {})
@@ -1115,12 +1855,22 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "country": {"type": "string", "description": "Country name. Omit for all countries."},
-                        "board_type": {"type": "string", "enum": ["general", "dei", "women", "all"], "description": "Board type filter. Default: 'all'."},
-                        "category": {"type": "string", "description": "Board category filter (e.g., 'Tech', 'Healthcare')."}
+                        "country": {
+                            "type": "string",
+                            "description": "Country name. Omit for all countries.",
+                        },
+                        "board_type": {
+                            "type": "string",
+                            "enum": ["general", "dei", "women", "all"],
+                            "description": "Board type filter. Default: 'all'.",
+                        },
+                        "category": {
+                            "type": "string",
+                            "description": "Board category filter (e.g., 'Tech', 'Healthcare').",
+                        },
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_channels",
@@ -1128,11 +1878,24 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "industry": {"type": "string", "description": "Industry filter (e.g., 'healthcare_medical', 'tech_engineering')."},
-                        "channel_type": {"type": "string", "enum": ["regional_local", "global_reach", "niche_by_industry", "non_traditional", "all"], "description": "Channel category. Default: 'all'."}
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry filter (e.g., 'healthcare_medical', 'tech_engineering').",
+                        },
+                        "channel_type": {
+                            "type": "string",
+                            "enum": [
+                                "regional_local",
+                                "global_reach",
+                                "niche_by_industry",
+                                "non_traditional",
+                                "all",
+                            ],
+                            "description": "Channel category. Default: 'all'.",
+                        },
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_publishers",
@@ -1141,11 +1904,17 @@ When presenting budget projections:
                     "type": "object",
                     "properties": {
                         "country": {"type": "string", "description": "Country filter"},
-                        "category": {"type": "string", "description": "Category (e.g., 'DEI', 'Health', 'Tech', 'Programmatic')"},
-                        "search_term": {"type": "string", "description": "Name search (case-insensitive substring)"}
+                        "category": {
+                            "type": "string",
+                            "description": "Category (e.g., 'DEI', 'Health', 'Tech', 'Programmatic')",
+                        },
+                        "search_term": {
+                            "type": "string",
+                            "description": "Name search (case-insensitive substring)",
+                        },
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_knowledge_base",
@@ -1153,13 +1922,33 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "topic": {"type": "string", "enum": ["benchmarks", "trends", "platforms", "regional", "industry_specific", "all"], "description": "Topic area."},
-                        "metric": {"type": "string", "description": "Metric: 'cpc', 'cpa', 'cost_per_hire', 'apply_rate', 'time_to_fill', 'source_of_hire', 'conversion_rate'."},
-                        "industry": {"type": "string", "description": "Industry filter."},
-                        "platform": {"type": "string", "description": "Platform name filter."}
+                        "topic": {
+                            "type": "string",
+                            "enum": [
+                                "benchmarks",
+                                "trends",
+                                "platforms",
+                                "regional",
+                                "industry_specific",
+                                "all",
+                            ],
+                            "description": "Topic area.",
+                        },
+                        "metric": {
+                            "type": "string",
+                            "description": "Metric: 'cpc', 'cpa', 'cost_per_hire', 'apply_rate', 'time_to_fill', 'source_of_hire', 'conversion_rate'.",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry filter.",
+                        },
+                        "platform": {
+                            "type": "string",
+                            "description": "Platform name filter.",
+                        },
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_salary_data",
@@ -1167,11 +1956,17 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "role": {"type": "string", "description": "Job title (e.g., 'Registered Nurse', 'Software Engineer')"},
-                        "location": {"type": "string", "description": "Location (city, state, or country)"}
+                        "role": {
+                            "type": "string",
+                            "description": "Job title (e.g., 'Registered Nurse', 'Software Engineer')",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Location (city, state, or country)",
+                        },
                     },
-                    "required": ["role"]
-                }
+                    "required": ["role"],
+                },
             },
             {
                 "name": "query_market_demand",
@@ -1181,10 +1976,10 @@ When presenting budget projections:
                     "properties": {
                         "role": {"type": "string", "description": "Job title"},
                         "location": {"type": "string", "description": "Location"},
-                        "industry": {"type": "string", "description": "Industry"}
+                        "industry": {"type": "string", "description": "Industry"},
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_budget_projection",
@@ -1192,15 +1987,32 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "budget": {"type": "number", "description": "Total budget in USD"},
-                        "roles": {"type": "array", "items": {"type": "string"}, "description": "Role titles"},
-                        "locations": {"type": "array", "items": {"type": "string"}, "description": "Hiring locations"},
+                        "budget": {
+                            "type": "number",
+                            "description": "Total budget in USD",
+                        },
+                        "roles": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Role titles",
+                        },
+                        "locations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Hiring locations",
+                        },
                         "industry": {"type": "string", "description": "Industry"},
-                        "openings": {"type": "integer", "description": "Number of positions/openings to fill per role. Default 1. If user says 'hire 20 drivers', openings=20."},
-                        "target_hires": {"type": "integer", "description": "Total hiring target across all roles. Use this when user specifies a total number to hire (e.g., 'I need to hire 50 people'). This is used to assess budget sufficiency."}
+                        "openings": {
+                            "type": "integer",
+                            "description": "Number of positions/openings to fill per role. Default 1. If user says 'hire 20 drivers', openings=20.",
+                        },
+                        "target_hires": {
+                            "type": "integer",
+                            "description": "Total hiring target across all roles. Use this when user specifies a total number to hire (e.g., 'I need to hire 50 people'). This is used to assess budget sufficiency.",
+                        },
                     },
-                    "required": ["budget"]
-                }
+                    "required": ["budget"],
+                },
             },
             {
                 "name": "query_location_profile",
@@ -1210,10 +2022,10 @@ When presenting budget projections:
                     "properties": {
                         "city": {"type": "string", "description": "City"},
                         "state": {"type": "string", "description": "State/province"},
-                        "country": {"type": "string", "description": "Country"}
+                        "country": {"type": "string", "description": "Country"},
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_ad_platform",
@@ -1221,11 +2033,25 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "role_type": {"type": "string", "enum": ["executive", "professional", "hourly", "clinical", "trades"], "description": "Role type"},
-                        "platforms": {"type": "array", "items": {"type": "string"}, "description": "Specific platforms"}
+                        "role_type": {
+                            "type": "string",
+                            "enum": [
+                                "executive",
+                                "professional",
+                                "hourly",
+                                "clinical",
+                                "trades",
+                            ],
+                            "description": "Role type",
+                        },
+                        "platforms": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Specific platforms",
+                        },
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_linkedin_guidewire",
@@ -1233,11 +2059,23 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "section": {"type": "string", "enum": ["executive_summary", "hiring_performance", "hire_efficiency", "all"], "description": "Section to query"},
-                        "metric": {"type": "string", "description": "Specific metric (e.g., 'influenced_hires', 'skill_density')"}
+                        "section": {
+                            "type": "string",
+                            "enum": [
+                                "executive_summary",
+                                "hiring_performance",
+                                "hire_efficiency",
+                                "all",
+                            ],
+                            "description": "Section to query",
+                        },
+                        "metric": {
+                            "type": "string",
+                            "description": "Specific metric (e.g., 'influenced_hires', 'skill_density')",
+                        },
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_platform_deep",
@@ -1245,11 +2083,17 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "platform": {"type": "string", "description": "Platform name (e.g., 'indeed', 'linkedin')"},
-                        "compare_with": {"type": "string", "description": "Second platform to compare"}
+                        "platform": {
+                            "type": "string",
+                            "description": "Platform name (e.g., 'indeed', 'linkedin')",
+                        },
+                        "compare_with": {
+                            "type": "string",
+                            "description": "Second platform to compare",
+                        },
                     },
-                    "required": ["platform"]
-                }
+                    "required": ["platform"],
+                },
             },
             {
                 "name": "query_recruitment_benchmarks",
@@ -1257,11 +2101,17 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "industry": {"type": "string", "description": "Industry (e.g., 'healthcare', 'technology', 'finance')"},
-                        "metric": {"type": "string", "description": "Metric: 'cpa', 'cpc', 'cph', 'apply_rate', 'time_to_fill', or 'all'"}
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry (e.g., 'healthcare', 'technology', 'finance')",
+                        },
+                        "metric": {
+                            "type": "string",
+                            "description": "Metric: 'cpa', 'cpc', 'cph', 'apply_rate', 'time_to_fill', or 'all'",
+                        },
                     },
-                    "required": ["industry"]
-                }
+                    "required": ["industry"],
+                },
             },
             {
                 "name": "query_employer_branding",
@@ -1269,10 +2119,13 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "aspect": {"type": "string", "description": "'roi', 'best_practices', 'channel_effectiveness', or 'all'"}
+                        "aspect": {
+                            "type": "string",
+                            "description": "'roi', 'best_practices', 'channel_effectiveness', or 'all'",
+                        }
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_regional_market",
@@ -1280,11 +2133,17 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "region": {"type": "string", "description": "Region key (e.g., 'us_northeast', 'us_south')"},
-                        "market": {"type": "string", "description": "Market key (e.g., 'boston_ma', 'new_york_ny')"}
+                        "region": {
+                            "type": "string",
+                            "description": "Region key (e.g., 'us_northeast', 'us_south')",
+                        },
+                        "market": {
+                            "type": "string",
+                            "description": "Market key (e.g., 'boston_ma', 'new_york_ny')",
+                        },
                     },
-                    "required": ["region"]
-                }
+                    "required": ["region"],
+                },
             },
             {
                 "name": "query_supply_ecosystem",
@@ -1292,10 +2151,13 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "topic": {"type": "string", "description": "'how_it_works', 'bidding_models', 'publisher_waterfall', 'quality_signals', 'budget_pacing', or 'all'"}
+                        "topic": {
+                            "type": "string",
+                            "description": "'how_it_works', 'bidding_models', 'publisher_waterfall', 'quality_signals', 'budget_pacing', or 'all'",
+                        }
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_workforce_trends",
@@ -1303,10 +2165,13 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "topic": {"type": "string", "description": "'gen_z', 'remote_work', 'dei', 'salary_expectations', 'platform_preferences', or 'all'"}
+                        "topic": {
+                            "type": "string",
+                            "description": "'gen_z', 'remote_work', 'dei', 'salary_expectations', 'platform_preferences', or 'all'",
+                        }
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_white_papers",
@@ -1314,11 +2179,17 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "search_term": {"type": "string", "description": "Search term (e.g., 'CPA trends', 'healthcare hiring')"},
-                        "report_key": {"type": "string", "description": "Specific report key if known"}
+                        "search_term": {
+                            "type": "string",
+                            "description": "Search term (e.g., 'CPA trends', 'healthcare hiring')",
+                        },
+                        "report_key": {
+                            "type": "string",
+                            "description": "Specific report key if known",
+                        },
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_google_ads_benchmarks",
@@ -1326,10 +2197,13 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "category": {"type": "string", "description": "Job category: 'skilled_healthcare', 'general_recruitment', 'software_tech', 'logistics_supply_chain', 'corporate_professional', 'administrative_clerical', 'education_public_service', 'retail_hospitality'. Leave empty for all."},
+                        "category": {
+                            "type": "string",
+                            "description": "Job category: 'skilled_healthcare', 'general_recruitment', 'software_tech', 'logistics_supply_chain', 'corporate_professional', 'administrative_clerical', 'education_public_service', 'retail_hospitality'. Leave empty for all.",
+                        },
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_external_benchmarks",
@@ -1337,12 +2211,21 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "report_key": {"type": "string", "description": "Specific report key (e.g., 'appcast_benchmark_2025', 'recruitics_talent_market_index_2025'). Leave empty for search."},
-                        "search_term": {"type": "string", "description": "Search across report titles, publishers, and findings (e.g., 'social CPC', 'talent shortage', 'apply rate')."},
-                        "benchmark_category": {"type": "string", "description": "Aggregated benchmark category: 'cost_per_hire', 'time_to_fill', 'cpa_by_channel', 'talent_shortage', 'applicants_per_opening', 'offer_metrics', 'recruiter_workload', 'ai_adoption', 'compensation', 'turnover', 'hiring_trends'. Leave empty for overview."}
+                        "report_key": {
+                            "type": "string",
+                            "description": "Specific report key (e.g., 'appcast_benchmark_2025', 'recruitics_talent_market_index_2025'). Leave empty for search.",
+                        },
+                        "search_term": {
+                            "type": "string",
+                            "description": "Search across report titles, publishers, and findings (e.g., 'social CPC', 'talent shortage', 'apply rate').",
+                        },
+                        "benchmark_category": {
+                            "type": "string",
+                            "description": "Aggregated benchmark category: 'cost_per_hire', 'time_to_fill', 'cpa_by_channel', 'talent_shortage', 'applicants_per_opening', 'offer_metrics', 'recruiter_workload', 'ai_adoption', 'compensation', 'turnover', 'hiring_trends'. Leave empty for overview.",
+                        },
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_client_plans",
@@ -1350,12 +2233,21 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "plan_key": {"type": "string", "description": "Specific plan: 'rtx_us', 'bae_systems', 'amazon_cs_india', 'rolls_royce_solutions_america', 'rtx_poland', 'peraton'. Leave empty for search."},
-                        "industry": {"type": "string", "description": "Industry filter (e.g., 'aerospace', 'defense', 'technology')."},
-                        "aspect": {"type": "string", "description": "'channel_strategy', 'budget', 'benchmarks', 'key_insights', 'aggregate_patterns', or 'all'. Default: 'all'."}
+                        "plan_key": {
+                            "type": "string",
+                            "description": "Specific plan: 'rtx_us', 'bae_systems', 'amazon_cs_india', 'rolls_royce_solutions_america', 'rtx_poland', 'peraton'. Leave empty for search.",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry filter (e.g., 'aerospace', 'defense', 'technology').",
+                        },
+                        "aspect": {
+                            "type": "string",
+                            "description": "'channel_strategy', 'budget', 'benchmarks', 'key_insights', 'aggregate_patterns', or 'all'. Default: 'all'.",
+                        },
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "suggest_smart_defaults",
@@ -1363,14 +2255,29 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "roles": {"type": "array", "items": {"type": "string"}, "description": "Role titles"},
-                        "hire_count": {"type": "integer", "description": "Number of hires. Default: 10"},
-                        "locations": {"type": "array", "items": {"type": "string"}, "description": "Hiring locations"},
+                        "roles": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Role titles",
+                        },
+                        "hire_count": {
+                            "type": "integer",
+                            "description": "Number of hires. Default: 10",
+                        },
+                        "locations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Hiring locations",
+                        },
                         "industry": {"type": "string", "description": "Industry"},
-                        "urgency": {"type": "string", "enum": ["standard", "urgent", "critical"], "description": "Urgency level"}
+                        "urgency": {
+                            "type": "string",
+                            "enum": ["standard", "urgent", "critical"],
+                            "description": "Urgency level",
+                        },
                     },
-                    "required": ["roles"]
-                }
+                    "required": ["roles"],
+                },
             },
             {
                 "name": "query_employer_brand",
@@ -1378,10 +2285,13 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "company": {"type": "string", "description": "Company name (e.g., 'Kaiser Permanente', 'Google', 'Amazon')"}
+                        "company": {
+                            "type": "string",
+                            "description": "Company name (e.g., 'Kaiser Permanente', 'Google', 'Amazon')",
+                        }
                     },
-                    "required": ["company"]
-                }
+                    "required": ["company"],
+                },
             },
             {
                 "name": "query_ad_benchmarks",
@@ -1389,10 +2299,13 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "industry": {"type": "string", "description": "Industry (e.g., 'healthcare', 'tech', 'finance', 'retail')"}
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry (e.g., 'healthcare', 'tech', 'finance', 'retail')",
+                        }
                     },
-                    "required": ["industry"]
-                }
+                    "required": ["industry"],
+                },
             },
             {
                 "name": "query_hiring_insights",
@@ -1401,11 +2314,14 @@ When presenting budget projections:
                     "type": "object",
                     "properties": {
                         "role": {"type": "string", "description": "Job role"},
-                        "location": {"type": "string", "description": "Hiring location"},
-                        "industry": {"type": "string", "description": "Industry"}
+                        "location": {
+                            "type": "string",
+                            "description": "Hiring location",
+                        },
+                        "industry": {"type": "string", "description": "Industry"},
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_collar_strategy",
@@ -1413,12 +2329,21 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "role": {"type": "string", "description": "Job role to classify (e.g., 'Warehouse Associate', 'Software Engineer')"},
-                        "industry": {"type": "string", "description": "Industry context for classification"},
-                        "compare": {"type": "boolean", "description": "If true, return full blue vs white collar comparison. Default false."}
+                        "role": {
+                            "type": "string",
+                            "description": "Job role to classify (e.g., 'Warehouse Associate', 'Software Engineer')",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry context for classification",
+                        },
+                        "compare": {
+                            "type": "boolean",
+                            "description": "If true, return full blue vs white collar comparison. Default false.",
+                        },
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_market_trends",
@@ -1426,13 +2351,25 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "platform": {"type": "string", "description": "Ad platform: google, meta_fb, indeed, linkedin, programmatic"},
-                        "industry": {"type": "string", "description": "Industry for benchmarks"},
-                        "metric": {"type": "string", "description": "Metric: cpc, cpa, cpm, ctr. Default: cpc"},
-                        "collar_type": {"type": "string", "description": "blue_collar or white_collar for seasonal adjustments"}
+                        "platform": {
+                            "type": "string",
+                            "description": "Ad platform: google, meta_fb, indeed, linkedin, programmatic",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry for benchmarks",
+                        },
+                        "metric": {
+                            "type": "string",
+                            "description": "Metric: cpc, cpa, cpm, ctr. Default: cpc",
+                        },
+                        "collar_type": {
+                            "type": "string",
+                            "description": "blue_collar or white_collar for seasonal adjustments",
+                        },
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_role_decomposition",
@@ -1440,12 +2377,21 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "role": {"type": "string", "description": "Job title to decompose"},
-                        "count": {"type": "integer", "description": "Number of positions to fill"},
-                        "industry": {"type": "string", "description": "Industry context"}
+                        "role": {
+                            "type": "string",
+                            "description": "Job title to decompose",
+                        },
+                        "count": {
+                            "type": "integer",
+                            "description": "Number of positions to fill",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry context",
+                        },
                     },
-                    "required": ["role", "count"]
-                }
+                    "required": ["role", "count"],
+                },
             },
             {
                 "name": "simulate_what_if",
@@ -1453,14 +2399,29 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "scenario_description": {"type": "string", "description": "Natural language description of the scenario"},
-                        "delta_budget": {"type": "number", "description": "Absolute budget change amount (positive or negative)"},
-                        "delta_pct": {"type": "number", "description": "Percentage budget change (e.g. 0.20 for +20%)"},
-                        "add_channel": {"type": "string", "description": "Channel to add"},
-                        "remove_channel": {"type": "string", "description": "Channel to remove"}
+                        "scenario_description": {
+                            "type": "string",
+                            "description": "Natural language description of the scenario",
+                        },
+                        "delta_budget": {
+                            "type": "number",
+                            "description": "Absolute budget change amount (positive or negative)",
+                        },
+                        "delta_pct": {
+                            "type": "number",
+                            "description": "Percentage budget change (e.g. 0.20 for +20%)",
+                        },
+                        "add_channel": {
+                            "type": "string",
+                            "description": "Channel to add",
+                        },
+                        "remove_channel": {
+                            "type": "string",
+                            "description": "Channel to remove",
+                        },
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "query_skills_gap",
@@ -1468,12 +2429,21 @@ When presenting budget projections:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "role": {"type": "string", "description": "Job title to analyze"},
-                        "location": {"type": "string", "description": "Location for market context"},
-                        "industry": {"type": "string", "description": "Industry context"}
+                        "role": {
+                            "type": "string",
+                            "description": "Job title to analyze",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Location for market context",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry context",
+                        },
                     },
-                    "required": ["role"]
-                }
+                    "required": ["role"],
+                },
             },
             {
                 "name": "query_geopolitical_risk",
@@ -1484,17 +2454,20 @@ When presenting budget projections:
                         "locations": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "List of locations/countries to assess (e.g., ['Ukraine', 'Poland', 'Germany'])"
+                            "description": "List of locations/countries to assess (e.g., ['Ukraine', 'Poland', 'Germany'])",
                         },
-                        "industry": {"type": "string", "description": "Industry context for risk assessment"},
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry context for risk assessment",
+                        },
                         "roles": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "Target roles for recruitment context"
-                        }
+                            "description": "Target roles for recruitment context",
+                        },
                     },
-                    "required": ["locations"]
-                }
+                    "required": ["locations"],
+                },
             },
         ]
 
@@ -1556,7 +2529,9 @@ When presenting budget projections:
             return json.dumps(result, default=str)
         except Exception as e:
             logger.error("Tool %s failed: %s", tool_name, e, exc_info=True)
-            return json.dumps({"error": f"Tool '{tool_name}' encountered an internal error"})
+            return json.dumps(
+                {"error": f"Tool '{tool_name}' encountered an internal error"}
+            )
 
     # ------------------------------------------------------------------
     # Tool handlers
@@ -1565,9 +2540,9 @@ When presenting budget projections:
     def _query_global_supply(self, params: dict) -> dict:
         """Query global supply data: country boards, DEI boards, spend data."""
         supply = self._data_cache.get("global_supply", {})
-        country = params.get("country", "").strip()
+        country = params.get("country") or "".strip()
         board_type = params.get("board_type", "all")
-        category_filter = params.get("category", "").lower().strip()
+        category_filter = params.get("category") or "".lower().strip()
 
         result: Dict[str, Any] = {"source": "Joveo Global Supply Intelligence"}
 
@@ -1578,21 +2553,27 @@ When presenting budget projections:
             country_boards = supply.get("country_job_boards", {})
             if country_resolved and country_resolved in country_boards:
                 entry = country_boards[country_resolved]
-                boards = entry.get("boards", [])
+                boards = entry.get("boards") or []
                 if category_filter:
-                    boards = [b for b in boards if category_filter in b.get("category", "").lower()]
+                    boards = [
+                        b
+                        for b in boards
+                        if category_filter in b.get("category") or "".lower()
+                    ]
                 result["country_boards"] = {
                     "country": country_resolved,
                     "boards": boards,
                     "monthly_spend": entry.get("monthly_spend", "N/A"),
-                    "key_metros": entry.get("key_metros", []),
+                    "key_metros": entry.get("key_metros") or [],
                 }
             elif not country:
                 # Return summary of all countries
                 result["available_countries"] = list(country_boards.keys())
                 result["total_countries"] = len(country_boards)
             else:
-                result["country_boards"] = {"message": f"No data for country: {country}"}
+                result["country_boards"] = {
+                    "message": f"No data for country: {country}"
+                }
 
         if board_type in ("dei", "all"):
             dei_boards = supply.get("dei_boards_by_country", {})
@@ -1604,13 +2585,13 @@ When presenting budget projections:
             elif not country:
                 # Return global DEI boards
                 result["dei_boards"] = {
-                    "global": dei_boards.get("Global", []),
+                    "global": dei_boards.get("Global") or [],
                     "available_countries": list(dei_boards.keys()),
                 }
             else:
                 # Check global list
                 result["dei_boards"] = {
-                    "global": dei_boards.get("Global", []),
+                    "global": dei_boards.get("Global") or [],
                     "note": f"No country-specific DEI boards for {country}; showing global options",
                 }
 
@@ -1623,7 +2604,7 @@ When presenting budget projections:
                 }
             elif not country:
                 result["women_boards"] = {
-                    "global": women_boards.get("Global", []),
+                    "global": women_boards.get("Global") or [],
                     "available_countries": list(women_boards.keys()),
                 }
 
@@ -1632,7 +2613,7 @@ When presenting budget projections:
     def _query_channels(self, params: dict) -> dict:
         """Query channel database: traditional and non-traditional channels."""
         channels = self._data_cache.get("channels_db", {})
-        industry = params.get("industry", "").strip().lower()
+        industry = params.get("industry") or "".strip().lower()
         channel_type = params.get("channel_type", "all")
 
         result: Dict[str, Any] = {"source": "Joveo Channel Database"}
@@ -1641,10 +2622,10 @@ When presenting budget projections:
         non_traditional = channels.get("non_traditional_channels", {})
 
         if channel_type in ("regional_local", "all"):
-            result["regional_local"] = traditional.get("regional_local", [])
+            result["regional_local"] = traditional.get("regional_local") or []
 
         if channel_type in ("global_reach", "all"):
-            result["global_reach"] = traditional.get("global_reach", [])
+            result["global_reach"] = traditional.get("global_reach") or []
 
         if channel_type in ("niche_by_industry", "all"):
             niche = traditional.get("niche_by_industry", {})
@@ -1671,7 +2652,9 @@ When presenting budget projections:
         # showing the generic global_reach list.
         if industry:
             platform_intel = self._data_cache.get("platform_intelligence", {})
-            strategy_guide = platform_intel.get("recruitment_channel_strategy_guide", {})
+            strategy_guide = platform_intel.get(
+                "recruitment_channel_strategy_guide", {}
+            )
             platforms_db = platform_intel.get("platforms", {})
             if strategy_guide:
                 guide_keys = list(strategy_guide.keys())
@@ -1680,11 +2663,11 @@ When presenting budget projections:
                     guide_entry = strategy_guide[matched_guide_key]
                     # Collect all recommended platforms across sub-categories
                     # (primary, niche, programmatic, supplementary, etc.)
-                    primary_ids = guide_entry.get("primary", [])
-                    niche_ids = guide_entry.get("niche", [])
-                    programmatic_ids = guide_entry.get("programmatic", [])
-                    supplementary_ids = guide_entry.get("supplementary", [])
-                    budget_range = guide_entry.get("budget_range", "")
+                    primary_ids = guide_entry.get("primary") or []
+                    niche_ids = guide_entry.get("niche") or []
+                    programmatic_ids = guide_entry.get("programmatic") or []
+                    supplementary_ids = guide_entry.get("supplementary") or []
+                    budget_range = guide_entry.get("budget_range") or ""
 
                     def _resolve_platform_name(pid: str) -> str:
                         """Resolve a platform key to its display name."""
@@ -1695,7 +2678,9 @@ When presenting budget projections:
                         "industry": matched_guide_key,
                         "primary": [_resolve_platform_name(p) for p in primary_ids],
                         "niche": [_resolve_platform_name(p) for p in niche_ids],
-                        "programmatic": [_resolve_platform_name(p) for p in programmatic_ids],
+                        "programmatic": [
+                            _resolve_platform_name(p) for p in programmatic_ids
+                        ],
                     }
                     if supplementary_ids:
                         result["primary_for_industry"]["supplementary"] = [
@@ -1713,13 +2698,13 @@ When presenting budget projections:
         """Query Joveo publisher network by country, category, or search term."""
         publishers = self._data_cache.get("joveo_publishers", {})
         channels_db = self._data_cache.get("channels_db", {})
-        country = params.get("country", "").strip()
-        category = params.get("category", "").strip()
-        search_term = params.get("search_term", "").strip().lower()
+        country = params.get("country") or "".strip()
+        category = params.get("category") or "".strip()
+        search_term = params.get("search_term") or "".strip().lower()
 
         result: Dict[str, Any] = {
             "source": "Joveo Publisher Network",
-            "total_active_publishers": publishers.get("total_active_publishers", 0),
+            "total_active_publishers": publishers.get("total_active_publishers") or 0,
         }
 
         country_resolved = _resolve_country(country)
@@ -1774,7 +2759,9 @@ When presenting budget projections:
                 result["publishers"] = pubs
                 result["count"] = len(pubs)
             else:
-                result["message"] = f"No publishers specifically listed for: {country_resolved}"
+                result["message"] = (
+                    f"No publishers specifically listed for: {country_resolved}"
+                )
                 result["available_countries"] = list(by_country.keys())[:20]
 
         else:
@@ -1788,9 +2775,9 @@ When presenting budget projections:
         """Query recruitment industry knowledge base."""
         kb = self._data_cache.get("knowledge_base", {})
         topic = params.get("topic", "all")
-        metric = params.get("metric", "").strip().lower()
-        industry = params.get("industry", "").strip().lower()
-        platform = params.get("platform", "").strip().lower()
+        metric = params.get("metric") or "".strip().lower()
+        industry = params.get("industry") or "".strip().lower()
+        platform = params.get("platform") or "".strip().lower()
 
         result: Dict[str, Any] = {"source": "Recruitment Industry Knowledge Base"}
 
@@ -1815,23 +2802,33 @@ When presenting budget projections:
                     result["benchmarks"] = {bm_key: benchmarks[bm_key]}
                 else:
                     # Try partial match
-                    matched = {k: v for k, v in benchmarks.items() if metric in k.lower()}
+                    matched = {
+                        k: v for k, v in benchmarks.items() if metric in k.lower()
+                    }
                     if matched:
                         result["benchmarks"] = matched
                     else:
-                        result["benchmarks"] = {"message": f"No benchmark data for metric: {metric}",
-                                                "available_metrics": list(benchmarks.keys())}
+                        result["benchmarks"] = {
+                            "message": f"No benchmark data for metric: {metric}",
+                            "available_metrics": list(benchmarks.keys()),
+                        }
             elif platform:
                 # Extract platform-specific CPC data
                 cpc_data = benchmarks.get("cost_per_click", {}).get("by_platform", {})
                 if platform in cpc_data:
                     result["platform_benchmarks"] = {platform: cpc_data[platform]}
                 else:
-                    matched = {k: v for k, v in cpc_data.items() if platform in k.lower()}
-                    result["platform_benchmarks"] = matched if matched else {
-                        "message": f"No platform data for: {platform}",
-                        "available_platforms": list(cpc_data.keys()),
+                    matched = {
+                        k: v for k, v in cpc_data.items() if platform in k.lower()
                     }
+                    result["platform_benchmarks"] = (
+                        matched
+                        if matched
+                        else {
+                            "message": f"No platform data for: {platform}",
+                            "available_platforms": list(cpc_data.keys()),
+                        }
+                    )
             else:
                 result["benchmark_categories"] = list(benchmarks.keys())
 
@@ -1843,15 +2840,19 @@ When presenting budget projections:
                 if isinstance(tv, dict):
                     trend_summaries[tk] = {
                         "title": tv.get("title", tk),
-                        "description": tv.get("description", ""),
+                        "description": tv.get("description") or "",
                     }
             result["trend_summaries"] = trend_summaries
 
         if topic in ("industry_specific", "all") or industry:
             if industry:
-                ind_key = _match_industry_key(industry, list(industry_benchmarks.keys()))
+                ind_key = _match_industry_key(
+                    industry, list(industry_benchmarks.keys())
+                )
                 if ind_key:
-                    result["industry_benchmarks"] = {ind_key: industry_benchmarks[ind_key]}
+                    result["industry_benchmarks"] = {
+                        ind_key: industry_benchmarks[ind_key]
+                    }
                 else:
                     result["industry_benchmarks"] = {
                         "message": f"No industry-specific data for: {industry}",
@@ -1863,10 +2864,16 @@ When presenting budget projections:
         if topic == "platforms" or platform:
             platform_data = kb.get("platform_insights", {})
             if platform:
-                matched = {k: v for k, v in platform_data.items() if platform in k.lower()}
-                result["platform_insights"] = matched if matched else {
-                    "available_platforms": list(platform_data.keys()),
+                matched = {
+                    k: v for k, v in platform_data.items() if platform in k.lower()
                 }
+                result["platform_insights"] = (
+                    matched
+                    if matched
+                    else {
+                        "available_platforms": list(platform_data.keys()),
+                    }
+                )
             else:
                 result["platform_insights_available"] = list(platform_data.keys())
 
@@ -1881,8 +2888,8 @@ When presenting budget projections:
         Uses DataOrchestrator to cascade:
             research.py (COLI-adjusted) -> BLS API (cached 24h) -> KB fallback.
         """
-        role = params.get("role", "").strip()
-        location = params.get("location", "").strip()
+        role = params.get("role") or "".strip()
+        location = params.get("location") or "".strip()
 
         # CRITICAL 1 FIX: Validate role is real before providing salary data
         if role:
@@ -1939,7 +2946,9 @@ When presenting budget projections:
                     result["sources_used"] = enriched["sources_used"]
                 return result
             except Exception as e:
-                logger.warning("Orchestrator enrich_salary failed, using KB fallback: %s", e)
+                logger.warning(
+                    "Orchestrator enrich_salary failed, using KB fallback: %s", e
+                )
 
         # --- KB-only fallback (original logic) ---
         result = {
@@ -1949,21 +2958,39 @@ When presenting budget projections:
         }
         role_lower = role.lower()
         tier = "Professional"
-        if any(kw in role_lower for kw in ["nurse", "rn", "lpn", "therapist", "physician", "clinical"]):
+        if any(
+            kw in role_lower
+            for kw in ["nurse", "rn", "lpn", "therapist", "physician", "clinical"]
+        ):
             tier = "Clinical"
-        elif any(kw in role_lower for kw in ["executive", "director", "vp", "chief", "president"]):
+        elif any(
+            kw in role_lower
+            for kw in ["executive", "director", "vp", "chief", "president"]
+        ):
             tier = "Executive"
-        elif any(kw in role_lower for kw in ["driver", "warehouse", "construction", "electrician", "welder"]):
+        elif any(
+            kw in role_lower
+            for kw in ["driver", "warehouse", "construction", "electrician", "welder"]
+        ):
             tier = "Trades"
-        elif any(kw in role_lower for kw in ["cashier", "retail", "hourly", "part-time", "entry"]):
+        elif any(
+            kw in role_lower
+            for kw in ["cashier", "retail", "hourly", "part-time", "entry"]
+        ):
             tier = "Hourly"
-        elif not any(kw in role_lower for kw in ["engineer", "developer", "data scientist", "software"]):
+        elif not any(
+            kw in role_lower
+            for kw in ["engineer", "developer", "data scientist", "software"]
+        ):
             tier = "General"
 
         _US_RANGES = {
-            "Professional": ("$75,000", "$200,000"), "Clinical": ("$45,000", "$120,000"),
-            "Executive": ("$150,000", "$500,000+"), "Trades": ("$35,000", "$80,000"),
-            "Hourly": ("$25,000", "$45,000"), "General": ("$50,000", "$120,000"),
+            "Professional": ("$75,000", "$200,000"),
+            "Clinical": ("$45,000", "$120,000"),
+            "Executive": ("$150,000", "$500,000+"),
+            "Trades": ("$35,000", "$80,000"),
+            "Hourly": ("$25,000", "$45,000"),
+            "General": ("$50,000", "$120,000"),
         }
         low, high = _US_RANGES.get(tier, _US_RANGES["General"])
         result["salary_range_estimate"] = f"{low} - {high}"
@@ -1984,9 +3011,9 @@ When presenting budget projections:
         Uses DataOrchestrator to cascade:
             research.py (labor market intel) -> Adzuna/Jooble API -> KB fallback.
         """
-        role = params.get("role", "").strip()
-        location = params.get("location", "").strip()
-        industry = params.get("industry", "").strip()
+        role = params.get("role") or "".strip()
+        location = params.get("location") or "".strip()
+        industry = params.get("industry") or "".strip()
 
         kb = self._data_cache.get("knowledge_base", {})
         benchmarks = kb.get("benchmarks", {})
@@ -2005,10 +3032,18 @@ When presenting budget projections:
 
         soh = benchmarks.get("source_of_hire", {})
         result["source_of_hire"] = {
-            "job_boards_usage": soh.get("job_boards", {}).get("employer_usage", "68.6%"),
-            "referrals_usage": soh.get("employee_referrals", {}).get("employer_usage", "82%"),
-            "career_sites_usage": soh.get("career_sites", {}).get("employer_usage", "49.5%"),
-            "linkedin_usage": soh.get("linkedin_professional_networks", {}).get("employer_usage", "46.1%"),
+            "job_boards_usage": soh.get("job_boards", {}).get(
+                "employer_usage", "68.6%"
+            ),
+            "referrals_usage": soh.get("employee_referrals", {}).get(
+                "employer_usage", "82%"
+            ),
+            "career_sites_usage": soh.get("career_sites", {}).get(
+                "employer_usage", "49.5%"
+            ),
+            "linkedin_usage": soh.get("linkedin_professional_networks", {}).get(
+                "employer_usage", "46.1%"
+            ),
         }
 
         if industry:
@@ -2018,14 +3053,16 @@ When presenting budget projections:
                 result["industry_demand"] = {
                     "industry": ind_key,
                     "hiring_strength": ind_data.get("hiring_strength", "N/A"),
-                    "recruitment_difficulty": ind_data.get("recruitment_difficulty", "N/A"),
+                    "recruitment_difficulty": ind_data.get(
+                        "recruitment_difficulty", "N/A"
+                    ),
                 }
 
         labor = trends.get("labor_market_shifts", {})
         if labor:
             result["labor_market"] = {
-                "title": labor.get("title", ""),
-                "description": labor.get("description", ""),
+                "title": labor.get("title") or "",
+                "description": labor.get("description") or "",
             }
 
         # Orchestrator enrichment (research.py + live API data)
@@ -2035,7 +3072,9 @@ When presenting budget projections:
                 enriched = orch.enrich_market_demand(role, location, industry)
                 if enriched.get("labour_market"):
                     result["research_labour_market"] = enriched["labour_market"]
-                    result["source"] = f"Joveo Market Demand Intelligence (KB + {enriched.get('source', 'Research')})"
+                    result["source"] = (
+                        f"Joveo Market Demand Intelligence (KB + {enriched.get('source', 'Research')})"
+                    )
                 if enriched.get("api_job_market"):
                     result["live_job_market"] = enriched["api_job_market"]
                 if enriched.get("competitors"):
@@ -2062,15 +3101,18 @@ When presenting budget projections:
         Uses DataOrchestrator to pass cached enrichment data to the budget
         engine for more accurate projections (instead of synthesized_data=None).
         """
-        budget = params.get("budget", 0)
-        roles_list = params.get("roles", [])
-        locations_list = params.get("locations", [])
+        budget = params.get("budget") or 0
+        roles_list = params.get("roles") or []
+        locations_list = params.get("locations") or []
         industry = params.get("industry", "general")
         openings_per_role = max(1, int(params.get("openings", 1) or 1))
-        target_hires = int(params.get("target_hires", 0) or 0)
+        target_hires = int(params.get("target_hires") or 0 or 0)
 
         if budget <= 0:
-            return {"error": "Budget must be greater than zero", "source": "Joveo Budget Engine"}
+            return {
+                "error": "Budget must be greater than zero",
+                "source": "Joveo Budget Engine",
+            }
 
         # CRITICAL 1 FIX: Validate roles before projecting budget
         if roles_list:
@@ -2091,7 +3133,7 @@ When presenting budget projections:
 
         # MEDIUM 1 FIX: Detect currency from locations
         _budget_currency = "USD"
-        for loc in (locations_list or []):
+        for loc in locations_list or []:
             loc_str = loc if isinstance(loc, str) else ""
             loc_country = _detect_country(loc_str)
             if loc_country:
@@ -2118,14 +3160,16 @@ When presenting budget projections:
             result["currency"] = _budget_currency
 
         roles = []
-        for r in (roles_list or ["General Hire"]):
+        for r in roles_list or ["General Hire"]:
             role_lower = r.lower() if isinstance(r, str) else ""
             tier = "Professional / White-Collar"
             if any(kw in role_lower for kw in ["nurse", "clinical", "therapist"]):
                 tier = "Clinical / Licensed"
             elif any(kw in role_lower for kw in ["executive", "director", "vp"]):
                 tier = "Executive / Leadership"
-            elif any(kw in role_lower for kw in ["driver", "warehouse", "construction"]):
+            elif any(
+                kw in role_lower for kw in ["driver", "warehouse", "construction"]
+            ):
                 tier = "Skilled Trades / Technical"
             elif any(kw in role_lower for kw in ["cashier", "hourly", "retail"]):
                 tier = "Hourly / Entry-Level"
@@ -2133,7 +3177,7 @@ When presenting budget projections:
 
         # Build location dicts
         locations = []
-        for loc in (locations_list or ["United States"]):
+        for loc in locations_list or ["United States"]:
             if isinstance(loc, str):
                 locations.append({"city": loc, "state": "", "country": "United States"})
 
@@ -2144,14 +3188,19 @@ When presenting budget projections:
         if orch:
             try:
                 allocation = orch.enrich_budget(
-                    budget=budget, roles=roles, locations=locations,
-                    industry=industry, knowledge_base=kb,
+                    budget=budget,
+                    roles=roles,
+                    locations=locations,
+                    industry=industry,
+                    knowledge_base=kb,
                 )
                 if isinstance(allocation, dict) and "error" not in allocation:
-                    result["channel_allocations"] = allocation.get("channel_allocations", {})
+                    result["channel_allocations"] = allocation.get(
+                        "channel_allocations", {}
+                    )
                     result["total_projected"] = allocation.get("total_projected", {})
                     result["sufficiency"] = allocation.get("sufficiency", {})
-                    result["recommendations"] = allocation.get("recommendations", [])
+                    result["recommendations"] = allocation.get("recommendations") or []
                     _add_hire_target_comparison(result, target_hires)
                     return result
             except Exception as e:
@@ -2160,20 +3209,28 @@ When presenting budget projections:
         # Fallback: direct budget engine call without synthesized data
         try:
             from budget_engine import calculate_budget_allocation
+
             channel_pcts = {
-                "Programmatic & DSP": 30, "Global Job Boards": 25,
-                "Niche & Industry Boards": 15, "Social Media Channels": 15,
-                "Regional & Local Boards": 10, "Employer Branding": 5,
+                "Programmatic & DSP": 30,
+                "Global Job Boards": 25,
+                "Niche & Industry Boards": 15,
+                "Social Media Channels": 15,
+                "Regional & Local Boards": 10,
+                "Employer Branding": 5,
             }
             allocation = calculate_budget_allocation(
-                total_budget=budget, roles=roles, locations=locations,
-                industry=industry, channel_percentages=channel_pcts,
-                synthesized_data=None, knowledge_base=kb,
+                total_budget=budget,
+                roles=roles,
+                locations=locations,
+                industry=industry,
+                channel_percentages=channel_pcts,
+                synthesized_data=None,
+                knowledge_base=kb,
             )
             result["channel_allocations"] = allocation.get("channel_allocations", {})
             result["total_projected"] = allocation.get("total_projected", {})
             result["sufficiency"] = allocation.get("sufficiency", {})
-            result["recommendations"] = allocation.get("recommendations", [])
+            result["recommendations"] = allocation.get("recommendations") or []
             _add_hire_target_comparison(result, target_hires)
         except Exception as e:
             logger.error("Budget engine call failed: %s", e, exc_info=True)
@@ -2195,12 +3252,14 @@ When presenting budget projections:
         Uses DataOrchestrator to cascade:
             research.py (40+ countries, 100+ metros) -> Census/World Bank API -> KB.
         """
-        city = params.get("city", "").strip()
-        state = params.get("state", "").strip()
-        country = params.get("country", "").strip()
+        city = params.get("city") or "".strip()
+        state = params.get("state") or "".strip()
+        country = params.get("country") or "".strip()
         location_str = city or state or country or "United States"
 
-        country_resolved = _resolve_country(country) or _resolve_country(city) or "United States"
+        country_resolved = (
+            _resolve_country(country) or _resolve_country(city) or "United States"
+        )
 
         # MEDIUM 1 FIX: Determine local currency for this country
         _local_currency = _get_currency_for_country(country_resolved)
@@ -2211,7 +3270,7 @@ When presenting budget projections:
                 "city": city,
                 "state": state,
                 "country": country_resolved,
-            }
+            },
         }
         # Always include currency in location profile results
         if _local_currency != "USD":
@@ -2224,7 +3283,10 @@ When presenting budget projections:
                 enriched = orch.enrich_location(location_str)
                 if enriched.get("coli"):
                     result["cost_of_living_index"] = enriched["coli"]
-                if enriched.get("population") and enriched["population"] != "Data not available":
+                if (
+                    enriched.get("population")
+                    and enriched["population"] != "Data not available"
+                ):
                     result["population"] = enriched["population"]
                 if enriched.get("median_salary"):
                     result["median_salary"] = enriched["median_salary"]
@@ -2241,7 +3303,9 @@ When presenting budget projections:
                 if enriched.get("recommended_boards"):
                     result["recommended_boards"] = enriched["recommended_boards"]
                 if enriched.get("source"):
-                    result["source"] = f"Joveo Location Intelligence ({enriched['source']})"
+                    result["source"] = (
+                        f"Joveo Location Intelligence ({enriched['source']})"
+                    )
                 # v2 metadata
                 if enriched.get("confidence") is not None:
                     result["data_confidence"] = enriched["confidence"]
@@ -2259,8 +3323,8 @@ When presenting budget projections:
             entry = country_boards[country_resolved]
             result["supply_data"] = {
                 "monthly_spend": entry.get("monthly_spend", "N/A"),
-                "key_metros": entry.get("key_metros", []),
-                "total_boards": len(entry.get("boards", [])),
+                "key_metros": entry.get("key_metros") or [],
+                "total_boards": len(entry.get("boards") or []),
             }
 
         # Publisher count from KB
@@ -2274,7 +3338,7 @@ When presenting budget projections:
     def _query_ad_platform(self, params: dict) -> dict:
         """Get ad platform recommendations and benchmarks."""
         role_type = params.get("role_type", "professional")
-        platforms = params.get("platforms", [])
+        platforms = params.get("platforms") or []
 
         kb = self._data_cache.get("knowledge_base", {})
         benchmarks = kb.get("benchmarks", {})
@@ -2314,7 +3378,9 @@ When presenting budget projections:
             },
         }
 
-        result["recommendations"] = platform_recs.get(role_type, platform_recs["professional"])
+        result["recommendations"] = platform_recs.get(
+            role_type, platform_recs["professional"]
+        )
 
         # CPC benchmarks for requested platforms or all
         if platforms:
@@ -2331,7 +3397,7 @@ When presenting budget projections:
         if orch:
             try:
                 # Use industry from params if available, else infer from role_type
-                _ind = params.get("industry", "")
+                _ind = params.get("industry") or ""
                 audiences = orch.enrich_platform_audiences(_ind) if _ind else {}
                 if audiences:
                     result["platform_audience_data"] = audiences
@@ -2346,9 +3412,12 @@ When presenting budget projections:
         Uses DataOrchestrator to access KNOWN_EMPLOYER_PROFILES (30+ companies)
         with Glassdoor ratings, hiring channels, recruitment strategies.
         """
-        company = params.get("company", "").strip()
+        company = params.get("company") or "".strip()
         if not company:
-            return {"error": "Please provide a company name.", "source": "employer_brand"}
+            return {
+                "error": "Please provide a company name.",
+                "source": "employer_brand",
+            }
 
         orch = _get_orchestrator()
         if orch:
@@ -2358,9 +3427,15 @@ When presenting budget projections:
                     "source": f"Joveo Employer Brand Intelligence ({enriched.get('source', 'multi-source')})",
                     "company": company,
                 }
-                for key in ("employer_brand_strength", "glassdoor_rating",
-                            "primary_hiring_channels", "known_recruitment_strategies",
-                            "talent_focus", "company_size", "industry"):
+                for key in (
+                    "employer_brand_strength",
+                    "glassdoor_rating",
+                    "primary_hiring_channels",
+                    "known_recruitment_strategies",
+                    "talent_focus",
+                    "company_size",
+                    "industry",
+                ):
                     if enriched.get(key):
                         result[key] = enriched[key]
                 if enriched.get("confidence") is not None:
@@ -2383,7 +3458,7 @@ When presenting budget projections:
         Uses DataOrchestrator to expose ad platform benchmark data previously
         only available in the bulk pipeline.
         """
-        industry = params.get("industry", "").strip()
+        industry = params.get("industry") or "".strip()
 
         orch = _get_orchestrator()
         if orch:
@@ -2418,9 +3493,9 @@ When presenting budget projections:
         Uses DataOrchestrator compute_insights() which synthesizes data from
         salary, market demand, and location enrichments.
         """
-        role = params.get("role", "").strip()
-        location = params.get("location", "").strip()
-        industry = params.get("industry", "").strip()
+        role = params.get("role") or "".strip()
+        location = params.get("location") or "".strip()
+        industry = params.get("industry") or "".strip()
 
         orch = _get_orchestrator()
         if orch:
@@ -2429,10 +3504,14 @@ When presenting budget projections:
                 result: Dict[str, Any] = {
                     "source": "Joveo Computed Hiring Insights",
                 }
-                for key in ("hiring_difficulty_index", "market_median_salary",
-                            "salary_competitiveness_at_market",
-                            "days_until_next_peak_hiring", "peak_hiring_months",
-                            "current_posting_count"):
+                for key in (
+                    "hiring_difficulty_index",
+                    "market_median_salary",
+                    "salary_competitiveness_at_market",
+                    "days_until_next_peak_hiring",
+                    "peak_hiring_months",
+                    "current_posting_count",
+                ):
                     if insights.get(key) is not None:
                         result[key] = insights[key]
                 if insights.get("confidence") is not None:
@@ -2441,11 +3520,17 @@ When presenting budget projections:
                 hdi = insights.get("hiring_difficulty_index")
                 if hdi is not None:
                     if hdi >= 0.7:
-                        result["difficulty_interpretation"] = "Very difficult to hire -- consider premium channels and higher budgets"
+                        result["difficulty_interpretation"] = (
+                            "Very difficult to hire -- consider premium channels and higher budgets"
+                        )
                     elif hdi >= 0.5:
-                        result["difficulty_interpretation"] = "Moderately difficult -- standard approach with competitive offers"
+                        result["difficulty_interpretation"] = (
+                            "Moderately difficult -- standard approach with competitive offers"
+                        )
                     else:
-                        result["difficulty_interpretation"] = "Relatively easy to hire -- standard job board approach should work"
+                        result["difficulty_interpretation"] = (
+                            "Relatively easy to hire -- standard job board approach should work"
+                        )
                 return result
             except Exception as e:
                 logger.debug("Orchestrator compute_insights failed: %s", e)
@@ -2457,8 +3542,8 @@ When presenting budget projections:
 
     def _query_collar_strategy(self, params: dict) -> dict:
         """Compare blue collar vs white collar hiring strategies with structured confidence."""
-        role = params.get("role", "").strip()
-        industry = params.get("industry", "").strip()
+        role = params.get("role") or "".strip()
+        industry = params.get("industry") or "".strip()
         compare = params.get("compare", False)
         ci = _get_collar_intel()
 
@@ -2468,7 +3553,11 @@ When presenting budget projections:
         if role:
             validation = _validate_role_is_real(role)
             if not validation["is_valid"]:
-                logger.info("Role validation failed for '%s' (method=%s)", role, validation["method"])
+                logger.info(
+                    "Role validation failed for '%s' (method=%s)",
+                    role,
+                    validation["method"],
+                )
                 result["role_not_recognized"] = True
                 result["role_queried"] = role
                 result["note"] = (
@@ -2483,26 +3572,30 @@ When presenting budget projections:
         # Classify the role if provided
         if role and ci:
             try:
-                classification = ci.classify_collar(role=role, industry=industry or "general")
+                classification = ci.classify_collar(
+                    role=role, industry=industry or "general"
+                )
                 result["role_classification"] = {
                     "role": role,
                     "collar_type": classification.get("collar_type", "unknown"),
-                    "confidence": classification.get("confidence", 0),
-                    "sub_type": classification.get("sub_type", ""),
-                    "method": classification.get("method", ""),
+                    "confidence": classification.get("confidence") or 0,
+                    "sub_type": classification.get("sub_type") or "",
+                    "method": classification.get("method") or "",
                 }
                 # Add channel strategy for this collar type
-                ct = classification.get("collar_type", "")
+                ct = classification.get("collar_type") or ""
                 if ct in ci.COLLAR_STRATEGY:
                     strat = ci.COLLAR_STRATEGY[ct]
                     result["recommended_strategy"] = {
-                        "preferred_platforms": strat.get("preferred_platforms", []),
-                        "messaging_tone": strat.get("messaging_tone", ""),
-                        "avg_cpa_range": strat.get("avg_cpa_range", ""),
-                        "avg_cpc_range": strat.get("avg_cpc_range", ""),
-                        "time_to_fill_days": strat.get("time_to_fill_benchmark_days", ""),
-                        "mobile_apply_pct": strat.get("mobile_apply_pct", ""),
-                        "application_complexity": strat.get("application_complexity", ""),
+                        "preferred_platforms": strat.get("preferred_platforms") or [],
+                        "messaging_tone": strat.get("messaging_tone") or "",
+                        "avg_cpa_range": strat.get("avg_cpa_range") or "",
+                        "avg_cpc_range": strat.get("avg_cpc_range") or "",
+                        "time_to_fill_days": strat.get("time_to_fill_benchmark_days")
+                        or "",
+                        "mobile_apply_pct": strat.get("mobile_apply_pct") or "",
+                        "application_complexity": strat.get("application_complexity")
+                        or "",
                     }
                 result["data_confidence"] = classification.get("confidence", 0.5)
                 result["data_freshness"] = "curated"
@@ -2516,30 +3609,33 @@ When presenting budget projections:
                 strat = ci.COLLAR_STRATEGY.get(ct_key, {})
                 if strat:
                     comparison[ct_key] = {
-                        "preferred_platforms": strat.get("preferred_platforms", []),
+                        "preferred_platforms": strat.get("preferred_platforms") or [],
                         "channel_mix": strat.get("channel_mix", {}),
-                        "messaging_tone": strat.get("messaging_tone", ""),
-                        "avg_cpa_range": strat.get("avg_cpa_range", ""),
-                        "avg_cpc_range": strat.get("avg_cpc_range", ""),
-                        "time_to_fill_days": strat.get("time_to_fill_benchmark_days", ""),
-                        "ad_format_priority": strat.get("ad_format_priority", []),
-                        "mobile_apply_pct": strat.get("mobile_apply_pct", ""),
+                        "messaging_tone": strat.get("messaging_tone") or "",
+                        "avg_cpa_range": strat.get("avg_cpa_range") or "",
+                        "avg_cpc_range": strat.get("avg_cpc_range") or "",
+                        "time_to_fill_days": strat.get("time_to_fill_benchmark_days")
+                        or "",
+                        "ad_format_priority": strat.get("ad_format_priority") or [],
+                        "mobile_apply_pct": strat.get("mobile_apply_pct") or "",
                     }
             result["collar_comparison"] = comparison
             result["data_confidence"] = 0.85
             result["data_freshness"] = "curated"
 
         if not ci:
-            result["note"] = "Collar intelligence module not available. Install collar_intelligence.py."
+            result["note"] = (
+                "Collar intelligence module not available. Install collar_intelligence.py."
+            )
             result["data_confidence"] = 0.0
         return result
 
     def _query_market_trends(self, params: dict) -> dict:
         """Get CPC/CPA trend data with seasonal patterns and structured confidence."""
         platform = params.get("platform", "google").strip()
-        industry = params.get("industry", "").strip()
+        industry = params.get("industry") or "".strip()
         metric = params.get("metric", "cpc").strip()
-        collar_type = params.get("collar_type", "").strip()
+        collar_type = params.get("collar_type") or "".strip()
         te = _get_trend_engine()
 
         result: Dict[str, Any] = {"source": "Joveo Trend Intelligence Engine"}
@@ -2551,40 +3647,49 @@ When presenting budget projections:
 
         # Historical trend data
         try:
-            trend = te.get_trend(platform=platform, industry=industry or "general_entry_level",
-                                 metric=metric, years_back=4)
+            trend = te.get_trend(
+                platform=platform,
+                industry=industry or "general_entry_level",
+                metric=metric,
+                years_back=4,
+            )
             if trend and isinstance(trend, dict):
                 result["historical_trend"] = {
                     "platform": trend.get("platform", platform),
                     "industry": trend.get("industry", industry),
                     "metric": metric,
-                    "history": trend.get("history", []),
-                    "avg_yoy_change_pct": trend.get("avg_yoy_change_pct", 0),
+                    "history": trend.get("history") or [],
+                    "avg_yoy_change_pct": trend.get("avg_yoy_change_pct") or 0,
                     "trend_direction": trend.get("trend_direction", "stable"),
                     "projected_next_year": trend.get("projected_next_year", {}),
                 }
                 result["data_confidence"] = trend.get("data_confidence", 0.7)
                 result["data_freshness"] = "curated"
-                result["sources"] = trend.get("sources", [])
+                result["sources"] = trend.get("sources") or []
         except Exception as e:
             logger.debug("Trend lookup failed: %s", e)
 
         # Current benchmark
         try:
             import datetime
-            month = params.get("campaign_start_month", 0)
+
+            month = params.get("campaign_start_month") or 0
             if not month or not (1 <= month <= 12):
                 month = datetime.datetime.now().month
-            benchmark = te.get_benchmark(platform=platform, industry=industry or "general_entry_level",
-                                          metric=metric, collar_type=collar_type or "white_collar",
-                                          month=month)
+            benchmark = te.get_benchmark(
+                platform=platform,
+                industry=industry or "general_entry_level",
+                metric=metric,
+                collar_type=collar_type or "white_collar",
+                month=month,
+            )
             if benchmark and isinstance(benchmark, dict):
                 result["current_benchmark"] = {
                     "value": benchmark.get("value"),
-                    "confidence_interval": benchmark.get("confidence_interval", []),
+                    "confidence_interval": benchmark.get("confidence_interval") or [],
                     "seasonal_factor": benchmark.get("seasonal_factor", 1.0),
-                    "trend_direction": benchmark.get("trend_direction", ""),
-                    "trend_pct_yoy": benchmark.get("trend_pct_yoy", 0),
+                    "trend_direction": benchmark.get("trend_direction") or "",
+                    "trend_pct_yoy": benchmark.get("trend_pct_yoy") or 0,
                 }
         except Exception as e:
             logger.debug("Benchmark lookup failed: %s", e)
@@ -2592,7 +3697,9 @@ When presenting budget projections:
         # Seasonal patterns
         if collar_type:
             try:
-                sa = te.get_seasonal_adjustment(collar_type, 0)  # 0 = current month handled inside
+                sa = te.get_seasonal_adjustment(
+                    collar_type, 0
+                )  # 0 = current month handled inside
                 if sa and isinstance(sa, dict):
                     full_year = sa.get("full_year", {})
                     if full_year:
@@ -2614,9 +3721,9 @@ When presenting budget projections:
 
     def _query_role_decomposition(self, params: dict) -> dict:
         """Break down a role into seniority-level sub-allocations with hiring splits and CPA multipliers."""
-        role = params.get("role", "").strip()
+        role = params.get("role") or "".strip()
         count = params.get("count", 1)
-        industry = params.get("industry", "").strip()
+        industry = params.get("industry") or "".strip()
 
         if not role:
             return {"error": "Role is required.", "source": "Joveo Collar Intelligence"}
@@ -2624,10 +3731,16 @@ When presenting budget projections:
             count = 1
 
         ci = _get_collar_intel()
-        result: Dict[str, Any] = {"source": "Joveo Collar Intelligence Engine", "role": role, "total_count": count}
+        result: Dict[str, Any] = {
+            "source": "Joveo Collar Intelligence Engine",
+            "role": role,
+            "total_count": count,
+        }
 
         if not ci:
-            result["note"] = "Collar intelligence module not available. Install collar_intelligence.py."
+            result["note"] = (
+                "Collar intelligence module not available. Install collar_intelligence.py."
+            )
             result["data_confidence"] = 0.0
             return result
 
@@ -2636,13 +3749,15 @@ When presenting budget projections:
             if decomposition and isinstance(decomposition, list):
                 result["seniority_breakdown"] = decomposition
                 # Build a readable summary table
-                summary_lines = [f"{'Level':<25} {'Count':>6} {'% of Total':>10} {'CPA Mult':>9} {'Collar'}"]
+                summary_lines = [
+                    f"{'Level':<25} {'Count':>6} {'% of Total':>10} {'CPA Mult':>9} {'Collar'}"
+                ]
                 summary_lines.append("-" * 70)
                 for seg in decomposition:
                     summary_lines.append(
                         f"{seg.get('title', 'N/A'):<25} "
-                        f"{seg.get('count', 0):>6} "
-                        f"{seg.get('pct_of_total', 0)*100:>9.0f}% "
+                        f"{seg.get('count') or 0:>6} "
+                        f"{seg.get('pct_of_total') or 0*100:>9.0f}% "
                         f"{seg.get('cpa_multiplier', 1.0):>8.2f}x "
                         f"{seg.get('collar_type', 'unknown')}"
                     )
@@ -2661,11 +3776,11 @@ When presenting budget projections:
 
     def _simulate_what_if(self, params: dict) -> dict:
         """Simulate budget or channel changes and return projected impact."""
-        scenario_description = params.get("scenario_description", "").strip()
+        scenario_description = params.get("scenario_description") or "".strip()
         delta_budget = params.get("delta_budget", 0.0)
         delta_pct = params.get("delta_pct", 0.0)
-        add_channel = params.get("add_channel", "").strip()
-        remove_channel = params.get("remove_channel", "").strip()
+        add_channel = params.get("add_channel") or "".strip()
+        remove_channel = params.get("remove_channel") or "".strip()
 
         result: Dict[str, Any] = {"source": "Joveo Budget Simulation Engine"}
 
@@ -2684,15 +3799,27 @@ When presenting budget projections:
 
         try:
             from budget_engine import calculate_budget_allocation
+
             channel_pcts = {
-                "Programmatic & DSP": 30, "Global Job Boards": 25,
-                "Niche & Industry Boards": 15, "Social Media Channels": 15,
-                "Regional & Local Boards": 10, "Employer Branding": 5,
+                "Programmatic & DSP": 30,
+                "Global Job Boards": 25,
+                "Niche & Industry Boards": 15,
+                "Social Media Channels": 15,
+                "Regional & Local Boards": 10,
+                "Employer Branding": 5,
             }
             base_allocation = calculate_budget_allocation(
                 total_budget=baseline_budget,
-                roles=[{"title": "General Hire", "count": 1, "tier": "Professional / White-Collar"}],
-                locations=[{"city": "United States", "state": "", "country": "United States"}],
+                roles=[
+                    {
+                        "title": "General Hire",
+                        "count": 1,
+                        "tier": "Professional / White-Collar",
+                    }
+                ],
+                locations=[
+                    {"city": "United States", "state": "", "country": "United States"}
+                ],
                 industry="general",
                 channel_percentages=channel_pcts,
                 synthesized_data=None,
@@ -2702,13 +3829,16 @@ When presenting budget projections:
             logger.debug("Failed to compute baseline allocation for what-if: %s", e)
 
         if not base_allocation or not isinstance(base_allocation, dict):
-            result["error"] = "Could not compute a baseline allocation to simulate against. Try running query_budget_projection first."
+            result["error"] = (
+                "Could not compute a baseline allocation to simulate against. Try running query_budget_projection first."
+            )
             result["data_confidence"] = 0.0
             return result
 
         # Run the simulation
         try:
             from budget_engine import simulate_what_if as _simulate
+
             sim_result = _simulate(
                 base_allocation=base_allocation,
                 scenario_description=scenario_description,
@@ -2718,7 +3848,9 @@ When presenting budget projections:
                 remove_channel=remove_channel,
             )
             if sim_result and isinstance(sim_result, dict):
-                result["scenario"] = sim_result.get("scenario_description", scenario_description)
+                result["scenario"] = sim_result.get(
+                    "scenario_description", scenario_description
+                )
                 result["baseline_budget"] = baseline_budget
 
                 if sim_result.get("budget_impact"):
@@ -2726,7 +3858,7 @@ When presenting budget projections:
                     result["budget_impact"] = {
                         "original_budget": bi.get("original_budget", baseline_budget),
                         "new_budget": bi.get("new_budget", baseline_budget),
-                        "change": bi.get("change", 0),
+                        "change": bi.get("change") or 0,
                         "projected_hires_before": bi.get("projected_hires_before"),
                         "projected_hires_after": bi.get("projected_hires_after"),
                         "cpa_before": bi.get("cpa_before"),
@@ -2736,7 +3868,7 @@ When presenting budget projections:
                 if sim_result.get("channel_impact"):
                     result["channel_impact"] = sim_result["channel_impact"]
 
-                result["recommendations"] = sim_result.get("recommendations", [])
+                result["recommendations"] = sim_result.get("recommendations") or []
                 result["data_confidence"] = 0.7
                 result["data_freshness"] = "computed"
             else:
@@ -2751,9 +3883,9 @@ When presenting budget projections:
 
     def _query_skills_gap(self, params: dict) -> dict:
         """Analyze skills availability and hiring difficulty for a role."""
-        role = params.get("role", "").strip()
-        location = params.get("location", "").strip()
-        industry = params.get("industry", "").strip()
+        role = params.get("role") or "".strip()
+        location = params.get("location") or "".strip()
+        industry = params.get("industry") or "".strip()
 
         if not role:
             return {"error": "Role is required.", "source": "Joveo Collar Intelligence"}
@@ -2762,23 +3894,31 @@ When presenting budget projections:
         result: Dict[str, Any] = {"source": "Joveo Skills Gap Analyzer", "role": role}
 
         if not ci:
-            result["note"] = "Collar intelligence module not available. Install collar_intelligence.py."
+            result["note"] = (
+                "Collar intelligence module not available. Install collar_intelligence.py."
+            )
             result["data_confidence"] = 0.0
             return result
 
         try:
-            gap_analysis = ci.analyze_skills_gap(role=role, location=location, industry=industry)
+            gap_analysis = ci.analyze_skills_gap(
+                role=role, location=location, industry=industry
+            )
             if gap_analysis and isinstance(gap_analysis, dict):
                 result["role_family"] = gap_analysis.get("role_family", "unknown")
-                result["required_skills"] = gap_analysis.get("required_skills", [])
+                result["required_skills"] = gap_analysis.get("required_skills") or []
 
-                scarce = gap_analysis.get("scarce_skills", [])
-                abundant = gap_analysis.get("abundant_skills", [])
+                scarce = gap_analysis.get("scarce_skills") or []
+                abundant = gap_analysis.get("abundant_skills") or []
                 result["scarce_skills"] = scarce
                 result["abundant_skills"] = abundant
-                result["overall_scarcity_score"] = gap_analysis.get("overall_scarcity_score", 0.0)
-                result["hiring_difficulty_adjustment"] = gap_analysis.get("hiring_difficulty_adjustment", 1.0)
-                result["recommendations"] = gap_analysis.get("recommendations", [])
+                result["overall_scarcity_score"] = gap_analysis.get(
+                    "overall_scarcity_score", 0.0
+                )
+                result["hiring_difficulty_adjustment"] = gap_analysis.get(
+                    "hiring_difficulty_adjustment", 1.0
+                )
+                result["recommendations"] = gap_analysis.get("recommendations") or []
 
                 if location:
                     result["location_context"] = location
@@ -2787,16 +3927,24 @@ When presenting budget projections:
                 summary_lines = [f"Skills Gap Analysis: {role}"]
                 if location:
                     summary_lines.append(f"Location: {location}")
-                summary_lines.append(f"Scarcity Score: {result['overall_scarcity_score']:.2f} / 1.00")
-                summary_lines.append(f"CPA Adjustment: {result['hiring_difficulty_adjustment']:.2f}x")
+                summary_lines.append(
+                    f"Scarcity Score: {result['overall_scarcity_score']:.2f} / 1.00"
+                )
+                summary_lines.append(
+                    f"CPA Adjustment: {result['hiring_difficulty_adjustment']:.2f}x"
+                )
                 if scarce:
                     summary_lines.append(f"\nScarce Skills ({len(scarce)}):")
                     for s in scarce:
-                        summary_lines.append(f"  - {s.get('skill', 'N/A')} (scarcity: {s.get('scarcity', 0):.2f})")
+                        summary_lines.append(
+                            f"  - {s.get('skill', 'N/A')} (scarcity: {s.get('scarcity') or 0:.2f})"
+                        )
                 if abundant:
                     summary_lines.append(f"\nAbundant Skills ({len(abundant)}):")
                     for a in abundant:
-                        summary_lines.append(f"  - {a.get('skill', 'N/A')} (scarcity: {a.get('scarcity', 0):.2f})")
+                        summary_lines.append(
+                            f"  - {a.get('skill', 'N/A')} (scarcity: {a.get('scarcity') or 0:.2f})"
+                        )
                 result["summary"] = "\n".join(summary_lines)
 
                 result["data_confidence"] = 0.75
@@ -2805,7 +3953,9 @@ When presenting budget projections:
                 result["note"] = "No skills gap data returned."
                 result["data_confidence"] = 0.3
         except Exception as e:
-            logger.error("Skills gap analysis failed for %s: %s", role, e, exc_info=True)
+            logger.error(
+                "Skills gap analysis failed for %s: %s", role, e, exc_info=True
+            )
             result["error"] = "Skills gap analysis encountered an internal error."
             result["data_confidence"] = 0.0
 
@@ -2813,15 +3963,19 @@ When presenting budget projections:
 
     def _query_geopolitical_risk(self, params: dict) -> dict:
         """Assess geopolitical risk for recruitment in specified locations."""
-        locations = params.get("locations", [])
-        industry = params.get("industry", "")
-        roles = params.get("roles", [])
+        locations = params.get("locations") or []
+        industry = params.get("industry") or ""
+        roles = params.get("roles") or []
 
         if not locations:
-            return {"error": "At least one location is required.", "source": "Geopolitical Risk"}
+            return {
+                "error": "At least one location is required.",
+                "source": "Geopolitical Risk",
+            }
 
         try:
             from api_enrichment import fetch_geopolitical_context
+
             result = fetch_geopolitical_context(
                 locations=locations,
                 industry=industry,
@@ -2829,7 +3983,9 @@ When presenting budget projections:
                 campaign_start_month=0,
             )
             result["data_confidence"] = result.get("confidence", 0.5)
-            result["data_freshness"] = "live" if result.get("source", "").startswith("llm_") else "fallback"
+            result["data_freshness"] = (
+                "live" if result.get("source") or "".startswith("llm_") else "fallback"
+            )
             return result
         except Exception as e:
             logger.error("Geopolitical risk query failed: %s", e, exc_info=True)
@@ -2843,10 +3999,13 @@ When presenting budget projections:
         """Query LinkedIn Hiring Value Review data for Guidewire Software."""
         gw_data = self._data_cache.get("linkedin_guidewire", {})
         if not gw_data:
-            return {"error": "LinkedIn Guidewire data not available.", "source": "linkedin_guidewire"}
+            return {
+                "error": "LinkedIn Guidewire data not available.",
+                "source": "linkedin_guidewire",
+            }
 
         section = params.get("section", "all")
-        metric = params.get("metric", "")
+        metric = params.get("metric") or ""
         result = ""
 
         if section == "executive_summary" or section == "all":
@@ -2854,17 +4013,22 @@ When presenting budget projections:
             result = f"*Guidewire LinkedIn Hiring Review*\n"
             result += f"Headline: {exec_sum.get('headline', 'N/A')}\n"
             result += f"Context: {exec_sum.get('context', 'N/A')}\n\n"
-            for theme in exec_sum.get("key_themes", []):
-                result += f"*{theme.get('theme', '')}*\n"
-                for pt in theme.get("points", []):
+            for theme in exec_sum.get("key_themes") or []:
+                result += f"*{theme.get('theme') or ''}*\n"
+                for pt in theme.get("points") or []:
                     result += f"- {pt}\n"
                 result += "\n"
             if section == "executive_summary":
-                return {"text": result, "source": "LinkedIn Hiring Value Review for Guidewire Software"}
+                return {
+                    "text": result,
+                    "source": "LinkedIn Hiring Value Review for Guidewire Software",
+                }
 
         if section == "hiring_performance" or section == "all":
             # Return hiring performance data
-            hp = gw_data.get("hiring_performance", gw_data.get("hiring_performance_l12m", {}))
+            hp = gw_data.get(
+                "hiring_performance", gw_data.get("hiring_performance_l12m", {})
+            )
             if isinstance(hp, dict):
                 result_hp = "*Hiring Performance (L12M)*\n"
                 for key, val in hp.items():
@@ -2875,7 +4039,10 @@ When presenting budget projections:
                     else:
                         result_hp += f"- {key}: {val}\n"
                 if section == "hiring_performance":
-                    return {"text": result_hp, "source": "LinkedIn Hiring Value Review for Guidewire Software"}
+                    return {
+                        "text": result_hp,
+                        "source": "LinkedIn Hiring Value Review for Guidewire Software",
+                    }
                 result += result_hp
 
         if section == "hire_efficiency" or section == "all":
@@ -2892,13 +4059,19 @@ When presenting budget projections:
                 result += result_he
 
         if result:
-            return {"text": result, "source": "LinkedIn Hiring Value Review for Guidewire Software"}
-        return {"data": gw_data, "source": "LinkedIn Hiring Value Review for Guidewire Software"}
+            return {
+                "text": result,
+                "source": "LinkedIn Hiring Value Review for Guidewire Software",
+            }
+        return {
+            "data": gw_data,
+            "source": "LinkedIn Hiring Value Review for Guidewire Software",
+        }
 
     def _query_platform_deep(self, args: dict) -> dict:
         """Handler for query_platform_deep tool."""
-        platform = (args.get("platform", "") or "").lower().strip()
-        compare_with = (args.get("compare_with", "") or "").lower().strip()
+        platform = (args.get("platform") or "" or "").lower().strip()
+        compare_with = (args.get("compare_with") or "" or "").lower().strip()
         pi = self._data_cache.get("platform_intelligence", {})
         platforms = pi.get("platforms", {})
 
@@ -2915,15 +4088,17 @@ When presenting budget projections:
                     "avg_cpa": p_data.get("avg_cpa"),
                     "apply_rate": p_data.get("apply_rate"),
                     "mobile_traffic_pct": p_data.get("mobile_traffic_pct"),
-                    "best_for": p_data.get("best_for", []),
+                    "best_for": p_data.get("best_for") or [],
                     "programmatic_compatible": p_data.get("programmatic_compatible"),
-                    "dei_features": p_data.get("dei_features", []),
-                    "ai_features": p_data.get("ai_features", []),
-                    "pros": p_data.get("pros", []),
-                    "cons": p_data.get("cons", []),
+                    "dei_features": p_data.get("dei_features") or [],
+                    "ai_features": p_data.get("ai_features") or [],
+                    "pros": p_data.get("pros") or [],
+                    "cons": p_data.get("cons") or [],
                 }
             else:
-                result["error"] = f"Platform '{platform}' not found. Available: {', '.join(list(platforms.keys())[:20])}"
+                result["error"] = (
+                    f"Platform '{platform}' not found. Available: {', '.join(list(platforms.keys())[:20])}"
+                )
 
         if compare_with:
             c_data = platforms.get(compare_with, {})
@@ -2933,7 +4108,7 @@ When presenting budget projections:
                     "avg_cpc": c_data.get("avg_cpc"),
                     "avg_cpa": c_data.get("avg_cpa"),
                     "apply_rate": c_data.get("apply_rate"),
-                    "best_for": c_data.get("best_for", []),
+                    "best_for": c_data.get("best_for") or [],
                 }
 
         result["source"] = "platform_intelligence_deep (91 platforms)"
@@ -2948,7 +4123,7 @@ When presenting budget projections:
           Priority 3: KB benchmark data -- recruitment_benchmarks_deep + Appcast 2026 + Google Ads 2025
           Priority 4: Embedded research.py fallback
         """
-        industry = (args.get("industry", "") or "").lower().strip().replace(" ", "_")
+        industry = (args.get("industry") or "" or "").lower().strip().replace(" ", "_")
         metric = (args.get("metric", "all") or "all").lower().strip()
         rb = self._data_cache.get("recruitment_benchmarks", {})
         benchmarks = rb.get("industry_benchmarks", {})
@@ -2963,17 +4138,26 @@ When presenting budget projections:
                     break
 
         if not ind_data:
-            return {"error": f"Industry '{industry}' not found", "available": list(benchmarks.keys())[:15], "source": "recruitment_benchmarks_deep"}
+            return {
+                "error": f"Industry '{industry}' not found",
+                "available": list(benchmarks.keys())[:15],
+                "source": "recruitment_benchmarks_deep",
+            }
 
         # Enrich with Appcast 2026 occupation-level benchmarks (Priority 3)
         _APPCAST_OCC_MAP = {
-            "healthcare_medical": "healthcare", "technology_engineering": "technology",
-            "retail_consumer": "retail", "finance_banking": "finance",
+            "healthcare_medical": "healthcare",
+            "technology_engineering": "technology",
+            "retail_consumer": "retail",
+            "finance_banking": "finance",
             "logistics_supply_chain": "warehousing_logistics",
-            "hospitality_travel": "hospitality", "manufacturing": "manufacturing",
+            "hospitality_travel": "hospitality",
+            "manufacturing": "manufacturing",
             "construction_infrastructure": "construction_skilled_trades",
-            "food_beverage": "food_service", "education": "education",
-            "legal_services": "legal", "government_utilities": "administration",
+            "food_beverage": "food_service",
+            "education": "education",
+            "legal_services": "legal",
+            "government_utilities": "administration",
         }
         appcast_occ = _APPCAST_OCC_MAP.get(industry, "")
         wp = self._data_cache.get("white_papers", {})
@@ -2984,31 +4168,49 @@ When presenting budget projections:
             _cpa = appcast_bm.get("cpa_by_occupation_2025", {}).get(appcast_occ)
             _cph = appcast_bm.get("cph_by_occupation_2025", {}).get(appcast_occ)
             _ar = appcast_bm.get("apply_rate_by_occupation_2025", {}).get(appcast_occ)
-            _cps = appcast_bm.get("cost_per_screen_by_occupation_2025", {}).get(appcast_occ)
-            _cpi = appcast_bm.get("cost_per_interview_by_occupation_2025", {}).get(appcast_occ)
-            _cpo = appcast_bm.get("cost_per_offer_by_occupation_2025", {}).get(appcast_occ)
+            _cps = appcast_bm.get("cost_per_screen_by_occupation_2025", {}).get(
+                appcast_occ
+            )
+            _cpi = appcast_bm.get("cost_per_interview_by_occupation_2025", {}).get(
+                appcast_occ
+            )
+            _cpo = appcast_bm.get("cost_per_offer_by_occupation_2025", {}).get(
+                appcast_occ
+            )
             if any([_cpa, _cph, _ar]):
                 appcast_enrichment = {
-                    "cpa": _cpa, "cph": _cph, "apply_rate": _ar,
-                    "cost_per_screen": _cps, "cost_per_interview": _cpi,
+                    "cpa": _cpa,
+                    "cph": _cph,
+                    "apply_rate": _ar,
+                    "cost_per_screen": _cps,
+                    "cost_per_interview": _cpi,
                     "cost_per_offer": _cpo,
                     "source": "Appcast 2026 Report (302M clicks, 27.4M applies)",
                 }
 
         # Enrich with Google Ads 2025 first-party data (Priority 3)
         _GADS_CAT_MAP = {
-            "healthcare_medical": "skilled_healthcare", "healthcare": "skilled_healthcare",
+            "healthcare_medical": "skilled_healthcare",
+            "healthcare": "skilled_healthcare",
             "pharma_biotech": "skilled_healthcare",
-            "technology_engineering": "software_tech", "technology": "software_tech",
+            "technology_engineering": "software_tech",
+            "technology": "software_tech",
             "tech_engineering": "software_tech",
-            "logistics_supply_chain": "logistics_supply_chain", "logistics": "logistics_supply_chain",
-            "transportation": "logistics_supply_chain", "manufacturing": "logistics_supply_chain",
-            "retail_consumer": "retail_hospitality", "retail": "retail_hospitality",
-            "hospitality": "retail_hospitality", "hospitality_travel": "retail_hospitality",
-            "finance": "corporate_professional", "finance_banking": "corporate_professional",
+            "logistics_supply_chain": "logistics_supply_chain",
+            "logistics": "logistics_supply_chain",
+            "transportation": "logistics_supply_chain",
+            "manufacturing": "logistics_supply_chain",
+            "retail_consumer": "retail_hospitality",
+            "retail": "retail_hospitality",
+            "hospitality": "retail_hospitality",
+            "hospitality_travel": "retail_hospitality",
+            "finance": "corporate_professional",
+            "finance_banking": "corporate_professional",
             "insurance": "corporate_professional",
-            "general_entry_level": "general_recruitment", "general": "general_recruitment",
-            "education": "education_public_service", "government_utilities": "education_public_service",
+            "general_entry_level": "general_recruitment",
+            "general": "general_recruitment",
+            "education": "education_public_service",
+            "government_utilities": "education_public_service",
         }
         gads_cat = _GADS_CAT_MAP.get(industry, "")
         gads_data = self._data_cache.get("google_ads_benchmarks", {})
@@ -3024,7 +4226,10 @@ When presenting budget projections:
                 "source": "Joveo Google Ads 2025 (first-party)",
             }
 
-        result = {"industry": industry, "source": "recruitment_benchmarks_deep (22 industries)"}
+        result = {
+            "industry": industry,
+            "source": "recruitment_benchmarks_deep (22 industries)",
+        }
 
         if metric != "all" and metric in ind_data:
             result["metric"] = metric
@@ -3043,15 +4248,21 @@ When presenting budget projections:
         if eb_agg:
             ext_enrichment = {}
             # Cost per hire by industry
-            cph_by_ind = eb_agg.get("avg_cost_per_hire_by_industry", {}).get("by_industry", {})
+            cph_by_ind = eb_agg.get("avg_cost_per_hire_by_industry", {}).get(
+                "by_industry", {}
+            )
             if industry in cph_by_ind:
                 ext_enrichment["cost_per_hire"] = cph_by_ind[industry]
             # Time to fill by industry
-            ttf_by_ind = eb_agg.get("avg_time_to_fill_by_industry", {}).get("by_industry", {})
+            ttf_by_ind = eb_agg.get("avg_time_to_fill_by_industry", {}).get(
+                "by_industry", {}
+            )
             if industry in ttf_by_ind:
                 ext_enrichment["time_to_fill"] = ttf_by_ind[industry]
             # Talent shortage by industry
-            ts_by_ind = eb_agg.get("talent_shortage_by_industry", {}).get("by_industry", {})
+            ts_by_ind = eb_agg.get("talent_shortage_by_industry", {}).get(
+                "by_industry", {}
+            )
             if industry in ts_by_ind:
                 ext_enrichment["talent_shortage"] = ts_by_ind[industry]
             if ext_enrichment:
@@ -3067,42 +4278,83 @@ When presenting budget projections:
         eb = rs.get("employer_branding", {})
 
         if not eb:
-            return {"error": "Employer branding data not available", "source": "recruitment_strategy_intelligence"}
+            return {
+                "error": "Employer branding data not available",
+                "source": "recruitment_strategy_intelligence",
+            }
 
         if aspect == "all":
-            return {"data": eb, "source": "recruitment_strategy_intelligence (34 sources)"}
+            return {
+                "data": eb,
+                "source": "recruitment_strategy_intelligence (34 sources)",
+            }
         elif aspect in eb:
-            return {"aspect": aspect, "data": eb[aspect], "source": "recruitment_strategy_intelligence"}
+            return {
+                "aspect": aspect,
+                "data": eb[aspect],
+                "source": "recruitment_strategy_intelligence",
+            }
         else:
-            return {"error": f"Aspect '{aspect}' not found", "available": list(eb.keys()), "source": "recruitment_strategy_intelligence"}
+            return {
+                "error": f"Aspect '{aspect}' not found",
+                "available": list(eb.keys()),
+                "source": "recruitment_strategy_intelligence",
+            }
 
     def _query_regional_market(self, args: dict) -> dict:
         """Handler for query_regional_market tool."""
-        region = (args.get("region", "") or "").lower().strip()
-        market = (args.get("market", "") or "").lower().strip()
+        region = (args.get("region") or "" or "").lower().strip()
+        market = (args.get("market") or "" or "").lower().strip()
         rh = self._data_cache.get("regional_hiring", {})
         regions = rh.get("regions", {})
 
         if not region:
-            return {"available_regions": list(regions.keys()), "source": "regional_hiring_intelligence"}
+            return {
+                "available_regions": list(regions.keys()),
+                "source": "regional_hiring_intelligence",
+            }
 
         region_data = regions.get(region, {})
         if not region_data:
-            return {"error": f"Region '{region}' not found", "available": list(regions.keys()), "source": "regional_hiring_intelligence"}
+            return {
+                "error": f"Region '{region}' not found",
+                "available": list(regions.keys()),
+                "source": "regional_hiring_intelligence",
+            }
 
         if market:
             market_data = region_data.get(market, {})
             if market_data:
-                return {"region": region, "market": market, "data": market_data, "source": "regional_hiring_intelligence (16 sources)"}
+                return {
+                    "region": region,
+                    "market": market,
+                    "data": market_data,
+                    "source": "regional_hiring_intelligence (16 sources)",
+                }
             else:
-                return {"region": region, "error": f"Market '{market}' not found", "available_markets": list(region_data.keys())[:15], "source": "regional_hiring_intelligence"}
+                return {
+                    "region": region,
+                    "error": f"Market '{market}' not found",
+                    "available_markets": list(region_data.keys())[:15],
+                    "source": "regional_hiring_intelligence",
+                }
 
         # Return region overview with market list
         market_list = []
         for mk, mv in region_data.items():
             if isinstance(mv, dict) and mv.get("name"):
-                market_list.append({"key": mk, "name": mv.get("name"), "population": mv.get("metro_population")})
-        return {"region": region, "markets": market_list, "source": "regional_hiring_intelligence"}
+                market_list.append(
+                    {
+                        "key": mk,
+                        "name": mv.get("name"),
+                        "population": mv.get("metro_population"),
+                    }
+                )
+        return {
+            "region": region,
+            "markets": market_list,
+            "source": "regional_hiring_intelligence",
+        }
 
     def _query_supply_ecosystem(self, args: dict) -> dict:
         """Handler for query_supply_ecosystem tool."""
@@ -3111,12 +4363,15 @@ When presenting budget projections:
         pe = se.get("programmatic_ecosystem", {})
 
         if not pe:
-            return {"error": "Supply ecosystem data not available", "source": "supply_ecosystem_intelligence"}
+            return {
+                "error": "Supply ecosystem data not available",
+                "source": "supply_ecosystem_intelligence",
+            }
 
         if topic == "all":
             # Return overview, not everything (too large)
             return {
-                "overview": pe.get("how_it_works", {}).get("overview", ""),
+                "overview": pe.get("how_it_works", {}).get("overview") or "",
                 "available_topics": list(pe.keys()),
                 "bidding_model_types": list(pe.get("bidding_models", {}).keys()),
                 "source": "supply_ecosystem_intelligence (24 sources)",
@@ -3124,8 +4379,16 @@ When presenting budget projections:
 
         data = pe.get(topic, pe.get("key_concepts", {}).get(topic, {}))
         if data:
-            return {"topic": topic, "data": data, "source": "supply_ecosystem_intelligence"}
-        return {"error": f"Topic '{topic}' not found", "available": list(pe.keys()), "source": "supply_ecosystem_intelligence"}
+            return {
+                "topic": topic,
+                "data": data,
+                "source": "supply_ecosystem_intelligence",
+            }
+        return {
+            "error": f"Topic '{topic}' not found",
+            "available": list(pe.keys()),
+            "source": "supply_ecosystem_intelligence",
+        }
 
     def _query_workforce_trends(self, args: dict) -> dict:
         """Handler for query_workforce_trends tool."""
@@ -3133,21 +4396,34 @@ When presenting budget projections:
         wt = self._data_cache.get("workforce_trends", {})
 
         if not wt:
-            return {"error": "Workforce trends data not available", "source": "workforce_trends_intelligence"}
+            return {
+                "error": "Workforce trends data not available",
+                "source": "workforce_trends_intelligence",
+            }
 
         gen_z = wt.get("generational_trends", {}).get("gen_z", {})
 
         topic_map = {
             "gen_z": gen_z,
-            "platform_preferences": gen_z.get("job_search_behavior", {}).get("platform_usage", {}),
-            "remote_work": gen_z.get("workplace_expectations", {}).get("flexibility", {}),
+            "platform_preferences": gen_z.get("job_search_behavior", {}).get(
+                "platform_usage", {}
+            ),
+            "remote_work": gen_z.get("workplace_expectations", {}).get(
+                "flexibility", {}
+            ),
             "dei": gen_z.get("workplace_expectations", {}).get("dei_expectations", {}),
             "salary_expectations": gen_z.get("salary_expectations", {}),
             "all": {
                 "gen_z_summary": {
                     "workforce_share": gen_z.get("workforce_share"),
-                    "top_platforms": list(gen_z.get("job_search_behavior", {}).get("platform_usage", {}).keys())[:5],
-                    "key_expectations": list(gen_z.get("workplace_expectations", {}).keys()),
+                    "top_platforms": list(
+                        gen_z.get("job_search_behavior", {})
+                        .get("platform_usage", {})
+                        .keys()
+                    )[:5],
+                    "key_expectations": list(
+                        gen_z.get("workplace_expectations", {}).keys()
+                    ),
                 },
                 "supply_partner_trends": wt.get("supply_partner_trends", {}),
                 "job_type_trends": wt.get("job_type_trends", {}),
@@ -3156,50 +4432,94 @@ When presenting budget projections:
 
         data = topic_map.get(topic, {})
         if data:
-            return {"topic": topic, "data": data, "source": "workforce_trends_intelligence (44 sources)"}
-        return {"error": f"Topic '{topic}' not found", "available": list(topic_map.keys()), "source": "workforce_trends_intelligence"}
+            return {
+                "topic": topic,
+                "data": data,
+                "source": "workforce_trends_intelligence (44 sources)",
+            }
+        return {
+            "error": f"Topic '{topic}' not found",
+            "available": list(topic_map.keys()),
+            "source": "workforce_trends_intelligence",
+        }
 
     def _query_white_papers(self, args: dict) -> dict:
         """Handler for query_white_papers tool."""
-        search_term = (args.get("search_term", "") or "").lower().strip()
-        report_key = (args.get("report_key", "") or "").strip()
+        search_term = (args.get("search_term") or "" or "").lower().strip()
+        report_key = (args.get("report_key") or "" or "").strip()
         wp = self._data_cache.get("white_papers", {})
         reports = wp.get("reports", {})
 
         if not reports:
-            return {"error": "White papers data not available", "source": "industry_white_papers"}
+            return {
+                "error": "White papers data not available",
+                "source": "industry_white_papers",
+            }
 
         if report_key:
             r = reports.get(report_key, {})
             if r:
-                return {"report_key": report_key, "data": r, "source": "industry_white_papers"}
-            return {"error": f"Report '{report_key}' not found", "available": list(reports.keys())[:15], "source": "industry_white_papers"}
+                return {
+                    "report_key": report_key,
+                    "data": r,
+                    "source": "industry_white_papers",
+                }
+            return {
+                "error": f"Report '{report_key}' not found",
+                "available": list(reports.keys())[:15],
+                "source": "industry_white_papers",
+            }
 
         if search_term:
             matches = []
             for rk, rv in reports.items():
                 if not isinstance(rv, dict):
                     continue
-                title = (rv.get("title", "") or "").lower()
-                publisher = (rv.get("publisher", "") or "").lower()
-                findings_text = " ".join(str(f) for f in rv.get("key_findings", []) if f).lower()
-                if search_term in title or search_term in publisher or search_term in findings_text or search_term in rk.lower():
-                    matches.append({
-                        "key": rk,
-                        "title": rv.get("title"),
-                        "publisher": rv.get("publisher"),
-                        "year": rv.get("year"),
-                        "finding_count": len(rv.get("key_findings", [])),
-                        "top_findings": rv.get("key_findings", [])[:3],
-                    })
-            return {"search_term": search_term, "results": matches[:10], "total_reports": len(reports), "source": "industry_white_papers (47 reports)"}
+                title = (rv.get("title") or "" or "").lower()
+                publisher = (rv.get("publisher") or "" or "").lower()
+                findings_text = " ".join(
+                    str(f) for f in rv.get("key_findings") or [] if f
+                ).lower()
+                if (
+                    search_term in title
+                    or search_term in publisher
+                    or search_term in findings_text
+                    or search_term in rk.lower()
+                ):
+                    matches.append(
+                        {
+                            "key": rk,
+                            "title": rv.get("title"),
+                            "publisher": rv.get("publisher"),
+                            "year": rv.get("year"),
+                            "finding_count": len(rv.get("key_findings") or []),
+                            "top_findings": rv.get("key_findings") or [][:3],
+                        }
+                    )
+            return {
+                "search_term": search_term,
+                "results": matches[:10],
+                "total_reports": len(reports),
+                "source": "industry_white_papers (47 reports)",
+            }
 
         # No search term, return overview
         overview = []
         for rk, rv in list(reports.items())[:15]:
             if isinstance(rv, dict):
-                overview.append({"key": rk, "title": rv.get("title"), "publisher": rv.get("publisher"), "year": rv.get("year")})
-        return {"total_reports": len(reports), "sample": overview, "source": "industry_white_papers"}
+                overview.append(
+                    {
+                        "key": rk,
+                        "title": rv.get("title"),
+                        "publisher": rv.get("publisher"),
+                        "year": rv.get("year"),
+                    }
+                )
+        return {
+            "total_reports": len(reports),
+            "sample": overview,
+            "source": "industry_white_papers",
+        }
 
     def _query_google_ads_benchmarks(self, args: dict) -> dict:
         """Handler for query_google_ads_benchmarks tool.
@@ -3208,12 +4528,15 @@ When presenting budget projections:
         6,338 keywords analyzed, $454K total spend, 8 job categories.
         Data priority: Priority 3 (KB benchmark data -- first-party Joveo data).
         """
-        category = (args.get("category", "") or "").lower().strip()
+        category = (args.get("category") or "" or "").lower().strip()
         gads = self._data_cache.get("google_ads_benchmarks", {})
         categories = gads.get("categories", {})
 
         if not categories:
-            return {"error": "Google Ads 2025 benchmark data not available", "source": "google_ads_2025_benchmarks"}
+            return {
+                "error": "Google Ads 2025 benchmark data not available",
+                "source": "google_ads_2025_benchmarks",
+            }
 
         if category:
             cat_data = categories.get(category, {})
@@ -3235,9 +4558,15 @@ When presenting budget projections:
                     "total_keywords": cat_data.get("total_keywords"),
                     "total_spend": cat_data.get("total_spend"),
                     "top_keywords": [
-                        {"keyword": kw.get("keyword"), "cpc": kw.get("cpc"),
-                         "ctr_pct": kw.get("ctr_pct"), "clicks": kw.get("clicks")}
-                        for kw in (cat_data.get("top_performing_keywords", []) or [])[:5]
+                        {
+                            "keyword": kw.get("keyword"),
+                            "cpc": kw.get("cpc"),
+                            "ctr_pct": kw.get("ctr_pct"),
+                            "clicks": kw.get("clicks"),
+                        }
+                        for kw in (cat_data.get("top_performing_keywords") or [] or [])[
+                            :5
+                        ]
                     ],
                     "source": "Joveo Google Ads 2025 (first-party, 6,338 keywords)",
                     "data_priority": 3,
@@ -3252,18 +4581,20 @@ When presenting budget projections:
         summary = []
         for cat_key, cat_val in categories.items():
             if isinstance(cat_val, dict):
-                summary.append({
-                    "category": cat_key,
-                    "category_name": cat_val.get("category_name", cat_key),
-                    "blended_cpc": cat_val.get("blended_cpc"),
-                    "blended_ctr": cat_val.get("blended_ctr"),
-                    "total_keywords": cat_val.get("total_keywords"),
-                    "total_spend": cat_val.get("total_spend"),
-                })
+                summary.append(
+                    {
+                        "category": cat_key,
+                        "category_name": cat_val.get("category_name", cat_key),
+                        "blended_cpc": cat_val.get("blended_cpc"),
+                        "blended_ctr": cat_val.get("blended_ctr"),
+                        "total_keywords": cat_val.get("total_keywords"),
+                        "total_spend": cat_val.get("total_spend"),
+                    }
+                )
         return {
             "total_categories": len(summary),
-            "total_keywords_overall": gads.get("total_keywords_analyzed", 0),
-            "total_spend_overall": gads.get("total_spend", 0),
+            "total_keywords_overall": gads.get("total_keywords_analyzed") or 0,
+            "total_spend_overall": gads.get("total_spend") or 0,
             "categories": summary,
             "source": "Joveo Google Ads 2025 (first-party, 6,338 keywords)",
             "data_priority": 3,
@@ -3276,21 +4607,30 @@ When presenting budget projections:
         (Recruitics, Appcast, Radancy, PandoLogic, iCIMS, LinkedIn, Glassdoor,
         SHRM, Gartner, Korn Ferry, ManpowerGroup, Robert Half, Gem, etc.).
         """
-        report_key = (args.get("report_key", "") or "").strip()
-        search_term = (args.get("search_term", "") or "").lower().strip()
-        benchmark_category = (args.get("benchmark_category", "") or "").lower().strip()
+        report_key = (args.get("report_key") or "" or "").strip()
+        search_term = (args.get("search_term") or "" or "").lower().strip()
+        benchmark_category = (
+            (args.get("benchmark_category") or "" or "").lower().strip()
+        )
         eb = self._data_cache.get("external_benchmarks", {})
         reports = eb.get("reports", {})
         aggregated = eb.get("aggregated_benchmarks", {})
 
         if not reports and not aggregated:
-            return {"error": "External benchmarks data not available", "source": "external_benchmarks_2025"}
+            return {
+                "error": "External benchmarks data not available",
+                "source": "external_benchmarks_2025",
+            }
 
         # Direct report lookup
         if report_key:
             r = reports.get(report_key, {})
             if r:
-                return {"report_key": report_key, "data": r, "source": "external_benchmarks_2025"}
+                return {
+                    "report_key": report_key,
+                    "data": r,
+                    "source": "external_benchmarks_2025",
+                }
             return {
                 "error": f"Report '{report_key}' not found",
                 "available_reports": list(reports.keys()),
@@ -3345,20 +4685,28 @@ When presenting budget projections:
             for rk, rv in reports.items():
                 if not isinstance(rv, dict):
                     continue
-                title = (rv.get("title", "") or "").lower()
-                publisher = (rv.get("publisher", "") or "").lower()
-                findings_text = " ".join(str(f) for f in rv.get("key_findings", []) if f).lower()
-                methodology = (rv.get("methodology", "") or "").lower()
-                if (search_term in title or search_term in publisher
-                        or search_term in findings_text or search_term in rk.lower()
-                        or search_term in methodology):
-                    matches.append({
-                        "key": rk,
-                        "title": rv.get("title"),
-                        "publisher": rv.get("publisher"),
-                        "year": rv.get("year"),
-                        "top_findings": rv.get("key_findings", [])[:3],
-                    })
+                title = (rv.get("title") or "" or "").lower()
+                publisher = (rv.get("publisher") or "" or "").lower()
+                findings_text = " ".join(
+                    str(f) for f in rv.get("key_findings") or [] if f
+                ).lower()
+                methodology = (rv.get("methodology") or "" or "").lower()
+                if (
+                    search_term in title
+                    or search_term in publisher
+                    or search_term in findings_text
+                    or search_term in rk.lower()
+                    or search_term in methodology
+                ):
+                    matches.append(
+                        {
+                            "key": rk,
+                            "title": rv.get("title"),
+                            "publisher": rv.get("publisher"),
+                            "year": rv.get("year"),
+                            "top_findings": rv.get("key_findings") or [][:3],
+                        }
+                    )
             # Also search aggregated benchmarks
             agg_matches = []
             for ak, av in aggregated.items():
@@ -3377,13 +4725,17 @@ When presenting budget projections:
         overview = []
         for rk, rv in list(reports.items())[:15]:
             if isinstance(rv, dict):
-                overview.append({
-                    "key": rk, "title": rv.get("title"),
-                    "publisher": rv.get("publisher"), "year": rv.get("year"),
-                })
+                overview.append(
+                    {
+                        "key": rk,
+                        "title": rv.get("title"),
+                        "publisher": rv.get("publisher"),
+                        "year": rv.get("year"),
+                    }
+                )
         return {
             "total_reports": len(reports),
-            "data_coverage": eb.get("data_coverage_period", ""),
+            "data_coverage": eb.get("data_coverage_period") or "",
             "sample_reports": overview,
             "aggregated_benchmark_categories": list(aggregated.keys()),
             "source": "external_benchmarks_2025 (24 analyst reports)",
@@ -3396,15 +4748,18 @@ When presenting budget projections:
         Contains 6 real client plans with channel strategies, budget allocations,
         benchmarks, and aggregate patterns across 532 unique channels.
         """
-        plan_key = (args.get("plan_key", "") or "").strip()
-        industry = (args.get("industry", "") or "").lower().strip()
+        plan_key = (args.get("plan_key") or "" or "").strip()
+        industry = (args.get("industry") or "" or "").lower().strip()
         aspect = (args.get("aspect", "all") or "all").lower().strip()
         cp = self._data_cache.get("client_media_plans", {})
         plans = cp.get("plans", {})
         aggregate = cp.get("aggregate_patterns", {})
 
         if not plans:
-            return {"error": "Client media plans data not available", "source": "client_media_plans_kb"}
+            return {
+                "error": "Client media plans data not available",
+                "source": "client_media_plans_kb",
+            }
 
         # Direct plan lookup
         if plan_key:
@@ -3416,13 +4771,20 @@ When presenting budget projections:
                     "source": "client_media_plans_kb",
                 }
             if aspect == "all":
-                return {"plan_key": plan_key, "data": plan, "source": "client_media_plans_kb"}
+                return {
+                    "plan_key": plan_key,
+                    "data": plan,
+                    "source": "client_media_plans_kb",
+                }
             aspect_data = plan.get(aspect, {})
             if aspect_data:
                 return {
-                    "plan_key": plan_key, "aspect": aspect,
-                    "client": plan.get("client"), "industry": plan.get("industry"),
-                    "data": aspect_data, "source": "client_media_plans_kb",
+                    "plan_key": plan_key,
+                    "aspect": aspect,
+                    "client": plan.get("client"),
+                    "industry": plan.get("industry"),
+                    "data": aspect_data,
+                    "source": "client_media_plans_kb",
                 }
             return {
                 "plan_key": plan_key,
@@ -3435,8 +4797,11 @@ When presenting budget projections:
         if aspect == "aggregate_patterns":
             return {
                 "aggregate_patterns": aggregate,
-                "total_unique_channels": aggregate.get("total_unique_channels_identified", 0),
-                "key_patterns": aggregate.get("key_patterns", []),
+                "total_unique_channels": aggregate.get(
+                    "total_unique_channels_identified"
+                )
+                or 0,
+                "key_patterns": aggregate.get("key_patterns") or [],
                 "source": "client_media_plans_kb (6 reference plans, 532 channels)",
             }
 
@@ -3446,15 +4811,18 @@ When presenting budget projections:
             for pk, pv in plans.items():
                 if not isinstance(pv, dict):
                     continue
-                plan_industry = (pv.get("industry", "") or "").lower()
+                plan_industry = (pv.get("industry") or "" or "").lower()
                 if industry in plan_industry or plan_industry in industry:
                     plan_summary = {
                         "key": pk,
                         "client": pv.get("client"),
                         "industry": pv.get("industry"),
                         "regions": pv.get("regions"),
-                        "roles": (pv.get("roles", [])[:5] if isinstance(pv.get("roles"), list)
-                                  else list(pv.get("roles", {}).keys())[:5]),
+                        "roles": (
+                            pv.get("roles") or [][:5]
+                            if isinstance(pv.get("roles"), list)
+                            else list(pv.get("roles", {}).keys())[:5]
+                        ),
                         "hiring_volume": pv.get("hiring_volume"),
                     }
                     if aspect != "all" and aspect in pv:
@@ -3466,13 +4834,14 @@ When presenting budget projections:
                     matches.append(plan_summary)
             if matches:
                 return {
-                    "industry": industry, "matching_plans": matches,
+                    "industry": industry,
+                    "matching_plans": matches,
                     "source": "client_media_plans_kb",
                 }
             return {
                 "industry": industry,
                 "error": f"No plans for industry '{industry}'",
-                "available_industries": cp.get("industries_covered", []),
+                "available_industries": cp.get("industries_covered") or [],
                 "source": "client_media_plans_kb",
             }
 
@@ -3480,18 +4849,22 @@ When presenting budget projections:
         overview = []
         for pk, pv in plans.items():
             if isinstance(pv, dict):
-                overview.append({
-                    "key": pk, "client": pv.get("client"),
-                    "industry": pv.get("industry"),
-                    "regions": pv.get("regions"),
-                    "hiring_volume": pv.get("hiring_volume"),
-                })
+                overview.append(
+                    {
+                        "key": pk,
+                        "client": pv.get("client"),
+                        "industry": pv.get("industry"),
+                        "regions": pv.get("regions"),
+                        "hiring_volume": pv.get("hiring_volume"),
+                    }
+                )
         return {
             "total_plans": len(plans),
-            "industries_covered": cp.get("industries_covered", []),
+            "industries_covered": cp.get("industries_covered") or [],
             "plans": overview,
-            "total_unique_channels": aggregate.get("total_unique_channels_identified", 0),
-            "key_patterns": aggregate.get("key_patterns", [])[:5],
+            "total_unique_channels": aggregate.get("total_unique_channels_identified")
+            or 0,
+            "key_patterns": aggregate.get("key_patterns") or [][:5],
             "source": "client_media_plans_kb (6 reference plans)",
         }
 
@@ -3517,19 +4890,40 @@ When presenting budget projections:
         role_tiers = []
         for role in roles:
             role_lower = role.lower() if isinstance(role, str) else ""
-            if any(kw in role_lower for kw in ["executive", "director", "vp", "chief", "president"]):
+            if any(
+                kw in role_lower
+                for kw in ["executive", "director", "vp", "chief", "president"]
+            ):
                 tier = "Executive"
                 cph = 14000
-            elif any(kw in role_lower for kw in ["nurse", "clinical", "therapist", "physician"]):
+            elif any(
+                kw in role_lower
+                for kw in ["nurse", "clinical", "therapist", "physician"]
+            ):
                 tier = "Clinical"
                 cph = 8500
-            elif any(kw in role_lower for kw in ["engineer", "developer", "data scientist", "architect"]):
+            elif any(
+                kw in role_lower
+                for kw in ["engineer", "developer", "data scientist", "architect"]
+            ):
                 tier = "Technology"
                 cph = 10000
-            elif any(kw in role_lower for kw in ["driver", "warehouse", "construction", "electrician", "welder"]):
+            elif any(
+                kw in role_lower
+                for kw in [
+                    "driver",
+                    "warehouse",
+                    "construction",
+                    "electrician",
+                    "welder",
+                ]
+            ):
                 tier = "Trades"
                 cph = 4500
-            elif any(kw in role_lower for kw in ["cashier", "retail", "hourly", "part-time", "seasonal"]):
+            elif any(
+                kw in role_lower
+                for kw in ["cashier", "retail", "hourly", "part-time", "seasonal"]
+            ):
                 tier = "Hourly"
                 cph = 2500
             else:
@@ -3539,15 +4933,21 @@ When presenting budget projections:
             role_cph_estimates.append(cph)
             role_tiers.append({"role": role, "tier": tier, "estimated_cph": cph})
 
-        avg_cph = sum(role_cph_estimates) / len(role_cph_estimates) if role_cph_estimates else 5000
+        avg_cph = (
+            sum(role_cph_estimates) / len(role_cph_estimates)
+            if role_cph_estimates
+            else 5000
+        )
 
         # Urgency multiplier
-        urgency_multiplier = {"standard": 1.0, "urgent": 1.20, "critical": 1.40}.get(urgency, 1.0)
+        urgency_multiplier = {"standard": 1.0, "urgent": 1.20, "critical": 1.40}.get(
+            urgency, 1.0
+        )
         adjusted_cph = avg_cph * urgency_multiplier
 
         # Budget tiers
         min_budget = round(adjusted_cph * hire_count * 0.60)  # Lean/aggressive
-        rec_budget = round(adjusted_cph * hire_count)          # Recommended
+        rec_budget = round(adjusted_cph * hire_count)  # Recommended
         premium_budget = round(adjusted_cph * hire_count * 1.50)  # Premium/comfortable
 
         # Channel split recommendations by role tier mix
@@ -3557,27 +4957,36 @@ When presenting budget projections:
 
         if has_exec:
             channel_split = {
-                "LinkedIn Ads": 35, "Programmatic & DSP": 20,
-                "Global Job Boards": 20, "Niche Executive Boards": 15,
+                "LinkedIn Ads": 35,
+                "Programmatic & DSP": 20,
+                "Global Job Boards": 20,
+                "Niche Executive Boards": 15,
                 "Employer Branding": 10,
             }
         elif has_hourly:
             channel_split = {
-                "Programmatic & DSP": 35, "Global Job Boards": 25,
-                "Social Media (Meta/TikTok)": 20, "Regional & Local Boards": 15,
+                "Programmatic & DSP": 35,
+                "Global Job Boards": 25,
+                "Social Media (Meta/TikTok)": 20,
+                "Regional & Local Boards": 15,
                 "Employer Branding": 5,
             }
         elif has_clinical:
             channel_split = {
-                "Niche Healthcare Boards": 30, "Programmatic & DSP": 25,
-                "Global Job Boards": 20, "Social Media Channels": 15,
+                "Niche Healthcare Boards": 30,
+                "Programmatic & DSP": 25,
+                "Global Job Boards": 20,
+                "Social Media Channels": 15,
                 "Regional & Local Boards": 10,
             }
         else:
             channel_split = {
-                "Programmatic & DSP": 30, "Global Job Boards": 25,
-                "Niche & Industry Boards": 15, "Social Media Channels": 15,
-                "Regional & Local Boards": 10, "Employer Branding": 5,
+                "Programmatic & DSP": 30,
+                "Global Job Boards": 25,
+                "Niche & Industry Boards": 15,
+                "Social Media Channels": 15,
+                "Regional & Local Boards": 10,
+                "Employer Branding": 5,
             }
 
         return {
@@ -3608,20 +5017,29 @@ When presenting budget projections:
                 },
             },
             "recommended_channel_split": channel_split,
-            "urgency_adjustment": f"{urgency} ({urgency_multiplier:.0%} of base)" if urgency != "standard" else "standard (no adjustment)",
+            "urgency_adjustment": (
+                f"{urgency} ({urgency_multiplier:.0%} of base)"
+                if urgency != "standard"
+                else "standard (no adjustment)"
+            ),
             "benchmarks_used": {
-                "shrm_avg_cph": cph_data.get("shrm_2026", {}).get("average_cost_per_hire", "$4,800"),
+                "shrm_avg_cph": cph_data.get("shrm_2026", {}).get(
+                    "average_cost_per_hire", "$4,800"
+                ),
                 "note": "Budget estimates based on role tier, industry benchmarks, and urgency",
             },
         }
-
 
     # ------------------------------------------------------------------
     # Chat orchestration
     # ------------------------------------------------------------------
 
-    def chat(self, user_message: str, conversation_history: Optional[list] = None,
-             enrichment_context: Optional[dict] = None) -> dict:
+    def chat(
+        self,
+        user_message: str,
+        conversation_history: Optional[list] = None,
+        enrichment_context: Optional[dict] = None,
+    ) -> dict:
         """Process a chat message and return a response.
 
         Args:
@@ -3683,41 +5101,58 @@ When presenting budget projections:
         _msg_lower = user_message.lower().strip()
         # Greeting patterns: ^-anchored for hello/hi, unanchored for casual chat
         _greeting_pats_start = [
-            r'^(hi|hello|hey|hola|howdy|sup|yo)\b',
-            r'^good (morning|afternoon|evening|day)\b',
-            r'^(bye|goodbye|see you|later|take care|thanks|thank you|thx|ty)\b',
+            r"^(hi|hello|hey|hola|howdy|sup|yo)\b",
+            r"^good (morning|afternoon|evening|day)\b",
+            r"^(bye|goodbye|see you|later|take care|thanks|thank you|thx|ty)\b",
         ]
         # These can appear ANYWHERE in the message (e.g., "btw hows life nova?")
         _greeting_pats_anywhere = [
-            r'\bhow are you\b', r'\bhow\'s it going\b', r'\bwhat\'s up\b',
-            r'\bhow do you do\b', r'\bhow you doing\b', r'\bhow\'s life\b',
-            r'\bhows life\b', r'\bhow is life\b', r'\bhows it going\b',
-            r'\bhow are things\b', r'\bhow have you been\b',
-            r'\bhow\'s your day\b', r'\bhows your day\b',
-            r'\bhow you been\b', r'\bhow are u\b', r'\bhow r u\b',
-            r'\bfeeling today\b', r'\bhow\'s everything\b',
-            r'\bwhat\'s good\b', r'\bwhat\'s new\b', r'\bwhats up\b',
-            r'\bwhats new\b', r'\bwhats good\b',
-            r'\bare you (a |an )?(real|human|person|bot|ai|robot|machine|program|computer)\b',
-            r'\bdo you have (feelings|emotions|a personality)\b',
-            r'\bare you alive\b', r'\bwho made you\b', r'\bwho built you\b',
-            r'\bwho created you\b',
+            r"\bhow are you\b",
+            r"\bhow\'s it going\b",
+            r"\bwhat\'s up\b",
+            r"\bhow do you do\b",
+            r"\bhow you doing\b",
+            r"\bhow\'s life\b",
+            r"\bhows life\b",
+            r"\bhow is life\b",
+            r"\bhows it going\b",
+            r"\bhow are things\b",
+            r"\bhow have you been\b",
+            r"\bhow\'s your day\b",
+            r"\bhows your day\b",
+            r"\bhow you been\b",
+            r"\bhow are u\b",
+            r"\bhow r u\b",
+            r"\bfeeling today\b",
+            r"\bhow\'s everything\b",
+            r"\bwhat\'s good\b",
+            r"\bwhat\'s new\b",
+            r"\bwhats up\b",
+            r"\bwhats new\b",
+            r"\bwhats good\b",
+            r"\bare you (a |an )?(real|human|person|bot|ai|robot|machine|program|computer)\b",
+            r"\bdo you have (feelings|emotions|a personality)\b",
+            r"\bare you alive\b",
+            r"\bwho made you\b",
+            r"\bwho built you\b",
+            r"\bwho created you\b",
         ]
-        _is_pure_greeting = (
-            any(re.search(p, _msg_lower) for p in _greeting_pats_start) or
-            any(re.search(p, _msg_lower) for p in _greeting_pats_anywhere)
-        )
+        _is_pure_greeting = any(
+            re.search(p, _msg_lower) for p in _greeting_pats_start
+        ) or any(re.search(p, _msg_lower) for p in _greeting_pats_anywhere)
         # Messages like "hi nova is this a bad wednesday?" are NOT pure greetings --
         # they start with a greeting word but contain a real question/comment after.
         # Only treat as pure greeting if the message is SHORT (greeting + maybe a name).
         if _is_pure_greeting:
             # Strip greeting prefix and check remaining content length
             _stripped = re.sub(
-                r'^(hi|hello|hey|hola|howdy|sup|yo|good\s+(morning|afternoon|evening|day))\b'
-                r'[\s,!.]*'  # trailing punctuation/space
-                r'(nova|there|buddy|friend|team|guys)?\b'  # optional addressee
-                r'[\s,!.]*',  # more trailing punctuation
-                '', _msg_lower, count=1
+                r"^(hi|hello|hey|hola|howdy|sup|yo|good\s+(morning|afternoon|evening|day))\b"
+                r"[\s,!.]*"  # trailing punctuation/space
+                r"(nova|there|buddy|friend|team|guys)?\b"  # optional addressee
+                r"[\s,!.]*",  # more trailing punctuation
+                "",
+                _msg_lower,
+                count=1,
             ).strip()
             # If there's substantial remaining content (> 3 words), it's NOT a pure greeting --
             # let it go to the LLM for a natural conversational response
@@ -3725,43 +5160,95 @@ When presenting budget projections:
                 _is_pure_greeting = False
         # Only treat as greeting if no data keywords are present
         if _is_pure_greeting:
-            _data_words = {"cpa", "cpc", "salary", "budget", "cost", "hire",
-                           "recruit", "benchmark", "board", "platform", "trend",
-                           "industry", "compare", "allocat", "campaign", "role"}
+            _data_words = {
+                "cpa",
+                "cpc",
+                "salary",
+                "budget",
+                "cost",
+                "hire",
+                "recruit",
+                "benchmark",
+                "board",
+                "platform",
+                "trend",
+                "industry",
+                "compare",
+                "allocat",
+                "campaign",
+                "role",
+            }
             if not any(dw in _msg_lower for dw in _data_words):
                 _nova_metrics.record_rule_based()
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 # Pick response based on type
-                if any(kw in _msg_lower for kw in ["bye", "goodbye", "later", "take care", "see you"]):
+                if any(
+                    kw in _msg_lower
+                    for kw in ["bye", "goodbye", "later", "take care", "see you"]
+                ):
                     _greeting_resp = (
                         "Thanks for chatting! Feel free to come back anytime you need "
                         "recruitment marketing insights. Have a great day!"
                     )
-                elif any(kw in _msg_lower for kw in ["thanks", "thank you", "thx", "ty"]):
+                elif any(
+                    kw in _msg_lower for kw in ["thanks", "thank you", "thx", "ty"]
+                ):
                     _greeting_resp = (
                         "You're welcome! Happy to help. Let me know if you have any "
                         "other recruitment marketing questions."
                     )
-                elif any(kw in _msg_lower for kw in [
-                    "who made you", "who built you", "who created you",
-                    "are you a bot", "are you ai", "are you a robot",
-                    "are you real", "are you human", "are you a machine",
-                    "are you a program", "are you a computer",
-                    "are you alive", "do you have feelings", "do you have emotions",
-                ]):
+                elif any(
+                    kw in _msg_lower
+                    for kw in [
+                        "who made you",
+                        "who built you",
+                        "who created you",
+                        "are you a bot",
+                        "are you ai",
+                        "are you a robot",
+                        "are you real",
+                        "are you human",
+                        "are you a machine",
+                        "are you a program",
+                        "are you a computer",
+                        "are you alive",
+                        "do you have feelings",
+                        "do you have emotions",
+                    ]
+                ):
                     _greeting_resp = (
                         "I'm Nova, built by the team at Joveo! I'm your recruitment "
                         "marketing intelligence assistant with access to data from 10,238+ "
                         "supply partners across 70+ countries. What can I help you with today?"
                     )
-                elif any(kw in _msg_lower for kw in [
-                    "how are you", "how's it going", "what's up", "how do you do",
-                    "how you doing", "how's life", "hows life", "how is life",
-                    "hows it going", "how are things", "how have you been",
-                    "how's your day", "hows your day", "how you been", "how are u",
-                    "feeling today", "how's everything", "what's good", "what's new",
-                    "whats up", "whats new", "whats good", "how r u",
-                ]):
+                elif any(
+                    kw in _msg_lower
+                    for kw in [
+                        "how are you",
+                        "how's it going",
+                        "what's up",
+                        "how do you do",
+                        "how you doing",
+                        "how's life",
+                        "hows life",
+                        "how is life",
+                        "hows it going",
+                        "how are things",
+                        "how have you been",
+                        "how's your day",
+                        "hows your day",
+                        "how you been",
+                        "how are u",
+                        "feeling today",
+                        "how's everything",
+                        "what's good",
+                        "what's new",
+                        "whats up",
+                        "whats new",
+                        "whats good",
+                        "how r u",
+                    ]
+                ):
                     _greeting_resp = (
                         "Thanks for asking! I'm always ready to help you find the best "
                         "recruitment strategies, salary benchmarks, and job board recommendations. "
@@ -3787,19 +5274,44 @@ When presenting budget projections:
         # Without this, messages like "NO good answer thanks" go to the LLM which
         # misinterprets them as negative feedback and apologises.
         _positive_feedback_phrases = [
-            "good answer", "great answer", "nice answer", "perfect answer",
-            "amazing answer", "excellent answer", "awesome answer",
-            "that was helpful", "very helpful", "super helpful",
-            "thanks for that", "thanks that helps", "that helped",
-            "well done", "good job", "nice one", "nailed it",
-            "that works", "makes sense", "good info", "great info",
-            "exactly what i needed", "just what i needed",
+            "good answer",
+            "great answer",
+            "nice answer",
+            "perfect answer",
+            "amazing answer",
+            "excellent answer",
+            "awesome answer",
+            "that was helpful",
+            "very helpful",
+            "super helpful",
+            "thanks for that",
+            "thanks that helps",
+            "that helped",
+            "well done",
+            "good job",
+            "nice one",
+            "nailed it",
+            "that works",
+            "makes sense",
+            "good info",
+            "great info",
+            "exactly what i needed",
+            "just what i needed",
         ]
         _negative_feedback_phrases = [
-            "bad answer", "wrong answer", "not helpful", "terrible answer",
-            "useless answer", "incorrect answer", "that's wrong",
-            "that is wrong", "completely wrong", "not what i asked",
-            "doesn't help", "didn't help", "not useful",
+            "bad answer",
+            "wrong answer",
+            "not helpful",
+            "terrible answer",
+            "useless answer",
+            "incorrect answer",
+            "that's wrong",
+            "that is wrong",
+            "completely wrong",
+            "not what i asked",
+            "doesn't help",
+            "didn't help",
+            "not useful",
         ]
         _has_positive = any(fp in _msg_lower for fp in _positive_feedback_phrases)
         _has_negative = any(fn in _msg_lower for fn in _negative_feedback_phrases)
@@ -3838,7 +5350,7 @@ When presenting budget projections:
         # 3. Claude API -> LAST RESORT paid fallback (only if free fails)
         # 4. Rule-based fallback
         _is_conversational = self._query_is_conversational(user_message)
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        api_key = os.environ.get("ANTHROPIC_API_KEY") or "".strip()
 
         # Path A: Conversational queries only -> free LLM providers (no tools)
         if _is_conversational:
@@ -3854,29 +5366,49 @@ When presenting budget projections:
                 resp_text = resp_text.replace("\u2019", "'").replace("\u2018", "'")
                 _no_data_signals = [
                     # Explicit data gaps
-                    "i don't have data", "i don't have specific data",
+                    "i don't have data",
+                    "i don't have specific data",
                     "i don't have enough data",
-                    "i don't have access", "i can't provide specific",
-                    "don't have reliable data", "i do not have data",
-                    "i'm not able to provide specific", "no data available",
+                    "i don't have access",
+                    "i can't provide specific",
+                    "don't have reliable data",
+                    "i do not have data",
+                    "i'm not able to provide specific",
+                    "no data available",
                     # Tightened: was "i cannot provide" -- too broad, could
                     # match policy refusals. Now requires data-related suffix.
-                    "i cannot provide specific", "i cannot provide data",
-                    "i cannot provide exact", "i cannot provide real-time",
+                    "i cannot provide specific",
+                    "i cannot provide data",
+                    "i cannot provide exact",
+                    "i cannot provide real-time",
                     # LLM hedging about missing real-time / current data
-                    "real-time data", "current data",
-                    "unable to access", "exact figures",
-                    "don't have real-time", "don't have current",
+                    "real-time data",
+                    "current data",
+                    "unable to access",
+                    "exact figures",
+                    "don't have real-time",
+                    "don't have current",
                 ]
                 if any(sig in resp_text for sig in _no_data_signals):
-                    logger.info("NOVA MODE: Path A response admits no data, escalating to tool path")
+                    logger.info(
+                        "NOVA MODE: Path A response admits no data, escalating to tool path"
+                    )
                     _is_conversational = False  # Force tool path below
                 else:
-                    logger.info("NOVA MODE: LLM Router (free provider, no tools) responded successfully")
+                    logger.info(
+                        "NOVA MODE: LLM Router (free provider, no tools) responded successfully"
+                    )
                     _nova_metrics.record_latency((time.time() - _t0) * 1000)
                     _nova_metrics.record_chat("conversational")
-                    router_result = _sanitize_refusal_language(_filter_competitor_names(router_result))
-                    if router_result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
+                    router_result = _sanitize_refusal_language(
+                        _filter_competitor_names(router_result)
+                    )
+                    if (
+                        router_result.get("confidence")
+                        or 0 >= 0.6
+                        and cache_key
+                        and len(history) <= 2
+                    ):
                         _set_response_cache(cache_key, router_result)
                     return router_result
 
@@ -3888,31 +5420,53 @@ When presenting budget projections:
                 user_message, conversation_history, enrichment_context
             )
             if free_tool_result:
-                logger.info("NOVA MODE: Free LLM with tools responded successfully (provider=%s)",
-                            free_tool_result.get("llm_provider", "unknown"))
+                logger.info(
+                    "NOVA MODE: Free LLM with tools responded successfully (provider=%s)",
+                    free_tool_result.get("llm_provider", "unknown"),
+                )
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 _nova_metrics.record_chat("tool")
-                free_tool_result = _sanitize_refusal_language(_filter_competitor_names(free_tool_result))
-                if free_tool_result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
+                free_tool_result = _sanitize_refusal_language(
+                    _filter_competitor_names(free_tool_result)
+                )
+                if (
+                    free_tool_result.get("confidence")
+                    or 0 >= 0.6
+                    and cache_key
+                    and len(history) <= 2
+                ):
                     _set_response_cache(cache_key, free_tool_result)
                 return free_tool_result
-            logger.info("NOVA MODE: Free LLM tools returned None, falling back to Claude")
+            logger.info(
+                "NOVA MODE: Free LLM tools returned None, falling back to Claude"
+            )
 
         # Path C: Claude API -- LAST RESORT paid fallback
         if api_key:
             try:
-                logger.info("NOVA MODE: Using Claude API (LAST RESORT paid) for chat%s",
-                            " (tool-use)" if not _is_conversational else " (router fallback)")
-                result = self._chat_with_claude(user_message, conversation_history, enrichment_context, api_key)
+                logger.info(
+                    "NOVA MODE: Using Claude API (LAST RESORT paid) for chat%s",
+                    " (tool-use)" if not _is_conversational else " (router fallback)",
+                )
+                result = self._chat_with_claude(
+                    user_message, conversation_history, enrichment_context, api_key
+                )
                 logger.info("NOVA MODE: Claude API response received successfully")
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 _nova_metrics.record_chat("claude")
                 result = _sanitize_refusal_language(_filter_competitor_names(result))
-                if result.get("confidence", 0) >= 0.6 and cache_key and len(history) <= 2:
+                if (
+                    result.get("confidence")
+                    or 0 >= 0.6
+                    and cache_key
+                    and len(history) <= 2
+                ):
                     _set_response_cache(cache_key, result)
                 return result
             except Exception as e:
-                logger.error("Claude API call failed, falling back to rule-based: %s", e)
+                logger.error(
+                    "Claude API call failed, falling back to rule-based: %s", e
+                )
                 _nova_metrics.record_api_error()
         else:
             logger.info("NOVA MODE: No ANTHROPIC_API_KEY set, using rule-based mode")
@@ -3920,18 +5474,24 @@ When presenting budget projections:
         # Rule-based fallback
         logger.info("NOVA MODE: Using rule-based fallback")
         _nova_metrics.record_rule_based()
-        result = self._chat_rule_based(user_message, enrichment_context, conversation_history)
+        result = self._chat_rule_based(
+            user_message, enrichment_context, conversation_history
+        )
         _nova_metrics.record_latency((time.time() - _t0) * 1000)
 
         # Hardcoded safety net: if rule-based also returned empty/None, ensure
         # the caller always gets a usable response dict.
         if not result or not (result.get("response") or "").strip():
-            logger.error("All LLM providers AND rule-based fallback failed for chat query: %s",
-                         user_message[:100])
+            logger.error(
+                "All LLM providers AND rule-based fallback failed for chat query: %s",
+                user_message[:100],
+            )
             result = {
-                "response": ("I'm temporarily unable to process your question due to connectivity issues "
-                             "with our AI providers. Please try again in a few minutes. "
-                             "If this persists, the system may be experiencing high load."),
+                "response": (
+                    "I'm temporarily unable to process your question due to connectivity issues "
+                    "with our AI providers. Please try again in a few minutes. "
+                    "If this persists, the system may be experiencing high load."
+                ),
                 "sources": [],
                 "confidence": 0.0,
                 "tools_used": [],
@@ -3946,68 +5506,132 @@ When presenting budget projections:
     # Keywords that signal the query needs data lookups (tool use).
     # NOTE: These are substring-matched against the lowered query.  Use short
     # stems where safe (e.g., "hire" matches "hire", "hired", "hires", "hiring").
-    _TOOL_TRIGGER_KEYWORDS = frozenset([
-        # Cost / pricing
-        # NOTE: "rate" removed (matches "elaborate", "generate", "celebrate")
-        # NOTE: "cost per" removed (redundant -- "cost" already catches it)
-        "benchmark", "cpc", "cpa", "cph", "cpm", "ctr",
-        "cost", "pricing",
-        # Compensation
-        "salary", "wage", "compensation", "pay range", "earning",
-        # Data / metrics
-        # NOTE: "data" removed from here -- matched via space-bounded check below
-        "compare", "statistics", "stats", "numbers", "metric",
-        "conversion", "volume", "estimate", "forecast", "projection",
-        # Industry / platform / channel
-        "industry", "platform", "channel", "source",
-        "indeed", "linkedin", "facebook", "google ads",
-        "ziprecruiter", "glassdoor", "appcast", "programmatic",
-        "job board", "jobboard", "social media",
-        # Labor market
-        # NOTE: "hiring" removed (redundant -- "hire" already matches it)
-        # NOTE: "hire" and "hiring" are NOT overlapping ("hire" != "hiri")
-        "trend", "jolts", "bls", "unemployment", "labor market",
-        "hire", "hiring", "recruit", "candidate", "applicant",
-        "opening", "vacancy", "talent",
-        # Strategy / planning
-        # NOTE: "plan" removed (matches "explanation", "complain", "explain")
-        "what if", "what-if", "simulate", "scenario", "decompose",
-        "strategy", "optimize", "campaign", "recommend",
-        "suggest", "alternative",
-        # Seniority / role analysis
-        "seniority", "junior", "senior", "skills gap", "skills-gap",
-        # Budget / financial
-        "budget", "allocation", "roi", "spend", "funnel",
-        # Location
-        # NOTE: "state" removed (matches "estate", "statement", "reinstate")
-        "location", "city", "region", "metro",
-        # Supply / demand
-        "supply", "demand",
-        # Joveo-specific
-        "publisher", "joveo", "source mix", "quality score",
-    ])
+    _TOOL_TRIGGER_KEYWORDS = frozenset(
+        [
+            # Cost / pricing
+            # NOTE: "rate" removed (matches "elaborate", "generate", "celebrate")
+            # NOTE: "cost per" removed (redundant -- "cost" already catches it)
+            "benchmark",
+            "cpc",
+            "cpa",
+            "cph",
+            "cpm",
+            "ctr",
+            "cost",
+            "pricing",
+            # Compensation
+            "salary",
+            "wage",
+            "compensation",
+            "pay range",
+            "earning",
+            # Data / metrics
+            # NOTE: "data" removed from here -- matched via space-bounded check below
+            "compare",
+            "statistics",
+            "stats",
+            "numbers",
+            "metric",
+            "conversion",
+            "volume",
+            "estimate",
+            "forecast",
+            "projection",
+            # Industry / platform / channel
+            "industry",
+            "platform",
+            "channel",
+            "source",
+            "indeed",
+            "linkedin",
+            "facebook",
+            "google ads",
+            "ziprecruiter",
+            "glassdoor",
+            "appcast",
+            "programmatic",
+            "job board",
+            "jobboard",
+            "social media",
+            # Labor market
+            # NOTE: "hiring" removed (redundant -- "hire" already matches it)
+            # NOTE: "hire" and "hiring" are NOT overlapping ("hire" != "hiri")
+            "trend",
+            "jolts",
+            "bls",
+            "unemployment",
+            "labor market",
+            "hire",
+            "hiring",
+            "recruit",
+            "candidate",
+            "applicant",
+            "opening",
+            "vacancy",
+            "talent",
+            # Strategy / planning
+            # NOTE: "plan" removed (matches "explanation", "complain", "explain")
+            "what if",
+            "what-if",
+            "simulate",
+            "scenario",
+            "decompose",
+            "strategy",
+            "optimize",
+            "campaign",
+            "recommend",
+            "suggest",
+            "alternative",
+            # Seniority / role analysis
+            "seniority",
+            "junior",
+            "senior",
+            "skills gap",
+            "skills-gap",
+            # Budget / financial
+            "budget",
+            "allocation",
+            "roi",
+            "spend",
+            "funnel",
+            # Location
+            # NOTE: "state" removed (matches "estate", "statement", "reinstate")
+            "location",
+            "city",
+            "region",
+            "metro",
+            # Supply / demand
+            "supply",
+            "demand",
+            # Joveo-specific
+            "publisher",
+            "joveo",
+            "source mix",
+            "quality score",
+        ]
+    )
 
     # Patterns that are DEFINITELY conversational (no tools needed).
     # Used by _query_is_conversational() to identify greetings, meta-questions, etc.
     _CONVERSATIONAL_PATTERNS = [
         # Greetings
-        r'^(hi|hello|hey|good morning|good afternoon|good evening)\b',
-        r'^(thanks|thank you|thx|ty)\b',
+        r"^(hi|hello|hey|good morning|good afternoon|good evening)\b",
+        r"^(thanks|thank you|thx|ty)\b",
         # Meta / about Nova
-        r'\b(who are you|what can you do|what are you|your name)\b',
+        r"\b(who are you|what can you do|what are you|your name)\b",
         # Casual chat
-        r'^(how are you|how\'s it going|what\'s up)\b',
+        r"^(how are you|how\'s it going|what\'s up)\b",
         # Simple yes/no/ok acknowledgements
-        r'^(yes|no|ok|okay|sure|got it|understood|sounds good|great|awesome|perfect)\s*[.!?]?$',
+        r"^(yes|no|ok|okay|sure|got it|understood|sounds good|great|awesome|perfect)\s*[.!?]?$",
         # User feedback / acknowledgements (will be caught by feedback early-exit first,
         # but this ensures they're classified as conversational if they slip through)
-        r'\b(good|great|nice|perfect|amazing|excellent|awesome|bad|wrong|terrible)\s+answer\b',
-        r'\b(that was|very|super)\s+(helpful|useful)\b',
-        r'\b(thanks for (that|the info|the help|your help))\b',
+        r"\b(good|great|nice|perfect|amazing|excellent|awesome|bad|wrong|terrible)\s+answer\b",
+        r"\b(that was|very|super)\s+(helpful|useful)\b",
+        r"\b(thanks for (that|the info|the help|your help))\b",
         # Pleasantries / generic help (no domain specifics)
-        r'^(please|could you please)\s+(help|assist)\s*$',
+        r"^(please|could you please)\s+(help|assist)\s*$",
         # Farewells
-        r'^(bye|goodbye|see you|later|take care)\b',
+        r"^(bye|goodbye|see you|later|take care)\b",
     ]
 
     def _query_is_conversational(self, query: str) -> bool:
@@ -4029,17 +5653,27 @@ When presenting budget projections:
         keyword_hits = sum(1 for kw in self._TOOL_TRIGGER_KEYWORDS if kw in q)
         # Space-bounded keywords
         for sbk in ["data"]:
-            if re.search(r'(?<![a-z])' + re.escape(sbk) + r'(?![a-z])', q):
+            if re.search(r"(?<![a-z])" + re.escape(sbk) + r"(?![a-z])", q):
                 keyword_hits += 1
 
         if keyword_hits > 0:
             return False  # Has data keywords -> use tools
 
         # Explicit data-request verbs -> NOT conversational
-        if any(p in q for p in [
-            "pull data", "look up", "fetch", "get me", "find me",
-            "search for", "break down", "breakdown", "decompose",
-        ]):
+        if any(
+            p in q
+            for p in [
+                "pull data",
+                "look up",
+                "fetch",
+                "get me",
+                "find me",
+                "search for",
+                "break down",
+                "breakdown",
+                "decompose",
+            ]
+        ):
             return False
 
         # Check known conversational patterns
@@ -4051,17 +5685,37 @@ When presenting budget projections:
         # e.g., "ok thanks" (3 words), "got it" (2 words)
         # But NOT "how is the market" (has question word) or "tell me about retention"
         words = q.split()
-        _question_starters = {"how", "what", "which", "where", "when", "why", "who",
-                              "tell", "show", "give", "compare", "explain", "describe"}
-        if len(words) < 4 and keyword_hits == 0 and not (words and words[0] in _question_starters):
+        _question_starters = {
+            "how",
+            "what",
+            "which",
+            "where",
+            "when",
+            "why",
+            "who",
+            "tell",
+            "show",
+            "give",
+            "compare",
+            "explain",
+            "describe",
+        }
+        if (
+            len(words) < 4
+            and keyword_hits == 0
+            and not (words and words[0] in _question_starters)
+        ):
             return True
 
         # DEFAULT: NOT conversational -> use tools (SAFE default)
         return False
 
-    def _chat_with_llm_router(self, user_message: str,
-                               conversation_history: Optional[list],
-                               enrichment_context: Optional[dict]) -> Optional[dict]:
+    def _chat_with_llm_router(
+        self,
+        user_message: str,
+        conversation_history: Optional[list],
+        enrichment_context: Optional[dict],
+    ) -> Optional[dict]:
         """Try free LLM providers via the LLM Router for conversational queries.
 
         Returns a response dict on success, or None to signal fallback to Claude.
@@ -4074,8 +5728,11 @@ When presenting budget projections:
 
         # Check if any free provider is configured
         status = get_router_status()
-        available = [p for p, s in status.get("providers", {}).items()
-                     if s.get("configured") and p != "anthropic"]
+        available = [
+            p
+            for p, s in status.get("providers", {}).items()
+            if s.get("configured") and p != "anthropic"
+        ]
         if not available:
             logger.debug("No free LLM providers configured, skipping router")
             return None
@@ -4086,7 +5743,7 @@ When presenting budget projections:
             recent = conversation_history[-6:]  # Keep recent context
             for msg in recent:
                 role = msg.get("role", "user")
-                content = msg.get("content", "")
+                content = msg.get("content") or ""
                 if role in ("user", "assistant") and content:
                     messages.append({"role": role, "content": content})
         messages.append({"role": "user", "content": user_message})
@@ -4128,8 +5785,11 @@ When presenting budget projections:
 
         try:
             task_type = classify_task(user_message)
-            logger.info("NOVA LLM Router: task_type=%s, available_providers=%s",
-                        task_type, available)
+            logger.info(
+                "NOVA LLM Router: task_type=%s, available_providers=%s",
+                task_type,
+                available,
+            )
 
             result = call_llm(
                 messages=messages,
@@ -4163,13 +5823,22 @@ When presenting budget projections:
 
     # Provider IDs that support OpenAI-compatible tool calling (free tier)
     _FREE_TOOL_PROVIDERS = [
-        "groq", "cerebras", "mistral", "xai", "sambanova",
-        "openrouter", "nvidia_nim", "cloudflare",
+        "groq",
+        "cerebras",
+        "mistral",
+        "xai",
+        "sambanova",
+        "openrouter",
+        "nvidia_nim",
+        "cloudflare",
     ]
 
-    def _chat_with_free_llm_tools(self, user_message: str,
-                                   conversation_history: Optional[list],
-                                   enrichment_context: Optional[dict]) -> Optional[dict]:
+    def _chat_with_free_llm_tools(
+        self,
+        user_message: str,
+        conversation_history: Optional[list],
+        enrichment_context: Optional[dict],
+    ) -> Optional[dict]:
         """Try free LLM providers WITH tool calling via OpenAI-compatible format.
 
         Multi-turn tool iteration loop (max 3 iterations to respect rate limits).
@@ -4185,7 +5854,9 @@ When presenting budget projections:
         try:
             from llm_router import call_llm, classify_task, TASK_COMPLEX
         except ImportError:
-            logger.debug("llm_router module not available, skipping free LLM tools path")
+            logger.debug(
+                "llm_router module not available, skipping free LLM tools path"
+            )
             return None
 
         # Build messages
@@ -4194,8 +5865,12 @@ When presenting budget projections:
             recent = conversation_history[-6:]
             for msg in recent:
                 role = msg.get("role", "user")
-                content = msg.get("content", "")
-                if role in ("user", "assistant") and isinstance(content, str) and content:
+                content = msg.get("content") or ""
+                if (
+                    role in ("user", "assistant")
+                    and isinstance(content, str)
+                    and content
+                ):
                     messages.append({"role": role, "content": content})
         messages.append({"role": "user", "content": user_message})
 
@@ -4268,7 +5943,9 @@ When presenting budget projections:
         sources = set()
         tool_call_details = []
         tool_results_raw = []
-        max_iterations = 3  # Conservative: 3 iterations to respect free-tier rate limits
+        max_iterations = (
+            3  # Conservative: 3 iterations to respect free-tier rate limits
+        )
         active_provider = None  # Lock to same provider for multi-turn
 
         task_type = classify_task(user_message)
@@ -4290,11 +5967,17 @@ When presenting budget projections:
                         force_provider=active_provider,
                         query_text=user_message,
                     )
-                    if not result or result.get("error") or not (
-                        result.get("text") or result.get("tool_calls")
+                    if (
+                        not result
+                        or result.get("error")
+                        or not (result.get("text") or result.get("tool_calls"))
                     ):
-                        logger.warning("Free LLM tools: forced provider %s failed on iter %d, "
-                                       "bailing to Claude", active_provider, iteration)
+                        logger.warning(
+                            "Free LLM tools: forced provider %s failed on iter %d, "
+                            "bailing to Claude",
+                            active_provider,
+                            iteration,
+                        )
                         return None
                 else:
                     # First call: let router pick best available free provider
@@ -4312,16 +5995,21 @@ When presenting budget projections:
                     # so the dedicated _chat_with_claude path handles it instead
                     _PAID_PROVIDERS = {"gpt4o", "claude", "claude_opus"}
                     if active_provider in _PAID_PROVIDERS:
-                        logger.info("Free LLM tools: router fell through to paid provider %s, "
-                                    "returning None for Claude fallback path", active_provider)
+                        logger.info(
+                            "Free LLM tools: router fell through to paid provider %s, "
+                            "returning None for Claude fallback path",
+                            active_provider,
+                        )
                         return None
             except Exception as e:
                 logger.warning("Free LLM tools call failed (iter %d): %s", iteration, e)
                 return None  # Fall back to Claude
 
             if not result or result.get("error"):
-                logger.warning("Free LLM tools: provider returned error: %s",
-                               (result or {}).get("error", "unknown"))
+                logger.warning(
+                    "Free LLM tools: provider returned error: %s",
+                    (result or {}).get("error", "unknown"),
+                )
                 return None  # Fall back to Claude
 
             # Check if this is a tool_calls response
@@ -4329,11 +6017,19 @@ When presenting budget projections:
             if tool_calls:
                 # Guard: cap tool calls per response to prevent hallucinated bulk calls
                 if len(tool_calls) > 5:
-                    logger.warning("Free LLM tools: %s returned %d tool_calls (>5 limit), "
-                                   "truncating to 5", active_provider, len(tool_calls))
+                    logger.warning(
+                        "Free LLM tools: %s returned %d tool_calls (>5 limit), "
+                        "truncating to 5",
+                        active_provider,
+                        len(tool_calls),
+                    )
                     tool_calls = tool_calls[:5]
-                logger.info("Free LLM tools: %s returned %d tool_calls (iter %d)",
-                            active_provider, len(tool_calls), iteration)
+                logger.info(
+                    "Free LLM tools: %s returned %d tool_calls (iter %d)",
+                    active_provider,
+                    len(tool_calls),
+                    iteration,
+                )
 
                 # Build assistant message with tool_calls for conversation history
                 raw_message = result.get("raw_message", {})
@@ -4346,28 +6042,43 @@ When presenting budget projections:
 
                 # Execute each tool call
                 for tc in tool_calls:
-                    tc_id = tc.get("id", "")
+                    tc_id = tc.get("id") or ""
                     tc_fn = tc.get("function", {})
-                    tool_name = tc_fn.get("name", "")
+                    tool_name = tc_fn.get("name") or ""
                     arguments_str = tc_fn.get("arguments", "{}")
 
                     # Parse arguments JSON (free models sometimes return malformed JSON)
                     try:
-                        tool_input = json.loads(arguments_str) if isinstance(arguments_str, str) else arguments_str
+                        tool_input = (
+                            json.loads(arguments_str)
+                            if isinstance(arguments_str, str)
+                            else arguments_str
+                        )
                     except (json.JSONDecodeError, TypeError):
-                        logger.warning("Free LLM tools: malformed JSON in tool args for %s: %s",
-                                       tool_name, arguments_str[:200])
+                        logger.warning(
+                            "Free LLM tools: malformed JSON in tool args for %s: %s",
+                            tool_name,
+                            arguments_str[:200],
+                        )
                         tool_input = {}
 
                     # Validate tool exists before executing (dynamic lookup from execute_tool)
                     _valid_tools = set(self._get_tool_handler_names())
                     if tool_name not in _valid_tools:
-                        logger.warning("Free LLM tools: hallucinated tool name '%s', skipping", tool_name)
-                        tool_result_content = json.dumps({"error": f"Unknown tool: {tool_name}"})
+                        logger.warning(
+                            "Free LLM tools: hallucinated tool name '%s', skipping",
+                            tool_name,
+                        )
+                        tool_result_content = json.dumps(
+                            {"error": f"Unknown tool: {tool_name}"}
+                        )
                     else:
                         tools_used.append(tool_name)
-                        logger.info("Free LLM tools: executing %s(%s)",
-                                    tool_name, json.dumps(tool_input)[:200])
+                        logger.info(
+                            "Free LLM tools: executing %s(%s)",
+                            tool_name,
+                            json.dumps(tool_input)[:200],
+                        )
                         tool_result_content = self.execute_tool(tool_name, tool_input)
 
                     # Track source and data quality
@@ -4377,16 +6088,22 @@ When presenting budget projections:
                         if "source" in result_parsed:
                             sources.add(result_parsed["source"])
                         has_data = not result_parsed.get("error")
-                        tool_call_details.append({
-                            "tool": tool_name,
-                            "has_data": has_data,
-                            "source": result_parsed.get("source", ""),
-                        })
+                        tool_call_details.append(
+                            {
+                                "tool": tool_name,
+                                "has_data": has_data,
+                                "source": result_parsed.get("source") or "",
+                            }
+                        )
                     except (json.JSONDecodeError, TypeError):
                         has_data = bool(tool_result_content)
-                        tool_call_details.append({
-                            "tool": tool_name, "has_data": has_data, "source": "",
-                        })
+                        tool_call_details.append(
+                            {
+                                "tool": tool_name,
+                                "has_data": has_data,
+                                "source": "",
+                            }
+                        )
 
                     tool_results_raw.append(tool_result_content)
 
@@ -4397,15 +6114,18 @@ When presenting budget projections:
                             "Instead: provide general industry benchmarks or ranges for the closest "
                             "matching role/industry/location. Share strategic recommendations based on "
                             "your recruitment marketing expertise. NEVER say 'I can't help' or "
-                            "'I don't have data' -- always provide value with appropriate caveats.]\n" + tool_result_content
+                            "'I don't have data' -- always provide value with appropriate caveats.]\n"
+                            + tool_result_content
                         )
 
                     # Add tool result to conversation (OpenAI format)
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tc_id,
-                        "content": tool_result_content,
-                    })
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc_id,
+                            "content": tool_result_content,
+                        }
+                    )
 
                 # Continue loop for next LLM iteration with tool results
                 continue
@@ -4413,20 +6133,26 @@ When presenting budget projections:
             # No tool_calls -- this is the final text response
             response_text = (result.get("text") or "").strip()
             if not response_text:
-                logger.warning("Free LLM tools: empty text response from %s", active_provider)
+                logger.warning(
+                    "Free LLM tools: empty text response from %s", active_provider
+                )
                 return None  # Fall back to Claude
 
             # Quality gate: reject obviously bad responses
             if len(response_text) < 20:
-                logger.warning("Free LLM tools: response too short (%d chars), falling back",
-                               len(response_text))
+                logger.warning(
+                    "Free LLM tools: response too short (%d chars), falling back",
+                    len(response_text),
+                )
                 return None
 
             # Quality gate (v3.5.1): detect refusal/inability patterns and
             # fall back to Claude.  Two cases:
             # Case A: LLM returned text WITHOUT calling any tools (ignored them)
             # Case B: LLM called tools but STILL said "I can't help" in response
-            _resp_lower = response_text.lower().replace("\u2019", "'").replace("\u2018", "'")
+            _resp_lower = (
+                response_text.lower().replace("\u2019", "'").replace("\u2018", "'")
+            )
             _refusal_signals = [
                 "i don't have the capability",
                 "i don't have access to real-time",
@@ -4477,7 +6203,8 @@ When presenting budget projections:
                 logger.warning(
                     "Free LLM tools: REJECTED refusal-with-tools response from %s "
                     "(LLM called %d tools but still refused to answer) -- falling back to Claude",
-                    active_provider, len(tools_used),
+                    active_provider,
+                    len(tools_used),
                 )
                 _nova_metrics.record_chat("suppressed")
                 return None  # Fall back to Claude
@@ -4491,8 +6218,8 @@ When presenting budget projections:
             verification_status = "skipped"
             verification_score = 1.0
             try:
-                response_text, verification_score, verification_status = _llm_verify_response(
-                    response_text, tool_results_raw, user_message
+                response_text, verification_score, verification_status = (
+                    _llm_verify_response(response_text, tool_results_raw, user_message)
                 )
             except Exception:
                 verification_status = "error"
@@ -4504,24 +6231,35 @@ When presenting budget projections:
                 logger.warning(
                     "Free LLM tools: SUPPRESSED response (combined=%.2f, "
                     "grounding=%.2f, verification=%.2f) -- falling back to Claude",
-                    combined_score, grounding_score, verification_score,
+                    combined_score,
+                    grounding_score,
+                    verification_score,
                 )
                 _nova_metrics.record_chat("suppressed")
                 return None  # Fall back to Claude
 
             # Build confidence breakdown
             confidence_breakdown = _build_confidence_breakdown(
-                tools_used, sources, tool_call_details,
+                tools_used,
+                sources,
+                tool_call_details,
                 verification_status=verification_status,
                 grounding_score=grounding_score,
             )
             if grounding_score < 0.5:
-                confidence_breakdown["overall"] = min(confidence_breakdown["overall"], 0.6)
+                confidence_breakdown["overall"] = min(
+                    confidence_breakdown["overall"], 0.6
+                )
 
             provider = result.get("provider", "unknown")
             model = result.get("model", "unknown")
-            logger.info("Free LLM tools: SUCCESS via %s/%s -- %d tools, %d iterations",
-                        provider, model, len(tools_used), iteration + 1)
+            logger.info(
+                "Free LLM tools: SUCCESS via %s/%s -- %d tools, %d iterations",
+                provider,
+                model,
+                len(tools_used),
+                iteration + 1,
+            )
 
             return {
                 "response": response_text,
@@ -4538,11 +6276,19 @@ When presenting budget projections:
             }
 
         # Exhausted iterations without final text
-        logger.warning("Free LLM tools: exhausted %d iterations without final response", max_iterations)
+        logger.warning(
+            "Free LLM tools: exhausted %d iterations without final response",
+            max_iterations,
+        )
         return None  # Fall back to Claude
 
-    def _chat_with_claude(self, user_message: str, conversation_history: Optional[list],
-                          enrichment_context: Optional[dict], api_key: str) -> dict:
+    def _chat_with_claude(
+        self,
+        user_message: str,
+        conversation_history: Optional[list],
+        enrichment_context: Optional[dict],
+        api_key: str,
+    ) -> dict:
         """Use Claude API for natural-language chat with tool use.
 
         Features:
@@ -4578,7 +6324,7 @@ When presenting budget projections:
             recent_history = conversation_history[-MAX_HISTORY_TURNS:]
             for msg in recent_history:
                 role = msg.get("role", "user")
-                content = msg.get("content", "")
+                content = msg.get("content") or ""
                 if role in ("user", "assistant") and content:
                     messages.append({"role": role, "content": content})
 
@@ -4592,8 +6338,12 @@ When presenting budget projections:
         max_iterations = 8  # Allow more iterations for complex multi-tool queries
 
         adaptive_max_tokens, selected_model = _classify_query_complexity(user_message)
-        logger.info("Nova model selection: %s (max_tokens=%d) for query: %.60s...",
-                     selected_model, adaptive_max_tokens, user_message)
+        logger.info(
+            "Nova model selection: %s (max_tokens=%d) for query: %.60s...",
+            selected_model,
+            adaptive_max_tokens,
+            user_message,
+        )
         tool_defs = self.get_tool_definitions()
 
         # --- Prompt caching: split static system prompt from dynamic context ---
@@ -4610,16 +6360,22 @@ When presenting budget projections:
         dynamic_parts = []
         if enrichment_context:
             context_summary = _summarize_enrichment(enrichment_context)
-            dynamic_parts.append(f"## ACTIVE SESSION CONTEXT\nThe user is working on a media plan with the following parameters:\n{context_summary}\nUse this context to provide more relevant answers.")
+            dynamic_parts.append(
+                f"## ACTIVE SESSION CONTEXT\nThe user is working on a media plan with the following parameters:\n{context_summary}\nUse this context to provide more relevant answers."
+            )
         if conversation_history and len(conversation_history) > 2:
             memory_summary = _build_conversation_memory(conversation_history)
             if memory_summary:
-                dynamic_parts.append(f"## CONVERSATION MEMORY\nKey context from this conversation so far:\n{memory_summary}")
+                dynamic_parts.append(
+                    f"## CONVERSATION MEMORY\nKey context from this conversation so far:\n{memory_summary}"
+                )
         if dynamic_parts:
-            system_content.append({
-                "type": "text",
-                "text": "\n\n".join(dynamic_parts),
-            })
+            system_content.append(
+                {
+                    "type": "text",
+                    "text": "\n\n".join(dynamic_parts),
+                }
+            )
 
         # Cache ALL tool definitions (they're identical across requests)
         if tool_defs:
@@ -4661,16 +6417,23 @@ When presenting budget projections:
 
             # Track token usage from API response
             _usage = resp_data.get("usage", {})
-            _in_tok = _usage.get("input_tokens", 0)
-            _out_tok = _usage.get("output_tokens", 0)
-            _cache_create = _usage.get("cache_creation_input_tokens", 0)
-            _cache_read = _usage.get("cache_read_input_tokens", 0)
-            _nova_metrics.record_claude_call(_in_tok, _out_tok, _cache_create, _cache_read)
-            logger.info("Nova tokens: in=%d out=%d cache_read=%d cache_create=%d",
-                        _in_tok, _out_tok, _cache_read, _cache_create)
+            _in_tok = _usage.get("input_tokens") or 0
+            _out_tok = _usage.get("output_tokens") or 0
+            _cache_create = _usage.get("cache_creation_input_tokens") or 0
+            _cache_read = _usage.get("cache_read_input_tokens") or 0
+            _nova_metrics.record_claude_call(
+                _in_tok, _out_tok, _cache_create, _cache_read
+            )
+            logger.info(
+                "Nova tokens: in=%d out=%d cache_read=%d cache_create=%d",
+                _in_tok,
+                _out_tok,
+                _cache_read,
+                _cache_create,
+            )
 
             stop_reason = resp_data.get("stop_reason", "end_turn")
-            content_blocks = resp_data.get("content", [])
+            content_blocks = resp_data.get("content") or []
 
             if stop_reason == "tool_use":
                 # Process tool calls
@@ -4679,36 +6442,48 @@ When presenting budget projections:
                     if block.get("type") == "tool_use":
                         tool_name = block["name"]
                         tool_input = block.get("input", {})
-                        tool_id = block.get("id", "")
+                        tool_id = block.get("id") or ""
 
                         tools_used.append(tool_name)
-                        logger.info("Nova Claude: tool call [%d] %s(%s)",
-                                    iteration, tool_name, json.dumps(tool_input)[:200])
+                        logger.info(
+                            "Nova Claude: tool call [%d] %s(%s)",
+                            iteration,
+                            tool_name,
+                            json.dumps(tool_input)[:200],
+                        )
 
                         tool_result = self.execute_tool(tool_name, tool_input)
 
                         # Track source from result
-                        has_data = False  # Default: assume no data until proven otherwise
+                        has_data = (
+                            False  # Default: assume no data until proven otherwise
+                        )
                         try:
                             result_parsed = json.loads(tool_result)
                             if "source" in result_parsed:
                                 sources.add(result_parsed["source"])
                             # Track tool details for confidence scoring
                             has_data = not result_parsed.get("error")
-                            tool_call_details.append({
-                                "tool": tool_name,
-                                "has_data": has_data,
-                                "source": result_parsed.get("source", ""),
-                            })
+                            tool_call_details.append(
+                                {
+                                    "tool": tool_name,
+                                    "has_data": has_data,
+                                    "source": result_parsed.get("source") or "",
+                                }
+                            )
                         except (json.JSONDecodeError, TypeError):
                             has_data = bool(tool_result)
-                            tool_call_details.append({
-                                "tool": tool_name,
-                                "has_data": has_data,
-                                "source": "",
-                            })
+                            tool_call_details.append(
+                                {
+                                    "tool": tool_name,
+                                    "has_data": has_data,
+                                    "source": "",
+                                }
+                            )
 
-                        tool_results_raw.append(tool_result)  # For grounding verification
+                        tool_results_raw.append(
+                            tool_result
+                        )  # For grounding verification
                         # Add guardrail for tool errors to prevent hallucination
                         tool_content = tool_result
                         if not has_data:
@@ -4717,13 +6492,16 @@ When presenting budget projections:
                                 "Instead: provide general industry benchmarks or ranges for the closest "
                                 "matching role/industry/location. Share strategic recommendations based on "
                                 "your recruitment marketing expertise. NEVER say 'I can't help' or "
-                                "'I don't have data' -- always provide value with appropriate caveats.]\n" + tool_result
+                                "'I don't have data' -- always provide value with appropriate caveats.]\n"
+                                + tool_result
                             )
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": tool_id,
-                            "content": tool_content,
-                        })
+                        tool_results.append(
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": tool_id,
+                                "content": tool_content,
+                            }
+                        )
 
                 # Add assistant message with tool_use blocks and tool results
                 messages.append({"role": "assistant", "content": content_blocks})
@@ -4733,7 +6511,7 @@ When presenting budget projections:
                 response_text = ""
                 for block in content_blocks:
                     if block.get("type") == "text":
-                        response_text += block.get("text", "")
+                        response_text += block.get("text") or ""
 
                 # Source-grounded verification: check numbers trace to tool data
                 response_text, grounding_score = _verify_response_grounding(
@@ -4744,8 +6522,10 @@ When presenting budget projections:
                 verification_status = "skipped"
                 verification_score = 1.0
                 try:
-                    response_text, verification_score, verification_status = _llm_verify_response(
-                        response_text, tool_results_raw, user_message
+                    response_text, verification_score, verification_status = (
+                        _llm_verify_response(
+                            response_text, tool_results_raw, user_message
+                        )
                     )
                 except Exception:
                     verification_status = "error"
@@ -4753,7 +6533,11 @@ When presenting budget projections:
 
                 # Suppression gate (v3.5): if response ignores tool data, re-prompt once
                 combined_score = min(grounding_score, verification_score)
-                if combined_score < 0.4 and tool_results_raw and iteration < max_iterations - 1:
+                if (
+                    combined_score < 0.4
+                    and tool_results_raw
+                    and iteration < max_iterations - 1
+                ):
                     logger.warning(
                         "Claude: response ignored tool data (combined=%.2f), re-prompting",
                         combined_score,
@@ -4761,11 +6545,16 @@ When presenting budget projections:
                     _nova_metrics.record_chat("suppressed")
                     # Re-prompt Claude to actually use the tool data
                     messages.append({"role": "assistant", "content": response_text})
-                    messages.append({"role": "user", "content": (
-                        "Your previous answer did not use the data from the tools. "
-                        "Please answer again using ONLY the specific numbers and facts "
-                        "from the tool results above. Do NOT use general knowledge."
-                    )})
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "Your previous answer did not use the data from the tools. "
+                                "Please answer again using ONLY the specific numbers and facts "
+                                "from the tool results above. Do NOT use general knowledge."
+                            ),
+                        }
+                    )
                     continue  # Re-enter iteration loop for one more try
                 elif combined_score < 0.4 and tool_results_raw:
                     # Last iteration and still bad -- log warning, serve response with low confidence
@@ -4778,16 +6567,22 @@ When presenting budget projections:
 
                 # Build structured confidence breakdown
                 confidence_breakdown = _build_confidence_breakdown(
-                    tools_used, sources, tool_call_details,
+                    tools_used,
+                    sources,
+                    tool_call_details,
                     verification_status=verification_status,
                     grounding_score=grounding_score,
                 )
 
                 # Penalize confidence if grounding is poor
                 if grounding_score < 0.5:
-                    confidence_breakdown["overall"] = min(confidence_breakdown["overall"], 0.6)
+                    confidence_breakdown["overall"] = min(
+                        confidence_breakdown["overall"], 0.6
+                    )
                     if confidence_breakdown["overall"] < 0.60:
-                        confidence_breakdown["grade"] = "D" if confidence_breakdown["overall"] >= 0.45 else "F"
+                        confidence_breakdown["grade"] = (
+                            "D" if confidence_breakdown["overall"] >= 0.45 else "F"
+                        )
                     elif confidence_breakdown["overall"] < 0.75:
                         confidence_breakdown["grade"] = "C"
 
@@ -4807,13 +6602,18 @@ When presenting budget projections:
         partial_text = ""
         for block in content_blocks:
             if block.get("type") == "text":
-                partial_text += block.get("text", "")
+                partial_text += block.get("text") or ""
 
         if partial_text:
             return {
-                "response": partial_text + "\n\n_Note: I used all available tool iterations. Some data may be incomplete._",
+                "response": partial_text
+                + "\n\n_Note: I used all available tool iterations. Some data may be incomplete._",
                 "sources": list(sources),
-                "confidence": max(0.3, _estimate_confidence_v2(tools_used, sources, tool_call_details) - 0.1),
+                "confidence": max(
+                    0.3,
+                    _estimate_confidence_v2(tools_used, sources, tool_call_details)
+                    - 0.1,
+                ),
                 "tools_used": tools_used,
                 "tool_iterations": max_iterations,
             }
@@ -4826,8 +6626,12 @@ When presenting budget projections:
             "tool_iterations": max_iterations,
         }
 
-    def _chat_rule_based(self, user_message: str, enrichment_context: Optional[dict] = None,
-                         conversation_history: Optional[list] = None) -> dict:
+    def _chat_rule_based(
+        self,
+        user_message: str,
+        enrichment_context: Optional[dict] = None,
+        conversation_history: Optional[list] = None,
+    ) -> dict:
         """Rule-based chat engine using keyword matching and data lookups."""
         msg_lower = user_message.lower()
         tools_used = []
@@ -4843,10 +6647,17 @@ When presenting budget projections:
         # MEDIUM 2 FIX: Detect ALL countries for multi-country queries
         all_detected_countries = _detect_all_countries(user_message)
         is_multi_country = len(all_detected_countries) >= 2
-        _is_comparison = any(kw in msg_lower for kw in [
-            "compare", "versus", " vs ", "difference between",
-            "comparing", "comparison",
-        ])
+        _is_comparison = any(
+            kw in msg_lower
+            for kw in [
+                "compare",
+                "versus",
+                " vs ",
+                "difference between",
+                "comparing",
+                "comparison",
+            ]
+        )
 
         # ── Conversation context: detect follow-up intent from history ──
         _last_intent = None
@@ -4854,78 +6665,192 @@ When presenting budget projections:
         if conversation_history:
             for prev_msg in reversed(conversation_history):
                 if prev_msg.get("role") == "user":
-                    prev_text = prev_msg.get("content", "").lower()
-                    if any(kw in prev_text for kw in ["salary", "compensation", "pay range", "wage"]):
+                    prev_text = prev_msg.get("content") or "".lower()
+                    if any(
+                        kw in prev_text
+                        for kw in ["salary", "compensation", "pay range", "wage"]
+                    ):
                         _last_intent = "salary"
                         # Try to extract the role from the previous salary question
                         prev_roles = _detect_keywords(prev_text, _ROLE_KEYWORDS)
                         if prev_roles:
                             _prev_role = _pick_best_role(prev_roles, prev_text)
                             _role_titles = {
-                                "nursing": "Registered Nurse", "engineering": "Software Engineer",
-                                "technology": "Software Developer", "healthcare": "Healthcare Professional",
-                                "retail": "Retail Associate", "hospitality": "Hospitality Worker",
-                                "transportation": "CDL Driver", "finance": "Financial Analyst",
-                                "executive": "Senior Executive", "hourly": "Hourly Worker",
-                                "education": "Teacher", "construction": "Construction Worker",
-                                "sales": "Sales Representative", "marketing": "Marketing Manager",
+                                "nursing": "Registered Nurse",
+                                "engineering": "Software Engineer",
+                                "technology": "Software Developer",
+                                "healthcare": "Healthcare Professional",
+                                "retail": "Retail Associate",
+                                "hospitality": "Hospitality Worker",
+                                "transportation": "CDL Driver",
+                                "finance": "Financial Analyst",
+                                "executive": "Senior Executive",
+                                "hourly": "Hourly Worker",
+                                "education": "Teacher",
+                                "construction": "Construction Worker",
+                                "sales": "Sales Representative",
+                                "marketing": "Marketing Manager",
                                 "remote": "Remote Worker",
                             }
-                            _last_role_title = _role_titles.get(_prev_role, _prev_role.title())
+                            _last_role_title = _role_titles.get(
+                                _prev_role, _prev_role.title()
+                            )
                     elif any(kw in prev_text for kw in ["budget", "allocat", "spend"]):
                         _last_intent = "budget"
-                    elif any(kw in prev_text for kw in ["publisher", "job board", "board"]):
+                    elif any(
+                        kw in prev_text for kw in ["publisher", "job board", "board"]
+                    ):
                         _last_intent = "publisher"
                     elif any(kw in prev_text for kw in ["benchmark", "cpc", "cpa"]):
                         _last_intent = "benchmark"
                     break
 
         # Detect question type
-        is_publisher_question = any(kw in msg_lower for kw in ["publisher", "job board", "board", "where to post", "which board"])
-        is_channel_question = any(kw in msg_lower for kw in ["channel", "source", "platform",
-                                                                "where to advertise",
-                                                                "non-traditional", "nontraditional"])
-        is_budget_question = any(kw in msg_lower for kw in ["budget", "allocat", "spend", "invest",
-                                                                "roi", "$", "media plan", "hiring plan",
-                                                                "cost projection", "cost estimate"])
-        is_benchmark_question = any(kw in msg_lower for kw in ["benchmark", "average", "industry average",
-                                                                    "typical", "programmatic"])
-        is_salary_question = "salary" in detected_metrics or any(kw in msg_lower for kw in ["salary", "compensation", "pay range", "wage"])
-        is_dei_question = any(kw in msg_lower for kw in ["dei", "diversity", "inclusion", "women", "minority", "veteran", "disability"])
-        is_trend_question = any(kw in msg_lower for kw in ["trend", "future", "outlook", "forecast", "what's new", "emerging"])
-        is_cpc_cpa_question = "cpc" in detected_metrics or "cpa" in detected_metrics or "cph" in detected_metrics
+        is_publisher_question = any(
+            kw in msg_lower
+            for kw in [
+                "publisher",
+                "job board",
+                "board",
+                "where to post",
+                "which board",
+            ]
+        )
+        is_channel_question = any(
+            kw in msg_lower
+            for kw in [
+                "channel",
+                "source",
+                "platform",
+                "where to advertise",
+                "non-traditional",
+                "nontraditional",
+            ]
+        )
+        is_budget_question = any(
+            kw in msg_lower
+            for kw in [
+                "budget",
+                "allocat",
+                "spend",
+                "invest",
+                "roi",
+                "$",
+                "media plan",
+                "hiring plan",
+                "cost projection",
+                "cost estimate",
+            ]
+        )
+        is_benchmark_question = any(
+            kw in msg_lower
+            for kw in [
+                "benchmark",
+                "average",
+                "industry average",
+                "typical",
+                "programmatic",
+            ]
+        )
+        is_salary_question = "salary" in detected_metrics or any(
+            kw in msg_lower for kw in ["salary", "compensation", "pay range", "wage"]
+        )
+        is_dei_question = any(
+            kw in msg_lower
+            for kw in [
+                "dei",
+                "diversity",
+                "inclusion",
+                "women",
+                "minority",
+                "veteran",
+                "disability",
+            ]
+        )
+        is_trend_question = any(
+            kw in msg_lower
+            for kw in [
+                "trend",
+                "future",
+                "outlook",
+                "forecast",
+                "what's new",
+                "emerging",
+            ]
+        )
+        is_cpc_cpa_question = (
+            "cpc" in detected_metrics
+            or "cpa" in detected_metrics
+            or "cph" in detected_metrics
+        )
 
         # Greeting detection — use word boundary matching for short keywords
         import re as _re
+
         _greeting_patterns = [
-            r'\bhello\b', r'\bhi\b', r'\bhey\b', r'\bgood morning\b', r'\bgood afternoon\b',
-            r'^help$', r'^help\s*me$', r'^help\s*$', r'what can you do', r'who are you',
+            r"\bhello\b",
+            r"\bhi\b",
+            r"\bhey\b",
+            r"\bgood morning\b",
+            r"\bgood afternoon\b",
+            r"^help$",
+            r"^help\s*me$",
+            r"^help\s*$",
+            r"what can you do",
+            r"who are you",
         ]
         is_greeting = any(_re.search(pat, msg_lower) for pat in _greeting_patterns)
         # Prevent false positives: if "help" appears but message is longer and contains
         # suspicious/action words, it's NOT a greeting
         if is_greeting and len(msg_lower.split()) > 4:
-            _non_greeting_signals = ["hack", "break", "steal", "attack", "exploit",
-                                     "inject", "password", "admin", "ignore", "previous instructions"]
+            _non_greeting_signals = [
+                "hack",
+                "break",
+                "steal",
+                "attack",
+                "exploit",
+                "inject",
+                "password",
+                "admin",
+                "ignore",
+                "previous instructions",
+            ]
             if any(sig in msg_lower for sig in _non_greeting_signals):
                 is_greeting = False
 
         # Also check for Guidewire/DEI/trend/CPC questions before returning greeting
-        _is_guidewire = any(kw in msg_lower for kw in ["guidewire", "linkedin hiring", "influenced hire", "skill density", "inmail"])
-        if is_greeting and not (is_publisher_question or is_channel_question or is_budget_question
-                                or is_benchmark_question or is_salary_question or is_dei_question
-                                or is_trend_question or is_cpc_cpa_question or _is_guidewire):
+        _is_guidewire = any(
+            kw in msg_lower
+            for kw in [
+                "guidewire",
+                "linkedin hiring",
+                "influenced hire",
+                "skill density",
+                "inmail",
+            ]
+        )
+        if is_greeting and not (
+            is_publisher_question
+            or is_channel_question
+            or is_budget_question
+            or is_benchmark_question
+            or is_salary_question
+            or is_dei_question
+            or is_trend_question
+            or is_cpc_cpa_question
+            or _is_guidewire
+        ):
             return {
                 "response": (
                     "Hello! I'm *Nova*, your recruitment marketing intelligence assistant. "
                     "I have access to data from *10,238+ Supply Partners*, job boards across *70+ countries*, "
                     "and comprehensive industry benchmarks and salary data.\n\n"
                     "Here are some things I can help with:\n\n"
-                    "- *Publisher & Board Recommendations*: \"What publishers work best for nursing roles?\"\n"
-                    "- *Industry Benchmarks*: \"What's the average CPA for tech roles?\"\n"
-                    "- *Budget Planning*: \"How should I allocate a $50K budget for 10 engineering hires?\"\n"
-                    "- *Market Intelligence*: \"What's the talent supply for tech roles in Germany?\"\n"
-                    "- *DEI Strategy*: \"What DEI-focused job boards are available in the US?\"\n\n"
+                    '- *Publisher & Board Recommendations*: "What publishers work best for nursing roles?"\n'
+                    '- *Industry Benchmarks*: "What\'s the average CPA for tech roles?"\n'
+                    '- *Budget Planning*: "How should I allocate a $50K budget for 10 engineering hires?"\n'
+                    '- *Market Intelligence*: "What\'s the talent supply for tech roles in Germany?"\n'
+                    '- *DEI Strategy*: "What DEI-focused job boards are available in the US?"\n\n'
                     "What would you like to know?"
                 ),
                 "sources": [],
@@ -4934,32 +6859,50 @@ When presenting budget projections:
             }
 
         # ── Guidewire / LinkedIn hiring data ──
-        if any(kw in msg_lower for kw in ["guidewire", "linkedin hiring", "influenced hire", "skill density", "inmail"]):
+        if any(
+            kw in msg_lower
+            for kw in [
+                "guidewire",
+                "linkedin hiring",
+                "influenced hire",
+                "skill density",
+                "inmail",
+            ]
+        ):
             gw_data = self._data_cache.get("linkedin_guidewire", {})
             if gw_data:
                 exec_sum = gw_data.get("executive_summary", {})
-                response_parts = [f"*Guidewire Software — LinkedIn Hiring Intelligence*\n"]
-                response_parts.append(f"{exec_sum.get('headline', '')}\n")
-                for theme in exec_sum.get("key_themes", [])[:3]:
-                    response_parts.append(f"\n*{theme.get('theme', '')}*")
-                    for pt in theme.get("points", [])[:3]:
+                response_parts = [
+                    f"*Guidewire Software — LinkedIn Hiring Intelligence*\n"
+                ]
+                response_parts.append(f"{exec_sum.get('headline') or ''}\n")
+                for theme in exec_sum.get("key_themes") or [][:3]:
+                    response_parts.append(f"\n*{theme.get('theme') or ''}*")
+                    for pt in theme.get("points") or [][:3]:
                         response_parts.append(f"- {pt}")
 
                 # Add peer comparison if available
-                peers = gw_data.get("document_metadata", {}).get("peer_companies", [])
+                peers = gw_data.get("document_metadata", {}).get("peer_companies") or []
                 if peers:
                     response_parts.append(f"\n*Peer Companies*: {', '.join(peers)}")
 
                 return {
                     "response": "\n".join(response_parts),
-                    "sources": ["LinkedIn Hiring Value Review for Guidewire Software (Jan 2025 - Dec 2025)"],
+                    "sources": [
+                        "LinkedIn Hiring Value Review for Guidewire Software (Jan 2025 - Dec 2025)"
+                    ],
                     "confidence": 0.95,
                     "tools_used": ["query_linkedin_guidewire"],
                 }
 
         # ── MEDIUM 2 FIX: Multi-country comparison handler ──
-        if is_multi_country and (_is_comparison or is_benchmark_question or is_salary_question
-                                  or is_cpc_cpa_question or is_budget_question):
+        if is_multi_country and (
+            _is_comparison
+            or is_benchmark_question
+            or is_salary_question
+            or is_cpc_cpa_question
+            or is_budget_question
+        ):
             mc_sections = []
             mc_sections.append(
                 f"**Multi-Country Comparison** ({', '.join(all_detected_countries)})\n"
@@ -4975,23 +6918,37 @@ When presenting budget projections:
 
                 if loc_data.get("supply_data"):
                     sd = loc_data["supply_data"]
-                    mc_section_parts.append(f"- Monthly job ad spend: {sd.get('monthly_spend', 'N/A')}")
-                    mc_section_parts.append(f"- Total boards: {sd.get('total_boards', 'N/A')}")
+                    mc_section_parts.append(
+                        f"- Monthly job ad spend: {sd.get('monthly_spend', 'N/A')}"
+                    )
+                    mc_section_parts.append(
+                        f"- Total boards: {sd.get('total_boards', 'N/A')}"
+                    )
                 if loc_data.get("publisher_count"):
-                    mc_section_parts.append(f"- Joveo publishers: {loc_data['publisher_count']}")
+                    mc_section_parts.append(
+                        f"- Joveo publishers: {loc_data['publisher_count']}"
+                    )
                 if loc_data.get("unemployment_rate"):
-                    mc_section_parts.append(f"- Unemployment rate: {loc_data['unemployment_rate']}")
+                    mc_section_parts.append(
+                        f"- Unemployment rate: {loc_data['unemployment_rate']}"
+                    )
                 if loc_data.get("median_salary"):
-                    mc_section_parts.append(f"- Median salary: {loc_data['median_salary']}")
+                    mc_section_parts.append(
+                        f"- Median salary: {loc_data['median_salary']}"
+                    )
 
                 # If salary or CPA question, add collar strategy per country
                 if detected_roles and (is_salary_question or is_cpc_cpa_question):
                     best_role = _pick_best_role(detected_roles, msg_lower)
                     role_title_map = {
-                        "nursing": "Registered Nurse", "engineering": "Software Engineer",
-                        "technology": "Software Developer", "healthcare": "Healthcare Professional",
-                        "retail": "Retail Associate", "transportation": "CDL Driver",
-                        "finance": "Financial Analyst", "executive": "Senior Executive",
+                        "nursing": "Registered Nurse",
+                        "engineering": "Software Engineer",
+                        "technology": "Software Developer",
+                        "healthcare": "Healthcare Professional",
+                        "retail": "Retail Associate",
+                        "transportation": "CDL Driver",
+                        "finance": "Financial Analyst",
+                        "executive": "Senior Executive",
                     }
                     role_title = role_title_map.get(best_role, best_role.title())
                     collar_data = self._query_collar_strategy({"role": role_title})
@@ -4999,9 +6956,13 @@ When presenting budget projections:
                     if collar_data.get("recommended_strategy"):
                         strat = collar_data["recommended_strategy"]
                         if strat.get("avg_cpa_range"):
-                            mc_section_parts.append(f"- CPA range: {strat['avg_cpa_range']}")
+                            mc_section_parts.append(
+                                f"- CPA range: {strat['avg_cpa_range']}"
+                            )
                         if strat.get("avg_cpc_range"):
-                            mc_section_parts.append(f"- CPC range: {strat['avg_cpc_range']}")
+                            mc_section_parts.append(
+                                f"- CPC range: {strat['avg_cpc_range']}"
+                            )
 
                 mc_sections.append("\n".join(mc_section_parts))
 
@@ -5017,15 +6978,22 @@ When presenting budget projections:
                 }
 
         # ── Publisher count question (e.g., "How many publishers does Joveo have?") ──
-        is_count_question = any(kw in msg_lower for kw in ["how many publisher", "total publisher",
-                                                             "publisher count", "number of publisher"])
+        is_count_question = any(
+            kw in msg_lower
+            for kw in [
+                "how many publisher",
+                "total publisher",
+                "publisher count",
+                "number of publisher",
+            ]
+        )
         if is_count_question:
             pub_data = self._query_publishers({})
             tools_used.append("query_publishers")
             sources.add("Joveo Publisher Network")
-            total = pub_data.get("total_active_publishers", 0)
+            total = pub_data.get("total_active_publishers") or 0
             cats = pub_data.get("categories", {})
-            countries_covered = pub_data.get("countries_covered", 0)
+            countries_covered = pub_data.get("countries_covered") or 0
             count_parts = [
                 f"*Joveo Publisher Network*\n",
                 f"Joveo has *{total:,} active publishers* across *{countries_covered} countries*.\n",
@@ -5033,8 +7001,8 @@ When presenting budget projections:
             if detected_country:
                 # Also show country-specific count
                 country_pub = self._query_publishers({"country": detected_country})
-                c_count = country_pub.get("count", 0)
-                c_pubs = country_pub.get("publishers", [])
+                c_count = country_pub.get("count") or 0
+                c_pubs = country_pub.get("publishers") or []
                 count_parts.append(f"*In {detected_country}*: {c_count} publishers")
                 if c_pubs:
                     for p in c_pubs[:10]:
@@ -5045,15 +7013,22 @@ When presenting budget projections:
                 # Show category breakdown
                 if cats:
                     count_parts.append("*By Category:*")
-                    for cat, count in sorted(cats.items(), key=lambda x: x[1], reverse=True)[:12]:
+                    for cat, count in sorted(
+                        cats.items(), key=lambda x: x[1], reverse=True
+                    )[:12]:
                         count_parts.append(f"- *{cat}*: {count} publishers")
             sections.append("\n".join(count_parts))
 
         # ── Publisher / Job Board questions ──
-        elif is_publisher_question or (detected_country and not is_benchmark_question and not is_budget_question
-                                        and not is_salary_question and not is_trend_question
-                                        and not is_cpc_cpa_question
-                                        and _last_intent not in ("salary", "budget", "benchmark")):
+        elif is_publisher_question or (
+            detected_country
+            and not is_benchmark_question
+            and not is_budget_question
+            and not is_salary_question
+            and not is_trend_question
+            and not is_cpc_cpa_question
+            and _last_intent not in ("salary", "budget", "benchmark")
+        ):
             country = detected_country or ""
 
             # Rule #2: If no industry AND no role detected, ask before answering
@@ -5075,7 +7050,9 @@ When presenting budget projections:
                 if not country:
                     country = "United States"
                 if is_dei_question:
-                    data = self._query_global_supply({"country": country, "board_type": "dei"})
+                    data = self._query_global_supply(
+                        {"country": country, "board_type": "dei"}
+                    )
                 else:
                     category = ""
                     for role_cat in detected_roles:
@@ -5084,7 +7061,13 @@ When presenting budget projections:
                         elif role_cat in ("engineering", "technology"):
                             category = "Tech"
                         break
-                    data = self._query_global_supply({"country": country, "board_type": "general", "category": category})
+                    data = self._query_global_supply(
+                        {
+                            "country": country,
+                            "board_type": "general",
+                            "category": category,
+                        }
+                    )
 
                 tools_used.append("query_global_supply")
                 sources.add("Joveo Global Supply Intelligence")
@@ -5095,8 +7078,11 @@ When presenting budget projections:
                 if detected_roles:
                     role_cat = list(detected_roles)[0]
                     cat_map = {
-                        "nursing": "Health", "healthcare": "Health", "engineering": "Tech",
-                        "technology": "Tech", "finance": "Job Board",
+                        "nursing": "Health",
+                        "healthcare": "Health",
+                        "engineering": "Tech",
+                        "technology": "Tech",
+                        "finance": "Job Board",
                     }
                     if role_cat in cat_map:
                         pub_params["category"] = cat_map[role_cat]
@@ -5116,10 +7102,12 @@ When presenting budget projections:
                     "- *Industry*: healthcare, technology, retail, etc.\n"
                     "- *Country*: US, India, UK, Germany, etc.\n"
                     "- *Role type*: nursing, engineering, hourly, executive, etc.\n\n"
-                    "For example: _\"What channels work best for tech hiring in India?\"_"
+                    'For example: _"What channels work best for tech hiring in India?"_'
                 )
             else:
-                ch_data = self._query_channels({"industry": industry, "channel_type": "all"})
+                ch_data = self._query_channels(
+                    {"industry": industry, "channel_type": "all"}
+                )
                 tools_used.append("query_channels")
                 sources.add("Joveo Channel Database")
                 sections.append(_format_channel_response(ch_data, industry))
@@ -5148,39 +7136,61 @@ When presenting budget projections:
                     "Could you specify:\n"
                     "- *Which metric?* CPC, CPA, cost-per-hire, apply rate, or time-to-fill\n"
                     "- *Which industry?* Healthcare, technology, retail, finance, etc.\n\n"
-                    "For example: _\"What's the average CPA for healthcare roles?\"_ or "
-                    "_\"What CPC should I expect for tech hiring?\"_"
+                    'For example: _"What\'s the average CPA for healthcare roles?"_ or '
+                    '_"What CPC should I expect for tech hiring?"_'
                 )
             else:
-                kb_data = self._query_knowledge_base({"topic": "benchmarks", "metric": metric, "industry": industry})
+                kb_data = self._query_knowledge_base(
+                    {"topic": "benchmarks", "metric": metric, "industry": industry}
+                )
                 tools_used.append("query_knowledge_base")
                 sources.add("Recruitment Industry Knowledge Base")
                 sections.append(_format_benchmark_response(kb_data, metric, industry))
 
         # ── Follow-up: country-only message after a salary question ──
-        if (detected_country and not is_publisher_question and not is_channel_question
-                and not is_benchmark_question and not is_budget_question
-                and not is_salary_question and not is_cpc_cpa_question
-                and not is_dei_question and not is_trend_question
-                and _last_intent == "salary"):
+        if (
+            detected_country
+            and not is_publisher_question
+            and not is_channel_question
+            and not is_benchmark_question
+            and not is_budget_question
+            and not is_salary_question
+            and not is_cpc_cpa_question
+            and not is_dei_question
+            and not is_trend_question
+            and _last_intent == "salary"
+        ):
             # User said something like "in india" after a salary question
             role_title = _last_role_title or "General Professional"
-            sal_data = self._query_salary_data({"role": role_title, "location": detected_country})
+            sal_data = self._query_salary_data(
+                {"role": role_title, "location": detected_country}
+            )
             tools_used.append("query_salary_data")
             sources.add("Joveo Salary Intelligence")
             sections.append(_format_salary_response(sal_data))
 
         # ── Salary questions ──
         if is_salary_question:
-            role = _pick_best_role(detected_roles, msg_lower) if detected_roles else "general"
+            role = (
+                _pick_best_role(detected_roles, msg_lower)
+                if detected_roles
+                else "general"
+            )
             role_titles = {
-                "nursing": "Registered Nurse", "engineering": "Software Engineer",
-                "technology": "Software Developer", "healthcare": "Healthcare Professional",
-                "retail": "Retail Associate", "hospitality": "Hospitality Worker",
-                "transportation": "CDL Driver", "finance": "Financial Analyst",
-                "executive": "Senior Executive", "hourly": "Hourly Worker",
-                "education": "Teacher", "construction": "Construction Worker",
-                "sales": "Sales Representative", "marketing": "Marketing Manager",
+                "nursing": "Registered Nurse",
+                "engineering": "Software Engineer",
+                "technology": "Software Developer",
+                "healthcare": "Healthcare Professional",
+                "retail": "Retail Associate",
+                "hospitality": "Hospitality Worker",
+                "transportation": "CDL Driver",
+                "finance": "Financial Analyst",
+                "executive": "Senior Executive",
+                "hourly": "Hourly Worker",
+                "education": "Teacher",
+                "construction": "Construction Worker",
+                "sales": "Sales Representative",
+                "marketing": "Marketing Manager",
                 "remote": "Remote Worker",
             }
             role_title = role_titles.get(role, role.title())
@@ -5200,7 +7210,9 @@ When presenting budget projections:
                     "Please specify a location so I can give you accurate data."
                 )
             else:
-                sal_data = self._query_salary_data({"role": role_title, "location": location})
+                sal_data = self._query_salary_data(
+                    {"role": role_title, "location": location}
+                )
                 tools_used.append("query_salary_data")
                 sources.add("Joveo Salary Intelligence")
                 sections.append(_format_salary_response(sal_data))
@@ -5213,59 +7225,82 @@ When presenting budget projections:
             # Check for missing critical parameters
             _budget_missing = []
             if budget_amount <= 0:
-                _budget_missing.append("*Budget amount*: How much is the total budget? (e.g., $50K, $100K)")
+                _budget_missing.append(
+                    "*Budget amount*: How much is the total budget? (e.g., $50K, $100K)"
+                )
             if not detected_roles:
-                _budget_missing.append("*Role(s)*: What positions are you hiring for? (e.g., software engineers, nurses)")
+                _budget_missing.append(
+                    "*Role(s)*: What positions are you hiring for? (e.g., software engineers, nurses)"
+                )
             if not detected_country:
-                _budget_missing.append("*Location*: Which country or region? (e.g., US, India, UK)")
+                _budget_missing.append(
+                    "*Location*: Which country or region? (e.g., US, India, UK)"
+                )
 
             if _budget_missing:
                 sections.append(
                     "I can create a detailed budget allocation plan, but I need a few more details:\n\n"
-                    + "\n".join(f"- {m}" for m in _budget_missing) + "\n\n"
-                    "For example: _\"How should I allocate a $50K budget to hire 10 software engineers in the US?\"_"
+                    + "\n".join(f"- {m}" for m in _budget_missing)
+                    + "\n\n"
+                    'For example: _"How should I allocate a $50K budget to hire 10 software engineers in the US?"_'
                 )
             else:
                 roles_for_budget = []
                 for r in detected_roles:
                     role_titles = {
-                        "nursing": "Registered Nurse", "engineering": "Software Engineer",
-                        "technology": "Software Developer", "healthcare": "Healthcare Professional",
-                        "retail": "Retail Associate", "transportation": "CDL Driver",
-                        "finance": "Financial Analyst", "executive": "Senior Executive",
-                        "hourly": "Hourly Worker", "education": "Teacher",
-                        "construction": "Construction Worker", "sales": "Sales Representative",
-                        "remote": "Remote Worker", "marketing": "Marketing Manager",
+                        "nursing": "Registered Nurse",
+                        "engineering": "Software Engineer",
+                        "technology": "Software Developer",
+                        "healthcare": "Healthcare Professional",
+                        "retail": "Retail Associate",
+                        "transportation": "CDL Driver",
+                        "finance": "Financial Analyst",
+                        "executive": "Senior Executive",
+                        "hourly": "Hourly Worker",
+                        "education": "Teacher",
+                        "construction": "Construction Worker",
+                        "sales": "Sales Representative",
+                        "remote": "Remote Worker",
+                        "marketing": "Marketing Manager",
                     }
                     roles_for_budget.append(role_titles.get(r, r.title()))
 
-                locations_for_budget = [detected_country] if detected_country else ["United States"]
-                industry = list(detected_industries)[0] if detected_industries else "general"
+                locations_for_budget = (
+                    [detected_country] if detected_country else ["United States"]
+                )
+                industry = (
+                    list(detected_industries)[0] if detected_industries else "general"
+                )
 
                 # Extract hiring target from message (e.g., "hire 20 drivers", "10 nurses")
                 _hire_target = 0
                 _hire_match = re.search(
-                    r'(?:hire|hiring|recruit|fill|need)\s+(\d+)|(\d+)\s+(?:hires?|positions?|openings?|roles?|people|headcount)',
+                    r"(?:hire|hiring|recruit|fill|need)\s+(\d+)|(\d+)\s+(?:hires?|positions?|openings?|roles?|people|headcount)",
                     msg_lower,
                 )
                 if _hire_match:
                     _hire_target = int(_hire_match.group(1) or _hire_match.group(2))
                 # Also check for "N [role]" pattern (e.g., "10 software engineers")
                 if _hire_target == 0:
-                    _role_count_match = re.search(r'(\d+)\s+(?:' + '|'.join(
-                        re.escape(r.lower()) for r in roles_for_budget
-                    ) + r')', msg_lower)
+                    _role_count_match = re.search(
+                        r"(\d+)\s+(?:"
+                        + "|".join(re.escape(r.lower()) for r in roles_for_budget)
+                        + r")",
+                        msg_lower,
+                    )
                     if _role_count_match:
                         _hire_target = int(_role_count_match.group(1))
 
-                budget_data = self._query_budget_projection({
-                    "budget": budget_amount,
-                    "roles": roles_for_budget or ["General Hire"],
-                    "locations": locations_for_budget,
-                    "industry": industry,
-                    "openings": _hire_target if _hire_target > 0 else 1,
-                    "target_hires": _hire_target,
-                })
+                budget_data = self._query_budget_projection(
+                    {
+                        "budget": budget_amount,
+                        "roles": roles_for_budget or ["General Hire"],
+                        "locations": locations_for_budget,
+                        "industry": industry,
+                        "openings": _hire_target if _hire_target > 0 else 1,
+                        "target_hires": _hire_target,
+                    }
+                )
                 tools_used.append("query_budget_projection")
                 sources.add("Joveo Budget Allocation Engine")
                 sections.append(_format_budget_response(budget_data, budget_amount))
@@ -5274,10 +7309,16 @@ When presenting budget projections:
                 if detected_roles:
                     role_cat = list(detected_roles)[0]
                     cat_map = {
-                        "nursing": "Health", "healthcare": "Health", "engineering": "Tech",
-                        "technology": "Tech", "retail": "Retail", "finance": "Job Board",
-                        "transportation": "Transportation", "construction": "Construction",
-                        "education": "Education", "hourly": "Hourly",
+                        "nursing": "Health",
+                        "healthcare": "Health",
+                        "engineering": "Tech",
+                        "technology": "Tech",
+                        "retail": "Retail",
+                        "finance": "Job Board",
+                        "transportation": "Transportation",
+                        "construction": "Construction",
+                        "education": "Education",
+                        "hourly": "Hourly",
                     }
                     country_for_ch = detected_country or "United States"
                     pub_params = {"country": country_for_ch}
@@ -5286,14 +7327,20 @@ When presenting budget projections:
                     pub_data = self._query_publishers(pub_params)
                     tools_used.append("query_publishers")
                     sources.add("Joveo Publisher Network")
-                    sections.append(f"\n*Recommended Channels for {roles_for_budget[0] if roles_for_budget else role_cat.title()}*\n" +
-                                    _format_publisher_response(pub_data))
+                    sections.append(
+                        f"\n*Recommended Channels for {roles_for_budget[0] if roles_for_budget else role_cat.title()}*\n"
+                        + _format_publisher_response(pub_data)
+                    )
 
         # ── Comparison questions (vs / compare) ──
-        is_comparison = any(kw in msg_lower for kw in [" vs ", " versus ", "compare ", "comparison"])
+        is_comparison = any(
+            kw in msg_lower for kw in [" vs ", " versus ", "compare ", "comparison"]
+        )
         if is_comparison:
             # Split the comparison into two sides and provide data for each
-            comparison_parts = _re.split(r'\bvs\.?\b|\bversus\b|\bcompare\b', msg_lower, maxsplit=1)
+            comparison_parts = _re.split(
+                r"\bvs\.?\b|\bversus\b|\bcompare\b", msg_lower, maxsplit=1
+            )
             kb_data = self._query_knowledge_base({"topic": "benchmarks"})
             tools_used.append("query_knowledge_base")
             sources.add("Recruitment Industry Knowledge Base")
@@ -5302,12 +7349,24 @@ When presenting budget projections:
 
             # Detect if this is a platform comparison (e.g. Indeed vs LinkedIn)
             _platform_names = {
-                "indeed": "Indeed", "linkedin": "LinkedIn", "ziprecruiter": "ZipRecruiter",
-                "glassdoor": "Glassdoor", "google ads": "Google Ads", "google": "Google Ads",
-                "meta": "Meta/Facebook", "facebook": "Meta/Facebook", "careerbuilder": "CareerBuilder",
-                "dice": "Dice", "snagajob": "Snagajob", "jobget": "JobGet",
-                "craigslist": "Craigslist", "monster": "Monster", "handshake": "Handshake",
-                "appcast": "Joveo", "pandologic": "Joveo", "recruitics": "Joveo",
+                "indeed": "Indeed",
+                "linkedin": "LinkedIn",
+                "ziprecruiter": "ZipRecruiter",
+                "glassdoor": "Glassdoor",
+                "google ads": "Google Ads",
+                "google": "Google Ads",
+                "meta": "Meta/Facebook",
+                "facebook": "Meta/Facebook",
+                "careerbuilder": "CareerBuilder",
+                "dice": "Dice",
+                "snagajob": "Snagajob",
+                "jobget": "JobGet",
+                "craigslist": "Craigslist",
+                "monster": "Monster",
+                "handshake": "Handshake",
+                "appcast": "Joveo",
+                "pandologic": "Joveo",
+                "recruitics": "Joveo",
             }
 
             # Determine if either side of the comparison is a known platform
@@ -5321,12 +7380,21 @@ When presenting budget projections:
                         break
                 platform_matches.append(matched_platform)
 
-            is_platform_comparison = all(pm is not None for pm in platform_matches[:2]) and len(platform_matches) >= 2
+            is_platform_comparison = (
+                all(pm is not None for pm in platform_matches[:2])
+                and len(platform_matches) >= 2
+            )
 
             if is_platform_comparison:
                 # Platform-specific comparison using knowledge base data
-                cpc_data = self._query_knowledge_base({"topic": "benchmarks", "metric": "cpc"})
-                cpc_by_platform = cpc_data.get("benchmarks", {}).get("cost_per_click", {}).get("by_platform", {})
+                cpc_data = self._query_knowledge_base(
+                    {"topic": "benchmarks", "metric": "cpc"}
+                )
+                cpc_by_platform = (
+                    cpc_data.get("benchmarks", {})
+                    .get("cost_per_click", {})
+                    .get("by_platform", {})
+                )
 
                 for idx, pm in enumerate(platform_matches[:2]):
                     if pm is None:
@@ -5341,7 +7409,9 @@ When presenting budget projections:
                             break
                     if found_data and isinstance(found_data, dict):
                         for fk, fv in list(found_data.items())[:5]:
-                            comp_sections.append(f"  - {fk.replace('_', ' ').title()}: {fv}")
+                            comp_sections.append(
+                                f"  - {fk.replace('_', ' ').title()}: {fv}"
+                            )
                     else:
                         # Provide hardcoded platform summaries
                         _platform_summaries = {
@@ -5352,16 +7422,30 @@ When presenting budget projections:
                             "Google Ads": "- CPC Range: $1.00-$4.00 (job-related keywords)\n- Model: PPC auction\n- Best For: Programmatic reach, candidate capture\n- Reach: Broadest search traffic",
                             "Meta/Facebook": "- CPC Range: $0.50-$2.50\n- Model: Social PPC\n- Best For: Hourly, local, blue-collar roles\n- Reach: 3B+ users, mobile-first",
                         }
-                        summary = _platform_summaries.get(pm, f"- Contact Joveo for detailed {pm} benchmarks")
+                        summary = _platform_summaries.get(
+                            pm, f"- Contact Joveo for detailed {pm} benchmarks"
+                        )
                         for line in summary.split("\n"):
                             comp_sections.append(f"  {line}")
                     comp_sections.append("")
 
-                if len(platform_matches) >= 2 and platform_matches[0] and platform_matches[1]:
-                    comp_sections.append(f"*Key Differences ({platform_matches[0]} vs {platform_matches[1]}):*")
-                    comp_sections.append("- Compare CPC ranges and pricing models to choose based on your budget")
-                    comp_sections.append("- Consider your target role type — niche platforms outperform generalists for specialized roles")
-                    comp_sections.append("- Programmatic platforms (via Joveo) can optimize spend across both automatically")
+                if (
+                    len(platform_matches) >= 2
+                    and platform_matches[0]
+                    and platform_matches[1]
+                ):
+                    comp_sections.append(
+                        f"*Key Differences ({platform_matches[0]} vs {platform_matches[1]}):*"
+                    )
+                    comp_sections.append(
+                        "- Compare CPC ranges and pricing models to choose based on your budget"
+                    )
+                    comp_sections.append(
+                        "- Consider your target role type — niche platforms outperform generalists for specialized roles"
+                    )
+                    comp_sections.append(
+                        "- Programmatic platforms (via Joveo) can optimize spend across both automatically"
+                    )
             else:
                 # Category-based comparison (blue-collar vs white-collar, etc.)
                 for i, part in enumerate(comparison_parts[:2]):
@@ -5372,39 +7456,81 @@ When presenting budget projections:
                     comp_sections.append(f"*{label}:*")
 
                     # Check if it's a role type
-                    is_blue_collar = any(kw in part for kw in ["blue collar", "hourly", "warehouse", "driver", "construction", "retail"])
-                    is_white_collar = any(kw in part for kw in ["white collar", "professional", "office", "corporate", "engineer", "analyst"])
+                    is_blue_collar = any(
+                        kw in part
+                        for kw in [
+                            "blue collar",
+                            "hourly",
+                            "warehouse",
+                            "driver",
+                            "construction",
+                            "retail",
+                        ]
+                    )
+                    is_white_collar = any(
+                        kw in part
+                        for kw in [
+                            "white collar",
+                            "professional",
+                            "office",
+                            "corporate",
+                            "engineer",
+                            "analyst",
+                        ]
+                    )
 
                     if is_blue_collar:
                         comp_sections.append("- *Typical CPA*: $15-$40")
                         comp_sections.append("- *Apply Rate*: 8-15%")
-                        comp_sections.append("- *Top Channels*: Snagajob, Indeed, Craigslist, Wonolo, Instawork, ShiftPixy")
-                        comp_sections.append("- *Best Platforms*: Google Ads, Meta (mobile-first targeting)")
-                        comp_sections.append("- *Key Trait*: High volume, mobile-first, quick apply needed")
+                        comp_sections.append(
+                            "- *Top Channels*: Snagajob, Indeed, Craigslist, Wonolo, Instawork, ShiftPixy"
+                        )
+                        comp_sections.append(
+                            "- *Best Platforms*: Google Ads, Meta (mobile-first targeting)"
+                        )
+                        comp_sections.append(
+                            "- *Key Trait*: High volume, mobile-first, quick apply needed"
+                        )
                     elif is_white_collar:
                         comp_sections.append("- *Typical CPA*: $50-$150")
                         comp_sections.append("- *Apply Rate*: 3-6%")
-                        comp_sections.append("- *Top Channels*: LinkedIn, Indeed, Glassdoor, ZipRecruiter, niche boards")
-                        comp_sections.append("- *Best Platforms*: LinkedIn Ads, Google Ads, programmatic DSP")
-                        comp_sections.append("- *Key Trait*: Quality over quantity, employer brand matters")
+                        comp_sections.append(
+                            "- *Top Channels*: LinkedIn, Indeed, Glassdoor, ZipRecruiter, niche boards"
+                        )
+                        comp_sections.append(
+                            "- *Best Platforms*: LinkedIn Ads, Google Ads, programmatic DSP"
+                        )
+                        comp_sections.append(
+                            "- *Key Trait*: Quality over quantity, employer brand matters"
+                        )
                     else:
                         # Generic: pull benchmarks from KB
-                        comp_sections.append(f"- Search recruitment benchmarks for '{label}' in the knowledge base")
+                        comp_sections.append(
+                            f"- Search recruitment benchmarks for '{label}' in the knowledge base"
+                        )
 
                     comp_sections.append("")
 
                 if len(comparison_parts) >= 2:
                     comp_sections.append("*Key Differences:*")
-                    comp_sections.append("- Blue-collar: higher apply rates, lower CPA, mobile-centric, speed matters")
-                    comp_sections.append("- White-collar: lower apply rates, higher CPA, brand-driven, quality-focused")
-                    comp_sections.append("- Budget split: blue-collar favors job boards (60%+), white-collar favors LinkedIn + programmatic (50%+)")
+                    comp_sections.append(
+                        "- Blue-collar: higher apply rates, lower CPA, mobile-centric, speed matters"
+                    )
+                    comp_sections.append(
+                        "- White-collar: lower apply rates, higher CPA, brand-driven, quality-focused"
+                    )
+                    comp_sections.append(
+                        "- Budget split: blue-collar favors job boards (60%+), white-collar favors LinkedIn + programmatic (50%+)"
+                    )
 
             sections.append("\n".join(comp_sections))
 
         # ── DEI questions (standalone) ──
         if is_dei_question and not is_publisher_question:
             country = detected_country or ""
-            dei_data = self._query_global_supply({"country": country, "board_type": "dei"})
+            dei_data = self._query_global_supply(
+                {"country": country, "board_type": "dei"}
+            )
             tools_used.append("query_global_supply")
             sources.add("Joveo Global Supply Intelligence")
             sections.append(_format_dei_response(dei_data, country))
@@ -5431,14 +7557,22 @@ When presenting budget projections:
                 "*LinkedIn (Remote filter)* - Largest professional network with remote job filter",
             ]
             parts = ["*Remote Work Job Boards & Channels*\n"]
-            parts.append("Here are the top platforms for posting remote/work-from-home positions:\n")
+            parts.append(
+                "Here are the top platforms for posting remote/work-from-home positions:\n"
+            )
             for b in remote_boards:
                 parts.append(f"- {b}")
             parts.append("\n*Tips for Remote Hiring:*")
-            parts.append("- Use the 'remote' filter on major boards (Indeed, LinkedIn, ZipRecruiter)")
-            parts.append("- Consider time-zone-specific targeting for distributed teams")
+            parts.append(
+                "- Use the 'remote' filter on major boards (Indeed, LinkedIn, ZipRecruiter)"
+            )
+            parts.append(
+                "- Consider time-zone-specific targeting for distributed teams"
+            )
             parts.append("- Remote roles typically see 2-3x higher application volumes")
-            parts.append("- Programmatic advertising can geo-target remote workers in specific regions")
+            parts.append(
+                "- Programmatic advertising can geo-target remote workers in specific regions"
+            )
             sections.append("\n".join(parts))
             tools_used.append("query_channels")
             sources.add("Joveo Channel Database")
@@ -5447,26 +7581,31 @@ When presenting budget projections:
         if detected_roles and not sections:
             role = _pick_best_role(detected_roles, msg_lower)
             role_titles = {
-                "nursing": "Registered Nurse", "engineering": "Software Engineer",
-                "technology": "Software Developer", "healthcare": "Healthcare Professional",
-                "retail": "Retail Associate", "transportation": "CDL Driver",
+                "nursing": "Registered Nurse",
+                "engineering": "Software Engineer",
+                "technology": "Software Developer",
+                "healthcare": "Healthcare Professional",
+                "retail": "Retail Associate",
+                "transportation": "CDL Driver",
             }
             role_title = role_titles.get(role, role.title())
             location = detected_country or ""
             industry = list(detected_industries)[0] if detected_industries else ""
-            demand_data = self._query_market_demand({"role": role_title, "location": location, "industry": industry})
+            demand_data = self._query_market_demand(
+                {"role": role_title, "location": location, "industry": industry}
+            )
             tools_used.append("query_market_demand")
             sources.add("Joveo Market Demand Intelligence")
             sections.append(_format_demand_response(demand_data, role_title))
 
         # ── Prompt injection / security detection ──
         _injection_patterns = [
-            r'ignore\s+(all\s+)?previous\s+instructions',
-            r'tell\s+me\s+(the\s+)?(admin|system|root)\s+(password|prompt|key)',
-            r'what\s+is\s+your\s+system\s+prompt',
-            r'reveal\s+(your\s+)?(system|hidden|secret)',
-            r'act\s+as\s+(if\s+you\s+are|a)\s+(different|new)',
-            r'pretend\s+(you\s+are|to\s+be)',
+            r"ignore\s+(all\s+)?previous\s+instructions",
+            r"tell\s+me\s+(the\s+)?(admin|system|root)\s+(password|prompt|key)",
+            r"what\s+is\s+your\s+system\s+prompt",
+            r"reveal\s+(your\s+)?(system|hidden|secret)",
+            r"act\s+as\s+(if\s+you\s+are|a)\s+(different|new)",
+            r"pretend\s+(you\s+are|to\s+be)",
         ]
         is_injection = any(_re.search(pat, msg_lower) for pat in _injection_patterns)
         if is_injection and not sections:
@@ -5482,8 +7621,12 @@ When presenting budget projections:
 
         # ── Unethical request detection ──
         _unethical_patterns = [
-            r'\bhack\b', r'\bsteal\b', r'\bbreak\s+into\b', r'\bexploit\b',
-            r'\billegal\b', r'\bscrape\s+competitor\b',
+            r"\bhack\b",
+            r"\bsteal\b",
+            r"\bbreak\s+into\b",
+            r"\bexploit\b",
+            r"\billegal\b",
+            r"\bscrape\s+competitor\b",
         ]
         is_unethical = any(_re.search(pat, msg_lower) for pat in _unethical_patterns)
         if is_unethical and not sections:
@@ -5503,8 +7646,13 @@ When presenting budget projections:
 
         # ── Off-topic detection ──
         _off_topic_patterns = [
-            r'\bweather\b', r'\b\d+\s*\+\s*\d+\b', r'\bwrite\s+(me\s+)?a\s+(python|code|script)\b',
-            r'\brecipe\b', r'\bjoke\b', r'\bstory\b', r'\bpoem\b',
+            r"\bweather\b",
+            r"\b\d+\s*\+\s*\d+\b",
+            r"\bwrite\s+(me\s+)?a\s+(python|code|script)\b",
+            r"\brecipe\b",
+            r"\bjoke\b",
+            r"\bstory\b",
+            r"\bpoem\b",
         ]
         is_off_topic = any(_re.search(pat, msg_lower) for pat in _off_topic_patterns)
 
@@ -5521,8 +7669,8 @@ When presenting budget projections:
                     "- *Salary intelligence* for specific roles and locations\n"
                     "- *DEI recruitment channels* and diversity-focused boards\n"
                     "- *Market trends* in recruitment advertising\n\n"
-                    "Try asking something like: _\"What's the average CPC for tech roles?\"_ "
-                    "or _\"How should I allocate a $100K hiring budget?\"_"
+                    'Try asking something like: _"What\'s the average CPC for tech roles?"_ '
+                    'or _"How should I allocate a $100K hiring budget?"_'
                 )
             else:
                 # Try multiple data sources to build a useful response
@@ -5540,20 +7688,23 @@ When presenting budget projections:
                         _quick_stats.append(f"Average CPA across industries: {_avg}")
                 _cpc_data = _bench.get("cost_per_click", {})
                 if _cpc_data:
-                    _avg_cpc = _cpc_data.get("overall_average") or _cpc_data.get("average")
+                    _avg_cpc = _cpc_data.get("overall_average") or _cpc_data.get(
+                        "average"
+                    )
                     if _avg_cpc:
                         _quick_stats.append(f"Average CPC across platforms: {_avg_cpc}")
 
                 if _quick_stats:
                     response_text = (
                         "Here's what I found that may be relevant:\n\n"
-                        + "\n".join(f"- {s}" for s in _quick_stats) + "\n\n"
+                        + "\n".join(f"- {s}" for s in _quick_stats)
+                        + "\n\n"
                         "To give you more targeted data, it helps to know:\n"
                         "- *Role*: What position(s) are you hiring for?\n"
                         "- *Location*: Which country or region?\n"
                         "- *Industry*: What sector (e.g., healthcare, tech, logistics)?\n\n"
-                        "For example: _\"What's the CPA for nursing roles in the US?\"_ or "
-                        "_\"Recommend publishers for tech hiring in Germany.\"_"
+                        'For example: _"What\'s the CPA for nursing roles in the US?"_ or '
+                        '_"Recommend publishers for tech hiring in Germany."_'
                     )
                 else:
                     response_text = (
@@ -5562,8 +7713,8 @@ When presenting budget projections:
                         "- *Role*: What position(s) are you hiring for?\n"
                         "- *Location*: Which country or region?\n"
                         "- *Industry*: What sector (e.g., healthcare, tech, logistics)?\n\n"
-                        "For example: _\"What's the CPA for nursing roles in the US?\"_ or "
-                        "_\"How should I allocate a $50K budget for 10 engineering hires?\"_"
+                        'For example: _"What\'s the CPA for nursing roles in the US?"_ or '
+                        '_"How should I allocate a $50K budget for 10 engineering hires?"_'
                     )
             sections.append(response_text)
 
@@ -5573,9 +7724,14 @@ When presenting budget projections:
         # Lower confidence for fallback/off-topic/injection responses
         if is_off_topic or is_injection or is_unethical:
             confidence = 1.0  # we're confident in our refusal/redirect
-        elif not tools_used or (len(tools_used) == 1 and tools_used[0] == "query_knowledge_base"
-                                and "To give you" in response):
-            confidence = round(min(confidence, 0.4), 2)  # generic fallback = lower confidence
+        elif not tools_used or (
+            len(tools_used) == 1
+            and tools_used[0] == "query_knowledge_base"
+            and "To give you" in response
+        ):
+            confidence = round(
+                min(confidence, 0.4), 2
+            )  # generic fallback = lower confidence
 
         return {
             "response": response,
@@ -5593,38 +7749,99 @@ import re as _security_re
 
 _BLOCKED_PATTERNS = [
     # Crash / exploit attempts
-    _security_re.compile(r"how\s+(do|does|can|could|would)\s+(you|it|i|we|the\s*system|nova)\s+(crash|break|fail|exploit|hack|ddos|overload)", _security_re.IGNORECASE),
-    _security_re.compile(r"(vulnerabilit|exploit|penetration\s*test|security\s*flaw|attack\s*vector|bypass)", _security_re.IGNORECASE),
+    _security_re.compile(
+        r"how\s+(do|does|can|could|would)\s+(you|it|i|we|the\s*system|nova)\s+(crash|break|fail|exploit|hack|ddos|overload)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"(vulnerabilit|exploit|penetration\s*test|security\s*flaw|attack\s*vector|bypass)",
+        _security_re.IGNORECASE,
+    ),
     # Architecture / infrastructure
-    _security_re.compile(r"(your|the|nova.s?)\s*(architecture|infrastructure|hosting|deployment|tech\s*stack|backend|server|database)", _security_re.IGNORECASE),
-    _security_re.compile(r"how\s+(are|is)\s+(you|it|nova)\s+(built|made|deployed|hosted|running|architected|designed)", _security_re.IGNORECASE),
+    _security_re.compile(
+        r"(your|the|nova.s?)\s*(architecture|infrastructure|hosting|deployment|tech\s*stack|backend|server|database)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"how\s+(are|is)\s+(you|it|nova)\s+(built|made|deployed|hosted|running|architected|designed)",
+        _security_re.IGNORECASE,
+    ),
     # Internal APIs / code
-    _security_re.compile(r"(query\s*batching|rate\s*limit\s*bypass|api\s*key|internal\s*api|source\s*code|code\s*base)", _security_re.IGNORECASE),
+    _security_re.compile(
+        r"(query\s*batching|rate\s*limit\s*bypass|api\s*key|internal\s*api|source\s*code|code\s*base)",
+        _security_re.IGNORECASE,
+    ),
     # Confidence / scoring internals
-    _security_re.compile(r"how\s+(do|does|is)\s+(you|it|your|the|nova).{0,20}(confidence|grounding|scoring|quality\s*score)", _security_re.IGNORECASE),
-    _security_re.compile(r"(confidence\s*scor|grounding\s*scor|quality\s*scor).{0,20}(work|calculat|comput|determin|built|made)", _security_re.IGNORECASE),
-    _security_re.compile(r"explain.{0,20}(confidence|grounding|scoring|your\s*protocol|your\s*process|how\s*you\s*work)", _security_re.IGNORECASE),
+    _security_re.compile(
+        r"how\s+(do|does|is)\s+(you|it|your|the|nova).{0,20}(confidence|grounding|scoring|quality\s*score)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"(confidence\s*scor|grounding\s*scor|quality\s*scor).{0,20}(work|calculat|comput|determin|built|made)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"explain.{0,20}(confidence|grounding|scoring|your\s*protocol|your\s*process|how\s*you\s*work)",
+        _security_re.IGNORECASE,
+    ),
     # Prompt / instructions / model
-    _security_re.compile(r"(system\s*prompt|your\s*prompt|your\s*instructions|your\s*rules|jailbreak|prompt\s*inject)", _security_re.IGNORECASE),
-    _security_re.compile(r"what\s+(is|are)\s+your\s+(algorithm|model|llm|training|weights|parameters|protocol|rules)", _security_re.IGNORECASE),
-    _security_re.compile(r"(reverse\s*engineer|decompile|extract.*prompt|reveal.*internal|expose.*logic)", _security_re.IGNORECASE),
+    _security_re.compile(
+        r"(system\s*prompt|your\s*prompt|your\s*instructions|your\s*rules|jailbreak|prompt\s*inject)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"what\s+(is|are)\s+your\s+(algorithm|model|llm|training|weights|parameters|protocol|rules)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"(reverse\s*engineer|decompile|extract.*prompt|reveal.*internal|expose.*logic)",
+        _security_re.IGNORECASE,
+    ),
     # Self-disclosure traps
-    _security_re.compile(r"(tell\s*me|describe|explain).{0,20}(how\s*you\s*work|your\s*internal|your\s*logic|your\s*tools|your\s*data\s*sources)", _security_re.IGNORECASE),
-    _security_re.compile(r"what\s*(tools|apis|models|llms|data\s*sources)\s*(do|does|are)\s*(you|nova)\s*(use|using|have)", _security_re.IGNORECASE),
-    _security_re.compile(r"(what|which)\s*(llm|model|ai)\s*(powers|runs|behind|under)", _security_re.IGNORECASE),
+    _security_re.compile(
+        r"(tell\s*me|describe|explain).{0,20}(how\s*you\s*work|your\s*internal|your\s*logic|your\s*tools|your\s*data\s*sources)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"what\s*(tools|apis|models|llms|data\s*sources)\s*(do|does|are)\s*(you|nova)\s*(use|using|have)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"(what|which)\s*(llm|model|ai)\s*(powers|runs|behind|under)",
+        _security_re.IGNORECASE,
+    ),
     # Meta-questions about behavior / self-reflection traps
-    _security_re.compile(r"(why|what|how).{0,20}(you|nova).{0,20}(violat|break|ignore|skip|fail|hallucinate|make\s*up|fabricat|wrong|incorrect|lying|lied)", _security_re.IGNORECASE),
-    _security_re.compile(r"(what|why)\s+(is|are|was)\s+(causing|making)\s+(you|nova)\s+(to\s+)?(hallucinate|fail|crash|lie|make\s*up|fabricat)", _security_re.IGNORECASE),
-    _security_re.compile(r"(your\s*protocol|your\s*process|your\s*pipeline|your\s*workflow|your\s*methodology)\b", _security_re.IGNORECASE),
-    _security_re.compile(r"(admit|confess|acknowledge).{0,20}(wrong|mistake|error|hallucin|fabricat|made\s*up)", _security_re.IGNORECASE),
-    _security_re.compile(r"(are\s+you|do\s+you)\s+(hallucinating|lying|making\s*things\s*up|fabricating|guessing)", _security_re.IGNORECASE),
-    _security_re.compile(r"(your|the)\s*(instructions|rules)\s*(say|tell|require|state)", _security_re.IGNORECASE),
+    _security_re.compile(
+        r"(why|what|how).{0,20}(you|nova).{0,20}(violat|break|ignore|skip|fail|hallucinate|make\s*up|fabricat|wrong|incorrect|lying|lied)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"(what|why)\s+(is|are|was)\s+(causing|making)\s+(you|nova)\s+(to\s+)?(hallucinate|fail|crash|lie|make\s*up|fabricat)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"(your\s*protocol|your\s*process|your\s*pipeline|your\s*workflow|your\s*methodology)\b",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"(admit|confess|acknowledge).{0,20}(wrong|mistake|error|hallucin|fabricat|made\s*up)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"(are\s+you|do\s+you)\s+(hallucinating|lying|making\s*things\s*up|fabricating|guessing)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"(your|the)\s*(instructions|rules)\s*(say|tell|require|state)",
+        _security_re.IGNORECASE,
+    ),
 ]
 
 
 # ---------------------------------------------------------------------------
 # Budget target comparison helper (v3.5.1)
 # ---------------------------------------------------------------------------
+
 
 def _add_hire_target_comparison(result: dict, target_hires: int) -> None:
     """Add target_hires vs projected_hires comparison to budget result.
@@ -5637,9 +7854,9 @@ def _add_hire_target_comparison(result: dict, target_hires: int) -> None:
         return
 
     total_proj = result.get("total_projected", {})
-    projected_hires = total_proj.get("hires", 0)
-    projected_apps = total_proj.get("applications", 0)
-    budget = result.get("total_budget", 0)
+    projected_hires = total_proj.get("hires") or 0
+    projected_apps = total_proj.get("applications") or 0
+    budget = result.get("total_budget") or 0
 
     comparison = {
         "target_hires": target_hires,
@@ -5709,7 +7926,7 @@ _COMPETITOR_NAMES: Dict[str, str] = {
 _COMPETITOR_PATTERNS: list = []
 for _name in sorted(_COMPETITOR_NAMES.keys(), key=len, reverse=True):
     # Word-boundary match to avoid partial matches (e.g., "Talroo" in "Talroofing")
-    _pat = re.compile(r'\b' + re.escape(_name) + r'\b', re.IGNORECASE)
+    _pat = re.compile(r"\b" + re.escape(_name) + r"\b", re.IGNORECASE)
     _COMPETITOR_PATTERNS.append((_pat, _COMPETITOR_NAMES[_name]))
 
 
@@ -5723,7 +7940,7 @@ def _filter_competitor_names(response: dict) -> dict:
 
     Applied as post-processing on all LLM-generated responses.
     """
-    text = response.get("response", "")
+    text = response.get("response") or ""
     if not text:
         return response
 
@@ -5739,7 +7956,9 @@ def _filter_competitor_names(response: dict) -> dict:
         # Also handle comma-separated: "a platform, a platform, and a platform"
         tripled = f"{repl}, {repl}, and {repl}"
         if tripled in text:
-            text = text.replace(tripled, "several " + repl.lstrip("a ").lstrip("an ") + "s")
+            text = text.replace(
+                tripled, "several " + repl.lstrip("a ").lstrip("an ") + "s"
+            )
 
     # Clean up "like a leading programmatic platform and Joveo" -> "like Joveo"
     # (when competitor was listed alongside Joveo)
@@ -5762,22 +7981,61 @@ def _filter_competitor_names(response: dict) -> dict:
 
 _REFUSAL_REPLACEMENTS = [
     # (pattern, replacement) -- order matters; longer/more specific first
-    (re.compile(r"I(?:'m| am) (?:sorry,? (?:but )?)?(?:I )?(?:don't|do not) have (?:the )?(?:capability|ability|access)(?: to [^.]*)?\.?", re.IGNORECASE),
-     "Based on available recruitment marketing data and industry expertise, here's what I can share:"),
-    (re.compile(r"I (?:don't|do not) have (?:specific |reliable |real-time |current |enough )?data (?:for|on|about) [^.]*\.?", re.IGNORECASE),
-     "While exact data for this specific query is limited, here are general industry benchmarks and recommendations:"),
-    (re.compile(r"I (?:can(?:'t|not)|am (?:not |un)able to) (?:provide|give|offer|share) (?:specific |exact |real-time |current )?(?:data|numbers|figures|information|details) (?:for|on|about) [^.]*\.?", re.IGNORECASE),
-     "Based on general industry benchmarks and our recruitment marketing expertise:"),
-    (re.compile(r"I (?:don't|do not) have (?:access to )?(?:real-time|current|live|up-to-date) (?:data|information|statistics)\.?", re.IGNORECASE),
-     "Based on our comprehensive recruitment data and industry benchmarks:"),
-    (re.compile(r"(?:^|(?<=\. )|(?<=\n))(?:This is |That(?:'s| is) )?(?:beyond|outside) (?:my |the )?(?:current )?(?:capabilities|scope|ability)\.?", re.IGNORECASE | re.MULTILINE),
-     "Here's what I can share based on our recruitment marketing intelligence:"),
-    (re.compile(r"I (?:would |can )?(?:recommend|suggest) (?:that )?(?:you )?(?:check|visit|consult|look at|refer to) (?!the (?:data|benchmarks?|breakdown|comparison|results?|ranges?|section|table) (?:above|below|provided|I pulled|we pulled))[^.]*\.?", re.IGNORECASE),
-     "Based on our data and industry expertise:"),
-    (re.compile(r"I(?:'m| am) (?:not |un)?able to (?:help|assist) with (?:that|this)[^.]*\.?", re.IGNORECASE),
-     "Here's what I can share on this topic:"),
-    (re.compile(r"Unfortunately,? I (?:don't|do not|can(?:'t|not)) [^.]*\.?", re.IGNORECASE),
-     "Based on available data:"),
+    (
+        re.compile(
+            r"I(?:'m| am) (?:sorry,? (?:but )?)?(?:I )?(?:don't|do not) have (?:the )?(?:capability|ability|access)(?: to [^.]*)?\.?",
+            re.IGNORECASE,
+        ),
+        "Based on available recruitment marketing data and industry expertise, here's what I can share:",
+    ),
+    (
+        re.compile(
+            r"I (?:don't|do not) have (?:specific |reliable |real-time |current |enough )?data (?:for|on|about) [^.]*\.?",
+            re.IGNORECASE,
+        ),
+        "While exact data for this specific query is limited, here are general industry benchmarks and recommendations:",
+    ),
+    (
+        re.compile(
+            r"I (?:can(?:'t|not)|am (?:not |un)able to) (?:provide|give|offer|share) (?:specific |exact |real-time |current )?(?:data|numbers|figures|information|details) (?:for|on|about) [^.]*\.?",
+            re.IGNORECASE,
+        ),
+        "Based on general industry benchmarks and our recruitment marketing expertise:",
+    ),
+    (
+        re.compile(
+            r"I (?:don't|do not) have (?:access to )?(?:real-time|current|live|up-to-date) (?:data|information|statistics)\.?",
+            re.IGNORECASE,
+        ),
+        "Based on our comprehensive recruitment data and industry benchmarks:",
+    ),
+    (
+        re.compile(
+            r"(?:^|(?<=\. )|(?<=\n))(?:This is |That(?:'s| is) )?(?:beyond|outside) (?:my |the )?(?:current )?(?:capabilities|scope|ability)\.?",
+            re.IGNORECASE | re.MULTILINE,
+        ),
+        "Here's what I can share based on our recruitment marketing intelligence:",
+    ),
+    (
+        re.compile(
+            r"I (?:would |can )?(?:recommend|suggest) (?:that )?(?:you )?(?:check|visit|consult|look at|refer to) (?!the (?:data|benchmarks?|breakdown|comparison|results?|ranges?|section|table) (?:above|below|provided|I pulled|we pulled))[^.]*\.?",
+            re.IGNORECASE,
+        ),
+        "Based on our data and industry expertise:",
+    ),
+    (
+        re.compile(
+            r"I(?:'m| am) (?:not |un)?able to (?:help|assist) with (?:that|this)[^.]*\.?",
+            re.IGNORECASE,
+        ),
+        "Here's what I can share on this topic:",
+    ),
+    (
+        re.compile(
+            r"Unfortunately,? I (?:don't|do not|can(?:'t|not)) [^.]*\.?", re.IGNORECASE
+        ),
+        "Based on available data:",
+    ),
 ]
 
 
@@ -5790,7 +8048,7 @@ def _sanitize_refusal_language(response: dict) -> dict:
 
     Applied AFTER competitor filtering, BEFORE returning to the user.
     """
-    text = response.get("response", "")
+    text = response.get("response") or ""
     if not text:
         return response
 
@@ -5803,9 +8061,9 @@ def _sanitize_refusal_language(response: dict) -> dict:
 
     if changed:
         # Clean up artifacts: double spaces, double periods, leading whitespace on lines
-        text = re.sub(r'  +', ' ', text)
-        text = re.sub(r'\.\.+', '.', text)
-        text = re.sub(r'\n +', '\n', text)
+        text = re.sub(r"  +", " ", text)
+        text = re.sub(r"\.\.+", ".", text)
+        text = re.sub(r"\n +", "\n", text)
         response = dict(response)
         response["response"] = text
         logger.info("Refusal sanitizer: cleaned refusal language from response")
@@ -5851,16 +8109,32 @@ def _search_channels_db(channels_db: dict, search_term: str) -> list:
     for section_key, section_val in traditional.items():
         if isinstance(section_val, list):
             for pub in section_val:
-                if isinstance(pub, str) and search_lower in pub.lower() and pub not in seen:
+                if (
+                    isinstance(pub, str)
+                    and search_lower in pub.lower()
+                    and pub not in seen
+                ):
                     seen.add(pub)
-                    matches.append({"name": pub, "category": section_key, "source": "channels_db"})
+                    matches.append(
+                        {"name": pub, "category": section_key, "source": "channels_db"}
+                    )
         elif isinstance(section_val, dict):
             for sub_key, sub_list in section_val.items():
                 if isinstance(sub_list, list):
                     for pub in sub_list:
-                        if isinstance(pub, str) and search_lower in pub.lower() and pub not in seen:
+                        if (
+                            isinstance(pub, str)
+                            and search_lower in pub.lower()
+                            and pub not in seen
+                        ):
                             seen.add(pub)
-                            matches.append({"name": pub, "category": f"{section_key}/{sub_key}", "source": "channels_db"})
+                            matches.append(
+                                {
+                                    "name": pub,
+                                    "category": f"{section_key}/{sub_key}",
+                                    "source": "channels_db",
+                                }
+                            )
 
     # Search industry_recommendations (joveo_supply_fit and recommended_channels)
     recs = channels_db.get("industry_recommendations", {})
@@ -5868,21 +8142,41 @@ def _search_channels_db(channels_db: dict, search_term: str) -> list:
         if not isinstance(ind_data, dict):
             continue
         # Check joveo_supply_fit
-        supply_fit = ind_data.get("joveo_supply_fit", [])
+        supply_fit = ind_data.get("joveo_supply_fit") or []
         if isinstance(supply_fit, list):
             for pub in supply_fit:
-                if isinstance(pub, str) and search_lower in pub.lower() and pub not in seen:
+                if (
+                    isinstance(pub, str)
+                    and search_lower in pub.lower()
+                    and pub not in seen
+                ):
                     seen.add(pub)
-                    matches.append({"name": pub, "category": f"joveo_supply/{ind_key}", "source": "channels_db"})
+                    matches.append(
+                        {
+                            "name": pub,
+                            "category": f"joveo_supply/{ind_key}",
+                            "source": "channels_db",
+                        }
+                    )
         # Check recommended_channels tiers
         rec_channels = ind_data.get("recommended_channels", {})
         if isinstance(rec_channels, dict):
             for tier, tier_list in rec_channels.items():
                 if isinstance(tier_list, list):
                     for pub in tier_list:
-                        if isinstance(pub, str) and search_lower in pub.lower() and pub not in seen:
+                        if (
+                            isinstance(pub, str)
+                            and search_lower in pub.lower()
+                            and pub not in seen
+                        ):
                             seen.add(pub)
-                            matches.append({"name": pub, "category": f"{ind_key}/{tier}", "source": "channels_db"})
+                            matches.append(
+                                {
+                                    "name": pub,
+                                    "category": f"{ind_key}/{tier}",
+                                    "source": "channels_db",
+                                }
+                            )
 
     return matches
 
@@ -5930,9 +8224,21 @@ def _pick_best_role(detected_roles: set, text: str) -> str:
 
     # Priority order: more specific roles ranked higher
     priority = [
-        "nursing", "healthcare", "executive", "engineering", "technology",
-        "construction", "transportation", "education", "finance", "sales",
-        "marketing", "retail", "hospitality", "hourly", "remote",
+        "nursing",
+        "healthcare",
+        "executive",
+        "engineering",
+        "technology",
+        "construction",
+        "transportation",
+        "education",
+        "finance",
+        "sales",
+        "marketing",
+        "retail",
+        "hospitality",
+        "hourly",
+        "remote",
     ]
     # Find which role keyword appears first in the text
     earliest_pos = {}
@@ -5972,13 +8278,13 @@ def _detect_country(text: str) -> Optional[str]:
     sorted_aliases = sorted(_COUNTRY_ALIASES.keys(), key=len, reverse=True)
     for alias in sorted_aliases:
         # Use word boundary check to avoid false matches
-        pattern = r'\b' + re.escape(alias) + r'\b'
+        pattern = r"\b" + re.escape(alias) + r"\b"
         if re.search(pattern, text_lower):
             # For short aliases (2 chars like "us", "uk"), require uppercase in
             # original text to avoid false positives on common English words
             # e.g. "help us find" should NOT match "United States"
             if len(alias) <= 2:
-                upper_pat = r'\b' + re.escape(alias.upper()) + r'\b'
+                upper_pat = r"\b" + re.escape(alias.upper()) + r"\b"
                 if not re.search(upper_pat, text):
                     continue
             return _COUNTRY_ALIASES[alias]
@@ -5987,14 +8293,14 @@ def _detect_country(text: str) -> Optional[str]:
     for state_alias in sorted_states:
         if len(state_alias) <= 2:
             # For 2-letter abbrevs, require word boundary and uppercase in original text
-            pattern = r'\b' + re.escape(state_alias) + r'\b'
+            pattern = r"\b" + re.escape(state_alias) + r"\b"
             if re.search(pattern, text_lower):
                 # Only match if it's uppercase in original (avoid matching "in", "or", etc.)
-                upper_pat = r'\b' + re.escape(state_alias.upper()) + r'\b'
+                upper_pat = r"\b" + re.escape(state_alias.upper()) + r"\b"
                 if re.search(upper_pat, text):
                     return "United States"
         else:
-            pattern = r'\b' + re.escape(state_alias) + r'\b'
+            pattern = r"\b" + re.escape(state_alias) + r"\b"
             if re.search(pattern, text_lower):
                 return "United States"
     return None
@@ -6006,13 +8312,13 @@ def _detect_us_state(text: str) -> Optional[str]:
     sorted_states = sorted(_US_STATE_ALIASES.keys(), key=len, reverse=True)
     for state_alias in sorted_states:
         if len(state_alias) <= 2:
-            pattern = r'\b' + re.escape(state_alias) + r'\b'
+            pattern = r"\b" + re.escape(state_alias) + r"\b"
             if re.search(pattern, text_lower):
-                upper_pat = r'\b' + re.escape(state_alias.upper()) + r'\b'
+                upper_pat = r"\b" + re.escape(state_alias.upper()) + r"\b"
                 if re.search(upper_pat, text):
                     return _US_STATE_ALIASES[state_alias]
         else:
-            pattern = r'\b' + re.escape(state_alias) + r'\b'
+            pattern = r"\b" + re.escape(state_alias) + r"\b"
             if re.search(pattern, text_lower):
                 return _US_STATE_ALIASES[state_alias]
     return None
@@ -6022,12 +8328,12 @@ def _extract_budget(text: str) -> float:
     """Extract a dollar budget amount from text."""
     # Match patterns like $50K, $50,000, 50K, 50000, $1M, $1.5M
     patterns = [
-        r'\$\s*([\d,.]+)\s*[mM](?:illion)?',     # $1M, $1.5 million
-        r'\$\s*([\d,.]+)\s*[kK]',                  # $50K, $50k
-        r'([\d,.]+)\s*[mM](?:illion)?\s*(?:dollar|usd|budget)',  # 1M dollars
-        r'([\d,.]+)\s*[kK]\s*(?:dollar|usd|budget)',              # 50K dollars
-        r'\$\s*([\d,.]+)',                          # $50,000
-        r'([\d,.]+)\s*(?:dollar|usd)',             # 50000 dollars
+        r"\$\s*([\d,.]+)\s*[mM](?:illion)?",  # $1M, $1.5 million
+        r"\$\s*([\d,.]+)\s*[kK]",  # $50K, $50k
+        r"([\d,.]+)\s*[mM](?:illion)?\s*(?:dollar|usd|budget)",  # 1M dollars
+        r"([\d,.]+)\s*[kK]\s*(?:dollar|usd|budget)",  # 50K dollars
+        r"\$\s*([\d,.]+)",  # $50,000
+        r"([\d,.]+)\s*(?:dollar|usd)",  # 50000 dollars
     ]
     for pattern in patterns:
         match = re.search(pattern, text)
@@ -6035,9 +8341,9 @@ def _extract_budget(text: str) -> float:
             num_str = match.group(1).replace(",", "")
             try:
                 val = float(num_str)
-                if "m" in text[match.start():match.end()].lower():
+                if "m" in text[match.start() : match.end()].lower():
                     val *= 1_000_000
-                elif "k" in text[match.start():match.end()].lower():
+                elif "k" in text[match.start() : match.end()].lower():
                     val *= 1_000
                 return val
             except ValueError:
@@ -6055,7 +8361,9 @@ def _estimate_confidence(tools_used: list, sources: set) -> float:
     return round(min(base, 0.95), 2)
 
 
-def _estimate_confidence_v2(tools_used: list, sources: set, tool_details: list) -> float:
+def _estimate_confidence_v2(
+    tools_used: list, sources: set, tool_details: list
+) -> float:
     """Enhanced confidence scoring based on tool call quality.
 
     Returns a float (0.0-0.95) for backward compatibility.
@@ -6128,16 +8436,30 @@ def _build_confidence_breakdown(
     source_score = min(len(sources) * 0.06, 0.20)
 
     # High-quality source bonus
-    high_quality_sources = {"Joveo Publisher Network", "Recruitment Industry Knowledge Base",
-                            "Joveo Budget Allocation Engine", "Joveo Global Supply Intelligence"}
+    high_quality_sources = {
+        "Joveo Publisher Network",
+        "Recruitment Industry Knowledge Base",
+        "Joveo Budget Allocation Engine",
+        "Joveo Global Supply Intelligence",
+    }
     has_quality = any(s in high_quality_sources for s in sources)
     quality_bonus = 0.10 if has_quality else 0.0
 
-    overall = round(min(0.40 + breadth_score + success_score + source_score + quality_bonus, 0.95), 2)
+    overall = round(
+        min(0.40 + breadth_score + success_score + source_score + quality_bonus, 0.95),
+        2,
+    )
 
     # Determine data freshness
     freshness = "curated"
-    live_sources = {"BLS-QCEW", "SEC-EDGAR", "Clearbit", "CurrencyRates", "Wikipedia", "Census-ACS"}
+    live_sources = {
+        "BLS-QCEW",
+        "SEC-EDGAR",
+        "Clearbit",
+        "CurrencyRates",
+        "Wikipedia",
+        "Census-ACS",
+    }
     if any(s in str(sources) for s in live_sources):
         freshness = "live"
     elif tool_details:
@@ -6204,7 +8526,7 @@ def _build_conversation_memory(history: list) -> str:
     budgets_mentioned = []
 
     for msg in recent:
-        content = msg.get("content", "")
+        content = msg.get("content") or ""
         if not isinstance(content, str):
             continue
         # Only extract entities from USER messages to prevent assistant bleed
@@ -6245,20 +8567,31 @@ def _build_conversation_memory(history: list) -> str:
     if roles_mentioned:
         parts.append(f"- Current topic roles: {', '.join(sorted(roles_mentioned))}")
     if locations_mentioned:
-        parts.append(f"- Current location context: {', '.join(sorted(locations_mentioned))}")
+        parts.append(
+            f"- Current location context: {', '.join(sorted(locations_mentioned))}"
+        )
         # MEDIUM 2 FIX: Flag multi-country queries so LLM handles each country
         if len(locations_mentioned) >= 2:
-            currencies = {loc: _get_currency_for_country(loc) for loc in locations_mentioned
-                         if loc in _COUNTRY_CURRENCY or loc == "United States"}
-            parts.append(f"- MULTI-COUNTRY QUERY: User mentioned {len(locations_mentioned)} countries. "
-                         f"Call tools for EACH country separately. "
-                         f"Currencies: {', '.join(f'{c}={cur}' for c, cur in currencies.items()) if currencies else 'USD for all'}")
+            currencies = {
+                loc: _get_currency_for_country(loc)
+                for loc in locations_mentioned
+                if loc in _COUNTRY_CURRENCY or loc == "United States"
+            }
+            parts.append(
+                f"- MULTI-COUNTRY QUERY: User mentioned {len(locations_mentioned)} countries. "
+                f"Call tools for EACH country separately. "
+                f"Currencies: {', '.join(f'{c}={cur}' for c, cur in currencies.items()) if currencies else 'USD for all'}"
+            )
     else:
-        parts.append("- Location: NOT SPECIFIED in current message (do NOT assume from earlier conversation -- ask the user)")
+        parts.append(
+            "- Location: NOT SPECIFIED in current message (do NOT assume from earlier conversation -- ask the user)"
+        )
     if industries_mentioned:
         parts.append(f"- Industries: {', '.join(sorted(industries_mentioned))}")
     if budgets_mentioned:
-        parts.append(f"- Budget figures: {', '.join(f'${b:,.0f}' for b in budgets_mentioned)}")
+        parts.append(
+            f"- Budget figures: {', '.join(f'${b:,.0f}' for b in budgets_mentioned)}"
+        )
 
     return "\n".join(parts)
 
@@ -6269,7 +8602,10 @@ def _summarize_enrichment(context: dict) -> str:
     if context.get("roles"):
         roles = context["roles"]
         if isinstance(roles, list):
-            role_names = [r.get("title", str(r)) if isinstance(r, dict) else str(r) for r in roles[:5]]
+            role_names = [
+                r.get("title", str(r)) if isinstance(r, dict) else str(r)
+                for r in roles[:5]
+            ]
             parts.append(f"Roles: {', '.join(role_names)}")
     if context.get("locations"):
         locs = context["locations"]
@@ -6277,7 +8613,11 @@ def _summarize_enrichment(context: dict) -> str:
             loc_names = []
             for loc in locs[:5]:
                 if isinstance(loc, dict):
-                    loc_names.append(f"{loc.get('city', '')}, {loc.get('state', '')}, {loc.get('country', '')}".strip(", "))
+                    loc_names.append(
+                        f"{loc.get('city') or ''}, {loc.get('state') or ''}, {loc.get('country') or ''}".strip(
+                            ", "
+                        )
+                    )
                 else:
                     loc_names.append(str(loc))
             parts.append(f"Locations: {', '.join(loc_names)}")
@@ -6290,7 +8630,10 @@ def _summarize_enrichment(context: dict) -> str:
     if context.get("target_roles"):
         target = context["target_roles"]
         if isinstance(target, list):
-            names = [r.get("title", str(r)) if isinstance(r, dict) else str(r) for r in target[:5]]
+            names = [
+                r.get("title", str(r)) if isinstance(r, dict) else str(r)
+                for r in target[:5]
+            ]
             parts.append(f"Target Roles: {', '.join(names)}")
     return "\n".join(parts) if parts else "No additional context available."
 
@@ -6299,8 +8642,8 @@ def _summarize_enrichment(context: dict) -> str:
 # SOURCE-GROUNDED RESPONSE VERIFICATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_DOLLAR_RE = re.compile(r'\$[\d,]+(?:\.\d+)?(?:\s*[KkMm])?')
-_PCT_RE = re.compile(r'[\d.]+\s*%')
+_DOLLAR_RE = re.compile(r"\$[\d,]+(?:\.\d+)?(?:\s*[KkMm])?")
+_PCT_RE = re.compile(r"[\d.]+\s*%")
 
 
 def _extract_numbers_from_text(text: str) -> List[float]:
@@ -6308,10 +8651,10 @@ def _extract_numbers_from_text(text: str) -> List[float]:
     numbers = []
     for match in _DOLLAR_RE.findall(text):
         try:
-            cleaned = match.replace('$', '').replace(',', '').strip()
-            if cleaned.upper().endswith('K'):
+            cleaned = match.replace("$", "").replace(",", "").strip()
+            if cleaned.upper().endswith("K"):
                 numbers.append(float(cleaned[:-1]) * 1000)
-            elif cleaned.upper().endswith('M'):
+            elif cleaned.upper().endswith("M"):
                 numbers.append(float(cleaned[:-1]) * 1000000)
             else:
                 numbers.append(float(cleaned))
@@ -6351,8 +8694,9 @@ def _extract_numbers_from_tool_results(tool_results_raw: list) -> set:
     return numbers
 
 
-def _verify_response_grounding(response_text: str,
-                                tool_results_raw: list) -> Tuple[str, float]:
+def _verify_response_grounding(
+    response_text: str, tool_results_raw: list
+) -> Tuple[str, float]:
     """Verify that numbers in the response trace back to tool results.
 
     Returns (possibly_modified_response, grounding_score).
@@ -6365,7 +8709,9 @@ def _verify_response_grounding(response_text: str,
     if not response_numbers:
         # Non-numeric response: check if it at least references tool data.
         # Without this, narrative answers that ignore tools get a perfect 1.0.
-        if tool_results_raw and not _response_uses_tool_data(response_text, tool_results_raw):
+        if tool_results_raw and not _response_uses_tool_data(
+            response_text, tool_results_raw
+        ):
             logger.warning("Grounding: non-numeric response ignores tool data entirely")
             return response_text, 0.3  # Low score -> may trigger suppression gate
         return response_text, 1.0  # References tool data or no tools used
@@ -6380,7 +8726,7 @@ def _verify_response_grounding(response_text: str,
         for tool_num in tool_numbers:
             if tool_num == 0:
                 continue
-            ratio = num / tool_num if tool_num != 0 else float('inf')
+            ratio = num / tool_num if tool_num != 0 else float("inf")
             if 0.85 <= ratio <= 1.15:
                 verified += 1
                 break
@@ -6396,7 +8742,9 @@ def _verify_response_grounding(response_text: str,
         )
         logger.warning(
             "Response grounding check: %.0f%% of %d numbers verified (score=%.2f)",
-            grounding_score * 100, len(response_numbers), grounding_score
+            grounding_score * 100,
+            len(response_numbers),
+            grounding_score,
         )
 
     return response_text, grounding_score
@@ -6430,10 +8778,27 @@ def _response_uses_tool_data(response_text: str, tool_results_raw: list) -> bool
 
     # 2. Check for shared source / platform names
     _source_indicators = [
-        "indeed", "linkedin", "glassdoor", "ziprecruiter", "google ads",
-        "meta", "facebook", "bing", "tiktok", "bls", "bureau of labor",
-        "joveo", "programmatic", "niche board", "monster", "careerbuilder",
-        "zippia", "payscale", "salary.com", "onet", "lightcast",
+        "indeed",
+        "linkedin",
+        "glassdoor",
+        "ziprecruiter",
+        "google ads",
+        "meta",
+        "facebook",
+        "bing",
+        "tiktok",
+        "bls",
+        "bureau of labor",
+        "joveo",
+        "programmatic",
+        "niche board",
+        "monster",
+        "careerbuilder",
+        "zippia",
+        "payscale",
+        "salary.com",
+        "onet",
+        "lightcast",
     ]
     for src in _source_indicators:
         if src in tool_text and src in resp_lower:
@@ -6445,8 +8810,16 @@ def _response_uses_tool_data(response_text: str, tool_results_raw: list) -> bool
             parsed = json.loads(tr) if isinstance(tr, str) else tr
             if not isinstance(parsed, dict):
                 continue
-            for key in ("location", "role", "city", "country", "job_title",
-                        "metro_name", "industry", "company"):
+            for key in (
+                "location",
+                "role",
+                "city",
+                "country",
+                "job_title",
+                "metro_name",
+                "industry",
+                "company",
+            ):
                 val = str(parsed.get(key, "")).lower().strip()
                 if val and len(val) > 2 and val in resp_lower:
                     return True
@@ -6456,28 +8829,32 @@ def _response_uses_tool_data(response_text: str, tool_results_raw: list) -> bool
     return False  # Response does not reference ANY tool data
 
 
-def _llm_verify_response(response_text: str, tool_results_raw: list, query: str) -> tuple:
+def _llm_verify_response(
+    response_text: str, tool_results_raw: list, query: str
+) -> tuple:
     """Use Gemini/secondary LLM to verify factual claims in the response.
-    
+
     Returns (possibly_corrected_response, verification_score, verification_status).
     verification_status: "verified" | "issues_found" | "skipped" | "error"
     """
     # Skip verification for short responses or non-data responses
     if len(response_text) < 100 or not tool_results_raw:
         return response_text, 1.0, "skipped"
-    
+
     # Skip if no dollar amounts or numbers to verify
-    if not _DOLLAR_RE.search(response_text) and not any(c.isdigit() for c in response_text):
+    if not _DOLLAR_RE.search(response_text) and not any(
+        c.isdigit() for c in response_text
+    ):
         return response_text, 1.0, "skipped"
-    
+
     try:
         from llm_router import call_llm, TASK_VERIFICATION
     except ImportError:
         return response_text, 0.5, "error"
-    
+
     # Truncate tool results to fit in context
     tool_data_str = json.dumps(tool_results_raw[:3], default=str)[:3000]
-    
+
     prompt = f"""Verify this recruitment marketing response for factual accuracy against the source data.
 
 User question: {query[:500]}
@@ -6506,14 +8883,15 @@ Return ONLY valid JSON:
         )
         if result and (result.get("text") or result.get("content")):
             import re
-            content = result.get("text") or result.get("content", "")
-            json_match = re.search(r'\{[\s\S]*?\}', content)
+
+            content = result.get("text") or result.get("content") or ""
+            json_match = re.search(r"\{[\s\S]*?\}", content)
             if json_match:
                 parsed = json.loads(json_match.group())
                 verified = parsed.get("verified", True)
-                issues = parsed.get("issues", [])
+                issues = parsed.get("issues") or []
                 severity = parsed.get("severity", "none")
-                
+
                 if not verified and severity == "major" and issues:
                     # v3.5: lowered from 0.5 -> 0.3 so the suppression gate catches it
                     response_text += "\n\n_Note: Some figures may be approximations. For verified benchmarks, please ask about specific metrics._"
@@ -6525,14 +8903,14 @@ Return ONLY valid JSON:
                     return response_text, 1.0, "verified"
     except Exception as e:
         logger.warning("Gemini verification failed: %s", e)
-    
-    return response_text, 0.5, "error"
 
+    return response_text, 0.5, "error"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RESPONSE FORMATTERS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _format_supply_response(data: dict, country: str, is_dei: bool = False) -> str:
     """Format global supply data into a readable response."""
@@ -6540,12 +8918,14 @@ def _format_supply_response(data: dict, country: str, is_dei: bool = False) -> s
 
     if is_dei:
         dei = data.get("dei_boards", {})
-        boards = dei.get("boards", dei.get("global", []))
+        boards = dei.get("boards", dei.get("global") or [])
         if boards:
             parts.append(f"*DEI Job Boards{' for ' + country if country else ''}*\n")
             for b in boards[:10]:
                 if isinstance(b, dict):
-                    parts.append(f"- *{b.get('name', 'N/A')}* - Focus: {b.get('focus', 'General')} ({b.get('regions', 'Global')})")
+                    parts.append(
+                        f"- *{b.get('name', 'N/A')}* - Focus: {b.get('focus', 'General')} ({b.get('regions', 'Global')})"
+                    )
                 else:
                     parts.append(f"- {b}")
             if len(boards) > 10:
@@ -6556,7 +8936,7 @@ def _format_supply_response(data: dict, country: str, is_dei: bool = False) -> s
     if cb and "boards" in cb:
         parts.append(f"*Job Boards in {cb.get('country', country)}*\n")
         parts.append(f"*Monthly Spend*: {cb.get('monthly_spend', 'N/A')}")
-        parts.append(f"*Key Metros*: {', '.join(cb.get('key_metros', []))}\n")
+        parts.append(f"*Key Metros*: {', '.join(cb.get('key_metros') or [])}\n")
 
         # Group by tier
         boards = cb["boards"]
@@ -6569,13 +8949,17 @@ def _format_supply_response(data: dict, country: str, is_dei: bool = False) -> s
             if tier in tiers:
                 parts.append(f"*{tier}:*")
                 for b in tiers[tier]:
-                    parts.append(f"- {b['name']} ({b.get('billing', 'N/A')}) - {b.get('category', 'General')}")
+                    parts.append(
+                        f"- {b['name']} ({b.get('billing', 'N/A')}) - {b.get('category', 'General')}"
+                    )
                 parts.append("")
 
     elif "available_countries" in data:
         parts.append("*Available Countries in Joveo's Global Supply Data*\n")
         countries = data["available_countries"]
-        parts.append(f"We have job board data for *{len(countries)} countries*: {', '.join(countries[:15])}{'...' if len(countries) > 15 else ''}")
+        parts.append(
+            f"We have job board data for *{len(countries)} countries*: {', '.join(countries[:15])}{'...' if len(countries) > 15 else ''}"
+        )
 
     return "\n".join(parts) if parts else "No supply data available for this query."
 
@@ -6583,17 +8967,21 @@ def _format_supply_response(data: dict, country: str, is_dei: bool = False) -> s
 def _format_publisher_response(data: dict) -> str:
     """Format publisher network data into a readable response."""
     parts = []
-    total = data.get("total_active_publishers", 0)
+    total = data.get("total_active_publishers") or 0
 
     if "search_results" in data:
         matches = data["search_results"]
-        parts.append(f"*Publisher Search Results ({data.get('match_count', 0)} matches)*\n")
+        parts.append(
+            f"*Publisher Search Results ({data.get('match_count') or 0} matches)*\n"
+        )
         for m in matches[:15]:
             parts.append(f"- *{m['name']}* (Category: {m['category']})")
     elif "publishers" in data:
         pubs = data["publishers"]
-        label = data.get("country", data.get("category", ""))
-        parts.append(f"*Joveo Publishers{' in ' + label if label else ''} ({data.get('count', len(pubs))} publishers)*\n")
+        label = data.get("country", data.get("category") or "")
+        parts.append(
+            f"*Joveo Publishers{' in ' + label if label else ''} ({data.get('count', len(pubs))} publishers)*\n"
+        )
         for p in pubs[:15]:
             parts.append(f"- {p}")
         if len(pubs) > 15:
@@ -6645,12 +9033,14 @@ def _format_channel_response(data: dict, industry: str) -> str:
     if "niche_industry_channels" in data:
         nic = data["niche_industry_channels"]
         parts.append(f"*Niche Channels for {nic.get('industry', industry)}:*")
-        for ch in nic.get("channels", [])[:12]:
+        for ch in nic.get("channels") or [][:12]:
             parts.append(f"- {ch}")
         parts.append("")
 
     if "regional_local" in data:
-        parts.append(f"*Regional/Local Boards* ({len(data['regional_local'])} channels):")
+        parts.append(
+            f"*Regional/Local Boards* ({len(data['regional_local'])} channels):"
+        )
         for ch in data["regional_local"][:8]:
             parts.append(f"- {ch}")
         parts.append("")
@@ -6672,7 +9062,9 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
     if "benchmark_categories" in data and not bm:
         categories = data["benchmark_categories"]
         parts.append("*Recruitment Advertising Benchmarks Overview*\n")
-        parts.append("Joveo's knowledge base covers the following benchmark categories:\n")
+        parts.append(
+            "Joveo's knowledge base covers the following benchmark categories:\n"
+        )
         cat_descriptions = {
             "cost_per_click": "CPC benchmarks by platform (Indeed, LinkedIn, Google, Meta, etc.)",
             "cost_per_application": "CPA benchmarks by industry and platform",
@@ -6687,7 +9079,9 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
             desc = cat_descriptions.get(cat, "")
             nice_name = cat.replace("_", " ").title()
             parts.append(f"- *{nice_name}*: {desc}" if desc else f"- *{nice_name}*")
-        parts.append("\nAsk about a specific metric for detailed data (e.g., _\"What is the average CPC?\"_)")
+        parts.append(
+            '\nAsk about a specific metric for detailed data (e.g., _"What is the average CPC?"_)'
+        )
         return "\n".join(parts)
 
     if not bm or "message" in bm:
@@ -6703,7 +9097,9 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
                 parts.append("")
             return "\n".join(parts)
         parts.append("No specific benchmark data found. ")
-        parts.append("Available metrics: CPC, CPA, Cost per Hire, Apply Rate, Time to Fill.")
+        parts.append(
+            "Available metrics: CPC, CPA, Cost per Hire, Apply Rate, Time to Fill."
+        )
         return "\n".join(parts)
 
     for bm_key, bm_data in bm.items():
@@ -6711,7 +9107,7 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
         parts.append(f"*{nice_key} Benchmarks*\n")
 
         if isinstance(bm_data, dict):
-            desc = bm_data.get("description", "")
+            desc = bm_data.get("description") or ""
             if desc:
                 parts.append(f"_{desc}_\n")
 
@@ -6721,16 +9117,28 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
                 for plat, plat_data in bm_data["by_platform"].items():
                     if isinstance(plat_data, dict):
                         key_val = ""
-                        for k in ["average_cpc_range", "job_ad_cpc_range", "average_cpc",
-                                   "model", "starting_price", "median_cpc_peak_nov_2025"]:
+                        for k in [
+                            "average_cpc_range",
+                            "job_ad_cpc_range",
+                            "average_cpc",
+                            "model",
+                            "starting_price",
+                            "median_cpc_peak_nov_2025",
+                        ]:
                             if k in plat_data:
                                 key_val = f"{plat_data[k]}"
                                 break
                         parts.append(f"- *{plat.replace('_', ' ').title()}*: {key_val}")
 
             # Format report data
-            for rkey in ["appcast_2025_report", "appcast_2026_report", "shrm_2025", "shrm_2026",
-                         "google_ads_benchmark", "joveo_historical"]:
+            for rkey in [
+                "appcast_2025_report",
+                "appcast_2026_report",
+                "shrm_2025",
+                "shrm_2026",
+                "google_ads_benchmark",
+                "joveo_historical",
+            ]:
                 if rkey in bm_data:
                     rdata = bm_data[rkey]
                     parts.append(f"\n*{rkey.replace('_', ' ').title()}:*")
@@ -6745,7 +9153,9 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
     if industry:
         ind_bm = data.get("industry_benchmarks", {})
         for ind_key, ind_data in ind_bm.items():
-            parts.append(f"\n*Industry-Specific: {ind_key.replace('_', ' ').title()}*\n")
+            parts.append(
+                f"\n*Industry-Specific: {ind_key.replace('_', ' ').title()}*\n"
+            )
             if isinstance(ind_data, dict):
                 for k, v in list(ind_data.items())[:8]:
                     parts.append(f"- {k.replace('_', ' ').title()}: {v}")
@@ -6775,18 +9185,22 @@ def _format_budget_response(data: dict, budget: float) -> str:
         allocs = data["channel_allocations"]
         parts.append("*Channel Spend Breakdown:*\n")
         for ch_name, ch_data in allocs.items():
-            spend = ch_data.get("dollar_amount", ch_data.get("dollars", ch_data.get("spend", 0)))
-            clicks = ch_data.get("projected_clicks", 0)
-            apps = ch_data.get("projected_applications", 0)
-            parts.append(f"- *{ch_name}*: ${spend:,.0f} | Clicks: {clicks:,.0f} | Applications: {apps:,.0f}")
+            spend = ch_data.get(
+                "dollar_amount", ch_data.get("dollars", ch_data.get("spend") or 0)
+            )
+            clicks = ch_data.get("projected_clicks") or 0
+            apps = ch_data.get("projected_applications") or 0
+            parts.append(
+                f"- *{ch_name}*: ${spend:,.0f} | Clicks: {clicks:,.0f} | Applications: {apps:,.0f}"
+            )
 
         total = data.get("total_projected", {})
         if total:
             parts.append(f"\n*Projected Totals:*")
-            parts.append(f"- Total Clicks: {total.get('clicks', 0):,.0f}")
-            parts.append(f"- Total Applications: {total.get('applications', 0):,.0f}")
-            parts.append(f"- Projected Hires: {total.get('hires', 0):,.0f}")
-            cph_val = total.get("cost_per_hire", 0)
+            parts.append(f"- Total Clicks: {total.get('clicks') or 0:,.0f}")
+            parts.append(f"- Total Applications: {total.get('applications') or 0:,.0f}")
+            parts.append(f"- Projected Hires: {total.get('hires') or 0:,.0f}")
+            cph_val = total.get("cost_per_hire") or 0
             if cph_val:
                 parts.append(f"- Estimated Cost per Hire: ${cph_val:,.0f}")
 
@@ -6795,16 +9209,20 @@ def _format_budget_response(data: dict, budget: float) -> str:
         parts.append("*Estimated Channel Allocation:*\n")
         for ch_name, ch_data in allocs.items():
             nice_name = ch_name.replace("_", " ").title()
-            parts.append(f"- *{nice_name}*: ${ch_data['amount']:,.0f} ({ch_data['pct']}%)")
+            parts.append(
+                f"- *{nice_name}*: ${ch_data['amount']:,.0f} ({ch_data['pct']}%)"
+            )
 
-    recs = data.get("recommendations", [])
+    recs = data.get("recommendations") or []
     if recs:
         parts.append("\n*Optimization Recommendations:*")
         for rec in recs[:4]:
             if isinstance(rec, str):
                 parts.append(f"- {rec}")
             elif isinstance(rec, dict):
-                parts.append(f"- {rec.get('recommendation', rec.get('message', str(rec)))}")
+                parts.append(
+                    f"- {rec.get('recommendation', rec.get('message', str(rec)))}"
+                )
 
     return "\n".join(parts)
 
@@ -6822,7 +9240,7 @@ def _format_trend_response(data: dict) -> str:
     summaries = data.get("trend_summaries", {})
     for tk, tv in list(summaries.items())[:6]:
         parts.append(f"*{tv.get('title', tk.replace('_', ' ').title())}*")
-        desc = tv.get("description", "")
+        desc = tv.get("description") or ""
         if desc:
             parts.append(f"{desc}\n")
 
@@ -6838,7 +9256,9 @@ def _format_demand_response(data: dict, role: str) -> str:
     if apo:
         icims = apo.get("icims_2025", {})
         if icims:
-            parts.append(f"*Applicants per Opening*: {icims.get('ratio', 'N/A')} (iCIMS 2025)")
+            parts.append(
+                f"*Applicants per Opening*: {icims.get('ratio', 'N/A')} (iCIMS 2025)"
+            )
 
     soh = data.get("source_of_hire", {})
     if soh:
@@ -6852,7 +9272,9 @@ def _format_demand_response(data: dict, role: str) -> str:
     if ind:
         parts.append(f"\n*Industry Demand ({ind.get('industry', 'N/A')}):*")
         parts.append(f"- Hiring Strength: {ind.get('hiring_strength', 'N/A')}")
-        parts.append(f"- Recruitment Difficulty: {ind.get('recruitment_difficulty', 'N/A')}")
+        parts.append(
+            f"- Recruitment Difficulty: {ind.get('recruitment_difficulty', 'N/A')}"
+        )
 
     return "\n".join(parts)
 
@@ -6899,10 +9321,12 @@ def _sanitize_history(raw_history) -> list:
         content = entry.get("content")
         if not isinstance(content, str) or not content.strip():
             continue
-        sanitized.append({
-            "role": role,
-            "content": content[:4000],
-        })
+        sanitized.append(
+            {
+                "role": role,
+                "content": content[:4000],
+            }
+        )
 
     # Respect the same cap used downstream in _chat_with_claude
     return sanitized[-MAX_HISTORY_TURNS:]
@@ -6954,7 +9378,7 @@ def handle_chat_request(request_data: dict) -> dict:
             "error": "No message provided",
         }
 
-    history = _sanitize_history(request_data.get("history", []))
+    history = _sanitize_history(request_data.get("history") or [])
     context = request_data.get("context")
 
     iq = _get_iq()

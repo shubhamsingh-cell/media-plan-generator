@@ -49,6 +49,7 @@ def _lazy_shared_utils():
         return _shared_utils
     try:
         import shared_utils as _mod
+
         _shared_utils = _mod
         _HAS_SHARED_UTILS = True
         return _mod
@@ -101,18 +102,45 @@ API_KEYS_FILE = os.path.join(DATA_DIR, "api_keys.json")
 
 # Rate limit tiers
 RATE_LIMIT_TIERS = {
-    "free": {"requests_per_day": 100, "label": "Free", "price": "$0/month",
-             "features": ["100 requests/day", "Basic media plan generation",
-                          "JSON responses", "Community support"]},
-    "pro": {"requests_per_day": 1000, "label": "Pro", "price": "$49/month",
-            "features": ["1,000 requests/day", "Full media plan generation",
-                         "Excel & PPT exports", "Priority support",
-                         "Webhook notifications", "Batch processing"]},
-    "enterprise": {"requests_per_day": -1, "label": "Enterprise", "price": "Custom",
-                   "features": ["Unlimited requests", "Full media plan generation",
-                                "Excel & PPT exports", "Dedicated support",
-                                "Custom integrations", "SLA guarantee",
-                                "On-premise deployment option", "SSO/SAML"]},
+    "free": {
+        "requests_per_day": 100,
+        "label": "Free",
+        "price": "$0/month",
+        "features": [
+            "100 requests/day",
+            "Basic media plan generation",
+            "JSON responses",
+            "Community support",
+        ],
+    },
+    "pro": {
+        "requests_per_day": 1000,
+        "label": "Pro",
+        "price": "$49/month",
+        "features": [
+            "1,000 requests/day",
+            "Full media plan generation",
+            "Excel & PPT exports",
+            "Priority support",
+            "Webhook notifications",
+            "Batch processing",
+        ],
+    },
+    "enterprise": {
+        "requests_per_day": -1,
+        "label": "Enterprise",
+        "price": "Custom",
+        "features": [
+            "Unlimited requests",
+            "Full media plan generation",
+            "Excel & PPT exports",
+            "Dedicated support",
+            "Custom integrations",
+            "SLA guarantee",
+            "On-premise deployment option",
+            "SSO/SAML",
+        ],
+    },
 }
 
 # API key prefix for identification
@@ -140,6 +168,7 @@ _MAX_WORKERS = 6
 # 1. STORAGE -- Thread-safe JSON File Operations
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _ensure_data_dir():
     """Ensure data directory exists."""
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -149,7 +178,11 @@ def _load_api_keys() -> Dict[str, Any]:
     """Load API keys from JSON file. Thread-safe."""
     _ensure_data_dir()
     if not os.path.exists(API_KEYS_FILE):
-        return {"keys": {}, "usage_log": [], "metadata": {"created": datetime.utcnow().isoformat() + "Z"}}
+        return {
+            "keys": {},
+            "usage_log": [],
+            "metadata": {"created": datetime.utcnow().isoformat() + "Z"},
+        }
     try:
         with open(API_KEYS_FILE, "r") as f:
             data = json.load(f)
@@ -163,7 +196,11 @@ def _load_api_keys() -> Dict[str, Any]:
         return data
     except (json.JSONDecodeError, OSError) as exc:
         logger.error("Failed to load API keys file: %s", exc)
-        return {"keys": {}, "usage_log": [], "metadata": {"created": datetime.utcnow().isoformat() + "Z"}}
+        return {
+            "keys": {},
+            "usage_log": [],
+            "metadata": {"created": datetime.utcnow().isoformat() + "Z"},
+        }
 
 
 def _save_api_keys(data: Dict[str, Any]) -> bool:
@@ -171,7 +208,7 @@ def _save_api_keys(data: Dict[str, Any]) -> bool:
     _ensure_data_dir()
     try:
         # Trim usage log to last 10,000 entries to prevent unbounded growth
-        if len(data.get("usage_log", [])) > 10000:
+        if len(data.get("usage_log") or []) > 10000:
             data["usage_log"] = data["usage_log"][-10000:]
         tmp_path = API_KEYS_FILE + ".tmp"
         with open(tmp_path, "w") as f:
@@ -186,6 +223,7 @@ def _save_api_keys(data: Dict[str, Any]) -> bool:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2. API KEY MANAGEMENT
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def generate_api_key(tier: str, owner: str) -> Dict[str, Any]:
     """Create a new API key for the given tier and owner.
@@ -204,11 +242,14 @@ def generate_api_key(tier: str, owner: str) -> Dict[str, Any]:
     owner = owner.strip()
     tier = tier.lower().strip() if tier else "free"
     if tier not in RATE_LIMIT_TIERS:
-        return {"error": f"Invalid tier: {tier}. Must be one of: {', '.join(RATE_LIMIT_TIERS.keys())}", "success": False}
+        return {
+            "error": f"Invalid tier: {tier}. Must be one of: {', '.join(RATE_LIMIT_TIERS.keys())}",
+            "success": False,
+        }
 
     # Generate a secure random key
     raw_key = secrets.token_urlsafe(API_KEY_LENGTH - len(API_KEY_PREFIX))
-    api_key = API_KEY_PREFIX + raw_key[:API_KEY_LENGTH - len(API_KEY_PREFIX)]
+    api_key = API_KEY_PREFIX + raw_key[: API_KEY_LENGTH - len(API_KEY_PREFIX)]
 
     # Hash the key for storage (we store the hash, return the key once)
     key_hash = _hash_key(api_key)
@@ -244,7 +285,11 @@ def generate_api_key(tier: str, owner: str) -> Dict[str, Any]:
         "owner": owner,
         "created_at": now,
         "rate_limit": tier_info["requests_per_day"],
-        "rate_limit_label": "Unlimited" if tier_info["requests_per_day"] == -1 else f"{tier_info['requests_per_day']}/day",
+        "rate_limit_label": (
+            "Unlimited"
+            if tier_info["requests_per_day"] == -1
+            else f"{tier_info['requests_per_day']}/day"
+        ),
         "message": "Store this API key securely. It will not be shown again.",
     }
 
@@ -285,11 +330,15 @@ def validate_api_key(key: str) -> Dict[str, Any]:
         "tier": tier,
         "tier_label": tier_info["label"],
         "owner": record.get("owner", "Unknown"),
-        "created_at": record.get("created_at", ""),
+        "created_at": record.get("created_at") or "",
         "last_used": record.get("last_used"),
-        "total_requests": record.get("total_requests", 0),
+        "total_requests": record.get("total_requests") or 0,
         "rate_limit": tier_info["requests_per_day"],
-        "rate_limit_label": "Unlimited" if tier_info["requests_per_day"] == -1 else f"{tier_info['requests_per_day']}/day",
+        "rate_limit_label": (
+            "Unlimited"
+            if tier_info["requests_per_day"] == -1
+            else f"{tier_info['requests_per_day']}/day"
+        ),
         "key_prefix": record.get("key_prefix", key[:12] + "..."),
     }
 
@@ -356,8 +405,13 @@ def _increment_rate_limit(key_hash: str):
         cache["count"] += 1
 
 
-def record_usage(key: str, endpoint: str, response_time_ms: float,
-                 status_code: int = 200, error: str = "") -> None:
+def record_usage(
+    key: str,
+    endpoint: str,
+    response_time_ms: float,
+    status_code: int = 200,
+    error: str = "",
+) -> None:
     """Record API usage for a key.
 
     Args:
@@ -416,10 +470,10 @@ def _maybe_flush_usage():
             kh = entry["key_hash"]
             if kh in data["keys"]:
                 rec = data["keys"][kh]
-                rec["total_requests"] = rec.get("total_requests", 0) + 1
+                rec["total_requests"] = rec.get("total_requests") or 0 + 1
                 rec["last_used"] = entry["timestamp"]
                 if entry.get("error"):
-                    rec["total_errors"] = rec.get("total_errors", 0) + 1
+                    rec["total_errors"] = rec.get("total_errors") or 0 + 1
                 # Track endpoint usage
                 ep = entry["endpoint"]
                 if "endpoints_used" not in rec:
@@ -459,7 +513,7 @@ def get_usage_stats(key: str) -> Dict[str, Any]:
     tier_info = RATE_LIMIT_TIERS.get(tier, RATE_LIMIT_TIERS["free"])
 
     # Compute daily usage from usage log
-    usage_log = data.get("usage_log", [])
+    usage_log = data.get("usage_log") or []
     key_entries = [e for e in usage_log if e.get("key_hash") == key_hash]
 
     # Last 30 days daily breakdown
@@ -472,7 +526,7 @@ def get_usage_stats(key: str) -> Dict[str, Any]:
     cutoff = (datetime.utcnow() - timedelta(days=30)).isoformat() + "Z"
 
     for entry in key_entries:
-        ts = entry.get("timestamp", "")
+        ts = entry.get("timestamp") or ""
         if ts < cutoff:
             continue
 
@@ -482,7 +536,7 @@ def get_usage_stats(key: str) -> Dict[str, Any]:
         if entry.get("error"):
             daily_errors[day] += 1
 
-        rt = entry.get("response_time_ms", 0)
+        rt = entry.get("response_time_ms") or 0
         if rt > 0:
             response_times.append(rt)
 
@@ -506,25 +560,41 @@ def get_usage_stats(key: str) -> Dict[str, Any]:
 
     # Check in-memory cache for most accurate today count
     with _rate_limit_lock:
-        if key_hash in _rate_limit_cache and _rate_limit_cache[key_hash]["date"] == today:
+        if (
+            key_hash in _rate_limit_cache
+            and _rate_limit_cache[key_hash]["date"] == today
+        ):
             today_count = max(today_count, _rate_limit_cache[key_hash]["count"])
 
-    avg_response_time = round(sum(response_times) / len(response_times), 1) if response_times else 0
-    p95_response_time = round(sorted(response_times)[int(len(response_times) * 0.95)] if response_times else 0, 1)
+    avg_response_time = (
+        round(sum(response_times) / len(response_times), 1) if response_times else 0
+    )
+    p95_response_time = round(
+        (
+            sorted(response_times)[int(len(response_times) * 0.95)]
+            if response_times
+            else 0
+        ),
+        1,
+    )
 
-    total_requests = record.get("total_requests", 0)
-    total_errors = record.get("total_errors", 0)
-    error_rate = round((total_errors / total_requests * 100), 2) if total_requests > 0 else 0
+    total_requests = record.get("total_requests") or 0
+    total_errors = record.get("total_errors") or 0
+    error_rate = (
+        round((total_errors / total_requests * 100), 2) if total_requests > 0 else 0
+    )
 
     # Top endpoints
-    top_endpoints = sorted(endpoint_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    top_endpoints = sorted(endpoint_counts.items(), key=lambda x: x[1], reverse=True)[
+        :10
+    ]
 
     return {
-        "key_prefix": record.get("key_prefix", ""),
+        "key_prefix": record.get("key_prefix") or "",
         "tier": tier,
         "tier_label": tier_info["label"],
         "owner": record.get("owner", "Unknown"),
-        "created_at": record.get("created_at", ""),
+        "created_at": record.get("created_at") or "",
         "last_used": record.get("last_used"),
         "total_requests": total_requests,
         "total_errors": total_errors,
@@ -535,15 +605,15 @@ def get_usage_stats(key: str) -> Dict[str, Any]:
             "max_per_day": max_requests,
             "used_today": today_count,
             "remaining": max(0, max_requests - today_count) if max_requests > 0 else -1,
-            "pct_used": round((today_count / max_requests * 100), 1) if max_requests > 0 else 0,
+            "pct_used": (
+                round((today_count / max_requests * 100), 1) if max_requests > 0 else 0
+            ),
         },
         "daily_usage": [
             {"date": d, "requests": daily_usage[d], "errors": daily_errors.get(d, 0)}
             for d in sorted_days[-30:]
         ],
-        "top_endpoints": [
-            {"endpoint": ep, "count": cnt} for ep, cnt in top_endpoints
-        ],
+        "top_endpoints": [{"endpoint": ep, "count": cnt} for ep, cnt in top_endpoints],
         "hourly_distribution": [
             {"hour": h, "count": hourly_distribution.get(h, 0)} for h in range(24)
         ],
@@ -579,21 +649,21 @@ def list_api_keys(admin: bool = False) -> List[Dict[str, Any]]:
             "tier": tier,
             "tier_label": tier_info["label"],
             "owner": record.get("owner", "Unknown"),
-            "created_at": record.get("created_at", ""),
+            "created_at": record.get("created_at") or "",
             "last_used": record.get("last_used"),
             "is_active": record.get("is_active", True),
-            "total_requests": record.get("total_requests", 0),
+            "total_requests": record.get("total_requests") or 0,
         }
 
         if admin:
             entry["key_hash"] = key_hash
-            entry["total_errors"] = record.get("total_errors", 0)
+            entry["total_errors"] = record.get("total_errors") or 0
             entry["endpoints_used"] = record.get("endpoints_used", {})
 
         keys_list.append(entry)
 
     # Sort by creation date descending
-    keys_list.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    keys_list.sort(key=lambda x: x.get("created_at") or "", reverse=True)
     return keys_list
 
 
@@ -656,6 +726,7 @@ def revoke_api_key_by_prefix(key_prefix: str) -> bool:
 # 3. OPENAPI SPEC GENERATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def get_openapi_spec() -> Dict[str, Any]:
     """Generate a complete OpenAPI 3.0 specification for all API endpoints.
 
@@ -707,26 +778,66 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "type": "object",
                     "required": ["company_name", "industry", "roles", "locations"],
                     "properties": {
-                        "company_name": {"type": "string", "description": "Company name", "example": "Acme Corp"},
-                        "industry": {"type": "string", "description": "Industry key", "example": "tech_engineering",
-                                     "enum": list(INDUSTRY_LABEL_MAP.keys())},
-                        "roles": {"type": "string", "description": "Target roles (comma-separated)", "example": "Software Engineer, Product Manager"},
-                        "locations": {"type": "string", "description": "Target locations (comma-separated)", "example": "San Francisco, New York, Austin"},
-                        "budget": {"type": "number", "description": "Total budget in USD", "example": 50000, "default": 50000},
-                        "campaign_duration_weeks": {"type": "integer", "description": "Campaign duration in weeks", "example": 12, "default": 12},
-                        "num_openings": {"type": "integer", "description": "Number of open positions", "example": 5, "default": 5},
+                        "company_name": {
+                            "type": "string",
+                            "description": "Company name",
+                            "example": "Acme Corp",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry key",
+                            "example": "tech_engineering",
+                            "enum": list(INDUSTRY_LABEL_MAP.keys()),
+                        },
+                        "roles": {
+                            "type": "string",
+                            "description": "Target roles (comma-separated)",
+                            "example": "Software Engineer, Product Manager",
+                        },
+                        "locations": {
+                            "type": "string",
+                            "description": "Target locations (comma-separated)",
+                            "example": "San Francisco, New York, Austin",
+                        },
+                        "budget": {
+                            "type": "number",
+                            "description": "Total budget in USD",
+                            "example": 50000,
+                            "default": 50000,
+                        },
+                        "campaign_duration_weeks": {
+                            "type": "integer",
+                            "description": "Campaign duration in weeks",
+                            "example": 12,
+                            "default": 12,
+                        },
+                        "num_openings": {
+                            "type": "integer",
+                            "description": "Number of open positions",
+                            "example": 5,
+                            "default": 5,
+                        },
                     },
                 },
                 "MediaPlanResponse": {
                     "type": "object",
                     "properties": {
-                        "status": {"type": "string", "enum": ["success", "partial", "error"]},
+                        "status": {
+                            "type": "string",
+                            "enum": ["success", "partial", "error"],
+                        },
                         "company_name": {"type": "string"},
                         "industry": {"type": "string"},
                         "industry_label": {"type": "string"},
                         "total_budget": {"type": "number"},
-                        "channel_allocations": {"type": "array", "items": {"type": "object"}},
-                        "recommendations": {"type": "array", "items": {"type": "string"}},
+                        "channel_allocations": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                        },
+                        "recommendations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
                         "generation_time_ms": {"type": "integer"},
                     },
                 },
@@ -735,9 +846,20 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "required": ["company_name", "competitors"],
                     "properties": {
                         "company_name": {"type": "string", "example": "Netflix"},
-                        "competitors": {"type": "array", "items": {"type": "string"}, "example": ["Disney", "HBO", "Amazon Prime"]},
-                        "industry": {"type": "string", "example": "media_entertainment"},
-                        "roles": {"type": "array", "items": {"type": "string"}, "example": ["Software Engineer"]},
+                        "competitors": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "example": ["Disney", "HBO", "Amazon Prime"],
+                        },
+                        "industry": {
+                            "type": "string",
+                            "example": "media_entertainment",
+                        },
+                        "roles": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "example": ["Software Engineer"],
+                        },
                     },
                 },
                 "TalentHeatmapRequest": {
@@ -746,7 +868,11 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "properties": {
                         "role": {"type": "string", "example": "Software Engineer"},
                         "industry": {"type": "string", "example": "tech_engineering"},
-                        "locations": {"type": "array", "items": {"type": "string"}, "example": ["San Francisco", "Austin", "New York"]},
+                        "locations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "example": ["San Francisco", "Austin", "New York"],
+                        },
                         "budget": {"type": "number", "example": 100000},
                         "num_hires": {"type": "integer", "example": 10},
                     },
@@ -764,7 +890,10 @@ def get_openapi_spec() -> Dict[str, Any]:
                         "error": {"type": "string", "example": "Rate limit exceeded"},
                         "limit": {"type": "integer"},
                         "remaining": {"type": "integer"},
-                        "reset": {"type": "string", "description": "ISO 8601 timestamp when limit resets"},
+                        "reset": {
+                            "type": "string",
+                            "description": "ISO 8601 timestamp when limit resets",
+                        },
                     },
                 },
             },
@@ -780,17 +909,41 @@ def get_openapi_spec() -> Dict[str, Any]:
                         "required": True,
                         "content": {
                             "application/json": {
-                                "schema": {"$ref": "#/components/schemas/MediaPlanRequest"},
+                                "schema": {
+                                    "$ref": "#/components/schemas/MediaPlanRequest"
+                                },
                             },
                         },
                     },
                     "responses": {
                         "200": {
                             "description": "Media plan generated successfully",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MediaPlanResponse"}}},
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "$ref": "#/components/schemas/MediaPlanResponse"
+                                    }
+                                }
+                            },
                         },
-                        "400": {"description": "Invalid request", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
-                        "429": {"description": "Rate limit exceeded", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/RateLimitError"}}}},
+                        "400": {
+                            "description": "Invalid request",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
+                        "429": {
+                            "description": "Rate limit exceeded",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "$ref": "#/components/schemas/RateLimitError"
+                                    }
+                                }
+                            },
+                        },
                     },
                 },
             },
@@ -804,7 +957,9 @@ def get_openapi_spec() -> Dict[str, Any]:
                         "required": True,
                         "content": {
                             "application/json": {
-                                "schema": {"$ref": "#/components/schemas/CompetitiveAnalysisRequest"},
+                                "schema": {
+                                    "$ref": "#/components/schemas/CompetitiveAnalysisRequest"
+                                },
                             },
                         },
                     },
@@ -821,9 +976,19 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "description": "Generate and download competitive intelligence as an Excel workbook.",
                     "operationId": "downloadCompetitiveExcel",
                     "tags": ["Competitive Intelligence"],
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}},
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
                     "responses": {
-                        "200": {"description": "Excel file", "content": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {"schema": {"type": "string", "format": "binary"}}}},
+                        "200": {
+                            "description": "Excel file",
+                            "content": {
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                                    "schema": {"type": "string", "format": "binary"}
+                                }
+                            },
+                        },
                     },
                 },
             },
@@ -833,9 +998,19 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "description": "Generate and download competitive intelligence as a PowerPoint presentation.",
                     "operationId": "downloadCompetitivePpt",
                     "tags": ["Competitive Intelligence"],
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}},
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
                     "responses": {
-                        "200": {"description": "PowerPoint file", "content": {"application/vnd.openxmlformats-officedocument.presentationml.presentation": {"schema": {"type": "string", "format": "binary"}}}},
+                        "200": {
+                            "description": "PowerPoint file",
+                            "content": {
+                                "application/vnd.openxmlformats-officedocument.presentationml.presentation": {
+                                    "schema": {"type": "string", "format": "binary"}
+                                }
+                            },
+                        },
                     },
                 },
             },
@@ -847,7 +1022,13 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "tags": ["Talent Heatmap"],
                     "requestBody": {
                         "required": True,
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TalentHeatmapRequest"}}},
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TalentHeatmapRequest"
+                                }
+                            }
+                        },
                     },
                     "responses": {
                         "200": {"description": "Heatmap analysis complete"},
@@ -861,7 +1042,10 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "summary": "Download Talent Heatmap Excel",
                     "operationId": "downloadTalentHeatmapExcel",
                     "tags": ["Talent Heatmap"],
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}},
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
                     "responses": {
                         "200": {"description": "Excel file"},
                     },
@@ -872,7 +1056,10 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "summary": "Download Talent Heatmap PowerPoint",
                     "operationId": "downloadTalentHeatmapPpt",
                     "tags": ["Talent Heatmap"],
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}},
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
                     "responses": {
                         "200": {"description": "PowerPoint file"},
                     },
@@ -884,7 +1071,10 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "description": "Generate a streamlined 60-second media plan with essential channel recommendations.",
                     "operationId": "generateQuickPlan",
                     "tags": ["Media Plans"],
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}},
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
                     "responses": {"200": {"description": "Quick plan generated"}},
                 },
             },
@@ -894,7 +1084,10 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "description": "Audit your current recruitment advertising spend and get optimization recommendations.",
                     "operationId": "runAudit",
                     "tags": ["Audit"],
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}},
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
                     "responses": {"200": {"description": "Audit complete"}},
                 },
             },
@@ -904,7 +1097,10 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "description": "Real-time market pulse data including salary trends, demand signals, and hiring activity.",
                     "operationId": "getMarketPulse",
                     "tags": ["Market Intelligence"],
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}},
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
                     "responses": {"200": {"description": "Market pulse data"}},
                 },
             },
@@ -923,14 +1119,25 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "tags": ["API Portal"],
                     "requestBody": {
                         "required": True,
-                        "content": {"application/json": {"schema": {
-                            "type": "object",
-                            "required": ["owner", "tier"],
-                            "properties": {
-                                "owner": {"type": "string", "example": "john@example.com"},
-                                "tier": {"type": "string", "enum": ["free", "pro", "enterprise"], "example": "free"},
-                            },
-                        }}},
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["owner", "tier"],
+                                    "properties": {
+                                        "owner": {
+                                            "type": "string",
+                                            "example": "john@example.com",
+                                        },
+                                        "tier": {
+                                            "type": "string",
+                                            "enum": ["free", "pro", "enterprise"],
+                                            "example": "free",
+                                        },
+                                    },
+                                }
+                            }
+                        },
                     },
                     "responses": {"200": {"description": "API key generated"}},
                 },
@@ -943,13 +1150,17 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "tags": ["API Portal"],
                     "requestBody": {
                         "required": True,
-                        "content": {"application/json": {"schema": {
-                            "type": "object",
-                            "properties": {
-                                "api_key": {"type": "string"},
-                                "key_prefix": {"type": "string"},
-                            },
-                        }}},
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "api_key": {"type": "string"},
+                                        "key_prefix": {"type": "string"},
+                                    },
+                                }
+                            }
+                        },
                     },
                     "responses": {"200": {"description": "Key revoked"}},
                 },
@@ -962,11 +1173,15 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "tags": ["API Portal"],
                     "requestBody": {
                         "required": True,
-                        "content": {"application/json": {"schema": {
-                            "type": "object",
-                            "required": ["api_key"],
-                            "properties": {"api_key": {"type": "string"}},
-                        }}},
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["api_key"],
+                                    "properties": {"api_key": {"type": "string"}},
+                                }
+                            }
+                        },
                     },
                     "responses": {"200": {"description": "Usage statistics"}},
                 },
@@ -983,12 +1198,27 @@ def get_openapi_spec() -> Dict[str, Any]:
             },
         },
         "tags": [
-            {"name": "Media Plans", "description": "Generate AI-powered recruitment media plans"},
-            {"name": "Competitive Intelligence", "description": "Competitive analysis and benchmarking"},
-            {"name": "Talent Heatmap", "description": "Talent supply and hiring difficulty mapping"},
-            {"name": "Market Intelligence", "description": "Real-time market and salary data"},
+            {
+                "name": "Media Plans",
+                "description": "Generate AI-powered recruitment media plans",
+            },
+            {
+                "name": "Competitive Intelligence",
+                "description": "Competitive analysis and benchmarking",
+            },
+            {
+                "name": "Talent Heatmap",
+                "description": "Talent supply and hiring difficulty mapping",
+            },
+            {
+                "name": "Market Intelligence",
+                "description": "Real-time market and salary data",
+            },
             {"name": "Audit", "description": "Recruitment advertising audits"},
-            {"name": "API Portal", "description": "API key management and usage tracking"},
+            {
+                "name": "API Portal",
+                "description": "API key management and usage tracking",
+            },
         ],
     }
 
@@ -999,8 +1229,10 @@ def get_openapi_spec() -> Dict[str, Any]:
 # 4. API PORTAL REQUEST HANDLER
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def handle_portal_api(path: str, method: str, body: Dict[str, Any],
-                      headers: Dict[str, str]) -> Tuple[int, Dict[str, Any]]:
+
+def handle_portal_api(
+    path: str, method: str, body: Dict[str, Any], headers: Dict[str, str]
+) -> Tuple[int, Dict[str, Any]]:
     """Handle all /api/portal/* requests.
 
     Routes:
@@ -1037,7 +1269,7 @@ def handle_portal_api(path: str, method: str, body: Dict[str, Any],
         if path == "keys" and method == "POST":
             result = generate_api_key(
                 tier=body.get("tier", "free"),
-                owner=body.get("owner", ""),
+                owner=body.get("owner") or "",
             )
             status = 200 if result.get("success") else 400
             return status, result
@@ -1049,30 +1281,36 @@ def handle_portal_api(path: str, method: str, body: Dict[str, Any],
 
         # ── Route: Revoke API Key ──
         elif path == "keys/revoke" and method == "POST":
-            api_key = body.get("api_key", "")
-            key_prefix = body.get("key_prefix", "")
+            api_key = body.get("api_key") or ""
+            key_prefix = body.get("key_prefix") or ""
 
             if api_key:
                 success = revoke_api_key(api_key)
             elif key_prefix:
                 success = revoke_api_key_by_prefix(key_prefix)
             else:
-                return 400, {"error": "api_key or key_prefix is required", "success": False}
+                return 400, {
+                    "error": "api_key or key_prefix is required",
+                    "success": False,
+                }
 
             if success:
                 return 200, {"success": True, "message": "API key revoked successfully"}
-            return 404, {"success": False, "error": "API key not found or already revoked"}
+            return 404, {
+                "success": False,
+                "error": "API key not found or already revoked",
+            }
 
         # ── Route: Validate API Key ──
         elif path == "keys/validate" and method == "POST":
-            api_key = body.get("api_key", "")
+            api_key = body.get("api_key") or ""
             result = validate_api_key(api_key)
             status = 200 if result.get("valid") else 401
             return status, result
 
         # ── Route: Usage Stats ──
         elif path == "usage" and method == "POST":
-            api_key = body.get("api_key", "")
+            api_key = body.get("api_key") or ""
             if not api_key:
                 return 400, {"error": "api_key is required"}
             result = get_usage_stats(api_key)
@@ -1089,14 +1327,20 @@ def handle_portal_api(path: str, method: str, body: Dict[str, Any],
         elif path == "tiers" and method in ("GET", "POST"):
             tiers = []
             for key, info in RATE_LIMIT_TIERS.items():
-                tiers.append({
-                    "tier": key,
-                    "label": info["label"],
-                    "price": info["price"],
-                    "requests_per_day": info["requests_per_day"],
-                    "requests_label": "Unlimited" if info["requests_per_day"] == -1 else f"{info['requests_per_day']}/day",
-                    "features": info["features"],
-                })
+                tiers.append(
+                    {
+                        "tier": key,
+                        "label": info["label"],
+                        "price": info["price"],
+                        "requests_per_day": info["requests_per_day"],
+                        "requests_label": (
+                            "Unlimited"
+                            if info["requests_per_day"] == -1
+                            else f"{info['requests_per_day']}/day"
+                        ),
+                        "features": info["features"],
+                    }
+                )
             return 200, {"tiers": tiers}
 
         # ── Route: Available Endpoints ──
@@ -1110,10 +1354,15 @@ def handle_portal_api(path: str, method: str, body: Dict[str, Any],
             return 200, summary
 
         else:
-            return 404, {"error": f"Unknown portal endpoint: /api/portal/{path}", "method": method}
+            return 404, {
+                "error": f"Unknown portal endpoint: /api/portal/{path}",
+                "method": method,
+            }
 
     except Exception as exc:
-        logger.error("Portal API error at %s: %s\n%s", path, exc, traceback.format_exc())
+        logger.error(
+            "Portal API error at %s: %s\n%s", path, exc, traceback.format_exc()
+        )
         return 500, {"error": str(exc), "status": "error"}
 
 
@@ -1157,7 +1406,13 @@ def _get_endpoint_summary() -> List[Dict[str, Any]]:
             "sample_body": {
                 "role": "Software Engineer",
                 "industry": "tech_engineering",
-                "locations": ["San Francisco", "Austin", "New York", "Denver", "Seattle"],
+                "locations": [
+                    "San Francisco",
+                    "Austin",
+                    "New York",
+                    "Denver",
+                    "Seattle",
+                ],
                 "budget": 100000,
                 "num_hires": 10,
             },
@@ -1227,7 +1482,7 @@ def _get_dashboard_summary() -> Dict[str, Any]:
         data = _load_api_keys()
 
     keys = data.get("keys", {})
-    usage_log = data.get("usage_log", [])
+    usage_log = data.get("usage_log") or []
 
     total_keys = len(keys)
     active_keys = sum(1 for k in keys.values() if k.get("is_active", True))
@@ -1240,15 +1495,15 @@ def _get_dashboard_summary() -> Dict[str, Any]:
             tier_dist[record.get("tier", "free")] += 1
 
     # Total requests
-    total_requests = sum(r.get("total_requests", 0) for r in keys.values())
-    total_errors = sum(r.get("total_errors", 0) for r in keys.values())
+    total_requests = sum(r.get("total_requests") or 0 for r in keys.values())
+    total_errors = sum(r.get("total_errors") or 0 for r in keys.values())
 
     # Last 7 days usage
     cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat() + "Z"
-    recent_entries = [e for e in usage_log if e.get("timestamp", "") >= cutoff]
+    recent_entries = [e for e in usage_log if e.get("timestamp") or "" >= cutoff]
     daily_counts: Dict[str, int] = defaultdict(int)
     for entry in recent_entries:
-        day = entry.get("timestamp", "")[:10]
+        day = entry.get("timestamp") or ""[:10]
         daily_counts[day] += 1
 
     return {
@@ -1258,7 +1513,9 @@ def _get_dashboard_summary() -> Dict[str, Any]:
         "tier_distribution": dict(tier_dist),
         "total_requests": total_requests,
         "total_errors": total_errors,
-        "error_rate_pct": round((total_errors / total_requests * 100), 2) if total_requests > 0 else 0,
+        "error_rate_pct": (
+            round((total_errors / total_requests * 100), 2) if total_requests > 0 else 0
+        ),
         "recent_daily_usage": [
             {"date": d, "requests": daily_counts.get(d, 0)}
             for d in sorted(daily_counts.keys())
@@ -1271,7 +1528,10 @@ def _get_dashboard_summary() -> Dict[str, Any]:
 # 5. API MIDDLEWARE -- Key Validation & Rate Limiting
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def validate_request(headers: Dict[str, str], endpoint: str) -> Tuple[bool, int, Dict[str, Any]]:
+
+def validate_request(
+    headers: Dict[str, str], endpoint: str
+) -> Tuple[bool, int, Dict[str, Any]]:
     """Validate an incoming API request for authentication and rate limiting.
 
     Extracts API key from X-API-Key header, validates it, checks rate limits.
@@ -1283,36 +1543,50 @@ def validate_request(headers: Dict[str, str], endpoint: str) -> Tuple[bool, int,
     Returns:
         Tuple of (is_valid, status_code, response_or_key_info)
     """
-    api_key = headers.get("X-API-Key", headers.get("x-api-key", ""))
+    api_key = headers.get("X-API-Key", headers.get("x-api-key") or "")
 
     if not api_key:
-        return False, 401, {
-            "error": "API key required. Include X-API-Key header.",
-            "status": "error",
-            "docs": "https://media-plan-generator.onrender.com/api-portal",
-        }
+        return (
+            False,
+            401,
+            {
+                "error": "API key required. Include X-API-Key header.",
+                "status": "error",
+                "docs": "https://media-plan-generator.onrender.com/api-portal",
+            },
+        )
 
     # Validate key
     validation = validate_api_key(api_key)
     if not validation.get("valid"):
-        return False, 401, {
-            "error": validation.get("error", "Invalid API key"),
-            "status": "error",
-        }
+        return (
+            False,
+            401,
+            {
+                "error": validation.get("error", "Invalid API key"),
+                "status": "error",
+            },
+        )
 
     # Check rate limit
     if not check_rate_limit(api_key):
         tier = validation.get("tier", "free")
         tier_info = RATE_LIMIT_TIERS.get(tier, RATE_LIMIT_TIERS["free"])
-        tomorrow = (datetime.utcnow() + timedelta(days=1)).replace(hour=0, minute=0, second=0).isoformat() + "Z"
-        return False, 429, {
-            "error": "Rate limit exceeded",
-            "status": "error",
-            "limit": tier_info["requests_per_day"],
-            "remaining": 0,
-            "reset": tomorrow,
-            "upgrade_url": "https://media-plan-generator.onrender.com/api-portal",
-        }
+        tomorrow = (datetime.utcnow() + timedelta(days=1)).replace(
+            hour=0, minute=0, second=0
+        ).isoformat() + "Z"
+        return (
+            False,
+            429,
+            {
+                "error": "Rate limit exceeded",
+                "status": "error",
+                "limit": tier_info["requests_per_day"],
+                "remaining": 0,
+                "reset": tomorrow,
+                "upgrade_url": "https://media-plan-generator.onrender.com/api-portal",
+            },
+        )
 
     return True, 200, {"api_key": api_key, "tier": validation["tier"]}
 
@@ -1338,10 +1612,15 @@ def get_rate_limit_info(key: str) -> Dict[str, Any]:
     used = 0
 
     with _rate_limit_lock:
-        if key_hash in _rate_limit_cache and _rate_limit_cache[key_hash]["date"] == today:
+        if (
+            key_hash in _rate_limit_cache
+            and _rate_limit_cache[key_hash]["date"] == today
+        ):
             used = _rate_limit_cache[key_hash]["count"]
 
-    tomorrow = (datetime.utcnow() + timedelta(days=1)).replace(hour=0, minute=0, second=0).isoformat() + "Z"
+    tomorrow = (datetime.utcnow() + timedelta(days=1)).replace(
+        hour=0, minute=0, second=0
+    ).isoformat() + "Z"
 
     return {
         "limit": max_requests,
@@ -1354,6 +1633,7 @@ def get_rate_limit_info(key: str) -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 6. UTILITY HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _hash_key(key: str) -> str:
     """Hash an API key for secure storage using SHA-256."""
@@ -1371,10 +1651,7 @@ def _safe_call(fn, *args, **kwargs):
 
 def get_industry_options() -> List[Dict[str, str]]:
     """Return industry options for frontend dropdowns."""
-    return [
-        {"value": key, "label": label}
-        for key, label in INDUSTRY_LABEL_MAP.items()
-    ]
+    return [{"value": key, "label": label} for key, label in INDUSTRY_LABEL_MAP.items()]
 
 
 def get_tier_options() -> List[Dict[str, str]]:

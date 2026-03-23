@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 # ---------------------------------------------------------------------------
 
-POSTHOG_API_KEY = os.environ.get("POSTHOG_API_KEY", "").strip()
+POSTHOG_API_KEY = os.environ.get("POSTHOG_API_KEY") or "".strip()
 POSTHOG_HOST = "https://us.i.posthog.com"  # US cloud instance
 _ENABLED = bool(POSTHOG_API_KEY)
 
@@ -64,14 +64,17 @@ _stats: Dict[str, Any] = {
 # Internal: batch sender
 # ---------------------------------------------------------------------------
 
+
 def _send_batch(events: list) -> None:
     """POST a batch of events to PostHog /batch endpoint."""
     if not events or not _ENABLED:
         return
-    payload = json.dumps({
-        "api_key": POSTHOG_API_KEY,
-        "batch": events,
-    }).encode("utf-8")
+    payload = json.dumps(
+        {
+            "api_key": POSTHOG_API_KEY,
+            "batch": events,
+        }
+    ).encode("utf-8")
     req = urllib.request.Request(
         f"{POSTHOG_HOST}/batch",
         data=payload,
@@ -121,7 +124,9 @@ def _ensure_flush_thread() -> None:
     global _flush_thread
     if _flush_thread is not None and _flush_thread.is_alive():
         return
-    _flush_thread = threading.Thread(target=_flush_loop, daemon=True, name="posthog-flush")
+    _flush_thread = threading.Thread(
+        target=_flush_loop, daemon=True, name="posthog-flush"
+    )
     _flush_thread.start()
 
 
@@ -129,7 +134,10 @@ def _ensure_flush_thread() -> None:
 # Public API
 # ---------------------------------------------------------------------------
 
-def capture(event: str, distinct_id: str = "server", properties: Optional[Dict[str, Any]] = None) -> None:
+
+def capture(
+    event: str, distinct_id: str = "server", properties: Optional[Dict[str, Any]] = None
+) -> None:
     """Enqueue a PostHog event (non-blocking).
 
     Args:
@@ -175,46 +183,71 @@ def shutdown() -> None:
 # Convenience wrappers for common events
 # ---------------------------------------------------------------------------
 
-def track_plan_generated(email: str, client: str, industry: str, budget: str,
-                         roles: list, gen_time: float, file_size: int) -> None:
+
+def track_plan_generated(
+    email: str,
+    client: str,
+    industry: str,
+    budget: str,
+    roles: list,
+    gen_time: float,
+    file_size: int,
+) -> None:
     """Track successful media plan generation."""
-    capture("plan_generated", distinct_id=email, properties={
-        "client_name": client,
-        "industry": industry,
-        "budget": budget,
-        "num_roles": len(roles) if roles else 0,
-        "generation_time_seconds": round(gen_time, 2),
-        "file_size_bytes": file_size,
-    })
+    capture(
+        "plan_generated",
+        distinct_id=email,
+        properties={
+            "client_name": client,
+            "industry": industry,
+            "budget": budget,
+            "num_roles": len(roles) if roles else 0,
+            "generation_time_seconds": round(gen_time, 2),
+            "file_size_bytes": file_size,
+        },
+    )
 
 
 def track_plan_failed(email: str, client: str, error: str) -> None:
     """Track failed media plan generation."""
-    capture("plan_failed", distinct_id=email, properties={
-        "client_name": client,
-        "error": error[:200],  # Truncate long errors
-    })
+    capture(
+        "plan_failed",
+        distinct_id=email,
+        properties={
+            "client_name": client,
+            "error": error[:200],  # Truncate long errors
+        },
+    )
 
 
 def track_chat_message(session_id: str, message_type: str, tokens: int = 0) -> None:
     """Track Nova chatbot interaction."""
-    capture("chat_message", distinct_id=session_id, properties={
-        "message_type": message_type,  # "user" or "assistant"
-        "tokens": tokens,
-    })
+    capture(
+        "chat_message",
+        distinct_id=session_id,
+        properties={
+            "message_type": message_type,  # "user" or "assistant"
+            "tokens": tokens,
+        },
+    )
 
 
 def track_file_upload(email: str, upload_type: str, file_count: int) -> None:
     """Track file upload (brief, transcript, historical)."""
-    capture("file_uploaded", distinct_id=email, properties={
-        "upload_type": upload_type,
-        "file_count": file_count,
-    })
+    capture(
+        "file_uploaded",
+        distinct_id=email,
+        properties={
+            "upload_type": upload_type,
+            "file_count": file_count,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
 # Stats API (for observability dashboard)
 # ---------------------------------------------------------------------------
+
 
 def get_posthog_stats() -> Dict[str, Any]:
     """Return PostHog tracking runtime statistics.

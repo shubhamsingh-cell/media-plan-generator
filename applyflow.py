@@ -49,6 +49,7 @@ def _get_collar_intel():
             if _collar_intel is None:
                 try:
                     import collar_intelligence
+
                     _collar_intel = collar_intelligence
                     logger.info("ApplyFlow: collar_intelligence loaded")
                 except Exception as e:
@@ -64,6 +65,7 @@ def _get_research():
             if _research_mod is None:
                 try:
                     import research
+
                     _research_mod = research
                     logger.info("ApplyFlow: research module loaded")
                 except Exception as e:
@@ -79,6 +81,7 @@ def _get_llm_router():
             if _llm_router is None:
                 try:
                     import llm_router
+
                     _llm_router = llm_router
                     logger.info("ApplyFlow: llm_router loaded")
                 except Exception as e:
@@ -94,6 +97,7 @@ def _get_data_orchestrator():
             if _data_orchestrator is None:
                 try:
                     import data_orchestrator
+
                     _data_orchestrator = data_orchestrator
                     logger.info("ApplyFlow: data_orchestrator loaded")
                 except Exception as e:
@@ -143,68 +147,81 @@ STAGE_LABELS = {
 # ---------------------------------------------------------------------------
 
 _EMAIL_PATTERN = re.compile(
-    r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}',
-    re.IGNORECASE
+    r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", re.IGNORECASE
 )
 
 _PHONE_PATTERN = re.compile(
-    r'(?:(?:\+?1[\s.\-]?)?'
-    r'(?:\(?\d{3}\)?[\s.\-]?)?\d{3}[\s.\-]?\d{4})'
-    r'|(?:\+\d{1,3}[\s.\-]?\d{4,14})',
-    re.IGNORECASE
+    r"(?:(?:\+?1[\s.\-]?)?"
+    r"(?:\(?\d{3}\)?[\s.\-]?)?\d{3}[\s.\-]?\d{4})"
+    r"|(?:\+\d{1,3}[\s.\-]?\d{4,14})",
+    re.IGNORECASE,
 )
 
 _YEARS_PATTERNS = [
     # "5 years", "5+ years", "5-7 years"
-    (re.compile(r'(\d{1,2})\s*[\+]?\s*(?:to|-)\s*(\d{1,2})\s*(?:years?|yrs?)', re.I),
-     lambda m: (int(m.group(1)) + int(m.group(2))) / 2.0),
+    (
+        re.compile(r"(\d{1,2})\s*[\+]?\s*(?:to|-)\s*(\d{1,2})\s*(?:years?|yrs?)", re.I),
+        lambda m: (int(m.group(1)) + int(m.group(2))) / 2.0,
+    ),
     # "5 years", "5+ years"
-    (re.compile(r'(\d{1,2})\s*\+?\s*(?:years?|yrs?)', re.I),
-     lambda m: float(m.group(1))),
+    (
+        re.compile(r"(\d{1,2})\s*\+?\s*(?:years?|yrs?)", re.I),
+        lambda m: float(m.group(1)),
+    ),
     # "over/about/around/nearly a decade"
-    (re.compile(r'(?:over|about|around|nearly|almost)\s+a\s+decade', re.I),
-     lambda m: 10.0),
+    (
+        re.compile(r"(?:over|about|around|nearly|almost)\s+a\s+decade", re.I),
+        lambda m: 10.0,
+    ),
     # "a decade"
-    (re.compile(r'a\s+decade', re.I),
-     lambda m: 10.0),
+    (re.compile(r"a\s+decade", re.I), lambda m: 10.0),
     # "over/about/around X"
-    (re.compile(r'(?:over|about|around|nearly|almost|roughly)\s+(\d{1,2})', re.I),
-     lambda m: float(m.group(1))),
+    (
+        re.compile(r"(?:over|about|around|nearly|almost|roughly)\s+(\d{1,2})", re.I),
+        lambda m: float(m.group(1)),
+    ),
     # "couple of years"
-    (re.compile(r'couple\s+(?:of\s+)?(?:years?|yrs?)', re.I),
-     lambda m: 2.0),
+    (re.compile(r"couple\s+(?:of\s+)?(?:years?|yrs?)", re.I), lambda m: 2.0),
     # "few years"
-    (re.compile(r'few\s+(?:years?|yrs?)', re.I),
-     lambda m: 3.0),
+    (re.compile(r"few\s+(?:years?|yrs?)", re.I), lambda m: 3.0),
     # "several years"
-    (re.compile(r'several\s+(?:years?|yrs?)', re.I),
-     lambda m: 5.0),
+    (re.compile(r"several\s+(?:years?|yrs?)", re.I), lambda m: 5.0),
     # "no experience" / "none" / "just starting"
-    (re.compile(r'\b(?:no\s+experience|none|just\s+starting|fresh\s+grad|new\s+grad|entry[\s\-]?level)\b', re.I),
-     lambda m: 0.0),
+    (
+        re.compile(
+            r"\b(?:no\s+experience|none|just\s+starting|fresh\s+grad|new\s+grad|entry[\s\-]?level)\b",
+            re.I,
+        ),
+        lambda m: 0.0,
+    ),
 ]
 
 _SALARY_PATTERNS = [
     # "$80,000 - $100,000" or "$80k-$100k"
-    (re.compile(r'\$?\s*([\d,]+)\s*[kK]?\s*(?:to|-|and)\s*\$?\s*([\d,]+)\s*[kK]?', re.I),
-     lambda m: _parse_salary_range(m.group(1), m.group(2),
-                                   'k' in m.group(0).lower())),
+    (
+        re.compile(
+            r"\$?\s*([\d,]+)\s*[kK]?\s*(?:to|-|and)\s*\$?\s*([\d,]+)\s*[kK]?", re.I
+        ),
+        lambda m: _parse_salary_range(
+            m.group(1), m.group(2), "k" in m.group(0).lower()
+        ),
+    ),
     # "$80k" or "$80,000" or "80000"
-    (re.compile(r'\$?\s*([\d,]+)\s*[kK]', re.I),
-     lambda m: float(m.group(1).replace(',', '')) * 1000),
+    (
+        re.compile(r"\$?\s*([\d,]+)\s*[kK]", re.I),
+        lambda m: float(m.group(1).replace(",", "")) * 1000,
+    ),
     # "$80,000" or "$80000"
-    (re.compile(r'\$\s*([\d,]+)', re.I),
-     lambda m: float(m.group(1).replace(',', ''))),
+    (re.compile(r"\$\s*([\d,]+)", re.I), lambda m: float(m.group(1).replace(",", ""))),
     # "80000" (plain number >= 10000)
-    (re.compile(r'\b(\d{5,})\b'),
-     lambda m: float(m.group(1))),
+    (re.compile(r"\b(\d{5,})\b"), lambda m: float(m.group(1))),
 ]
 
 
 def _parse_salary_range(low_str: str, high_str: str, has_k: bool) -> float:
     """Parse a salary range and return the midpoint."""
-    low = float(low_str.replace(',', ''))
-    high = float(high_str.replace(',', ''))
+    low = float(low_str.replace(",", ""))
+    high = float(high_str.replace(",", ""))
     if has_k or low < 1000:
         low *= 1000
         high *= 1000
@@ -225,7 +242,7 @@ def extract_phone(text: str) -> Optional[str]:
         return None
     match = _PHONE_PATTERN.search(text)
     if match:
-        phone = re.sub(r'[^\d+]', '', match.group(0))
+        phone = re.sub(r"[^\d+]", "", match.group(0))
         return phone if len(phone) >= 7 else None
     return None
 
@@ -261,9 +278,15 @@ def extract_name(text: str) -> Optional[str]:
     text_clean = text.strip()
     # "My name is John Smith" / "I'm John Smith" / "I am John"
     name_patterns = [
-        re.compile(r"(?:my\s+name\s+is|i'?m|i\s+am|call\s+me|this\s+is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)", re.I),
+        re.compile(
+            r"(?:my\s+name\s+is|i'?m|i\s+am|call\s+me|this\s+is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+            re.I,
+        ),
         re.compile(r"^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)$"),  # Just a name, nothing else
-        re.compile(r"^(?:hi|hey|hello)[,!.]?\s*(?:i'?m|i\s+am|my\s+name\s+is)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)", re.I),
+        re.compile(
+            r"^(?:hi|hey|hello)[,!.]?\s*(?:i'?m|i\s+am|my\s+name\s+is)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+            re.I,
+        ),
     ]
     for pattern in name_patterns:
         match = pattern.search(text_clean)
@@ -271,11 +294,33 @@ def extract_name(text: str) -> Optional[str]:
             name = match.group(1).strip()
             # Filter out common non-name words
             lower = name.lower()
-            if lower not in {'interested', 'applying', 'looking', 'ready', 'yes',
-                             'no', 'sure', 'okay', 'great', 'good', 'thanks',
-                             'the', 'a', 'an', 'and', 'or', 'not', 'expert',
-                             'proficient', 'beginner', 'basic', 'advanced',
-                             'some', 'none', 'skip'}:
+            if lower not in {
+                "interested",
+                "applying",
+                "looking",
+                "ready",
+                "yes",
+                "no",
+                "sure",
+                "okay",
+                "great",
+                "good",
+                "thanks",
+                "the",
+                "a",
+                "an",
+                "and",
+                "or",
+                "not",
+                "expert",
+                "proficient",
+                "beginner",
+                "basic",
+                "advanced",
+                "some",
+                "none",
+                "skip",
+            }:
                 return name.title()
     return None
 
@@ -285,23 +330,29 @@ def extract_start_date(text: str) -> Optional[str]:
     if not text:
         return None
     # "immediately" / "right away" / "asap"
-    if re.search(r'\b(?:immediately|right\s+away|asap|as\s+soon\s+as\s+possible|now)\b', text, re.I):
+    if re.search(
+        r"\b(?:immediately|right\s+away|asap|as\s+soon\s+as\s+possible|now)\b",
+        text,
+        re.I,
+    ):
         return "Immediately"
     # "2 weeks" / "two weeks notice"
-    if re.search(r'\b(?:2|two)\s*weeks?\b', text, re.I):
+    if re.search(r"\b(?:2|two)\s*weeks?\b", text, re.I):
         return "2 weeks notice"
     # "1 month" / "one month" / "30 days"
-    if re.search(r'\b(?:1|one)\s*months?\b|\b30\s*days?\b', text, re.I):
+    if re.search(r"\b(?:1|one)\s*months?\b|\b30\s*days?\b", text, re.I):
         return "1 month notice"
     # Specific date patterns: "January 15" / "Jan 15, 2026" / "01/15/2026"
     date_match = re.search(
-        r'\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|'
-        r'Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)'
-        r'\s+\d{1,2}(?:\s*,?\s*\d{4})?\b', text, re.I
+        r"\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
+        r"Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
+        r"\s+\d{1,2}(?:\s*,?\s*\d{4})?\b",
+        text,
+        re.I,
     )
     if date_match:
         return date_match.group(0).strip()
-    date_match2 = re.search(r'\b\d{1,2}/\d{1,2}/\d{2,4}\b', text)
+    date_match2 = re.search(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b", text)
     if date_match2:
         return date_match2.group(0)
     return None
@@ -310,6 +361,7 @@ def extract_start_date(text: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # Job Configuration
 # ---------------------------------------------------------------------------
+
 
 def create_job_config(
     role: str,
@@ -358,9 +410,11 @@ def create_job_config(
             collar_result = ci.classify_collar(config["role"], config["industry"])
             config["collar_type"] = collar_result.get("collar_type", "white_collar")
             config["collar_confidence"] = collar_result.get("confidence", 0.5)
-            config["channel_strategy"] = collar_result.get("channel_strategy", "targeted")
+            config["channel_strategy"] = collar_result.get(
+                "channel_strategy", "targeted"
+            )
             # Extract key skills from collar indicators if available
-            indicators = collar_result.get("indicators", [])
+            indicators = collar_result.get("indicators") or []
             if indicators:
                 config["key_skills"] = indicators[:6]
         except Exception as e:
@@ -383,12 +437,16 @@ def create_job_config(
         orch = _get_data_orchestrator()
         if orch:
             try:
-                salary_data = orch.enrich_salary(config["role"], config["location"], config["industry"])
-                sr = salary_data.get("salary_range", "")
+                salary_data = orch.enrich_salary(
+                    config["role"], config["location"], config["industry"]
+                )
+                sr = salary_data.get("salary_range") or ""
                 if sr:
                     config["salary_range"] = sr
             except Exception as e:
-                logger.warning("ApplyFlow: orchestrator salary enrichment failed: %s", e)
+                logger.warning(
+                    "ApplyFlow: orchestrator salary enrichment failed: %s", e
+                )
 
     # ── Generate screening questions based on collar type if none provided ──
     if not config["screening_questions"]:
@@ -435,10 +493,10 @@ def _generate_screening_questions(config: Dict[str, Any]) -> List[str]:
 def _infer_key_skills(config: Dict[str, Any]) -> List[str]:
     """Infer key skills from role title and requirements."""
     skills: List[str] = []
-    role_lower = config.get("role", "").lower()
+    role_lower = config.get("role") or "".lower()
 
     # Extract skills from requirements
-    for req in config.get("requirements", []):
+    for req in config.get("requirements") or []:
         cleaned = req.strip().strip("-").strip("*").strip()
         if cleaned and len(cleaned) < 80:
             skills.append(cleaned)
@@ -457,7 +515,11 @@ def _infer_key_skills(config: Dict[str, Any]) -> List[str]:
         "manager": ["Team leadership", "Strategic planning", "Budget management"],
         "warehouse": ["Inventory management", "Forklift operation", "Safety protocols"],
         "retail": ["Customer service", "POS systems", "Inventory management"],
-        "teacher": ["Curriculum development", "Classroom management", "Student assessment"],
+        "teacher": [
+            "Curriculum development",
+            "Classroom management",
+            "Student assessment",
+        ],
         "accountant": ["GAAP", "Financial reporting", "Tax preparation"],
         "designer": ["Design tools", "UI/UX principles", "Visual communication"],
         "analyst": ["Data analysis", "Reporting", "Critical thinking"],
@@ -482,6 +544,7 @@ def _infer_key_skills(config: Dict[str, Any]) -> List[str]:
 # ---------------------------------------------------------------------------
 # ApplyFlow Metrics (lightweight, thread-safe)
 # ---------------------------------------------------------------------------
+
 
 class _ApplyFlowMetrics:
     """Track ApplyFlow performance counters."""
@@ -546,6 +609,7 @@ _metrics = _ApplyFlowMetrics()
 # ApplyFlow Session
 # ---------------------------------------------------------------------------
 
+
 class ApplyFlowSession:
     """Manages a single candidate's application conversation."""
 
@@ -592,25 +656,30 @@ class ApplyFlowSession:
     @property
     def collected_fields(self) -> List[str]:
         """Return list of field names that have been collected."""
-        return [k for k, v in self.collected_data.items()
-                if v is not None and v != [] and v != ""]
+        return [
+            k
+            for k, v in self.collected_data.items()
+            if v is not None and v != [] and v != ""
+        ]
 
     def add_message(self, role: str, content: str) -> None:
-        self.conversation_history.append({
-            "role": role,
-            "content": content,
-            "timestamp": time.time(),
-        })
+        self.conversation_history.append(
+            {
+                "role": role,
+                "content": content,
+                "timestamp": time.time(),
+            }
+        )
         self.last_active = time.time()
 
     def to_summary(self) -> Dict[str, Any]:
         """Get structured application summary."""
         return {
             "session_id": self.session_id,
-            "job_id": self.job_config.get("job_id", ""),
-            "role": self.job_config.get("role", ""),
-            "company": self.job_config.get("company", ""),
-            "location": self.job_config.get("location", ""),
+            "job_id": self.job_config.get("job_id") or "",
+            "role": self.job_config.get("role") or "",
+            "company": self.job_config.get("company") or "",
+            "location": self.job_config.get("location") or "",
             "stage": self.state,
             "stage_label": STAGE_LABELS.get(self.state, self.state),
             "progress_pct": self.progress_pct,
@@ -639,8 +708,11 @@ _completed_lock = threading.Lock()
 def _evict_expired_sessions() -> None:
     """Remove expired sessions and enforce max capacity."""
     now = time.time()
-    expired = [sid for sid, s in _sessions.items()
-               if (now - s.last_active) > SESSION_TTL_SECONDS]
+    expired = [
+        sid
+        for sid, s in _sessions.items()
+        if (now - s.last_active) > SESSION_TTL_SECONDS
+    ]
     for sid in expired:
         session = _sessions.pop(sid, None)
         if session and session.state != STAGE_COMPLETE:
@@ -653,7 +725,9 @@ def _evict_expired_sessions() -> None:
             _metrics.abandoned_sessions += 1
 
 
-def _get_or_create_session(session_id: str, job_config: Dict[str, Any]) -> ApplyFlowSession:
+def _get_or_create_session(
+    session_id: str, job_config: Dict[str, Any]
+) -> ApplyFlowSession:
     """Get existing session or create a new one. Thread-safe."""
     with _sessions_lock:
         _evict_expired_sessions()
@@ -692,6 +766,7 @@ def get_metrics() -> Dict[str, Any]:
 # Response Templates (rule-based, warm and conversational)
 # ---------------------------------------------------------------------------
 
+
 class _Templates:
     """Rule-based conversational templates. Warm, professional, candidate-friendly."""
 
@@ -700,8 +775,8 @@ class _Templates:
         """Generate greeting message and quick-reply chips."""
         role = config.get("role", "this position")
         company = config.get("company", "our company")
-        location = config.get("location", "")
-        salary_range = config.get("salary_range", "")
+        location = config.get("location") or ""
+        salary_range = config.get("salary_range") or ""
 
         loc_part = f" in {location}" if location else ""
         salary_part = ""
@@ -720,9 +795,11 @@ class _Templates:
         return msg, chips
 
     @staticmethod
-    def qualification_question(config: Dict[str, Any], q_index: int) -> Tuple[str, List[str]]:
+    def qualification_question(
+        config: Dict[str, Any], q_index: int
+    ) -> Tuple[str, List[str]]:
         """Generate a screening question."""
-        questions = config.get("screening_questions", [])
+        questions = config.get("screening_questions") or []
         if q_index >= len(questions):
             return "", []
 
@@ -734,7 +811,13 @@ class _Templates:
         chips = []
         q_lower = question.lower()
         if "years" in q_lower or "experience" in q_lower:
-            chips = ["Less than 1 year", "1-3 years", "3-5 years", "5-10 years", "10+ years"]
+            chips = [
+                "Less than 1 year",
+                "1-3 years",
+                "3-5 years",
+                "5-10 years",
+                "10+ years",
+            ]
         elif "certification" in q_lower or "license" in q_lower:
             chips = ["Yes, I do", "Working on it", "No, but willing to get one"]
         elif "education" in q_lower:
@@ -760,20 +843,31 @@ class _Templates:
         return acknowledgments[q_index % len(acknowledgments)]
 
     @staticmethod
-    def experience_question(sub_index: int, config: Dict[str, Any]) -> Tuple[str, List[str]]:
+    def experience_question(
+        sub_index: int, config: Dict[str, Any]
+    ) -> Tuple[str, List[str]]:
         """Generate experience-related questions."""
         role = config.get("role", "this field")
         if sub_index == 0:
             return (
                 f"Now, tell me a bit about your background. "
                 f"What is your current or most recent role?",
-                ["I'm currently employed", "Between jobs", "This would be my first role"]
+                [
+                    "I'm currently employed",
+                    "Between jobs",
+                    "This would be my first role",
+                ],
             )
         elif sub_index == 1:
             return (
                 "And what's motivating your job search right now?",
-                ["Career growth", "Better compensation", "Relocation",
-                 "Looking for new challenges", "Company changes"]
+                [
+                    "Career growth",
+                    "Better compensation",
+                    "Relocation",
+                    "Looking for new challenges",
+                    "Company changes",
+                ],
             )
         return "", []
 
@@ -789,30 +883,37 @@ class _Templates:
         return msg, chips
 
     @staticmethod
-    def contact_question(sub_index: int, collected: Dict[str, Any]) -> Tuple[str, List[str]]:
+    def contact_question(
+        sub_index: int, collected: Dict[str, Any]
+    ) -> Tuple[str, List[str]]:
         """Ask for contact information step by step."""
         if sub_index == 0:
             prefix = "We're almost done! Just need a few contact details.\n\n"
             return f"{prefix}What is your full name?", []
         elif sub_index == 1:
-            name = collected.get("name", "")
+            name = collected.get("name") or ""
             greeting = f"Nice to meet you, {name}! " if name else ""
             return f"{greeting}What is the best email address to reach you?", []
         elif sub_index == 2:
-            return "And a phone number where we can reach you?", ["I'd prefer not to share"]
+            return "And a phone number where we can reach you?", [
+                "I'd prefer not to share"
+            ]
         elif sub_index == 3:
             return "When would you be available to start?", [
-                "Immediately", "2 weeks notice", "1 month", "Flexible"
+                "Immediately",
+                "2 weeks notice",
+                "1 month",
+                "Flexible",
             ]
         elif sub_index == 4:
             return (
                 "Last one -- what are your salary expectations for this role?",
-                ["Open to discuss", "Based on market rate"]
+                ["Open to discuss", "Based on market rate"],
             )
         return "", []
 
     @staticmethod
-    def confirmation_summary(session: 'ApplyFlowSession') -> Tuple[str, List[str]]:
+    def confirmation_summary(session: "ApplyFlowSession") -> Tuple[str, List[str]]:
         """Generate confirmation summary of collected data."""
         d = session.collected_data
         config = session.job_config
@@ -830,7 +931,7 @@ class _Templates:
         if d.get("phone"):
             lines.append(f"**Phone:** {d['phone']}")
         if d.get("years_experience") is not None:
-            yrs = d['years_experience']
+            yrs = d["years_experience"]
             lines.append(f"**Experience:** {yrs:.0f} year{'s' if yrs != 1 else ''}")
         if d.get("current_role"):
             lines.append(f"**Current Role:** {d['current_role']}")
@@ -844,7 +945,10 @@ class _Templates:
 
         lines.append("\nDoes everything look correct?")
 
-        return "\n".join(lines), ["Yes, submit my application", "I need to make a change"]
+        return "\n".join(lines), [
+            "Yes, submit my application",
+            "I need to make a change",
+        ]
 
     @staticmethod
     def complete_message(config: Dict[str, Any]) -> str:
@@ -866,6 +970,7 @@ class _Templates:
 # LLM-Enhanced Response Generation (optional)
 # ---------------------------------------------------------------------------
 
+
 def _generate_llm_response(
     session: ApplyFlowSession,
     stage: str,
@@ -883,7 +988,7 @@ def _generate_llm_response(
     try:
         role = session.job_config.get("role", "the position")
         company = session.job_config.get("company", "the company")
-        location = session.job_config.get("location", "")
+        location = session.job_config.get("location") or ""
         collar = session.job_config.get("collar_type", "white_collar")
 
         system_prompt = (
@@ -901,10 +1006,14 @@ def _generate_llm_response(
         messages = []
         recent_history = session.conversation_history[-8:]
         for msg in recent_history:
-            messages.append({
-                "role": msg["role"] if msg["role"] in ("user", "assistant") else "user",
-                "content": msg["content"],
-            })
+            messages.append(
+                {
+                    "role": (
+                        msg["role"] if msg["role"] in ("user", "assistant") else "user"
+                    ),
+                    "content": msg["content"],
+                }
+            )
 
         if not messages or messages[-1]["content"] != user_message:
             messages.append({"role": "user", "content": user_message})
@@ -931,6 +1040,7 @@ def _generate_llm_response(
 # Conversation Stage Handlers
 # ---------------------------------------------------------------------------
 
+
 def _handle_greeting(session: ApplyFlowSession, message: str) -> Dict[str, Any]:
     """Handle the greeting stage."""
     msg_lower = message.lower().strip()
@@ -944,15 +1054,20 @@ def _handle_greeting(session: ApplyFlowSession, message: str) -> Dict[str, Any]:
         return _build_response(session, response, [], advance=False)
 
     # Check for "tell me more"
-    if any(w in msg_lower for w in ["tell me more", "more about", "details", "about the role"]):
+    if any(
+        w in msg_lower
+        for w in ["tell me more", "more about", "details", "about the role"]
+    ):
         config = session.job_config
         role = config.get("role", "this position")
         company = config.get("company", "the company")
-        location = config.get("location", "")
-        salary = config.get("salary_range", "")
-        reqs = config.get("requirements", [])
+        location = config.get("location") or ""
+        salary = config.get("salary_range") or ""
+        reqs = config.get("requirements") or []
 
-        parts = [f"Here's what we know about the **{role}** position at **{company}**:\n"]
+        parts = [
+            f"Here's what we know about the **{role}** position at **{company}**:\n"
+        ]
         if location:
             parts.append(f"**Location:** {location}")
         if salary:
@@ -972,9 +1087,7 @@ def _handle_greeting(session: ApplyFlowSession, message: str) -> Dict[str, Any]:
     session._qualification_sub_question = 0
     _metrics.record_stage(STAGE_QUALIFICATION)
 
-    response, chips = _Templates.qualification_question(
-        session.job_config, 0
-    )
+    response, chips = _Templates.qualification_question(session.job_config, 0)
     if not response:
         # No screening questions, skip to experience
         session.state = STAGE_EXPERIENCE
@@ -987,14 +1100,18 @@ def _handle_greeting(session: ApplyFlowSession, message: str) -> Dict[str, Any]:
 
 def _handle_qualification(session: ApplyFlowSession, message: str) -> Dict[str, Any]:
     """Handle screening qualification questions."""
-    questions = session.job_config.get("screening_questions", [])
+    questions = session.job_config.get("screening_questions") or []
     q_idx = session._qualification_sub_question
 
     # Record the answer
-    session.collected_data["screening_answers"].append({
-        "question": questions[q_idx] if q_idx < len(questions) else f"Question {q_idx + 1}",
-        "answer": message.strip(),
-    })
+    session.collected_data["screening_answers"].append(
+        {
+            "question": (
+                questions[q_idx] if q_idx < len(questions) else f"Question {q_idx + 1}"
+            ),
+            "answer": message.strip(),
+        }
+    )
 
     # Extract structured data from qualification answers
     years = extract_years_experience(message)
@@ -1011,7 +1128,10 @@ def _handle_qualification(session: ApplyFlowSession, message: str) -> Dict[str, 
     # Check for authorization
     msg_lower = message.lower()
     if any(w in msg_lower for w in ["authorized", "yes", "citizen", "permanent"]):
-        if "authorization" in (questions[q_idx] if q_idx < len(questions) else "").lower():
+        if (
+            "authorization"
+            in (questions[q_idx] if q_idx < len(questions) else "").lower()
+        ):
             session.collected_data["work_authorization"] = "Yes"
             session.qualification_score += 5
 
@@ -1024,11 +1144,16 @@ def _handle_qualification(session: ApplyFlowSession, message: str) -> Dict[str, 
 
     # Extract education
     education_levels = {
-        "phd": "PhD", "doctorate": "PhD",
-        "master": "Master's", "mba": "MBA",
-        "bachelor": "Bachelor's", "bs": "Bachelor's", "ba": "Bachelor's",
+        "phd": "PhD",
+        "doctorate": "PhD",
+        "master": "Master's",
+        "mba": "MBA",
+        "bachelor": "Bachelor's",
+        "bs": "Bachelor's",
+        "ba": "Bachelor's",
         "associate": "Associate's",
-        "high school": "High School", "ged": "GED",
+        "high school": "High School",
+        "ged": "GED",
     }
     for key, val in education_levels.items():
         if key in msg_lower:
@@ -1076,8 +1201,16 @@ def _handle_experience(session: ApplyFlowSession, message: str) -> Dict[str, Any
         # Reason for looking
         session.collected_data["reason_for_looking"] = message.strip()[:200]
         # Positive signals boost qualification score
-        positive_signals = ["growth", "challenge", "advance", "learn", "opportunity",
-                           "passionate", "excited", "motivated"]
+        positive_signals = [
+            "growth",
+            "challenge",
+            "advance",
+            "learn",
+            "opportunity",
+            "passionate",
+            "excited",
+            "motivated",
+        ]
         if any(w in message.lower() for w in positive_signals):
             session.qualification_score += 5
 
@@ -1086,7 +1219,7 @@ def _handle_experience(session: ApplyFlowSession, message: str) -> Dict[str, Any
         session._skills_sub_question = 0
         _metrics.record_stage(STAGE_SKILLS)
 
-        key_skills = session.job_config.get("key_skills", [])
+        key_skills = session.job_config.get("key_skills") or []
         if key_skills:
             response, chips = _Templates.skills_question(
                 key_skills[0], 0, len(key_skills)
@@ -1105,7 +1238,7 @@ def _handle_experience(session: ApplyFlowSession, message: str) -> Dict[str, Any
 
 def _handle_skills(session: ApplyFlowSession, message: str) -> Dict[str, Any]:
     """Handle skills verification."""
-    key_skills = session.job_config.get("key_skills", [])
+    key_skills = session.job_config.get("key_skills") or []
     s_idx = session._skills_sub_question
 
     if s_idx < len(key_skills):
@@ -1116,7 +1249,9 @@ def _handle_skills(session: ApplyFlowSession, message: str) -> Dict[str, Any]:
         if any(w in msg_lower for w in ["expert", "advanced", "strong", "extensive"]):
             session.collected_data["skills_confirmed"].append(f"{skill} (Expert)")
             session.qualification_score += 8
-        elif any(w in msg_lower for w in ["proficient", "good", "solid", "experienced"]):
+        elif any(
+            w in msg_lower for w in ["proficient", "good", "solid", "experienced"]
+        ):
             session.collected_data["skills_confirmed"].append(f"{skill} (Proficient)")
             session.qualification_score += 5
         elif any(w in msg_lower for w in ["some", "basic", "familiar", "learning"]):
@@ -1127,7 +1262,9 @@ def _handle_skills(session: ApplyFlowSession, message: str) -> Dict[str, Any]:
             session.qualification_score += 1
         else:
             # No experience or unrecognized
-            session.collected_data["skills_confirmed"].append(f"{skill} (Self-assessed)")
+            session.collected_data["skills_confirmed"].append(
+                f"{skill} (Self-assessed)"
+            )
             session.qualification_score += 1
 
     session._skills_sub_question += 1
@@ -1158,12 +1295,28 @@ def _handle_contact(session: ApplyFlowSession, message: str) -> Dict[str, Any]:
         if not name:
             # If we can't parse it with patterns, just use what they typed
             # (as long as it's reasonable length and not a common non-name word)
-            skip_words = {'expert', 'proficient', 'beginner', 'basic', 'advanced',
-                          'yes', 'no', 'sure', 'okay', 'skip', 'none', 'some',
-                          'good', 'great', 'thanks'}
-            if (1 < len(msg_stripped) < 60
-                    and not msg_stripped.isdigit()
-                    and msg_stripped.lower() not in skip_words):
+            skip_words = {
+                "expert",
+                "proficient",
+                "beginner",
+                "basic",
+                "advanced",
+                "yes",
+                "no",
+                "sure",
+                "okay",
+                "skip",
+                "none",
+                "some",
+                "good",
+                "great",
+                "thanks",
+            }
+            if (
+                1 < len(msg_stripped) < 60
+                and not msg_stripped.isdigit()
+                and msg_stripped.lower() not in skip_words
+            ):
                 name = msg_stripped.title()
         if name:
             session.collected_data["name"] = name
@@ -1187,7 +1340,10 @@ def _handle_contact(session: ApplyFlowSession, message: str) -> Dict[str, Any]:
 
     elif sub == 2:
         # Phone
-        if any(w in msg_stripped.lower() for w in ["prefer not", "rather not", "skip", "no"]):
+        if any(
+            w in msg_stripped.lower()
+            for w in ["prefer not", "rather not", "skip", "no"]
+        ):
             session.collected_data["phone"] = "Not provided"
         else:
             phone = extract_phone(msg_stripped)
@@ -1213,8 +1369,17 @@ def _handle_contact(session: ApplyFlowSession, message: str) -> Dict[str, Any]:
             session.collected_data["salary_expectation"] = salary
         else:
             # Store as text if unparseable
-            if any(w in msg_stripped.lower() for w in ["open", "discuss", "negotiable",
-                                                        "market", "flexible", "competitive"]):
+            if any(
+                w in msg_stripped.lower()
+                for w in [
+                    "open",
+                    "discuss",
+                    "negotiable",
+                    "market",
+                    "flexible",
+                    "competitive",
+                ]
+            ):
                 session.collected_data["salary_expectation"] = None  # Open to discuss
             else:
                 session.collected_data["salary_expectation"] = None
@@ -1244,7 +1409,10 @@ def _handle_confirmation(session: ApplyFlowSession, message: str) -> Dict[str, A
     """Handle the confirmation stage."""
     msg_lower = message.lower().strip()
 
-    if any(w in msg_lower for w in ["change", "edit", "update", "fix", "wrong", "incorrect"]):
+    if any(
+        w in msg_lower
+        for w in ["change", "edit", "update", "fix", "wrong", "incorrect"]
+    ):
         # Let them fix -- go back to contact for now
         session.state = STAGE_CONTACT
         session._contact_sub_field = 0
@@ -1272,7 +1440,9 @@ def _handle_confirmation(session: ApplyFlowSession, message: str) -> Dict[str, A
             _completed_applications[job_id] = []
         _completed_applications[job_id].append(summary)
         # Evict oldest entries to prevent unbounded memory growth
-        while sum(len(v) for v in _completed_applications.values()) > MAX_COMPLETED_APPS:
+        while (
+            sum(len(v) for v in _completed_applications.values()) > MAX_COMPLETED_APPS
+        ):
             oldest_key = next(iter(_completed_applications))
             _completed_applications.pop(oldest_key)
 
@@ -1387,15 +1557,21 @@ def handle_candidate_message(
         try:
             result = handler(session, message)
         except Exception as e:
-            logger.error("ApplyFlow stage handler error (stage=%s): %s", session.state, e,
-                        exc_info=True)
+            logger.error(
+                "ApplyFlow stage handler error (stage=%s): %s",
+                session.state,
+                e,
+                exc_info=True,
+            )
             result = _build_response(
                 session,
                 "I'm sorry, something went wrong. Could you please repeat that?",
                 [],
             )
     else:
-        logger.error("ApplyFlow: unknown stage '%s' for session %s", session.state, session_id)
+        logger.error(
+            "ApplyFlow: unknown stage '%s' for session %s", session.state, session_id
+        )
         result = _build_response(
             session,
             "I'm sorry, something went wrong. Let me restart our conversation.",
@@ -1433,10 +1609,10 @@ def handle_init_request(job_config: Dict[str, Any]) -> Dict[str, Any]:
         job_config = create_job_config(
             role=job_config.get("role", "Open Position"),
             company=job_config.get("company", "Company"),
-            location=job_config.get("location", ""),
+            location=job_config.get("location") or "",
             requirements=job_config.get("requirements"),
             screening_questions=job_config.get("screening_questions"),
-            industry=job_config.get("industry", ""),
+            industry=job_config.get("industry") or "",
         )
 
     session = _get_or_create_session(session_id, job_config)
@@ -1457,11 +1633,11 @@ def handle_init_request(job_config: Dict[str, Any]) -> Dict[str, Any]:
         "chips": chips,
         "is_complete": False,
         "job_config": {
-            "job_id": job_config.get("job_id", ""),
-            "role": job_config.get("role", ""),
-            "company": job_config.get("company", ""),
-            "location": job_config.get("location", ""),
-            "salary_range": job_config.get("salary_range", ""),
+            "job_id": job_config.get("job_id") or "",
+            "role": job_config.get("role") or "",
+            "company": job_config.get("company") or "",
+            "location": job_config.get("location") or "",
+            "salary_range": job_config.get("salary_range") or "",
             "collar_type": job_config.get("collar_type", "white_collar"),
         },
     }
@@ -1470,6 +1646,7 @@ def handle_init_request(job_config: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # HTTP Handler (integrated into the main app server)
 # ---------------------------------------------------------------------------
+
 
 def handle_applyflow_request(request_data: dict) -> dict:
     """Handle an incoming ApplyFlow API request.
@@ -1505,8 +1682,8 @@ def handle_applyflow_request(request_data: dict) -> dict:
         }
     """
     action = request_data.get("action", "chat")
-    session_id = request_data.get("session_id", "")
-    message = request_data.get("message", "")
+    session_id = request_data.get("session_id") or ""
+    message = request_data.get("message") or ""
     job_config = request_data.get("job_config", {})
 
     try:
@@ -1525,7 +1702,7 @@ def handle_applyflow_request(request_data: dict) -> dict:
             return {"error": "Session not found"}
 
         elif action == "applications":
-            job_id = job_config.get("job_id", request_data.get("job_id", ""))
+            job_id = job_config.get("job_id", request_data.get("job_id") or "")
             if not job_id:
                 return {"error": "job_id required for applications action"}
             apps = get_all_applications(job_id)

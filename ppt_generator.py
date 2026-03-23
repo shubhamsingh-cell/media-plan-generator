@@ -1245,7 +1245,7 @@ def _selected_channels(data: Dict) -> Dict[str, Dict[str, Any]]:
     # Get industry-aware base allocation
     industry = data.get("industry", "general_entry_level")
     budget_str = data.get("budget") or ""
-    roles = data.get("roles", [])
+    roles = data.get("roles") or []
     num_roles = len(roles) if roles else 0
     alloc_base = _get_industry_alloc(industry, budget_str, num_roles, roles)
 
@@ -1272,7 +1272,7 @@ def _selected_channels(data: Dict) -> Dict[str, Dict[str, Any]]:
 
 def _goal_labels(data: Dict) -> List[str]:
     """Return human-readable campaign goal labels."""
-    goals = data.get("campaign_goals", [])
+    goals = data.get("campaign_goals") or []
     return [GOAL_LABELS.get(g, g.replace("_", " ").title()) for g in goals]
 
 
@@ -1376,7 +1376,7 @@ def _add_enrichment_badge(slide, enriched):
     if not enriched:
         return
     summary = enriched.get("enrichment_summary", {})
-    apis = summary.get("apis_succeeded", [])
+    apis = summary.get("apis_succeeded") or []
     if not apis:
         return
     # Small text at bottom-right
@@ -1406,7 +1406,7 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
     enriched = data.get("_enriched", {})
     if enriched:
         summary = enriched.get("enrichment_summary", {})
-        apis = summary.get("apis_succeeded", [])
+        apis = summary.get("apis_succeeded") or []
         if apis:
             sources_parts.extend(apis[:3])
 
@@ -1629,8 +1629,8 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     client = data.get("client_name", "Client")
     industry = data.get("industry", "general_entry_level")
     industry_label = data.get("industry_label", industry.replace("_", " ").title())
-    locations = data.get("locations", [])
-    roles = data.get("roles", [])
+    locations = data.get("locations") or []
+    roles = data.get("roles") or []
     budget = data.get("budget", "TBD")
     work_env = data.get("work_environment", "hybrid")
     goals = _goal_labels(data)
@@ -2515,7 +2515,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                         bench_rows.append(
                             (f"{plat_label} Monthly Visitors", str(visitors))
                         )
-                    best_for = deep.get("best_for", [])
+                    best_for = deep.get("best_for") or []
                     if isinstance(best_for, list) and best_for:
                         bench_rows.append(
                             (
@@ -2763,8 +2763,8 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     industry = data.get("industry", "general_entry_level")
     channels = _selected_channels(data)
     budget = data.get("budget", "TBD")
-    roles = data.get("roles", [])
-    locations = data.get("locations", [])
+    roles = data.get("roles") or []
+    locations = data.get("locations") or []
     today = datetime.date.today().strftime("%B %d, %Y")
 
     # Pull synthesized + budget allocation data (from pipeline)
@@ -3605,8 +3605,8 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     industry_label = data.get("industry_label", industry.replace("_", " ").title())
     channels = _selected_channels(data)
     budget = data.get("budget", "TBD")
-    locations = data.get("locations", [])
-    roles = data.get("roles", [])
+    locations = data.get("locations") or []
+    roles = data.get("roles") or []
     today = datetime.date.today().strftime("%B %d, %Y")
 
     # Pull synthesized + budget allocation data (from pipeline)
@@ -4187,7 +4187,7 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
         client = data.get("client_name", "Client")
         industry = data.get("industry", "general_entry_level")
         industry_label = data.get("industry_label", industry.replace("_", " ").title())
-        roles = data.get("roles", [])
+        roles = data.get("roles") or []
         today = datetime.date.today().strftime("%B %d, %Y")
 
         synthesized = data.get("_synthesized", {})
@@ -4646,7 +4646,7 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
                     )
 
         # Research highlights
-        research = workforce.get("relevant_research", [])
+        research = workforce.get("relevant_research") or []
         if isinstance(research, list):
             for rr in research[:2]:
                 if isinstance(rr, dict):
@@ -4720,7 +4720,7 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
         slide = prs.slides.add_slide(slide_layout)
 
         client = data.get("client_name", "Client")
-        locations = data.get("locations", [])
+        locations = data.get("locations") or []
         today = datetime.date.today().strftime("%B %d, %Y")
 
         synthesized = data.get("_synthesized", {})
@@ -4937,7 +4937,7 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
                 ri_items = []
 
                 # Top job boards
-                boards = reg_intel.get("top_job_boards", [])
+                boards = reg_intel.get("top_job_boards") or []
                 if isinstance(boards, list) and boards:
                     board_names = [
                         b.get("name", str(b)) if isinstance(b, dict) else str(b)
@@ -5165,7 +5165,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         sic_desc = company.get("sec_sic_description") or ""
         if sic_desc:
             profile_items.append(("SIC Industry", str(sic_desc)[:50]))
-        tags = company.get("clearbit_tags", [])
+        tags = company.get("clearbit_tags") or []
         if isinstance(tags, list) and tags:
             profile_items.append(("Tags", ", ".join(str(t) for t in tags[:4])))
 
@@ -5245,7 +5245,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             outlook = kb_insights.get("outlook") or ""
             if outlook:
                 trend_items.append(f"Outlook: {outlook}")
-            demand_drivers = kb_insights.get("demand_drivers", [])
+            demand_drivers = kb_insights.get("demand_drivers") or []
             if isinstance(demand_drivers, list) and demand_drivers:
                 trend_items.append(
                     f"Drivers: {', '.join(str(d) for d in demand_drivers[:3])}"
@@ -5456,7 +5456,7 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
         summary_text = geo.get(
             "summary", "No significant geopolitical risks identified."
         )
-        recommendations = geo.get("recommendations", [])
+        recommendations = geo.get("recommendations") or []
         loc_data = geo.get("locations", {})
 
         # Background
@@ -5541,7 +5541,7 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
                     continue
                 card_left = Inches(0.55) + i * (card_w + card_gap)
                 loc_score = loc_info.get("risk_score", 1.0)
-                loc_events = loc_info.get("events", [])
+                loc_events = loc_info.get("events") or []
                 loc_adj = loc_info.get("budget_adjustment_factor", 1.0)
 
                 # Card background
@@ -5908,7 +5908,7 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
         )
 
         # White paper citations
-        research = workforce.get("relevant_research", [])
+        research = workforce.get("relevant_research") or []
         r_items = []
         if isinstance(research, list):
             for rr in research[:4]:
@@ -5916,7 +5916,7 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
                     title = rr.get("title") or ""
                     publisher = rr.get("publisher") or ""
                     year = rr.get("year") or ""
-                    findings = rr.get("top_findings", [])
+                    findings = rr.get("top_findings") or []
                     if title:
                         r_items.append(
                             {
@@ -6093,10 +6093,10 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
     if not isinstance(summary, dict):
         summary = {}
 
-    apis_called = summary.get("apis_called", [])
-    apis_succeeded = summary.get("apis_succeeded", [])
-    apis_failed = summary.get("apis_failed", [])
-    apis_skipped = summary.get("apis_skipped", [])
+    apis_called = summary.get("apis_called") or []
+    apis_succeeded = summary.get("apis_succeeded") or []
+    apis_failed = summary.get("apis_failed") or []
+    apis_skipped = summary.get("apis_skipped") or []
     api_details = summary.get("api_details", {})
     if not isinstance(api_details, dict):
         api_details = {}

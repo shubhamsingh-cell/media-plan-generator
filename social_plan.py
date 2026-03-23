@@ -34,6 +34,7 @@ _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 try:
     import trend_engine as _trend_engine
+
     _HAS_TREND_ENGINE = True
 except ImportError:
     _trend_engine = None
@@ -41,6 +42,7 @@ except ImportError:
 
 try:
     import collar_intelligence as _collar_intel
+
     _HAS_COLLAR_INTEL = True
 except ImportError:
     _collar_intel = None
@@ -48,6 +50,7 @@ except ImportError:
 
 try:
     import research as _research
+
     _HAS_RESEARCH = True
 except ImportError:
     _research = None
@@ -62,18 +65,22 @@ try:
     )
 except ImportError:
     INDUSTRY_LABEL_MAP = {}
+
     def parse_budget(v, *, default=100_000.0):
         try:
             return float(v)
         except (TypeError, ValueError):
             return default
+
     def standardize_location(s):
         return s
+
     def parse_budget_display(v):
         try:
             return float(v)
         except (TypeError, ValueError):
             return None
+
 
 try:
     from openpyxl import Workbook
@@ -82,6 +89,7 @@ try:
     from openpyxl.chart import PieChart, BarChart, Reference
     from openpyxl.chart.label import DataLabelList
     from openpyxl.chart.series import DataPoint
+
     _HAS_OPENPYXL = True
 except ImportError:
     _HAS_OPENPYXL = False
@@ -92,6 +100,7 @@ try:
     from pptx.dml.color import RGBColor
     from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
     from pptx.enum.shapes import MSO_SHAPE
+
     _HAS_PPTX = True
 except ImportError:
     _HAS_PPTX = False
@@ -109,13 +118,31 @@ SOCIAL_PLATFORMS: Dict[str, Dict[str, Any]] = {
         "monthly_active_users": "3.07B",
         "demographics": "25-54 primary, broad reach",
         "best_for_collar": ["blue_collar", "grey_collar", "pink_collar"],
-        "ad_formats": ["Image", "Video", "Carousel", "Stories", "Reels", "Lead Gen Forms", "Collection"],
+        "ad_formats": [
+            "Image",
+            "Video",
+            "Carousel",
+            "Stories",
+            "Reels",
+            "Lead Gen Forms",
+            "Collection",
+        ],
         "min_daily_budget": 5.0,
         "trend_engine_key": "meta_facebook",
-        "strengths": ["Massive reach", "Granular targeting", "Lead Gen Forms", "Lookalike audiences", "Low CPC for blue collar"],
+        "strengths": [
+            "Massive reach",
+            "Granular targeting",
+            "Lead Gen Forms",
+            "Lookalike audiences",
+            "Low CPC for blue collar",
+        ],
         "weaknesses": ["Declining organic reach", "Ad fatigue", "Privacy restrictions"],
         "best_times": {"weekdays": "9-11 AM, 1-3 PM", "weekends": "10 AM-12 PM"},
-        "image_specs": {"feed": "1080x1080 or 1200x628", "stories": "1080x1920", "video": "1080x1080 or 16:9"},
+        "image_specs": {
+            "feed": "1080x1080 or 1200x628",
+            "stories": "1080x1920",
+            "video": "1080x1080 or 16:9",
+        },
         "copy_limits": {"primary": 125, "headline": 40, "description": 30},
         "avg_engagement_rate": 0.06,
     },
@@ -126,13 +153,33 @@ SOCIAL_PLATFORMS: Dict[str, Dict[str, Any]] = {
         "monthly_active_users": "2.4B",
         "demographics": "18-34 primary, visual-first",
         "best_for_collar": ["white_collar", "pink_collar", "grey_collar"],
-        "ad_formats": ["Stories", "Reels", "Feed Image", "Carousel", "Explore", "Shopping"],
+        "ad_formats": [
+            "Stories",
+            "Reels",
+            "Feed Image",
+            "Carousel",
+            "Explore",
+            "Shopping",
+        ],
         "min_daily_budget": 5.0,
         "trend_engine_key": "meta_instagram",
-        "strengths": ["High engagement", "Visual storytelling", "Reels momentum", "Younger demographics"],
-        "weaknesses": ["Higher CPC than Facebook", "Limited link options", "Not ideal for blue collar"],
+        "strengths": [
+            "High engagement",
+            "Visual storytelling",
+            "Reels momentum",
+            "Younger demographics",
+        ],
+        "weaknesses": [
+            "Higher CPC than Facebook",
+            "Limited link options",
+            "Not ideal for blue collar",
+        ],
         "best_times": {"weekdays": "11 AM-1 PM, 7-9 PM", "weekends": "10 AM-2 PM"},
-        "image_specs": {"feed": "1080x1080", "stories": "1080x1920", "reels": "1080x1920"},
+        "image_specs": {
+            "feed": "1080x1080",
+            "stories": "1080x1920",
+            "reels": "1080x1920",
+        },
         "copy_limits": {"primary": 125, "headline": 40, "description": 30},
         "avg_engagement_rate": 0.08,
     },
@@ -143,13 +190,38 @@ SOCIAL_PLATFORMS: Dict[str, Dict[str, Any]] = {
         "monthly_active_users": "310M MAU (1.3B members)",
         "demographics": "25-54, professional, college-educated",
         "best_for_collar": ["white_collar"],
-        "ad_formats": ["Sponsored Content", "Message Ads", "Dynamic Ads", "Text Ads", "Video Ads", "Document Ads", "Lead Gen Forms"],
+        "ad_formats": [
+            "Sponsored Content",
+            "Message Ads",
+            "Dynamic Ads",
+            "Text Ads",
+            "Video Ads",
+            "Document Ads",
+            "Lead Gen Forms",
+        ],
         "min_daily_budget": 10.0,
         "trend_engine_key": "linkedin",
-        "strengths": ["Highest quality professional candidates", "Job title targeting", "Company targeting", "InMail", "89% of recruiters use it"],
-        "weaknesses": ["Highest CPC", "Limited blue collar reach", "Ad fatigue among power users"],
-        "best_times": {"weekdays": "7-8 AM, 12 PM, 5-6 PM (Tue-Thu best)", "weekends": "Not recommended"},
-        "image_specs": {"feed": "1200x627", "stories": "1080x1920", "carousel": "1080x1080"},
+        "strengths": [
+            "Highest quality professional candidates",
+            "Job title targeting",
+            "Company targeting",
+            "InMail",
+            "89% of recruiters use it",
+        ],
+        "weaknesses": [
+            "Highest CPC",
+            "Limited blue collar reach",
+            "Ad fatigue among power users",
+        ],
+        "best_times": {
+            "weekdays": "7-8 AM, 12 PM, 5-6 PM (Tue-Thu best)",
+            "weekends": "Not recommended",
+        },
+        "image_specs": {
+            "feed": "1200x627",
+            "stories": "1080x1920",
+            "carousel": "1080x1080",
+        },
         "copy_limits": {"intro": 150, "headline": 70, "description": 100},
         "avg_engagement_rate": 0.04,
     },
@@ -160,16 +232,44 @@ SOCIAL_PLATFORMS: Dict[str, Dict[str, Any]] = {
         "monthly_active_users": "1.6B",
         "demographics": "16-34 primary, Gen Z dominant",
         "best_for_collar": ["blue_collar", "pink_collar"],
-        "ad_formats": ["In-Feed Video", "TopView", "Branded Hashtag", "Spark Ads", "Lead Gen"],
+        "ad_formats": [
+            "In-Feed Video",
+            "TopView",
+            "Branded Hashtag",
+            "Spark Ads",
+            "Lead Gen",
+        ],
         "min_daily_budget": 20.0,
         "trend_engine_key": None,
-        "strengths": ["Gen Z reach", "Viral potential", "Authentic content", "Low CPM", "High engagement"],
-        "weaknesses": ["Limited professional targeting", "Short content lifespan", "Brand safety concerns"],
-        "best_times": {"weekdays": "7-9 AM, 12-3 PM, 7-11 PM", "weekends": "9 AM-12 PM"},
-        "image_specs": {"video": "1080x1920 (9:16)", "min_duration": "5s", "max_duration": "60s recommended"},
+        "strengths": [
+            "Gen Z reach",
+            "Viral potential",
+            "Authentic content",
+            "Low CPM",
+            "High engagement",
+        ],
+        "weaknesses": [
+            "Limited professional targeting",
+            "Short content lifespan",
+            "Brand safety concerns",
+        ],
+        "best_times": {
+            "weekdays": "7-9 AM, 12-3 PM, 7-11 PM",
+            "weekends": "9 AM-12 PM",
+        },
+        "image_specs": {
+            "video": "1080x1920 (9:16)",
+            "min_duration": "5s",
+            "max_duration": "60s recommended",
+        },
         "copy_limits": {"description": 100, "display_name": 40},
         "avg_engagement_rate": 0.12,
-        "benchmarks_2025": {"avg_cpc": 0.50, "avg_cpm": 6.00, "avg_ctr": 0.018, "avg_cpa": 8.00},
+        "benchmarks_2025": {
+            "avg_cpc": 0.50,
+            "avg_cpm": 6.00,
+            "avg_ctr": 0.018,
+            "avg_cpa": 8.00,
+        },
     },
     "twitter_x": {
         "name": "Twitter / X",
@@ -178,16 +278,36 @@ SOCIAL_PLATFORMS: Dict[str, Dict[str, Any]] = {
         "monthly_active_users": "600M",
         "demographics": "25-49, news/tech-savvy",
         "best_for_collar": ["white_collar"],
-        "ad_formats": ["Promoted Posts", "Video Ads", "Carousel", "Follower Ads", "Trend Takeover"],
+        "ad_formats": [
+            "Promoted Posts",
+            "Video Ads",
+            "Carousel",
+            "Follower Ads",
+            "Trend Takeover",
+        ],
         "min_daily_budget": 1.0,
         "trend_engine_key": None,
-        "strengths": ["Real-time engagement", "Tech audience", "Conversation targeting", "Low minimum spend"],
-        "weaknesses": ["Brand safety concerns", "Declining ad revenue", "Uncertain platform future"],
+        "strengths": [
+            "Real-time engagement",
+            "Tech audience",
+            "Conversation targeting",
+            "Low minimum spend",
+        ],
+        "weaknesses": [
+            "Brand safety concerns",
+            "Declining ad revenue",
+            "Uncertain platform future",
+        ],
         "best_times": {"weekdays": "8-10 AM, 12-1 PM", "weekends": "9 AM"},
         "image_specs": {"feed": "1200x675", "video": "1280x720 min"},
         "copy_limits": {"text": 280, "headline": 70},
         "avg_engagement_rate": 0.03,
-        "benchmarks_2025": {"avg_cpc": 0.80, "avg_cpm": 5.50, "avg_ctr": 0.012, "avg_cpa": 15.00},
+        "benchmarks_2025": {
+            "avg_cpc": 0.80,
+            "avg_cpm": 5.50,
+            "avg_ctr": 0.012,
+            "avg_cpa": 15.00,
+        },
     },
     "snapchat": {
         "name": "Snapchat",
@@ -196,16 +316,37 @@ SOCIAL_PLATFORMS: Dict[str, Dict[str, Any]] = {
         "monthly_active_users": "850M",
         "demographics": "13-34, Gen Z/young Millennial",
         "best_for_collar": ["blue_collar", "pink_collar"],
-        "ad_formats": ["Snap Ads", "Story Ads", "Collection Ads", "Filters", "Lenses", "Commercials"],
+        "ad_formats": [
+            "Snap Ads",
+            "Story Ads",
+            "Collection Ads",
+            "Filters",
+            "Lenses",
+            "Commercials",
+        ],
         "min_daily_budget": 5.0,
         "trend_engine_key": None,
-        "strengths": ["Young audience", "AR features", "Low competition for recruitment", "Full-screen immersive"],
-        "weaknesses": ["Small professional audience", "Limited targeting", "High skip rates"],
+        "strengths": [
+            "Young audience",
+            "AR features",
+            "Low competition for recruitment",
+            "Full-screen immersive",
+        ],
+        "weaknesses": [
+            "Small professional audience",
+            "Limited targeting",
+            "High skip rates",
+        ],
         "best_times": {"weekdays": "10 PM-1 AM", "weekends": "All day"},
         "image_specs": {"snap_ad": "1080x1920", "video": "1080x1920 (3-180s)"},
         "copy_limits": {"headline": 34, "brand_name": 25},
         "avg_engagement_rate": 0.05,
-        "benchmarks_2025": {"avg_cpc": 0.45, "avg_cpm": 4.50, "avg_ctr": 0.015, "avg_cpa": 9.00},
+        "benchmarks_2025": {
+            "avg_cpc": 0.45,
+            "avg_cpm": 4.50,
+            "avg_ctr": 0.015,
+            "avg_cpa": 9.00,
+        },
     },
     "reddit": {
         "name": "Reddit",
@@ -214,16 +355,36 @@ SOCIAL_PLATFORMS: Dict[str, Dict[str, Any]] = {
         "monthly_active_users": "1.1B",
         "demographics": "18-44, tech-savvy, niche communities",
         "best_for_collar": ["white_collar"],
-        "ad_formats": ["Promoted Posts", "Video Ads", "Carousel", "Conversation Ads", "Free-Form Ads"],
+        "ad_formats": [
+            "Promoted Posts",
+            "Video Ads",
+            "Carousel",
+            "Conversation Ads",
+            "Free-Form Ads",
+        ],
         "min_daily_budget": 5.0,
         "trend_engine_key": None,
-        "strengths": ["Highly engaged communities", "Interest-based targeting", "Authenticity valued", "Low CPM"],
-        "weaknesses": ["Anti-advertising culture", "Limited scale", "Requires authentic tone"],
+        "strengths": [
+            "Highly engaged communities",
+            "Interest-based targeting",
+            "Authenticity valued",
+            "Low CPM",
+        ],
+        "weaknesses": [
+            "Anti-advertising culture",
+            "Limited scale",
+            "Requires authentic tone",
+        ],
         "best_times": {"weekdays": "6-8 AM, 12-2 PM", "weekends": "8-11 AM"},
         "image_specs": {"feed": "1200x628", "video": "up to 15 min"},
         "copy_limits": {"title": 300, "body": 40000},
         "avg_engagement_rate": 0.07,
-        "benchmarks_2025": {"avg_cpc": 0.65, "avg_cpm": 3.50, "avg_ctr": 0.010, "avg_cpa": 12.00},
+        "benchmarks_2025": {
+            "avg_cpc": 0.65,
+            "avg_cpm": 3.50,
+            "avg_ctr": 0.010,
+            "avg_cpa": 12.00,
+        },
     },
     "youtube": {
         "name": "YouTube",
@@ -232,16 +393,37 @@ SOCIAL_PLATFORMS: Dict[str, Dict[str, Any]] = {
         "monthly_active_users": "2.5B",
         "demographics": "18-65+, broadest reach",
         "best_for_collar": ["white_collar", "blue_collar", "grey_collar"],
-        "ad_formats": ["Skippable In-Stream", "Non-Skippable In-Stream", "Bumper (6s)", "Discovery", "Shorts"],
+        "ad_formats": [
+            "Skippable In-Stream",
+            "Non-Skippable In-Stream",
+            "Bumper (6s)",
+            "Discovery",
+            "Shorts",
+        ],
         "min_daily_budget": 10.0,
         "trend_engine_key": None,
-        "strengths": ["Massive reach", "Video storytelling", "Google targeting data", "Shorts growing", "Employer brand building"],
+        "strengths": [
+            "Massive reach",
+            "Video storytelling",
+            "Google targeting data",
+            "Shorts growing",
+            "Employer brand building",
+        ],
         "weaknesses": ["High production cost", "Skip rates", "Longer time to results"],
         "best_times": {"weekdays": "12-4 PM, 8-11 PM", "weekends": "9 AM-12 PM"},
-        "image_specs": {"video": "1920x1080 (16:9)", "shorts": "1080x1920 (9:16)", "thumbnail": "1280x720"},
+        "image_specs": {
+            "video": "1920x1080 (16:9)",
+            "shorts": "1080x1920 (9:16)",
+            "thumbnail": "1280x720",
+        },
         "copy_limits": {"title": 100, "description": 5000},
         "avg_engagement_rate": 0.05,
-        "benchmarks_2025": {"avg_cpc": 0.35, "avg_cpm": 8.00, "avg_ctr": 0.008, "avg_cpa": 18.00},
+        "benchmarks_2025": {
+            "avg_cpc": 0.35,
+            "avg_cpm": 8.00,
+            "avg_ctr": 0.008,
+            "avg_cpa": 18.00,
+        },
     },
     "pinterest": {
         "name": "Pinterest",
@@ -253,13 +435,27 @@ SOCIAL_PLATFORMS: Dict[str, Dict[str, Any]] = {
         "ad_formats": ["Standard Pin", "Video Pin", "Carousel", "Shopping", "Idea Ads"],
         "min_daily_budget": 5.0,
         "trend_engine_key": None,
-        "strengths": ["High purchase intent", "Long content lifespan", "Visual discovery", "Low competition"],
-        "weaknesses": ["Small audience vs others", "Limited B2B targeting", "Niche use case for recruitment"],
+        "strengths": [
+            "High purchase intent",
+            "Long content lifespan",
+            "Visual discovery",
+            "Low competition",
+        ],
+        "weaknesses": [
+            "Small audience vs others",
+            "Limited B2B targeting",
+            "Niche use case for recruitment",
+        ],
         "best_times": {"weekdays": "2-4 PM, 8-11 PM", "weekends": "8-11 AM"},
         "image_specs": {"pin": "1000x1500 (2:3)", "video": "1000x1500 or 1080x1920"},
         "copy_limits": {"title": 100, "description": 500},
         "avg_engagement_rate": 0.06,
-        "benchmarks_2025": {"avg_cpc": 0.55, "avg_cpm": 5.00, "avg_ctr": 0.009, "avg_cpa": 14.00},
+        "benchmarks_2025": {
+            "avg_cpc": 0.55,
+            "avg_cpm": 5.00,
+            "avg_ctr": 0.009,
+            "avg_cpa": 14.00,
+        },
     },
 }
 
@@ -270,9 +466,20 @@ SEARCH_PLATFORMS: Dict[str, Dict[str, Any]] = {
         "color": "#4285F4",
         "type": "search",
         "trend_engine_key": "google_search",
-        "strengths": ["Highest intent traffic", "Massive reach", "Keyword targeting", "Remarketing"],
+        "strengths": [
+            "Highest intent traffic",
+            "Massive reach",
+            "Keyword targeting",
+            "Remarketing",
+        ],
         "weaknesses": ["Highest CPC", "Complex to manage", "Competitive bidding"],
-        "ad_formats": ["Search Text Ads", "Responsive Search", "Display", "Video (YouTube)", "Performance Max"],
+        "ad_formats": [
+            "Search Text Ads",
+            "Responsive Search",
+            "Display",
+            "Video (YouTube)",
+            "Performance Max",
+        ],
         "best_for_collar": ["white_collar", "grey_collar", "blue_collar"],
     },
     "bing_ads": {
@@ -281,11 +488,25 @@ SEARCH_PLATFORMS: Dict[str, Dict[str, Any]] = {
         "color": "#00A4EF",
         "type": "search",
         "trend_engine_key": None,
-        "strengths": ["Lower CPC than Google", "Older/higher income audience", "LinkedIn targeting integration"],
+        "strengths": [
+            "Lower CPC than Google",
+            "Older/higher income audience",
+            "LinkedIn targeting integration",
+        ],
         "weaknesses": ["Lower volume", "Smaller audience", "Often overlooked"],
-        "ad_formats": ["Search Text Ads", "Responsive Search", "Audience Ads", "Shopping"],
+        "ad_formats": [
+            "Search Text Ads",
+            "Responsive Search",
+            "Audience Ads",
+            "Shopping",
+        ],
         "best_for_collar": ["white_collar"],
-        "benchmarks_2025": {"avg_cpc": 1.80, "avg_cpm": 7.00, "avg_ctr": 0.032, "avg_cpa": 22.00},
+        "benchmarks_2025": {
+            "avg_cpc": 1.80,
+            "avg_cpm": 7.00,
+            "avg_ctr": 0.032,
+            "avg_cpa": 22.00,
+        },
     },
     "indeed_sponsored": {
         "name": "Indeed Sponsored Jobs",
@@ -293,8 +514,17 @@ SEARCH_PLATFORMS: Dict[str, Dict[str, Any]] = {
         "color": "#2164F3",
         "type": "job_board_search",
         "trend_engine_key": "indeed",
-        "strengths": ["Highest job seeker intent", "CPA model", "360M monthly visitors", "Programmatic compatible"],
-        "weaknesses": ["CPA model unpredictable", "Quality varies", "Declining organic reach"],
+        "strengths": [
+            "Highest job seeker intent",
+            "CPA model",
+            "360M monthly visitors",
+            "Programmatic compatible",
+        ],
+        "weaknesses": [
+            "CPA model unpredictable",
+            "Quality varies",
+            "Declining organic reach",
+        ],
         "ad_formats": ["Sponsored Jobs", "Indeed Resume Search", "Company Pages"],
         "best_for_collar": ["blue_collar", "grey_collar", "white_collar"],
     },
@@ -308,24 +538,60 @@ SEARCH_PLATFORMS: Dict[str, Dict[str, Any]] = {
 
 COLLAR_PLATFORM_SCORES: Dict[str, Dict[str, int]] = {
     "blue_collar": {
-        "facebook": 95, "tiktok": 88, "instagram": 65, "youtube": 72,
-        "snapchat": 70, "twitter_x": 30, "linkedin": 20, "reddit": 35,
-        "pinterest": 15, "google_ads": 85, "bing_ads": 40, "indeed_sponsored": 92,
+        "facebook": 95,
+        "tiktok": 88,
+        "instagram": 65,
+        "youtube": 72,
+        "snapchat": 70,
+        "twitter_x": 30,
+        "linkedin": 20,
+        "reddit": 35,
+        "pinterest": 15,
+        "google_ads": 85,
+        "bing_ads": 40,
+        "indeed_sponsored": 92,
     },
     "white_collar": {
-        "linkedin": 95, "google_ads": 90, "facebook": 60, "instagram": 55,
-        "twitter_x": 65, "youtube": 68, "reddit": 58, "pinterest": 30,
-        "tiktok": 35, "snapchat": 20, "bing_ads": 72, "indeed_sponsored": 78,
+        "linkedin": 95,
+        "google_ads": 90,
+        "facebook": 60,
+        "instagram": 55,
+        "twitter_x": 65,
+        "youtube": 68,
+        "reddit": 58,
+        "pinterest": 30,
+        "tiktok": 35,
+        "snapchat": 20,
+        "bing_ads": 72,
+        "indeed_sponsored": 78,
     },
     "grey_collar": {
-        "facebook": 88, "indeed_sponsored": 90, "google_ads": 82, "linkedin": 55,
-        "instagram": 60, "youtube": 65, "tiktok": 55, "twitter_x": 35,
-        "reddit": 40, "snapchat": 40, "bing_ads": 50, "pinterest": 20,
+        "facebook": 88,
+        "indeed_sponsored": 90,
+        "google_ads": 82,
+        "linkedin": 55,
+        "instagram": 60,
+        "youtube": 65,
+        "tiktok": 55,
+        "twitter_x": 35,
+        "reddit": 40,
+        "snapchat": 40,
+        "bing_ads": 50,
+        "pinterest": 20,
     },
     "pink_collar": {
-        "facebook": 92, "instagram": 78, "tiktok": 72, "indeed_sponsored": 85,
-        "google_ads": 80, "snapchat": 60, "youtube": 58, "pinterest": 48,
-        "linkedin": 40, "twitter_x": 30, "reddit": 25, "bing_ads": 45,
+        "facebook": 92,
+        "instagram": 78,
+        "tiktok": 72,
+        "indeed_sponsored": 85,
+        "google_ads": 80,
+        "snapchat": 60,
+        "youtube": 58,
+        "pinterest": 48,
+        "linkedin": 40,
+        "twitter_x": 30,
+        "reddit": 25,
+        "bing_ads": 45,
     },
 }
 
@@ -335,26 +601,60 @@ COLLAR_PLATFORM_SCORES: Dict[str, Dict[str, int]] = {
 
 GOAL_PLATFORM_WEIGHTS: Dict[str, Dict[str, float]] = {
     "brand_awareness": {
-        "facebook": 1.15, "instagram": 1.25, "youtube": 1.30, "tiktok": 1.35,
-        "linkedin": 1.10, "twitter_x": 1.10, "snapchat": 1.15, "reddit": 0.90,
-        "pinterest": 1.05, "google_ads": 0.80, "bing_ads": 0.70, "indeed_sponsored": 0.60,
+        "facebook": 1.15,
+        "instagram": 1.25,
+        "youtube": 1.30,
+        "tiktok": 1.35,
+        "linkedin": 1.10,
+        "twitter_x": 1.10,
+        "snapchat": 1.15,
+        "reddit": 0.90,
+        "pinterest": 1.05,
+        "google_ads": 0.80,
+        "bing_ads": 0.70,
+        "indeed_sponsored": 0.60,
     },
     "job_applications": {
-        "indeed_sponsored": 1.40, "google_ads": 1.30, "facebook": 1.20,
-        "linkedin": 1.15, "bing_ads": 1.10, "instagram": 0.95, "tiktok": 0.85,
-        "youtube": 0.80, "twitter_x": 0.75, "reddit": 0.80, "snapchat": 0.70,
+        "indeed_sponsored": 1.40,
+        "google_ads": 1.30,
+        "facebook": 1.20,
+        "linkedin": 1.15,
+        "bing_ads": 1.10,
+        "instagram": 0.95,
+        "tiktok": 0.85,
+        "youtube": 0.80,
+        "twitter_x": 0.75,
+        "reddit": 0.80,
+        "snapchat": 0.70,
         "pinterest": 0.60,
     },
     "talent_pipeline": {
-        "linkedin": 1.40, "facebook": 1.10, "instagram": 1.05, "youtube": 1.15,
-        "google_ads": 1.00, "indeed_sponsored": 1.00, "twitter_x": 0.95,
-        "reddit": 0.90, "tiktok": 0.85, "bing_ads": 0.85, "snapchat": 0.70,
+        "linkedin": 1.40,
+        "facebook": 1.10,
+        "instagram": 1.05,
+        "youtube": 1.15,
+        "google_ads": 1.00,
+        "indeed_sponsored": 1.00,
+        "twitter_x": 0.95,
+        "reddit": 0.90,
+        "tiktok": 0.85,
+        "bing_ads": 0.85,
+        "snapchat": 0.70,
         "pinterest": 0.65,
     },
     "employer_brand": {
-        "linkedin": 1.35, "instagram": 1.30, "youtube": 1.35, "tiktok": 1.20,
-        "facebook": 1.10, "twitter_x": 1.05, "pinterest": 1.00, "reddit": 0.95,
-        "snapchat": 0.85, "google_ads": 0.70, "bing_ads": 0.60, "indeed_sponsored": 0.55,
+        "linkedin": 1.35,
+        "instagram": 1.30,
+        "youtube": 1.35,
+        "tiktok": 1.20,
+        "facebook": 1.10,
+        "twitter_x": 1.05,
+        "pinterest": 1.00,
+        "reddit": 0.95,
+        "snapchat": 0.85,
+        "google_ads": 0.70,
+        "bing_ads": 0.60,
+        "indeed_sponsored": 0.55,
     },
 }
 
@@ -363,16 +663,40 @@ GOAL_PLATFORM_WEIGHTS: Dict[str, Dict[str, float]] = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 INDUSTRY_PLATFORM_BOOSTS: Dict[str, Dict[str, float]] = {
-    "tech_engineering": {"linkedin": 1.3, "twitter_x": 1.2, "reddit": 1.3, "youtube": 1.1},
-    "healthcare_medical": {"facebook": 1.2, "indeed_sponsored": 1.2, "google_ads": 1.15},
-    "retail_consumer": {"facebook": 1.2, "tiktok": 1.3, "instagram": 1.2, "snapchat": 1.2},
+    "tech_engineering": {
+        "linkedin": 1.3,
+        "twitter_x": 1.2,
+        "reddit": 1.3,
+        "youtube": 1.1,
+    },
+    "healthcare_medical": {
+        "facebook": 1.2,
+        "indeed_sponsored": 1.2,
+        "google_ads": 1.15,
+    },
+    "retail_consumer": {
+        "facebook": 1.2,
+        "tiktok": 1.3,
+        "instagram": 1.2,
+        "snapchat": 1.2,
+    },
     "blue_collar_trades": {"facebook": 1.25, "tiktok": 1.2, "indeed_sponsored": 1.2},
     "hospitality_travel": {"instagram": 1.3, "tiktok": 1.25, "facebook": 1.15},
     "finance_banking": {"linkedin": 1.3, "google_ads": 1.15, "twitter_x": 1.1},
     "logistics_supply_chain": {"facebook": 1.2, "indeed_sponsored": 1.25},
-    "food_beverage": {"tiktok": 1.3, "instagram": 1.25, "facebook": 1.15, "snapchat": 1.15},
+    "food_beverage": {
+        "tiktok": 1.3,
+        "instagram": 1.25,
+        "facebook": 1.15,
+        "snapchat": 1.15,
+    },
     "construction_real_estate": {"facebook": 1.2, "indeed_sponsored": 1.2},
-    "media_entertainment": {"instagram": 1.3, "tiktok": 1.3, "youtube": 1.25, "twitter_x": 1.15},
+    "media_entertainment": {
+        "instagram": 1.3,
+        "tiktok": 1.3,
+        "youtube": 1.25,
+        "twitter_x": 1.15,
+    },
     "education": {"linkedin": 1.2, "facebook": 1.15, "youtube": 1.15},
     "pharma_biotech": {"linkedin": 1.25, "google_ads": 1.15},
     "aerospace_defense": {"linkedin": 1.25, "google_ads": 1.15, "reddit": 1.1},
@@ -391,32 +715,78 @@ INDUSTRY_PLATFORM_BOOSTS: Dict[str, Dict[str, float]] = {
 
 TARGETING_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "facebook": {
-        "targeting_types": ["Job Title", "Employer", "Industry", "Interests", "Behaviors", "Lookalike", "Custom Audience"],
+        "targeting_types": [
+            "Job Title",
+            "Employer",
+            "Industry",
+            "Interests",
+            "Behaviors",
+            "Lookalike",
+            "Custom Audience",
+        ],
         "blue_collar": {
-            "interests": ["Trade jobs", "Construction", "CDL", "Warehouse work", "Manufacturing jobs"],
+            "interests": [
+                "Trade jobs",
+                "Construction",
+                "CDL",
+                "Warehouse work",
+                "Manufacturing jobs",
+            ],
             "behaviors": ["Recently moved", "Job seekers", "Active job seeker"],
             "demographics": {"age": "18-55", "education": "High school+"},
             "radius_miles": 25,
         },
         "white_collar": {
-            "interests": ["Career development", "Professional networking", "Industry news"],
+            "interests": [
+                "Career development",
+                "Professional networking",
+                "Industry news",
+            ],
             "behaviors": ["Frequent travelers", "Technology early adopters"],
             "demographics": {"age": "22-55", "education": "College+"},
             "radius_miles": 50,
         },
         "grey_collar": {
-            "interests": ["Healthcare careers", "Nursing", "Medical technology", "Patient care"],
+            "interests": [
+                "Healthcare careers",
+                "Nursing",
+                "Medical technology",
+                "Patient care",
+            ],
             "behaviors": ["Job seekers", "Healthcare workers"],
             "demographics": {"age": "22-55", "education": "Associate+"},
             "radius_miles": 30,
         },
     },
     "linkedin": {
-        "targeting_types": ["Job Title", "Job Function", "Seniority", "Company Size", "Industry", "Skills", "Groups", "Company"],
+        "targeting_types": [
+            "Job Title",
+            "Job Function",
+            "Seniority",
+            "Company Size",
+            "Industry",
+            "Skills",
+            "Groups",
+            "Company",
+        ],
         "white_collar": {
             "seniority": ["Entry", "Senior", "Manager", "Director", "VP"],
-            "functions": ["Engineering", "IT", "Finance", "Marketing", "Operations", "HR"],
-            "company_size": ["51-200", "201-500", "501-1000", "1001-5000", "5001-10000", "10000+"],
+            "functions": [
+                "Engineering",
+                "IT",
+                "Finance",
+                "Marketing",
+                "Operations",
+                "HR",
+            ],
+            "company_size": [
+                "51-200",
+                "201-500",
+                "501-1000",
+                "1001-5000",
+                "5001-10000",
+                "10000+",
+            ],
             "skills_targeting": True,
         },
         "blue_collar": {
@@ -427,10 +797,28 @@ TARGETING_TEMPLATES: Dict[str, Dict[str, Any]] = {
         },
     },
     "tiktok": {
-        "targeting_types": ["Interest", "Behavior", "Hashtag", "Creator", "Custom Audience", "Lookalike"],
+        "targeting_types": [
+            "Interest",
+            "Behavior",
+            "Hashtag",
+            "Creator",
+            "Custom Audience",
+            "Lookalike",
+        ],
         "blue_collar": {
-            "interests": ["Jobs & career", "Trade skills", "Side hustles", "Money tips"],
-            "hashtags": ["#hiring", "#jobsearch", "#nowhiring", "#worklife", "#dayinthelife"],
+            "interests": [
+                "Jobs & career",
+                "Trade skills",
+                "Side hustles",
+                "Money tips",
+            ],
+            "hashtags": [
+                "#hiring",
+                "#jobsearch",
+                "#nowhiring",
+                "#worklife",
+                "#dayinthelife",
+            ],
             "demographics": {"age": "18-34"},
         },
         "white_collar": {
@@ -440,7 +828,13 @@ TARGETING_TEMPLATES: Dict[str, Dict[str, Any]] = {
         },
     },
     "instagram": {
-        "targeting_types": ["Interest", "Behavior", "Lookalike", "Custom Audience", "Location"],
+        "targeting_types": [
+            "Interest",
+            "Behavior",
+            "Lookalike",
+            "Custom Audience",
+            "Location",
+        ],
         "default": {
             "interests": ["Job searching", "Career", "Professional development"],
             "behaviors": ["Job seekers"],
@@ -448,7 +842,13 @@ TARGETING_TEMPLATES: Dict[str, Dict[str, Any]] = {
         },
     },
     "google_ads": {
-        "targeting_types": ["Keywords", "In-Market Audiences", "Affinity Audiences", "Remarketing", "Demographics"],
+        "targeting_types": [
+            "Keywords",
+            "In-Market Audiences",
+            "Affinity Audiences",
+            "Remarketing",
+            "Demographics",
+        ],
         "keyword_strategy": {
             "branded": "Company + jobs",
             "role_specific": "[role title] + jobs + [location]",
@@ -465,50 +865,190 @@ TARGETING_TEMPLATES: Dict[str, Dict[str, Any]] = {
 
 CONTENT_TYPES: Dict[str, List[Dict[str, Any]]] = {
     "facebook": [
-        {"type": "Job Posting", "frequency_per_week": 3, "format": "Image + Link", "engagement": "medium"},
-        {"type": "Employee Spotlight", "frequency_per_week": 1, "format": "Video/Photo", "engagement": "high"},
-        {"type": "Company Culture", "frequency_per_week": 1, "format": "Carousel", "engagement": "high"},
-        {"type": "Hiring Event", "frequency_per_week": 0.5, "format": "Event/Image", "engagement": "medium"},
+        {
+            "type": "Job Posting",
+            "frequency_per_week": 3,
+            "format": "Image + Link",
+            "engagement": "medium",
+        },
+        {
+            "type": "Employee Spotlight",
+            "frequency_per_week": 1,
+            "format": "Video/Photo",
+            "engagement": "high",
+        },
+        {
+            "type": "Company Culture",
+            "frequency_per_week": 1,
+            "format": "Carousel",
+            "engagement": "high",
+        },
+        {
+            "type": "Hiring Event",
+            "frequency_per_week": 0.5,
+            "format": "Event/Image",
+            "engagement": "medium",
+        },
     ],
     "instagram": [
-        {"type": "Day in the Life", "frequency_per_week": 2, "format": "Reels", "engagement": "high"},
-        {"type": "Job Opening", "frequency_per_week": 2, "format": "Stories + Feed", "engagement": "medium"},
-        {"type": "Team Feature", "frequency_per_week": 1, "format": "Carousel", "engagement": "high"},
-        {"type": "Behind the Scenes", "frequency_per_week": 1, "format": "Stories", "engagement": "high"},
+        {
+            "type": "Day in the Life",
+            "frequency_per_week": 2,
+            "format": "Reels",
+            "engagement": "high",
+        },
+        {
+            "type": "Job Opening",
+            "frequency_per_week": 2,
+            "format": "Stories + Feed",
+            "engagement": "medium",
+        },
+        {
+            "type": "Team Feature",
+            "frequency_per_week": 1,
+            "format": "Carousel",
+            "engagement": "high",
+        },
+        {
+            "type": "Behind the Scenes",
+            "frequency_per_week": 1,
+            "format": "Stories",
+            "engagement": "high",
+        },
     ],
     "linkedin": [
-        {"type": "Job Posting", "frequency_per_week": 3, "format": "Sponsored Content", "engagement": "medium"},
-        {"type": "Thought Leadership", "frequency_per_week": 1, "format": "Article/Post", "engagement": "high"},
-        {"type": "Employee Story", "frequency_per_week": 1, "format": "Video/Image", "engagement": "high"},
-        {"type": "Industry Insight", "frequency_per_week": 1, "format": "Document/Post", "engagement": "medium"},
+        {
+            "type": "Job Posting",
+            "frequency_per_week": 3,
+            "format": "Sponsored Content",
+            "engagement": "medium",
+        },
+        {
+            "type": "Thought Leadership",
+            "frequency_per_week": 1,
+            "format": "Article/Post",
+            "engagement": "high",
+        },
+        {
+            "type": "Employee Story",
+            "frequency_per_week": 1,
+            "format": "Video/Image",
+            "engagement": "high",
+        },
+        {
+            "type": "Industry Insight",
+            "frequency_per_week": 1,
+            "format": "Document/Post",
+            "engagement": "medium",
+        },
     ],
     "tiktok": [
-        {"type": "Day in the Life", "frequency_per_week": 3, "format": "Short Video", "engagement": "very_high"},
-        {"type": "Job Announcement", "frequency_per_week": 2, "format": "Trending Audio", "engagement": "high"},
-        {"type": "Behind the Scenes", "frequency_per_week": 1, "format": "Raw Video", "engagement": "high"},
-        {"type": "Q&A / Tips", "frequency_per_week": 1, "format": "Duet/Stitch", "engagement": "high"},
+        {
+            "type": "Day in the Life",
+            "frequency_per_week": 3,
+            "format": "Short Video",
+            "engagement": "very_high",
+        },
+        {
+            "type": "Job Announcement",
+            "frequency_per_week": 2,
+            "format": "Trending Audio",
+            "engagement": "high",
+        },
+        {
+            "type": "Behind the Scenes",
+            "frequency_per_week": 1,
+            "format": "Raw Video",
+            "engagement": "high",
+        },
+        {
+            "type": "Q&A / Tips",
+            "frequency_per_week": 1,
+            "format": "Duet/Stitch",
+            "engagement": "high",
+        },
     ],
     "twitter_x": [
-        {"type": "Job Share", "frequency_per_week": 5, "format": "Text + Link", "engagement": "low"},
-        {"type": "Company News", "frequency_per_week": 2, "format": "Thread", "engagement": "medium"},
-        {"type": "Industry Commentary", "frequency_per_week": 2, "format": "Text", "engagement": "medium"},
+        {
+            "type": "Job Share",
+            "frequency_per_week": 5,
+            "format": "Text + Link",
+            "engagement": "low",
+        },
+        {
+            "type": "Company News",
+            "frequency_per_week": 2,
+            "format": "Thread",
+            "engagement": "medium",
+        },
+        {
+            "type": "Industry Commentary",
+            "frequency_per_week": 2,
+            "format": "Text",
+            "engagement": "medium",
+        },
     ],
     "youtube": [
-        {"type": "Company Overview", "frequency_per_week": 0.25, "format": "Long-form Video", "engagement": "high"},
-        {"type": "Employee Testimonial", "frequency_per_week": 0.5, "format": "Interview Video", "engagement": "high"},
-        {"type": "Job Walk-through", "frequency_per_week": 0.5, "format": "Shorts/Video", "engagement": "medium"},
+        {
+            "type": "Company Overview",
+            "frequency_per_week": 0.25,
+            "format": "Long-form Video",
+            "engagement": "high",
+        },
+        {
+            "type": "Employee Testimonial",
+            "frequency_per_week": 0.5,
+            "format": "Interview Video",
+            "engagement": "high",
+        },
+        {
+            "type": "Job Walk-through",
+            "frequency_per_week": 0.5,
+            "format": "Shorts/Video",
+            "engagement": "medium",
+        },
     ],
     "reddit": [
-        {"type": "AMA / Hiring Thread", "frequency_per_week": 0.5, "format": "Text Post", "engagement": "high"},
-        {"type": "Job Share", "frequency_per_week": 1, "format": "Promoted Post", "engagement": "medium"},
+        {
+            "type": "AMA / Hiring Thread",
+            "frequency_per_week": 0.5,
+            "format": "Text Post",
+            "engagement": "high",
+        },
+        {
+            "type": "Job Share",
+            "frequency_per_week": 1,
+            "format": "Promoted Post",
+            "engagement": "medium",
+        },
     ],
     "snapchat": [
-        {"type": "Job Story", "frequency_per_week": 3, "format": "Snap Ad", "engagement": "medium"},
-        {"type": "Day at Work", "frequency_per_week": 2, "format": "Story", "engagement": "high"},
+        {
+            "type": "Job Story",
+            "frequency_per_week": 3,
+            "format": "Snap Ad",
+            "engagement": "medium",
+        },
+        {
+            "type": "Day at Work",
+            "frequency_per_week": 2,
+            "format": "Story",
+            "engagement": "high",
+        },
     ],
     "pinterest": [
-        {"type": "Career Infographic", "frequency_per_week": 2, "format": "Pin", "engagement": "medium"},
-        {"type": "Culture Board", "frequency_per_week": 1, "format": "Board/Pin", "engagement": "medium"},
+        {
+            "type": "Career Infographic",
+            "frequency_per_week": 2,
+            "format": "Pin",
+            "engagement": "medium",
+        },
+        {
+            "type": "Culture Board",
+            "frequency_per_week": 1,
+            "format": "Board/Pin",
+            "engagement": "medium",
+        },
     ],
 }
 
@@ -516,6 +1056,7 @@ CONTENT_TYPES: Dict[str, List[Dict[str, Any]]] = {
 # ═══════════════════════════════════════════════════════════════════════════════
 # CORE FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _get_collar_type(role: str, industry: str = "") -> Dict[str, Any]:
     """Get collar classification for a role."""
@@ -526,17 +1067,43 @@ def _get_collar_type(role: str, industry: str = "") -> Dict[str, Any]:
             logger.warning("Collar classification failed: %s", e)
     # Fallback
     role_lower = role.lower()
-    blue_kw = ["driver", "warehouse", "mechanic", "construction", "cook", "server",
-               "cleaner", "laborer", "factory", "welder", "plumber", "electrician",
-               "technician", "forklift", "cdl", "delivery", "picker", "packer"]
+    blue_kw = [
+        "driver",
+        "warehouse",
+        "mechanic",
+        "construction",
+        "cook",
+        "server",
+        "cleaner",
+        "laborer",
+        "factory",
+        "welder",
+        "plumber",
+        "electrician",
+        "technician",
+        "forklift",
+        "cdl",
+        "delivery",
+        "picker",
+        "packer",
+    ]
     for kw in blue_kw:
         if kw in role_lower:
-            return {"collar_type": "blue_collar", "confidence": 0.70, "method": "keyword_fallback"}
-    return {"collar_type": "white_collar", "confidence": 0.50, "method": "default_fallback"}
+            return {
+                "collar_type": "blue_collar",
+                "confidence": 0.70,
+                "method": "keyword_fallback",
+            }
+    return {
+        "collar_type": "white_collar",
+        "confidence": 0.50,
+        "method": "default_fallback",
+    }
 
 
-def _get_benchmark(platform_key: str, industry: str, location: str = "",
-                   collar_type: str = "mixed") -> Dict[str, float]:
+def _get_benchmark(
+    platform_key: str, industry: str, location: str = "", collar_type: str = "mixed"
+) -> Dict[str, float]:
     """Get CPC/CPM/CTR/CPA benchmarks for a platform."""
     if _HAS_TREND_ENGINE and platform_key:
         try:
@@ -548,10 +1115,14 @@ def _get_benchmark(platform_key: str, industry: str, location: str = "",
                     metric=metric,
                     years_back=1,
                 )
-                benchmarks[f"avg_{metric}"] = result.get("history", [{}])[-1].get("value", 0) if result.get("history") else 0
+                benchmarks[f"avg_{metric}"] = (
+                    result.get("history", [{}])[-1].get("value") or 0
+                    if result.get("history")
+                    else 0
+                )
             # Also get latest year data directly
             plat = platform_key.lower().replace(" ", "_")
-            all_trends = getattr(_trend_engine, '_ALL_TRENDS', {})
+            all_trends = getattr(_trend_engine, "_ALL_TRENDS", {})
             plat_data = all_trends.get(plat, {})
             ind_data = plat_data.get(industry, plat_data.get("general_entry_level", {}))
             yr_data = ind_data.get(2025, ind_data.get(2024, {}))
@@ -567,11 +1138,18 @@ def _get_benchmark(platform_key: str, industry: str, location: str = "",
                 return benchmarks
         except Exception as e:
             logger.warning("Benchmark lookup failed for %s: %s", platform_key, e)
-    return {"avg_cpc": 1.50, "avg_cpm": 8.00, "avg_ctr": 0.025, "avg_cpa": 20.00, "avg_cvr": 0.08}
+    return {
+        "avg_cpc": 1.50,
+        "avg_cpm": 8.00,
+        "avg_ctr": 0.025,
+        "avg_cpa": 20.00,
+        "avg_cvr": 0.08,
+    }
 
 
-def analyze_social_fit(role: str, industry: str, collar_type: str,
-                       goals: List[str] = None) -> List[Dict[str, Any]]:
+def analyze_social_fit(
+    role: str, industry: str, collar_type: str, goals: List[str] = None
+) -> List[Dict[str, Any]]:
     """Rank social platforms by fit for this role/industry/collar combination.
 
     Returns list of dicts sorted by fit_score descending, each containing:
@@ -608,35 +1186,40 @@ def analyze_social_fit(role: str, industry: str, collar_type: str,
         score = min(100, round(score))
 
         reasons = []
-        if collar in platform.get("best_for_collar", []):
+        if collar in platform.get("best_for_collar") or []:
             reasons.append(f"Strong fit for {collar.replace('_', ' ')} roles")
         if ind_boost > 1.0:
-            reasons.append(f"Industry boost for {INDUSTRY_LABEL_MAP.get(industry, industry)}")
+            reasons.append(
+                f"Industry boost for {INDUSTRY_LABEL_MAP.get(industry, industry)}"
+            )
         if goal_mult > 1.1:
             reasons.append(f"Aligned with campaign goals")
         if score < 40:
             reasons.append("Lower priority for this combination")
 
-        results.append({
-            "platform_key": key,
-            "name": platform["name"],
-            "fit_score": score,
-            "color": platform["color"],
-            "icon": platform["icon"],
-            "ad_formats": platform["ad_formats"],
-            "strengths": platform["strengths"],
-            "weaknesses": platform["weaknesses"],
-            "best_times": platform["best_times"],
-            "demographics": platform["demographics"],
-            "reasons": reasons,
-        })
+        results.append(
+            {
+                "platform_key": key,
+                "name": platform["name"],
+                "fit_score": score,
+                "color": platform["color"],
+                "icon": platform["icon"],
+                "ad_formats": platform["ad_formats"],
+                "strengths": platform["strengths"],
+                "weaknesses": platform["weaknesses"],
+                "best_times": platform["best_times"],
+                "demographics": platform["demographics"],
+                "reasons": reasons,
+            }
+        )
 
     results.sort(key=lambda x: x["fit_score"], reverse=True)
     return results
 
 
-def analyze_search_fit(role: str, industry: str, location: str = "",
-                       collar_type: str = "white_collar") -> List[Dict[str, Any]]:
+def analyze_search_fit(
+    role: str, industry: str, location: str = "", collar_type: str = "white_collar"
+) -> List[Dict[str, Any]]:
     """Rank search platforms by fit for this role/industry/location."""
     collar = collar_type.lower().replace("-", "_").replace(" ", "_")
     if collar not in COLLAR_PLATFORM_SCORES:
@@ -655,31 +1238,36 @@ def analyze_search_fit(role: str, industry: str, location: str = "",
         score = min(100, round(score))
 
         reasons = []
-        if collar in platform.get("best_for_collar", []):
+        if collar in platform.get("best_for_collar") or []:
             reasons.append(f"Strong fit for {collar.replace('_', ' ')} hiring")
         if ind_boost > 1.0:
             reasons.append(f"Industry advantage")
 
-        results.append({
-            "platform_key": key,
-            "name": platform["name"],
-            "fit_score": score,
-            "color": platform["color"],
-            "icon": platform["icon"],
-            "type": platform["type"],
-            "ad_formats": platform["ad_formats"],
-            "strengths": platform["strengths"],
-            "weaknesses": platform["weaknesses"],
-            "reasons": reasons,
-        })
+        results.append(
+            {
+                "platform_key": key,
+                "name": platform["name"],
+                "fit_score": score,
+                "color": platform["color"],
+                "icon": platform["icon"],
+                "type": platform["type"],
+                "ad_formats": platform["ad_formats"],
+                "strengths": platform["strengths"],
+                "weaknesses": platform["weaknesses"],
+                "reasons": reasons,
+            }
+        )
 
     results.sort(key=lambda x: x["fit_score"], reverse=True)
     return results
 
 
-def allocate_social_budget(total_budget: float, social_platforms: List[Dict],
-                           search_platforms: List[Dict],
-                           goals: List[str] = None) -> Dict[str, Any]:
+def allocate_social_budget(
+    total_budget: float,
+    social_platforms: List[Dict],
+    search_platforms: List[Dict],
+    goals: List[str] = None,
+) -> Dict[str, Any]:
     """Allocate budget across social + search platforms based on fit scores.
 
     Uses fit scores as weights. Platforms with score < 30 are excluded.
@@ -765,13 +1353,20 @@ def allocate_social_budget(total_budget: float, social_platforms: List[Dict],
         "search_pct": round((1 - social_pct) * 100, 1),
         "allocations": all_allocations,
         "platform_count": len(all_allocations),
-        "excluded_platforms": [p["name"] for p in social_platforms + search_platforms
-                               if p["platform_key"] not in all_allocations],
+        "excluded_platforms": [
+            p["name"]
+            for p in social_platforms + search_platforms
+            if p["platform_key"] not in all_allocations
+        ],
     }
 
 
-def get_platform_benchmarks(allocations: Dict[str, Dict], industry: str,
-                            location: str = "", collar_type: str = "mixed") -> Dict[str, Dict]:
+def get_platform_benchmarks(
+    allocations: Dict[str, Dict],
+    industry: str,
+    location: str = "",
+    collar_type: str = "mixed",
+) -> Dict[str, Dict]:
     """Get CPC/CPM/CPA benchmarks for each allocated platform."""
     results = {}
 
@@ -781,9 +1376,10 @@ def get_platform_benchmarks(allocations: Dict[str, Dict], industry: str,
         if te_key:
             bench = _get_benchmark(te_key, industry, location, collar_type)
         else:
-            bench = platform_def.get("benchmarks_2025", {
-                "avg_cpc": 1.00, "avg_cpm": 6.00, "avg_ctr": 0.015, "avg_cpa": 15.00
-            })
+            bench = platform_def.get(
+                "benchmarks_2025",
+                {"avg_cpc": 1.00, "avg_cpm": 6.00, "avg_ctr": 0.015, "avg_cpa": 15.00},
+            )
         return key, {
             "platform": alloc.get("name", key),
             "avg_cpc": bench.get("avg_cpc", 1.00),
@@ -802,24 +1398,37 @@ def get_platform_benchmarks(allocations: Dict[str, Dict], industry: str,
             except Exception as e:
                 k = futures[future]
                 logger.warning("Benchmark fetch error for %s: %s", k, e)
-                results[k] = {"platform": k, "avg_cpc": 1.50, "avg_cpm": 8.00,
-                               "avg_ctr": 0.02, "avg_cpa": 20.00, "avg_cvr": 0.08}
+                results[k] = {
+                    "platform": k,
+                    "avg_cpc": 1.50,
+                    "avg_cpm": 8.00,
+                    "avg_ctr": 0.02,
+                    "avg_cpa": 20.00,
+                    "avg_cvr": 0.08,
+                }
 
     return results
 
 
-def generate_audience_targeting(role: str, industry: str, platform_key: str,
-                                collar_type: str = "white_collar") -> Dict[str, Any]:
+def generate_audience_targeting(
+    role: str, industry: str, platform_key: str, collar_type: str = "white_collar"
+) -> Dict[str, Any]:
     """Generate audience targeting suggestions for a specific platform."""
     collar = collar_type.lower().replace("-", "_").replace(" ", "_")
     template = TARGETING_TEMPLATES.get(platform_key, {})
-    targeting_types = template.get("targeting_types", ["Interest", "Location", "Demographics"])
+    targeting_types = template.get(
+        "targeting_types", ["Interest", "Location", "Demographics"]
+    )
 
     # Get collar-specific or default targeting
-    collar_data = template.get(collar, template.get("default", template.get("white_collar", {})))
+    collar_data = template.get(
+        collar, template.get("default", template.get("white_collar", {}))
+    )
 
     role_lower = role.lower()
-    industry_label = INDUSTRY_LABEL_MAP.get(industry, industry.replace("_", " ").title())
+    industry_label = INDUSTRY_LABEL_MAP.get(
+        industry, industry.replace("_", " ").title()
+    )
 
     # Build job title suggestions
     title_variations = [role]
@@ -837,18 +1446,24 @@ def generate_audience_targeting(role: str, industry: str, platform_key: str,
     }
 
     if collar_data:
-        result.update({
-            "interests": collar_data.get("interests", []),
-            "behaviors": collar_data.get("behaviors", []),
-            "demographics": collar_data.get("demographics", {}),
-            "hashtags": collar_data.get("hashtags", []),
-        })
+        result.update(
+            {
+                "interests": collar_data.get("interests") or [],
+                "behaviors": collar_data.get("behaviors") or [],
+                "demographics": collar_data.get("demographics", {}),
+                "hashtags": collar_data.get("hashtags") or [],
+            }
+        )
 
     # Platform-specific additions
     if platform_key == "linkedin":
-        result["seniority_levels"] = collar_data.get("seniority", ["Entry", "Senior", "Manager"])
+        result["seniority_levels"] = collar_data.get(
+            "seniority", ["Entry", "Senior", "Manager"]
+        )
         result["functions"] = collar_data.get("functions", ["Operations"])
-        result["company_sizes"] = collar_data.get("company_size", ["201-500", "501-1000"])
+        result["company_sizes"] = collar_data.get(
+            "company_size", ["201-500", "501-1000"]
+        )
     elif platform_key == "google_ads":
         kw_strat = template.get("keyword_strategy", {})
         result["keyword_strategy"] = {
@@ -861,11 +1476,20 @@ def generate_audience_targeting(role: str, industry: str, platform_key: str,
     return result
 
 
-def generate_content_calendar(platforms: List[str], budget: float,
-                              duration_weeks: int = 4) -> List[Dict[str, Any]]:
+def generate_content_calendar(
+    platforms: List[str], budget: float, duration_weeks: int = 4
+) -> List[Dict[str, Any]]:
     """Generate a content calendar for the campaign duration."""
     calendar = []
-    days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    days_of_week = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ]
 
     for week_num in range(1, duration_weeks + 1):
         week_plan = {
@@ -886,18 +1510,24 @@ def generate_content_calendar(platforms: List[str], budget: float,
                     freq = 1
 
                 for i in range(int(freq)):
-                    day_idx = (hash(f"{platform}_{ct['type']}_{i}") % 5)  # Weekday posting
+                    day_idx = (
+                        hash(f"{platform}_{ct['type']}_{i}") % 5
+                    )  # Weekday posting
                     if ct.get("engagement") == "very_high":
                         day_idx = hash(f"{platform}_{i}") % 7  # Include weekends
 
-                    week_plan["posts"].append({
-                        "platform": platform,
-                        "platform_name": SOCIAL_PLATFORMS.get(platform, SEARCH_PLATFORMS.get(platform, {})).get("name", platform),
-                        "content_type": ct["type"],
-                        "format": ct["format"],
-                        "day": days_of_week[day_idx % 7],
-                        "expected_engagement": ct.get("engagement", "medium"),
-                    })
+                    week_plan["posts"].append(
+                        {
+                            "platform": platform,
+                            "platform_name": SOCIAL_PLATFORMS.get(
+                                platform, SEARCH_PLATFORMS.get(platform, {})
+                            ).get("name", platform),
+                            "content_type": ct["type"],
+                            "format": ct["format"],
+                            "day": days_of_week[day_idx % 7],
+                            "expected_engagement": ct.get("engagement", "medium"),
+                        }
+                    )
 
         # Sort posts by day order
         day_order = {d: i for i, d in enumerate(days_of_week)}
@@ -912,30 +1542,51 @@ def _get_week_theme(week_num: int, total_weeks: int) -> str:
     if total_weeks <= 2:
         themes = ["Launch & Awareness", "Drive Applications"]
     elif total_weeks <= 4:
-        themes = ["Launch & Brand Awareness", "Role Spotlight & Engagement",
-                  "Employee Stories & Culture", "Push Applications & Retarget"]
+        themes = [
+            "Launch & Brand Awareness",
+            "Role Spotlight & Engagement",
+            "Employee Stories & Culture",
+            "Push Applications & Retarget",
+        ]
     elif total_weeks <= 8:
-        themes = ["Launch & Brand Awareness", "Role Spotlight", "Employee Stories",
-                  "Culture & Benefits", "Industry Expertise", "Community Engagement",
-                  "Application Push", "Final Push & Retarget"]
+        themes = [
+            "Launch & Brand Awareness",
+            "Role Spotlight",
+            "Employee Stories",
+            "Culture & Benefits",
+            "Industry Expertise",
+            "Community Engagement",
+            "Application Push",
+            "Final Push & Retarget",
+        ]
     else:
-        cycle = ["Brand Awareness", "Role Highlight", "Culture Showcase",
-                 "Employee Spotlight", "Application Drive"]
+        cycle = [
+            "Brand Awareness",
+            "Role Highlight",
+            "Culture Showcase",
+            "Employee Spotlight",
+            "Application Drive",
+        ]
         themes = [cycle[(i) % len(cycle)] for i in range(total_weeks)]
 
     idx = min(week_num - 1, len(themes) - 1)
     return themes[idx]
 
 
-def generate_creative_briefs(platforms: List[str], role: str, industry: str,
-                             collar_type: str = "white_collar") -> List[Dict[str, Any]]:
+def generate_creative_briefs(
+    platforms: List[str], role: str, industry: str, collar_type: str = "white_collar"
+) -> List[Dict[str, Any]]:
     """Generate creative brief per platform with specs, copy guidance, and tone."""
-    industry_label = INDUSTRY_LABEL_MAP.get(industry, industry.replace("_", " ").title())
+    industry_label = INDUSTRY_LABEL_MAP.get(
+        industry, industry.replace("_", " ").title()
+    )
     collar = collar_type.lower().replace("_", " ").title()
     briefs = []
 
     for platform_key in platforms:
-        platform = SOCIAL_PLATFORMS.get(platform_key, SEARCH_PLATFORMS.get(platform_key, {}))
+        platform = SOCIAL_PLATFORMS.get(
+            platform_key, SEARCH_PLATFORMS.get(platform_key, {})
+        )
         if not platform:
             continue
 
@@ -966,27 +1617,33 @@ def generate_creative_briefs(platforms: List[str], role: str, industry: str,
         # Sample copy
         headline_copy = f"We're Hiring: {role} - {industry_label}"
         if collar_type in ("blue_collar", "pink_collar"):
-            body_copy = (f"Looking for your next opportunity? We're hiring {role}s "
-                        f"in {industry_label}. Competitive pay, great benefits, "
-                        f"and a team that has your back. Apply today!")
+            body_copy = (
+                f"Looking for your next opportunity? We're hiring {role}s "
+                f"in {industry_label}. Competitive pay, great benefits, "
+                f"and a team that has your back. Apply today!"
+            )
         else:
-            body_copy = (f"Join our {industry_label} team as a {role}. "
-                        f"Grow your career with industry leaders, innovative projects, "
-                        f"and a culture that values your expertise. See the role.")
+            body_copy = (
+                f"Join our {industry_label} team as a {role}. "
+                f"Grow your career with industry leaders, innovative projects, "
+                f"and a culture that values your expertise. See the role."
+            )
 
-        briefs.append({
-            "platform_key": platform_key,
-            "platform_name": name,
-            "color": platform.get("color", "#333"),
-            "tone": tone,
-            "cta_options": cta,
-            "image_specs": specs,
-            "copy_limits": copy_limits,
-            "sample_headline": headline_copy,
-            "sample_body": body_copy,
-            "recommended_formats": platform.get("ad_formats", [])[:4],
-            "creative_tips": _get_creative_tips(platform_key, collar_type),
-        })
+        briefs.append(
+            {
+                "platform_key": platform_key,
+                "platform_name": name,
+                "color": platform.get("color", "#333"),
+                "tone": tone,
+                "cta_options": cta,
+                "image_specs": specs,
+                "copy_limits": copy_limits,
+                "sample_headline": headline_copy,
+                "sample_body": body_copy,
+                "recommended_formats": platform.get("ad_formats") or [][:4],
+                "creative_tips": _get_creative_tips(platform_key, collar_type),
+            }
+        )
 
     return briefs
 
@@ -1046,18 +1703,28 @@ def _get_creative_tips(platform_key: str, collar_type: str) -> List[str]:
             "Include salary range -- improves apply rate by 30%+",
         ],
     }
-    return tips.get(platform_key, ["Use high-quality visuals", "Include clear CTA", "Test multiple variations"])
+    return tips.get(
+        platform_key,
+        ["Use high-quality visuals", "Include clear CTA", "Test multiple variations"],
+    )
 
 
-def estimate_performance(allocations: Dict[str, Dict], benchmarks: Dict[str, Dict],
-                         duration_weeks: int = 4) -> Dict[str, Any]:
+def estimate_performance(
+    allocations: Dict[str, Dict], benchmarks: Dict[str, Dict], duration_weeks: int = 4
+) -> Dict[str, Any]:
     """Estimate reach, impressions, clicks, and applications per platform."""
     platform_estimates = {}
-    totals = {"impressions": 0, "clicks": 0, "applications": 0,
-              "reach": 0, "total_spend": 0, "avg_cpa": 0}
+    totals = {
+        "impressions": 0,
+        "clicks": 0,
+        "applications": 0,
+        "reach": 0,
+        "total_spend": 0,
+        "avg_cpa": 0,
+    }
 
     for key, alloc in allocations.items():
-        budget = alloc.get("budget", 0)
+        budget = alloc.get("budget") or 0
         if budget <= 0:
             continue
 
@@ -1073,7 +1740,9 @@ def estimate_performance(allocations: Dict[str, Dict], benchmarks: Dict[str, Dic
         est_impressions = round(budget / cpm * 1000) if cpm > 0 else 0
         est_applications = round(budget / cpa) if cpa > 0 else 0
         est_reach = round(est_impressions * 0.65)  # ~65% unique reach
-        effective_cpa = round(budget / est_applications, 2) if est_applications > 0 else 0
+        effective_cpa = (
+            round(budget / est_applications, 2) if est_applications > 0 else 0
+        )
 
         platform_estimates[key] = {
             "platform": alloc.get("name", key),
@@ -1087,7 +1756,9 @@ def estimate_performance(allocations: Dict[str, Dict], benchmarks: Dict[str, Dic
             "ctr": round(ctr * 100, 2),
             "cpa": effective_cpa,
             "cvr": round(cvr * 100, 2),
-            "roi_score": round(est_applications / (budget / 1000), 2) if budget > 0 else 0,
+            "roi_score": (
+                round(est_applications / (budget / 1000), 2) if budget > 0 else 0
+            ),
         }
 
         totals["impressions"] += est_impressions
@@ -1096,13 +1767,28 @@ def estimate_performance(allocations: Dict[str, Dict], benchmarks: Dict[str, Dic
         totals["reach"] += est_reach
         totals["total_spend"] += budget
 
-    totals["avg_cpa"] = round(totals["total_spend"] / totals["applications"], 2) if totals["applications"] > 0 else 0
-    totals["avg_cpc"] = round(totals["total_spend"] / totals["clicks"], 2) if totals["clicks"] > 0 else 0
-    totals["overall_ctr"] = round(totals["clicks"] / totals["impressions"] * 100, 2) if totals["impressions"] > 0 else 0
+    totals["avg_cpa"] = (
+        round(totals["total_spend"] / totals["applications"], 2)
+        if totals["applications"] > 0
+        else 0
+    )
+    totals["avg_cpc"] = (
+        round(totals["total_spend"] / totals["clicks"], 2)
+        if totals["clicks"] > 0
+        else 0
+    )
+    totals["overall_ctr"] = (
+        round(totals["clicks"] / totals["impressions"] * 100, 2)
+        if totals["impressions"] > 0
+        else 0
+    )
 
     # Rank by ROI
-    roi_ranking = sorted(platform_estimates.items(),
-                         key=lambda x: x[1].get("roi_score", 0), reverse=True)
+    roi_ranking = sorted(
+        platform_estimates.items(),
+        key=lambda x: x[1].get("roi_score") or 0,
+        reverse=True,
+    )
     best_roi = roi_ranking[0][1]["platform"] if roi_ranking else "N/A"
     worst_roi = roi_ranking[-1][1]["platform"] if roi_ranking else "N/A"
 
@@ -1118,6 +1804,7 @@ def estimate_performance(allocations: Dict[str, Dict], benchmarks: Dict[str, Dic
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN ORCHESTRATOR
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def generate_social_media_plan(
     role: str,
@@ -1148,7 +1835,9 @@ def generate_social_media_plan(
     if location:
         location = standardize_location(location)
     duration_weeks = max(1, min(12, duration_weeks))
-    industry_label = INDUSTRY_LABEL_MAP.get(industry, industry.replace("_", " ").title())
+    industry_label = INDUSTRY_LABEL_MAP.get(
+        industry, industry.replace("_", " ").title()
+    )
 
     # Step 1: Collar classification
     collar_result = _get_collar_type(role, industry)
@@ -1156,8 +1845,12 @@ def generate_social_media_plan(
 
     # Step 2: Platform analysis (concurrent)
     with ThreadPoolExecutor(max_workers=2) as pool:
-        social_future = pool.submit(analyze_social_fit, role, industry, collar_type, goals)
-        search_future = pool.submit(analyze_search_fit, role, industry, location, collar_type)
+        social_future = pool.submit(
+            analyze_social_fit, role, industry, collar_type, goals
+        )
+        search_future = pool.submit(
+            analyze_search_fit, role, industry, location, collar_type
+        )
         social_ranked = social_future.result()
         search_ranked = search_future.result()
 
@@ -1285,8 +1978,8 @@ def generate_social_plan_excel(plan: Dict[str, Any]) -> bytes:
     allocations = plan.get("budget_allocation", {}).get("allocations", {})
     benchmarks = plan.get("benchmarks", {})
     performance = plan.get("performance", {})
-    briefs = plan.get("creative_briefs", [])
-    calendar = plan.get("content_calendar", [])
+    briefs = plan.get("creative_briefs") or []
+    calendar = plan.get("content_calendar") or []
 
     # ── Sheet 1: Executive Summary ──
     ws = wb.active
@@ -1317,11 +2010,14 @@ def generate_social_plan_excel(plan: Dict[str, Any]) -> bytes:
     row += 2
     # Key metrics
     metrics = [
-        ("Total Budget", f"${summary.get('total_budget', 0):,.0f}"),
-        ("Platforms", str(summary.get("platform_count", 0))),
-        ("Collar Type", summary.get("collar_type", "").replace("_", " ").title()),
+        ("Total Budget", f"${summary.get('total_budget') or 0:,.0f}"),
+        ("Platforms", str(summary.get("platform_count") or 0)),
+        ("Collar Type", summary.get("collar_type") or "".replace("_", " ").title()),
         ("Duration", f"{inputs.get('duration_weeks', 4)} weeks"),
-        ("Campaign Goals", ", ".join(g.replace("_", " ").title() for g in inputs.get("goals", []))),
+        (
+            "Campaign Goals",
+            ", ".join(g.replace("_", " ").title() for g in inputs.get("goals") or []),
+        ),
     ]
     for label, value in metrics:
         ws[f"B{row}"].value = label
@@ -1349,12 +2045,12 @@ def generate_social_plan_excel(plan: Dict[str, Any]) -> bytes:
 
     totals = performance.get("totals", {})
     perf_rows = [
-        ("Est. Total Reach", f"{totals.get('reach', 0):,}"),
-        ("Est. Total Impressions", f"{totals.get('impressions', 0):,}"),
-        ("Est. Total Clicks", f"{totals.get('clicks', 0):,}"),
-        ("Est. Total Applications", f"{totals.get('applications', 0):,}"),
-        ("Est. Avg CPA", f"${totals.get('avg_cpa', 0):,.2f}"),
-        ("Est. Avg CPC", f"${totals.get('avg_cpc', 0):,.2f}"),
+        ("Est. Total Reach", f"{totals.get('reach') or 0:,}"),
+        ("Est. Total Impressions", f"{totals.get('impressions') or 0:,}"),
+        ("Est. Total Clicks", f"{totals.get('clicks') or 0:,}"),
+        ("Est. Total Applications", f"{totals.get('applications') or 0:,}"),
+        ("Est. Avg CPA", f"${totals.get('avg_cpa') or 0:,.2f}"),
+        ("Est. Avg CPC", f"${totals.get('avg_cpc') or 0:,.2f}"),
         ("Best ROI Platform", performance.get("best_roi_platform", "N/A")),
     ]
     for label, value in perf_rows:
@@ -1384,8 +2080,16 @@ def generate_social_plan_excel(plan: Dict[str, Any]) -> bytes:
     c.alignment = _align("center")
     row += 2
 
-    headers = ["Platform", "Type", "Budget", "% of Total", "Fit Score",
-               "Avg CPC", "Avg CPM", "Avg CPA"]
+    headers = [
+        "Platform",
+        "Type",
+        "Budget",
+        "% of Total",
+        "Fit Score",
+        "Avg CPC",
+        "Avg CPM",
+        "Avg CPA",
+    ]
     for i, h in enumerate(headers):
         col = get_column_letter(2 + i)
         ws2[f"{col}{row}"].value = h
@@ -1399,12 +2103,12 @@ def generate_social_plan_excel(plan: Dict[str, Any]) -> bytes:
         vals = [
             alloc.get("name", key),
             alloc.get("channel_type", "social").title(),
-            f"${alloc.get('budget', 0):,.0f}",
-            f"{alloc.get('pct_of_total', 0):.1f}%",
-            str(alloc.get("fit_score", 0)),
-            f"${bench.get('avg_cpc', 0):.2f}",
-            f"${bench.get('avg_cpm', 0):.2f}",
-            f"${bench.get('avg_cpa', 0):.2f}",
+            f"${alloc.get('budget') or 0:,.0f}",
+            f"{alloc.get('pct_of_total') or 0:.1f}%",
+            str(alloc.get("fit_score") or 0),
+            f"${bench.get('avg_cpc') or 0:.2f}",
+            f"${bench.get('avg_cpm') or 0:.2f}",
+            f"${bench.get('avg_cpa') or 0:.2f}",
         ]
         bg = _XL_WHITE if row % 2 == 0 else _XL_BLUE_PALE
         for i, v in enumerate(vals):
@@ -1448,13 +2152,13 @@ def generate_social_plan_excel(plan: Dict[str, Any]) -> bytes:
             ws3[f"{col}{row}"].fill = _fill(_XL_BLUE_LIGHT)
         row += 1
 
-        for post in week.get("posts", [])[:20]:  # Limit per week
+        for post in week.get("posts") or [][:20]:  # Limit per week
             vals = [
-                post.get("platform_name", ""),
-                post.get("content_type", ""),
-                post.get("format", ""),
-                post.get("day", ""),
-                post.get("expected_engagement", ""),
+                post.get("platform_name") or "",
+                post.get("content_type") or "",
+                post.get("format") or "",
+                post.get("day") or "",
+                post.get("expected_engagement") or "",
             ]
             for i, v in enumerate(vals):
                 col = get_column_letter(2 + i)
@@ -1480,8 +2184,17 @@ def generate_social_plan_excel(plan: Dict[str, Any]) -> bytes:
     c.alignment = _align("center")
     row += 2
 
-    perf_headers = ["Platform", "Budget", "Impressions", "Reach", "Clicks",
-                    "Applications", "CPC", "CPA", "ROI Score"]
+    perf_headers = [
+        "Platform",
+        "Budget",
+        "Impressions",
+        "Reach",
+        "Clicks",
+        "Applications",
+        "CPC",
+        "CPA",
+        "ROI Score",
+    ]
     for i, h in enumerate(perf_headers):
         col = get_column_letter(2 + i)
         ws4[f"{col}{row}"].value = h
@@ -1494,14 +2207,14 @@ def generate_social_plan_excel(plan: Dict[str, Any]) -> bytes:
     for key, pp in plat_perf.items():
         vals = [
             pp.get("platform", key),
-            f"${pp.get('budget', 0):,.0f}",
-            f"{pp.get('impressions', 0):,}",
-            f"{pp.get('reach', 0):,}",
-            f"{pp.get('clicks', 0):,}",
-            str(pp.get("applications", 0)),
-            f"${pp.get('cpc', 0):.2f}",
-            f"${pp.get('cpa', 0):.2f}",
-            f"{pp.get('roi_score', 0):.1f}",
+            f"${pp.get('budget') or 0:,.0f}",
+            f"{pp.get('impressions') or 0:,}",
+            f"{pp.get('reach') or 0:,}",
+            f"{pp.get('clicks') or 0:,}",
+            str(pp.get("applications") or 0),
+            f"${pp.get('cpc') or 0:.2f}",
+            f"${pp.get('cpa') or 0:.2f}",
+            f"{pp.get('roi_score') or 0:.1f}",
         ]
         bg = _XL_WHITE if row % 2 == 0 else _XL_BLUE_PALE
         for i, v in enumerate(vals):
@@ -1517,13 +2230,13 @@ def generate_social_plan_excel(plan: Dict[str, Any]) -> bytes:
     row += 1
     total_vals = [
         "TOTAL",
-        f"${totals.get('total_spend', 0):,.0f}",
-        f"{totals.get('impressions', 0):,}",
-        f"{totals.get('reach', 0):,}",
-        f"{totals.get('clicks', 0):,}",
-        str(totals.get("applications", 0)),
-        f"${totals.get('avg_cpc', 0):.2f}",
-        f"${totals.get('avg_cpa', 0):.2f}",
+        f"${totals.get('total_spend') or 0:,.0f}",
+        f"{totals.get('impressions') or 0:,}",
+        f"{totals.get('reach') or 0:,}",
+        f"{totals.get('clicks') or 0:,}",
+        str(totals.get("applications") or 0),
+        f"${totals.get('avg_cpc') or 0:.2f}",
+        f"${totals.get('avg_cpa') or 0:.2f}",
         "",
     ]
     for i, v in enumerate(total_vals):
@@ -1549,6 +2262,7 @@ def generate_social_plan_excel(plan: Dict[str, Any]) -> bytes:
 # PPT EXPORT
 # Joveo branding: Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def generate_social_plan_ppt(plan: Dict[str, Any]) -> bytes:
     """Generate PowerPoint export of the social media plan.
@@ -1585,9 +2299,21 @@ def generate_social_plan_ppt(plan: Dict[str, Any]) -> bytes:
         fill.solid()
         fill.fore_color.rgb = color
 
-    def _add_text_box(slide, left, top, width, height, text, font_size=12,
-                      bold=False, color=WHITE, align=PP_ALIGN.LEFT):
-        txBox = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(width), Inches(height))
+    def _add_text_box(
+        slide,
+        left,
+        top,
+        width,
+        height,
+        text,
+        font_size=12,
+        bold=False,
+        color=WHITE,
+        align=PP_ALIGN.LEFT,
+    ):
+        txBox = slide.shapes.add_textbox(
+            Inches(left), Inches(top), Inches(width), Inches(height)
+        )
         tf = txBox.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
@@ -1604,25 +2330,48 @@ def generate_social_plan_ppt(plan: Dict[str, Any]) -> bytes:
     _add_bg(slide1, NAVY)
 
     _add_text_box(slide1, 1, 0.8, 11, 0.6, "JOVEO", 14, True, TEAL)
-    _add_text_box(slide1, 1, 1.8, 11, 1.2,
-                  "Social & Search Media Plan", 36, True, WHITE, PP_ALIGN.LEFT)
-    _add_text_box(slide1, 1, 3.2, 11, 0.8,
-                  f"{inputs.get('role', 'N/A')} | {inputs.get('location', 'N/A')} | {inputs.get('industry_label', 'N/A')}",
-                  16, False, TEAL)
+    _add_text_box(
+        slide1,
+        1,
+        1.8,
+        11,
+        1.2,
+        "Social & Search Media Plan",
+        36,
+        True,
+        WHITE,
+        PP_ALIGN.LEFT,
+    )
+    _add_text_box(
+        slide1,
+        1,
+        3.2,
+        11,
+        0.8,
+        f"{inputs.get('role', 'N/A')} | {inputs.get('location', 'N/A')} | {inputs.get('industry_label', 'N/A')}",
+        16,
+        False,
+        TEAL,
+    )
 
     # Key stats row
     stats = [
-        ("Budget", f"${summary.get('total_budget', 0):,.0f}"),
-        ("Platforms", str(summary.get("platform_count", 0))),
-        ("Est. Applications", str(summary.get("est_total_applications", 0))),
-        ("Est. Avg CPA", f"${summary.get('est_avg_cpa', 0):,.2f}"),
+        ("Budget", f"${summary.get('total_budget') or 0:,.0f}"),
+        ("Platforms", str(summary.get("platform_count") or 0)),
+        ("Est. Applications", str(summary.get("est_total_applications") or 0)),
+        ("Est. Avg CPA", f"${summary.get('est_avg_cpa') or 0:,.2f}"),
         ("Duration", f"{inputs.get('duration_weeks', 4)} Weeks"),
     ]
     x_start = 1.0
     for i, (label, value) in enumerate(stats):
         x = x_start + i * 2.3
-        shape = slide1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE,
-                                         Inches(x), Inches(4.5), Inches(2.0), Inches(1.5))
+        shape = slide1.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(x),
+            Inches(4.5),
+            Inches(2.0),
+            Inches(1.5),
+        )
         shape.fill.solid()
         shape.fill.fore_color.rgb = BLUE
         shape.line.fill.background()
@@ -1649,22 +2398,41 @@ def generate_social_plan_ppt(plan: Dict[str, Any]) -> bytes:
     _add_text_box(slide2, 0.8, 0.5, 11, 0.6, "Budget Allocation", 28, True, NAVY)
 
     bp = plan.get("budget_allocation", {})
-    _add_text_box(slide2, 0.8, 1.2, 11, 0.4,
-                  f"Social: {bp.get('social_pct', 50)}% (${bp.get('social_budget', 0):,.0f})  |  "
-                  f"Search: {bp.get('search_pct', 50)}% (${bp.get('search_budget', 0):,.0f})",
-                  12, False, MUTED)
+    _add_text_box(
+        slide2,
+        0.8,
+        1.2,
+        11,
+        0.4,
+        f"Social: {bp.get('social_pct', 50)}% (${bp.get('social_budget') or 0:,.0f})  |  "
+        f"Search: {bp.get('search_pct', 50)}% (${bp.get('search_budget') or 0:,.0f})",
+        12,
+        False,
+        MUTED,
+    )
 
     y = 2.0
     x = 0.8
     col = 0
-    platform_colors = [BLUE, TEAL, PINK, RGBColor(0xCE, 0x90, 0x47),
-                       RGBColor(0x33, 0x87, 0x21), RGBColor(0xDC, 0x26, 0x26)]
+    platform_colors = [
+        BLUE,
+        TEAL,
+        PINK,
+        RGBColor(0xCE, 0x90, 0x47),
+        RGBColor(0x33, 0x87, 0x21),
+        RGBColor(0xDC, 0x26, 0x26),
+    ]
     for i, (key, alloc) in enumerate(allocations.items()):
         cx = x + (col * 4.1)
         cy = y + (i // 3) * 1.8
 
-        shape = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE,
-                                         Inches(cx), Inches(cy), Inches(3.8), Inches(1.5))
+        shape = slide2.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(cx),
+            Inches(cy),
+            Inches(3.8),
+            Inches(1.5),
+        )
         shape.fill.solid()
         shape.fill.fore_color.rgb = NAVY
         shape.line.fill.background()
@@ -1679,13 +2447,15 @@ def generate_social_plan_ppt(plan: Dict[str, Any]) -> bytes:
         p.font.name = "Inter"
 
         p2 = tf.add_paragraph()
-        p2.text = f"${alloc.get('budget', 0):,.0f}  ({alloc.get('pct_of_total', 0):.1f}%)"
+        p2.text = (
+            f"${alloc.get('budget') or 0:,.0f}  ({alloc.get('pct_of_total') or 0:.1f}%)"
+        )
         p2.font.size = Pt(11)
         p2.font.color.rgb = WHITE
         p2.font.name = "Inter"
 
         p3 = tf.add_paragraph()
-        p3.text = f"Fit Score: {alloc.get('fit_score', 0)} | {alloc.get('channel_type', 'social').title()}"
+        p3.text = f"Fit Score: {alloc.get('fit_score') or 0} | {alloc.get('channel_type', 'social').title()}"
         p3.font.size = Pt(9)
         p3.font.color.rgb = RGBColor(0x8C, 0x96, 0xA8)
         p3.font.name = "Inter"
@@ -1699,52 +2469,92 @@ def generate_social_plan_ppt(plan: Dict[str, Any]) -> bytes:
     _add_text_box(slide3, 0.8, 0.5, 11, 0.6, "Performance Projections", 28, True, WHITE)
 
     # Table-like layout
-    headers = ["Platform", "Budget", "Impressions", "Clicks", "Applications", "CPC", "CPA"]
+    headers = [
+        "Platform",
+        "Budget",
+        "Impressions",
+        "Clicks",
+        "Applications",
+        "CPC",
+        "CPA",
+    ]
     y_start = 1.5
     col_width = 1.65
     x_start = 0.8
 
     for i, h in enumerate(headers):
-        _add_text_box(slide3, x_start + i * col_width, y_start, col_width, 0.4,
-                      h, 10, True, TEAL, PP_ALIGN.CENTER)
+        _add_text_box(
+            slide3,
+            x_start + i * col_width,
+            y_start,
+            col_width,
+            0.4,
+            h,
+            10,
+            True,
+            TEAL,
+            PP_ALIGN.CENTER,
+        )
 
     plat_perf = performance.get("platforms", {})
     for j, (key, pp) in enumerate(plat_perf.items()):
         y = y_start + 0.5 + j * 0.45
         vals = [
             pp.get("platform", key),
-            f"${pp.get('budget', 0):,.0f}",
-            f"{pp.get('impressions', 0):,}",
-            f"{pp.get('clicks', 0):,}",
-            str(pp.get("applications", 0)),
-            f"${pp.get('cpc', 0):.2f}",
-            f"${pp.get('cpa', 0):.2f}",
+            f"${pp.get('budget') or 0:,.0f}",
+            f"{pp.get('impressions') or 0:,}",
+            f"{pp.get('clicks') or 0:,}",
+            str(pp.get("applications") or 0),
+            f"${pp.get('cpc') or 0:.2f}",
+            f"${pp.get('cpa') or 0:.2f}",
         ]
         for i, v in enumerate(vals):
-            _add_text_box(slide3, x_start + i * col_width, y, col_width, 0.4,
-                          v, 9, False, WHITE, PP_ALIGN.CENTER)
+            _add_text_box(
+                slide3,
+                x_start + i * col_width,
+                y,
+                col_width,
+                0.4,
+                v,
+                9,
+                False,
+                WHITE,
+                PP_ALIGN.CENTER,
+            )
 
     # Totals
     totals = performance.get("totals", {})
     y_total = y_start + 0.5 + len(plat_perf) * 0.45 + 0.2
     total_vals = [
         "TOTAL",
-        f"${totals.get('total_spend', 0):,.0f}",
-        f"{totals.get('impressions', 0):,}",
-        f"{totals.get('clicks', 0):,}",
-        str(totals.get("applications", 0)),
-        f"${totals.get('avg_cpc', 0):.2f}",
-        f"${totals.get('avg_cpa', 0):.2f}",
+        f"${totals.get('total_spend') or 0:,.0f}",
+        f"{totals.get('impressions') or 0:,}",
+        f"{totals.get('clicks') or 0:,}",
+        str(totals.get("applications") or 0),
+        f"${totals.get('avg_cpc') or 0:.2f}",
+        f"${totals.get('avg_cpa') or 0:.2f}",
     ]
     for i, v in enumerate(total_vals):
-        _add_text_box(slide3, x_start + i * col_width, y_total, col_width, 0.4,
-                      v, 10, True, TEAL, PP_ALIGN.CENTER)
+        _add_text_box(
+            slide3,
+            x_start + i * col_width,
+            y_total,
+            col_width,
+            0.4,
+            v,
+            10,
+            True,
+            TEAL,
+            PP_ALIGN.CENTER,
+        )
 
     # ── Slide 4: Recommendations ──
     slide4 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide4, OFF_WHITE)
 
-    _add_text_box(slide4, 0.8, 0.5, 11, 0.6, "Recommendations & Next Steps", 28, True, NAVY)
+    _add_text_box(
+        slide4, 0.8, 0.5, 11, 0.6, "Recommendations & Next Steps", 28, True, NAVY
+    )
 
     collar = summary.get("collar_type", "white_collar")
     recs = [
@@ -1763,9 +2573,18 @@ def generate_social_plan_ppt(plan: Dict[str, Any]) -> bytes:
         y += 0.5
 
     # Footer
-    _add_text_box(slide4, 0.8, 6.8, 11, 0.3,
-                  f"Generated by Joveo Media Plan Generator | {datetime.utcnow().strftime('%Y-%m-%d')}",
-                  8, False, MUTED, PP_ALIGN.CENTER)
+    _add_text_box(
+        slide4,
+        0.8,
+        6.8,
+        11,
+        0.3,
+        f"Generated by Joveo Media Plan Generator | {datetime.utcnow().strftime('%Y-%m-%d')}",
+        8,
+        False,
+        MUTED,
+        PP_ALIGN.CENTER,
+    )
 
     buf = io.BytesIO()
     prs.save(buf)

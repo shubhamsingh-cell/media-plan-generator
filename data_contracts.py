@@ -68,14 +68,13 @@ _DATA_DIR = Path(__file__).resolve().parent / "data"
 # ---------------------------------------------------------------------------
 
 KB_SCHEMAS: Dict[str, Dict[str, Any]] = {
-
     # -----------------------------------------------------------------------
     # 1. channels_db.json
     # -----------------------------------------------------------------------
     "channels_db.json": {
         "notes": "Recruitment advertising channels organized by category, "
-                 "region, and industry niche.  Also contains programmatic "
-                 "platforms and social/emerging channels.",
+        "region, and industry niche.  Also contains programmatic "
+        "platforms and social/emerging channels.",
         "required_keys": [
             "metadata",
             "traditional_channels",
@@ -92,14 +91,13 @@ KB_SCHEMAS: Dict[str, Dict[str, Any]] = {
         "list_min_length": {},
         "range_checks": [],
     },
-
     # -----------------------------------------------------------------------
     # 2. recruitment_benchmarks_deep.json
     # -----------------------------------------------------------------------
     "recruitment_benchmarks_deep.json": {
         "notes": "Industry-level recruitment benchmarks (CPA, CPC, CPH, "
-                 "apply rates, time-to-fill) sourced from Appcast, SHRM, "
-                 "iCIMS, Gem, and others.  Data period 2024-2026.",
+        "apply rates, time-to-fill) sourced from Appcast, SHRM, "
+        "iCIMS, Gem, and others.  Data period 2024-2026.",
         "required_keys": [
             "sources",
             "industry_benchmarks",
@@ -120,14 +118,13 @@ KB_SCHEMAS: Dict[str, Dict[str, Any]] = {
         },
         "range_checks": [],
     },
-
     # -----------------------------------------------------------------------
     # 3. joveo_publishers.json
     # -----------------------------------------------------------------------
     "joveo_publishers.json": {
         "notes": "Joveo publisher/supply-partner network organized by "
-                 "category (AI tool, Classifieds, Community Hiring, DEI, "
-                 "DSP, Job Board, etc.).",
+        "category (AI tool, Classifieds, Community Hiring, DEI, "
+        "DSP, Job Board, etc.).",
         "required_keys": [
             "total_active_publishers",
             "by_category",
@@ -143,18 +140,21 @@ KB_SCHEMAS: Dict[str, Dict[str, Any]] = {
         },
         "list_min_length": {},
         "range_checks": [
-            ("total_active_publishers", 100, 50000,
-             "Total active publishers should be between 100 and 50,000"),
+            (
+                "total_active_publishers",
+                100,
+                50000,
+                "Total active publishers should be between 100 and 50,000",
+            ),
         ],
     },
-
     # -----------------------------------------------------------------------
     # 3b. joveo_2026_benchmarks.json
     # -----------------------------------------------------------------------
     "joveo_2026_benchmarks.json": {
         "notes": "Joveo 2026 Recruiting Benchmarks Report data: CPA by "
-                 "occupation, applicant growth, demand intensity, two-market "
-                 "framework (flood vs drought), experience cliff analysis.",
+        "occupation, applicant growth, demand intensity, two-market "
+        "framework (flood vs drought), experience cliff analysis.",
         "required_keys": [
             "_meta",
             "market_conditions_2025",
@@ -182,14 +182,13 @@ KB_SCHEMAS: Dict[str, Dict[str, Any]] = {
         "list_min_length": {},
         "range_checks": [],
     },
-
     # -----------------------------------------------------------------------
     # 4. global_supply.json
     # -----------------------------------------------------------------------
     "global_supply.json": {
         "notes": "Country-level job board and supply data.  Each country "
-                 "entry lists boards with name, billing model, category, "
-                 "and tier.",
+        "entry lists boards with name, billing model, category, "
+        "and tier.",
         "required_keys": [
             "country_job_boards",
         ],
@@ -204,14 +203,13 @@ KB_SCHEMAS: Dict[str, Dict[str, Any]] = {
         "list_min_length": {},
         "range_checks": [],
     },
-
     # -----------------------------------------------------------------------
     # 5. platform_intelligence_deep.json
     # -----------------------------------------------------------------------
     "platform_intelligence_deep.json": {
         "notes": "Deep profiles for major recruitment platforms (Indeed, "
-                 "LinkedIn, ZipRecruiter, etc.) with pricing, traffic, "
-                 "apply rates, ATS integrations, and recent changes.",
+        "LinkedIn, ZipRecruiter, etc.) with pricing, traffic, "
+        "apply rates, ATS integrations, and recent changes.",
         "required_keys": [
             "platforms",
         ],
@@ -227,15 +225,14 @@ KB_SCHEMAS: Dict[str, Dict[str, Any]] = {
         "list_min_length": {},
         "range_checks": [],
     },
-
     # -----------------------------------------------------------------------
     # 6. recruitment_industry_knowledge.json
     # -----------------------------------------------------------------------
     "recruitment_industry_knowledge.json": {
         "notes": "Comprehensive recruitment industry data: CPC/CPA "
-                 "benchmarks by platform, labor market stats, global "
-                 "economic indicators, ad platform benchmarks, and the "
-                 "TA technology landscape.",
+        "benchmarks by platform, labor market stats, global "
+        "economic indicators, ad platform benchmarks, and the "
+        "TA technology landscape.",
         "required_keys": [
             "metadata",
             "benchmarks",
@@ -255,14 +252,13 @@ KB_SCHEMAS: Dict[str, Dict[str, Any]] = {
         "list_min_length": {},
         "range_checks": [],
     },
-
     # -----------------------------------------------------------------------
     # 7. recruitment_strategy_intelligence.json
     # -----------------------------------------------------------------------
     "recruitment_strategy_intelligence.json": {
         "notes": "Recruitment strategy playbooks: employer branding ROI, "
-                 "DEI recruitment, technology landscape, budget frameworks, "
-                 "content marketing, and creative best practices.",
+        "DEI recruitment, technology landscape, budget frameworks, "
+        "content marketing, and creative best practices.",
         "required_keys": [
             "sources",
         ],
@@ -288,14 +284,13 @@ KB_SCHEMAS: Dict[str, Dict[str, Any]] = {
         },
         "range_checks": [],
     },
-
     # -----------------------------------------------------------------------
     # 8. regional_hiring_intelligence.json
     # -----------------------------------------------------------------------
     "regional_hiring_intelligence.json": {
         "notes": "Region and city-level hiring intelligence: top job boards, "
-                 "dominant industries, salary benchmarks, talent dynamics, "
-                 "CPA benchmarks, and hiring regulations per market.",
+        "dominant industries, salary benchmarks, talent dynamics, "
+        "CPA benchmarks, and hiring regulations per market.",
         "required_keys": [
             "regions",
         ],
@@ -310,15 +305,14 @@ KB_SCHEMAS: Dict[str, Dict[str, Any]] = {
         "list_min_length": {},
         "range_checks": [],
     },
-
     # -----------------------------------------------------------------------
     # 9. workforce_trends_intelligence.json
     # -----------------------------------------------------------------------
     "workforce_trends_intelligence.json": {
         "notes": "Workforce macro-trends: generational preferences (Gen Z, "
-                 "millennials), remote/hybrid work, compensation trends, "
-                 "skills-based hiring, gig economy, and industry "
-                 "disruptions.",
+        "millennials), remote/hybrid work, compensation trends, "
+        "skills-based hiring, gig economy, and industry "
+        "disruptions.",
         "required_keys": [
             "sources",
         ],
@@ -342,13 +336,12 @@ KB_SCHEMAS: Dict[str, Dict[str, Any]] = {
         },
         "range_checks": [],
     },
-
     # -----------------------------------------------------------------------
     # 10. industry_white_papers.json
     # -----------------------------------------------------------------------
     "industry_white_papers.json": {
         "notes": "Digest of 74+ recruitment industry white papers, benchmark "
-                 "reports, and studies with key findings and benchmarks.",
+        "reports, and studies with key findings and benchmarks.",
         "required_keys": [
             "reports",
         ],
@@ -363,19 +356,22 @@ KB_SCHEMAS: Dict[str, Dict[str, Any]] = {
         },
         "list_min_length": {},
         "range_checks": [
-            ("total_sources", 10, 500,
-             "Total white-paper sources should be between 10 and 500"),
+            (
+                "total_sources",
+                10,
+                500,
+                "Total white-paper sources should be between 10 and 500",
+            ),
         ],
     },
-
     # -----------------------------------------------------------------------
     # 11. supply_ecosystem_intelligence.json
     # -----------------------------------------------------------------------
     "supply_ecosystem_intelligence.json": {
         "notes": "Full programmatic recruitment supply-chain intelligence: "
-                 "ecosystem mechanics (XML feeds, bidding, RTB), publisher "
-                 "tiers, performance benchmarks, competitive landscape, "
-                 "and emerging trends.",
+        "ecosystem mechanics (XML feeds, bidding, RTB), publisher "
+        "tiers, performance benchmarks, competitive landscape, "
+        "and emerging trends.",
         "required_keys": [
             "programmatic_ecosystem",
         ],
@@ -395,13 +391,12 @@ KB_SCHEMAS: Dict[str, Dict[str, Any]] = {
         "list_min_length": {},
         "range_checks": [],
     },
-
     # -----------------------------------------------------------------------
     # 12. nova_learned_answers.json
     # -----------------------------------------------------------------------
     "nova_learned_answers.json": {
         "notes": "Curated Q&A pairs for the Nova chatbot.  Each entry has "
-                 "a question, answer, keyword list, and confidence score.",
+        "a question, answer, keyword list, and confidence score.",
         "required_keys": [
             "answers",
         ],
@@ -483,6 +478,7 @@ _DURATION_RANGE = (0.0, 600.0)
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _type_name(obj: Any) -> str:
     """Return the simple type name of *obj* (e.g. 'dict', 'list', 'int')."""
     return type(obj).__name__
@@ -554,7 +550,7 @@ def _validate_nova_answers(data: Dict) -> Tuple[List[str], List[str]]:
     errors: List[str] = []
     warnings: List[str] = []
     try:
-        answers = data.get("answers", [])
+        answers = data.get("answers") or []
         if not isinstance(answers, list):
             errors.append("'answers' is not a list")
             return errors, warnings
@@ -576,9 +572,7 @@ def _validate_nova_answers(data: Dict) -> Tuple[List[str], List[str]]:
                 conf = entry["confidence"]
                 if isinstance(conf, (int, float)):
                     if conf < 0.0 or conf > 1.0:
-                        errors.append(
-                            f"{prefix}: confidence {conf} outside [0.0, 1.0]"
-                        )
+                        errors.append(f"{prefix}: confidence {conf} outside [0.0, 1.0]")
                 else:
                     errors.append(
                         f"{prefix}: confidence should be numeric, "
@@ -677,9 +671,7 @@ def _validate_regional_data(data: Dict) -> Tuple[List[str], List[str]]:
         for region_key, region_data in regions.items():
             prefix = f"regions.{region_key}"
             if not isinstance(region_data, dict):
-                errors.append(
-                    f"{prefix}: expected dict, got {_type_name(region_data)}"
-                )
+                errors.append(f"{prefix}: expected dict, got {_type_name(region_data)}")
                 continue
             if "name" not in region_data and "markets" not in region_data:
                 warnings.append(f"{prefix}: missing both 'name' and 'markets'")
@@ -730,7 +722,7 @@ def _validate_publishers(data: Dict) -> Tuple[List[str], List[str]]:
     errors: List[str] = []
     warnings: List[str] = []
     try:
-        total = data.get("total_active_publishers", 0)
+        total = data.get("total_active_publishers") or 0
         by_cat = data.get("by_category", {})
         if not isinstance(by_cat, dict):
             errors.append("'by_category' is not a dict")
@@ -781,23 +773,19 @@ def _validate_global_supply(data: Dict) -> Tuple[List[str], List[str]]:
         for country, cdata in countries.items():
             prefix = f"country_job_boards.{country}"
             if isinstance(cdata, dict):
-                boards = cdata.get("boards", [])
+                boards = cdata.get("boards") or []
                 if isinstance(boards, list):
                     for idx, board in enumerate(boards):
                         if isinstance(board, dict):
                             if "name" not in board:
-                                errors.append(
-                                    f"{prefix}.boards[{idx}]: missing 'name'"
-                                )
+                                errors.append(f"{prefix}.boards[{idx}]: missing 'name'")
                 else:
                     warnings.append(f"{prefix}.boards: expected list")
             elif isinstance(cdata, list):
                 # Some countries may just be a list of board dicts
                 for idx, board in enumerate(cdata):
                     if isinstance(board, dict) and "name" not in board:
-                        errors.append(
-                            f"{prefix}[{idx}]: missing 'name'"
-                        )
+                        errors.append(f"{prefix}[{idx}]: missing 'name'")
             else:
                 errors.append(
                     f"{prefix}: expected dict or list, got {_type_name(cdata)}"
@@ -825,6 +813,7 @@ _DEEP_VALIDATORS: Dict[str, Any] = {
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def validate_kb_file(filepath: str) -> Dict[str, Any]:
     """
@@ -899,9 +888,7 @@ def validate_kb_file(filepath: str) -> Dict[str, Any]:
             }
 
         if not isinstance(data, dict):
-            errors.append(
-                f"Top-level value should be a dict, got {_type_name(data)}"
-            )
+            errors.append(f"Top-level value should be a dict, got {_type_name(data)}")
             return {
                 "valid": False,
                 "errors": errors,
@@ -910,7 +897,7 @@ def validate_kb_file(filepath: str) -> Dict[str, Any]:
             }
 
         # -- Required keys --
-        for key in schema.get("required_keys", []):
+        for key in schema.get("required_keys") or []:
             if key not in data:
                 errors.append(f"Missing required key: '{key}'")
 
@@ -940,7 +927,7 @@ def validate_kb_file(filepath: str) -> Dict[str, Any]:
                     )
 
         # -- Numeric range checks --
-        for path, min_val, max_val, desc in schema.get("range_checks", []):
+        for path, min_val, max_val, desc in schema.get("range_checks") or []:
             found, value = _resolve_dotted(data, path)
             if found:
                 in_range, msg = _check_numeric_range(value, min_val, max_val)
@@ -995,9 +982,7 @@ def validate_enrichment_output(data: Dict) -> Dict[str, Any]:
             return {"valid": False, "errors": errors, "warnings": warnings}
 
         if not isinstance(data, dict):
-            errors.append(
-                f"Enrichment output should be a dict, got {_type_name(data)}"
-            )
+            errors.append(f"Enrichment output should be a dict, got {_type_name(data)}")
             return {"valid": False, "errors": errors, "warnings": warnings}
 
         # -- Required keys and types --
@@ -1007,7 +992,11 @@ def validate_enrichment_output(data: Dict) -> Dict[str, Any]:
             else:
                 if not _check_type(data[key], expected):
                     # Allow None for keys that legitimately can be None
-                    if data[key] is None and isinstance(expected, tuple) and "NoneType" in expected:
+                    if (
+                        data[key] is None
+                        and isinstance(expected, tuple)
+                        and "NoneType" in expected
+                    ):
                         pass
                     else:
                         errors.append(
@@ -1029,9 +1018,7 @@ def validate_enrichment_output(data: Dict) -> Dict[str, Any]:
         if isinstance(summary, dict):
             for skey, stype in _ENRICHMENT_SUMMARY_REQUIRED_KEYS.items():
                 if skey not in summary:
-                    errors.append(
-                        f"Missing key in enrichment_summary: '{skey}'"
-                    )
+                    errors.append(f"Missing key in enrichment_summary: '{skey}'")
                 else:
                     if not _check_type(summary[skey], stype):
                         errors.append(
@@ -1060,9 +1047,7 @@ def validate_enrichment_output(data: Dict) -> Dict[str, Any]:
             dur = summary.get("total_time_seconds")
             if isinstance(dur, (int, float)):
                 if dur < _DURATION_RANGE[0]:
-                    warnings.append(
-                        f"total_time_seconds {dur} is negative"
-                    )
+                    warnings.append(f"total_time_seconds {dur} is negative")
                 elif dur > _DURATION_RANGE[1]:
                     warnings.append(
                         f"total_time_seconds {dur} exceeds {_DURATION_RANGE[1]}s; "
@@ -1070,10 +1055,10 @@ def validate_enrichment_output(data: Dict) -> Dict[str, Any]:
                     )
 
             # -- apis_called / apis_succeeded consistency --
-            called = summary.get("apis_called", [])
-            succeeded = summary.get("apis_succeeded", [])
-            failed = summary.get("apis_failed", [])
-            skipped = summary.get("apis_skipped", [])
+            called = summary.get("apis_called") or []
+            succeeded = summary.get("apis_succeeded") or []
+            failed = summary.get("apis_failed") or []
+            skipped = summary.get("apis_skipped") or []
 
             if isinstance(called, list) and isinstance(succeeded, list):
                 if len(succeeded) > len(called):
@@ -1085,17 +1070,13 @@ def validate_enrichment_output(data: Dict) -> Dict[str, Any]:
             if isinstance(called, list) and isinstance(failed, list):
                 if len(failed) > len(called):
                     errors.append(
-                        f"apis_failed ({len(failed)}) > "
-                        f"apis_called ({len(called)})"
+                        f"apis_failed ({len(failed)}) > " f"apis_called ({len(called)})"
                     )
 
             # Warn if zero APIs succeeded
             if isinstance(succeeded, list) and len(succeeded) == 0:
                 if isinstance(called, list) and len(called) > 0:
-                    warnings.append(
-                        "No APIs succeeded out of "
-                        f"{len(called)} called"
-                    )
+                    warnings.append("No APIs succeeded out of " f"{len(called)} called")
 
         elif summary is not None:
             errors.append(
@@ -1150,12 +1131,14 @@ def validate_all_kb(data_dir: Optional[str] = None) -> Dict[str, Any]:
             try:
                 if not filepath.is_file():
                     missing += 1
-                    results.append({
-                        "valid": False,
-                        "errors": [f"File not found: {filepath}"],
-                        "warnings": [],
-                        "file": filename,
-                    })
+                    results.append(
+                        {
+                            "valid": False,
+                            "errors": [f"File not found: {filepath}"],
+                            "warnings": [],
+                            "file": filename,
+                        }
+                    )
                     continue
 
                 result = validate_kb_file(str(filepath))
@@ -1166,20 +1149,24 @@ def validate_all_kb(data_dir: Optional[str] = None) -> Dict[str, Any]:
                     failed += 1
             except Exception as exc:
                 failed += 1
-                results.append({
-                    "valid": False,
-                    "errors": [f"Validation crashed for {filename}: {exc}"],
-                    "warnings": [],
-                    "file": filename,
-                })
+                results.append(
+                    {
+                        "valid": False,
+                        "errors": [f"Validation crashed for {filename}: {exc}"],
+                        "warnings": [],
+                        "file": filename,
+                    }
+                )
 
     except Exception as exc:
-        results.append({
-            "valid": False,
-            "errors": [f"validate_all_kb crashed: {exc}"],
-            "warnings": [],
-            "file": "__runner__",
-        })
+        results.append(
+            {
+                "valid": False,
+                "errors": [f"validate_all_kb crashed: {exc}"],
+                "warnings": [],
+                "file": "__runner__",
+            }
+        )
 
     total = len(KB_SCHEMAS)
     return {
@@ -1208,9 +1195,9 @@ if __name__ == "__main__":
     for detail in report["details"]:
         status = "PASS" if detail["valid"] else "FAIL"
         print(f"  [{status}] {detail['file']}")
-        for err in detail.get("errors", []):
+        for err in detail.get("errors") or []:
             print(f"         ERROR: {err}")
-        for warn in detail.get("warnings", []):
+        for warn in detail.get("warnings") or []:
             print(f"         WARN:  {warn}")
 
     print()

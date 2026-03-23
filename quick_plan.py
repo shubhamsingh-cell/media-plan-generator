@@ -30,6 +30,7 @@ _LOCK = threading.Lock()
 
 try:
     import budget_engine as _budget_engine
+
     _HAS_BUDGET_ENGINE = True
 except ImportError:
     _budget_engine = None  # type: ignore
@@ -37,6 +38,7 @@ except ImportError:
 
 try:
     import trend_engine as _trend_engine
+
     _HAS_TREND_ENGINE = True
 except ImportError:
     _trend_engine = None  # type: ignore
@@ -44,6 +46,7 @@ except ImportError:
 
 try:
     import collar_intelligence as _collar_intel
+
     _HAS_COLLAR_INTEL = True
 except ImportError:
     _collar_intel = None  # type: ignore
@@ -51,6 +54,7 @@ except ImportError:
 
 try:
     import research as _research
+
     _HAS_RESEARCH = True
 except ImportError:
     _research = None  # type: ignore
@@ -64,11 +68,13 @@ try:
     )
 except ImportError:
     INDUSTRY_LABEL_MAP = {}
+
     def parse_budget(v, *, default=100_000.0):  # type: ignore
         try:
             return float(v)
         except (TypeError, ValueError):
             return default
+
     def standardize_location(s):  # type: ignore
         return s
 
@@ -187,7 +193,7 @@ _CHANNEL_REASONING: Dict[str, Dict[str, str]] = {
     "blue_collar": {
         "indeed": "Top channel for hourly/trade roles. High volume, mobile-friendly apply flow.",
         "linkedin": "Low fit for hourly roles. Most blue-collar candidates are not active on LinkedIn.",
-        "google_search": "Captures active job seekers searching for roles like \"{role}\".",
+        "google_search": 'Captures active job seekers searching for roles like "{role}".',
         "meta_facebook": "Excellent for reaching passive blue-collar candidates via social feeds.",
         "programmatic": "Automated distribution maximizes reach across job exchanges for volume hiring.",
         "ziprecruiter": "AI matching helps surface trade/hourly candidates. Strong in mid-markets.",
@@ -197,7 +203,7 @@ _CHANNEL_REASONING: Dict[str, Dict[str, str]] = {
     "white_collar": {
         "indeed": "Broad reach for professional roles. Good baseline but less targeted.",
         "linkedin": "Premier channel for professional talent. InMail 3x response vs job boards.",
-        "google_search": "Captures intent-driven searches for \"{role}\" in {location}.",
+        "google_search": 'Captures intent-driven searches for "{role}" in {location}.',
         "meta_facebook": "Lower fit for professional roles but useful for employer branding.",
         "programmatic": "Broad reach but less targeted for specialized professional roles.",
         "ziprecruiter": "Decent reach but less preferred by mid-senior professionals.",
@@ -232,19 +238,35 @@ _DIFFICULTY_LEVELS = [
     (40, "Moderate", "Balanced market. Standard effort needed."),
     (60, "Competitive", "Tight market. Strong EVP and competitive pay needed."),
     (80, "Hard", "Significant talent shortage. Premium sourcing required."),
-    (100, "Very Hard", "Critical shortage. Sign-on bonuses and creative sourcing essential."),
+    (
+        100,
+        "Very Hard",
+        "Critical shortage. Sign-on bonuses and creative sourcing essential.",
+    ),
 ]
 
 # ── Month names for seasonal advice ──
 _MONTH_NAMES = [
-    "", "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
+    "",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
 ]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. ROLE INSIGHTS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def get_role_insights(role: str, industry: str = "") -> Dict[str, Any]:
     """Analyze a role: collar classification, salary range, hiring difficulty.
@@ -314,16 +336,16 @@ def get_role_insights(role: str, industry: str = "") -> Dict[str, Any]:
         result["time_to_fill_days"] = strategy.get("time_to_fill_benchmark_days", 28)
         result["apply_rate"] = strategy.get("avg_apply_rate", 0.05)
         result["mobile_apply_pct"] = strategy.get("mobile_apply_pct", 0.55)
-        result["preferred_platforms"] = strategy.get("preferred_platforms", [])[:5]
-        result["key_insight"] = strategy.get("key_insight", "")
+        result["preferred_platforms"] = strategy.get("preferred_platforms") or [][:5]
+        result["key_insight"] = strategy.get("key_insight") or ""
 
         # ── Hiring difficulty (derived from time_to_fill, apply_rate, collar type) ──
         ttf = result["time_to_fill_days"]
         apply_rate = result["apply_rate"]
         # Higher TTF and lower apply rate = harder to hire
-        difficulty = min(100, max(0, int(
-            (ttf / 50.0) * 50 + (1.0 - apply_rate / 0.10) * 50
-        )))
+        difficulty = min(
+            100, max(0, int((ttf / 50.0) * 50 + (1.0 - apply_rate / 0.10) * 50))
+        )
         # Collar adjustments
         if collar_type == "grey_collar":
             difficulty = min(100, difficulty + 10)  # healthcare shortage
@@ -365,6 +387,7 @@ def get_role_insights(role: str, industry: str = "") -> Dict[str, Any]:
 # 2. LOCATION INSIGHTS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def get_location_insights(location: str) -> Dict[str, Any]:
     """Analyze a location: COLI, market tightness, metro info.
 
@@ -402,17 +425,19 @@ def get_location_insights(location: str) -> Dict[str, Any]:
         }
 
         if is_remote:
-            result.update({
-                "coli": 100,
-                "coli_label": "National Average",
-                "market_tightness": "balanced",
-                "market_tightness_score": 50,
-                "metro_name": "Remote / National",
-                "population": "N/A",
-                "region": "National",
-                "cpc_multiplier": 1.0,
-                "top_employers_industries": [],
-            })
+            result.update(
+                {
+                    "coli": 100,
+                    "coli_label": "National Average",
+                    "market_tightness": "balanced",
+                    "market_tightness_score": 50,
+                    "metro_name": "Remote / National",
+                    "population": "N/A",
+                    "region": "National",
+                    "cpc_multiplier": 1.0,
+                    "top_employers_industries": [],
+                }
+            )
             return result
 
         # ── Location data from research.py ──
@@ -429,14 +454,16 @@ def get_location_insights(location: str) -> Dict[str, Any]:
         result["coli"] = int(coli)
         result["is_international"] = is_intl
         result["metro_name"] = loc_info.get("metro_name", display_loc)
-        result["population"] = _format_population(loc_info.get("population", 0))
-        result["region"] = loc_info.get("region", loc_info.get("state", ""))
+        result["population"] = _format_population(loc_info.get("population") or 0)
+        result["region"] = loc_info.get("region", loc_info.get("state") or "")
         result["top_employers_industries"] = loc_info.get(
-            "major_employers", loc_info.get("top_industries", [])
+            "major_employers", loc_info.get("top_industries") or []
         )
         if isinstance(result["top_employers_industries"], str):
             result["top_employers_industries"] = [
-                s.strip() for s in result["top_employers_industries"].split(",") if s.strip()
+                s.strip()
+                for s in result["top_employers_industries"].split(",")
+                if s.strip()
             ]
 
         # ── COLI label ──
@@ -456,22 +483,32 @@ def get_location_insights(location: str) -> Dict[str, Any]:
         if _HAS_TREND_ENGINE:
             try:
                 if hasattr(_trend_engine, "REGIONAL_CPC_MULTIPLIERS_US"):
-                    for metro, mult in _trend_engine.REGIONAL_CPC_MULTIPLIERS_US.items():
+                    for (
+                        metro,
+                        mult,
+                    ) in _trend_engine.REGIONAL_CPC_MULTIPLIERS_US.items():
                         if _location_matches(location, metro):
                             cpc_mult = mult
                             break
-                if cpc_mult == 1.0 and is_intl and hasattr(_trend_engine, "REGIONAL_CPC_MULTIPLIERS_INTL"):
-                    country = loc_info.get("country", "")
-                    if country and country in _trend_engine.REGIONAL_CPC_MULTIPLIERS_INTL:
+                if (
+                    cpc_mult == 1.0
+                    and is_intl
+                    and hasattr(_trend_engine, "REGIONAL_CPC_MULTIPLIERS_INTL")
+                ):
+                    country = loc_info.get("country") or ""
+                    if (
+                        country
+                        and country in _trend_engine.REGIONAL_CPC_MULTIPLIERS_INTL
+                    ):
                         cpc_mult = _trend_engine.REGIONAL_CPC_MULTIPLIERS_INTL[country]
             except Exception as e:
                 logger.warning("CPC multiplier lookup failed: %s", e)
         result["cpc_multiplier"] = round(cpc_mult, 2)
 
         # ── Market tightness (derived from COLI + CPC multiplier) ──
-        tightness_score = min(100, max(0, int(
-            (coli / 150.0) * 40 + (cpc_mult / 1.7) * 40 + 10
-        )))
+        tightness_score = min(
+            100, max(0, int((coli / 150.0) * 40 + (cpc_mult / 1.7) * 40 + 10))
+        )
         result["market_tightness_score"] = tightness_score
         if tightness_score >= 75:
             result["market_tightness"] = "very_tight"
@@ -485,7 +522,9 @@ def get_location_insights(location: str) -> Dict[str, Any]:
         return result
 
     except Exception as e:
-        logger.error("get_location_insights failed for '%s': %s", location, e, exc_info=True)
+        logger.error(
+            "get_location_insights failed for '%s': %s", location, e, exc_info=True
+        )
         return {
             "location": location,
             "display_location": location,
@@ -506,6 +545,7 @@ def get_location_insights(location: str) -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 3. CHANNEL SCORING & RECOMMENDATIONS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def score_channels_for_context(
     role: str,
@@ -534,7 +574,9 @@ def score_channels_for_context(
     """
     try:
         collar = collar_type if collar_type in _COLLAR_CHANNEL_FIT else "white_collar"
-        fit_scores = _COLLAR_CHANNEL_FIT.get(collar, _COLLAR_CHANNEL_FIT["white_collar"])
+        fit_scores = _COLLAR_CHANNEL_FIT.get(
+            collar, _COLLAR_CHANNEL_FIT["white_collar"]
+        )
 
         # ── Get channel allocation percentages from collar strategy ──
         alloc_pcts = _get_collar_allocation(collar)
@@ -638,13 +680,23 @@ def score_channels_for_context(
             projected_clicks = int(spend / cpc) if cpc > 0 else 0
             apply_rate = base_apply_rates.get(ch_key, 0.05)
             projected_applies = int(projected_clicks * apply_rate)
-            projected_hires = max(1, int(projected_applies * hire_rate)) if projected_applies > 0 else 0
+            projected_hires = (
+                max(1, int(projected_applies * hire_rate))
+                if projected_applies > 0
+                else 0
+            )
             cpa = round(spend / projected_applies, 2) if projected_applies > 0 else 0
 
             # Reasoning
-            reasoning_templates = _CHANNEL_REASONING.get(collar, _CHANNEL_REASONING["white_collar"])
-            reasoning = reasoning_templates.get(ch_key, ch_info.get("description", ""))
-            reasoning = reasoning.replace("{role}", role).replace("{location}", location)
+            reasoning_templates = _CHANNEL_REASONING.get(
+                collar, _CHANNEL_REASONING["white_collar"]
+            )
+            reasoning = reasoning_templates.get(
+                ch_key, ch_info.get("description") or ""
+            )
+            reasoning = reasoning.replace("{role}", role).replace(
+                "{location}", location
+            )
 
             # Quality score from budget_engine
             quality_info = {}
@@ -658,22 +710,24 @@ def score_channels_for_context(
                 except Exception:
                     pass
 
-            channels.append({
-                "channel_key": ch_key,
-                "channel_name": ch_info["label"],
-                "icon": ch_info.get("icon", "briefcase"),
-                "fit_score": fit,
-                "allocation_pct": alloc_pct,
-                "spend": round(spend, 2),
-                "cpc": cpc,
-                "cpa": cpa,
-                "projected_clicks": projected_clicks,
-                "projected_applies": projected_applies,
-                "projected_hires": projected_hires,
-                "reasoning": reasoning,
-                "quality_score": quality_info.get("quality_score", 0),
-                "retention_6mo": quality_info.get("retention_6mo_pct", 0),
-            })
+            channels.append(
+                {
+                    "channel_key": ch_key,
+                    "channel_name": ch_info["label"],
+                    "icon": ch_info.get("icon", "briefcase"),
+                    "fit_score": fit,
+                    "allocation_pct": alloc_pct,
+                    "spend": round(spend, 2),
+                    "cpc": cpc,
+                    "cpa": cpa,
+                    "projected_clicks": projected_clicks,
+                    "projected_applies": projected_applies,
+                    "projected_hires": projected_hires,
+                    "reasoning": reasoning,
+                    "quality_score": quality_info.get("quality_score") or 0,
+                    "retention_6mo": quality_info.get("retention_6mo_pct") or 0,
+                }
+            )
 
         # Sort by fit_score descending
         channels.sort(key=lambda c: c["fit_score"], reverse=True)
@@ -687,6 +741,7 @@ def score_channels_for_context(
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. BUDGET ASSESSMENT
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _assess_budget(
     budget: float,
@@ -706,8 +761,12 @@ def _assess_budget(
         }
     """
     try:
-        total_projected_hires = sum(c.get("projected_hires", 0) for c in channel_recommendations)
-        total_projected_applies = sum(c.get("projected_applies", 0) for c in channel_recommendations)
+        total_projected_hires = sum(
+            c.get("projected_hires") or 0 for c in channel_recommendations
+        )
+        total_projected_applies = sum(
+            c.get("projected_applies") or 0 for c in channel_recommendations
+        )
 
         if total_projected_hires <= 0:
             total_projected_hires = 1
@@ -790,6 +849,7 @@ def _assess_budget(
 # 5. SEASONAL ADVICE
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _get_seasonal_advice(collar_type: str) -> Dict[str, Any]:
     """Return seasonal hiring advice: best and worst months, current adjustment.
 
@@ -805,7 +865,11 @@ def _get_seasonal_advice(collar_type: str) -> Dict[str, Any]:
     """
     try:
         current_month = datetime.now().month
-        collar = collar_type if collar_type in ("blue_collar", "white_collar", "grey_collar") else "mixed"
+        collar = (
+            collar_type
+            if collar_type in ("blue_collar", "white_collar", "grey_collar")
+            else "mixed"
+        )
 
         # Get seasonal data from trend_engine
         multipliers: Dict[int, float] = {}
@@ -824,12 +888,10 @@ def _get_seasonal_advice(collar_type: str) -> Dict[str, Any]:
         best_3 = sorted_months[-3:][::-1]
 
         best_months = [
-            {"month": _MONTH_NAMES[m], "multiplier": round(v, 2)}
-            for m, v in best_3
+            {"month": _MONTH_NAMES[m], "multiplier": round(v, 2)} for m, v in best_3
         ]
         worst_months = [
-            {"month": _MONTH_NAMES[m], "multiplier": round(v, 2)}
-            for m, v in worst_3
+            {"month": _MONTH_NAMES[m], "multiplier": round(v, 2)} for m, v in worst_3
         ]
 
         # Current month assessment
@@ -888,6 +950,7 @@ def _get_seasonal_advice(collar_type: str) -> Dict[str, Any]:
 # 6. MAIN ENTRY POINT
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def generate_quick_plan(
     role: str,
     location: str,
@@ -943,7 +1006,9 @@ def generate_quick_plan(
         # Adjust salary range for location COLI
         if coli != 100 and _HAS_RESEARCH:
             try:
-                adjusted_salary = _research.get_role_salary_range(role, location_coli=coli)
+                adjusted_salary = _research.get_role_salary_range(
+                    role, location_coli=coli
+                )
                 role_analysis["salary_range"] = adjusted_salary
                 role_analysis["salary_location_adjusted"] = True
             except Exception:
@@ -973,9 +1038,15 @@ def generate_quick_plan(
         seasonal_advice = _get_seasonal_advice(collar_type)
 
         # ── Aggregate projections ──
-        total_clicks = sum(c.get("projected_clicks", 0) for c in channel_recommendations)
-        total_applies = sum(c.get("projected_applies", 0) for c in channel_recommendations)
-        total_hires = sum(c.get("projected_hires", 0) for c in channel_recommendations)
+        total_clicks = sum(
+            c.get("projected_clicks") or 0 for c in channel_recommendations
+        )
+        total_applies = sum(
+            c.get("projected_applies") or 0 for c in channel_recommendations
+        )
+        total_hires = sum(
+            c.get("projected_hires") or 0 for c in channel_recommendations
+        )
         blended_cpa = round(budget_val / total_applies, 2) if total_applies > 0 else 0
         blended_cph = round(budget_val / total_hires, 2) if total_hires > 0 else 0
 
@@ -1011,15 +1082,26 @@ def generate_quick_plan(
 # PRIVATE HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _is_remote_location(location: str) -> bool:
     """Check if the location indicates remote work."""
     if not location:
         return False
     lower = location.strip().lower()
-    return lower in (
-        "remote", "remote work", "work from home", "wfh",
-        "hybrid", "anywhere", "global", "distributed",
-    ) or "remote" in lower.split(",")[0].strip().split()
+    return (
+        lower
+        in (
+            "remote",
+            "remote work",
+            "work from home",
+            "wfh",
+            "hybrid",
+            "anywhere",
+            "global",
+            "distributed",
+        )
+        or "remote" in lower.split(",")[0].strip().split()
+    )
 
 
 def _location_matches(query: str, metro: str) -> bool:

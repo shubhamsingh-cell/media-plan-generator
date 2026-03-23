@@ -7,6 +7,7 @@ historical performance data.
 All functions accept raw bytes and return extracted text or
 structured data. No filesystem I/O required.
 """
+
 import io
 import re
 import csv
@@ -20,6 +21,7 @@ logger = logging.getLogger("file_processor")
 # ─────────────────────────────────────────────────────────────
 # Text extraction from documents
 # ─────────────────────────────────────────────────────────────
+
 
 def extract_text_from_base64(b64_data: str, filename: str, file_type: str = "") -> str:
     """Extract text content from a base64-encoded file.
@@ -78,6 +80,7 @@ def _extract_pdf(raw_bytes: bytes, filename: str) -> str:
     """Extract text from PDF using PyPDF2."""
     try:
         from PyPDF2 import PdfReader
+
         reader = PdfReader(io.BytesIO(raw_bytes))
         pages = []
         for page in reader.pages:
@@ -85,10 +88,17 @@ def _extract_pdf(raw_bytes: bytes, filename: str) -> str:
             if text:
                 pages.append(text.strip())
         result = "\n\n".join(pages)
-        logger.info("Extracted %d chars from PDF %s (%d pages)", len(result), filename, len(reader.pages))
+        logger.info(
+            "Extracted %d chars from PDF %s (%d pages)",
+            len(result),
+            filename,
+            len(reader.pages),
+        )
         return result
     except ImportError:
-        logger.warning("PyPDF2 not installed -- cannot extract PDF text from %s", filename)
+        logger.warning(
+            "PyPDF2 not installed -- cannot extract PDF text from %s", filename
+        )
         return f"[PDF file: {filename} -- install PyPDF2 for text extraction]"
     except Exception as e:
         logger.warning("PDF extraction failed for %s: %s", filename, e)
@@ -99,6 +109,7 @@ def _extract_docx(raw_bytes: bytes, filename: str) -> str:
     """Extract text from DOCX using python-docx."""
     try:
         from docx import Document
+
         doc = Document(io.BytesIO(raw_bytes))
         paragraphs = []
         for para in doc.paragraphs:
@@ -115,7 +126,9 @@ def _extract_docx(raw_bytes: bytes, filename: str) -> str:
         logger.info("Extracted %d chars from DOCX %s", len(result), filename)
         return result
     except ImportError:
-        logger.warning("python-docx not installed -- cannot extract DOCX text from %s", filename)
+        logger.warning(
+            "python-docx not installed -- cannot extract DOCX text from %s", filename
+        )
         return f"[DOCX file: {filename} -- install python-docx for text extraction]"
     except Exception as e:
         logger.warning("DOCX extraction failed for %s: %s", filename, e)
@@ -136,7 +149,7 @@ def _extract_subtitle(raw_bytes: bytes, filename: str) -> str:
             continue
         if line.isdigit():
             continue
-        if re.match(r'^\d{2}:\d{2}', line):
+        if re.match(r"^\d{2}:\d{2}", line):
             continue
         if line.startswith("WEBVTT") or line.startswith("NOTE"):
             continue
@@ -148,6 +161,7 @@ def _extract_excel_as_text(raw_bytes: bytes, filename: str) -> str:
     """Extract text representation from Excel files."""
     try:
         from openpyxl import load_workbook
+
         wb = load_workbook(io.BytesIO(raw_bytes), read_only=True, data_only=True)
         parts = []
         for sheet_name in wb.sheetnames:
@@ -172,6 +186,7 @@ def _extract_excel_as_text(raw_bytes: bytes, filename: str) -> str:
 # Batch extraction for multiple uploaded files
 # ─────────────────────────────────────────────────────────────
 
+
 def extract_all_texts(files: List[Dict[str, str]]) -> str:
     """Extract and concatenate text from multiple uploaded files.
 
@@ -190,9 +205,7 @@ def extract_all_texts(files: List[Dict[str, str]]) -> str:
     parts = []
     for f in files:
         text = extract_text_from_base64(
-            f.get("data", ""),
-            f.get("name", "unknown"),
-            f.get("type", "")
+            f.get("data") or "", f.get("name", "unknown"), f.get("type") or ""
         )
         if text.strip():
             parts.append(f"=== From: {f.get('name', 'unknown')} ===\n{text.strip()}")
@@ -202,6 +215,7 @@ def extract_all_texts(files: List[Dict[str, str]]) -> str:
 # ─────────────────────────────────────────────────────────────
 # Historical performance data parsing
 # ─────────────────────────────────────────────────────────────
+
 
 def parse_historical_data(files: List[Dict[str, str]]) -> Optional[Dict[str, Any]]:
     """Parse historical campaign performance data from CSV/Excel uploads.
@@ -233,17 +247,17 @@ def parse_historical_data(files: List[Dict[str, str]]) -> Optional[Dict[str, Any
 
     for f in files:
         try:
-            raw_bytes = base64.b64decode(f.get("data", ""))
+            raw_bytes = base64.b64decode(f.get("data") or "")
         except Exception:
             continue
 
-        ext = f.get("name", "").rsplit(".", 1)[-1].lower()
+        ext = f.get("name") or "".rsplit(".", 1)[-1].lower()
 
         if ext == "csv":
-            rows = _parse_csv_historical(raw_bytes, f.get("name", ""))
+            rows = _parse_csv_historical(raw_bytes, f.get("name") or "")
             all_rows.extend(rows)
         elif ext in ("xlsx", "xls"):
-            rows = _parse_excel_historical(raw_bytes, f.get("name", ""))
+            rows = _parse_excel_historical(raw_bytes, f.get("name") or "")
             all_rows.extend(rows)
 
     if not all_rows:
@@ -259,17 +273,22 @@ def parse_historical_data(files: List[Dict[str, str]]) -> Optional[Dict[str, Any
         platform = row.get("platform", "Unknown")
         if platform not in platforms:
             platforms[platform] = {
-                "spend": 0.0, "applications": 0, "hires": 0,
-                "clicks": 0, "cpa": 0.0, "cpc": 0.0, "cph": 0.0
+                "spend": 0.0,
+                "applications": 0,
+                "hires": 0,
+                "clicks": 0,
+                "cpa": 0.0,
+                "cpc": 0.0,
+                "cph": 0.0,
             }
         p = platforms[platform]
         p["spend"] += row.get("spend", 0.0)
-        p["applications"] += row.get("applications", 0)
-        p["hires"] += row.get("hires", 0)
-        p["clicks"] += row.get("clicks", 0)
+        p["applications"] += row.get("applications") or 0
+        p["hires"] += row.get("hires") or 0
+        p["clicks"] += row.get("clicks") or 0
         total_spend += row.get("spend", 0.0)
-        total_hires += row.get("hires", 0)
-        total_applications += row.get("applications", 0)
+        total_hires += row.get("hires") or 0
+        total_applications += row.get("applications") or 0
 
     # Calculate derived metrics per platform
     for p_data in platforms.values():
@@ -285,21 +304,35 @@ def parse_historical_data(files: List[Dict[str, str]]) -> Optional[Dict[str, Any
         "total_spend": round(total_spend, 2),
         "total_hires": total_hires,
         "total_applications": total_applications,
-        "total_cpa": round(total_spend / total_applications, 2) if total_applications > 0 else 0.0,
+        "total_cpa": (
+            round(total_spend / total_applications, 2)
+            if total_applications > 0
+            else 0.0
+        ),
         "total_cph": round(total_spend / total_hires, 2) if total_hires > 0 else 0.0,
         "platform_count": len(platforms),
         "source_files": [f.get("name", "unknown") for f in files],
     }
-    logger.info("Parsed historical data: %d platforms, $%.0f total spend from %d files",
-                len(platforms), total_spend, len(files))
+    logger.info(
+        "Parsed historical data: %d platforms, $%.0f total spend from %d files",
+        len(platforms),
+        total_spend,
+        len(files),
+    )
     return result
 
 
 # Column name matching patterns
 _COL_PATTERNS = {
-    "platform": re.compile(r"platform|channel|source|publisher|board|vendor|site", re.I),
-    "spend": re.compile(r"spend|budget|cost|investment|total.?spend|media.?spend", re.I),
-    "applications": re.compile(r"appli|applies|leads|conversions|responses|submis", re.I),
+    "platform": re.compile(
+        r"platform|channel|source|publisher|board|vendor|site", re.I
+    ),
+    "spend": re.compile(
+        r"spend|budget|cost|investment|total.?spend|media.?spend", re.I
+    ),
+    "applications": re.compile(
+        r"appli|applies|leads|conversions|responses|submis", re.I
+    ),
     "hires": re.compile(r"hires?|hired|offers?|placements?|starts?", re.I),
     "clicks": re.compile(r"clicks?|visits?|traffic", re.I),
     "cpa": re.compile(r"cpa|cost.?per.?app|cost.?per.?lead", re.I),
@@ -437,7 +470,15 @@ def _parse_excel_historical(raw_bytes: bytes, filename: str) -> List[Dict[str, A
             if not row_data["platform"]:
                 continue
 
-            for field in ("spend", "applications", "hires", "clicks", "cpa", "cpc", "cph"):
+            for field in (
+                "spend",
+                "applications",
+                "hires",
+                "clicks",
+                "cpa",
+                "cpc",
+                "cph",
+            ):
                 idx = col_map.get(field)
                 if idx is not None and idx < len(cells):
                     row_data[field] = _parse_number(cells[idx])
@@ -457,6 +498,7 @@ def _parse_excel_historical(raw_bytes: bytes, filename: str) -> List[Dict[str, A
 # ─────────────────────────────────────────────────────────────
 # Transcript summarization helper
 # ─────────────────────────────────────────────────────────────
+
 
 def summarize_transcript_context(transcript_text: str, max_chars: int = 3000) -> str:
     """Extract key context from a sales call transcript.
@@ -491,34 +533,54 @@ def summarize_transcript_context(transcript_text: str, max_chars: int = 3000) ->
 
     # Hiring volume signals
     hire_patterns = re.findall(
-        r'(?:hiring|recruit|fill|open|need|looking for|target)\s*(?:about|around|approximately|roughly)?\s*(\d[\d,]*)\s*(?:\+?\s*)?(?:positions?|roles?|people|hires?|openings?|headcount)?',
-        text, re.I
+        r"(?:hiring|recruit|fill|open|need|looking for|target)\s*(?:about|around|approximately|roughly)?\s*(\d[\d,]*)\s*(?:\+?\s*)?(?:positions?|roles?|people|hires?|openings?|headcount)?",
+        text,
+        re.I,
     )
     if hire_patterns:
-        sections.append(f"Hiring signals: {', '.join(set(hire_patterns[:5]))} positions mentioned")
+        sections.append(
+            f"Hiring signals: {', '.join(set(hire_patterns[:5]))} positions mentioned"
+        )
 
     # Budget signals
     budget_patterns = re.findall(
-        r'\$\s*[\d,.]+\s*(?:[KkMmBb](?:illion)?)?(?:\s*(?:per|a|each)\s+(?:year|month|quarter))?',
-        text
+        r"\$\s*[\d,.]+\s*(?:[KkMmBb](?:illion)?)?(?:\s*(?:per|a|each)\s+(?:year|month|quarter))?",
+        text,
     )
     if budget_patterns:
         sections.append(f"Budget signals: {', '.join(set(budget_patterns[:5]))}")
 
     # Pain points (common keywords)
     pain_keywords = re.findall(
-        r'(?:struggling|challenge|problem|issue|difficult|expensive|slow|poor|frustrat|waste|inefficien|not working|underperform)',
-        text, re.I
+        r"(?:struggling|challenge|problem|issue|difficult|expensive|slow|poor|frustrat|waste|inefficien|not working|underperform)",
+        text,
+        re.I,
     )
     if pain_keywords:
         sections.append(f"Pain points mentioned: {len(set(pain_keywords))} indicators")
 
     # Platform mentions
     known_platforms = [
-        "Indeed", "LinkedIn", "ZipRecruiter", "Glassdoor", "CareerBuilder",
-        "Monster", "Dice", "SimplyHired", "Handshake", "Hired",
-        "Google Jobs", "Facebook", "Instagram", "TikTok", "Programmatic",
-        "Appcast", "Pandologic", "Recruitics", "Talroo", "Neuvoo",
+        "Indeed",
+        "LinkedIn",
+        "ZipRecruiter",
+        "Glassdoor",
+        "CareerBuilder",
+        "Monster",
+        "Dice",
+        "SimplyHired",
+        "Handshake",
+        "Hired",
+        "Google Jobs",
+        "Facebook",
+        "Instagram",
+        "TikTok",
+        "Programmatic",
+        "Appcast",
+        "Pandologic",
+        "Recruitics",
+        "Talroo",
+        "Neuvoo",
     ]
     mentioned = [p for p in known_platforms if p.lower() in text.lower()]
     if mentioned:
@@ -526,16 +588,18 @@ def summarize_transcript_context(transcript_text: str, max_chars: int = 3000) ->
 
     # Timeline signals
     timeline_patterns = re.findall(
-        r'(?:(?:by|before|within|next|starting)\s+)?(?:Q[1-4]|January|February|March|April|May|June|July|August|September|October|November|December|\d+\s+(?:months?|weeks?|years?|quarters?))',
-        text, re.I
+        r"(?:(?:by|before|within|next|starting)\s+)?(?:Q[1-4]|January|February|March|April|May|June|July|August|September|October|November|December|\d+\s+(?:months?|weeks?|years?|quarters?))",
+        text,
+        re.I,
     )
     if timeline_patterns:
         sections.append(f"Timeline references: {', '.join(set(timeline_patterns[:5]))}")
 
     # Location mentions (basic)
     location_patterns = re.findall(
-        r'(?:in|across|throughout|covering)\s+([\w\s,]+?)(?:\.|,\s*(?:and|we|they|the)|$)',
-        text[:5000], re.I
+        r"(?:in|across|throughout|covering)\s+([\w\s,]+?)(?:\.|,\s*(?:and|we|they|the)|$)",
+        text[:5000],
+        re.I,
     )
     if location_patterns:
         locs = [l.strip() for l in location_patterns[:3] if len(l.strip()) < 80]

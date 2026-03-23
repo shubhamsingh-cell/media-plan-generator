@@ -5508,7 +5508,7 @@ def get_location_boards(locations):
                 country, {}
             )
             if isinstance(country_boards, dict):
-                for board_entry in country_boards.get("boards", [])[:5]:
+                for board_entry in country_boards.get("boards") or [][:5]:
                     if isinstance(board_entry, dict):
                         boards.append(
                             f"{board_entry.get('name') or ''} ({board_entry.get('billing_model', 'CPC')})"
@@ -5741,7 +5741,7 @@ def get_global_supply_data(locations, industry):
                 )
 
     # Innovative channels (always include)
-    result["innovative_channels"] = global_supply.get("innovative_channels_2025", [])
+    result["innovative_channels"] = global_supply.get("innovative_channels_2025") or []
 
     # Niche industry boards
     industry_map = {
@@ -5790,7 +5790,7 @@ def get_radio_podcasts(locations, industry):
 
     # Add industry podcasts
     podcasts = INDUSTRY_PODCASTS.get(
-        industry, INDUSTRY_PODCASTS.get("general_entry_level", [])
+        industry, INDUSTRY_PODCASTS.get("general_entry_level") or []
     )
     for pod in podcasts:
         if pod["name"] not in seen:

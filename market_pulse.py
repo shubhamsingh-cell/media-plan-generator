@@ -276,10 +276,10 @@ def collect_cpc_trends() -> Dict[str, Any]:
                     year=prior_year,
                 )
 
-                cpc_now = current.get("value", 0)
-                cpc_prev = prior.get("value", 0)
-                cpa_now = cpa_current.get("value", 0)
-                cpa_prev = cpa_prior.get("value", 0)
+                cpc_now = current.get("value") or 0
+                cpc_prev = prior.get("value") or 0
+                cpa_now = cpa_current.get("value") or 0
+                cpa_prev = cpa_prior.get("value") or 0
 
                 pct_change = 0.0
                 if cpc_prev and cpc_prev > 0:
@@ -535,14 +535,14 @@ def collect_industry_spotlight() -> Dict[str, Any]:
                     year=current_year,
                 )
 
-                cpc_now = current.get("value", 0)
-                cpc_prev = prior.get("value", 0)
+                cpc_now = current.get("value") or 0
+                cpc_prev = prior.get("value") or 0
 
                 if cpc_prev > 0:
                     change = ((cpc_now - cpc_prev) / cpc_prev) * 100
                     total_change += change
                     total_cpc += cpc_now
-                    total_cpa += cpa_now.get("value", 0)
+                    total_cpa += cpa_now.get("value") or 0
                     platform_count += 1
 
             if platform_count == 0:
@@ -662,11 +662,11 @@ def collect_platform_shifts() -> Dict[str, Any]:
                     year=prior_year,
                 )
 
-                cpc_total += bm_cpc.get("value", 0)
-                cpa_total += bm_cpa.get("value", 0)
-                ctr_total += bm_ctr.get("value", 0)
-                cvr_total += bm_cvr.get("value", 0)
-                cpc_prev_total += bm_cpc_prev.get("value", 0)
+                cpc_total += bm_cpc.get("value") or 0
+                cpa_total += bm_cpa.get("value") or 0
+                ctr_total += bm_ctr.get("value") or 0
+                cvr_total += bm_cvr.get("value") or 0
+                cpc_prev_total += bm_cpc_prev.get("value") or 0
                 count += 1
 
             if count == 0:
@@ -795,7 +795,7 @@ def collect_seasonal_insights() -> Dict[str, Any]:
             narrative_parts.append(
                 "Blue-collar/hourly hiring is outpacing white-collar this month."
             )
-    narrative_parts.append(mixed.get("forecast", ""))
+    narrative_parts.append(mixed.get("forecast") or "")
 
     return {
         "available": True,
@@ -883,7 +883,7 @@ def _generate_key_takeaways(
         rising = 0
         falling = 0
         for _plat, pdata in platforms.items():
-            change = pdata.get("avg_cpc_change_pct", 0)
+            change = pdata.get("avg_cpc_change_pct") or 0
             if change > 2:
                 rising += 1
             elif change < -2:
@@ -920,7 +920,7 @@ def _generate_key_takeaways(
 
     # 3. Hottest industry
     if industry_spotlight.get("available"):
-        industries = industry_spotlight.get("industries", [])
+        industries = industry_spotlight.get("industries") or []
         if industries:
             top = industries[0]
             direction = "rising" if top["avg_change_pct"] > 0 else "declining"
@@ -931,7 +931,7 @@ def _generate_key_takeaways(
 
     # 4. Best value platform
     if platform_shifts.get("available"):
-        platforms = platform_shifts.get("platforms", [])
+        platforms = platform_shifts.get("platforms") or []
         if platforms:
             best = platforms[0]
             takeaways.append(
@@ -941,7 +941,7 @@ def _generate_key_takeaways(
 
     # 5. Seasonal outlook
     if seasonal_insights.get("available"):
-        narrative = seasonal_insights.get("narrative", "")
+        narrative = seasonal_insights.get("narrative") or ""
         if narrative:
             takeaways.append(narrative)
 
@@ -1094,9 +1094,9 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
     BORDER_LIGHT = "#d0d0e0"
     BG_ZEBRA = "#f4f4f9"
 
-    report_date = _safe(report_data.get("report_date_display", ""))
-    period = _safe(report_data.get("period", ""))
-    vintage = _safe(report_data.get("data_vintage", ""))
+    report_date = _safe(report_data.get("report_date_display") or "")
+    period = _safe(report_data.get("period") or "")
+    vintage = _safe(report_data.get("data_vintage") or "")
 
     # --- Build CPC Dashboard section ---
     cpc_section = ""
@@ -1105,7 +1105,7 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
         platform_bars = []
         platforms = cpc_trends.get("platforms", {})
         max_cpc = max(
-            (p.get("avg_cpc_current", 0) for p in platforms.values()), default=1
+            (p.get("avg_cpc_current") or 0 for p in platforms.values()), default=1
         )
         if max_cpc == 0:
             max_cpc = 1
@@ -1119,9 +1119,11 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
             "#7C6BC4",
         ]
         for i, (plat_key, plat_data) in enumerate(platforms.items()):
-            pct_width = min(100, (plat_data.get("avg_cpc_current", 0) / max_cpc) * 100)
+            pct_width = min(
+                100, (plat_data.get("avg_cpc_current") or 0 / max_cpc) * 100
+            )
             color = bar_colors[i % len(bar_colors)]
-            change = plat_data.get("avg_cpc_change_pct", 0)
+            change = plat_data.get("avg_cpc_change_pct") or 0
             arrow = _trend_arrow(change)
             change_color = (
                 "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else TEXT_MUTED
@@ -1133,7 +1135,7 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                     <span style="font-weight:600;font-size:13px;color:{TEXT_DARK};">{_safe(plat_data.get('label', plat_key))}</span>
                     <span style="font-size:13px;">
-                        <strong>${plat_data.get('avg_cpc_current', 0):.2f}</strong>
+                        <strong>${plat_data.get('avg_cpc_current') or 0:.2f}</strong>
                         <span style="color:{change_color};margin-left:6px;">{arrow} {change:+.1f}%</span>
                     </span>
                 </div>
@@ -1149,7 +1151,7 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
                 CPC Trend Dashboard
             </h2>
             <p style="color:{TEXT_MUTED};font-size:13px;margin-bottom:16px;">
-                Average CPC across all 22 industries &middot; {_safe(cpc_trends.get('comparison', ''))}
+                Average CPC across all 22 industries &middot; {_safe(cpc_trends.get('comparison') or '')}
             </p>
             {''.join(platform_bars)}
         </div>"""
@@ -1159,8 +1161,8 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
     ind_data = report_data.get("industry_spotlight", {})
     if ind_data.get("available"):
         cards = []
-        for ind in ind_data.get("industries", []):
-            change = ind.get("avg_change_pct", 0)
+        for ind in ind_data.get("industries") or []:
+            change = ind.get("avg_change_pct") or 0
             change_color = (
                 "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else TEXT_MUTED
             )
@@ -1168,18 +1170,18 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
                 f"""
             <div style="border:1px solid {BORDER_LIGHT};border-radius:8px;padding:16px;margin-bottom:12px;background:{BG_ZEBRA};page-break-inside:avoid;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                    <h3 style="margin:0;font-size:15px;color:{PORT_GORE};">{_safe(ind.get('label', ''))}</h3>
+                    <h3 style="margin:0;font-size:15px;color:{PORT_GORE};">{_safe(ind.get('label') or '')}</h3>
                     <span style="color:{change_color};font-weight:700;font-size:15px;">
-                        {ind.get('arrow', '')} {_fmt_pct(change)}
+                        {ind.get('arrow') or ''} {_fmt_pct(change)}
                     </span>
                 </div>
                 <div style="display:flex;gap:20px;font-size:13px;color:{TEXT_MUTED};margin-bottom:8px;">
-                    <span>Avg CPC: <strong style="color:{TEXT_DARK};">${ind.get('avg_cpc', 0):.2f}</strong></span>
-                    <span>Avg CPA: <strong style="color:{TEXT_DARK};">${ind.get('avg_cpa', 0):.2f}</strong></span>
-                    <span>Trend: <strong>{_safe(ind.get('trend', ''))}</strong></span>
+                    <span>Avg CPC: <strong style="color:{TEXT_DARK};">${ind.get('avg_cpc') or 0:.2f}</strong></span>
+                    <span>Avg CPA: <strong style="color:{TEXT_DARK};">${ind.get('avg_cpa') or 0:.2f}</strong></span>
+                    <span>Trend: <strong>{_safe(ind.get('trend') or '')}</strong></span>
                 </div>
                 <p style="font-size:12px;color:{TEXT_DARK};margin:0;line-height:1.5;">
-                    {_safe(ind.get('recommendation', ''))}
+                    {_safe(ind.get('recommendation') or '')}
                 </p>
             </div>"""
             )
@@ -1197,22 +1199,22 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
     plat_shifts = report_data.get("platform_shifts", {})
     if plat_shifts.get("available"):
         rows = []
-        for p in plat_shifts.get("platforms", []):
-            change = p.get("cpc_change_pct", 0)
+        for p in plat_shifts.get("platforms") or []:
+            change = p.get("cpc_change_pct") or 0
             change_color = (
                 "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else TEXT_MUTED
             )
-            bg = BG_ZEBRA if p.get("rank", 0) % 2 == 0 else "#ffffff"
+            bg = BG_ZEBRA if p.get("rank") or 0 % 2 == 0 else "#ffffff"
             rows.append(
                 f"""
             <tr style="background:{bg};">
-                <td style="padding:10px 12px;font-weight:600;color:{TEXT_DARK};">#{p.get('rank','')}</td>
-                <td style="padding:10px 12px;color:{TEXT_DARK};">{_safe(p.get('label', ''))}</td>
-                <td style="padding:10px 12px;text-align:right;">${p.get('avg_cpc', 0):.2f}</td>
-                <td style="padding:10px 12px;text-align:right;">${p.get('avg_cpa', 0):.2f}</td>
-                <td style="padding:10px 12px;text-align:right;">{p.get('avg_ctr', 0):.2f}%</td>
-                <td style="padding:10px 12px;text-align:right;">{p.get('avg_cvr', 0):.2f}%</td>
-                <td style="padding:10px 12px;text-align:right;color:{change_color};font-weight:600;">{p.get('arrow', '')} {change:+.1f}%</td>
+                <td style="padding:10px 12px;font-weight:600;color:{TEXT_DARK};">#{p.get('rank') or ''}</td>
+                <td style="padding:10px 12px;color:{TEXT_DARK};">{_safe(p.get('label') or '')}</td>
+                <td style="padding:10px 12px;text-align:right;">${p.get('avg_cpc') or 0:.2f}</td>
+                <td style="padding:10px 12px;text-align:right;">${p.get('avg_cpa') or 0:.2f}</td>
+                <td style="padding:10px 12px;text-align:right;">{p.get('avg_ctr') or 0:.2f}%</td>
+                <td style="padding:10px 12px;text-align:right;">{p.get('avg_cvr') or 0:.2f}%</td>
+                <td style="padding:10px 12px;text-align:right;color:{change_color};font-weight:600;">{p.get('arrow') or ''} {change:+.1f}%</td>
             </tr>"""
             )
 
@@ -1250,21 +1252,21 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
                 collar_rows.append(
                     f"""
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid {BORDER_LIGHT};">
-                    <span style="font-weight:600;color:{TEXT_DARK};width:120px;">{_safe(c.get('label', ''))}</span>
-                    <span style="color:{TEXT_MUTED};font-size:13px;">{_safe(c.get('intensity', ''))}</span>
-                    <span style="font-size:13px;color:{TEXT_DARK};">{_safe(c.get('cpc_impact', ''))}</span>
-                    <span style="font-size:12px;color:{BLUE_VIOLET};">{_safe(c.get('forecast', ''))}</span>
+                    <span style="font-weight:600;color:{TEXT_DARK};width:120px;">{_safe(c.get('label') or '')}</span>
+                    <span style="color:{TEXT_MUTED};font-size:13px;">{_safe(c.get('intensity') or '')}</span>
+                    <span style="font-size:13px;color:{TEXT_DARK};">{_safe(c.get('cpc_impact') or '')}</span>
+                    <span style="font-size:12px;color:{BLUE_VIOLET};">{_safe(c.get('forecast') or '')}</span>
                 </div>"""
                 )
 
         seasonal_section = f"""
         <div style="page-break-inside:avoid;margin-bottom:28px;">
             <h2 style="color:{PORT_GORE};font-size:20px;border-bottom:2px solid {RAW_SIENNA};padding-bottom:8px;margin-bottom:16px;">
-                Seasonal Outlook: {_safe(seasonal.get('current_month', ''))} &rarr; {_safe(seasonal.get('next_month', ''))}
+                Seasonal Outlook: {_safe(seasonal.get('current_month') or '')} &rarr; {_safe(seasonal.get('next_month') or '')}
             </h2>
             <div style="background:{BG_ZEBRA};border-radius:8px;padding:16px;margin-bottom:12px;">
                 <p style="font-size:14px;color:{TEXT_DARK};line-height:1.6;margin:0;">
-                    {_safe(seasonal.get('narrative', ''))}
+                    {_safe(seasonal.get('narrative') or '')}
                 </p>
             </div>
             {''.join(collar_rows)}
@@ -1304,11 +1306,11 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
                     (Ratio: {_safe(md.get('tightness_index', 'N/A'))})
                 </span>
             </div>
-            <p style="font-size:11px;color:{TEXT_MUTED};margin-top:8px;">Source: {_safe(md.get('source', ''))}</p>
+            <p style="font-size:11px;color:{TEXT_MUTED};margin-top:8px;">Source: {_safe(md.get('source') or '')}</p>
         </div>"""
 
     # --- Key Takeaways ---
-    takeaways = report_data.get("key_takeaways", [])
+    takeaways = report_data.get("key_takeaways") or []
     takeaway_items = "\n".join(
         f'<li style="margin-bottom:8px;line-height:1.6;color:{TEXT_DARK};">{_safe(t)}</li>'
         for t in takeaways
@@ -1405,13 +1407,13 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
 
     Shorter highlight version with link to full report.
     """
-    report_date = _safe(report_data.get("report_date_display", ""))
-    period = _safe(report_data.get("period", ""))
-    report_id = report_data.get("report_id", "")
+    report_date = _safe(report_data.get("report_date_display") or "")
+    period = _safe(report_data.get("period") or "")
+    report_id = report_data.get("report_id") or ""
     full_report_url = f"{_BASE_URL}/market-pulse"
 
     # Key takeaways
-    takeaways = report_data.get("key_takeaways", [])
+    takeaways = report_data.get("key_takeaways") or []
     takeaway_rows = ""
     for t in takeaways:
         takeaway_rows += f"""
@@ -1426,7 +1428,7 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
     cpc_trends = report_data.get("cpc_trends", {})
     if cpc_trends.get("available"):
         for plat_key, plat_data in cpc_trends.get("platforms", {}).items():
-            change = plat_data.get("avg_cpc_change_pct", 0)
+            change = plat_data.get("avg_cpc_change_pct") or 0
             change_color = (
                 "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else "#555566"
             )
@@ -1436,7 +1438,7 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
                     {_safe(plat_data.get('label', plat_key))}
                 </td>
                 <td style="padding:8px 12px;font-size:13px;text-align:right;color:#1a1a2e;border-bottom:1px solid #e8e8f0;">
-                    ${plat_data.get('avg_cpc_current', 0):.2f}
+                    ${plat_data.get('avg_cpc_current') or 0:.2f}
                 </td>
                 <td style="padding:8px 12px;font-size:13px;text-align:right;color:{change_color};font-weight:600;border-bottom:1px solid #e8e8f0;">
                     {change:+.1f}%
@@ -1447,18 +1449,18 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
     industry_rows = ""
     ind_data = report_data.get("industry_spotlight", {})
     if ind_data.get("available"):
-        for ind in ind_data.get("industries", [])[:3]:
-            change = ind.get("avg_change_pct", 0)
+        for ind in ind_data.get("industries") or [][:3]:
+            change = ind.get("avg_change_pct") or 0
             change_color = (
                 "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else "#555566"
             )
             industry_rows += f"""
             <tr>
                 <td style="padding:8px 12px;font-size:13px;color:#1a1a2e;border-bottom:1px solid #e8e8f0;">
-                    {_safe(ind.get('label', ''))}
+                    {_safe(ind.get('label') or '')}
                 </td>
                 <td style="padding:8px 12px;font-size:13px;text-align:right;color:#1a1a2e;border-bottom:1px solid #e8e8f0;">
-                    ${ind.get('avg_cpc', 0):.2f}
+                    ${ind.get('avg_cpc') or 0:.2f}
                 </td>
                 <td style="padding:8px 12px;font-size:13px;text-align:right;color:{change_color};font-weight:600;border-bottom:1px solid #e8e8f0;">
                     {change:+.1f}%
@@ -1592,7 +1594,7 @@ def send_pulse_report(
     Returns:
         Dict with: sent (bool), recipients_sent (list), errors (list)
     """
-    api_key = os.environ.get("RESEND_API_KEY", "").strip()
+    api_key = os.environ.get("RESEND_API_KEY") or "".strip()
     from_email = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev").strip()
 
     result = {
@@ -1647,7 +1649,7 @@ def send_pulse_report(
 
             with urllib.request.urlopen(req, timeout=_SEND_TIMEOUT) as resp:
                 resp_data = json.loads(resp.read().decode("utf-8"))
-                email_id = resp_data.get("id", "")
+                email_id = resp_data.get("id") or ""
                 logger.info(
                     "market_pulse: sent report to %s (id=%s)", recipient, email_id
                 )
@@ -1688,7 +1690,7 @@ def _scheduler_tick():
         # Update state
         with _scheduler_lock:
             _scheduler_last_run = datetime.now(timezone.utc).isoformat()
-            takeaways = report.get("key_takeaways", [])
+            takeaways = report.get("key_takeaways") or []
             _scheduler_last_summary = takeaways[0] if takeaways else "Report generated"
 
         # Send if recipients configured
@@ -1700,7 +1702,7 @@ def _scheduler_tick():
             send_result = send_pulse_report(report, recipients)
             logger.info(
                 "market_pulse: scheduler sent to %d/%d recipients",
-                len(send_result.get("recipients_sent", [])),
+                len(send_result.get("recipients_sent") or []),
                 len(recipients),
             )
 
@@ -1855,7 +1857,7 @@ def get_report_history() -> List[Dict[str, Any]]:
                 "report_date": r.get("report_date"),
                 "period": r.get("period"),
                 "generated_at": r.get("generated_at"),
-                "key_takeaways": r.get("key_takeaways", []),
+                "key_takeaways": r.get("key_takeaways") or [],
             }
             for r in _report_history
         ]
@@ -1935,7 +1937,7 @@ def handle_pulse_api(
 
         # POST /api/pulse/send
         if path == "/api/pulse/send" and method == "POST":
-            recipients = body.get("recipients", [])
+            recipients = body.get("recipients") or []
             if isinstance(recipients, str):
                 recipients = [r.strip() for r in recipients.split(",") if r.strip()]
             if not recipients:
@@ -1955,7 +1957,7 @@ def handle_pulse_api(
 
             if action == "start":
                 interval = body.get("interval_hours", 168)
-                recipients = body.get("recipients", [])
+                recipients = body.get("recipients") or []
                 if isinstance(recipients, str):
                     recipients = [r.strip() for r in recipients.split(",") if r.strip()]
                 result = start_pulse_scheduler(

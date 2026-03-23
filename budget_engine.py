@@ -27,12 +27,14 @@ logger = logging.getLogger(__name__)
 # ── Optional v3 imports (dynamic benchmarks) ──
 try:
     import trend_engine as _trend_engine
+
     _HAS_TREND_ENGINE = True
 except ImportError:
     _HAS_TREND_ENGINE = False
 
 try:
     import collar_intelligence as _collar_intel
+
     _HAS_COLLAR_INTEL = True
 except ImportError:
     _HAS_COLLAR_INTEL = False
@@ -45,6 +47,7 @@ try:
         normalize_industry as _std_normalize_industry,
         CANONICAL_INDUSTRIES as _CANON_INDUSTRIES,
     )
+
     _HAS_STANDARDIZER = True
 except ImportError:
     _HAS_STANDARDIZER = False
@@ -85,9 +88,9 @@ BASE_BENCHMARKS: Dict[str, Any] = {
         "display": 0.45,
         "niche_board": 1.40,
         "employer_branding": 0.90,
-        "referral": 0.00,       # referral programmes have no click cost
-        "events": 0.00,         # events are flat-fee, not CPC
-        "staffing": 0.00,       # agencies bill per placement
+        "referral": 0.00,  # referral programmes have no click cost
+        "events": 0.00,  # events are flat-fee, not CPC
+        "staffing": 0.00,  # agencies bill per placement
         "email": 0.35,
         "career_site": 0.30,
         "regional": 0.75,
@@ -115,13 +118,13 @@ BASE_BENCHMARKS: Dict[str, Any] = {
 # authoritative conversion funnel benchmarks.
 # C4 FIX: Role-tier-specific hire rates instead of universal 2%
 HIRE_RATE_BY_TIER: Dict[str, float] = {
-    "Hourly / Entry-Level": 0.06,          # high-volume, lower bar
-    "Skilled Trades / Technical": 0.04,     # CDL, warehouse, construction
-    "Clinical / Licensed": 0.03,            # nurses, therapists — credentialing bottleneck
-    "Professional / White-Collar": 0.02,    # standard corporate roles
-    "Executive / Leadership": 0.008,        # highly selective
-    "Technology / Engineering": 0.015,      # competitive market
-    "Sales / Revenue": 0.035,              # high turnover, faster hiring
+    "Hourly / Entry-Level": 0.06,  # high-volume, lower bar
+    "Skilled Trades / Technical": 0.04,  # CDL, warehouse, construction
+    "Clinical / Licensed": 0.03,  # nurses, therapists — credentialing bottleneck
+    "Professional / White-Collar": 0.02,  # standard corporate roles
+    "Executive / Leadership": 0.008,  # highly selective
+    "Technology / Engineering": 0.015,  # competitive market
+    "Sales / Revenue": 0.035,  # high turnover, faster hiring
     "default": 0.02,
 }
 
@@ -189,18 +192,31 @@ _MIN_BUDGET_PER_OPENING: float = 200.0
 # Industry-specific realistic minimum cost-per-hire thresholds
 # Based on recruitment industry benchmarks
 _INDUSTRY_MIN_CPH = {
-    "technology": 4000, "healthcare": 3500, "finance": 4500,
-    "engineering": 5000, "executive": 8000, "legal": 5000,
-    "pharmaceutical": 6000, "energy": 4000, "aerospace": 5500,
-    "manufacturing": 2500, "construction": 2000, "retail": 1200,
-    "hospitality": 800, "logistics": 1500, "education": 2000,
-    "government": 2500, "nonprofit": 1800, "general": 2000,
+    "technology": 4000,
+    "healthcare": 3500,
+    "finance": 4500,
+    "engineering": 5000,
+    "executive": 8000,
+    "legal": 5000,
+    "pharmaceutical": 6000,
+    "energy": 4000,
+    "aerospace": 5500,
+    "manufacturing": 2500,
+    "construction": 2000,
+    "retail": 1200,
+    "hospitality": 800,
+    "logistics": 1500,
+    "education": 2000,
+    "government": 2500,
+    "nonprofit": 1800,
+    "general": 2000,
 }
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _safe_divide(numerator: float, denominator: float, default: float = 0.0) -> float:
     """Division that never raises ZeroDivisionError."""
@@ -215,7 +231,7 @@ def _clamp(value: float, lo: float, hi: float) -> float:
 
 def _resolve_tier(role: Dict) -> str:
     """Extract a canonical tier string from a role dict."""
-    tier = role.get("tier", "") or role.get("role_tier", "")
+    tier = role.get("tier") or "" or role.get("role_tier") or ""
     if isinstance(tier, dict):
         tier = tier.get("tier", "Professional")
     if not tier:
@@ -286,7 +302,7 @@ def _extract_cpc_from_synthesized(
         for plat_key in synth_platform_keys.get(category, []):
             plat = ad_analysis.get(plat_key) or {}
             # Synthesized entries have avg_cpc (float)
-            cpc_val = plat.get("avg_cpc", 0)
+            cpc_val = plat.get("avg_cpc") or 0
             if isinstance(cpc_val, (int, float)) and cpc_val > 0:
                 candidate_cpcs.append(float(cpc_val))
 
@@ -313,17 +329,17 @@ def _extract_cpc_from_synthesized(
             # Per-role keyword data (Google Ads shape)
             keywords = platform_data.get("keywords") or {}
             for _role, kw_data in keywords.items():
-                cpc_val = kw_data.get("avg_cpc_usd", 0)
+                cpc_val = kw_data.get("avg_cpc_usd") or 0
                 if isinstance(cpc_val, (int, float)) and cpc_val > 0:
                     candidate_cpcs.append(float(cpc_val))
             # Platform-level summary (Meta / LinkedIn shape)
             for sub_key in ("facebook", "instagram", "linkedin", "tiktok"):
                 sub = platform_data.get(sub_key) or {}
-                cpc_val = sub.get("avg_cpc_usd", 0)
+                cpc_val = sub.get("avg_cpc_usd") or 0
                 if isinstance(cpc_val, (int, float)) and cpc_val > 0:
                     candidate_cpcs.append(float(cpc_val))
             # Top-level avg_cpc_usd
-            top_cpc = platform_data.get("avg_cpc_usd", 0)
+            top_cpc = platform_data.get("avg_cpc_usd") or 0
             if isinstance(top_cpc, (int, float)) and top_cpc > 0:
                 candidate_cpcs.append(float(top_cpc))
 
@@ -421,7 +437,10 @@ def _get_trend_engine_cpc(
         return None
 
     import datetime
-    current_month = month if (month and 1 <= month <= 12) else datetime.datetime.now().month
+
+    current_month = (
+        month if (month and 1 <= month <= 12) else datetime.datetime.now().month
+    )
 
     cpcs: List[float] = []
     best_meta: Dict[str, Any] = {}
@@ -437,7 +456,7 @@ def _get_trend_engine_cpc(
                 month=current_month,
             )
             if result and isinstance(result, dict):
-                val = result.get("value", 0)
+                val = result.get("value") or 0
                 if isinstance(val, (int, float)) and val > 0:
                     cpcs.append(float(val))
                     if not best_meta:
@@ -445,12 +464,15 @@ def _get_trend_engine_cpc(
                             "trend_direction": result.get("trend_direction", "stable"),
                             "trend_pct_yoy": result.get("trend_pct_yoy", 0.0),
                             "seasonal_factor": result.get("seasonal_factor", 1.0),
-                            "confidence_interval": result.get("confidence_interval", []),
+                            "confidence_interval": result.get("confidence_interval")
+                            or [],
                             "data_confidence": result.get("data_confidence", 0.7),
                             "sources": result.get("sources", ["trend_engine"]),
                         }
         except Exception as e:
-            logger.debug("trend_engine.get_benchmark failed for %s/%s: %s", plat_key, category, e)
+            logger.debug(
+                "trend_engine.get_benchmark failed for %s/%s: %s", plat_key, category, e
+            )
 
     if cpcs:
         avg_cpc = round(sum(cpcs) / len(cpcs), 2)
@@ -468,11 +490,11 @@ def _get_collar_apply_rate_adjustment(category: str, collar_type: str) -> float:
     # Collar-specific apply rate multipliers by channel category
     _COLLAR_APPLY_MULT: Dict[str, Dict[str, float]] = {
         "blue_collar": {
-            "job_board": 1.4,      # blue collar applies heavily on Indeed etc.
+            "job_board": 1.4,  # blue collar applies heavily on Indeed etc.
             "programmatic": 1.3,
-            "social": 1.2,         # Facebook effective for blue collar
+            "social": 1.2,  # Facebook effective for blue collar
             "search": 0.8,
-            "niche_board": 0.7,    # LinkedIn less relevant
+            "niche_board": 0.7,  # LinkedIn less relevant
             "display": 1.1,
             "regional": 1.3,
             "employer_branding": 0.6,
@@ -482,9 +504,9 @@ def _get_collar_apply_rate_adjustment(category: str, collar_type: str) -> float:
         "white_collar": {
             "job_board": 0.9,
             "programmatic": 0.8,
-            "social": 0.9,         # LinkedIn-heavy, FB less
+            "social": 0.9,  # LinkedIn-heavy, FB less
             "search": 1.2,
-            "niche_board": 1.4,    # LinkedIn premium for white collar
+            "niche_board": 1.4,  # LinkedIn premium for white collar
             "display": 0.7,
             "regional": 0.7,
             "employer_branding": 1.3,
@@ -522,8 +544,14 @@ def _classify_roles_collar(roles_data: Dict[str, Dict], industry: str = "") -> s
         for rb in roles_data.values():
             tier = rb.get("tier", "Professional")
             hc = rb.get("headcount", rb.get("openings", 1))
-            if tier in ("Hourly / Entry-Level", "Skilled Trades / Technical",
-                        "Hourly", "Trades", "Gig", "Gig / Independent Contractor"):
+            if tier in (
+                "Hourly / Entry-Level",
+                "Skilled Trades / Technical",
+                "Hourly",
+                "Trades",
+                "Gig",
+                "Gig / Independent Contractor",
+            ):
                 blue_count += hc
             else:
                 white_count += hc
@@ -544,7 +572,7 @@ def _classify_roles_collar(roles_data: Dict[str, Dict], industry: str = "") -> s
             result = _collar_intel.classify_collar(
                 role=role_title,
                 industry=industry,
-                soc_code=rb.get("soc_code", ""),
+                soc_code=rb.get("soc_code") or "",
             )
             ct = result.get("collar_type", "white_collar")
         except Exception:
@@ -567,6 +595,7 @@ def _parse_dollar_value(val: Any) -> Optional[float]:
     if not isinstance(val, str):
         return None
     import re
+
     cleaned = val.replace("$", "").replace(",", "").strip()
     # Range: take midpoint
     if "-" in cleaned:
@@ -605,13 +634,13 @@ def _industry_avg_cph(industry: str) -> float:
     if _HAS_STANDARDIZER:
         canonical = _std_normalize_industry(industry)
         meta = _CANON_INDUSTRIES.get(canonical, {})
-        deep_key = meta.get("deep_bench_key", "")
+        deep_key = meta.get("deep_bench_key") or ""
         if deep_key and deep_key in INDUSTRY_CPH_RANGES:
             low, high = INDUSTRY_CPH_RANGES[deep_key]
             return (low + high) / 2.0
         # deep_bench_key might not match CPH keys exactly;
         # scan aliases for a match in INDUSTRY_CPH_RANGES
-        for alias in meta.get("aliases", []):
+        for alias in meta.get("aliases") or []:
             if alias in INDUSTRY_CPH_RANGES:
                 low, high = INDUSTRY_CPH_RANGES[alias]
                 return (low + high) / 2.0
@@ -639,6 +668,7 @@ def _score_roi(cost_per_hire: float, industry_avg: float) -> int:
 # ---------------------------------------------------------------------------
 # Core public functions
 # ---------------------------------------------------------------------------
+
 
 def compute_location_cost_multipliers(
     locations: List[Dict],
@@ -677,26 +707,55 @@ def compute_location_cost_multipliers(
             if isinstance(_lp_val, dict) and "cost_of_living_index" in _lp_val:
                 if _lp_key not in teleport_cities:
                     teleport_cities[_lp_key] = {
-                        "cost_of_living": {"cost_of_living_index": _lp_val["cost_of_living_index"]},
-                        "quality_scores": {"Cost of Living": _lp_val.get("quality_of_life_score", 0)},
+                        "cost_of_living": {
+                            "cost_of_living_index": _lp_val["cost_of_living_index"]
+                        },
+                        "quality_scores": {
+                            "Cost of Living": _lp_val.get("quality_of_life_score") or 0
+                        },
                     }
 
     # Known fallback multipliers for major metro areas (relative to US avg)
     _FALLBACK_MULTIPLIERS: Dict[str, float] = {
-        "san francisco": 1.45, "new york": 1.40, "manhattan": 1.45,
-        "los angeles": 1.25, "boston": 1.30, "seattle": 1.25,
-        "chicago": 1.10, "austin": 1.05, "denver": 1.10,
-        "dallas": 0.95, "houston": 0.90, "atlanta": 0.95,
-        "miami": 1.10, "phoenix": 0.90, "detroit": 0.85,
-        "minneapolis": 0.95, "philadelphia": 1.05,
-        "washington": 1.25, "portland": 1.10, "san diego": 1.20,
-        "nashville": 0.95, "charlotte": 0.90,
-        "london": 1.35, "munich": 1.20, "zurich": 1.55,
-        "paris": 1.25, "amsterdam": 1.15, "dublin": 1.15,
-        "singapore": 1.30, "tokyo": 1.25, "sydney": 1.20,
-        "toronto": 1.10, "vancouver": 1.15,
-        "bangalore": 0.30, "mumbai": 0.35, "delhi": 0.30,
-        "hyderabad": 0.28, "manila": 0.30, "lagos": 0.25,
+        "san francisco": 1.45,
+        "new york": 1.40,
+        "manhattan": 1.45,
+        "los angeles": 1.25,
+        "boston": 1.30,
+        "seattle": 1.25,
+        "chicago": 1.10,
+        "austin": 1.05,
+        "denver": 1.10,
+        "dallas": 0.95,
+        "houston": 0.90,
+        "atlanta": 0.95,
+        "miami": 1.10,
+        "phoenix": 0.90,
+        "detroit": 0.85,
+        "minneapolis": 0.95,
+        "philadelphia": 1.05,
+        "washington": 1.25,
+        "portland": 1.10,
+        "san diego": 1.20,
+        "nashville": 0.95,
+        "charlotte": 0.90,
+        "london": 1.35,
+        "munich": 1.20,
+        "zurich": 1.55,
+        "paris": 1.25,
+        "amsterdam": 1.15,
+        "dublin": 1.15,
+        "singapore": 1.30,
+        "tokyo": 1.25,
+        "sydney": 1.20,
+        "toronto": 1.10,
+        "vancouver": 1.15,
+        "bangalore": 0.30,
+        "mumbai": 0.35,
+        "delhi": 0.30,
+        "hyderabad": 0.28,
+        "manila": 0.30,
+        "lagos": 0.25,
     }
 
     for loc in locations:
@@ -713,20 +772,26 @@ def compute_location_cost_multipliers(
             # score (Teleport quality_scores -> "Cost of Living" is 1-10 where
             # 10 = very affordable, 1 = very expensive).
             qs = teleport_entry.get("quality_scores", {})
-            col_score = qs.get("Cost of Living", 0)
+            col_score = qs.get("Cost of Living") or 0
             if col_score > 0:
                 # Convert: score 10 -> multiplier ~0.6, score 1 -> multiplier ~1.5
                 mult = round(1.55 - (col_score / 10.0) * 0.95, 2)
                 multipliers[loc_key] = _clamp(mult, 0.2, 2.5)
-                logger.debug("Location %s: Teleport COLI score %.1f -> multiplier %.2f",
-                             loc_key, col_score, multipliers[loc_key])
+                logger.debug(
+                    "Location %s: Teleport COLI score %.1f -> multiplier %.2f",
+                    loc_key,
+                    col_score,
+                    multipliers[loc_key],
+                )
                 continue
 
         # 2. Fallback: known city lookup
         city_lower = loc_key.split(",")[0].strip().lower()
         if city_lower in _FALLBACK_MULTIPLIERS:
             multipliers[loc_key] = _FALLBACK_MULTIPLIERS[city_lower]
-            logger.debug("Location %s: fallback multiplier %.2f", loc_key, multipliers[loc_key])
+            logger.debug(
+                "Location %s: fallback multiplier %.2f", loc_key, multipliers[loc_key]
+            )
             continue
 
         # 3. Country-level heuristic
@@ -734,7 +799,9 @@ def compute_location_cost_multipliers(
         if country:
             country_mult = _country_multiplier(country)
             multipliers[loc_key] = country_mult
-            logger.debug("Location %s: country-level multiplier %.2f", loc_key, country_mult)
+            logger.debug(
+                "Location %s: country-level multiplier %.2f", loc_key, country_mult
+            )
             continue
 
         # 4. Default
@@ -782,7 +849,10 @@ def compute_role_weighted_spend(
         }
 
     if total_budget <= 0:
-        logger.warning("Budget is zero or negative (%.2f); returning zero allocations", total_budget)
+        logger.warning(
+            "Budget is zero or negative (%.2f); returning zero allocations",
+            total_budget,
+        )
         result: Dict[str, Dict] = {}
         for role in roles:
             title = role.get("title", "Unknown Role")
@@ -791,7 +861,9 @@ def compute_role_weighted_spend(
                 "dollar_amount": 0.0,
                 "tier": _resolve_tier(role),
                 "multiplier": _tier_multiplier(_resolve_tier(role)),
-                "openings": max(1, int(role.get("count", role.get("openings", 1)) or 1)),
+                "openings": max(
+                    1, int(role.get("count", role.get("openings", 1)) or 1)
+                ),
             }
         return result
 
@@ -818,7 +890,9 @@ def compute_role_weighted_spend(
     for title, weight, role_dict in weighted_scores:
         share = _safe_divide(weight, total_weight, 0.0)
         tier = _resolve_tier(role_dict)
-        openings = max(1, int(role_dict.get("count", role_dict.get("openings", 1)) or 1))
+        openings = max(
+            1, int(role_dict.get("count", role_dict.get("openings", 1)) or 1)
+        )
         result[title] = {
             "budget_share": round(share, 4),
             "dollar_amount": round(total_budget * share, 2),
@@ -828,7 +902,11 @@ def compute_role_weighted_spend(
             "headcount": openings,  # alias for hire_rate blending
         }
 
-    logger.info("Role-weighted spend computed for %d roles, total $%.2f", len(result), total_budget)
+    logger.info(
+        "Role-weighted spend computed for %d roles, total $%.2f",
+        len(result),
+        total_budget,
+    )
     return result
 
 
@@ -877,7 +955,7 @@ def compute_channel_dollar_amounts(
         ``confidence``, ``category``, and v3 fields: ``cpc_source``,
         ``trend_direction``, ``trend_pct_yoy``, ``apply_rate_collar_adjusted``.
     """
-    total_budget = sum(rb.get("dollar_amount", 0) for rb in role_budgets.values())
+    total_budget = sum(rb.get("dollar_amount") or 0 for rb in role_budgets.values())
     if total_budget <= 0:
         logger.warning("Total role budget is zero; returning empty channel allocations")
         return {}
@@ -900,7 +978,9 @@ def compute_channel_dollar_amounts(
         for tier, count in _tier_counts.items()
     )
     logger.info("Blended hire_rate=%.4f from tiers: %s", hire_rate, _tier_counts)
-    industry_avg_cph = 6_000.0  # fallback; caller can override via assess_budget_sufficiency
+    industry_avg_cph = (
+        6_000.0  # fallback; caller can override via assess_budget_sufficiency
+    )
 
     # v3: Determine collar type from roles if not explicitly provided
     effective_collar = collar_type
@@ -922,8 +1002,10 @@ def compute_channel_dollar_amounts(
         if cpc is None:
             # v3: Try trend_engine with full context
             te_result = _get_trend_engine_cpc(
-                category, industry=industry,
-                collar_type=effective_collar, location=location,
+                category,
+                industry=industry,
+                collar_type=effective_collar,
+                location=location,
                 month=month,
             )
             if te_result is not None:
@@ -954,8 +1036,12 @@ def compute_channel_dollar_amounts(
         if cpc <= 0:
             # Flat-cost channels: estimate a synthetic CPA instead
             projected_clicks = 0
-            projected_applications = max(1, int(dollars / 50.0))  # ~$50/application heuristic
-            projected_hires = max(0, int(projected_applications * hire_rate * 2))  # higher quality
+            projected_applications = max(
+                1, int(dollars / 50.0)
+            )  # ~$50/application heuristic
+            projected_hires = max(
+                0, int(projected_applications * hire_rate * 2)
+            )  # higher quality
             cpa = _safe_divide(dollars, projected_applications, dollars)
             cost_per_hire = _safe_divide(dollars, max(projected_hires, 1), dollars)
         else:
@@ -987,15 +1073,23 @@ def compute_channel_dollar_amounts(
 
         # v3: Attach trend metadata when available
         if trend_meta:
-            allocation_entry["trend_direction"] = trend_meta.get("trend_direction", "stable")
-            allocation_entry["trend_pct_yoy"] = round(trend_meta.get("trend_pct_yoy", 0.0), 1)
-            allocation_entry["seasonal_factor"] = round(trend_meta.get("seasonal_factor", 1.0), 2)
+            allocation_entry["trend_direction"] = trend_meta.get(
+                "trend_direction", "stable"
+            )
+            allocation_entry["trend_pct_yoy"] = round(
+                trend_meta.get("trend_pct_yoy", 0.0), 1
+            )
+            allocation_entry["seasonal_factor"] = round(
+                trend_meta.get("seasonal_factor", 1.0), 2
+            )
 
         allocations[ch_name] = allocation_entry
 
     logger.info(
         "Channel dollar amounts computed for %d channels (collar=%s, trend_engine=%s)",
-        len(allocations), effective_collar, "yes" if _HAS_TREND_ENGINE else "no",
+        len(allocations),
+        effective_collar,
+        "yes" if _HAS_TREND_ENGINE else "no",
     )
     return allocations
 
@@ -1049,7 +1143,7 @@ def assess_budget_sufficiency(
 
     # Build projected totals from allocations
     total_proj_hires = sum(
-        ch.get("projected_hires", 0) for ch in channel_allocations.values()
+        ch.get("projected_hires") or 0 for ch in channel_allocations.values()
     )
 
     # ── Budget Reality Check ──────────────────────────────────────
@@ -1064,7 +1158,9 @@ def assess_budget_sufficiency(
 
     industry_min_cph = _INDUSTRY_MIN_CPH.get(industry_key, _INDUSTRY_MIN_CPH["general"])
     min_viable_budget = industry_min_cph * n_openings
-    budget_utilization = (total_budget / min_viable_budget * 100) if min_viable_budget > 0 else 0
+    budget_utilization = (
+        (total_budget / min_viable_budget * 100) if min_viable_budget > 0 else 0
+    )
 
     # Determine feasibility tier
     if budget_per_opening < industry_min_cph * 0.1:
@@ -1162,8 +1258,10 @@ def assess_budget_sufficiency(
 
     # Check for channels with very low ROI
     low_roi_channels = [
-        name for name, ch in channel_allocations.items()
-        if ch.get("roi_score", 5) <= 3 and ch.get("dollar_amount", ch.get("dollars", 0)) > 0
+        name
+        for name, ch in channel_allocations.items()
+        if ch.get("roi_score", 5) <= 3
+        and ch.get("dollar_amount", ch.get("dollars") or 0) > 0
     ]
     if low_roi_channels:
         recommendations.append(
@@ -1195,7 +1293,11 @@ def assess_budget_sufficiency(
         "budget_per_hire": round(budget_per_opening, 2),
         "industry_avg_cph": industry_min_cph,
         "min_viable_budget": min_viable_budget,
-        "realistic_hires": max(1, int(total_budget / industry_min_cph)) if industry_min_cph > 0 else n_openings,
+        "realistic_hires": (
+            max(1, int(total_budget / industry_min_cph))
+            if industry_min_cph > 0
+            else n_openings
+        ),
         "budget_utilization_pct": round(budget_utilization, 1),
         "target_hires": n_openings,
     }
@@ -1230,7 +1332,12 @@ def optimize_allocation(
         logger.warning("No channel allocations to optimise")
         return {
             "optimized_allocations": {},
-            "improvement": {"metric": optimization_goal, "original": 0, "optimized": 0, "pct_change": 0.0},
+            "improvement": {
+                "metric": optimization_goal,
+                "original": 0,
+                "optimized": 0,
+                "pct_change": 0.0,
+            },
             "changes": [],
         }
 
@@ -1243,14 +1350,19 @@ def optimize_allocation(
     # Compute efficiency: goal metric per dollar for each channel
     efficiencies: Dict[str, float] = {}
     for ch_name, ch_data in channel_allocations.items():
-        dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
+        dollars = ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
         metric_val = ch_data.get(goal_key, 0)
         efficiencies[ch_name] = _safe_divide(metric_val, dollars, 0.0)
 
     if not efficiencies or all(v == 0 for v in efficiencies.values()):
         return {
             "optimized_allocations": dict(channel_allocations),
-            "improvement": {"metric": optimization_goal, "original": 0, "optimized": 0, "pct_change": 0.0},
+            "improvement": {
+                "metric": optimization_goal,
+                "original": 0,
+                "optimized": 0,
+                "pct_change": 0.0,
+            },
             "changes": [],
         }
 
@@ -1285,9 +1397,11 @@ def optimize_allocation(
     transfer_pool = 0.0
     donor_reductions: Dict[str, float] = {}
     for ch_name in donors:
-        orig_dollars = channel_allocations[ch_name].get("dollar_amount", channel_allocations[ch_name].get("dollars", 0))
+        orig_dollars = channel_allocations[ch_name].get(
+            "dollar_amount", channel_allocations[ch_name].get("dollars") or 0
+        )
         max_reduction = orig_dollars * 0.30  # never take more than 30%
-        floor = orig_dollars * 0.05          # keep at least 5%
+        floor = orig_dollars * 0.05  # keep at least 5%
         reduction = min(max_reduction, orig_dollars - floor)
         reduction = max(0, reduction)
         donor_reductions[ch_name] = reduction
@@ -1327,8 +1441,8 @@ def optimize_allocation(
     }
 
     for ch_name, ch_data in channel_allocations.items():
-        orig_dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
-        orig_pct = ch_data.get("percentage", 0)
+        orig_dollars = ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
+        orig_pct = ch_data.get("percentage") or 0
         original_metric_total += ch_data.get(goal_key, 0)
 
         new_dollars = orig_dollars
@@ -1389,31 +1503,41 @@ def optimize_allocation(
         opt_entry["projected_clicks"] = new_clicks
         opt_entry["projected_applications"] = new_apps
         opt_entry["projected_hires"] = new_hires
-        opt_entry["cpa"] = round(_safe_divide(new_dollars, max(new_apps, 1), new_dollars), 2)
+        opt_entry["cpa"] = round(
+            _safe_divide(new_dollars, max(new_apps, 1), new_dollars), 2
+        )
         opt_entry["cost_per_hire"] = round(
             _safe_divide(new_dollars, max(new_hires, 1), new_dollars), 2
         )
         optimized[ch_name] = opt_entry
 
         if abs(new_dollars - orig_dollars) > 0.01:
-            changes.append({
-                "channel": ch_name,
-                "original_dollars": round(orig_dollars, 2),
-                "new_dollars": round(new_dollars, 2),
-                "original_pct": round(orig_pct, 1),
-                "new_pct": round(new_pct, 1),
-                "reason": reason,
-            })
+            changes.append(
+                {
+                    "channel": ch_name,
+                    "original_dollars": round(orig_dollars, 2),
+                    "new_dollars": round(new_dollars, 2),
+                    "original_pct": round(orig_pct, 1),
+                    "new_pct": round(new_pct, 1),
+                    "reason": reason,
+                }
+            )
 
-    pct_change = _safe_divide(
-        optimized_metric_total - original_metric_total,
-        max(original_metric_total, 1),
-        0.0,
-    ) * 100
+    pct_change = (
+        _safe_divide(
+            optimized_metric_total - original_metric_total,
+            max(original_metric_total, 1),
+            0.0,
+        )
+        * 100
+    )
 
     logger.info(
         "Optimisation for '%s': %d -> %d (%.1f%% improvement)",
-        optimization_goal, original_metric_total, optimized_metric_total, pct_change,
+        optimization_goal,
+        original_metric_total,
+        optimized_metric_total,
+        pct_change,
     )
 
     return {
@@ -1431,6 +1555,7 @@ def optimize_allocation(
 # ---------------------------------------------------------------------------
 # Master function
 # ---------------------------------------------------------------------------
+
 
 def calculate_budget_allocation(
     total_budget: float,
@@ -1477,7 +1602,10 @@ def calculate_budget_allocation(
     logger.info(
         "calculate_budget_allocation: budget=$%.2f, roles=%d, locations=%d, "
         "industry=%s, channels=%d",
-        total_budget, len(roles), len(locations), industry,
+        total_budget,
+        len(roles),
+        len(locations),
+        industry,
         len(channel_percentages),
     )
 
@@ -1501,7 +1629,9 @@ def calculate_budget_allocation(
     )
 
     # Step 1b: Apply geopolitical risk adjustments (if available)
-    geo_context = synthesized_data.get("geopolitical_context", {}) if synthesized_data else {}
+    geo_context = (
+        synthesized_data.get("geopolitical_context", {}) if synthesized_data else {}
+    )
     geo_locations = geo_context.get("locations", {})
     if geo_locations:
         for loc_key, loc_mult in list(location_multipliers.items()):
@@ -1516,7 +1646,9 @@ def calculate_budget_allocation(
                         location_multipliers[loc_key] = loc_mult * adj_factor
                         logger.info(
                             "Geopolitical adjustment for %s: %.2fx (risk factor %.2f)",
-                            loc_key, location_multipliers[loc_key], adj_factor,
+                            loc_key,
+                            location_multipliers[loc_key],
+                            adj_factor,
                         )
                     break
 
@@ -1531,20 +1663,31 @@ def calculate_budget_allocation(
     if locations:
         loc0 = locations[0]
         if isinstance(loc0, dict):
-            primary_location = loc0.get("city", loc0.get("location", loc0.get("name", "")))
+            primary_location = loc0.get(
+                "city", loc0.get("location", loc0.get("name") or "")
+            )
         elif isinstance(loc0, str):
             primary_location = loc0
 
     channel_allocs = compute_channel_dollar_amounts(
-        channel_percentages, role_budgets, synthesized_data, knowledge_base,
-        industry=industry, collar_type=collar_type, location=primary_location,
+        channel_percentages,
+        role_budgets,
+        synthesized_data,
+        knowledge_base,
+        industry=industry,
+        collar_type=collar_type,
+        location=primary_location,
         month=campaign_start_month,
     )
 
     # Step 4: Aggregate projected totals
-    total_clicks = sum(ch.get("projected_clicks", 0) for ch in channel_allocs.values())
-    total_apps = sum(ch.get("projected_applications", 0) for ch in channel_allocs.values())
-    total_hires = sum(ch.get("projected_hires", 0) for ch in channel_allocs.values())
+    total_clicks = sum(
+        ch.get("projected_clicks") or 0 for ch in channel_allocs.values()
+    )
+    total_apps = sum(
+        ch.get("projected_applications") or 0 for ch in channel_allocs.values()
+    )
+    total_hires = sum(ch.get("projected_hires") or 0 for ch in channel_allocs.values())
     avg_cost_per_hire = _safe_divide(total_budget, max(total_hires, 1), total_budget)
 
     total_projected = {
@@ -1552,7 +1695,9 @@ def calculate_budget_allocation(
         "applications": total_apps,
         "hires": total_hires,
         "cost_per_hire": round(avg_cost_per_hire, 2),
-        "cost_per_application": round(_safe_divide(total_budget, max(total_apps, 1), 0), 2),
+        "cost_per_application": round(
+            _safe_divide(total_budget, max(total_apps, 1), 0), 2
+        ),
         "cost_per_click": round(_safe_divide(total_budget, max(total_clicks, 1), 0), 2),
     }
 
@@ -1563,17 +1708,22 @@ def calculate_budget_allocation(
     )
 
     sufficiency = assess_budget_sufficiency(
-        total_budget, total_openings, industry,
-        channel_allocs, knowledge_base,
+        total_budget,
+        total_openings,
+        industry,
+        channel_allocs,
+        knowledge_base,
     )
 
     # Step 6: Optimisation suggestions
-    optimized = optimize_allocation(channel_allocs, total_budget, "hires", collar_type=collar_type)
+    optimized = optimize_allocation(
+        channel_allocs, total_budget, "hires", collar_type=collar_type
+    )
 
     # Consolidate warnings and recommendations
-    all_warnings = list(sufficiency.get("warnings", []))
-    all_recommendations = list(sufficiency.get("recommendations", []))
-    if optimized.get("improvement", {}).get("pct_change", 0) > 5:
+    all_warnings = list(sufficiency.get("warnings") or [])
+    all_recommendations = list(sufficiency.get("recommendations") or [])
+    if optimized.get("improvement", {}).get("pct_change") or 0 > 5:
         all_recommendations.append(
             f"Optimised allocation could improve projected hires by "
             f"{optimized['improvement']['pct_change']:.0f}%. "
@@ -1600,16 +1750,25 @@ def calculate_budget_allocation(
             # v3 metadata
             "trend_engine_available": _HAS_TREND_ENGINE,
             "collar_intelligence_available": _HAS_COLLAR_INTEL,
-            "collar_type_used": collar_type or _classify_roles_collar(role_budgets, industry),
+            "collar_type_used": collar_type
+            or _classify_roles_collar(role_budgets, industry),
             "primary_location": primary_location,
-            "campaign_start_month": campaign_start_month if campaign_start_month else datetime.datetime.now().month,
+            "campaign_start_month": (
+                campaign_start_month
+                if campaign_start_month
+                else datetime.datetime.now().month
+            ),
         },
     }
 
     logger.info(
         "Budget allocation complete: $%.2f -> %d clicks, %d applications, "
         "%d projected hires (CPH $%.0f)",
-        total_budget, total_clicks, total_apps, total_hires, avg_cost_per_hire,
+        total_budget,
+        total_clicks,
+        total_apps,
+        total_hires,
+        avg_cost_per_hire,
     )
 
     return result
@@ -1619,13 +1778,14 @@ def calculate_budget_allocation(
 # Private helpers (location processing)
 # ---------------------------------------------------------------------------
 
+
 def _location_key(loc: Dict) -> str:
     """Build a stable string key from a location dict."""
     if isinstance(loc, str):
         return loc.strip()
-    city = loc.get("city", loc.get("location", loc.get("name", "")))
-    state = loc.get("state", loc.get("region", ""))
-    country = loc.get("country", "")
+    city = loc.get("city", loc.get("location", loc.get("name") or ""))
+    state = loc.get("state", loc.get("region") or "")
+    country = loc.get("country") or ""
     parts = [p.strip() for p in [city, state, country] if p and str(p).strip()]
     return ", ".join(parts) if parts else ""
 
@@ -1651,38 +1811,65 @@ def _guess_country(loc: Any) -> str:
         parts = [p.strip() for p in loc.split(",")]
         return parts[-1] if len(parts) > 1 else ""
     if isinstance(loc, dict):
-        return str(loc.get("country", "")).strip()
+        return str(loc.get("country") or "").strip()
     return ""
 
 
 def _country_multiplier(country: str) -> float:
     """Return a cost multiplier for a country relative to US baseline."""
     _COUNTRY_MULTIPLIERS: Dict[str, float] = {
-        "united states": 1.0, "us": 1.0, "usa": 1.0,
-        "united kingdom": 1.15, "uk": 1.15, "gb": 1.15,
-        "canada": 1.05, "ca": 1.05,
-        "australia": 1.10, "au": 1.10,
-        "germany": 1.15, "de": 1.15,
-        "france": 1.10, "fr": 1.10,
-        "netherlands": 1.10, "nl": 1.10,
-        "switzerland": 1.50, "ch": 1.50,
-        "japan": 1.15, "jp": 1.15,
-        "singapore": 1.25, "sg": 1.25,
-        "india": 0.30, "in": 0.30,
-        "philippines": 0.28, "ph": 0.28,
-        "mexico": 0.40, "mx": 0.40,
-        "brazil": 0.45, "br": 0.45,
-        "china": 0.50, "cn": 0.50,
-        "south korea": 0.85, "kr": 0.85,
-        "poland": 0.55, "pl": 0.55,
-        "romania": 0.40, "ro": 0.40,
-        "ireland": 1.12, "ie": 1.12,
-        "israel": 1.15, "il": 1.15,
-        "uae": 1.10, "ae": 1.10,
-        "saudi arabia": 0.90, "sa": 0.90,
-        "nigeria": 0.20, "ng": 0.20,
-        "kenya": 0.22, "ke": 0.22,
-        "south africa": 0.35, "za": 0.35,
+        "united states": 1.0,
+        "us": 1.0,
+        "usa": 1.0,
+        "united kingdom": 1.15,
+        "uk": 1.15,
+        "gb": 1.15,
+        "canada": 1.05,
+        "ca": 1.05,
+        "australia": 1.10,
+        "au": 1.10,
+        "germany": 1.15,
+        "de": 1.15,
+        "france": 1.10,
+        "fr": 1.10,
+        "netherlands": 1.10,
+        "nl": 1.10,
+        "switzerland": 1.50,
+        "ch": 1.50,
+        "japan": 1.15,
+        "jp": 1.15,
+        "singapore": 1.25,
+        "sg": 1.25,
+        "india": 0.30,
+        "in": 0.30,
+        "philippines": 0.28,
+        "ph": 0.28,
+        "mexico": 0.40,
+        "mx": 0.40,
+        "brazil": 0.45,
+        "br": 0.45,
+        "china": 0.50,
+        "cn": 0.50,
+        "south korea": 0.85,
+        "kr": 0.85,
+        "poland": 0.55,
+        "pl": 0.55,
+        "romania": 0.40,
+        "ro": 0.40,
+        "ireland": 1.12,
+        "ie": 1.12,
+        "israel": 1.15,
+        "il": 1.15,
+        "uae": 1.10,
+        "ae": 1.10,
+        "saudi arabia": 0.90,
+        "sa": 0.90,
+        "nigeria": 0.20,
+        "ng": 0.20,
+        "kenya": 0.22,
+        "ke": 0.22,
+        "south africa": 0.35,
+        "za": 0.35,
     }
     c_lower = country.lower().strip()
     return _COUNTRY_MULTIPLIERS.get(c_lower, 0.80)
@@ -1722,7 +1909,12 @@ def _empty_result(warnings: Optional[List[str]] = None) -> Dict[str, Any]:
         "recommendations": [],
         "optimized": {
             "optimized_allocations": {},
-            "improvement": {"metric": "hires", "original": 0, "optimized": 0, "pct_change": 0.0},
+            "improvement": {
+                "metric": "hires",
+                "original": 0,
+                "optimized": 0,
+                "pct_change": 0.0,
+            },
             "changes": [],
         },
         "metadata": {},
@@ -1747,56 +1939,160 @@ def _empty_result(warnings: Optional[List[str]] = None) -> Dict[str, Any]:
 CHANNEL_QUALITY_SCORES: Dict[str, Dict[str, Dict[str, float]]] = {
     # channel -> collar_type -> {quality, retention_6mo, time_to_productive}
     "job_board": {
-        "blue_collar": {"quality": 0.65, "retention_6mo": 0.58, "time_to_productive": 20},
-        "white_collar": {"quality": 0.70, "retention_6mo": 0.62, "time_to_productive": 35},
+        "blue_collar": {
+            "quality": 0.65,
+            "retention_6mo": 0.58,
+            "time_to_productive": 20,
+        },
+        "white_collar": {
+            "quality": 0.70,
+            "retention_6mo": 0.62,
+            "time_to_productive": 35,
+        },
     },
     "programmatic": {
-        "blue_collar": {"quality": 0.60, "retention_6mo": 0.55, "time_to_productive": 18},
-        "white_collar": {"quality": 0.65, "retention_6mo": 0.58, "time_to_productive": 30},
+        "blue_collar": {
+            "quality": 0.60,
+            "retention_6mo": 0.55,
+            "time_to_productive": 18,
+        },
+        "white_collar": {
+            "quality": 0.65,
+            "retention_6mo": 0.58,
+            "time_to_productive": 30,
+        },
     },
     "social_media": {
-        "blue_collar": {"quality": 0.55, "retention_6mo": 0.50, "time_to_productive": 22},
-        "white_collar": {"quality": 0.60, "retention_6mo": 0.55, "time_to_productive": 32},
+        "blue_collar": {
+            "quality": 0.55,
+            "retention_6mo": 0.50,
+            "time_to_productive": 22,
+        },
+        "white_collar": {
+            "quality": 0.60,
+            "retention_6mo": 0.55,
+            "time_to_productive": 32,
+        },
     },
     "search_engine": {
-        "blue_collar": {"quality": 0.70, "retention_6mo": 0.62, "time_to_productive": 18},
-        "white_collar": {"quality": 0.75, "retention_6mo": 0.65, "time_to_productive": 28},
+        "blue_collar": {
+            "quality": 0.70,
+            "retention_6mo": 0.62,
+            "time_to_productive": 18,
+        },
+        "white_collar": {
+            "quality": 0.75,
+            "retention_6mo": 0.65,
+            "time_to_productive": 28,
+        },
     },
     "career_site": {
-        "blue_collar": {"quality": 0.75, "retention_6mo": 0.68, "time_to_productive": 16},
-        "white_collar": {"quality": 0.80, "retention_6mo": 0.72, "time_to_productive": 25},
+        "blue_collar": {
+            "quality": 0.75,
+            "retention_6mo": 0.68,
+            "time_to_productive": 16,
+        },
+        "white_collar": {
+            "quality": 0.80,
+            "retention_6mo": 0.72,
+            "time_to_productive": 25,
+        },
     },
     "employer_branding": {
-        "blue_collar": {"quality": 0.72, "retention_6mo": 0.65, "time_to_productive": 15},
-        "white_collar": {"quality": 0.78, "retention_6mo": 0.70, "time_to_productive": 22},
+        "blue_collar": {
+            "quality": 0.72,
+            "retention_6mo": 0.65,
+            "time_to_productive": 15,
+        },
+        "white_collar": {
+            "quality": 0.78,
+            "retention_6mo": 0.70,
+            "time_to_productive": 22,
+        },
     },
     "referral": {
-        "blue_collar": {"quality": 0.88, "retention_6mo": 0.82, "time_to_productive": 12},
-        "white_collar": {"quality": 0.90, "retention_6mo": 0.85, "time_to_productive": 18},
+        "blue_collar": {
+            "quality": 0.88,
+            "retention_6mo": 0.82,
+            "time_to_productive": 12,
+        },
+        "white_collar": {
+            "quality": 0.90,
+            "retention_6mo": 0.85,
+            "time_to_productive": 18,
+        },
     },
     "staffing_agency": {
-        "blue_collar": {"quality": 0.62, "retention_6mo": 0.52, "time_to_productive": 14},
-        "white_collar": {"quality": 0.68, "retention_6mo": 0.58, "time_to_productive": 25},
+        "blue_collar": {
+            "quality": 0.62,
+            "retention_6mo": 0.52,
+            "time_to_productive": 14,
+        },
+        "white_collar": {
+            "quality": 0.68,
+            "retention_6mo": 0.58,
+            "time_to_productive": 25,
+        },
     },
     "niche_board": {
-        "blue_collar": {"quality": 0.72, "retention_6mo": 0.64, "time_to_productive": 15},
-        "white_collar": {"quality": 0.78, "retention_6mo": 0.70, "time_to_productive": 28},
+        "blue_collar": {
+            "quality": 0.72,
+            "retention_6mo": 0.64,
+            "time_to_productive": 15,
+        },
+        "white_collar": {
+            "quality": 0.78,
+            "retention_6mo": 0.70,
+            "time_to_productive": 28,
+        },
     },
     "university": {
-        "blue_collar": {"quality": 0.58, "retention_6mo": 0.52, "time_to_productive": 30},
-        "white_collar": {"quality": 0.72, "retention_6mo": 0.65, "time_to_productive": 40},
+        "blue_collar": {
+            "quality": 0.58,
+            "retention_6mo": 0.52,
+            "time_to_productive": 30,
+        },
+        "white_collar": {
+            "quality": 0.72,
+            "retention_6mo": 0.65,
+            "time_to_productive": 40,
+        },
     },
     "display_retargeting": {
-        "blue_collar": {"quality": 0.50, "retention_6mo": 0.48, "time_to_productive": 22},
-        "white_collar": {"quality": 0.55, "retention_6mo": 0.50, "time_to_productive": 35},
+        "blue_collar": {
+            "quality": 0.50,
+            "retention_6mo": 0.48,
+            "time_to_productive": 22,
+        },
+        "white_collar": {
+            "quality": 0.55,
+            "retention_6mo": 0.50,
+            "time_to_productive": 35,
+        },
     },
     "events_jobfairs": {
-        "blue_collar": {"quality": 0.80, "retention_6mo": 0.72, "time_to_productive": 14},
-        "white_collar": {"quality": 0.75, "retention_6mo": 0.68, "time_to_productive": 30},
+        "blue_collar": {
+            "quality": 0.80,
+            "retention_6mo": 0.72,
+            "time_to_productive": 14,
+        },
+        "white_collar": {
+            "quality": 0.75,
+            "retention_6mo": 0.68,
+            "time_to_productive": 30,
+        },
     },
     "internal_mobility": {
-        "blue_collar": {"quality": 0.92, "retention_6mo": 0.88, "time_to_productive": 8},
-        "white_collar": {"quality": 0.95, "retention_6mo": 0.90, "time_to_productive": 12},
+        "blue_collar": {
+            "quality": 0.92,
+            "retention_6mo": 0.88,
+            "time_to_productive": 8,
+        },
+        "white_collar": {
+            "quality": 0.95,
+            "retention_6mo": 0.90,
+            "time_to_productive": 12,
+        },
     },
 }
 
@@ -1813,9 +2109,9 @@ _CATEGORY_TO_QUALITY_KEY: Dict[str, str] = {
     "referral": "referral",
     "events": "events_jobfairs",
     "staffing": "staffing_agency",
-    "email": "job_board",          # email campaigns similar quality profile
+    "email": "job_board",  # email campaigns similar quality profile
     "career_site": "career_site",
-    "regional": "job_board",       # regional boards similar to generic job boards
+    "regional": "job_board",  # regional boards similar to generic job boards
 }
 
 # Industry-specific quality adjustments.  Each entry maps an industry
@@ -1828,7 +2124,11 @@ _INDUSTRY_QUALITY_ADJUSTMENTS: Dict[str, Dict[str, float]] = {
     "finance": {"referral": 0.04, "employer_branding": 0.03, "niche_board": 0.03},
     "retail": {"events_jobfairs": 0.04, "social_media": 0.03},
     "hospitality": {"social_media": 0.04, "events_jobfairs": 0.05},
-    "manufacturing": {"events_jobfairs": 0.04, "referral": 0.03, "staffing_agency": 0.02},
+    "manufacturing": {
+        "events_jobfairs": 0.04,
+        "referral": 0.03,
+        "staffing_agency": 0.02,
+    },
     "education": {"university": 0.06, "career_site": 0.03},
     "logistics": {"referral": 0.03, "staffing_agency": 0.03, "events_jobfairs": 0.02},
     "pharma": {"niche_board": 0.06, "referral": 0.04},
@@ -1976,6 +2276,7 @@ def _resolve_quality_key(channel: str) -> str:
 # result dict returned by ``calculate_budget_allocation()``.
 # ===========================================================================
 
+
 def simulate_budget_change(
     base_allocation: Dict[str, Any],
     delta_budget: float = 0.0,
@@ -2007,15 +2308,19 @@ def simulate_budget_change(
         channel_allocs = base_allocation.get("channel_allocations", {})
         if not channel_allocs:
             logger.warning("simulate_budget_change: no channel_allocations in base")
-            return _empty_scenario("budget_change", "No channel allocations in base result")
+            return _empty_scenario(
+                "budget_change", "No channel allocations in base result"
+            )
 
         # --- 1. Determine original budget ---
         original_budget = sum(
-            ch.get("dollar_amount", ch.get("dollars", 0))
+            ch.get("dollar_amount", ch.get("dollars") or 0)
             for ch in channel_allocs.values()
         )
         if original_budget <= 0:
-            original_budget = base_allocation.get("metadata", {}).get("total_budget", 0)
+            original_budget = (
+                base_allocation.get("metadata", {}).get("total_budget") or 0
+            )
         if original_budget <= 0:
             logger.warning("simulate_budget_change: original budget is zero")
             return _empty_scenario("budget_change", "Original budget is zero")
@@ -2030,7 +2335,9 @@ def simulate_budget_change(
             new_budget = original_budget
 
         new_budget = max(new_budget, 0.0)
-        change_pct = _safe_divide(new_budget - original_budget, original_budget, 0.0) * 100.0
+        change_pct = (
+            _safe_divide(new_budget - original_budget, original_budget, 0.0) * 100.0
+        )
 
         # --- 3. Economy-of-scale factor ---
         # +0.5% efficiency per +10% budget (diminishing via sqrt)
@@ -2053,18 +2360,21 @@ def simulate_budget_change(
         total_new_hires = 0
 
         for ch_name, ch_data in channel_allocs.items():
-            orig_dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
+            orig_dollars = ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
             new_dollars = round(orig_dollars * budget_ratio, 2)
-            cpc = ch_data.get("cpc", 0)
-            apply_rate = ch_data.get("apply_rate", BASE_BENCHMARKS["apply_rate"].get(
-                ch_data.get("category", "job_board"), 0.05
-            ))
+            cpc = ch_data.get("cpc") or 0
+            apply_rate = ch_data.get(
+                "apply_rate",
+                BASE_BENCHMARKS["apply_rate"].get(
+                    ch_data.get("category", "job_board"), 0.05
+                ),
+            )
             hire_rate_val = BASE_BENCHMARKS.get("hire_rate", 0.02)
 
             # Original metrics
-            orig_clicks = ch_data.get("projected_clicks", 0)
-            orig_apps = ch_data.get("projected_applications", 0)
-            orig_hires = ch_data.get("projected_hires", 0)
+            orig_clicks = ch_data.get("projected_clicks") or 0
+            orig_apps = ch_data.get("projected_applications") or 0
+            orig_hires = ch_data.get("projected_hires") or 0
 
             total_orig_clicks += orig_clicks
             total_orig_apps += orig_apps
@@ -2094,15 +2404,11 @@ def simulate_budget_change(
         original_cpa = round(
             _safe_divide(original_budget, max(total_orig_apps, 1), 0.0), 2
         )
-        new_cpa = round(
-            _safe_divide(new_budget, max(total_new_apps, 1), 0.0), 2
-        )
+        new_cpa = round(_safe_divide(new_budget, max(total_new_apps, 1), 0.0), 2)
         original_cph = round(
             _safe_divide(original_budget, max(total_orig_hires, 1), 0.0), 2
         )
-        new_cph = round(
-            _safe_divide(new_budget, max(total_new_hires, 1), 0.0), 2
-        )
+        new_cph = round(_safe_divide(new_budget, max(total_new_hires, 1), 0.0), 2)
         roi_delta_pct = round(
             _safe_divide(original_cph - new_cph, max(original_cph, 1), 0.0) * 100.0, 1
         )
@@ -2140,16 +2446,16 @@ def simulate_budget_change(
             )
 
         if new_cpa < original_cpa and change_pct > 0:
-            cpa_improvement = _safe_divide(
-                original_cpa - new_cpa, max(original_cpa, 1), 0.0
-            ) * 100.0
+            cpa_improvement = (
+                _safe_divide(original_cpa - new_cpa, max(original_cpa, 1), 0.0) * 100.0
+            )
             recommendations.append(
                 f"CPA improves by {cpa_improvement:.1f}% due to economies of scale"
             )
         elif new_cpa > original_cpa and change_pct < 0:
-            cpa_degradation = _safe_divide(
-                new_cpa - original_cpa, max(original_cpa, 1), 0.0
-            ) * 100.0
+            cpa_degradation = (
+                _safe_divide(new_cpa - original_cpa, max(original_cpa, 1), 0.0) * 100.0
+            )
             recommendations.append(
                 f"CPA degrades by {cpa_degradation:.1f}% due to loss of scale efficiencies"
             )
@@ -2167,7 +2473,11 @@ def simulate_budget_change(
 
         logger.info(
             "simulate_budget_change: $%.0f -> $%.0f (%+.1f%%), hires %d -> %d",
-            original_budget, new_budget, change_pct, total_orig_hires, total_new_hires,
+            original_budget,
+            new_budget,
+            change_pct,
+            total_orig_hires,
+            total_new_hires,
         )
 
         return {
@@ -2217,20 +2527,24 @@ def simulate_channel_swap(
         channel_allocs = base_allocation.get("channel_allocations", {})
         if not channel_allocs:
             logger.warning("simulate_channel_swap: no channel_allocations in base")
-            return _empty_scenario("channel_swap", "No channel allocations in base result")
+            return _empty_scenario(
+                "channel_swap", "No channel allocations in base result"
+            )
 
         if not remove_channel and not add_channel:
-            return _empty_scenario("channel_swap", "No channel specified to add or remove")
+            return _empty_scenario(
+                "channel_swap", "No channel specified to add or remove"
+            )
 
         # Determine collar type from metadata
         metadata = base_allocation.get("metadata", {})
         collar_type = metadata.get("collar_type_used", "white_collar")
-        industry = metadata.get("industry", "")
+        industry = metadata.get("industry") or ""
         if collar_type == "both":
             collar_type = "white_collar"
 
         total_budget = sum(
-            ch.get("dollar_amount", ch.get("dollars", 0))
+            ch.get("dollar_amount", ch.get("dollars") or 0)
             for ch in channel_allocs.values()
         )
 
@@ -2239,12 +2553,12 @@ def simulate_channel_swap(
         orig_total_hires = 0
         orig_total_apps = 0
         for ch_name, ch_data in channel_allocs.items():
-            dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
+            dollars = ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
             weight = _safe_divide(dollars, max(total_budget, 1), 0.0)
             q_info = score_channel_quality(ch_name, collar_type, industry)
             orig_weighted_quality += q_info["quality_score"] * weight
-            orig_total_hires += ch_data.get("projected_hires", 0)
-            orig_total_apps += ch_data.get("projected_applications", 0)
+            orig_total_hires += ch_data.get("projected_hires") or 0
+            orig_total_apps += ch_data.get("projected_applications") or 0
 
         original_cpa = round(
             _safe_divide(total_budget, max(orig_total_apps, 1), 0.0), 2
@@ -2256,20 +2570,23 @@ def simulate_channel_swap(
         if remove_channel:
             # Try exact match first, then fuzzy
             for ch_name in channel_allocs:
-                if ch_name == remove_channel or ch_name.lower() == remove_channel.lower():
+                if (
+                    ch_name == remove_channel
+                    or ch_name.lower() == remove_channel.lower()
+                ):
                     matched_remove_key = ch_name
                     break
             if not matched_remove_key:
                 # Try category-based matching
                 remove_cat = _category_for_channel(remove_channel)
                 for ch_name, ch_data in channel_allocs.items():
-                    if ch_data.get("category", "") == remove_cat:
+                    if ch_data.get("category") or "" == remove_cat:
                         matched_remove_key = ch_name
                         break
             if matched_remove_key:
                 freed_budget = channel_allocs[matched_remove_key].get(
                     "dollar_amount",
-                    channel_allocs[matched_remove_key].get("dollars", 0),
+                    channel_allocs[matched_remove_key].get("dollars") or 0,
                 )
 
         if remove_channel and not matched_remove_key:
@@ -2319,7 +2636,9 @@ def simulate_channel_swap(
                 "projected_clicks": add_clicks,
                 "projected_applications": add_apps,
                 "projected_hires": add_hires,
-                "cpa": round(_safe_divide(add_dollars, max(add_apps, 1), add_dollars), 2),
+                "cpa": round(
+                    _safe_divide(add_dollars, max(add_apps, 1), add_dollars), 2
+                ),
                 "cost_per_hire": round(
                     _safe_divide(add_dollars, max(add_hires, 1), add_dollars), 2
                 ),
@@ -2329,11 +2648,11 @@ def simulate_channel_swap(
         elif rebalance and freed_budget > 0 and new_allocs:
             # Distribute freed budget proportionally across remaining channels
             remaining_total = sum(
-                ch.get("dollar_amount", ch.get("dollars", 0))
+                ch.get("dollar_amount", ch.get("dollars") or 0)
                 for ch in new_allocs.values()
             )
             for ch_name, ch_data in new_allocs.items():
-                ch_dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
+                ch_dollars = ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
                 share = _safe_divide(ch_dollars, max(remaining_total, 1), 0.0)
                 additional = freed_budget * share
                 new_dollars = ch_dollars + additional
@@ -2341,9 +2660,12 @@ def simulate_channel_swap(
 
                 # Reproject outcomes
                 cpc = ch_data.get("cpc", 0.85)
-                apply_rate = ch_data.get("apply_rate", BASE_BENCHMARKS["apply_rate"].get(
-                    ch_data.get("category", "job_board"), 0.05
-                ))
+                apply_rate = ch_data.get(
+                    "apply_rate",
+                    BASE_BENCHMARKS["apply_rate"].get(
+                        ch_data.get("category", "job_board"), 0.05
+                    ),
+                )
                 hire_rate_val = BASE_BENCHMARKS.get("hire_rate", 0.02)
 
                 if cpc > 0:
@@ -2356,9 +2678,7 @@ def simulate_channel_swap(
                     )
                 else:
                     ch_data["projected_clicks"] = 0
-                    ch_data["projected_applications"] = max(
-                        0, int(new_dollars / 50.0)
-                    )
+                    ch_data["projected_applications"] = max(0, int(new_dollars / 50.0))
                     ch_data["projected_hires"] = max(
                         0, int(ch_data["projected_applications"] * hire_rate_val * 2)
                     )
@@ -2370,19 +2690,17 @@ def simulate_channel_swap(
         budget_redistribution: Dict[str, float] = {}
 
         for ch_name, ch_data in new_allocs.items():
-            dollars = ch_data.get("dollar_amount", ch_data.get("dollars", 0))
+            dollars = ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
             weight = _safe_divide(dollars, max(total_budget, 1), 0.0)
             q_info = score_channel_quality(ch_name, collar_type, industry)
             new_weighted_quality += q_info["quality_score"] * weight
-            new_total_hires += ch_data.get("projected_hires", 0)
-            new_total_apps += ch_data.get("projected_applications", 0)
+            new_total_hires += ch_data.get("projected_hires") or 0
+            new_total_apps += ch_data.get("projected_applications") or 0
             budget_redistribution[ch_name] = round(
                 _safe_divide(dollars, max(total_budget, 1), 0.0) * 100, 1
             )
 
-        new_cpa = round(
-            _safe_divide(total_budget, max(new_total_apps, 1), 0.0), 2
-        )
+        new_cpa = round(_safe_divide(total_budget, max(new_total_apps, 1), 0.0), 2)
         quality_change = round(new_weighted_quality - orig_weighted_quality, 3)
         cpa_change_pct = round(
             _safe_divide(new_cpa - original_cpa, max(original_cpa, 1), 0.0) * 100, 1
@@ -2403,9 +2721,7 @@ def simulate_channel_swap(
                 f"across remaining channels"
             )
         elif add_channel:
-            recommendations.append(
-                f"Adding {add_channel} to the channel mix"
-            )
+            recommendations.append(f"Adding {add_channel} to the channel mix")
 
         if hires_change > 0:
             recommendations.append(
@@ -2443,7 +2759,11 @@ def simulate_channel_swap(
         logger.info(
             "simulate_channel_swap: remove=%s, add=%s, quality_delta=%+.3f, "
             "hires_delta=%+d, cpa_delta=%+.1f%%",
-            remove_channel, add_channel, quality_change, hires_change, cpa_change_pct,
+            remove_channel,
+            add_channel,
+            quality_change,
+            hires_change,
+            cpa_change_pct,
         )
 
         return {
@@ -2505,7 +2825,11 @@ def simulate_what_if(
         logger.info(
             "simulate_what_if: desc='%s', delta_budget=%.0f, delta_pct=%.2f, "
             "add=%s, remove=%s",
-            scenario_description, delta_budget, delta_pct, add_channel, remove_channel,
+            scenario_description,
+            delta_budget,
+            delta_pct,
+            add_channel,
+            remove_channel,
         )
 
         has_budget_change = delta_budget != 0.0 or delta_pct != 0.0
@@ -2530,7 +2854,7 @@ def simulate_what_if(
                 delta_budget=delta_budget,
                 delta_pct=delta_pct,
             )
-            all_recommendations.extend(budget_result.get("recommendations", []))
+            all_recommendations.extend(budget_result.get("recommendations") or [])
 
         # --- Channel swap ---
         if has_channel_change:
@@ -2549,12 +2873,11 @@ def simulate_what_if(
                 add_channel=add_channel,
                 rebalance=True,
             )
-            all_recommendations.extend(channel_result.get("recommendations", []))
+            all_recommendations.extend(channel_result.get("recommendations") or [])
 
         return {
-            "scenario_description": scenario_description or _auto_describe(
-                delta_budget, delta_pct, add_channel, remove_channel
-            ),
+            "scenario_description": scenario_description
+            or _auto_describe(delta_budget, delta_pct, add_channel, remove_channel),
             "budget_impact": budget_result,
             "channel_impact": channel_result,
             "recommendations": all_recommendations,
@@ -2574,6 +2897,7 @@ def simulate_what_if(
 # What-If private helpers
 # ---------------------------------------------------------------------------
 
+
 def _empty_scenario(scenario_type: str, reason: str = "") -> Dict[str, Any]:
     """Return a structurally valid but empty scenario result."""
     base: Dict[str, Any] = {
@@ -2581,42 +2905,46 @@ def _empty_scenario(scenario_type: str, reason: str = "") -> Dict[str, Any]:
         "recommendations": [reason] if reason else [],
     }
     if scenario_type == "budget_change":
-        base.update({
-            "original_budget": 0.0,
-            "new_budget": 0.0,
-            "change_pct": 0.0,
-            "impact": {
-                "additional_clicks": 0,
-                "additional_applications": 0,
-                "additional_hires": 0,
-                "original_hires": 0,
-                "new_projected_hires": 0,
-                "original_cpa": 0.0,
-                "new_cpa": 0.0,
-                "original_cph": 0.0,
-                "new_cph": 0.0,
-                "roi_delta_pct": 0.0,
-            },
-            "channel_changes": {},
-        })
+        base.update(
+            {
+                "original_budget": 0.0,
+                "new_budget": 0.0,
+                "change_pct": 0.0,
+                "impact": {
+                    "additional_clicks": 0,
+                    "additional_applications": 0,
+                    "additional_hires": 0,
+                    "original_hires": 0,
+                    "new_projected_hires": 0,
+                    "original_cpa": 0.0,
+                    "new_cpa": 0.0,
+                    "original_cph": 0.0,
+                    "new_cph": 0.0,
+                    "roi_delta_pct": 0.0,
+                },
+                "channel_changes": {},
+            }
+        )
     elif scenario_type == "channel_swap":
-        base.update({
-            "removed": "",
-            "added": "",
-            "freed_budget": 0.0,
-            "impact": {
-                "quality_change": 0.0,
-                "cpa_change_pct": 0.0,
-                "projected_hires_change": 0,
-                "original_hires": 0,
-                "new_projected_hires": 0,
-                "original_cpa": 0.0,
-                "new_cpa": 0.0,
-                "original_weighted_quality": 0.0,
-                "new_weighted_quality": 0.0,
-                "budget_redistribution": {},
-            },
-        })
+        base.update(
+            {
+                "removed": "",
+                "added": "",
+                "freed_budget": 0.0,
+                "impact": {
+                    "quality_change": 0.0,
+                    "cpa_change_pct": 0.0,
+                    "projected_hires_change": 0,
+                    "original_hires": 0,
+                    "new_projected_hires": 0,
+                    "original_cpa": 0.0,
+                    "new_cpa": 0.0,
+                    "original_weighted_quality": 0.0,
+                    "new_weighted_quality": 0.0,
+                    "budget_redistribution": {},
+                },
+            }
+        )
     return base
 
 
@@ -2645,7 +2973,7 @@ def _build_intermediate_allocation(
         if change_info:
             new_ch["dollar_amount"] = change_info.get(
                 "new_dollars",
-                ch_data.get("dollar_amount", ch_data.get("dollars", 0)),
+                ch_data.get("dollar_amount", ch_data.get("dollars") or 0),
             )
         intermediate["channel_allocations"][ch_name] = new_ch
 
@@ -2665,11 +2993,15 @@ def _auto_describe(
     """Generate a human-readable scenario description from parameters."""
     parts: List[str] = []
     if delta_budget != 0:
-        parts.append(f"{'Increase' if delta_budget > 0 else 'Decrease'} "
-                     f"budget by ${abs(delta_budget):,.0f}")
+        parts.append(
+            f"{'Increase' if delta_budget > 0 else 'Decrease'} "
+            f"budget by ${abs(delta_budget):,.0f}"
+        )
     elif delta_pct != 0:
-        parts.append(f"{'Increase' if delta_pct > 0 else 'Decrease'} "
-                     f"budget by {abs(delta_pct) * 100:.0f}%")
+        parts.append(
+            f"{'Increase' if delta_pct > 0 else 'Decrease'} "
+            f"budget by {abs(delta_pct) * 100:.0f}%"
+        )
     if remove_channel and add_channel:
         parts.append(f"swap {remove_channel} for {add_channel}")
     elif remove_channel:

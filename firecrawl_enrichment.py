@@ -1308,34 +1308,42 @@ def scrape_platform_ad_specs(platform: str) -> dict[str, Any]:
         recommended_size = (
             f"{img_w}x{img_h}"
             if img_w and img_h
-            else fb.get("image_specs", {}).get("recommended_size", "")
+            else fb.get("image_specs", {}).get("recommended_size") or ""
         )
 
         result: dict[str, Any] = {
             "platform": fb.get("platform") or platform_key.title(),
-            "formats": extracted.get("formats") or fb.get("formats", []),
+            "formats": extracted.get("formats") or fb.get("formats") or [],
             "image_specs": {
                 "recommended_size": recommended_size,
                 "aspect_ratio": extracted.get("image_aspect_ratio")
-                or fb.get("image_specs", {}).get("aspect_ratio", ""),
+                or fb.get("image_specs", {}).get("aspect_ratio")
+                or "",
                 "max_file_size_mb": extracted.get("image_max_size_mb")
-                or fb.get("image_specs", {}).get("max_file_size_mb", 0),
+                or fb.get("image_specs", {}).get("max_file_size_mb")
+                or 0,
             },
             "video_specs": {
                 "max_duration_sec": extracted.get("video_max_duration_sec")
-                or fb.get("video_specs", {}).get("max_duration_sec", 0),
+                or fb.get("video_specs", {}).get("max_duration_sec")
+                or 0,
                 "recommended_resolution": extracted.get("video_resolution")
-                or fb.get("video_specs", {}).get("recommended_resolution", ""),
+                or fb.get("video_specs", {}).get("recommended_resolution")
+                or "",
                 "max_file_size_mb": extracted.get("video_max_size_mb")
-                or fb.get("video_specs", {}).get("max_file_size_mb", 0),
+                or fb.get("video_specs", {}).get("max_file_size_mb")
+                or 0,
             },
             "text_limits": {
                 "headline": extracted.get("headline_limit")
-                or fb.get("text_limits", {}).get("headline", 0),
+                or fb.get("text_limits", {}).get("headline")
+                or 0,
                 "description": extracted.get("description_limit")
-                or fb.get("text_limits", {}).get("description", 0),
+                or fb.get("text_limits", {}).get("description")
+                or 0,
                 "primary_text": extracted.get("primary_text_limit")
-                or fb.get("text_limits", {}).get("primary_text", 0),
+                or fb.get("text_limits", {}).get("primary_text")
+                or 0,
             },
             "source": "firecrawl_live",
             "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

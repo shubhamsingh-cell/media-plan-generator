@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 # ── Optional imports (lazy, with try/except like performance_tracker.py) ─────
 try:
     import trend_engine as _trend_engine
+
     _HAS_TREND_ENGINE = True
 except ImportError:
     _trend_engine = None
@@ -50,14 +51,17 @@ try:
     from shared_utils import INDUSTRY_LABEL_MAP, parse_budget
 except ImportError:
     INDUSTRY_LABEL_MAP = {}
+
     def parse_budget(v, *, default=100_000.0):
         try:
             return float(v)
         except Exception:
             return default
 
+
 try:
     import performance_tracker as _perf_tracker
+
     _HAS_PERF_TRACKER = True
 except ImportError:
     _perf_tracker = None
@@ -98,80 +102,80 @@ _QOH_WEIGHTS = {
 
 # Industry benchmark retention rates (fallback)
 _INDUSTRY_RETENTION_BENCHMARKS = {
-    "tech_engineering":        {"90d": 0.88, "180d": 0.82, "1y": 0.75},
-    "healthcare_medical":      {"90d": 0.85, "180d": 0.78, "1y": 0.70},
-    "finance_banking":         {"90d": 0.90, "180d": 0.85, "1y": 0.78},
-    "retail_consumer":         {"90d": 0.72, "180d": 0.60, "1y": 0.48},
-    "logistics_supply_chain":  {"90d": 0.70, "180d": 0.58, "1y": 0.45},
-    "hospitality_travel":      {"90d": 0.68, "180d": 0.55, "1y": 0.42},
-    "general_entry_level":     {"90d": 0.75, "180d": 0.65, "1y": 0.55},
-    "blue_collar_trades":      {"90d": 0.73, "180d": 0.62, "1y": 0.50},
-    "aerospace_defense":       {"90d": 0.92, "180d": 0.88, "1y": 0.82},
+    "tech_engineering": {"90d": 0.88, "180d": 0.82, "1y": 0.75},
+    "healthcare_medical": {"90d": 0.85, "180d": 0.78, "1y": 0.70},
+    "finance_banking": {"90d": 0.90, "180d": 0.85, "1y": 0.78},
+    "retail_consumer": {"90d": 0.72, "180d": 0.60, "1y": 0.48},
+    "logistics_supply_chain": {"90d": 0.70, "180d": 0.58, "1y": 0.45},
+    "hospitality_travel": {"90d": 0.68, "180d": 0.55, "1y": 0.42},
+    "general_entry_level": {"90d": 0.75, "180d": 0.65, "1y": 0.55},
+    "blue_collar_trades": {"90d": 0.73, "180d": 0.62, "1y": 0.50},
+    "aerospace_defense": {"90d": 0.92, "180d": 0.88, "1y": 0.82},
     "construction_real_estate": {"90d": 0.74, "180d": 0.63, "1y": 0.52},
-    "automotive":              {"90d": 0.78, "180d": 0.70, "1y": 0.60},
-    "energy_utilities":        {"90d": 0.88, "180d": 0.82, "1y": 0.76},
-    "pharma_biotech":          {"90d": 0.90, "180d": 0.85, "1y": 0.78},
-    "insurance":               {"90d": 0.85, "180d": 0.78, "1y": 0.70},
-    "telecommunications":     {"90d": 0.82, "180d": 0.74, "1y": 0.65},
-    "food_beverage":           {"90d": 0.70, "180d": 0.57, "1y": 0.44},
-    "education":               {"90d": 0.88, "180d": 0.82, "1y": 0.76},
-    "media_entertainment":     {"90d": 0.80, "180d": 0.72, "1y": 0.62},
-    "legal_services":          {"90d": 0.88, "180d": 0.82, "1y": 0.75},
-    "mental_health":           {"90d": 0.78, "180d": 0.68, "1y": 0.58},
-    "maritime_marine":         {"90d": 0.80, "180d": 0.72, "1y": 0.62},
-    "military_recruitment":    {"90d": 0.92, "180d": 0.88, "1y": 0.84},
+    "automotive": {"90d": 0.78, "180d": 0.70, "1y": 0.60},
+    "energy_utilities": {"90d": 0.88, "180d": 0.82, "1y": 0.76},
+    "pharma_biotech": {"90d": 0.90, "180d": 0.85, "1y": 0.78},
+    "insurance": {"90d": 0.85, "180d": 0.78, "1y": 0.70},
+    "telecommunications": {"90d": 0.82, "180d": 0.74, "1y": 0.65},
+    "food_beverage": {"90d": 0.70, "180d": 0.57, "1y": 0.44},
+    "education": {"90d": 0.88, "180d": 0.82, "1y": 0.76},
+    "media_entertainment": {"90d": 0.80, "180d": 0.72, "1y": 0.62},
+    "legal_services": {"90d": 0.88, "180d": 0.82, "1y": 0.75},
+    "mental_health": {"90d": 0.78, "180d": 0.68, "1y": 0.58},
+    "maritime_marine": {"90d": 0.80, "180d": 0.72, "1y": 0.62},
+    "military_recruitment": {"90d": 0.92, "180d": 0.88, "1y": 0.84},
 }
 
 # Industry benchmark QoH scores (fallback)
 _INDUSTRY_QOH_BENCHMARKS = {
-    "tech_engineering":        {"avg_qoh": 68, "top_quartile": 82},
-    "healthcare_medical":      {"avg_qoh": 65, "top_quartile": 79},
-    "finance_banking":         {"avg_qoh": 70, "top_quartile": 84},
-    "retail_consumer":         {"avg_qoh": 55, "top_quartile": 70},
-    "logistics_supply_chain":  {"avg_qoh": 52, "top_quartile": 68},
-    "hospitality_travel":      {"avg_qoh": 50, "top_quartile": 66},
-    "general_entry_level":     {"avg_qoh": 58, "top_quartile": 73},
-    "blue_collar_trades":      {"avg_qoh": 56, "top_quartile": 71},
-    "aerospace_defense":       {"avg_qoh": 72, "top_quartile": 86},
+    "tech_engineering": {"avg_qoh": 68, "top_quartile": 82},
+    "healthcare_medical": {"avg_qoh": 65, "top_quartile": 79},
+    "finance_banking": {"avg_qoh": 70, "top_quartile": 84},
+    "retail_consumer": {"avg_qoh": 55, "top_quartile": 70},
+    "logistics_supply_chain": {"avg_qoh": 52, "top_quartile": 68},
+    "hospitality_travel": {"avg_qoh": 50, "top_quartile": 66},
+    "general_entry_level": {"avg_qoh": 58, "top_quartile": 73},
+    "blue_collar_trades": {"avg_qoh": 56, "top_quartile": 71},
+    "aerospace_defense": {"avg_qoh": 72, "top_quartile": 86},
     "construction_real_estate": {"avg_qoh": 57, "top_quartile": 72},
-    "automotive":              {"avg_qoh": 60, "top_quartile": 75},
-    "energy_utilities":        {"avg_qoh": 68, "top_quartile": 82},
-    "pharma_biotech":          {"avg_qoh": 70, "top_quartile": 85},
-    "insurance":               {"avg_qoh": 65, "top_quartile": 79},
-    "telecommunications":     {"avg_qoh": 62, "top_quartile": 77},
-    "food_beverage":           {"avg_qoh": 50, "top_quartile": 66},
-    "education":               {"avg_qoh": 66, "top_quartile": 80},
-    "media_entertainment":     {"avg_qoh": 60, "top_quartile": 75},
-    "legal_services":          {"avg_qoh": 68, "top_quartile": 82},
-    "mental_health":           {"avg_qoh": 60, "top_quartile": 75},
-    "maritime_marine":         {"avg_qoh": 62, "top_quartile": 77},
-    "military_recruitment":    {"avg_qoh": 74, "top_quartile": 88},
+    "automotive": {"avg_qoh": 60, "top_quartile": 75},
+    "energy_utilities": {"avg_qoh": 68, "top_quartile": 82},
+    "pharma_biotech": {"avg_qoh": 70, "top_quartile": 85},
+    "insurance": {"avg_qoh": 65, "top_quartile": 79},
+    "telecommunications": {"avg_qoh": 62, "top_quartile": 77},
+    "food_beverage": {"avg_qoh": 50, "top_quartile": 66},
+    "education": {"avg_qoh": 66, "top_quartile": 80},
+    "media_entertainment": {"avg_qoh": 60, "top_quartile": 75},
+    "legal_services": {"avg_qoh": 68, "top_quartile": 82},
+    "mental_health": {"avg_qoh": 60, "top_quartile": 75},
+    "maritime_marine": {"avg_qoh": 62, "top_quartile": 77},
+    "military_recruitment": {"avg_qoh": 74, "top_quartile": 88},
 }
 
 # Source-channel quality modifiers (based on research showing referral/career site
 # hires tend to outperform job board hires)
 _SOURCE_QUALITY_MODIFIERS = {
-    "employee referral":  1.20,
-    "referral":           1.20,
-    "career site":        1.12,
-    "careers page":       1.12,
-    "internal":           1.15,
-    "linkedin":           1.08,
-    "indeed":             0.95,
-    "ziprecruiter":       0.93,
-    "glassdoor":          0.97,
-    "google":             1.00,
-    "facebook":           0.92,
-    "meta":               0.92,
-    "instagram":          0.90,
-    "job board":          0.94,
-    "programmatic":       0.96,
-    "staffing agency":    0.88,
-    "agency":             0.88,
+    "employee referral": 1.20,
+    "referral": 1.20,
+    "career site": 1.12,
+    "careers page": 1.12,
+    "internal": 1.15,
+    "linkedin": 1.08,
+    "indeed": 0.95,
+    "ziprecruiter": 0.93,
+    "glassdoor": 0.97,
+    "google": 1.00,
+    "facebook": 0.92,
+    "meta": 0.92,
+    "instagram": 0.90,
+    "job board": 0.94,
+    "programmatic": 0.96,
+    "staffing agency": 0.88,
+    "agency": 0.88,
     "recruitment agency": 0.88,
-    "university":         1.05,
-    "campus":             1.05,
-    "social media":       0.91,
+    "university": 1.05,
+    "campus": 1.05,
+    "social media": 0.91,
 }
 
 
@@ -180,37 +184,117 @@ _SOURCE_QUALITY_MODIFIERS = {
 # =============================================================================
 
 _HIRE_COLUMN_PATTERNS: Dict[str, List[str]] = {
-    "source":                 ["source", "channel", "platform", "medium", "hiring source",
-                               "recruitment channel", "referral source", "origin"],
-    "hire_date":              ["hire date", "start date", "onboard date", "date hired",
-                               "joining date", "date of hire", "doh"],
-    "employee_name":          ["employee", "name", "hire name", "candidate", "full name"],
-    "employee_id":            ["employee id", "emp id", "id", "employee number", "emp no"],
-    "role":                   ["role", "position", "title", "job title", "designation"],
-    "department":             ["department", "dept", "team", "business unit", "division"],
-    "performance_rating":     ["performance", "rating", "review score", "perf score",
-                               "performance score", "annual review", "performance rating"],
-    "retention_status":       ["retention", "status", "active", "retained", "still employed",
-                               "current status", "employment status", "terminated"],
-    "termination_date":       ["termination date", "end date", "separation date", "exit date",
-                               "last day", "leave date", "departure date"],
-    "time_to_productivity":   ["time to productivity", "ramp time", "ramp up", "ttp",
-                               "productivity days", "days to productive", "onboarding time"],
-    "hiring_manager_satisfaction": ["hiring manager", "manager satisfaction", "hm satisfaction",
-                                    "hm rating", "manager rating", "hm score", "manager score"],
-    "cost_to_hire":           ["cost to hire", "cost per hire", "cph", "hiring cost",
-                               "recruitment cost", "cost", "spend"],
-    "applications":           ["applications", "applicants", "applies", "total applicants",
-                               "candidates applied"],
-    "interviews":             ["interviews", "screened", "phone screens", "interviewed",
-                               "interview count"],
-    "offers":                 ["offers", "offers made", "offer extended", "offer count"],
-    "cultural_fit":           ["cultural fit", "culture score", "culture", "fit score",
-                               "value alignment"],
-    "diversity_flag":         ["diversity", "diverse", "underrepresented", "urg", "eeo",
-                               "diversity flag", "dei"],
-    "gender":                 ["gender", "sex"],
-    "ethnicity":              ["ethnicity", "race", "ethnic group"],
+    "source": [
+        "source",
+        "channel",
+        "platform",
+        "medium",
+        "hiring source",
+        "recruitment channel",
+        "referral source",
+        "origin",
+    ],
+    "hire_date": [
+        "hire date",
+        "start date",
+        "onboard date",
+        "date hired",
+        "joining date",
+        "date of hire",
+        "doh",
+    ],
+    "employee_name": ["employee", "name", "hire name", "candidate", "full name"],
+    "employee_id": ["employee id", "emp id", "id", "employee number", "emp no"],
+    "role": ["role", "position", "title", "job title", "designation"],
+    "department": ["department", "dept", "team", "business unit", "division"],
+    "performance_rating": [
+        "performance",
+        "rating",
+        "review score",
+        "perf score",
+        "performance score",
+        "annual review",
+        "performance rating",
+    ],
+    "retention_status": [
+        "retention",
+        "status",
+        "active",
+        "retained",
+        "still employed",
+        "current status",
+        "employment status",
+        "terminated",
+    ],
+    "termination_date": [
+        "termination date",
+        "end date",
+        "separation date",
+        "exit date",
+        "last day",
+        "leave date",
+        "departure date",
+    ],
+    "time_to_productivity": [
+        "time to productivity",
+        "ramp time",
+        "ramp up",
+        "ttp",
+        "productivity days",
+        "days to productive",
+        "onboarding time",
+    ],
+    "hiring_manager_satisfaction": [
+        "hiring manager",
+        "manager satisfaction",
+        "hm satisfaction",
+        "hm rating",
+        "manager rating",
+        "hm score",
+        "manager score",
+    ],
+    "cost_to_hire": [
+        "cost to hire",
+        "cost per hire",
+        "cph",
+        "hiring cost",
+        "recruitment cost",
+        "cost",
+        "spend",
+    ],
+    "applications": [
+        "applications",
+        "applicants",
+        "applies",
+        "total applicants",
+        "candidates applied",
+    ],
+    "interviews": [
+        "interviews",
+        "screened",
+        "phone screens",
+        "interviewed",
+        "interview count",
+    ],
+    "offers": ["offers", "offers made", "offer extended", "offer count"],
+    "cultural_fit": [
+        "cultural fit",
+        "culture score",
+        "culture",
+        "fit score",
+        "value alignment",
+    ],
+    "diversity_flag": [
+        "diversity",
+        "diverse",
+        "underrepresented",
+        "urg",
+        "eeo",
+        "diversity flag",
+        "dei",
+    ],
+    "gender": ["gender", "sex"],
+    "ethnicity": ["ethnicity", "race", "ethnic group"],
 }
 
 
@@ -245,7 +329,7 @@ def _safe_float(val: Any) -> Optional[float]:
     s = str(val).strip()
     if not s or s.lower() in ("n/a", "na", "-", "--", "null", "none", ""):
         return None
-    s = re.sub(r'[$,\s%]', '', s)
+    s = re.sub(r"[$,\s%]", "", s)
     try:
         return float(s)
     except (ValueError, TypeError):
@@ -270,9 +354,20 @@ def _parse_date(val: Any) -> Optional[datetime.date]:
     s = str(val).strip()
     if not s or s.lower() in ("n/a", "na", "-", "--", "null", "none"):
         return None
-    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%m-%d-%Y", "%d-%m-%Y",
-                "%Y/%m/%d", "%B %d, %Y", "%b %d, %Y", "%d %B %Y", "%d %b %Y",
-                "%m/%d/%y", "%d/%m/%y"):
+    for fmt in (
+        "%Y-%m-%d",
+        "%m/%d/%Y",
+        "%d/%m/%Y",
+        "%m-%d-%Y",
+        "%d-%m-%Y",
+        "%Y/%m/%d",
+        "%B %d, %Y",
+        "%b %d, %Y",
+        "%d %B %Y",
+        "%d %b %Y",
+        "%m/%d/%y",
+        "%d/%m/%y",
+    ):
         try:
             return datetime.datetime.strptime(s, fmt).date()
         except ValueError:
@@ -285,10 +380,30 @@ def _parse_retention_status(val: Any) -> Optional[bool]:
     if val is None:
         return None
     s = str(val).strip().lower()
-    if s in ("active", "retained", "yes", "1", "true", "current", "employed", "still employed"):
+    if s in (
+        "active",
+        "retained",
+        "yes",
+        "1",
+        "true",
+        "current",
+        "employed",
+        "still employed",
+    ):
         return True
-    if s in ("terminated", "left", "no", "0", "false", "inactive", "departed",
-             "resigned", "fired", "separated", "exited"):
+    if s in (
+        "terminated",
+        "left",
+        "no",
+        "0",
+        "false",
+        "inactive",
+        "departed",
+        "resigned",
+        "fired",
+        "separated",
+        "exited",
+    ):
         return False
     return None
 
@@ -296,6 +411,7 @@ def _parse_retention_status(val: Any) -> Optional[bool]:
 # =============================================================================
 # 1. PARSE HIRING DATA
 # =============================================================================
+
 
 def parse_hiring_data(file_bytes: bytes, filename: str) -> List[Dict[str, Any]]:
     """Parse Excel/CSV with hiring quality data.
@@ -326,6 +442,7 @@ def parse_hiring_data(file_bytes: bytes, filename: str) -> List[Dict[str, Any]]:
 def _parse_excel_hires(file_bytes: bytes) -> List[Dict[str, Any]]:
     """Parse Excel file into hire records."""
     from openpyxl import load_workbook
+
     wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
     ws = wb.active
     rows = list(ws.iter_rows(values_only=True))
@@ -339,6 +456,7 @@ def _parse_excel_hires(file_bytes: bytes) -> List[Dict[str, Any]]:
 def _parse_csv_hires(file_bytes: bytes) -> List[Dict[str, Any]]:
     """Parse CSV file into hire records."""
     import csv as csv_mod
+
     text = None
     for enc in ("utf-8", "utf-8-sig", "latin-1", "cp1252"):
         try:
@@ -482,6 +600,7 @@ def _parse_diversity_flag(val: str) -> Optional[bool]:
 # 2. CALCULATE QUALITY OF HIRE (QoH) SCORE
 # =============================================================================
 
+
 def calculate_qoh_score(hire_data: Dict[str, Any]) -> float:
     """Calculate Quality of Hire composite score (0-100) for a single hire.
 
@@ -571,6 +690,7 @@ def _score_to_grade(score: float) -> str:
 # 3. ANALYZE SOURCE EFFECTIVENESS
 # =============================================================================
 
+
 def analyze_source_effectiveness(hires: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Full funnel analysis per source: applications -> interviews -> offers -> hires -> retained.
 
@@ -591,10 +711,10 @@ def analyze_source_effectiveness(hires: List[Dict[str, Any]]) -> Dict[str, Any]:
         n = len(source_hires)
 
         # Aggregate funnel metrics
-        total_apps = sum(h.get("applications", 0) for h in source_hires)
-        total_interviews = sum(h.get("interviews", 0) for h in source_hires)
-        total_offers = sum(h.get("offers", 0) for h in source_hires)
-        total_cost = sum(h.get("cost_to_hire", 0) for h in source_hires)
+        total_apps = sum(h.get("applications") or 0 for h in source_hires)
+        total_interviews = sum(h.get("interviews") or 0 for h in source_hires)
+        total_offers = sum(h.get("offers") or 0 for h in source_hires)
+        total_cost = sum(h.get("cost_to_hire") or 0 for h in source_hires)
 
         # QoH scores
         qoh_scores = [calculate_qoh_score(h) for h in source_hires]
@@ -602,26 +722,48 @@ def analyze_source_effectiveness(hires: List[Dict[str, Any]]) -> Dict[str, Any]:
         all_qoh_scores.extend(qoh_scores)
 
         # Performance ratings
-        perf_ratings = [h["performance_rating"] for h in source_hires if h.get("performance_rating") is not None]
+        perf_ratings = [
+            h["performance_rating"]
+            for h in source_hires
+            if h.get("performance_rating") is not None
+        ]
         avg_perf = sum(perf_ratings) / len(perf_ratings) if perf_ratings else None
 
         # Retention
-        retained_count = sum(1 for h in source_hires if h.get("retention_status") is True)
-        terminated_count = sum(1 for h in source_hires if h.get("retention_status") is False)
+        retained_count = sum(
+            1 for h in source_hires if h.get("retention_status") is True
+        )
+        terminated_count = sum(
+            1 for h in source_hires if h.get("retention_status") is False
+        )
         known_retention = retained_count + terminated_count
-        retention_rate = (retained_count / known_retention * 100) if known_retention > 0 else None
+        retention_rate = (
+            (retained_count / known_retention * 100) if known_retention > 0 else None
+        )
 
         # Time to productivity
-        ttp_values = [h["time_to_productivity"] for h in source_hires if h.get("time_to_productivity") is not None]
+        ttp_values = [
+            h["time_to_productivity"]
+            for h in source_hires
+            if h.get("time_to_productivity") is not None
+        ]
         avg_ttp = sum(ttp_values) / len(ttp_values) if ttp_values else None
 
         # HM satisfaction
-        hm_values = [h["hiring_manager_satisfaction"] for h in source_hires if h.get("hiring_manager_satisfaction") is not None]
+        hm_values = [
+            h["hiring_manager_satisfaction"]
+            for h in source_hires
+            if h.get("hiring_manager_satisfaction") is not None
+        ]
         avg_hm = sum(hm_values) / len(hm_values) if hm_values else None
 
         # Conversion rates
-        app_to_interview = (total_interviews / total_apps * 100) if total_apps > 0 else 0.0
-        interview_to_offer = (total_offers / total_interviews * 100) if total_interviews > 0 else 0.0
+        app_to_interview = (
+            (total_interviews / total_apps * 100) if total_apps > 0 else 0.0
+        )
+        interview_to_offer = (
+            (total_offers / total_interviews * 100) if total_interviews > 0 else 0.0
+        )
         offer_to_hire = (n / total_offers * 100) if total_offers > 0 else 0.0
         app_to_hire = (n / total_apps * 100) if total_apps > 0 else 0.0
 
@@ -629,13 +771,21 @@ def analyze_source_effectiveness(hires: List[Dict[str, Any]]) -> Dict[str, Any]:
         cph = total_cost / n if n > 0 else 0.0
         # CPQH = cost per quality hire (only count hires with QoH >= 60 as "quality")
         quality_hires = sum(1 for q in qoh_scores if q >= 60)
-        cpqh = total_cost / quality_hires if quality_hires > 0 else (total_cost if total_cost > 0 else 0.0)
+        cpqh = (
+            total_cost / quality_hires
+            if quality_hires > 0
+            else (total_cost if total_cost > 0 else 0.0)
+        )
         cpa = total_cost / total_apps if total_apps > 0 else 0.0
 
         # Diversity
         diverse_count = sum(1 for h in source_hires if h.get("diversity_flag") is True)
-        known_diversity = sum(1 for h in source_hires if h.get("diversity_flag") is not None)
-        diversity_rate = (diverse_count / known_diversity * 100) if known_diversity > 0 else None
+        known_diversity = sum(
+            1 for h in source_hires if h.get("diversity_flag") is not None
+        )
+        diversity_rate = (
+            (diverse_count / known_diversity * 100) if known_diversity > 0 else None
+        )
 
         results[source] = {
             "source": source,
@@ -646,11 +796,17 @@ def analyze_source_effectiveness(hires: List[Dict[str, Any]]) -> Dict[str, Any]:
             "total_cost": round(total_cost, 2),
             "avg_qoh_score": round(avg_qoh, 1),
             "qoh_grade": _score_to_grade(avg_qoh),
-            "avg_performance_rating": round(avg_perf, 1) if avg_perf is not None else None,
-            "retention_rate": round(retention_rate, 1) if retention_rate is not None else None,
+            "avg_performance_rating": (
+                round(avg_perf, 1) if avg_perf is not None else None
+            ),
+            "retention_rate": (
+                round(retention_rate, 1) if retention_rate is not None else None
+            ),
             "retained_count": retained_count,
             "terminated_count": terminated_count,
-            "avg_time_to_productivity": round(avg_ttp, 1) if avg_ttp is not None else None,
+            "avg_time_to_productivity": (
+                round(avg_ttp, 1) if avg_ttp is not None else None
+            ),
             "avg_hm_satisfaction": round(avg_hm, 1) if avg_hm is not None else None,
             "quality_hire_count": quality_hires,
             "quality_hire_pct": round(quality_hires / n * 100, 1) if n > 0 else 0.0,
@@ -663,7 +819,9 @@ def analyze_source_effectiveness(hires: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "offer_to_hire": round(offer_to_hire, 1),
                 "app_to_hire": round(app_to_hire, 2),
             },
-            "diversity_rate": round(diversity_rate, 1) if diversity_rate is not None else None,
+            "diversity_rate": (
+                round(diversity_rate, 1) if diversity_rate is not None else None
+            ),
             "diverse_hires": diverse_count,
         }
 
@@ -682,6 +840,7 @@ def analyze_source_effectiveness(hires: List[Dict[str, Any]]) -> Dict[str, Any]:
 # =============================================================================
 # 4. CALCULATE RETENTION RATES
 # =============================================================================
+
 
 def calculate_retention_rates(hires: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Calculate 90-day, 180-day, and 1-year retention rates by source.
@@ -721,7 +880,11 @@ def _compute_retention_for_group(group: List[Dict]) -> Dict[str, Any]:
         retained = 0
 
         for h in group:
-            hire_date = _parse_date(h.get("hire_date")) if isinstance(h.get("hire_date"), str) else h.get("hire_date")
+            hire_date = (
+                _parse_date(h.get("hire_date"))
+                if isinstance(h.get("hire_date"), str)
+                else h.get("hire_date")
+            )
             if hire_date is None:
                 continue
 
@@ -732,7 +895,11 @@ def _compute_retention_for_group(group: List[Dict]) -> Dict[str, Any]:
                 except (ValueError, TypeError):
                     continue
 
-            days_since_hire = (datetime.date.today() - hire_date).days if isinstance(hire_date, datetime.date) else 0
+            days_since_hire = (
+                (datetime.date.today() - hire_date).days
+                if isinstance(hire_date, datetime.date)
+                else 0
+            )
             if days_since_hire < days:
                 continue  # Not enough time has passed
 
@@ -764,6 +931,7 @@ def _compute_retention_for_group(group: List[Dict]) -> Dict[str, Any]:
 # 5. CALCULATE COST PER QUALITY HIRE (CPQH)
 # =============================================================================
 
+
 def calculate_cost_per_quality_hire(hires: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Calculate CPQH metric -- cost per quality hire vs traditional cost per hire.
 
@@ -784,13 +952,17 @@ def calculate_cost_per_quality_hire(hires: List[Dict[str, Any]]) -> Dict[str, An
 
     for source, source_hires in sources.items():
         n = len(source_hires)
-        total_cost = sum(h.get("cost_to_hire", 0) for h in source_hires)
+        total_cost = sum(h.get("cost_to_hire") or 0 for h in source_hires)
         qoh_scores = [calculate_qoh_score(h) for h in source_hires]
         quality_count = sum(1 for q in qoh_scores if q >= 60)
 
         cph = total_cost / n if n > 0 else 0.0
         cpqh = total_cost / quality_count if quality_count > 0 else None
-        cpa = total_cost / sum(h.get("applications", 0) for h in source_hires) if sum(h.get("applications", 0) for h in source_hires) > 0 else 0.0
+        cpa = (
+            total_cost / sum(h.get("applications") or 0 for h in source_hires)
+            if sum(h.get("applications") or 0 for h in source_hires) > 0
+            else 0.0
+        )
 
         # Value ratio: how much more expensive is a quality hire vs any hire?
         value_ratio = (cpqh / cph) if (cpqh and cph > 0) else None
@@ -821,9 +993,15 @@ def calculate_cost_per_quality_hire(hires: List[Dict[str, Any]]) -> Dict[str, An
             "total_cost": round(total_cost_all, 2),
             "total_hires": total_hires_all,
             "total_quality_hires": total_quality_all,
-            "quality_pct": round(total_quality_all / total_hires_all * 100, 1) if total_hires_all > 0 else 0.0,
+            "quality_pct": (
+                round(total_quality_all / total_hires_all * 100, 1)
+                if total_hires_all > 0
+                else 0.0
+            ),
             "cost_per_hire": round(overall_cph, 2),
-            "cost_per_quality_hire": round(overall_cpqh, 2) if overall_cpqh is not None else None,
+            "cost_per_quality_hire": (
+                round(overall_cpqh, 2) if overall_cpqh is not None else None
+            ),
         },
     }
 
@@ -832,13 +1010,20 @@ def calculate_cost_per_quality_hire(hires: List[Dict[str, Any]]) -> Dict[str, An
 # 6. BENCHMARK AGAINST INDUSTRY
 # =============================================================================
 
-def benchmark_against_industry(results: Dict[str, Any], industry: str = "general_entry_level") -> Dict[str, Any]:
+
+def benchmark_against_industry(
+    results: Dict[str, Any], industry: str = "general_entry_level"
+) -> Dict[str, Any]:
     """Compare hiring quality metrics against industry benchmarks.
 
     Returns dict with benchmark comparisons and variance analysis.
     """
-    bench_retention = _INDUSTRY_RETENTION_BENCHMARKS.get(industry, _INDUSTRY_RETENTION_BENCHMARKS["general_entry_level"])
-    bench_qoh = _INDUSTRY_QOH_BENCHMARKS.get(industry, _INDUSTRY_QOH_BENCHMARKS["general_entry_level"])
+    bench_retention = _INDUSTRY_RETENTION_BENCHMARKS.get(
+        industry, _INDUSTRY_RETENTION_BENCHMARKS["general_entry_level"]
+    )
+    bench_qoh = _INDUSTRY_QOH_BENCHMARKS.get(
+        industry, _INDUSTRY_QOH_BENCHMARKS["general_entry_level"]
+    )
 
     overall_qoh = results.get("overall_qoh", 50.0)
     avg_benchmark_qoh = bench_qoh["avg_qoh"]
@@ -874,7 +1059,9 @@ def benchmark_against_industry(results: Dict[str, Any], industry: str = "general
     if qoh_vs_avg >= 10:
         tier = "top_performer"
         tier_label = "Top Performer"
-        tier_description = "Your quality of hire significantly exceeds industry average."
+        tier_description = (
+            "Your quality of hire significantly exceeds industry average."
+        )
     elif qoh_vs_avg >= 0:
         tier = "above_average"
         tier_label = "Above Average"
@@ -890,7 +1077,9 @@ def benchmark_against_industry(results: Dict[str, Any], industry: str = "general
 
     return {
         "industry": industry,
-        "industry_label": INDUSTRY_LABEL_MAP.get(industry, industry.replace("_", " ").title()),
+        "industry_label": INDUSTRY_LABEL_MAP.get(
+            industry, industry.replace("_", " ").title()
+        ),
         "qoh_comparison": {
             "actual": overall_qoh,
             "industry_avg": avg_benchmark_qoh,
@@ -911,6 +1100,7 @@ def benchmark_against_industry(results: Dict[str, Any], industry: str = "general
 # 7. GENERATE RECOMMENDATIONS
 # =============================================================================
 
+
 def generate_recommendations(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Generate actionable recommendations based on the analysis.
 
@@ -924,136 +1114,168 @@ def generate_recommendations(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
     benchmark_data = analysis.get("benchmark", {})
 
     if not source_data:
-        return [{
-            "title": "Insufficient Data",
-            "description": "Upload hiring data with source/channel information to receive recommendations.",
-            "impact_score": 0,
-            "category": "data",
-            "priority": "medium",
-        }]
+        return [
+            {
+                "title": "Insufficient Data",
+                "description": "Upload hiring data with source/channel information to receive recommendations.",
+                "impact_score": 0,
+                "category": "data",
+                "priority": "medium",
+            }
+        ]
 
     # Sort sources by QoH
-    sorted_sources = sorted(source_data.values(), key=lambda x: x.get("avg_qoh_score", 0), reverse=True)
+    sorted_sources = sorted(
+        source_data.values(), key=lambda x: x.get("avg_qoh_score") or 0, reverse=True
+    )
 
     # 1. Scale top-performing sources
     for src in sorted_sources:
         if src["avg_qoh_score"] >= 70 and src["total_hires"] >= 2:
             impact = min(95, int(src["avg_qoh_score"] * 0.9 + src["total_hires"] * 2))
-            recommendations.append({
-                "title": f"Scale {src['source']} -- Top Quality Source",
-                "description": (
-                    f"{src['source']} produces hires with avg QoH of {src['avg_qoh_score']}/100 (Grade {src['qoh_grade']}). "
-                    f"Quality hire rate: {src['quality_hire_pct']:.0f}%. "
-                    f"Increase investment in this channel by 20-30% to maximize quality hires."
-                ),
-                "impact_score": impact,
-                "category": "scale",
-                "priority": "high",
-                "source": src["source"],
-            })
+            recommendations.append(
+                {
+                    "title": f"Scale {src['source']} -- Top Quality Source",
+                    "description": (
+                        f"{src['source']} produces hires with avg QoH of {src['avg_qoh_score']}/100 (Grade {src['qoh_grade']}). "
+                        f"Quality hire rate: {src['quality_hire_pct']:.0f}%. "
+                        f"Increase investment in this channel by 20-30% to maximize quality hires."
+                    ),
+                    "impact_score": impact,
+                    "category": "scale",
+                    "priority": "high",
+                    "source": src["source"],
+                }
+            )
 
     # 2. Reduce low-quality sources
     for src in reversed(sorted_sources):
         if src["avg_qoh_score"] < 45 and src["total_hires"] >= 2:
-            impact = min(90, int((100 - src["avg_qoh_score"]) * 0.8 + src.get("total_cost", 0) / 1000))
-            recommendations.append({
-                "title": f"Reduce {src['source']} -- Low Quality Source",
-                "description": (
-                    f"{src['source']} produces hires with avg QoH of only {src['avg_qoh_score']}/100 (Grade {src['qoh_grade']}). "
-                    f"Quality hire rate: {src['quality_hire_pct']:.0f}%. "
-                    f"Reduce budget by 25-40% and redirect to top-performing channels."
+            impact = min(
+                90,
+                int(
+                    (100 - src["avg_qoh_score"]) * 0.8 + src.get("total_cost")
+                    or 0 / 1000
                 ),
-                "impact_score": impact,
-                "category": "reduce",
-                "priority": "high",
-                "source": src["source"],
-            })
+            )
+            recommendations.append(
+                {
+                    "title": f"Reduce {src['source']} -- Low Quality Source",
+                    "description": (
+                        f"{src['source']} produces hires with avg QoH of only {src['avg_qoh_score']}/100 (Grade {src['qoh_grade']}). "
+                        f"Quality hire rate: {src['quality_hire_pct']:.0f}%. "
+                        f"Reduce budget by 25-40% and redirect to top-performing channels."
+                    ),
+                    "impact_score": impact,
+                    "category": "reduce",
+                    "priority": "high",
+                    "source": src["source"],
+                }
+            )
 
     # 3. CPQH optimization
     for source_name, cost_info in cost_data.items():
         if cost_info.get("value_ratio") and cost_info["value_ratio"] > 2.0:
-            recommendations.append({
-                "title": f"Improve {source_name} Quality Yield",
-                "description": (
-                    f"{source_name} has a CPQH/CPH ratio of {cost_info['value_ratio']:.1f}x -- "
-                    f"meaning you pay {cost_info['value_ratio']:.1f}x more per quality hire than per any hire. "
-                    f"Review screening criteria and candidate matching for this source."
-                ),
-                "impact_score": min(85, int(cost_info["value_ratio"] * 20)),
-                "category": "optimize",
-                "priority": "medium",
-                "source": source_name,
-            })
+            recommendations.append(
+                {
+                    "title": f"Improve {source_name} Quality Yield",
+                    "description": (
+                        f"{source_name} has a CPQH/CPH ratio of {cost_info['value_ratio']:.1f}x -- "
+                        f"meaning you pay {cost_info['value_ratio']:.1f}x more per quality hire than per any hire. "
+                        f"Review screening criteria and candidate matching for this source."
+                    ),
+                    "impact_score": min(85, int(cost_info["value_ratio"] * 20)),
+                    "category": "optimize",
+                    "priority": "medium",
+                    "source": source_name,
+                }
+            )
 
     # 4. Retention-focused recommendations
     for source_name, src_data in source_data.items():
         ret_rate = src_data.get("retention_rate")
         if ret_rate is not None and ret_rate < 60 and src_data["total_hires"] >= 3:
-            recommendations.append({
-                "title": f"Address {source_name} Retention Problem",
-                "description": (
-                    f"{source_name} has only {ret_rate:.0f}% retention rate. "
-                    f"Review job ad accuracy, interview process, and onboarding for hires from this source. "
-                    f"Consider pre-hire assessments to improve candidate-role fit."
-                ),
-                "impact_score": min(90, int((100 - ret_rate) * 0.9)),
-                "category": "retention",
-                "priority": "high",
-                "source": source_name,
-            })
+            recommendations.append(
+                {
+                    "title": f"Address {source_name} Retention Problem",
+                    "description": (
+                        f"{source_name} has only {ret_rate:.0f}% retention rate. "
+                        f"Review job ad accuracy, interview process, and onboarding for hires from this source. "
+                        f"Consider pre-hire assessments to improve candidate-role fit."
+                    ),
+                    "impact_score": min(90, int((100 - ret_rate) * 0.9)),
+                    "category": "retention",
+                    "priority": "high",
+                    "source": source_name,
+                }
+            )
 
     # 5. Funnel efficiency
     for source_name, src_data in source_data.items():
         conv = src_data.get("conversion_rates", {})
-        app_to_hire = conv.get("app_to_hire", 0)
-        if app_to_hire > 0 and app_to_hire < 1.0 and src_data.get("total_applications", 0) > 20:
-            recommendations.append({
-                "title": f"Improve {source_name} Funnel Efficiency",
-                "description": (
-                    f"{source_name} converts only {app_to_hire:.2f}% of applications to hires. "
-                    f"Review job descriptions, screening criteria, and interview process. "
-                    f"Better targeting can reduce wasted spend on unqualified applicants."
-                ),
-                "impact_score": min(75, int((5.0 - app_to_hire) * 15)),
-                "category": "funnel",
-                "priority": "medium",
-                "source": source_name,
-            })
+        app_to_hire = conv.get("app_to_hire") or 0
+        if (
+            app_to_hire > 0
+            and app_to_hire < 1.0
+            and src_data.get("total_applications")
+            or 0 > 20
+        ):
+            recommendations.append(
+                {
+                    "title": f"Improve {source_name} Funnel Efficiency",
+                    "description": (
+                        f"{source_name} converts only {app_to_hire:.2f}% of applications to hires. "
+                        f"Review job descriptions, screening criteria, and interview process. "
+                        f"Better targeting can reduce wasted spend on unqualified applicants."
+                    ),
+                    "impact_score": min(75, int((5.0 - app_to_hire) * 15)),
+                    "category": "funnel",
+                    "priority": "medium",
+                    "source": source_name,
+                }
+            )
 
     # 6. Benchmark-based recommendations
     tier = benchmark_data.get("tier", "near_average")
     if tier == "below_average":
-        recommendations.append({
-            "title": "Quality of Hire Below Industry Average",
-            "description": (
-                f"Your overall QoH ({benchmark_data.get('qoh_comparison', {}).get('actual', 0):.0f}) "
-                f"is below the industry average ({benchmark_data.get('qoh_comparison', {}).get('industry_avg', 0)}). "
-                f"Focus spending on your top 2-3 quality sources and improve screening processes."
-            ),
-            "impact_score": 88,
-            "category": "benchmark",
-            "priority": "critical",
-        })
+        recommendations.append(
+            {
+                "title": "Quality of Hire Below Industry Average",
+                "description": (
+                    f"Your overall QoH ({benchmark_data.get('qoh_comparison', {}).get('actual') or 0:.0f}) "
+                    f"is below the industry average ({benchmark_data.get('qoh_comparison', {}).get('industry_avg') or 0}). "
+                    f"Focus spending on your top 2-3 quality sources and improve screening processes."
+                ),
+                "impact_score": 88,
+                "category": "benchmark",
+                "priority": "critical",
+            }
+        )
 
     # 7. Diversity recommendations
-    diverse_sources = [(s, d) for s, d in source_data.items()
-                       if d.get("diversity_rate") is not None and d["diversity_rate"] > 30]
+    diverse_sources = [
+        (s, d)
+        for s, d in source_data.items()
+        if d.get("diversity_rate") is not None and d["diversity_rate"] > 30
+    ]
     if diverse_sources:
         best_diverse = max(diverse_sources, key=lambda x: x[1]["diversity_rate"])
-        recommendations.append({
-            "title": f"Leverage {best_diverse[0]} for Diversity Goals",
-            "description": (
-                f"{best_diverse[0]} has a {best_diverse[1]['diversity_rate']:.0f}% diversity rate -- "
-                f"the highest among your sources. Scale this channel to improve overall diversity metrics."
-            ),
-            "impact_score": 70,
-            "category": "diversity",
-            "priority": "medium",
-            "source": best_diverse[0],
-        })
+        recommendations.append(
+            {
+                "title": f"Leverage {best_diverse[0]} for Diversity Goals",
+                "description": (
+                    f"{best_diverse[0]} has a {best_diverse[1]['diversity_rate']:.0f}% diversity rate -- "
+                    f"the highest among your sources. Scale this channel to improve overall diversity metrics."
+                ),
+                "impact_score": 70,
+                "category": "diversity",
+                "priority": "medium",
+                "source": best_diverse[0],
+            }
+        )
 
     # Sort by impact score
-    recommendations.sort(key=lambda x: x.get("impact_score", 0), reverse=True)
+    recommendations.sort(key=lambda x: x.get("impact_score") or 0, reverse=True)
 
     return recommendations[:12]  # Cap at 12
 
@@ -1061,6 +1283,7 @@ def generate_recommendations(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
 # =============================================================================
 # 8. PREDICT SOURCE PERFORMANCE
 # =============================================================================
+
 
 def predict_source_performance(analysis: Dict[str, Any]) -> Dict[str, Any]:
     """ML-lite predictions for next quarter based on source patterns.
@@ -1078,7 +1301,7 @@ def predict_source_performance(analysis: Dict[str, Any]) -> Dict[str, Any]:
         current_qoh = src.get("avg_qoh_score", 50.0)
         retention_rate = src.get("retention_rate")
         quality_pct = src.get("quality_hire_pct", 50.0)
-        hires = src.get("total_hires", 0)
+        hires = src.get("total_hires") or 0
 
         # Source quality modifier
         modifier = 1.0
@@ -1139,8 +1362,10 @@ def predict_source_performance(analysis: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     # Overall confidence
-    total_hires = sum(s.get("total_hires", 0) for s in source_data.values())
-    overall_confidence = "high" if total_hires >= 50 else ("medium" if total_hires >= 20 else "low")
+    total_hires = sum(s.get("total_hires") or 0 for s in source_data.values())
+    overall_confidence = (
+        "high" if total_hires >= 50 else ("medium" if total_hires >= 20 else "low")
+    )
 
     return {
         "predictions": predictions,
@@ -1152,6 +1377,7 @@ def predict_source_performance(analysis: Dict[str, Any]) -> Dict[str, Any]:
 # =============================================================================
 # 9. GENERATE SAMPLE DATA
 # =============================================================================
+
 
 def generate_sample_data() -> List[Dict[str, Any]]:
     """Generate realistic sample hiring data for demo purposes.
@@ -1169,29 +1395,82 @@ def generate_sample_data() -> List[Dict[str, Any]]:
     ]
 
     roles = [
-        "Software Engineer", "Product Manager", "Data Analyst",
-        "Marketing Manager", "Sales Representative", "UX Designer",
-        "DevOps Engineer", "HR Coordinator", "Financial Analyst",
+        "Software Engineer",
+        "Product Manager",
+        "Data Analyst",
+        "Marketing Manager",
+        "Sales Representative",
+        "UX Designer",
+        "DevOps Engineer",
+        "HR Coordinator",
+        "Financial Analyst",
         "Customer Success Manager",
     ]
 
     departments = [
-        "Engineering", "Product", "Data", "Marketing",
-        "Sales", "Design", "Engineering", "People Ops",
-        "Finance", "Customer Success",
+        "Engineering",
+        "Product",
+        "Data",
+        "Marketing",
+        "Sales",
+        "Design",
+        "Engineering",
+        "People Ops",
+        "Finance",
+        "Customer Success",
     ]
 
     first_names = [
-        "Alex", "Jordan", "Taylor", "Morgan", "Casey", "Riley",
-        "Avery", "Quinn", "Sage", "Reese", "Dakota", "Cameron",
-        "Emerson", "Finley", "Hayden", "Jamie", "Kendall", "Logan",
-        "Parker", "Peyton", "Robin", "Sam", "Skyler", "Sydney",
+        "Alex",
+        "Jordan",
+        "Taylor",
+        "Morgan",
+        "Casey",
+        "Riley",
+        "Avery",
+        "Quinn",
+        "Sage",
+        "Reese",
+        "Dakota",
+        "Cameron",
+        "Emerson",
+        "Finley",
+        "Hayden",
+        "Jamie",
+        "Kendall",
+        "Logan",
+        "Parker",
+        "Peyton",
+        "Robin",
+        "Sam",
+        "Skyler",
+        "Sydney",
     ]
     last_names = [
-        "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia",
-        "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez",
-        "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson",
-        "Martin", "Lee", "Perez", "Thompson", "White", "Harris",
+        "Smith",
+        "Johnson",
+        "Williams",
+        "Brown",
+        "Jones",
+        "Garcia",
+        "Miller",
+        "Davis",
+        "Rodriguez",
+        "Martinez",
+        "Hernandez",
+        "Lopez",
+        "Wilson",
+        "Anderson",
+        "Thomas",
+        "Taylor",
+        "Moore",
+        "Jackson",
+        "Martin",
+        "Lee",
+        "Perez",
+        "Thompson",
+        "White",
+        "Harris",
     ]
 
     records = []
@@ -1262,8 +1541,14 @@ def generate_sample_data() -> List[Dict[str, Any]]:
 
         hire_date = base_date + datetime.timedelta(days=random.randint(0, 380))
         is_retained = random.random() < base_retention_prob
-        tenure_days = (datetime.date.today() - hire_date).days if is_retained else random.randint(15, min(300, (datetime.date.today() - hire_date).days))
-        term_date = None if is_retained else (hire_date + datetime.timedelta(days=tenure_days))
+        tenure_days = (
+            (datetime.date.today() - hire_date).days
+            if is_retained
+            else random.randint(15, min(300, (datetime.date.today() - hire_date).days))
+        )
+        term_date = (
+            None if is_retained else (hire_date + datetime.timedelta(days=tenure_days))
+        )
 
         role_idx = i % len(roles)
         perf = max(1.0, min(5.0, base_perf / 20.0))
@@ -1278,28 +1563,30 @@ def generate_sample_data() -> List[Dict[str, Any]]:
 
         is_diverse = random.random() < 0.35
 
-        records.append({
-            "source": source,
-            "hire_date": hire_date.isoformat(),
-            "employee_name": f"{random.choice(first_names)} {random.choice(last_names)}",
-            "employee_id": f"EMP-{1000 + i}",
-            "role": roles[role_idx],
-            "department": departments[role_idx],
-            "performance_rating": round(perf, 1),
-            "retention_status": is_retained,
-            "termination_date": term_date.isoformat() if term_date else None,
-            "tenure_days": tenure_days,
-            "time_to_productivity": ttp,
-            "hiring_manager_satisfaction": round(hm_sat, 1),
-            "cost_to_hire": cost,
-            "applications": total_apps,
-            "interviews": interviews,
-            "offers": offers,
-            "cultural_fit": round(cultural, 1),
-            "diversity_flag": is_diverse,
-            "gender": "",
-            "ethnicity": "",
-        })
+        records.append(
+            {
+                "source": source,
+                "hire_date": hire_date.isoformat(),
+                "employee_name": f"{random.choice(first_names)} {random.choice(last_names)}",
+                "employee_id": f"EMP-{1000 + i}",
+                "role": roles[role_idx],
+                "department": departments[role_idx],
+                "performance_rating": round(perf, 1),
+                "retention_status": is_retained,
+                "termination_date": term_date.isoformat() if term_date else None,
+                "tenure_days": tenure_days,
+                "time_to_productivity": ttp,
+                "hiring_manager_satisfaction": round(hm_sat, 1),
+                "cost_to_hire": cost,
+                "applications": total_apps,
+                "interviews": interviews,
+                "offers": offers,
+                "cultural_fit": round(cultural, 1),
+                "diversity_flag": is_diverse,
+                "gender": "",
+                "ethnicity": "",
+            }
+        )
 
     return records
 
@@ -1307,6 +1594,7 @@ def generate_sample_data() -> List[Dict[str, Any]]:
 # =============================================================================
 # 10. GENERATE SIGNAL EXCEL
 # =============================================================================
+
 
 def generate_signal_excel(report: Dict[str, Any], client_name: str = "Client") -> bytes:
     """Generate multi-sheet Excel report with HireSignal analysis.
@@ -1404,7 +1692,7 @@ def generate_signal_excel(report: Dict[str, Any], client_name: str = "Client") -
     retention = report.get("retention", {})
     cost_analysis = report.get("cost_analysis", {})
     benchmark = report.get("benchmark", {})
-    recommendations = report.get("recommendations", [])
+    recommendations = report.get("recommendations") or []
     predictions = report.get("predictions", {}).get("predictions", {})
     overall_qoh = source_eff.get("overall_qoh", 50.0)
     overall_grade = source_eff.get("overall_grade", "C")
@@ -1417,35 +1705,97 @@ def generate_signal_excel(report: Dict[str, Any], client_name: str = "Client") -
     row = 2
     for c in range(B, B + 7):
         ws1.cell(row=row, column=c).fill = fill_navy
-    ws1.cell(row=row, column=B, value=f"HireSignal -- Quality of Hire Report").font = f_title
+    ws1.cell(row=row, column=B, value=f"HireSignal -- Quality of Hire Report").font = (
+        f_title
+    )
     ws1.cell(row=row, column=B).alignment = align_left
     ws1.row_dimensions[row].height = 40
     row += 1
-    ws1.cell(row=row, column=B, value=f"{client_name} | Generated {datetime.datetime.now().strftime('%B %d, %Y')}").font = Font(name="Calibri", size=11, color=_SAPPHIRE)
+    ws1.cell(
+        row=row,
+        column=B,
+        value=f"{client_name} | Generated {datetime.datetime.now().strftime('%B %d, %Y')}",
+    ).font = Font(name="Calibri", size=11, color=_SAPPHIRE)
     row += 2
 
     row = _write_section_header(ws1, row, "Quality of Hire Scorecard")
 
     # Scorecard metrics
-    row = _write_table_header(ws1, row, ["Metric", "Value", "Grade", "Industry Avg", "vs. Benchmark", "Status", ""])
+    row = _write_table_header(
+        ws1,
+        row,
+        ["Metric", "Value", "Grade", "Industry Avg", "vs. Benchmark", "Status", ""],
+    )
     qoh_comp = benchmark.get("qoh_comparison", {})
     tier_label = benchmark.get("tier_label", "N/A")
 
     scorecard_rows = [
-        ("Overall QoH Score", f"{overall_qoh:.1f}/100", overall_grade,
-         str(qoh_comp.get("industry_avg", "N/A")), f"{qoh_comp.get('vs_avg', 0):+.1f}",
-         tier_label, ""),
-        ("Total Hires Analyzed", str(source_eff.get("total_hires", 0)), "", "", "", "", ""),
-        ("Sources Tracked", str(source_eff.get("source_count", 0)), "", "", "", "", ""),
+        (
+            "Overall QoH Score",
+            f"{overall_qoh:.1f}/100",
+            overall_grade,
+            str(qoh_comp.get("industry_avg", "N/A")),
+            f"{qoh_comp.get('vs_avg') or 0:+.1f}",
+            tier_label,
+            "",
+        ),
+        (
+            "Total Hires Analyzed",
+            str(source_eff.get("total_hires") or 0),
+            "",
+            "",
+            "",
+            "",
+            "",
+        ),
+        (
+            "Sources Tracked",
+            str(source_eff.get("source_count") or 0),
+            "",
+            "",
+            "",
+            "",
+            "",
+        ),
     ]
 
     overall_cost = cost_analysis.get("overall", {})
     if overall_cost:
-        scorecard_rows.extend([
-            ("Cost per Hire", f"${overall_cost.get('cost_per_hire', 0):,.2f}", "", "", "", "", ""),
-            ("Cost per Quality Hire", f"${overall_cost.get('cost_per_quality_hire', 0):,.2f}" if overall_cost.get("cost_per_quality_hire") else "N/A", "", "", "", "", ""),
-            ("Quality Hire %", f"{overall_cost.get('quality_pct', 0):.1f}%", "", "", "", "", ""),
-        ])
+        scorecard_rows.extend(
+            [
+                (
+                    "Cost per Hire",
+                    f"${overall_cost.get('cost_per_hire') or 0:,.2f}",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                ),
+                (
+                    "Cost per Quality Hire",
+                    (
+                        f"${overall_cost.get('cost_per_quality_hire') or 0:,.2f}"
+                        if overall_cost.get("cost_per_quality_hire")
+                        else "N/A"
+                    ),
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                ),
+                (
+                    "Quality Hire %",
+                    f"{overall_cost.get('quality_pct') or 0:.1f}%",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                ),
+            ]
+        )
 
     for sr in scorecard_rows:
         grade_val = sr[2]
@@ -1457,11 +1807,17 @@ def generate_signal_excel(report: Dict[str, Any], client_name: str = "Client") -
             grade_font = f_amber
         else:
             grade_font = f_body
-        row = _write_table_row(ws1, row, list(sr),
-                               fonts=[f_body_bold, f_body, grade_font, f_body, f_body, f_body, f_body])
+        row = _write_table_row(
+            ws1,
+            row,
+            list(sr),
+            fonts=[f_body_bold, f_body, grade_font, f_body, f_body, f_body, f_body],
+        )
 
     row += 2
-    ws1.cell(row=row, column=B, value="Powered by HireSignal | Joveo Nova AI").font = f_footnote
+    ws1.cell(row=row, column=B, value="Powered by HireSignal | Joveo Nova AI").font = (
+        f_footnote
+    )
 
     # ── SHEET 2: Source Effectiveness Matrix ─────────────────────────────
     ws2 = wb.create_sheet("Source Effectiveness")
@@ -1469,47 +1825,106 @@ def generate_signal_excel(report: Dict[str, Any], client_name: str = "Client") -
 
     row = 2
     row = _write_section_header(ws2, row, "Source Effectiveness Matrix", col_span=9)
-    row = _write_table_header(ws2, row, [
-        "Source", "Hires", "Applications", "Interviews", "Offers",
-        "QoH Score", "QoH Grade", "CPQH", "Retention %"
-    ])
+    row = _write_table_header(
+        ws2,
+        row,
+        [
+            "Source",
+            "Hires",
+            "Applications",
+            "Interviews",
+            "Offers",
+            "QoH Score",
+            "QoH Grade",
+            "CPQH",
+            "Retention %",
+        ],
+    )
 
-    sorted_sources = sorted(sources.values(), key=lambda x: x.get("avg_qoh_score", 0), reverse=True)
+    sorted_sources = sorted(
+        sources.values(), key=lambda x: x.get("avg_qoh_score") or 0, reverse=True
+    )
     for src in sorted_sources:
         grade = src.get("qoh_grade", "C")
-        grade_font = f_green if grade in ("A", "B") else (f_red if grade in ("D", "F") else f_amber)
-        ret_val = f"{src['retention_rate']:.0f}%" if src.get("retention_rate") is not None else "N/A"
-        cpqh_val = f"${src['cost_per_quality_hire']:,.0f}" if src.get("cost_per_quality_hire") else "N/A"
+        grade_font = (
+            f_green
+            if grade in ("A", "B")
+            else (f_red if grade in ("D", "F") else f_amber)
+        )
+        ret_val = (
+            f"{src['retention_rate']:.0f}%"
+            if src.get("retention_rate") is not None
+            else "N/A"
+        )
+        cpqh_val = (
+            f"${src['cost_per_quality_hire']:,.0f}"
+            if src.get("cost_per_quality_hire")
+            else "N/A"
+        )
 
-        row = _write_table_row(ws2, row, [
-            src["source"],
-            src["total_hires"],
-            int(src.get("total_applications", 0)),
-            int(src.get("total_interviews", 0)),
-            int(src.get("total_offers", 0)),
-            f"{src['avg_qoh_score']:.1f}",
-            grade,
-            cpqh_val,
-            ret_val,
-        ], fonts=[f_body_bold, f_body, f_body, f_body, f_body, f_body_bold, grade_font, f_body, f_body])
+        row = _write_table_row(
+            ws2,
+            row,
+            [
+                src["source"],
+                src["total_hires"],
+                int(src.get("total_applications") or 0),
+                int(src.get("total_interviews") or 0),
+                int(src.get("total_offers") or 0),
+                f"{src['avg_qoh_score']:.1f}",
+                grade,
+                cpqh_val,
+                ret_val,
+            ],
+            fonts=[
+                f_body_bold,
+                f_body,
+                f_body,
+                f_body,
+                f_body,
+                f_body_bold,
+                grade_font,
+                f_body,
+                f_body,
+            ],
+        )
 
     row += 1
     # Conversion rates sub-table
     row = _write_section_header(ws2, row, "Funnel Conversion Rates", col_span=9)
-    row = _write_table_header(ws2, row, [
-        "Source", "App->Interview", "Interview->Offer", "Offer->Hire", "App->Hire",
-        "", "", "", ""
-    ])
+    row = _write_table_header(
+        ws2,
+        row,
+        [
+            "Source",
+            "App->Interview",
+            "Interview->Offer",
+            "Offer->Hire",
+            "App->Hire",
+            "",
+            "",
+            "",
+            "",
+        ],
+    )
     for src in sorted_sources:
         conv = src.get("conversion_rates", {})
-        row = _write_table_row(ws2, row, [
-            src["source"],
-            f"{conv.get('app_to_interview', 0):.1f}%",
-            f"{conv.get('interview_to_offer', 0):.1f}%",
-            f"{conv.get('offer_to_hire', 0):.1f}%",
-            f"{conv.get('app_to_hire', 0):.2f}%",
-            "", "", "", "",
-        ], fonts=[f_body_bold] + [f_body] * 8)
+        row = _write_table_row(
+            ws2,
+            row,
+            [
+                src["source"],
+                f"{conv.get('app_to_interview') or 0:.1f}%",
+                f"{conv.get('interview_to_offer') or 0:.1f}%",
+                f"{conv.get('offer_to_hire') or 0:.1f}%",
+                f"{conv.get('app_to_hire') or 0:.2f}%",
+                "",
+                "",
+                "",
+                "",
+            ],
+            fonts=[f_body_bold] + [f_body] * 8,
+        )
 
     # ── SHEET 3: Retention Analysis ──────────────────────────────────────
     ws3 = wb.create_sheet("Retention Analysis")
@@ -1517,9 +1932,18 @@ def generate_signal_excel(report: Dict[str, Any], client_name: str = "Client") -
 
     row = 2
     row = _write_section_header(ws3, row, "Retention by Source", col_span=6)
-    row = _write_table_header(ws3, row, [
-        "Source", "90-Day Rate", "180-Day Rate", "1-Year Rate", "Retained", "Terminated"
-    ])
+    row = _write_table_header(
+        ws3,
+        row,
+        [
+            "Source",
+            "90-Day Rate",
+            "180-Day Rate",
+            "1-Year Rate",
+            "Retained",
+            "Terminated",
+        ],
+    )
 
     source_retention = retention.get("sources", {})
     for source_name in sorted(source_retention.keys()):
@@ -1529,45 +1953,78 @@ def generate_signal_excel(report: Dict[str, Any], client_name: str = "Client") -
         r1y = sr.get("1y", {}).get("rate")
         src_info = sources.get(source_name, {})
 
-        row = _write_table_row(ws3, row, [
-            source_name,
-            f"{r90:.0f}%" if r90 is not None else "N/A",
-            f"{r180:.0f}%" if r180 is not None else "N/A",
-            f"{r1y:.0f}%" if r1y is not None else "N/A",
-            src_info.get("retained_count", 0),
-            src_info.get("terminated_count", 0),
-        ], fonts=[f_body_bold] + [f_body] * 5)
+        row = _write_table_row(
+            ws3,
+            row,
+            [
+                source_name,
+                f"{r90:.0f}%" if r90 is not None else "N/A",
+                f"{r180:.0f}%" if r180 is not None else "N/A",
+                f"{r1y:.0f}%" if r1y is not None else "N/A",
+                src_info.get("retained_count") or 0,
+                src_info.get("terminated_count") or 0,
+            ],
+            fonts=[f_body_bold] + [f_body] * 5,
+        )
 
     # Overall row
     overall_ret = retention.get("overall", {})
-    row = _write_table_row(ws3, row, [
-        "OVERALL",
-        f"{overall_ret.get('90d', {}).get('rate', 0):.0f}%" if overall_ret.get("90d", {}).get("rate") else "N/A",
-        f"{overall_ret.get('180d', {}).get('rate', 0):.0f}%" if overall_ret.get("180d", {}).get("rate") else "N/A",
-        f"{overall_ret.get('1y', {}).get('rate', 0):.0f}%" if overall_ret.get("1y", {}).get("rate") else "N/A",
-        "", "",
-    ], fonts=[f_body_bold] * 2 + [f_body_bold] * 4,
-       fills=[fill_light] * 6)
+    row = _write_table_row(
+        ws3,
+        row,
+        [
+            "OVERALL",
+            (
+                f"{overall_ret.get('90d', {}).get('rate') or 0:.0f}%"
+                if overall_ret.get("90d", {}).get("rate")
+                else "N/A"
+            ),
+            (
+                f"{overall_ret.get('180d', {}).get('rate') or 0:.0f}%"
+                if overall_ret.get("180d", {}).get("rate")
+                else "N/A"
+            ),
+            (
+                f"{overall_ret.get('1y', {}).get('rate') or 0:.0f}%"
+                if overall_ret.get("1y", {}).get("rate")
+                else "N/A"
+            ),
+            "",
+            "",
+        ],
+        fonts=[f_body_bold] * 2 + [f_body_bold] * 4,
+        fills=[fill_light] * 6,
+    )
 
     # Benchmark comparison
     ret_comp = benchmark.get("retention_comparison", {})
     if ret_comp:
         row += 1
-        row = _write_section_header(ws3, row, "Retention vs Industry Benchmark", col_span=6)
-        row = _write_table_header(ws3, row, ["Period", "Your Rate", "Industry Benchmark", "Variance", "", ""])
+        row = _write_section_header(
+            ws3, row, "Retention vs Industry Benchmark", col_span=6
+        )
+        row = _write_table_header(
+            ws3, row, ["Period", "Your Rate", "Industry Benchmark", "Variance", "", ""]
+        )
         for period in ("90d", "180d", "1y"):
             comp = ret_comp.get(period, {})
             actual = comp.get("actual")
             bench = comp.get("benchmark")
             variance = comp.get("variance")
             v_font = f_green if (variance and variance >= 0) else f_red
-            row = _write_table_row(ws3, row, [
-                period.replace("d", " Day").replace("1y", "1 Year"),
-                f"{actual:.0f}%" if actual is not None else "N/A",
-                f"{bench:.0f}%" if bench is not None else "N/A",
-                f"{variance:+.1f}%" if variance is not None else "N/A",
-                "", "",
-            ], fonts=[f_body_bold, f_body, f_body, v_font, f_body, f_body])
+            row = _write_table_row(
+                ws3,
+                row,
+                [
+                    period.replace("d", " Day").replace("1y", "1 Year"),
+                    f"{actual:.0f}%" if actual is not None else "N/A",
+                    f"{bench:.0f}%" if bench is not None else "N/A",
+                    f"{variance:+.1f}%" if variance is not None else "N/A",
+                    "",
+                    "",
+                ],
+                fonts=[f_body_bold, f_body, f_body, v_font, f_body, f_body],
+            )
 
     # ── SHEET 4: Cost Intelligence ───────────────────────────────────────
     ws4 = wb.create_sheet("Cost Intelligence")
@@ -1575,9 +2032,19 @@ def generate_signal_excel(report: Dict[str, Any], client_name: str = "Client") -
 
     row = 2
     row = _write_section_header(ws4, row, "Cost per Quality Hire Analysis", col_span=7)
-    row = _write_table_header(ws4, row, [
-        "Source", "Total Cost", "CPH", "CPQH", "Quality %", "Value Ratio", "Cost Effective"
-    ])
+    row = _write_table_header(
+        ws4,
+        row,
+        [
+            "Source",
+            "Total Cost",
+            "CPH",
+            "CPQH",
+            "Quality %",
+            "Value Ratio",
+            "Cost Effective",
+        ],
+    )
 
     cost_sources = cost_analysis.get("sources", {})
     for source_name in sorted(cost_sources.keys()):
@@ -1587,15 +2054,20 @@ def generate_signal_excel(report: Dict[str, Any], client_name: str = "Client") -
         effective = cs.get("is_cost_effective", False)
         eff_font = f_green if effective else f_red
 
-        row = _write_table_row(ws4, row, [
-            source_name,
-            f"${cs.get('total_cost', 0):,.0f}",
-            f"${cs.get('cost_per_hire', 0):,.0f}",
-            f"${cpqh:,.0f}" if cpqh is not None else "N/A",
-            f"{cs.get('quality_pct', 0):.0f}%",
-            f"{vr:.2f}x" if vr is not None else "N/A",
-            "Yes" if effective else "No",
-        ], fonts=[f_body_bold, f_body, f_body, f_body_bold, f_body, f_body, eff_font])
+        row = _write_table_row(
+            ws4,
+            row,
+            [
+                source_name,
+                f"${cs.get('total_cost') or 0:,.0f}",
+                f"${cs.get('cost_per_hire') or 0:,.0f}",
+                f"${cpqh:,.0f}" if cpqh is not None else "N/A",
+                f"{cs.get('quality_pct') or 0:.0f}%",
+                f"{vr:.2f}x" if vr is not None else "N/A",
+                "Yes" if effective else "No",
+            ],
+            fonts=[f_body_bold, f_body, f_body, f_body_bold, f_body, f_body, eff_font],
+        )
 
     # ── SHEET 5: Recommendations ─────────────────────────────────────────
     ws5 = wb.create_sheet("Recommendations")
@@ -1603,49 +2075,97 @@ def generate_signal_excel(report: Dict[str, Any], client_name: str = "Client") -
 
     row = 2
     row = _write_section_header(ws5, row, "Action Plan", col_span=5)
-    row = _write_table_header(ws5, row, ["#", "Recommendation", "Detail", "Impact", "Priority"])
+    row = _write_table_header(
+        ws5, row, ["#", "Recommendation", "Detail", "Impact", "Priority"]
+    )
 
     for i, rec in enumerate(recommendations[:10], 1):
         priority = rec.get("priority", "medium")
-        p_font = f_red if priority in ("critical", "high") else (f_amber if priority == "medium" else f_body)
-        row = _write_table_row(ws5, row, [
-            i,
-            rec.get("title", ""),
-            rec.get("description", ""),
-            f"{rec.get('impact_score', 0)}/100",
-            priority.upper(),
-        ], fonts=[f_body_bold, f_body_bold, f_body, f_body, p_font],
-           aligns=[align_center, align_left, align_left, align_center, align_center])
+        p_font = (
+            f_red
+            if priority in ("critical", "high")
+            else (f_amber if priority == "medium" else f_body)
+        )
+        row = _write_table_row(
+            ws5,
+            row,
+            [
+                i,
+                rec.get("title") or "",
+                rec.get("description") or "",
+                f"{rec.get('impact_score') or 0}/100",
+                priority.upper(),
+            ],
+            fonts=[f_body_bold, f_body_bold, f_body, f_body, p_font],
+            aligns=[align_center, align_left, align_left, align_center, align_center],
+        )
 
     # ── SHEET 6: Predictions ──────────────────────────────────────────────
     ws6 = wb.create_sheet("Predictions")
     _set_col_widths(ws6, [3, 22, 14, 14, 14, 14, 14, 14, 3])
 
     row = 2
-    row = _write_section_header(ws6, row, "Next Quarter Source Performance Predictions", col_span=7)
-    row = _write_table_header(ws6, row, [
-        "Source", "Current QoH", "Projected QoH", "Proj. Grade", "Trend", "Confidence", "Range"
-    ])
+    row = _write_section_header(
+        ws6, row, "Next Quarter Source Performance Predictions", col_span=7
+    )
+    row = _write_table_header(
+        ws6,
+        row,
+        [
+            "Source",
+            "Current QoH",
+            "Projected QoH",
+            "Proj. Grade",
+            "Trend",
+            "Confidence",
+            "Range",
+        ],
+    )
 
     for source_name in sorted(predictions.keys()):
         pred = predictions[source_name]
         trend = pred.get("trend", "stable")
-        trend_font = f_green if trend == "improving" else (f_red if trend == "declining" else f_body)
+        trend_font = (
+            f_green
+            if trend == "improving"
+            else (f_red if trend == "declining" else f_body)
+        )
 
-        row = _write_table_row(ws6, row, [
-            source_name,
-            f"{pred.get('current_qoh', 0):.1f}",
-            f"{pred.get('projected_qoh', 0):.1f}",
-            pred.get("projected_grade", "C"),
-            trend.capitalize(),
-            pred.get("confidence", "low").capitalize(),
-            f"{pred.get('range_low', 0):.0f} - {pred.get('range_high', 0):.0f}",
-        ], fonts=[f_body_bold, f_body, f_body_bold, f_body, trend_font, f_body, f_body])
+        row = _write_table_row(
+            ws6,
+            row,
+            [
+                source_name,
+                f"{pred.get('current_qoh') or 0:.1f}",
+                f"{pred.get('projected_qoh') or 0:.1f}",
+                pred.get("projected_grade", "C"),
+                trend.capitalize(),
+                pred.get("confidence", "low").capitalize(),
+                f"{pred.get('range_low') or 0:.0f} - {pred.get('range_high') or 0:.0f}",
+            ],
+            fonts=[
+                f_body_bold,
+                f_body,
+                f_body_bold,
+                f_body,
+                trend_font,
+                f_body,
+                f_body,
+            ],
+        )
 
     row += 2
-    ws6.cell(row=row, column=B, value=f"Methodology: {report.get('predictions', {}).get('methodology', 'Weighted trend projection')}").font = f_footnote
+    ws6.cell(
+        row=row,
+        column=B,
+        value=f"Methodology: {report.get('predictions', {}).get('methodology', 'Weighted trend projection')}",
+    ).font = f_footnote
     row += 1
-    ws6.cell(row=row, column=B, value="Predictions are estimates based on historical patterns. Actual results may vary.").font = f_footnote
+    ws6.cell(
+        row=row,
+        column=B,
+        value="Predictions are estimates based on historical patterns. Actual results may vary.",
+    ).font = f_footnote
 
     # Save
     buf = io.BytesIO()
@@ -1656,6 +2176,7 @@ def generate_signal_excel(report: Dict[str, Any], client_name: str = "Client") -
 # =============================================================================
 # 11. GENERATE SIGNAL PPT
 # =============================================================================
+
 
 def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> bytes:
     """Generate 6-slide PPT report with HireSignal analysis.
@@ -1708,7 +2229,7 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
     retention = report.get("retention", {})
     cost_analysis = report.get("cost_analysis", {})
     benchmark = report.get("benchmark", {})
-    recommendations = report.get("recommendations", [])
+    recommendations = report.get("recommendations") or []
     predictions_data = report.get("predictions", {}).get("predictions", {})
     overall_qoh = source_eff.get("overall_qoh", 50.0)
     overall_grade = source_eff.get("overall_grade", "C")
@@ -1720,7 +2241,9 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
         fill.fore_color.rgb = color
 
     def _add_shape(slide, left, top, width, height, fill_color, border_color=None):
-        shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
+        shape = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height
+        )
         shape.fill.solid()
         shape.fill.fore_color.rgb = fill_color
         shape.line.fill.background()
@@ -1731,7 +2254,19 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
             shape.line.fill.background()
         return shape
 
-    def _add_text_box(slide, left, top, width, height, text, font_name=FONT_BODY, size=12, color=DARK_TEXT, bold=False, align=PP_ALIGN.LEFT):
+    def _add_text_box(
+        slide,
+        left,
+        top,
+        width,
+        height,
+        text,
+        font_name=FONT_BODY,
+        size=12,
+        color=DARK_TEXT,
+        bold=False,
+        align=PP_ALIGN.LEFT,
+    ):
         txBox = slide.shapes.add_textbox(left, top, width, height)
         tf = txBox.text_frame
         tf.word_wrap = True
@@ -1746,59 +2281,177 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
 
     def _footer(slide):
         _add_shape(slide, Inches(0), Inches(7.0), prs.slide_width, Inches(0.5), NAVY)
-        _add_text_box(slide, Inches(0.5), Inches(7.05), Inches(5), Inches(0.4),
-                      "Powered by HireSignal | Joveo Nova AI", FONT_BODY, 10, WHITE, align=PP_ALIGN.LEFT)
+        _add_text_box(
+            slide,
+            Inches(0.5),
+            Inches(7.05),
+            Inches(5),
+            Inches(0.4),
+            "Powered by HireSignal | Joveo Nova AI",
+            FONT_BODY,
+            10,
+            WHITE,
+            align=PP_ALIGN.LEFT,
+        )
 
     # ── SLIDE 1: Title ────────────────────────────────────────────────
     slide1 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide1, NAVY)
     _add_shape(slide1, Inches(0), Inches(0), prs.slide_width, Inches(0.08), TEAL)
 
-    _add_text_box(slide1, Inches(1.5), Inches(2.0), Inches(10), Inches(1.2),
-                  "HireSignal", FONT_TITLE, 44, WHITE, bold=True, align=PP_ALIGN.CENTER)
-    _add_text_box(slide1, Inches(1.5), Inches(3.2), Inches(10), Inches(0.6),
-                  "Quality of Hire Signal Tracker", FONT_TITLE, 20, TEAL, align=PP_ALIGN.CENTER)
-    _add_text_box(slide1, Inches(1.5), Inches(4.2), Inches(10), Inches(0.5),
-                  f"{client_name} | {source_eff.get('total_hires', 0)} Hires Analyzed",
-                  FONT_BODY, 16, TEAL, align=PP_ALIGN.CENTER)
-    _add_text_box(slide1, Inches(1.5), Inches(5.0), Inches(10), Inches(0.5),
-                  f"Generated {datetime.datetime.now().strftime('%B %d, %Y')}",
-                  FONT_BODY, 12, MUTED_TEXT, align=PP_ALIGN.CENTER)
+    _add_text_box(
+        slide1,
+        Inches(1.5),
+        Inches(2.0),
+        Inches(10),
+        Inches(1.2),
+        "HireSignal",
+        FONT_TITLE,
+        44,
+        WHITE,
+        bold=True,
+        align=PP_ALIGN.CENTER,
+    )
+    _add_text_box(
+        slide1,
+        Inches(1.5),
+        Inches(3.2),
+        Inches(10),
+        Inches(0.6),
+        "Quality of Hire Signal Tracker",
+        FONT_TITLE,
+        20,
+        TEAL,
+        align=PP_ALIGN.CENTER,
+    )
+    _add_text_box(
+        slide1,
+        Inches(1.5),
+        Inches(4.2),
+        Inches(10),
+        Inches(0.5),
+        f"{client_name} | {source_eff.get('total_hires') or 0} Hires Analyzed",
+        FONT_BODY,
+        16,
+        TEAL,
+        align=PP_ALIGN.CENTER,
+    )
+    _add_text_box(
+        slide1,
+        Inches(1.5),
+        Inches(5.0),
+        Inches(10),
+        Inches(0.5),
+        f"Generated {datetime.datetime.now().strftime('%B %d, %Y')}",
+        FONT_BODY,
+        12,
+        MUTED_TEXT,
+        align=PP_ALIGN.CENTER,
+    )
 
     _add_shape(slide1, Inches(0), Inches(7.0), prs.slide_width, Inches(0.5), BLUE)
-    _add_text_box(slide1, Inches(0.5), Inches(7.05), Inches(4), Inches(0.4),
-                  "Powered by HireSignal | Joveo", FONT_BODY, 10, WHITE, align=PP_ALIGN.LEFT)
+    _add_text_box(
+        slide1,
+        Inches(0.5),
+        Inches(7.05),
+        Inches(4),
+        Inches(0.4),
+        "Powered by HireSignal | Joveo",
+        FONT_BODY,
+        10,
+        WHITE,
+        align=PP_ALIGN.LEFT,
+    )
 
     # ── SLIDE 2: QoH Scorecard ────────────────────────────────────────
     slide2 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide2, OFF_WHITE)
 
-    _add_text_box(slide2, Inches(0.8), Inches(0.4), Inches(8), Inches(0.7),
-                  "Quality of Hire Overview", FONT_TITLE, 28, NAVY, bold=True)
+    _add_text_box(
+        slide2,
+        Inches(0.8),
+        Inches(0.4),
+        Inches(8),
+        Inches(0.7),
+        "Quality of Hire Overview",
+        FONT_TITLE,
+        28,
+        NAVY,
+        bold=True,
+    )
     _add_shape(slide2, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
     # Grade card
-    grade_color = GREEN if overall_grade in ("A", "B") else (AMBER if overall_grade == "C" else RED_ACCENT)
-    grade_bg = LIGHT_GREEN if overall_grade in ("A", "B") else (RGBColor(0xFE, 0xF3, 0xC7) if overall_grade == "C" else LIGHT_RED)
+    grade_color = (
+        GREEN
+        if overall_grade in ("A", "B")
+        else (AMBER if overall_grade == "C" else RED_ACCENT)
+    )
+    grade_bg = (
+        LIGHT_GREEN
+        if overall_grade in ("A", "B")
+        else (RGBColor(0xFE, 0xF3, 0xC7) if overall_grade == "C" else LIGHT_RED)
+    )
 
-    _add_shape(slide2, Inches(0.8), Inches(1.5), Inches(2.5), Inches(2.5), grade_bg, WARM_GRAY)
-    _add_text_box(slide2, Inches(0.8), Inches(1.6), Inches(2.5), Inches(0.4),
-                  "OVERALL QoH GRADE", FONT_BODY, 10, MUTED_TEXT, align=PP_ALIGN.CENTER)
-    _add_text_box(slide2, Inches(0.8), Inches(2.0), Inches(2.5), Inches(1.2),
-                  overall_grade, FONT_TITLE, 64, grade_color, bold=True, align=PP_ALIGN.CENTER)
-    _add_text_box(slide2, Inches(0.8), Inches(3.2), Inches(2.5), Inches(0.4),
-                  f"Score: {overall_qoh:.0f}/100", FONT_BODY, 14, DARK_TEXT, bold=True, align=PP_ALIGN.CENTER)
+    _add_shape(
+        slide2, Inches(0.8), Inches(1.5), Inches(2.5), Inches(2.5), grade_bg, WARM_GRAY
+    )
+    _add_text_box(
+        slide2,
+        Inches(0.8),
+        Inches(1.6),
+        Inches(2.5),
+        Inches(0.4),
+        "OVERALL QoH GRADE",
+        FONT_BODY,
+        10,
+        MUTED_TEXT,
+        align=PP_ALIGN.CENTER,
+    )
+    _add_text_box(
+        slide2,
+        Inches(0.8),
+        Inches(2.0),
+        Inches(2.5),
+        Inches(1.2),
+        overall_grade,
+        FONT_TITLE,
+        64,
+        grade_color,
+        bold=True,
+        align=PP_ALIGN.CENTER,
+    )
+    _add_text_box(
+        slide2,
+        Inches(0.8),
+        Inches(3.2),
+        Inches(2.5),
+        Inches(0.4),
+        f"Score: {overall_qoh:.0f}/100",
+        FONT_BODY,
+        14,
+        DARK_TEXT,
+        bold=True,
+        align=PP_ALIGN.CENTER,
+    )
 
     # KPI cards
     overall_cost = cost_analysis.get("overall", {})
     qoh_comp = benchmark.get("qoh_comparison", {})
     kpi_cards = [
-        ("Total Hires", str(source_eff.get("total_hires", 0))),
-        ("Sources", str(source_eff.get("source_count", 0))),
-        ("Quality Hire %", f"{overall_cost.get('quality_pct', 0):.0f}%"),
-        ("CPH", f"${overall_cost.get('cost_per_hire', 0):,.0f}"),
-        ("CPQH", f"${overall_cost.get('cost_per_quality_hire', 0):,.0f}" if overall_cost.get("cost_per_quality_hire") else "N/A"),
-        ("vs Industry", f"{qoh_comp.get('vs_avg', 0):+.0f} pts"),
+        ("Total Hires", str(source_eff.get("total_hires") or 0)),
+        ("Sources", str(source_eff.get("source_count") or 0)),
+        ("Quality Hire %", f"{overall_cost.get('quality_pct') or 0:.0f}%"),
+        ("CPH", f"${overall_cost.get('cost_per_hire') or 0:,.0f}"),
+        (
+            "CPQH",
+            (
+                f"${overall_cost.get('cost_per_quality_hire') or 0:,.0f}"
+                if overall_cost.get("cost_per_quality_hire")
+                else "N/A"
+            ),
+        ),
+        ("vs Industry", f"{qoh_comp.get('vs_avg') or 0:+.0f} pts"),
     ]
 
     for i, (label, value) in enumerate(kpi_cards):
@@ -1807,30 +2460,85 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
         left = Inches(3.8 + col * 3.2)
         top = Inches(1.5 + r * 1.8)
         _add_shape(slide2, left, top, Inches(2.8), Inches(1.5), WHITE, WARM_GRAY)
-        _add_text_box(slide2, left + Inches(0.2), top + Inches(0.2), Inches(2.4), Inches(0.3),
-                      label, FONT_BODY, 10, MUTED_TEXT)
-        _add_text_box(slide2, left + Inches(0.2), top + Inches(0.6), Inches(2.4), Inches(0.6),
-                      value, FONT_TITLE, 22, NAVY, bold=True)
+        _add_text_box(
+            slide2,
+            left + Inches(0.2),
+            top + Inches(0.2),
+            Inches(2.4),
+            Inches(0.3),
+            label,
+            FONT_BODY,
+            10,
+            MUTED_TEXT,
+        )
+        _add_text_box(
+            slide2,
+            left + Inches(0.2),
+            top + Inches(0.6),
+            Inches(2.4),
+            Inches(0.6),
+            value,
+            FONT_TITLE,
+            22,
+            NAVY,
+            bold=True,
+        )
 
-    _add_text_box(slide2, Inches(0.8), Inches(5.2), Inches(11.5), Inches(0.5),
-                  benchmark.get("tier_description", ""), FONT_BODY, 11, MUTED_TEXT)
+    _add_text_box(
+        slide2,
+        Inches(0.8),
+        Inches(5.2),
+        Inches(11.5),
+        Inches(0.5),
+        benchmark.get("tier_description") or "",
+        FONT_BODY,
+        11,
+        MUTED_TEXT,
+    )
     _footer(slide2)
 
     # ── SLIDE 3: Source Effectiveness ─────────────────────────────────
     slide3 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide3, OFF_WHITE)
 
-    _add_text_box(slide3, Inches(0.8), Inches(0.4), Inches(8), Inches(0.7),
-                  "Source Effectiveness Matrix", FONT_TITLE, 28, NAVY, bold=True)
+    _add_text_box(
+        slide3,
+        Inches(0.8),
+        Inches(0.4),
+        Inches(8),
+        Inches(0.7),
+        "Source Effectiveness Matrix",
+        FONT_TITLE,
+        28,
+        NAVY,
+        bold=True,
+    )
     _add_shape(slide3, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
     # Table
-    sorted_sources = sorted(sources.values(), key=lambda x: x.get("avg_qoh_score", 0), reverse=True)
-    table_headers = ["Source", "Hires", "QoH", "Grade", "CPQH", "Retention", "Quality %"]
+    sorted_sources = sorted(
+        sources.values(), key=lambda x: x.get("avg_qoh_score") or 0, reverse=True
+    )
+    table_headers = [
+        "Source",
+        "Hires",
+        "QoH",
+        "Grade",
+        "CPQH",
+        "Retention",
+        "Quality %",
+    ]
     num_rows = min(len(sorted_sources) + 1, 10)
     num_cols = len(table_headers)
 
-    table_shape = slide3.shapes.add_table(num_rows, num_cols, Inches(0.5), Inches(1.4), Inches(12.3), Inches(0.5 * num_rows))
+    table_shape = slide3.shapes.add_table(
+        num_rows,
+        num_cols,
+        Inches(0.5),
+        Inches(1.4),
+        Inches(12.3),
+        Inches(0.5 * num_rows),
+    )
     table = table_shape.table
 
     for j, header in enumerate(table_headers):
@@ -1845,10 +2553,18 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
         cell.fill.solid()
         cell.fill.fore_color.rgb = NAVY
 
-    for i, src in enumerate(sorted_sources[:num_rows - 1]):
+    for i, src in enumerate(sorted_sources[: num_rows - 1]):
         grade = src.get("qoh_grade", "C")
-        cpqh = f"${src['cost_per_quality_hire']:,.0f}" if src.get("cost_per_quality_hire") else "N/A"
-        ret = f"{src['retention_rate']:.0f}%" if src.get("retention_rate") is not None else "N/A"
+        cpqh = (
+            f"${src['cost_per_quality_hire']:,.0f}"
+            if src.get("cost_per_quality_hire")
+            else "N/A"
+        )
+        ret = (
+            f"{src['retention_rate']:.0f}%"
+            if src.get("retention_rate") is not None
+            else "N/A"
+        )
 
         row_data = [
             src["source"],
@@ -1872,7 +2588,11 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
             if j == 3:  # Grade column
                 for paragraph in cell.text_frame.paragraphs:
                     paragraph.font.bold = True
-                    paragraph.font.color.rgb = GREEN if grade in ("A", "B") else (AMBER if grade == "C" else RED_ACCENT)
+                    paragraph.font.color.rgb = (
+                        GREEN
+                        if grade in ("A", "B")
+                        else (AMBER if grade == "C" else RED_ACCENT)
+                    )
 
         if i % 2 == 0:
             for j in range(num_cols):
@@ -1885,55 +2605,170 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
     slide4 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide4, OFF_WHITE)
 
-    _add_text_box(slide4, Inches(0.8), Inches(0.4), Inches(8), Inches(0.7),
-                  "Retention & Cost Intelligence", FONT_TITLE, 28, NAVY, bold=True)
+    _add_text_box(
+        slide4,
+        Inches(0.8),
+        Inches(0.4),
+        Inches(8),
+        Inches(0.7),
+        "Retention & Cost Intelligence",
+        FONT_TITLE,
+        28,
+        NAVY,
+        bold=True,
+    )
     _add_shape(slide4, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
     # Retention cards - top sources
-    _add_text_box(slide4, Inches(0.8), Inches(1.3), Inches(5), Inches(0.3),
-                  "RETENTION BY SOURCE", FONT_BODY, 10, MUTED_TEXT, bold=True)
+    _add_text_box(
+        slide4,
+        Inches(0.8),
+        Inches(1.3),
+        Inches(5),
+        Inches(0.3),
+        "RETENTION BY SOURCE",
+        FONT_BODY,
+        10,
+        MUTED_TEXT,
+        bold=True,
+    )
 
     max_cards = min(len(sorted_sources), 4)
     for i, src in enumerate(sorted_sources[:max_cards]):
         left = Inches(0.5 + i * 3.1)
         top = Inches(1.8)
         grade = src.get("qoh_grade", "C")
-        card_border = GREEN if grade in ("A", "B") else (AMBER if grade == "C" else RED_ACCENT)
+        card_border = (
+            GREEN if grade in ("A", "B") else (AMBER if grade == "C" else RED_ACCENT)
+        )
         _add_shape(slide4, left, top, Inches(2.8), Inches(2.0), WHITE, card_border)
 
-        _add_text_box(slide4, left + Inches(0.15), top + Inches(0.1), Inches(2.5), Inches(0.3),
-                      src["source"], FONT_TITLE, 12, NAVY, bold=True)
+        _add_text_box(
+            slide4,
+            left + Inches(0.15),
+            top + Inches(0.1),
+            Inches(2.5),
+            Inches(0.3),
+            src["source"],
+            FONT_TITLE,
+            12,
+            NAVY,
+            bold=True,
+        )
         ret = src.get("retention_rate")
         ret_text = f"{ret:.0f}%" if ret is not None else "N/A"
-        _add_text_box(slide4, left + Inches(0.15), top + Inches(0.5), Inches(2.5), Inches(0.5),
-                      ret_text, FONT_TITLE, 28, card_border, bold=True)
-        _add_text_box(slide4, left + Inches(0.15), top + Inches(1.1), Inches(2.5), Inches(0.3),
-                      f"QoH: {src['avg_qoh_score']:.0f} | Hires: {src['total_hires']}", FONT_BODY, 9, MUTED_TEXT)
+        _add_text_box(
+            slide4,
+            left + Inches(0.15),
+            top + Inches(0.5),
+            Inches(2.5),
+            Inches(0.5),
+            ret_text,
+            FONT_TITLE,
+            28,
+            card_border,
+            bold=True,
+        )
+        _add_text_box(
+            slide4,
+            left + Inches(0.15),
+            top + Inches(1.1),
+            Inches(2.5),
+            Inches(0.3),
+            f"QoH: {src['avg_qoh_score']:.0f} | Hires: {src['total_hires']}",
+            FONT_BODY,
+            9,
+            MUTED_TEXT,
+        )
         cpqh = src.get("cost_per_quality_hire")
-        _add_text_box(slide4, left + Inches(0.15), top + Inches(1.5), Inches(2.5), Inches(0.3),
-                      f"CPQH: ${cpqh:,.0f}" if cpqh else "CPQH: N/A", FONT_BODY, 9, MUTED_TEXT)
+        _add_text_box(
+            slide4,
+            left + Inches(0.15),
+            top + Inches(1.5),
+            Inches(2.5),
+            Inches(0.3),
+            f"CPQH: ${cpqh:,.0f}" if cpqh else "CPQH: N/A",
+            FONT_BODY,
+            9,
+            MUTED_TEXT,
+        )
 
     # Cost comparison at bottom
-    _add_text_box(slide4, Inches(0.8), Inches(4.2), Inches(5), Inches(0.3),
-                  "COST PER HIRE vs COST PER QUALITY HIRE", FONT_BODY, 10, MUTED_TEXT, bold=True)
+    _add_text_box(
+        slide4,
+        Inches(0.8),
+        Inches(4.2),
+        Inches(5),
+        Inches(0.3),
+        "COST PER HIRE vs COST PER QUALITY HIRE",
+        FONT_BODY,
+        10,
+        MUTED_TEXT,
+        bold=True,
+    )
 
-    cost_sources_list = sorted(cost_analysis.get("sources", {}).values(), key=lambda x: x.get("cost_per_hire", 0))
+    cost_sources_list = sorted(
+        cost_analysis.get("sources", {}).values(),
+        key=lambda x: x.get("cost_per_hire") or 0,
+    )
     for i, cs in enumerate(cost_sources_list[:4]):
         left = Inches(0.5 + i * 3.1)
         top = Inches(4.7)
         _add_shape(slide4, left, top, Inches(2.8), Inches(1.8), WHITE, WARM_GRAY)
-        _add_text_box(slide4, left + Inches(0.15), top + Inches(0.1), Inches(2.5), Inches(0.25),
-                      cs["source"], FONT_BODY, 10, NAVY, bold=True)
-        _add_text_box(slide4, left + Inches(0.15), top + Inches(0.4), Inches(2.5), Inches(0.3),
-                      f"CPH: ${cs.get('cost_per_hire', 0):,.0f}", FONT_BODY, 12, DARK_TEXT, bold=True)
+        _add_text_box(
+            slide4,
+            left + Inches(0.15),
+            top + Inches(0.1),
+            Inches(2.5),
+            Inches(0.25),
+            cs["source"],
+            FONT_BODY,
+            10,
+            NAVY,
+            bold=True,
+        )
+        _add_text_box(
+            slide4,
+            left + Inches(0.15),
+            top + Inches(0.4),
+            Inches(2.5),
+            Inches(0.3),
+            f"CPH: ${cs.get('cost_per_hire') or 0:,.0f}",
+            FONT_BODY,
+            12,
+            DARK_TEXT,
+            bold=True,
+        )
         cpqh = cs.get("cost_per_quality_hire")
-        _add_text_box(slide4, left + Inches(0.15), top + Inches(0.8), Inches(2.5), Inches(0.3),
-                      f"CPQH: ${cpqh:,.0f}" if cpqh else "CPQH: N/A", FONT_BODY, 12, BLUE, bold=True)
+        _add_text_box(
+            slide4,
+            left + Inches(0.15),
+            top + Inches(0.8),
+            Inches(2.5),
+            Inches(0.3),
+            f"CPQH: ${cpqh:,.0f}" if cpqh else "CPQH: N/A",
+            FONT_BODY,
+            12,
+            BLUE,
+            bold=True,
+        )
         vr = cs.get("value_ratio")
         effective = cs.get("is_cost_effective", False)
-        _add_text_box(slide4, left + Inches(0.15), top + Inches(1.2), Inches(2.5), Inches(0.3),
-                      f"Ratio: {vr:.1f}x {'(Efficient)' if effective else '(Needs work)'}" if vr else "",
-                      FONT_BODY, 9, GREEN if effective else RED_ACCENT)
+        _add_text_box(
+            slide4,
+            left + Inches(0.15),
+            top + Inches(1.2),
+            Inches(2.5),
+            Inches(0.3),
+            (
+                f"Ratio: {vr:.1f}x {'(Efficient)' if effective else '(Needs work)'}"
+                if vr
+                else ""
+            ),
+            FONT_BODY,
+            9,
+            GREEN if effective else RED_ACCENT,
+        )
 
     _footer(slide4)
 
@@ -1941,8 +2776,18 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
     slide5 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide5, OFF_WHITE)
 
-    _add_text_box(slide5, Inches(0.8), Inches(0.4), Inches(8), Inches(0.7),
-                  "Action Plan", FONT_TITLE, 28, NAVY, bold=True)
+    _add_text_box(
+        slide5,
+        Inches(0.8),
+        Inches(0.4),
+        Inches(8),
+        Inches(0.7),
+        "Action Plan",
+        FONT_TITLE,
+        28,
+        NAVY,
+        bold=True,
+    )
     _add_shape(slide5, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
     max_recs = min(len(recommendations), 6)
@@ -1960,23 +2805,62 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
             action_color = GREEN
             bg_color = LIGHT_GREEN
 
-        _add_shape(slide5, Inches(0.5), top, Inches(12.3), Inches(0.75), bg_color, action_color)
+        _add_shape(
+            slide5, Inches(0.5), top, Inches(12.3), Inches(0.75), bg_color, action_color
+        )
 
         # Impact badge
-        impact = rec.get("impact_score", 0)
-        _add_shape(slide5, Inches(0.7), top + Inches(0.12), Inches(1.2), Inches(0.45), action_color)
-        _add_text_box(slide5, Inches(0.7), top + Inches(0.15), Inches(1.2), Inches(0.4),
-                      f"Impact: {impact}", FONT_BODY, 9, WHITE, bold=True, align=PP_ALIGN.CENTER)
+        impact = rec.get("impact_score") or 0
+        _add_shape(
+            slide5,
+            Inches(0.7),
+            top + Inches(0.12),
+            Inches(1.2),
+            Inches(0.45),
+            action_color,
+        )
+        _add_text_box(
+            slide5,
+            Inches(0.7),
+            top + Inches(0.15),
+            Inches(1.2),
+            Inches(0.4),
+            f"Impact: {impact}",
+            FONT_BODY,
+            9,
+            WHITE,
+            bold=True,
+            align=PP_ALIGN.CENTER,
+        )
 
         # Title
-        _add_text_box(slide5, Inches(2.1), top + Inches(0.08), Inches(10), Inches(0.35),
-                      rec.get("title", ""), FONT_TITLE, 11, NAVY, bold=True)
+        _add_text_box(
+            slide5,
+            Inches(2.1),
+            top + Inches(0.08),
+            Inches(10),
+            Inches(0.35),
+            rec.get("title") or "",
+            FONT_TITLE,
+            11,
+            NAVY,
+            bold=True,
+        )
         # Description (truncated)
-        desc = rec.get("description", "")
+        desc = rec.get("description") or ""
         if len(desc) > 120:
             desc = desc[:117] + "..."
-        _add_text_box(slide5, Inches(2.1), top + Inches(0.38), Inches(10), Inches(0.35),
-                      desc, FONT_BODY, 8, MUTED_TEXT)
+        _add_text_box(
+            slide5,
+            Inches(2.1),
+            top + Inches(0.38),
+            Inches(10),
+            Inches(0.35),
+            desc,
+            FONT_BODY,
+            8,
+            MUTED_TEXT,
+        )
 
     _footer(slide5)
 
@@ -1984,11 +2868,25 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
     slide6 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide6, OFF_WHITE)
 
-    _add_text_box(slide6, Inches(0.8), Inches(0.4), Inches(8), Inches(0.7),
-                  "Next Quarter Predictions", FONT_TITLE, 28, NAVY, bold=True)
+    _add_text_box(
+        slide6,
+        Inches(0.8),
+        Inches(0.4),
+        Inches(8),
+        Inches(0.7),
+        "Next Quarter Predictions",
+        FONT_TITLE,
+        28,
+        NAVY,
+        bold=True,
+    )
     _add_shape(slide6, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
-    sorted_preds = sorted(predictions_data.values(), key=lambda x: x.get("projected_qoh", 0), reverse=True)
+    sorted_preds = sorted(
+        predictions_data.values(),
+        key=lambda x: x.get("projected_qoh") or 0,
+        reverse=True,
+    )
     max_pred_cards = min(len(sorted_preds), 6)
 
     for i, pred in enumerate(sorted_preds[:max_pred_cards]):
@@ -1998,26 +2896,69 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
         top = Inches(1.5 + r * 2.8)
 
         trend = pred.get("trend", "stable")
-        card_border = GREEN if trend == "improving" else (RED_ACCENT if trend == "declining" else WARM_GRAY)
+        card_border = (
+            GREEN
+            if trend == "improving"
+            else (RED_ACCENT if trend == "declining" else WARM_GRAY)
+        )
         _add_shape(slide6, left, top, Inches(3.8), Inches(2.4), WHITE, card_border)
 
-        _add_text_box(slide6, left + Inches(0.2), top + Inches(0.15), Inches(2.8), Inches(0.35),
-                      pred.get("source", ""), FONT_TITLE, 14, NAVY, bold=True)
+        _add_text_box(
+            slide6,
+            left + Inches(0.2),
+            top + Inches(0.15),
+            Inches(2.8),
+            Inches(0.35),
+            pred.get("source") or "",
+            FONT_TITLE,
+            14,
+            NAVY,
+            bold=True,
+        )
 
-        trend_symbol = "Improving" if trend == "improving" else ("Declining" if trend == "declining" else "Stable")
-        trend_color = GREEN if trend == "improving" else (RED_ACCENT if trend == "declining" else MUTED_TEXT)
-        _add_text_box(slide6, left + Inches(3.0), top + Inches(0.15), Inches(0.6), Inches(0.35),
-                      trend_symbol[:3], FONT_BODY, 10, trend_color, bold=True, align=PP_ALIGN.CENTER)
+        trend_symbol = (
+            "Improving"
+            if trend == "improving"
+            else ("Declining" if trend == "declining" else "Stable")
+        )
+        trend_color = (
+            GREEN
+            if trend == "improving"
+            else (RED_ACCENT if trend == "declining" else MUTED_TEXT)
+        )
+        _add_text_box(
+            slide6,
+            left + Inches(3.0),
+            top + Inches(0.15),
+            Inches(0.6),
+            Inches(0.35),
+            trend_symbol[:3],
+            FONT_BODY,
+            10,
+            trend_color,
+            bold=True,
+            align=PP_ALIGN.CENTER,
+        )
 
         pred_lines = [
-            f"Current QoH: {pred.get('current_qoh', 0):.0f}  ->  Projected: {pred.get('projected_qoh', 0):.0f}",
+            f"Current QoH: {pred.get('current_qoh') or 0:.0f}  ->  Projected: {pred.get('projected_qoh') or 0:.0f}",
             f"Grade: {pred.get('projected_grade', 'C')}  |  Confidence: {pred.get('confidence', 'low').capitalize()}",
-            f"Range: {pred.get('range_low', 0):.0f} - {pred.get('range_high', 0):.0f}",
-            f"Projected Retention: {pred.get('projected_retention', 0):.0f}%",
+            f"Range: {pred.get('range_low') or 0:.0f} - {pred.get('range_high') or 0:.0f}",
+            f"Projected Retention: {pred.get('projected_retention') or 0:.0f}%",
         ]
         for m_idx, m_text in enumerate(pred_lines):
-            _add_text_box(slide6, left + Inches(0.2), top + Inches(0.6 + m_idx * 0.4), Inches(3.4), Inches(0.35),
-                          m_text, FONT_BODY, 9, MUTED_TEXT if m_idx < 3 else DARK_TEXT, bold=(m_idx == 3))
+            _add_text_box(
+                slide6,
+                left + Inches(0.2),
+                top + Inches(0.6 + m_idx * 0.4),
+                Inches(3.4),
+                Inches(0.35),
+                m_text,
+                FONT_BODY,
+                9,
+                MUTED_TEXT if m_idx < 3 else DARK_TEXT,
+                bold=(m_idx == 3),
+            )
 
     _footer(slide6)
 
@@ -2030,6 +2971,7 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
 # =============================================================================
 # 12. ORCHESTRATOR -- single entry point
 # =============================================================================
+
 
 def run_full_signal_analysis(
     file_bytes: Optional[bytes] = None,
@@ -2062,10 +3004,16 @@ def run_full_signal_analysis(
         elif file_bytes:
             hires = parse_hiring_data(file_bytes, filename)
         else:
-            return {"error": "No hiring data provided. Upload a file or provide manual data.", "success": False}
+            return {
+                "error": "No hiring data provided. Upload a file or provide manual data.",
+                "success": False,
+            }
 
         if not hires:
-            return {"error": "Could not parse hiring data. Please check file format and column headers.", "success": False}
+            return {
+                "error": "Could not parse hiring data. Please check file format and column headers.",
+                "success": False,
+            }
 
         # 2. Calculate QoH score for each hire
         for h in hires:
@@ -2075,9 +3023,13 @@ def run_full_signal_analysis(
         results: Dict[str, Any] = {}
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = {
-                executor.submit(analyze_source_effectiveness, hires): "source_effectiveness",
+                executor.submit(
+                    analyze_source_effectiveness, hires
+                ): "source_effectiveness",
                 executor.submit(calculate_retention_rates, hires): "retention",
-                executor.submit(calculate_cost_per_quality_hire, hires): "cost_analysis",
+                executor.submit(
+                    calculate_cost_per_quality_hire, hires
+                ): "cost_analysis",
             }
             for future in as_completed(futures):
                 key = futures[future]
@@ -2115,14 +3067,16 @@ def run_full_signal_analysis(
             "success": True,
             "client_name": client_name,
             "industry": industry,
-            "industry_label": INDUSTRY_LABEL_MAP.get(industry, industry.replace("_", " ").title()),
+            "industry_label": INDUSTRY_LABEL_MAP.get(
+                industry, industry.replace("_", " ").title()
+            ),
             "total_hires": len(hires),
             "hires": hires[:500],  # Cap for JSON response size
             "source_effectiveness": results.get("source_effectiveness", {}),
             "retention": results.get("retention", {}),
             "cost_analysis": results.get("cost_analysis", {}),
             "benchmark": results.get("benchmark", {}),
-            "recommendations": results.get("recommendations", []),
+            "recommendations": results.get("recommendations") or [],
             "predictions": results.get("predictions", {}),
             "generated_at": datetime.datetime.now().isoformat(),
         }

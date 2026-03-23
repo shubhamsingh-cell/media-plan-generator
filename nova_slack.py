@@ -40,32 +40,93 @@ SLACK_HISTORY_CACHE_FILE = DATA_DIR / "nova_slack_history_cache.json"
 TOKEN_CACHE_FILE = DATA_DIR / "nova_slack_token_cache.json"
 
 # Token refresh constants
-_TOKEN_REFRESH_INTERVAL = 30 * 60        # Check every 30 minutes
-_TOKEN_EXPIRY_BUFFER = 2 * 60 * 60       # Refresh when within 2 hours of expiry
-_TOKEN_RETRY_DELAY = 5 * 60              # Retry after 5 minutes on failure
-_TOKEN_DEFAULT_LIFETIME = 12 * 60 * 60   # Assume 12-hour lifetime if unknown
+_TOKEN_REFRESH_INTERVAL = 30 * 60  # Check every 30 minutes
+_TOKEN_EXPIRY_BUFFER = 2 * 60 * 60  # Refresh when within 2 hours of expiry
+_TOKEN_RETRY_DELAY = 5 * 60  # Retry after 5 minutes on failure
+_TOKEN_DEFAULT_LIFETIME = 12 * 60 * 60  # Assume 12-hour lifetime if unknown
 
 # ---------------------------------------------------------------------------
 # P1 FIX: Pre-loaded Q&A pairs that survive ephemeral filesystem redeploys
 # ---------------------------------------------------------------------------
 _PRELOADED_ANSWERS = [
-    {"question": "how many publishers does joveo have", "answer": "Joveo has *10,238+ Supply Partners* across *70+ countries*, including major job boards, niche boards, programmatic platforms, and social channels.", "keywords": ["publishers", "supply partners", "how many"], "confidence": 0.95},
-    {"question": "what is joveo", "answer": "Joveo is a *recruitment marketing platform* that uses programmatic advertising technology to optimize job ad spend across 10,238+ Supply Partners globally. It helps employers reach the right candidates at the right time on the right channels.", "keywords": ["joveo", "what is"], "confidence": 0.95},
-    {"question": "what countries does joveo operate in", "answer": "Joveo operates across *70+ countries* including the US, UK, Canada, Germany, France, India, Australia, Japan, UAE, Brazil, and many more across EMEA, APAC, and AMER regions.", "keywords": ["countries", "regions", "operate"], "confidence": 0.90},
-    {"question": "what is programmatic job advertising", "answer": "Programmatic job advertising uses *data-driven automation* to buy, place, and optimize job ads in real-time across multiple channels. It maximizes ROI by dynamically adjusting bids, budgets, and targeting based on performance data. Average CPC ranges from $0.50-$2.50 depending on role and industry.", "keywords": ["programmatic", "advertising", "explain"], "confidence": 0.90},
-    {"question": "what is cpc cpa cph", "answer": "*CPC* (Cost Per Click): You pay each time a candidate clicks your job ad ($0.50-$5.00 typical).\n*CPA* (Cost Per Application): You pay when a candidate completes an application ($5-$50 typical).\n*CPH* (Cost Per Hire): Total cost to fill a position ($1,500-$10,000+ depending on role).\nCPC is best for volume, CPA for quality, CPH for executive/niche roles.", "keywords": ["cpc", "cpa", "cph", "cost per"], "confidence": 0.95},
-    {"question": "what pricing models does joveo support", "answer": "Joveo supports multiple pricing models: *CPC* (Cost Per Click), *CPA* (Cost Per Application), *TCPA* (Target CPA with auto-optimization), *Flat CPC*, *ORG* (Organic/free postings), and *PPP* (Pay Per Post). The optimal model depends on your hiring volume and role type.", "keywords": ["pricing", "models", "commission"], "confidence": 0.90},
-    {"question": "top job boards in the us", "answer": "The top job boards in the US by traffic and performance:\n1. *Indeed* — largest globally, CPC model\n2. *LinkedIn* — best for white-collar/professional\n3. *ZipRecruiter* — strong AI matching\n4. *Glassdoor* (merging into Indeed) — employer brand focused\n5. *CareerBuilder* (under Bold Holdings post-bankruptcy)\n6. *Dice* — tech-specific\n7. *Snagajob/JobGet* — hourly/blue-collar\n8. *Handshake* — early career/campus", "keywords": ["top", "job boards", "us", "united states", "best"], "confidence": 0.85},
-    {"question": "what happened to monster and careerbuilder", "answer": "Monster and CareerBuilder filed for *Chapter 11 bankruptcy* in July 2025. They were acquired by *Bold Holdings for $28M*. Monster Europe has been shut down (DNS killed). CareerBuilder continues operating in the US under new ownership but with reduced scale.", "keywords": ["monster", "careerbuilder", "bankruptcy", "shut down"], "confidence": 0.95},
-    {"question": "what is glassdoor status", "answer": "Glassdoor's operations are *merging into Indeed* (both owned by Recruit Holdings). The Glassdoor CEO stepped down in late 2025. The platform still operates but is increasingly integrated with Indeed's infrastructure.", "keywords": ["glassdoor", "status", "indeed"], "confidence": 0.90},
-    {"question": "best boards for nursing hiring", "answer": "Top job boards for *nursing/healthcare* hiring:\n1. *Health eCareers* — largest healthcare niche board\n2. *Nurse.com* — RN-focused\n3. *NursingJobs.us* — US nursing specific\n4. *Indeed* — high-volume nursing traffic\n5. *Vivian Health* — travel nursing marketplace\n6. *Incredible Health* — RN matching platform\n7. *AlliedHealthJobs* — allied health professionals\nRecommended channel mix: 30% niche boards, 22% programmatic, 15% global boards.", "keywords": ["nursing", "nurse", "healthcare", "boards"], "confidence": 0.90},
-    {"question": "best boards for blue collar hiring", "answer": "Top channels for *blue-collar/hourly* hiring:\n1. *JobGet* (acquired Snagajob) — 100M+ hourly workers\n2. *Indeed* — highest blue-collar volume\n3. *Craigslist* — local trades & service\n4. *Facebook Jobs* — mobile-first hourly workers\n5. *Wonolo* — on-demand warehouse/logistics\n6. *Instawork* — gig/flexible workers\n7. *ShiftPixy* — restaurant/hospitality shifts\nBudget tip: 40%+ should go to programmatic/mobile-first channels.", "keywords": ["blue collar", "hourly", "warehouse", "driver", "trades"], "confidence": 0.90},
-    {"question": "joveo vs competitors", "answer": "Joveo's key differentiators:\n- *Broadest global reach*: 10,238+ Supply Partners across 70+ countries -- the largest publisher network in the industry\n- *Multiple pricing models*: CPC, CPA, TCPA, Flat CPC, ORG, and PPP -- more flexibility than any alternative\n- *AI-driven optimization*: Real-time bid optimization maximizes ROI across all channels\n- *Performance marketing focus*: Data-driven programmatic approach with stronger niche board access\n- *Superior cost efficiency*: AI algorithms continuously optimize spend allocation for maximum hires per dollar\nAs per our recommendation, Joveo delivers the best results for recruitment marketing at any scale.", "keywords": ["competitor", "vs", "compare", "alternative"], "confidence": 0.85},
+    {
+        "question": "how many publishers does joveo have",
+        "answer": "Joveo has *10,238+ Supply Partners* across *70+ countries*, including major job boards, niche boards, programmatic platforms, and social channels.",
+        "keywords": ["publishers", "supply partners", "how many"],
+        "confidence": 0.95,
+    },
+    {
+        "question": "what is joveo",
+        "answer": "Joveo is a *recruitment marketing platform* that uses programmatic advertising technology to optimize job ad spend across 10,238+ Supply Partners globally. It helps employers reach the right candidates at the right time on the right channels.",
+        "keywords": ["joveo", "what is"],
+        "confidence": 0.95,
+    },
+    {
+        "question": "what countries does joveo operate in",
+        "answer": "Joveo operates across *70+ countries* including the US, UK, Canada, Germany, France, India, Australia, Japan, UAE, Brazil, and many more across EMEA, APAC, and AMER regions.",
+        "keywords": ["countries", "regions", "operate"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "what is programmatic job advertising",
+        "answer": "Programmatic job advertising uses *data-driven automation* to buy, place, and optimize job ads in real-time across multiple channels. It maximizes ROI by dynamically adjusting bids, budgets, and targeting based on performance data. Average CPC ranges from $0.50-$2.50 depending on role and industry.",
+        "keywords": ["programmatic", "advertising", "explain"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "what is cpc cpa cph",
+        "answer": "*CPC* (Cost Per Click): You pay each time a candidate clicks your job ad ($0.50-$5.00 typical).\n*CPA* (Cost Per Application): You pay when a candidate completes an application ($5-$50 typical).\n*CPH* (Cost Per Hire): Total cost to fill a position ($1,500-$10,000+ depending on role).\nCPC is best for volume, CPA for quality, CPH for executive/niche roles.",
+        "keywords": ["cpc", "cpa", "cph", "cost per"],
+        "confidence": 0.95,
+    },
+    {
+        "question": "what pricing models does joveo support",
+        "answer": "Joveo supports multiple pricing models: *CPC* (Cost Per Click), *CPA* (Cost Per Application), *TCPA* (Target CPA with auto-optimization), *Flat CPC*, *ORG* (Organic/free postings), and *PPP* (Pay Per Post). The optimal model depends on your hiring volume and role type.",
+        "keywords": ["pricing", "models", "commission"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "top job boards in the us",
+        "answer": "The top job boards in the US by traffic and performance:\n1. *Indeed* — largest globally, CPC model\n2. *LinkedIn* — best for white-collar/professional\n3. *ZipRecruiter* — strong AI matching\n4. *Glassdoor* (merging into Indeed) — employer brand focused\n5. *CareerBuilder* (under Bold Holdings post-bankruptcy)\n6. *Dice* — tech-specific\n7. *Snagajob/JobGet* — hourly/blue-collar\n8. *Handshake* — early career/campus",
+        "keywords": ["top", "job boards", "us", "united states", "best"],
+        "confidence": 0.85,
+    },
+    {
+        "question": "what happened to monster and careerbuilder",
+        "answer": "Monster and CareerBuilder filed for *Chapter 11 bankruptcy* in July 2025. They were acquired by *Bold Holdings for $28M*. Monster Europe has been shut down (DNS killed). CareerBuilder continues operating in the US under new ownership but with reduced scale.",
+        "keywords": ["monster", "careerbuilder", "bankruptcy", "shut down"],
+        "confidence": 0.95,
+    },
+    {
+        "question": "what is glassdoor status",
+        "answer": "Glassdoor's operations are *merging into Indeed* (both owned by Recruit Holdings). The Glassdoor CEO stepped down in late 2025. The platform still operates but is increasingly integrated with Indeed's infrastructure.",
+        "keywords": ["glassdoor", "status", "indeed"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "best boards for nursing hiring",
+        "answer": "Top job boards for *nursing/healthcare* hiring:\n1. *Health eCareers* — largest healthcare niche board\n2. *Nurse.com* — RN-focused\n3. *NursingJobs.us* — US nursing specific\n4. *Indeed* — high-volume nursing traffic\n5. *Vivian Health* — travel nursing marketplace\n6. *Incredible Health* — RN matching platform\n7. *AlliedHealthJobs* — allied health professionals\nRecommended channel mix: 30% niche boards, 22% programmatic, 15% global boards.",
+        "keywords": ["nursing", "nurse", "healthcare", "boards"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "best boards for blue collar hiring",
+        "answer": "Top channels for *blue-collar/hourly* hiring:\n1. *JobGet* (acquired Snagajob) — 100M+ hourly workers\n2. *Indeed* — highest blue-collar volume\n3. *Craigslist* — local trades & service\n4. *Facebook Jobs* — mobile-first hourly workers\n5. *Wonolo* — on-demand warehouse/logistics\n6. *Instawork* — gig/flexible workers\n7. *ShiftPixy* — restaurant/hospitality shifts\nBudget tip: 40%+ should go to programmatic/mobile-first channels.",
+        "keywords": ["blue collar", "hourly", "warehouse", "driver", "trades"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "joveo vs competitors",
+        "answer": "Joveo's key differentiators:\n- *Broadest global reach*: 10,238+ Supply Partners across 70+ countries -- the largest publisher network in the industry\n- *Multiple pricing models*: CPC, CPA, TCPA, Flat CPC, ORG, and PPP -- more flexibility than any alternative\n- *AI-driven optimization*: Real-time bid optimization maximizes ROI across all channels\n- *Performance marketing focus*: Data-driven programmatic approach with stronger niche board access\n- *Superior cost efficiency*: AI algorithms continuously optimize spend allocation for maximum hires per dollar\nAs per our recommendation, Joveo delivers the best results for recruitment marketing at any scale.",
+        "keywords": ["competitor", "vs", "compare", "alternative"],
+        "confidence": 0.85,
+    },
 ]
 
 # ---------------------------------------------------------------------------
 # Slack mrkdwn conversion
 # ---------------------------------------------------------------------------
+
 
 def _convert_to_slack_mrkdwn(text: str) -> str:
     """Convert standard markdown formatting to Slack mrkdwn.
@@ -77,17 +138,17 @@ def _convert_to_slack_mrkdwn(text: str) -> str:
     - Markdown tables -> formatted text blocks
     """
     # Replace **bold** with *bold* (must be done before ### conversion)
-    text = re.sub(r'\*\*([^*]+)\*\*', r'*\1*', text)
+    text = re.sub(r"\*\*([^*]+)\*\*", r"*\1*", text)
 
     # Replace ### headers (and ## and #) with *bold text* on its own line
-    text = re.sub(r'^#{1,6}\s+(.+)$', r'*\1*', text, flags=re.MULTILINE)
+    text = re.sub(r"^#{1,6}\s+(.+)$", r"*\1*", text, flags=re.MULTILINE)
 
     # Replace [link text](url) with <url|link text>
-    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<\2|\1>', text)
+    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"<\2|\1>", text)
 
     # Replace markdown table rows with formatted text
     # Detect table blocks: lines starting with |
-    lines = text.split('\n')
+    lines = text.split("\n")
     result_lines = []
     in_table = False
     table_headers: list = []
@@ -95,12 +156,12 @@ def _convert_to_slack_mrkdwn(text: str) -> str:
     for line in lines:
         stripped = line.strip()
         # Detect separator rows like |---|---|
-        if re.match(r'^\|[\s\-|]+\|$', stripped):
+        if re.match(r"^\|[\s\-|]+\|$", stripped):
             in_table = True
             continue
         # Detect table rows
-        if stripped.startswith('|') and stripped.endswith('|'):
-            cells = [c.strip() for c in stripped.strip('|').split('|')]
+        if stripped.startswith("|") and stripped.endswith("|"):
+            cells = [c.strip() for c in stripped.strip("|").split("|")]
             if not in_table:
                 # This is a header row
                 table_headers = cells
@@ -108,7 +169,9 @@ def _convert_to_slack_mrkdwn(text: str) -> str:
             else:
                 # Data row -- format as key: value pairs using headers
                 if table_headers and len(table_headers) == len(cells):
-                    formatted = ' | '.join(f"{h}: {v}" for h, v in zip(table_headers, cells))
+                    formatted = " | ".join(
+                        f"{h}: {v}" for h, v in zip(table_headers, cells)
+                    )
                     result_lines.append(f"- {formatted}")
                 else:
                     result_lines.append(f"- {' | '.join(cells)}")
@@ -119,7 +182,7 @@ def _convert_to_slack_mrkdwn(text: str) -> str:
                 table_headers = []
             result_lines.append(line)
 
-    return '\n'.join(result_lines)
+    return "\n".join(result_lines)
 
 
 # ---------------------------------------------------------------------------
@@ -127,13 +190,69 @@ def _convert_to_slack_mrkdwn(text: str) -> str:
 # ---------------------------------------------------------------------------
 _STOP_WORDS = frozenset(
     {
-        "what", "is", "the", "a", "an", "how", "does", "can", "for", "in",
-        "of", "to", "and", "or", "my", "our", "we", "do", "are", "it",
-        "this", "that", "which", "with", "about", "on", "at", "be", "by",
-        "from", "has", "have", "i", "me", "you", "your", "they", "their",
-        "was", "were", "been", "being", "will", "would", "could", "should",
-        "may", "might", "shall", "not", "no", "so", "if", "but", "up",
-        "out", "there", "here", "when", "where", "why", "who", "whom",
+        "what",
+        "is",
+        "the",
+        "a",
+        "an",
+        "how",
+        "does",
+        "can",
+        "for",
+        "in",
+        "of",
+        "to",
+        "and",
+        "or",
+        "my",
+        "our",
+        "we",
+        "do",
+        "are",
+        "it",
+        "this",
+        "that",
+        "which",
+        "with",
+        "about",
+        "on",
+        "at",
+        "be",
+        "by",
+        "from",
+        "has",
+        "have",
+        "i",
+        "me",
+        "you",
+        "your",
+        "they",
+        "their",
+        "was",
+        "were",
+        "been",
+        "being",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "not",
+        "no",
+        "so",
+        "if",
+        "but",
+        "up",
+        "out",
+        "there",
+        "here",
+        "when",
+        "where",
+        "why",
+        "who",
+        "whom",
     }
 )
 
@@ -146,6 +265,7 @@ _STRONG_MATCH_THRESHOLD = 0.70
 # ============================================================================
 # NovaSlackBot
 # ============================================================================
+
 
 class NovaSlackBot:
     """Nova Slack Bot -- connects Nova intelligence to Slack."""
@@ -163,9 +283,9 @@ class NovaSlackBot:
         self._token_lock = threading.Lock()
 
         # Token rotation credentials (from env)
-        self.slack_client_id: str = os.environ.get("SLACK_CLIENT_ID", "")
-        self.slack_client_secret: str = os.environ.get("SLACK_CLIENT_SECRET", "")
-        self.refresh_token: str = os.environ.get("SLACK_REFRESH_TOKEN", "")
+        self.slack_client_id: str = os.environ.get("SLACK_CLIENT_ID") or ""
+        self.slack_client_secret: str = os.environ.get("SLACK_CLIENT_SECRET") or ""
+        self.refresh_token: str = os.environ.get("SLACK_REFRESH_TOKEN") or ""
         self._token_issued_at: float = 0.0
         self._token_expires_in: int = _TOKEN_DEFAULT_LIFETIME
 
@@ -176,11 +296,16 @@ class NovaSlackBot:
             self.refresh_token = cached.get("refresh_token", self.refresh_token)
             self._token_issued_at = cached.get("issued_at", 0.0)
             self._token_expires_in = cached.get("expires_in", _TOKEN_DEFAULT_LIFETIME)
-            logger.info("Nova: Loaded cached Slack token (issued %s)",
-                        datetime.utcfromtimestamp(self._token_issued_at).isoformat()
-                        if self._token_issued_at else "unknown")
+            logger.info(
+                "Nova: Loaded cached Slack token (issued %s)",
+                (
+                    datetime.utcfromtimestamp(self._token_issued_at).isoformat()
+                    if self._token_issued_at
+                    else "unknown"
+                ),
+            )
         else:
-            self.bot_token = slack_bot_token or os.environ.get("SLACK_BOT_TOKEN", "")
+            self.bot_token = slack_bot_token or os.environ.get("SLACK_BOT_TOKEN") or ""
 
         self.signing_secret: str = slack_signing_secret or os.environ.get(
             "SLACK_SIGNING_SECRET", ""
@@ -215,9 +340,11 @@ class NovaSlackBot:
             logger.info("Nova: Token refresh background thread started")
         else:
             self._refresh_thread = None
-            logger.info("Nova: Token rotation not configured "
-                        "(missing SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, "
-                        "or SLACK_REFRESH_TOKEN)")
+            logger.info(
+                "Nova: Token rotation not configured "
+                "(missing SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, "
+                "or SLACK_REFRESH_TOKEN)"
+            )
 
         # Nova engine (optional dependency)
         self._iq_engine: Any = None
@@ -248,9 +375,7 @@ class NovaSlackBot:
     def _can_refresh_tokens(self) -> bool:
         """Return True if token rotation credentials are configured."""
         return bool(
-            self.slack_client_id
-            and self.slack_client_secret
-            and self.refresh_token
+            self.slack_client_id and self.slack_client_secret and self.refresh_token
         )
 
     def _load_token_cache(self) -> Optional[Dict[str, Any]]:
@@ -267,8 +392,11 @@ class NovaSlackBot:
         return None
 
     def _save_token_cache(
-        self, access_token: str, refresh_token: str,
-        expires_in: int, issued_at: float,
+        self,
+        access_token: str,
+        refresh_token: str,
+        expires_in: int,
+        issued_at: float,
     ) -> None:
         """Persist token data to disk (thread-safe via _lock)."""
         cache_data = {
@@ -307,12 +435,14 @@ class NovaSlackBot:
         with self._token_lock:
             current_refresh = self.refresh_token
 
-        post_data = urllib.parse.urlencode({
-            "client_id": self.slack_client_id,
-            "client_secret": self.slack_client_secret,
-            "grant_type": "refresh_token",
-            "refresh_token": current_refresh,
-        }).encode("utf-8")
+        post_data = urllib.parse.urlencode(
+            {
+                "client_id": self.slack_client_id,
+                "client_secret": self.slack_client_secret,
+                "grant_type": "refresh_token",
+                "refresh_token": current_refresh,
+            }
+        ).encode("utf-8")
 
         req = urllib.request.Request(
             "https://slack.com/api/oauth.v2.access",
@@ -336,7 +466,7 @@ class NovaSlackBot:
             )
             return False
 
-        new_access = result.get("access_token", "")
+        new_access = result.get("access_token") or ""
         new_refresh = result.get("refresh_token", current_refresh)
         expires_in = result.get("expires_in", _TOKEN_DEFAULT_LIFETIME)
         issued_at = time.time()
@@ -394,13 +524,9 @@ class NovaSlackBot:
                         time.sleep(_TOKEN_RETRY_DELAY)
                         # Second attempt
                         if not self._refresh_token():
-                            logger.error(
-                                "Nova: Token refresh retry also failed"
-                            )
+                            logger.error("Nova: Token refresh retry also failed")
             except Exception as exc:
-                logger.error(
-                    "Nova: Error in token refresh loop: %s", exc
-                )
+                logger.error("Nova: Error in token refresh loop: %s", exc)
                 # Sleep before retrying to avoid tight error loops
                 time.sleep(_TOKEN_RETRY_DELAY)
 
@@ -427,11 +553,16 @@ class NovaSlackBot:
                     "metadata": {"total_learned": 0, "last_updated": None},
                 }
             # P1 FIX: Merge pre-loaded answers (survives ephemeral filesystem)
-            existing_qs = {a.get("question", "").lower() for a in self.learned_answers.get("answers", [])}
+            existing_qs = {
+                a.get("question") or "".lower()
+                for a in self.learned_answers.get("answers") or []
+            }
             for preloaded in _PRELOADED_ANSWERS:
                 if preloaded["question"].lower() not in existing_qs:
                     self.learned_answers.setdefault("answers", []).append(preloaded)
-            self.learned_answers["metadata"]["total_learned"] = len(self.learned_answers.get("answers", []))
+            self.learned_answers["metadata"]["total_learned"] = len(
+                self.learned_answers.get("answers") or []
+            )
 
     def _save_learned_answers(self) -> None:
         """Persist learned answers to disk (caller must hold ``_lock``)."""
@@ -475,9 +606,7 @@ class NovaSlackBot:
     # Slack request verification
     # ------------------------------------------------------------------
 
-    def verify_slack_signature(
-        self, timestamp: str, body: str, signature: str
-    ) -> bool:
+    def verify_slack_signature(self, timestamp: str, body: str, signature: str) -> bool:
         """Verify an incoming request originated from Slack.
 
         Uses the Slack signing-secret HMAC-SHA256 scheme.  If no signing
@@ -517,7 +646,7 @@ class NovaSlackBot:
         event_type = event_data.get("type")
 
         if event_type == "url_verification":
-            return {"challenge": event_data.get("challenge", "")}
+            return {"challenge": event_data.get("challenge") or ""}
 
         if event_type == "event_callback":
             event = event_data.get("event", {})
@@ -532,10 +661,10 @@ class NovaSlackBot:
         previous messages in multi-turn Slack threads.
         """
         etype = event.get("type")
-        text = event.get("text", "")
-        user = event.get("user", "")
-        channel = event.get("channel", "")
-        ts = event.get("ts", "")
+        text = event.get("text") or ""
+        user = event.get("user") or ""
+        channel = event.get("channel") or ""
+        ts = event.get("ts") or ""
         thread_ts = event.get("thread_ts") or ts
 
         # Ignore our own messages and other bots to avoid infinite loops
@@ -560,14 +689,22 @@ class NovaSlackBot:
 
         # Generate a response with conversation context
         response = self.answer_question(
-            clean_text, user, channel, thread_ts,
+            clean_text,
+            user,
+            channel,
+            thread_ts,
             conversation_history=thread_history,
         )
 
         # Record assistant response in thread history
         # Strip Slack formatting prefix for clean history
-        response_text = response.get("text", "")
-        clean_response = re.sub(r'\n\n_Sources?:.*$', '', response_text.replace("*Nova says:*\n\n", ""), flags=re.DOTALL)
+        response_text = response.get("text") or ""
+        clean_response = re.sub(
+            r"\n\n_Sources?:.*$",
+            "",
+            response_text.replace("*Nova says:*\n\n", ""),
+            flags=re.DOTALL,
+        )
         self._add_to_thread_history(thread_ts, "assistant", clean_response)
 
         # Post to Slack (non-blocking best-effort)
@@ -579,9 +716,7 @@ class NovaSlackBot:
     # Thread history management
     # ------------------------------------------------------------------
 
-    def _add_to_thread_history(
-        self, thread_ts: str, role: str, content: str
-    ) -> None:
+    def _add_to_thread_history(self, thread_ts: str, role: str, content: str) -> None:
         """Add a message to the per-thread conversation history."""
         with self._thread_history_lock:
             # Expire old threads first
@@ -590,16 +725,20 @@ class NovaSlackBot:
             if thread_ts not in self._thread_history:
                 self._thread_history[thread_ts] = []
 
-            self._thread_history[thread_ts].append({
-                "role": role,
-                "content": content[:2000] if role == "user" else content[:6000],  # Keep assistant responses longer for context
-                "timestamp": time.time(),
-            })
+            self._thread_history[thread_ts].append(
+                {
+                    "role": role,
+                    "content": (
+                        content[:2000] if role == "user" else content[:6000]
+                    ),  # Keep assistant responses longer for context
+                    "timestamp": time.time(),
+                }
+            )
 
             # Trim to max history length
             if len(self._thread_history[thread_ts]) > self._max_thread_history:
                 self._thread_history[thread_ts] = self._thread_history[thread_ts][
-                    -self._max_thread_history:
+                    -self._max_thread_history :
                 ]
 
     def _get_thread_history(self, thread_ts: str) -> List[Dict[str, str]]:
@@ -620,7 +759,7 @@ class NovaSlackBot:
         expired = []
         for thread_ts, messages in self._thread_history.items():
             if messages:
-                last_activity = messages[-1].get("timestamp", 0)
+                last_activity = messages[-1].get("timestamp") or 0
                 if now - last_activity > self._thread_ttl_seconds:
                     expired.append(thread_ts)
             else:
@@ -663,7 +802,7 @@ class NovaSlackBot:
         # -- Step 1: Learned answers (strong match) -----------------------
         learned = self._search_learned_answers(question)
         if learned and learned["confidence"] >= 0.8:
-            self._increment_usage(learned.get("original_question", ""))
+            self._increment_usage(learned.get("original_question") or "")
             return {
                 "text": (
                     f"*Nova says:*\n\n{learned['answer']}\n\n"
@@ -700,14 +839,16 @@ class NovaSlackBot:
                     enhanced_question,
                     conversation_history=conversation_history,
                 )
-                if iq_response and iq_response.get("confidence", 0) >= 0.5:
+                if iq_response and iq_response.get("confidence") or 0 >= 0.5:
                     sources = iq_response.get("sources", ["Joveo Data"])
                     if slack_context:
                         sources = list(sources) + ["Slack Channel History"]
                     src_text = ", ".join(sources)
                     conf = iq_response["confidence"]
-                    tools_used = iq_response.get("tools_used", [])
-                    tool_info = f" | Tools: {len(set(tools_used))}" if tools_used else ""
+                    tools_used = iq_response.get("tools_used") or []
+                    tool_info = (
+                        f" | Tools: {len(set(tools_used))}" if tools_used else ""
+                    )
                     return {
                         "text": (
                             f"*Nova says:*\n\n{iq_response['response']}\n\n"
@@ -723,7 +864,7 @@ class NovaSlackBot:
 
         # -- Step 4: Partial learned match ---------------------------------
         if learned and learned["confidence"] >= 0.4:
-            self._increment_usage(learned.get("original_question", ""))
+            self._increment_usage(learned.get("original_question") or "")
             return {
                 "text": (
                     f"*Nova says:*\n\n{learned['answer']}\n\n"
@@ -737,21 +878,15 @@ class NovaSlackBot:
             }
 
         # -- Step 5: Low confidence -- queue for review --------------------
-        partial_text = (
-            iq_response.get("response", "") if iq_response else ""
-        )
-        self._add_to_unanswered(
-            question, user_id, channel, thread_ts, partial_text
-        )
+        partial_text = iq_response.get("response") or "" if iq_response else ""
+        self._add_to_unanswered(question, user_id, channel, thread_ts, partial_text)
 
         partial_block = ""
         if partial_text:
-            partial_block = (
-                f"\n\nHere's what I found so far:\n{partial_text}\n"
-            )
+            partial_block = f"\n\nHere's what I found so far:\n{partial_text}\n"
 
-        iq_conf = iq_response.get("confidence", 0) if iq_response else 0.0
-        iq_tools = iq_response.get("tools_used", []) if iq_response else []
+        iq_conf = iq_response.get("confidence") or 0 if iq_response else 0.0
+        iq_tools = iq_response.get("tools_used") or [] if iq_response else []
         return {
             "text": (
                 f"*Nova says:*\n\n"
@@ -772,7 +907,7 @@ class NovaSlackBot:
 
     def _search_learned_answers(self, question: str) -> Optional[Dict[str, Any]]:
         """Search learned answers using Jaccard keyword similarity."""
-        answers = self.learned_answers.get("answers", [])
+        answers = self.learned_answers.get("answers") or []
         if not answers:
             return None
 
@@ -784,7 +919,7 @@ class NovaSlackBot:
         best_score: float = 0.0
 
         for entry in answers:
-            a_words = self._extract_keywords(entry.get("question", ""))
+            a_words = self._extract_keywords(entry.get("question") or "")
             if not a_words:
                 continue
             overlap = len(q_words & a_words)
@@ -812,9 +947,9 @@ class NovaSlackBot:
     def _increment_usage(self, original_question: str) -> None:
         """Bump ``times_used`` for a learned answer (best-effort)."""
         with self._lock:
-            for entry in self.learned_answers.get("answers", []):
+            for entry in self.learned_answers.get("answers") or []:
                 if entry.get("question") == original_question:
-                    entry["times_used"] = entry.get("times_used", 0) + 1
+                    entry["times_used"] = entry.get("times_used") or 0 + 1
                     try:
                         self._save_learned_answers()
                     except OSError:
@@ -843,7 +978,10 @@ class NovaSlackBot:
     _slack_context_lock = threading.Lock()
 
     def _search_slack_context(
-        self, question: str, channel_id: str, _retried: bool = False,
+        self,
+        question: str,
+        channel_id: str,
+        _retried: bool = False,
     ) -> list:
         """Search recent channel messages for relevant context.
 
@@ -910,14 +1048,17 @@ class NovaSlackBot:
                 )
                 if self._refresh_token():
                     return self._search_slack_context(
-                        question, channel_id, _retried=True,
+                        question,
+                        channel_id,
+                        _retried=True,
                     )
             logger.warning(
-                "Nova: Slack conversations.history error: %s", error_code,
+                "Nova: Slack conversations.history error: %s",
+                error_code,
             )
             return []
 
-        messages = data.get("messages", [])
+        messages = data.get("messages") or []
         if not messages:
             return []
 
@@ -928,7 +1069,7 @@ class NovaSlackBot:
 
         scored: list = []
         for msg in messages:
-            msg_text = msg.get("text", "").strip()
+            msg_text = msg.get("text") or "".strip()
             if not msg_text:
                 continue
             # Skip very short messages (reactions, single-word replies)
@@ -951,11 +1092,22 @@ class NovaSlackBot:
     # Proactive recruitment-topic detection
     # ------------------------------------------------------------------
 
-    _RECRUITMENT_KEYWORDS = frozenset({
-        "hiring", "budget", "cpa", "cpc", "job board", "candidate",
-        "salary", "recruiter", "talent", "application", "indeed",
-        "linkedin",
-    })
+    _RECRUITMENT_KEYWORDS = frozenset(
+        {
+            "hiring",
+            "budget",
+            "cpa",
+            "cpc",
+            "job board",
+            "candidate",
+            "salary",
+            "recruiter",
+            "talent",
+            "application",
+            "indeed",
+            "linkedin",
+        }
+    )
 
     def _is_recruitment_topic(self, text: str) -> bool:
         """Check whether *text* contains 2+ recruitment-related keywords.
@@ -966,9 +1118,7 @@ class NovaSlackBot:
         if not text:
             return False
         text_lower = text.lower()
-        matches = sum(
-            1 for kw in self._RECRUITMENT_KEYWORDS if kw in text_lower
-        )
+        matches = sum(1 for kw in self._RECRUITMENT_KEYWORDS if kw in text_lower)
         return matches >= 2
 
     # ------------------------------------------------------------------
@@ -985,9 +1135,7 @@ class NovaSlackBot:
     ) -> None:
         """Enqueue a question for human review."""
         entry = {
-            "id": hashlib.md5(
-                f"{question}{time.time()}".encode()
-            ).hexdigest()[:12],
+            "id": hashlib.md5(f"{question}{time.time()}".encode()).hexdigest()[:12],
             "question": question,
             "asked_by": user_id,
             "channel": channel,
@@ -1010,7 +1158,11 @@ class NovaSlackBot:
                 resolved = [q for q in questions if q["status"] != "pending"]
                 # Keep latest 200 resolved + all pending (up to 500 total)
                 max_resolved = max(500 - len(pending), 100)
-                resolved_trimmed = resolved[-max_resolved:] if len(resolved) > max_resolved else resolved
+                resolved_trimmed = (
+                    resolved[-max_resolved:]
+                    if len(resolved) > max_resolved
+                    else resolved
+                )
                 self.unanswered["questions"] = resolved_trimmed + pending
             self.unanswered["metadata"]["total_queued"] = len(
                 [q for q in self.unanswered["questions"] if q["status"] == "pending"]
@@ -1030,7 +1182,7 @@ class NovaSlackBot:
         Returns ``True`` on success.
         """
         with self._lock:
-            for q in self.unanswered.get("questions", []):
+            for q in self.unanswered.get("questions") or []:
                 if q["id"] == question_id and q["status"] == "pending":
                     q["status"] = "answered"
                     q["answer"] = answer
@@ -1041,7 +1193,7 @@ class NovaSlackBot:
                     answers_list = self.learned_answers.setdefault("answers", [])
                     if len(answers_list) >= 2000:
                         # Evict least-used entries to make room
-                        answers_list.sort(key=lambda a: a.get("times_used", 0))
+                        answers_list.sort(key=lambda a: a.get("times_used") or 0)
                         del answers_list[:100]
                     answers_list.append(
                         {
@@ -1076,8 +1228,8 @@ class NovaSlackBot:
                     self._save_unanswered_questions()
 
                     # Post follow-up in Slack (outside the lock)
-                    channel = q.get("channel", "")
-                    thread = q.get("thread_ts", "")
+                    channel = q.get("channel") or ""
+                    thread = q.get("thread_ts") or ""
                     break
             else:
                 return False
@@ -1098,7 +1250,7 @@ class NovaSlackBot:
     def dismiss_question(self, question_id: str, reason: str = "") -> bool:
         """Dismiss an unanswered question (not relevant, duplicate, etc.)."""
         with self._lock:
-            for q in self.unanswered.get("questions", []):
+            for q in self.unanswered.get("questions") or []:
                 if q["id"] == question_id and q["status"] == "pending":
                     q["status"] = "dismissed"
                     q["answer"] = f"Dismissed: {reason}" if reason else "Dismissed"
@@ -1120,7 +1272,7 @@ class NovaSlackBot:
 
     def get_unanswered_summary(self) -> Dict[str, Any]:
         """Return a summary suitable for the admin dashboard."""
-        questions = self.unanswered.get("questions", [])
+        questions = self.unanswered.get("questions") or []
         pending = [q for q in questions if q["status"] == "pending"]
         answered = [q for q in questions if q["status"] == "answered"]
         dismissed = [q for q in questions if q["status"] == "dismissed"]
@@ -1129,12 +1281,12 @@ class NovaSlackBot:
             "pending_count": len(pending),
             "answered_count": len(answered),
             "dismissed_count": len(dismissed),
-            "total_learned": self.learned_answers["metadata"].get("total_learned", 0),
+            "total_learned": self.learned_answers["metadata"].get("total_learned") or 0,
             "pending_questions": sorted(
-                pending, key=lambda q: q.get("timestamp", ""), reverse=True
+                pending, key=lambda q: q.get("timestamp") or "", reverse=True
             ),
             "recent_answered": sorted(
-                answered, key=lambda q: q.get("answered_at", ""), reverse=True
+                answered, key=lambda q: q.get("answered_at") or "", reverse=True
             )[:10],
         }
 
@@ -1142,21 +1294,18 @@ class NovaSlackBot:
         """Build a Slack-formatted weekly digest message."""
         week_ago = (datetime.utcnow() - timedelta(days=7)).isoformat()
 
-        questions = self.unanswered.get("questions", [])
+        questions = self.unanswered.get("questions") or []
         recent_pending = [
             q
             for q in questions
-            if q["status"] == "pending" and q.get("timestamp", "") >= week_ago
+            if q["status"] == "pending" and q.get("timestamp") or "" >= week_ago
         ]
         recent_answered = [
             q
             for q in questions
-            if q["status"] == "answered"
-            and q.get("answered_at", "") >= week_ago
+            if q["status"] == "answered" and q.get("answered_at") or "" >= week_ago
         ]
-        total_pending = len(
-            [q for q in questions if q["status"] == "pending"]
-        )
+        total_pending = len([q for q in questions if q["status"] == "pending"])
 
         lines: List[str] = []
         lines.append("*Nova Weekly Digest*\n")
@@ -1164,7 +1313,7 @@ class NovaSlackBot:
         lines.append(f"* *{len(recent_answered)}* questions answered this week")
         lines.append(f"* *{total_pending}* questions still pending review")
         lines.append(
-            f"* *{self.learned_answers['metadata'].get('total_learned', 0)}* "
+            f"* *{self.learned_answers['metadata'].get('total_learned') or 0}* "
             f"total answers in knowledge base\n"
         )
 
@@ -1173,14 +1322,10 @@ class NovaSlackBot:
             for idx, q in enumerate(recent_pending[:10], 1):
                 lines.append(f"{idx}. _{q['question'][:100]}_")
             if len(recent_pending) > 10:
-                lines.append(
-                    f"_...and {len(recent_pending) - 10} more_"
-                )
+                lines.append(f"_...and {len(recent_pending) - 10} more_")
             lines.append("\nReview at: `/admin/nova`")
         else:
-            lines.append(
-                "_No new questions need review -- Nova handled everything!_"
-            )
+            lines.append("_No new questions need review -- Nova handled everything!_")
 
         return "\n".join(lines)
 
@@ -1212,9 +1357,7 @@ class NovaSlackBot:
         that exceed Slack's 4000-character limit into multiple posts.
         """
         if not self.bot_token:
-            logger.warning(
-                "Nova: No Slack bot token configured -- skipping post"
-            )
+            logger.warning("Nova: No Slack bot token configured -- skipping post")
             return None
 
         # Convert standard markdown to Slack mrkdwn
@@ -1248,24 +1391,24 @@ class NovaSlackBot:
         current_chunk: List[str] = []
         current_len = 0
 
-        for line in text.split('\n'):
+        for line in text.split("\n"):
             line_len = len(line) + 1  # +1 for the newline character
 
             # If a single line is longer than max_chars, hard-split it
             if line_len > max_chars:
                 # Flush current chunk first
                 if current_chunk:
-                    chunks.append('\n'.join(current_chunk))
+                    chunks.append("\n".join(current_chunk))
                     current_chunk = []
                     current_len = 0
                 # Hard-split the long line
                 for i in range(0, len(line), max_chars):
-                    chunks.append(line[i:i + max_chars])
+                    chunks.append(line[i : i + max_chars])
                 continue
 
             if current_len + line_len > max_chars:
                 # Flush current chunk and start a new one
-                chunks.append('\n'.join(current_chunk))
+                chunks.append("\n".join(current_chunk))
                 current_chunk = [line]
                 current_len = line_len
             else:
@@ -1273,7 +1416,7 @@ class NovaSlackBot:
                 current_len += line_len
 
         if current_chunk:
-            chunks.append('\n'.join(current_chunk))
+            chunks.append("\n".join(current_chunk))
 
         return chunks
 
@@ -1320,10 +1463,8 @@ class NovaSlackBot:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
                 if not result.get("ok"):
-                    error_code = result.get("error", "")
-                    logger.error(
-                        "Nova: Slack API error: %s", error_code
-                    )
+                    error_code = result.get("error") or ""
+                    logger.error("Nova: Slack API error: %s", error_code)
                     # Token expired/invalid -- refresh and retry once
                     if (
                         error_code in self._TOKEN_ERROR_CODES
@@ -1336,7 +1477,10 @@ class NovaSlackBot:
                         )
                         if self._refresh_token():
                             return self._post_single_message(
-                                channel, text, thread_ts, _retried=True,
+                                channel,
+                                text,
+                                thread_ts,
+                                _retried=True,
                             )
                 return result
         except urllib.error.URLError as exc:
@@ -1396,13 +1540,19 @@ class NovaSlackBot:
 
         # --- Attempt 2: try cached token (if different from current) ---
         cached = self._load_token_cache()
-        if cached and cached.get("access_token") and cached["access_token"] != self.bot_token:
+        if (
+            cached
+            and cached.get("access_token")
+            and cached["access_token"] != self.bot_token
+        ):
             logger.info("Nova: Trying cached token for auth.test")
             with self._token_lock:
                 self.bot_token = cached["access_token"]
                 self.refresh_token = cached.get("refresh_token", self.refresh_token)
                 self._token_issued_at = cached.get("issued_at", 0.0)
-                self._token_expires_in = cached.get("expires_in", _TOKEN_DEFAULT_LIFETIME)
+                self._token_expires_in = cached.get(
+                    "expires_in", _TOKEN_DEFAULT_LIFETIME
+                )
 
             result = self._do_auth_test(self.bot_token)
             if result and result.get("ok"):
@@ -1448,13 +1598,15 @@ class NovaSlackBot:
         imported = 0
         with self._lock:
             for pair in qa_pairs:
-                q = pair.get("question", "").strip()
-                a = pair.get("answer", "").strip()
+                q = pair.get("question") or "".strip()
+                a = pair.get("answer") or "".strip()
                 if not q or not a:
                     continue
                 # Cap at 2000 learned answers to prevent memory/disk exhaustion
-                if len(self.learned_answers.get("answers", [])) >= 2000:
-                    logger.warning("Learned answers cap (2000) reached; skipping remaining imports")
+                if len(self.learned_answers.get("answers") or []) >= 2000:
+                    logger.warning(
+                        "Learned answers cap (2000) reached; skipping remaining imports"
+                    )
                     break
                 self.learned_answers.setdefault("answers", []).append(
                     {
@@ -1522,16 +1674,16 @@ def handle_admin_unanswered(request_data: dict) -> dict:
 
     if action == "answer":
         success = bot.resolve_question(
-            request_data.get("question_id", ""),
-            request_data.get("answer", ""),
+            request_data.get("question_id") or "",
+            request_data.get("answer") or "",
             request_data.get("answered_by", "admin"),
         )
         return {"success": success}
 
     if action == "dismiss":
         success = bot.dismiss_question(
-            request_data.get("question_id", ""),
-            request_data.get("reason", ""),
+            request_data.get("question_id") or "",
+            request_data.get("reason") or "",
         )
         return {"success": success}
 
@@ -1539,7 +1691,7 @@ def handle_admin_unanswered(request_data: dict) -> dict:
         return {"digest": bot.generate_weekly_digest()}
 
     if action == "import":
-        pairs = request_data.get("qa_pairs", [])
+        pairs = request_data.get("qa_pairs") or []
         count = bot.import_learned_answers(pairs)
         return {"imported": count}
 
@@ -1549,7 +1701,7 @@ def handle_admin_unanswered(request_data: dict) -> dict:
 def handle_chat_standalone(request_data: dict) -> dict:
     """Handle a standalone chat request (non-Slack, for admin testing)."""
     bot = get_nova_bot()
-    question = request_data.get("message") or request_data.get("question", "")
+    question = request_data.get("message") or request_data.get("question") or ""
     if not question:
         return {"error": "No question provided"}
     result = bot.answer_question(question)
@@ -1557,6 +1709,6 @@ def handle_chat_standalone(request_data: dict) -> dict:
         "response": result["text"],
         "confidence": result["confidence"],
         "sources": result["sources"],
-        "tools_used": result.get("tools_used", []),
+        "tools_used": result.get("tools_used") or [],
         "queued_for_review": result["queued_for_review"],
     }

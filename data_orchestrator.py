@@ -117,6 +117,7 @@ def _lazy_research():
             if _research is None:
                 try:
                     import research as _r
+
                     _research = _r
                     logger.info("data_orchestrator: research module loaded")
                 except Exception as e:
@@ -133,10 +134,13 @@ def _lazy_standardizer():
             if _standardizer is None:
                 try:
                     import standardizer as _s
+
                     _standardizer = _s
                     logger.info("data_orchestrator: standardizer module loaded")
                 except Exception as e:
-                    logger.warning("data_orchestrator: standardizer import failed: %s", e)
+                    logger.warning(
+                        "data_orchestrator: standardizer import failed: %s", e
+                    )
                     _standardizer = _IMPORT_FAILED
     return _standardizer if _standardizer is not _IMPORT_FAILED else None
 
@@ -149,10 +153,13 @@ def _lazy_api():
             if _api_enrichment is None:
                 try:
                     import api_enrichment as _a
+
                     _api_enrichment = _a
                     logger.info("data_orchestrator: api_enrichment module loaded")
                 except Exception as e:
-                    logger.warning("data_orchestrator: api_enrichment import failed: %s", e)
+                    logger.warning(
+                        "data_orchestrator: api_enrichment import failed: %s", e
+                    )
                     _api_enrichment = _IMPORT_FAILED
     return _api_enrichment if _api_enrichment is not _IMPORT_FAILED else None
 
@@ -165,10 +172,13 @@ def _lazy_budget():
             if _budget_engine is None:
                 try:
                     import budget_engine as _b
+
                     _budget_engine = _b
                     logger.info("data_orchestrator: budget_engine module loaded")
                 except Exception as e:
-                    logger.warning("data_orchestrator: budget_engine import failed: %s", e)
+                    logger.warning(
+                        "data_orchestrator: budget_engine import failed: %s", e
+                    )
                     _budget_engine = _IMPORT_FAILED
     return _budget_engine if _budget_engine is not _IMPORT_FAILED else None
 
@@ -181,10 +191,13 @@ def _lazy_trend_engine():
             if _trend_engine is None:
                 try:
                     import trend_engine as _te
+
                     _trend_engine = _te
                     logger.info("data_orchestrator: trend_engine module loaded")
                 except Exception as e:
-                    logger.warning("data_orchestrator: trend_engine import failed: %s", e)
+                    logger.warning(
+                        "data_orchestrator: trend_engine import failed: %s", e
+                    )
                     _trend_engine = _IMPORT_FAILED
     return _trend_engine if _trend_engine is not _IMPORT_FAILED else None
 
@@ -197,10 +210,13 @@ def _lazy_collar_intel():
             if _collar_intel is None:
                 try:
                     import collar_intelligence as _ci
+
                     _collar_intel = _ci
                     logger.info("data_orchestrator: collar_intelligence module loaded")
                 except Exception as e:
-                    logger.warning("data_orchestrator: collar_intelligence import failed: %s", e)
+                    logger.warning(
+                        "data_orchestrator: collar_intelligence import failed: %s", e
+                    )
                     _collar_intel = _IMPORT_FAILED
     return _collar_intel if _collar_intel is not _IMPORT_FAILED else None
 
@@ -213,10 +229,13 @@ def _lazy_synthesizer():
             if _data_synthesizer is None:
                 try:
                     import data_synthesizer as _ds
+
                     _data_synthesizer = _ds
                     logger.info("data_orchestrator: data_synthesizer module loaded")
                 except Exception as e:
-                    logger.warning("data_orchestrator: data_synthesizer import failed: %s", e)
+                    logger.warning(
+                        "data_orchestrator: data_synthesizer import failed: %s", e
+                    )
                     _data_synthesizer = _IMPORT_FAILED
     return _data_synthesizer if _data_synthesizer is not _IMPORT_FAILED else None
 
@@ -245,9 +264,9 @@ def _cache_get(domain: str, key: str) -> Optional[Any]:
     full_key = f"{domain}:{_normalize_cache_key(key)}"
     with _api_cache_lock:
         entry = _api_result_cache.get(full_key)
-        if entry and time.time() < entry.get("expires", 0):
+        if entry and time.time() < entry.get("expires") or 0:
             entry["last_access"] = time.time()
-            entry["access_count"] = entry.get("access_count", 0) + 1
+            entry["access_count"] = entry.get("access_count") or 0 + 1
             return entry["data"]
         elif entry:
             _api_result_cache.pop(full_key, None)
@@ -262,9 +281,9 @@ def _cache_get_with_age(domain: str, key: str) -> tuple:
     full_key = f"{domain}:{_normalize_cache_key(key)}"
     with _api_cache_lock:
         entry = _api_result_cache.get(full_key)
-        if entry and time.time() < entry.get("expires", 0):
+        if entry and time.time() < entry.get("expires") or 0:
             entry["last_access"] = time.time()
-            entry["access_count"] = entry.get("access_count", 0) + 1
+            entry["access_count"] = entry.get("access_count") or 0 + 1
             age = time.time() - entry.get("created", time.time())
             return entry["data"], age
         elif entry:
@@ -272,8 +291,7 @@ def _cache_get_with_age(domain: str, key: str) -> tuple:
     return None, 0
 
 
-def _cache_set(domain: str, key: str, data: Any,
-               ttl: int = _API_CACHE_TTL) -> None:
+def _cache_set(domain: str, key: str, data: Any, ttl: int = _API_CACHE_TTL) -> None:
     """Cache an API result with TTL.  LRU eviction on overflow."""
     full_key = f"{domain}:{_normalize_cache_key(key)}"
     now = time.time()
@@ -290,7 +308,7 @@ def _cache_set(domain: str, key: str, data: Any,
             to_evict = max(1, _MAX_CACHE_ENTRIES // 10)
             sorted_keys = sorted(
                 _api_result_cache,
-                key=lambda k: _api_result_cache[k].get("last_access", 0),
+                key=lambda k: _api_result_cache[k].get("last_access") or 0,
             )
             for ek in sorted_keys[:to_evict]:
                 _api_result_cache.pop(ek, None)
@@ -354,9 +372,12 @@ def _dedup_fetch(domain: str, key: str, fetch_fn):
         _result_key = full_key
 
         def _cleanup(rk=_result_key):
-            time.sleep(60)  # 60s window (was 5s -- too tight for slow consumers under load)
+            time.sleep(
+                60
+            )  # 60s window (was 5s -- too tight for slow consumers under load)
             with _inflight_lock:
                 _inflight_results.pop(rk, None)
+
         t = threading.Thread(target=_cleanup, daemon=True)
         t.start()
 
@@ -407,7 +428,9 @@ def get_fallback_telemetry() -> Dict[str, Any]:
     """
     with _fallback_lock:
         sorted_items = sorted(
-            _fallback_counts.items(), key=lambda x: x[1], reverse=True,
+            _fallback_counts.items(),
+            key=lambda x: x[1],
+            reverse=True,
         )
         return {
             "total_fallbacks": sum(v for _, v in sorted_items),
@@ -423,11 +446,10 @@ def get_cache_stats() -> Dict[str, Any]:
         now = time.time()
         total = len(_api_result_cache)
         expired = sum(
-            1 for e in _api_result_cache.values()
-            if now >= e.get("expires", 0)
+            1 for e in _api_result_cache.values() if now >= e.get("expires") or 0
         )
         total_accesses = sum(
-            e.get("access_count", 0) for e in _api_result_cache.values()
+            e.get("access_count") or 0 for e in _api_result_cache.values()
         )
         return {
             "total_entries": total,
@@ -442,12 +464,22 @@ def get_cache_stats() -> Dict[str, Any]:
 # API RETURN DATA VALIDATION (prevents cache poisoning from bad API responses)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _is_valid_salary_data(data: Any) -> bool:
     """Validate salary API response has meaningful content before caching."""
     if not isinstance(data, dict):
         return False
-    for key in ("median", "p50", "annual_salary", "salary",
-                "p25", "p75", "p10", "p90", "mean"):
+    for key in (
+        "median",
+        "p50",
+        "annual_salary",
+        "salary",
+        "p25",
+        "p75",
+        "p10",
+        "p90",
+        "mean",
+    ):
         val = data.get(key)
         if isinstance(val, (int, float)) and val > 0:
             return True
@@ -470,8 +502,16 @@ def _is_valid_job_market_data(data: Any) -> bool:
     """Validate job market API response before caching."""
     if not isinstance(data, dict):
         return False
-    for key in ("count", "total_jobs", "average_salary", "cpc", "cpa",
-                "results", "current_posting_count", "posting_count"):
+    for key in (
+        "count",
+        "total_jobs",
+        "average_salary",
+        "cpc",
+        "cpa",
+        "results",
+        "current_posting_count",
+        "posting_count",
+    ):
         if data.get(key) is not None:
             return True
     # Reject error responses that happen to have 2+ keys
@@ -484,9 +524,14 @@ def _is_valid_company_data(data: Any) -> bool:
     """Validate company metadata before caching."""
     if not isinstance(data, dict) or not data:
         return False
-    return bool(data.get("name") or data.get("company_name")
-                or data.get("description") or data.get("ticker")
-                or data.get("industry") or data.get("summary"))
+    return bool(
+        data.get("name")
+        or data.get("company_name")
+        or data.get("description")
+        or data.get("ticker")
+        or data.get("industry")
+        or data.get("summary")
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -499,6 +544,7 @@ _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="orch")
 # ═══════════════════════════════════════════════════════════════════════════════
 # SESSION-SCOPED ENRICHMENT CONTEXT
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class EnrichmentContext:
     """Accumulates enrichment data across tool calls within a single conversation.
@@ -597,17 +643,32 @@ def _propagate_request_id(context: Optional[EnrichmentContext]) -> None:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _TIER_SALARY_RANGES = {
-    "executive":    {"low": 120000, "high": 250000, "median": 175000,
-                     "label": "$120,000 - $250,000"},
-    "professional": {"low": 65000,  "high": 120000, "median": 90000,
-                     "label": "$65,000 - $120,000"},
-    "skilled":      {"low": 40000,  "high": 70000,  "median": 52000,
-                     "label": "$40,000 - $70,000"},
-    "entry":        {"low": 28000,  "high": 45000,  "median": 35000,
-                     "label": "$28,000 - $45,000"},
+    "executive": {
+        "low": 120000,
+        "high": 250000,
+        "median": 175000,
+        "label": "$120,000 - $250,000",
+    },
+    "professional": {
+        "low": 65000,
+        "high": 120000,
+        "median": 90000,
+        "label": "$65,000 - $120,000",
+    },
+    "skilled": {
+        "low": 40000,
+        "high": 70000,
+        "median": 52000,
+        "label": "$40,000 - $70,000",
+    },
+    "entry": {
+        "low": 28000,
+        "high": 45000,
+        "median": 35000,
+        "label": "$28,000 - $45,000",
+    },
     # Fallback when tier itself is unknown
-    "":             {"low": 40000,  "high": 80000,  "median": 55000,
-                     "label": "$40,000 - $80,000"},
+    "": {"low": 40000, "high": 80000, "median": 55000, "label": "$40,000 - $80,000"},
 }
 
 
@@ -621,113 +682,248 @@ _TIER_SALARY_RANGES = {
 
 _AD_PLATFORM_BENCHMARKS = {
     "healthcare_medical": {
-        "google_ads":   {"cpc_range": "$1.50-$4.50", "cpm_range": "$15-$35",
-                         "avg_ctr": "3.2%"},
-        "meta_ads":     {"cpc_range": "$0.80-$2.50", "cpm_range": "$12-$28",
-                         "avg_ctr": "1.8%"},
-        "linkedin_ads": {"cpc_range": "$3.00-$8.00", "cpm_range": "$25-$55",
-                         "avg_ctr": "0.5%"},
-        "indeed":       {"cpc_range": "$0.25-$1.50", "cpa_range": "$8-$35",
-                         "avg_ctr": "4.5%"},
-        "programmatic": {"cpc_range": "$0.15-$0.80", "cpa_range": "$5-$25",
-                         "avg_ctr": "0.8%"},
+        "google_ads": {
+            "cpc_range": "$1.50-$4.50",
+            "cpm_range": "$15-$35",
+            "avg_ctr": "3.2%",
+        },
+        "meta_ads": {
+            "cpc_range": "$0.80-$2.50",
+            "cpm_range": "$12-$28",
+            "avg_ctr": "1.8%",
+        },
+        "linkedin_ads": {
+            "cpc_range": "$3.00-$8.00",
+            "cpm_range": "$25-$55",
+            "avg_ctr": "0.5%",
+        },
+        "indeed": {
+            "cpc_range": "$0.25-$1.50",
+            "cpa_range": "$8-$35",
+            "avg_ctr": "4.5%",
+        },
+        "programmatic": {
+            "cpc_range": "$0.15-$0.80",
+            "cpa_range": "$5-$25",
+            "avg_ctr": "0.8%",
+        },
     },
     "tech_engineering": {
-        "google_ads":   {"cpc_range": "$2.00-$6.00", "cpm_range": "$20-$45",
-                         "avg_ctr": "2.8%"},
-        "meta_ads":     {"cpc_range": "$1.00-$3.50", "cpm_range": "$15-$35",
-                         "avg_ctr": "1.5%"},
-        "linkedin_ads": {"cpc_range": "$5.00-$12.00", "cpm_range": "$30-$70",
-                         "avg_ctr": "0.4%"},
-        "indeed":       {"cpc_range": "$0.50-$2.50", "cpa_range": "$15-$50",
-                         "avg_ctr": "3.8%"},
-        "programmatic": {"cpc_range": "$0.20-$1.20", "cpa_range": "$8-$35",
-                         "avg_ctr": "0.7%"},
+        "google_ads": {
+            "cpc_range": "$2.00-$6.00",
+            "cpm_range": "$20-$45",
+            "avg_ctr": "2.8%",
+        },
+        "meta_ads": {
+            "cpc_range": "$1.00-$3.50",
+            "cpm_range": "$15-$35",
+            "avg_ctr": "1.5%",
+        },
+        "linkedin_ads": {
+            "cpc_range": "$5.00-$12.00",
+            "cpm_range": "$30-$70",
+            "avg_ctr": "0.4%",
+        },
+        "indeed": {
+            "cpc_range": "$0.50-$2.50",
+            "cpa_range": "$15-$50",
+            "avg_ctr": "3.8%",
+        },
+        "programmatic": {
+            "cpc_range": "$0.20-$1.20",
+            "cpa_range": "$8-$35",
+            "avg_ctr": "0.7%",
+        },
     },
     "finance_banking": {
-        "google_ads":   {"cpc_range": "$2.50-$7.00", "cpm_range": "$22-$50",
-                         "avg_ctr": "2.5%"},
-        "meta_ads":     {"cpc_range": "$1.20-$3.80", "cpm_range": "$18-$40",
-                         "avg_ctr": "1.4%"},
-        "linkedin_ads": {"cpc_range": "$4.50-$10.00", "cpm_range": "$28-$65",
-                         "avg_ctr": "0.45%"},
-        "indeed":       {"cpc_range": "$0.40-$2.00", "cpa_range": "$12-$45",
-                         "avg_ctr": "4.0%"},
-        "programmatic": {"cpc_range": "$0.18-$1.00", "cpa_range": "$7-$30",
-                         "avg_ctr": "0.75%"},
+        "google_ads": {
+            "cpc_range": "$2.50-$7.00",
+            "cpm_range": "$22-$50",
+            "avg_ctr": "2.5%",
+        },
+        "meta_ads": {
+            "cpc_range": "$1.20-$3.80",
+            "cpm_range": "$18-$40",
+            "avg_ctr": "1.4%",
+        },
+        "linkedin_ads": {
+            "cpc_range": "$4.50-$10.00",
+            "cpm_range": "$28-$65",
+            "avg_ctr": "0.45%",
+        },
+        "indeed": {
+            "cpc_range": "$0.40-$2.00",
+            "cpa_range": "$12-$45",
+            "avg_ctr": "4.0%",
+        },
+        "programmatic": {
+            "cpc_range": "$0.18-$1.00",
+            "cpa_range": "$7-$30",
+            "avg_ctr": "0.75%",
+        },
     },
     "retail_consumer": {
-        "google_ads":   {"cpc_range": "$0.80-$2.50", "cpm_range": "$8-$20",
-                         "avg_ctr": "3.8%"},
-        "meta_ads":     {"cpc_range": "$0.50-$1.80", "cpm_range": "$8-$18",
-                         "avg_ctr": "2.2%"},
-        "linkedin_ads": {"cpc_range": "$2.50-$6.00", "cpm_range": "$18-$40",
-                         "avg_ctr": "0.5%"},
-        "indeed":       {"cpc_range": "$0.15-$0.80", "cpa_range": "$5-$20",
-                         "avg_ctr": "5.0%"},
-        "programmatic": {"cpc_range": "$0.10-$0.50", "cpa_range": "$3-$15",
-                         "avg_ctr": "0.9%"},
+        "google_ads": {
+            "cpc_range": "$0.80-$2.50",
+            "cpm_range": "$8-$20",
+            "avg_ctr": "3.8%",
+        },
+        "meta_ads": {
+            "cpc_range": "$0.50-$1.80",
+            "cpm_range": "$8-$18",
+            "avg_ctr": "2.2%",
+        },
+        "linkedin_ads": {
+            "cpc_range": "$2.50-$6.00",
+            "cpm_range": "$18-$40",
+            "avg_ctr": "0.5%",
+        },
+        "indeed": {
+            "cpc_range": "$0.15-$0.80",
+            "cpa_range": "$5-$20",
+            "avg_ctr": "5.0%",
+        },
+        "programmatic": {
+            "cpc_range": "$0.10-$0.50",
+            "cpa_range": "$3-$15",
+            "avg_ctr": "0.9%",
+        },
     },
     "blue_collar_trades": {
-        "google_ads":   {"cpc_range": "$0.60-$2.00", "cpm_range": "$6-$18",
-                         "avg_ctr": "4.0%"},
-        "meta_ads":     {"cpc_range": "$0.40-$1.50", "cpm_range": "$6-$15",
-                         "avg_ctr": "2.5%"},
-        "linkedin_ads": {"cpc_range": "$2.00-$5.00", "cpm_range": "$15-$35",
-                         "avg_ctr": "0.5%"},
-        "indeed":       {"cpc_range": "$0.12-$0.60", "cpa_range": "$4-$18",
-                         "avg_ctr": "5.2%"},
-        "programmatic": {"cpc_range": "$0.08-$0.40", "cpa_range": "$3-$12",
-                         "avg_ctr": "1.0%"},
+        "google_ads": {
+            "cpc_range": "$0.60-$2.00",
+            "cpm_range": "$6-$18",
+            "avg_ctr": "4.0%",
+        },
+        "meta_ads": {
+            "cpc_range": "$0.40-$1.50",
+            "cpm_range": "$6-$15",
+            "avg_ctr": "2.5%",
+        },
+        "linkedin_ads": {
+            "cpc_range": "$2.00-$5.00",
+            "cpm_range": "$15-$35",
+            "avg_ctr": "0.5%",
+        },
+        "indeed": {
+            "cpc_range": "$0.12-$0.60",
+            "cpa_range": "$4-$18",
+            "avg_ctr": "5.2%",
+        },
+        "programmatic": {
+            "cpc_range": "$0.08-$0.40",
+            "cpa_range": "$3-$12",
+            "avg_ctr": "1.0%",
+        },
     },
     "aerospace_defense": {
-        "google_ads":   {"cpc_range": "$2.00-$5.50", "cpm_range": "$18-$40",
-                         "avg_ctr": "2.6%"},
-        "meta_ads":     {"cpc_range": "$1.00-$3.00", "cpm_range": "$12-$30",
-                         "avg_ctr": "1.3%"},
-        "linkedin_ads": {"cpc_range": "$4.00-$9.00", "cpm_range": "$25-$60",
-                         "avg_ctr": "0.45%"},
-        "indeed":       {"cpc_range": "$0.40-$2.00", "cpa_range": "$12-$40",
-                         "avg_ctr": "3.5%"},
-        "programmatic": {"cpc_range": "$0.15-$0.90", "cpa_range": "$6-$28",
-                         "avg_ctr": "0.7%"},
+        "google_ads": {
+            "cpc_range": "$2.00-$5.50",
+            "cpm_range": "$18-$40",
+            "avg_ctr": "2.6%",
+        },
+        "meta_ads": {
+            "cpc_range": "$1.00-$3.00",
+            "cpm_range": "$12-$30",
+            "avg_ctr": "1.3%",
+        },
+        "linkedin_ads": {
+            "cpc_range": "$4.00-$9.00",
+            "cpm_range": "$25-$60",
+            "avg_ctr": "0.45%",
+        },
+        "indeed": {
+            "cpc_range": "$0.40-$2.00",
+            "cpa_range": "$12-$40",
+            "avg_ctr": "3.5%",
+        },
+        "programmatic": {
+            "cpc_range": "$0.15-$0.90",
+            "cpa_range": "$6-$28",
+            "avg_ctr": "0.7%",
+        },
     },
     "pharma_biotech": {
-        "google_ads":   {"cpc_range": "$2.50-$6.50", "cpm_range": "$20-$45",
-                         "avg_ctr": "2.4%"},
-        "meta_ads":     {"cpc_range": "$1.00-$3.50", "cpm_range": "$14-$32",
-                         "avg_ctr": "1.5%"},
-        "linkedin_ads": {"cpc_range": "$4.50-$10.00", "cpm_range": "$28-$60",
-                         "avg_ctr": "0.4%"},
-        "indeed":       {"cpc_range": "$0.40-$2.00", "cpa_range": "$12-$40",
-                         "avg_ctr": "3.8%"},
-        "programmatic": {"cpc_range": "$0.18-$1.00", "cpa_range": "$7-$30",
-                         "avg_ctr": "0.7%"},
+        "google_ads": {
+            "cpc_range": "$2.50-$6.50",
+            "cpm_range": "$20-$45",
+            "avg_ctr": "2.4%",
+        },
+        "meta_ads": {
+            "cpc_range": "$1.00-$3.50",
+            "cpm_range": "$14-$32",
+            "avg_ctr": "1.5%",
+        },
+        "linkedin_ads": {
+            "cpc_range": "$4.50-$10.00",
+            "cpm_range": "$28-$60",
+            "avg_ctr": "0.4%",
+        },
+        "indeed": {
+            "cpc_range": "$0.40-$2.00",
+            "cpa_range": "$12-$40",
+            "avg_ctr": "3.8%",
+        },
+        "programmatic": {
+            "cpc_range": "$0.18-$1.00",
+            "cpa_range": "$7-$30",
+            "avg_ctr": "0.7%",
+        },
     },
     "logistics_supply_chain": {
-        "google_ads":   {"cpc_range": "$0.80-$2.80", "cpm_range": "$8-$22",
-                         "avg_ctr": "3.5%"},
-        "meta_ads":     {"cpc_range": "$0.50-$1.80", "cpm_range": "$7-$18",
-                         "avg_ctr": "2.0%"},
-        "linkedin_ads": {"cpc_range": "$2.50-$6.00", "cpm_range": "$18-$40",
-                         "avg_ctr": "0.5%"},
-        "indeed":       {"cpc_range": "$0.15-$0.80", "cpa_range": "$5-$22",
-                         "avg_ctr": "4.8%"},
-        "programmatic": {"cpc_range": "$0.10-$0.50", "cpa_range": "$3-$15",
-                         "avg_ctr": "0.9%"},
+        "google_ads": {
+            "cpc_range": "$0.80-$2.80",
+            "cpm_range": "$8-$22",
+            "avg_ctr": "3.5%",
+        },
+        "meta_ads": {
+            "cpc_range": "$0.50-$1.80",
+            "cpm_range": "$7-$18",
+            "avg_ctr": "2.0%",
+        },
+        "linkedin_ads": {
+            "cpc_range": "$2.50-$6.00",
+            "cpm_range": "$18-$40",
+            "avg_ctr": "0.5%",
+        },
+        "indeed": {
+            "cpc_range": "$0.15-$0.80",
+            "cpa_range": "$5-$22",
+            "avg_ctr": "4.8%",
+        },
+        "programmatic": {
+            "cpc_range": "$0.10-$0.50",
+            "cpa_range": "$3-$15",
+            "avg_ctr": "0.9%",
+        },
     },
     # Default for unrecognized industries
     "_default": {
-        "google_ads":   {"cpc_range": "$1.00-$4.00", "cpm_range": "$12-$30",
-                         "avg_ctr": "3.0%"},
-        "meta_ads":     {"cpc_range": "$0.70-$2.50", "cpm_range": "$10-$25",
-                         "avg_ctr": "1.8%"},
-        "linkedin_ads": {"cpc_range": "$3.50-$8.00", "cpm_range": "$22-$50",
-                         "avg_ctr": "0.5%"},
-        "indeed":       {"cpc_range": "$0.25-$1.50", "cpa_range": "$8-$30",
-                         "avg_ctr": "4.2%"},
-        "programmatic": {"cpc_range": "$0.12-$0.70", "cpa_range": "$5-$22",
-                         "avg_ctr": "0.8%"},
+        "google_ads": {
+            "cpc_range": "$1.00-$4.00",
+            "cpm_range": "$12-$30",
+            "avg_ctr": "3.0%",
+        },
+        "meta_ads": {
+            "cpc_range": "$0.70-$2.50",
+            "cpm_range": "$10-$25",
+            "avg_ctr": "1.8%",
+        },
+        "linkedin_ads": {
+            "cpc_range": "$3.50-$8.00",
+            "cpm_range": "$22-$50",
+            "avg_ctr": "0.5%",
+        },
+        "indeed": {
+            "cpc_range": "$0.25-$1.50",
+            "cpa_range": "$8-$30",
+            "avg_ctr": "4.2%",
+        },
+        "programmatic": {
+            "cpc_range": "$0.12-$0.70",
+            "cpa_range": "$5-$22",
+            "avg_ctr": "0.8%",
+        },
     },
 }
 
@@ -737,25 +933,26 @@ _AD_PLATFORM_BENCHMARKS = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _INDUSTRY_PEAK_MONTHS = {
-    "healthcare_medical":       [1, 2, 9, 10],
-    "tech_engineering":         [1, 2, 3, 9, 10],
-    "retail_consumer":          [8, 9, 10],
-    "finance_banking":          [1, 2, 3, 9],
-    "blue_collar_trades":       [3, 4, 5, 9, 10],
-    "aerospace_defense":        [1, 2, 10, 11],
-    "general_entry_level":      [1, 5, 6, 9],
-    "pharma_biotech":           [1, 2, 3, 9, 10],
-    "logistics_supply_chain":   [8, 9, 10, 11],
-    "hospitality_travel":       [2, 3, 4, 9],
-    "mental_health":            [1, 2, 9, 10],
-    "legal_services":           [1, 8, 9],
-    "maritime_marine":          [3, 4, 5, 9],
+    "healthcare_medical": [1, 2, 9, 10],
+    "tech_engineering": [1, 2, 3, 9, 10],
+    "retail_consumer": [8, 9, 10],
+    "finance_banking": [1, 2, 3, 9],
+    "blue_collar_trades": [3, 4, 5, 9, 10],
+    "aerospace_defense": [1, 2, 10, 11],
+    "general_entry_level": [1, 5, 6, 9],
+    "pharma_biotech": [1, 2, 3, 9, 10],
+    "logistics_supply_chain": [8, 9, 10, 11],
+    "hospitality_travel": [2, 3, 4, 9],
+    "mental_health": [1, 2, 9, 10],
+    "legal_services": [1, 8, 9],
+    "maritime_marine": [3, 4, 5, 9],
 }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DATA FRESHNESS CLASSIFIER
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _classify_freshness(sources: List[str]) -> str:
     """Classify overall data freshness from source list."""
@@ -764,8 +961,7 @@ def _classify_freshness(sources: List[str]) -> str:
     source_str = " ".join(sources).lower()
     if "live" in source_str:
         return "live_api"
-    if "cache" in source_str and ("research" in source_str
-                                  or "curated" in source_str):
+    if "cache" in source_str and ("research" in source_str or "curated" in source_str):
         return "curated+cached_api"
     if "cache" in source_str:
         return "cached_api"
@@ -782,6 +978,7 @@ def _classify_freshness(sources: List[str]) -> str:
 # The scalar 'confidence' field is RETAINED for backward compatibility --
 # structured_confidence is an ADDITIONAL field.
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _build_structured_confidence(
     point_estimate: float,
@@ -824,7 +1021,11 @@ def _build_structured_confidence(
         credible_interval = [ci_low, ci_high]
 
     return {
-        "point_estimate": round(point_estimate, 2) if isinstance(point_estimate, float) else point_estimate,
+        "point_estimate": (
+            round(point_estimate, 2)
+            if isinstance(point_estimate, float)
+            else point_estimate
+        ),
         "confidence": round(confidence, 2),
         "credible_interval": credible_interval,
         "sources": sources,
@@ -840,6 +1041,7 @@ def _build_structured_confidence(
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPUTED INSIGHTS HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _compute_hiring_difficulty_index(
     unemployment_rate: Optional[float] = None,
@@ -872,8 +1074,10 @@ def _compute_hiring_difficulty_index(
 
     # Tier factor (executive roles are hardest to fill)
     tier_difficulty = {
-        "executive": 0.9, "professional": 0.6,
-        "skilled": 0.4, "entry": 0.2,
+        "executive": 0.9,
+        "professional": 0.6,
+        "skilled": 0.4,
+        "entry": 0.2,
     }
     tier_lower = role_tier.lower() if role_tier else ""
     if tier_lower in tier_difficulty:
@@ -893,7 +1097,8 @@ def _compute_hiring_difficulty_index(
 
 
 def _compute_salary_competitiveness(
-    offered_low: float, offered_high: float,
+    offered_low: float,
+    offered_high: float,
     market_median: float,
 ) -> float:
     """0.0 (far below market) to 1.0 (well above market) competitiveness score.
@@ -936,8 +1141,8 @@ def _days_until_next_peak(industry: str) -> Optional[int]:
 # INPUT NORMALIZATION (uses standardizer.py)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def normalize(industry: str = "", location: str = "",
-              role: str = "") -> Dict[str, Any]:
+
+def normalize(industry: str = "", location: str = "", role: str = "") -> Dict[str, Any]:
     """Normalize raw user inputs to canonical taxonomy forms.
 
     Returns dict with canonical values for each provided input:
@@ -988,9 +1193,13 @@ def normalize(industry: str = "", location: str = "",
 # SALARY INTELLIGENCE (v2: confidence, tier-aware fallback, parallel, validation)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def enrich_salary(role: str, location: str = "",
-                  industry: str = "",
-                  context: Optional[EnrichmentContext] = None) -> Dict[str, Any]:
+
+def enrich_salary(
+    role: str,
+    location: str = "",
+    industry: str = "",
+    context: Optional[EnrichmentContext] = None,
+) -> Dict[str, Any]:
     """Enriched salary data with confidence scoring.
 
     Cascades additively:
@@ -1035,7 +1244,9 @@ def enrich_salary(role: str, location: str = "",
         confidence = max(confidence, 0.75 if cache_age < 43200 else 0.65)
     elif api:
         bls_future = _executor.submit(
-            _dedup_fetch, "salary_fetch", cache_key,
+            _dedup_fetch,
+            "salary_fetch",
+            cache_key,
             lambda: _fetch_bls_salary(api, role),
         )
 
@@ -1074,7 +1285,8 @@ def enrich_salary(role: str, location: str = "",
         try:
             enrichment_map = {role: bls_data} if bls_data else None
             salary_range = res.get_role_salary_range(
-                role, location_coli=coli,
+                role,
+                location_coli=coli,
                 enrichment_salary_data=enrichment_map,
             )
             result["salary_range"] = salary_range
@@ -1100,8 +1312,7 @@ def enrich_salary(role: str, location: str = "",
         else:
             # U3: Tier-aware fallback instead of hardcoded $45k-$80k
             tier_key = role_tier.lower() if role_tier else ""
-            tier_range = _TIER_SALARY_RANGES.get(
-                tier_key, _TIER_SALARY_RANGES[""])
+            tier_range = _TIER_SALARY_RANGES.get(tier_key, _TIER_SALARY_RANGES[""])
             adjusted_low = int(tier_range["low"] * (coli / 100.0))
             adjusted_high = int(tier_range["high"] * (coli / 100.0))
             adjusted_median = int(tier_range["median"] * (coli / 100.0))
@@ -1115,8 +1326,7 @@ def enrich_salary(role: str, location: str = "",
     # -- 4. BLS percentile data (compact, for Claude to reason over) -----------
     if bls_data:
         bls_compact: Dict[str, Any] = {}
-        for k in ("median", "p10", "p25", "p75", "p90",
-                   "employment", "soc_code"):
+        for k in ("median", "p10", "p25", "p75", "p90", "employment", "soc_code"):
             v = bls_data.get(k)
             if v is not None:
                 bls_compact[k] = v
@@ -1129,9 +1339,9 @@ def enrich_salary(role: str, location: str = "",
     result["sources_used"] = sources_used
 
     # v3: Structured confidence for AI reasoning
-    median_val = result.get("median_salary", 0)
+    median_val = result.get("median_salary") or 0
     if not median_val:
-        sr = result.get("salary_range", "")
+        sr = result.get("salary_range") or ""
         if isinstance(sr, str) and " - " in sr:
             try:
                 parts = sr.replace("$", "").replace(",", "").split(" - ")
@@ -1189,8 +1399,10 @@ def _fetch_bls_salary(api, role: str) -> Optional[Dict]:
 # LOCATION INTELLIGENCE (v2: ADDITIVE cascade, confidence, parallel)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def enrich_location(location: str,
-                    context: Optional[EnrichmentContext] = None) -> Dict[str, Any]:
+
+def enrich_location(
+    location: str, context: Optional[EnrichmentContext] = None
+) -> Dict[str, Any]:
     """Enriched location profile with ADDITIVE cascade.
 
     Merges data from ALL available sources (research.py base + API overlay)
@@ -1235,17 +1447,18 @@ def enrich_location(location: str,
         if cached_loc:
             # Merge cached API data (don't overwrite research.py base)
             for k, v in cached_loc.items():
-                if v and (k not in result or not result[k]
-                          or result.get(k) == "Data not available"):
+                if v and (
+                    k not in result
+                    or not result[k]
+                    or result.get(k) == "Data not available"
+                ):
                     result[k] = v
             sources_used.append("API Cache (location)")
             confidence = max(confidence, 0.72 if cache_age < 43200 else 0.60)
         else:
             # Submit Census and World Bank fetches in parallel
-            census_future = _executor.submit(
-                _fetch_census_data, api, location)
-            wb_future = _executor.submit(
-                _fetch_world_bank_data, api, location)
+            census_future = _executor.submit(_fetch_census_data, api, location)
+            wb_future = _executor.submit(_fetch_world_bank_data, api, location)
 
             api_overlay: Dict[str, Any] = {}
 
@@ -1273,8 +1486,11 @@ def enrich_location(location: str,
             # Merge API overlay (don't overwrite research.py base)
             if api_overlay:
                 for k, v in api_overlay.items():
-                    if v and (k not in result or not result[k]
-                              or result.get(k) == "Data not available"):
+                    if v and (
+                        k not in result
+                        or not result[k]
+                        or result.get(k) == "Data not available"
+                    ):
                         result[k] = v
                 if _is_valid_location_data(api_overlay):
                     _cache_set("location", loc_key, api_overlay)
@@ -1323,7 +1539,7 @@ def _fetch_census_data(api, location: str) -> Optional[Dict]:
                 if isinstance(ld, dict) and ld.get("population"):
                     return {
                         "population": ld.get("population"),
-                        "median_salary": ld.get("median_income", 0),
+                        "median_salary": ld.get("median_income") or 0,
                         "country": "United States",
                     }
     except Exception:
@@ -1361,10 +1577,13 @@ def _fetch_world_bank_data(api, location: str) -> Optional[Dict]:
 # MARKET DEMAND INTELLIGENCE (v2: confidence, parallel, job posting volume)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def enrich_market_demand(role: str = "", location: str = "",
-                         industry: str = "",
-                         context: Optional[EnrichmentContext] = None,
-                         ) -> Dict[str, Any]:
+
+def enrich_market_demand(
+    role: str = "",
+    location: str = "",
+    industry: str = "",
+    context: Optional[EnrichmentContext] = None,
+) -> Dict[str, Any]:
     """Enriched job market demand signals with confidence scoring.
 
     Returns:
@@ -1392,11 +1611,10 @@ def enrich_market_demand(role: str = "", location: str = "",
 
     if res and industry:
         lmi_future = _executor.submit(
-            _fetch_labour_market_intel, res, industry, location)
-        seasonal_future = _executor.submit(
-            _fetch_seasonal_data, res, industry)
-        comp_future = _executor.submit(
-            _fetch_competitors, res, industry, location)
+            _fetch_labour_market_intel, res, industry, location
+        )
+        seasonal_future = _executor.submit(_fetch_seasonal_data, res, industry)
+        comp_future = _executor.submit(_fetch_competitors, res, industry, location)
 
     if api and role:
         cache_key = f"{role}:{location}"
@@ -1409,7 +1627,9 @@ def enrich_market_demand(role: str = "", location: str = "",
             _extract_posting_count(result, cached_jm)
         else:
             jm_future = _executor.submit(
-                _dedup_fetch, "market_fetch", f"{role}:{location}",
+                _dedup_fetch,
+                "market_fetch",
+                f"{role}:{location}",
                 lambda: _fetch_job_market_api(api, role, location),
             )
 
@@ -1446,7 +1666,8 @@ def enrich_market_demand(role: str = "", location: str = "",
                     _extract_posting_count(result, jm)
                 elif jm:
                     logger.debug(
-                        "enrich_market_demand: job market data failed validation")
+                        "enrich_market_demand: job market data failed validation"
+                    )
         except Exception as e:
             logger.debug("enrich_market_demand: job market future failed: %s", e)
 
@@ -1472,7 +1693,7 @@ def enrich_market_demand(role: str = "", location: str = "",
     result["sources_used"] = sources_used
 
     # v3: Structured confidence
-    posting_count = result.get("current_posting_count", 0)
+    posting_count = result.get("current_posting_count") or 0
     result["structured_confidence"] = _build_structured_confidence(
         point_estimate=float(posting_count) if posting_count else 0.0,
         confidence=confidence,
@@ -1488,8 +1709,14 @@ def enrich_market_demand(role: str = "", location: str = "",
 
 def _extract_posting_count(result: Dict, jm_data: Dict) -> None:
     """U6: Extract real-time job posting volume from job market API data."""
-    for key in ("count", "total_jobs", "current_posting_count",
-                "results_count", "total_results", "total"):
+    for key in (
+        "count",
+        "total_jobs",
+        "current_posting_count",
+        "results_count",
+        "total_results",
+        "total",
+    ):
         val = jm_data.get(key)
         if isinstance(val, (int, float)) and val > 0:
             result["current_posting_count"] = int(val)
@@ -1505,7 +1732,8 @@ def _fetch_labour_market_intel(res, industry: str, location: str):
     """Helper for parallel labour market fetch."""
     try:
         return res.get_labour_market_intelligence(
-            industry, [location] if location else [])
+            industry, [location] if location else []
+        )
     except Exception:
         return None
 
@@ -1521,8 +1749,7 @@ def _fetch_seasonal_data(res, industry: str):
 def _fetch_competitors(res, industry: str, location: str):
     """Helper for parallel competitors fetch."""
     try:
-        return res.get_competitors(
-            industry, [location] if location else [])
+        return res.get_competitors(industry, [location] if location else [])
     except Exception:
         return None
 
@@ -1540,10 +1767,13 @@ def _fetch_job_market_api(api, role: str, location: str):
 # COMPETITIVE INTELLIGENCE (v2: confidence, parallel, employer brand)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def enrich_competitive(company: str, industry: str = "",
-                       locations: Optional[List[str]] = None,
-                       context: Optional[EnrichmentContext] = None,
-                       ) -> Dict[str, Any]:
+
+def enrich_competitive(
+    company: str,
+    industry: str = "",
+    locations: Optional[List[str]] = None,
+    context: Optional[EnrichmentContext] = None,
+) -> Dict[str, Any]:
     """Enriched competitive intelligence with confidence scoring.
 
     Returns:
@@ -1567,18 +1797,18 @@ def enrich_competitive(company: str, industry: str = "",
 
     if res and company:
         ci_future = _executor.submit(_fetch_company_intel, res, company)
-        brand_future = _executor.submit(
-            _fetch_employer_brand_data, res, company)
+        brand_future = _executor.submit(_fetch_employer_brand_data, res, company)
 
     if res and industry:
         comp_future = _executor.submit(
-            _fetch_competitors, res, industry,
-            locations[0] if locations else "")
+            _fetch_competitors, res, industry, locations[0] if locations else ""
+        )
 
     use_api_cache = False
     if api and company:
         cached_comp, cache_age = _cache_get_with_age(
-            "competitive", company.lower().strip())
+            "competitive", company.lower().strip()
+        )
         if cached_comp is not None:
             result.update(cached_comp)
             sources_used.append("API Cache (competitive)")
@@ -1586,11 +1816,15 @@ def enrich_competitive(company: str, industry: str = "",
             use_api_cache = True
         else:
             meta_future = _executor.submit(
-                _dedup_fetch, "meta_fetch", company,
+                _dedup_fetch,
+                "meta_fetch",
+                company,
                 lambda: _fetch_company_metadata_api(api, company),
             )
             sec_future = _executor.submit(
-                _dedup_fetch, "sec_fetch", company,
+                _dedup_fetch,
+                "sec_fetch",
+                company,
                 lambda: _fetch_sec_data_api(api, company),
             )
 
@@ -1628,8 +1862,7 @@ def enrich_competitive(company: str, industry: str = "",
 
     if res and industry and comps:
         try:
-            comp_intel = res.get_client_competitor_intelligence(
-                comps[:3], industry)
+            comp_intel = res.get_client_competitor_intelligence(comps[:3], industry)
             if comp_intel:
                 result["competitor_intelligence"] = comp_intel
         except Exception:
@@ -1702,14 +1935,13 @@ def _fetch_employer_brand_data(res, company: str) -> Optional[Dict]:
         if profile:
             return {
                 "company": company,
-                "industry": profile.get("industry", ""),
-                "company_size": profile.get("size", ""),
-                "primary_hiring_channels": profile.get("hiring_channels", ""),
-                "employer_brand_strength": profile.get("employer_brand", ""),
-                "known_recruitment_strategies": profile.get(
-                    "known_strategies", ""),
-                "glassdoor_rating": profile.get("glassdoor_rating", ""),
-                "talent_focus": profile.get("talent_focus", ""),
+                "industry": profile.get("industry") or "",
+                "company_size": profile.get("size") or "",
+                "primary_hiring_channels": profile.get("hiring_channels") or "",
+                "employer_brand_strength": profile.get("employer_brand") or "",
+                "known_recruitment_strategies": profile.get("known_strategies", ""),
+                "glassdoor_rating": profile.get("glassdoor_rating") or "",
+                "talent_focus": profile.get("talent_focus") or "",
                 "source": "Curated Employer Brand Intelligence",
             }
     except Exception:
@@ -1736,6 +1968,7 @@ def _fetch_sec_data_api(api, company: str):
 # ═══════════════════════════════════════════════════════════════════════════════
 # EMPLOYER BRAND INTELLIGENCE (NEW -- U7 dedicated endpoint)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def enrich_employer_brand(
     company: str,
@@ -1767,25 +2000,27 @@ def enrich_employer_brand(
 
     # Fallback: generic brand intelligence
     safe_name = company.replace(" ", "-")
-    result.update({
-        "employer_brand_strength": (
-            f"No curated profile for {company}. Check Glassdoor, "
-            "LinkedIn company page, and career site for brand assessment."
-        ),
-        "glassdoor_rating": f"Visit glassdoor.com/Reviews/{safe_name}-Reviews",
-        "hiring_channels": (
-            "Likely Indeed, LinkedIn, Direct Career Site, Glassdoor, "
-            "employee referrals"
-        ),
-        "known_strategies": (
-            "Research recommended -- audit their career site and active "
-            "job postings"
-        ),
-        "source": "Generic Employer Brand Guidance",
-        "confidence": 0.25,
-        "data_freshness": "fallback",
-        "sources_used": ["Generic fallback"],
-    })
+    result.update(
+        {
+            "employer_brand_strength": (
+                f"No curated profile for {company}. Check Glassdoor, "
+                "LinkedIn company page, and career site for brand assessment."
+            ),
+            "glassdoor_rating": f"Visit glassdoor.com/Reviews/{safe_name}-Reviews",
+            "hiring_channels": (
+                "Likely Indeed, LinkedIn, Direct Career Site, Glassdoor, "
+                "employee referrals"
+            ),
+            "known_strategies": (
+                "Research recommended -- audit their career site and active "
+                "job postings"
+            ),
+            "source": "Generic Employer Brand Guidance",
+            "confidence": 0.25,
+            "data_freshness": "fallback",
+            "sources_used": ["Generic fallback"],
+        }
+    )
     _record_fallback("enrich_employer_brand", company)
 
     if context is not None:
@@ -1797,6 +2032,7 @@ def enrich_employer_brand(
 # ═══════════════════════════════════════════════════════════════════════════════
 # AD PLATFORM BENCHMARKS (NEW -- passthrough for Nova/Slack)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def get_ad_platform_benchmarks(
     industry: str = "",
@@ -1821,7 +2057,8 @@ def get_ad_platform_benchmarks(
 
     has_specific = norm_industry in _AD_PLATFORM_BENCHMARKS
     benchmarks = _AD_PLATFORM_BENCHMARKS.get(
-        norm_industry, _AD_PLATFORM_BENCHMARKS["_default"])
+        norm_industry, _AD_PLATFORM_BENCHMARKS["_default"]
+    )
 
     result: Dict[str, Any] = {
         "industry": industry,
@@ -1831,8 +2068,7 @@ def get_ad_platform_benchmarks(
         "confidence": 0.82 if has_specific else 0.55,
         "data_freshness": "curated",
         "sources_used": [
-            "Curated Ad Benchmarks" if has_specific
-            else "Default Ad Benchmarks"
+            "Curated Ad Benchmarks" if has_specific else "Default Ad Benchmarks"
         ],
     }
 
@@ -1843,10 +2079,8 @@ def get_ad_platform_benchmarks(
             audiences = res.get_media_platform_audiences(industry)
             if audiences:
                 result["platform_audiences"] = audiences
-                result["confidence"] = min(
-                    1.0, result["confidence"] + 0.08)
-                result["sources_used"].append(
-                    "Research Intelligence (audiences)")
+                result["confidence"] = min(1.0, result["confidence"] + 0.08)
+                result["sources_used"].append("Research Intelligence (audiences)")
         except Exception:
             pass
 
@@ -1862,6 +2096,7 @@ def get_ad_platform_benchmarks(
 # with structured confidence. Falls back to static dict when trend_engine
 # is unavailable.
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def enrich_ad_benchmarks(
     industry: str = "",
@@ -1923,8 +2158,13 @@ def enrich_ad_benchmarks(
     if te:
         # Dynamic benchmarks from trend_engine
         platforms_data: Dict[str, Any] = {}
-        platform_list = ["google_search", "meta_facebook", "linkedin",
-                         "indeed", "programmatic"]
+        platform_list = [
+            "google_search",
+            "meta_facebook",
+            "linkedin",
+            "indeed",
+            "programmatic",
+        ]
 
         for plat in platform_list:
             plat_benchmarks: Dict[str, Any] = {}
@@ -1949,8 +2189,9 @@ def enrich_ad_benchmarks(
                         "data_confidence": bench["data_confidence"],
                     }
                 except Exception as e:
-                    logger.debug("enrich_ad_benchmarks: %s/%s failed: %s",
-                                 plat, metric, e)
+                    logger.debug(
+                        "enrich_ad_benchmarks: %s/%s failed: %s", plat, metric, e
+                    )
 
             if plat_benchmarks:
                 platforms_data[plat] = plat_benchmarks
@@ -1965,10 +2206,17 @@ def enrich_ad_benchmarks(
                 seasonal = te.get_seasonal_adjustment(resolved_collar, current_month)
                 result["seasonal_advice"] = {
                     "current_month": current_month,
-                    "seasonal_factor": seasonal.get("multiplier", seasonal.get("factor", 1.0)) if isinstance(seasonal, dict) else seasonal,
+                    "seasonal_factor": (
+                        seasonal.get("multiplier", seasonal.get("factor", 1.0))
+                        if isinstance(seasonal, dict)
+                        else seasonal
+                    ),
                     "collar_type": resolved_collar,
                     "recommendation": _seasonal_recommendation(
-                        seasonal.get("multiplier", seasonal.get("factor", 1.0)) if isinstance(seasonal, dict) else seasonal),
+                        seasonal.get("multiplier", seasonal.get("factor", 1.0))
+                        if isinstance(seasonal, dict)
+                        else seasonal
+                    ),
                 }
             except Exception:
                 pass
@@ -1990,12 +2238,15 @@ def enrich_ad_benchmarks(
     if "platforms" not in result:
         has_specific = norm_industry in _AD_PLATFORM_BENCHMARKS
         benchmarks = _AD_PLATFORM_BENCHMARKS.get(
-            norm_industry, _AD_PLATFORM_BENCHMARKS["_default"])
+            norm_industry, _AD_PLATFORM_BENCHMARKS["_default"]
+        )
         result["platforms"] = benchmarks
         confidence = 0.65 if has_specific else 0.40
         sources_used.append(
-            "Static Ad Benchmarks" if has_specific
-            else "Default Ad Benchmarks (fallback)")
+            "Static Ad Benchmarks"
+            if has_specific
+            else "Default Ad Benchmarks (fallback)"
+        )
         _record_fallback("enrich_ad_benchmarks", f"{industry}|{location}")
 
     # Merge platform audience data from research.py
@@ -2017,26 +2268,40 @@ def enrich_ad_benchmarks(
     try:
         # Lazy import to avoid circular dependency
         from kb_loader import load_knowledge_base as _load_kb
+
         _kb = _load_kb()
         if _kb:
             # Google Ads 2025 first-party benchmark data
             _gads_bm = _kb.get("google_ads_benchmarks", {})
-            _gads_categories = _gads_bm.get("categories", {}) if isinstance(_gads_bm, dict) else {}
+            _gads_categories = (
+                _gads_bm.get("categories", {}) if isinstance(_gads_bm, dict) else {}
+            )
             # Map industry to Google Ads category
             _ORCH_GADS_MAP = {
-                "healthcare_medical": "skilled_healthcare", "healthcare": "skilled_healthcare",
+                "healthcare_medical": "skilled_healthcare",
+                "healthcare": "skilled_healthcare",
                 "pharma_biotech": "skilled_healthcare",
-                "tech_engineering": "software_tech", "technology": "software_tech",
-                "logistics_supply_chain": "logistics_supply_chain", "logistics": "logistics_supply_chain",
-                "transportation": "logistics_supply_chain", "manufacturing": "logistics_supply_chain",
-                "blue_collar_trades": "logistics_supply_chain", "construction": "logistics_supply_chain",
-                "general_entry_level": "general_recruitment", "general": "general_recruitment",
-                "retail_consumer": "retail_hospitality", "retail": "retail_hospitality",
-                "hospitality": "retail_hospitality", "hospitality_travel": "retail_hospitality",
+                "tech_engineering": "software_tech",
+                "technology": "software_tech",
+                "logistics_supply_chain": "logistics_supply_chain",
+                "logistics": "logistics_supply_chain",
+                "transportation": "logistics_supply_chain",
+                "manufacturing": "logistics_supply_chain",
+                "blue_collar_trades": "logistics_supply_chain",
+                "construction": "logistics_supply_chain",
+                "general_entry_level": "general_recruitment",
+                "general": "general_recruitment",
+                "retail_consumer": "retail_hospitality",
+                "retail": "retail_hospitality",
+                "hospitality": "retail_hospitality",
+                "hospitality_travel": "retail_hospitality",
                 "food_beverage": "retail_hospitality",
-                "finance": "corporate_professional", "finance_banking": "corporate_professional",
-                "insurance": "corporate_professional", "professional_services": "corporate_professional",
-                "education": "education_public_service", "government_utilities": "education_public_service",
+                "finance": "corporate_professional",
+                "finance_banking": "corporate_professional",
+                "insurance": "corporate_professional",
+                "professional_services": "corporate_professional",
+                "education": "education_public_service",
+                "government_utilities": "education_public_service",
             }
             _gads_cat_key = _ORCH_GADS_MAP.get(norm_industry, "")
             _gads_cat = _gads_categories.get(_gads_cat_key, {})
@@ -2053,24 +2318,39 @@ def enrich_ad_benchmarks(
 
             # Appcast 2026 search/social CPC benchmarks
             _wp = _kb.get("white_papers", {})
-            _appcast = _wp.get("reports", {}).get("appcast_benchmark_2026", {}).get("benchmarks", {})
+            _appcast = (
+                _wp.get("reports", {})
+                .get("appcast_benchmark_2026", {})
+                .get("benchmarks", {})
+            )
             _APP_OCC_MAP = {
-                "healthcare_medical": "healthcare", "healthcare": "healthcare",
-                "tech_engineering": "technology", "technology": "technology",
-                "retail_consumer": "retail", "retail": "retail",
-                "finance_banking": "finance", "finance": "finance",
+                "healthcare_medical": "healthcare",
+                "healthcare": "healthcare",
+                "tech_engineering": "technology",
+                "technology": "technology",
+                "retail_consumer": "retail",
+                "retail": "retail",
+                "finance_banking": "finance",
+                "finance": "finance",
                 "logistics_supply_chain": "warehousing_logistics",
-                "hospitality_travel": "hospitality", "hospitality": "hospitality",
+                "hospitality_travel": "hospitality",
+                "hospitality": "hospitality",
                 "manufacturing": "manufacturing",
                 "construction": "construction_skilled_trades",
             }
             _app_occ = _APP_OCC_MAP.get(norm_industry, "")
             if _app_occ and _appcast:
-                _search_cpc = _appcast.get("search_cpc_by_occupation_2025", {}).get(_app_occ)
-                _social_cpc = _appcast.get("social_cpc_by_occupation_2025", {}).get(_app_occ)
+                _search_cpc = _appcast.get("search_cpc_by_occupation_2025", {}).get(
+                    _app_occ
+                )
+                _social_cpc = _appcast.get("social_cpc_by_occupation_2025", {}).get(
+                    _app_occ
+                )
                 _occ_cpa = _appcast.get("cpa_by_occupation_2025", {}).get(_app_occ)
                 _occ_cph = _appcast.get("cph_by_occupation_2025", {}).get(_app_occ)
-                _occ_apply_rate = _appcast.get("apply_rate_by_occupation_2025", {}).get(_app_occ)
+                _occ_apply_rate = _appcast.get("apply_rate_by_occupation_2025", {}).get(
+                    _app_occ
+                )
                 if any([_search_cpc, _social_cpc, _occ_cpa]):
                     result["appcast_2026_benchmarks"] = {
                         "occupation": _app_occ,
@@ -2097,9 +2377,9 @@ def enrich_ad_benchmarks(
     if isinstance(plats, dict):
         gs = plats.get("google_search", {})
         if isinstance(gs, dict):
-            cpc_info = gs.get("cpc", gs.get("cpc_range", ""))
+            cpc_info = gs.get("cpc", gs.get("cpc_range") or "")
             if isinstance(cpc_info, dict):
-                cpc_val = cpc_info.get("value", 0)
+                cpc_val = cpc_info.get("value") or 0
             elif isinstance(cpc_info, str):
                 cpc_val = confidence  # use confidence as proxy
 
@@ -2124,7 +2404,9 @@ def _seasonal_recommendation(factor: float) -> str:
     elif factor >= 1.05:
         return "Above-average hiring activity. Moderate CPC increase expected."
     elif factor <= 0.85:
-        return "Low season -- CPCs are discounted. Good time to build candidate pipeline."
+        return (
+            "Low season -- CPCs are discounted. Good time to build candidate pipeline."
+        )
     elif factor <= 0.95:
         return "Below-average activity. Slight CPC savings available."
     return "Normal hiring activity. Standard CPC rates apply."
@@ -2133,6 +2415,7 @@ def _seasonal_recommendation(factor: float) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 # v3: COLLAR INTELLIGENCE (first-class collar classification + strategy)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def enrich_collar_intelligence(
     role: str,
@@ -2168,7 +2451,9 @@ def enrich_collar_intelligence(
             classification = ci.classify_collar(role, industry, soc_code)
             result.update(classification)
             confidence = classification.get("confidence", 0.5)
-            sources_used.append(f"Collar Intelligence ({classification.get('method', 'unknown')})")
+            sources_used.append(
+                f"Collar Intelligence ({classification.get('method', 'unknown')})"
+            )
 
             # Get the full strategy for this collar type
             collar = classification.get("collar_type", "white_collar")
@@ -2176,23 +2461,34 @@ def enrich_collar_intelligence(
             if strategy:
                 result["strategy"] = {
                     "channel_mix": strategy.get("channel_mix", {}),
-                    "preferred_platforms": strategy.get("preferred_platforms", []),
-                    "messaging_tone": strategy.get("messaging_tone", ""),
-                    "ad_format_priority": strategy.get("ad_format_priority", []),
-                    "application_complexity": strategy.get("application_complexity", ""),
-                    "time_to_fill_days": strategy.get("time_to_fill_benchmark_days", strategy.get("time_to_fill_days", "")),
-                    "cpa_range": strategy.get("avg_cpa_range", strategy.get("cpa_range", "")),
-                    "cpc_range": strategy.get("avg_cpc_range", strategy.get("cpc_range", "")),
-                    "peak_job_seeking_hours": strategy.get("peak_job_seeking_hours", ""),
-                    "mobile_apply_pct": strategy.get("mobile_apply_pct", 0),
-                    "avg_apply_rate": strategy.get("avg_apply_rate", 0),
-                    "key_insight": strategy.get("key_insight", ""),
+                    "preferred_platforms": strategy.get("preferred_platforms") or [],
+                    "messaging_tone": strategy.get("messaging_tone") or "",
+                    "ad_format_priority": strategy.get("ad_format_priority") or [],
+                    "application_complexity": strategy.get("application_complexity")
+                    or "",
+                    "time_to_fill_days": strategy.get(
+                        "time_to_fill_benchmark_days",
+                        strategy.get("time_to_fill_days") or "",
+                    ),
+                    "cpa_range": strategy.get(
+                        "avg_cpa_range", strategy.get("cpa_range") or ""
+                    ),
+                    "cpc_range": strategy.get(
+                        "avg_cpc_range", strategy.get("cpc_range") or ""
+                    ),
+                    "peak_job_seeking_hours": strategy.get("peak_job_seeking_hours")
+                    or "",
+                    "mobile_apply_pct": strategy.get("mobile_apply_pct") or 0,
+                    "avg_apply_rate": strategy.get("avg_apply_rate") or 0,
+                    "key_insight": strategy.get("key_insight") or "",
                 }
                 sources_used.append("Collar Strategy Database")
 
             # Get industry collar breakdown if available
             patterns = getattr(ci, "COLLAR_HIRING_PATTERNS", {})
-            norm_ind = industry.lower().replace(" ", "_").replace("-", "_") if industry else ""
+            norm_ind = (
+                industry.lower().replace(" ", "_").replace("-", "_") if industry else ""
+            )
             ind_breakdown = patterns.get(norm_ind, {})
             if ind_breakdown:
                 result["industry_collar_breakdown"] = ind_breakdown
@@ -2217,7 +2513,11 @@ def enrich_collar_intelligence(
             try:
                 tier = std.get_role_tier(role)
                 tier_lower = (tier or "").lower()
-                if "entry" in tier_lower or "skilled" in tier_lower or "hourly" in tier_lower:
+                if (
+                    "entry" in tier_lower
+                    or "skilled" in tier_lower
+                    or "hourly" in tier_lower
+                ):
                     result["collar_type"] = "blue_collar"
                 elif "clinical" in tier_lower:
                     result["collar_type"] = "grey_collar"
@@ -2258,6 +2558,7 @@ def enrich_collar_intelligence(
 # ═══════════════════════════════════════════════════════════════════════════════
 # v3: HIRING TRENDS (JOLTS + FRED + trend engine fusion)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def enrich_hiring_trends(
     industry: str = "",
@@ -2329,7 +2630,8 @@ def enrich_hiring_trends(
                     confidence = max(confidence, 0.80)
                 else:
                     jolts_future = _executor.submit(
-                        _fetch_jolts_data, api, jolts_code, norm_industry)
+                        _fetch_jolts_data, api, jolts_code, norm_industry
+                    )
         except Exception as e:
             logger.debug("enrich_hiring_trends: JOLTS setup failed: %s", e)
 
@@ -2343,7 +2645,8 @@ def enrich_hiring_trends(
                 confidence = max(confidence, 0.78)
             else:
                 fred_future = _executor.submit(
-                    _fetch_fred_tightness, api, norm_industry)
+                    _fetch_fred_tightness, api, norm_industry
+                )
         except Exception as e:
             logger.debug("enrich_hiring_trends: FRED setup failed: %s", e)
 
@@ -2404,8 +2707,7 @@ def enrich_hiring_trends(
             jolts_result = jolts_future.result(timeout=20)
             if jolts_result:
                 result["jolts_data"] = jolts_result
-                _cache_set("hiring_trends", f"jolts:{norm_industry}",
-                           jolts_result)
+                _cache_set("hiring_trends", f"jolts:{norm_industry}", jolts_result)
                 sources_used.append("BLS JOLTS API (live)")
                 confidence = max(confidence, 0.88)
         except Exception as e:
@@ -2416,8 +2718,7 @@ def enrich_hiring_trends(
             fred_result = fred_future.result(timeout=20)
             if fred_result:
                 result["fred_data"] = fred_result
-                _cache_set("hiring_trends", f"fred_emp:{norm_industry}",
-                           fred_result)
+                _cache_set("hiring_trends", f"fred_emp:{norm_industry}", fred_result)
                 sources_used.append("FRED Employment API (live)")
                 confidence = max(confidence, 0.85)
         except Exception as e:
@@ -2429,23 +2730,31 @@ def enrich_hiring_trends(
     if jolts or fred:
         difficulty = 5.0  # neutral
         if isinstance(jolts, dict):
-            difficulty = jolts.get("hiring_difficulty_index",
-                                   jolts.get("difficulty_index", 5.0))
+            difficulty = jolts.get(
+                "hiring_difficulty_index", jolts.get("difficulty_index", 5.0)
+            )
         tightness = 5.0
         if isinstance(fred, dict):
-            tightness = fred.get("labor_market_tightness",
-                                 fred.get("tightness_index", 5.0))
+            tightness = fred.get(
+                "labor_market_tightness", fred.get("tightness_index", 5.0)
+            )
         # Blend JOLTS difficulty and FRED tightness
         if isinstance(difficulty, (int, float)) and isinstance(tightness, (int, float)):
             blended = round((difficulty * 0.6 + tightness * 0.4), 1)
             result["hiring_difficulty_index"] = blended
             result["labor_market_tightness"] = tightness
             if blended >= 7.5:
-                result["market_assessment"] = "Very tight labor market -- expect elevated CPCs and longer time-to-fill"
+                result["market_assessment"] = (
+                    "Very tight labor market -- expect elevated CPCs and longer time-to-fill"
+                )
             elif blended >= 5.5:
-                result["market_assessment"] = "Moderately competitive market -- standard recruitment approach"
+                result["market_assessment"] = (
+                    "Moderately competitive market -- standard recruitment approach"
+                )
             else:
-                result["market_assessment"] = "Favorable hiring conditions -- buyer's market for talent"
+                result["market_assessment"] = (
+                    "Favorable hiring conditions -- buyer's market for talent"
+                )
 
     if not sources_used:
         result["source"] = "No hiring trend data available"
@@ -2499,8 +2808,11 @@ def _fetch_fred_tightness(api, industry: str) -> Optional[Dict]:
 # COMPUTED INSIGHTS (DeepMind perspective)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def compute_insights(
-    role: str = "", location: str = "", industry: str = "",
+    role: str = "",
+    location: str = "",
+    industry: str = "",
     context: Optional[EnrichmentContext] = None,
 ) -> Dict[str, Any]:
     """Compute derived insights from accumulated enrichment data.
@@ -2524,14 +2836,18 @@ def compute_insights(
     unemployment = None
     if location_data.get("unemployment"):
         try:
-            unemp_str = str(location_data["unemployment"]).replace(
-                "%", "").replace("~", "").strip()
+            unemp_str = (
+                str(location_data["unemployment"])
+                .replace("%", "")
+                .replace("~", "")
+                .strip()
+            )
             unemployment = float(unemp_str)
         except (ValueError, TypeError):
             pass
 
-    competitor_count = len(market_data.get("competitors", []))
-    role_tier = salary_data.get("role_tier", "")
+    competitor_count = len(market_data.get("competitors") or [])
+    role_tier = salary_data.get("role_tier") or ""
 
     insights["hiring_difficulty_index"] = _compute_hiring_difficulty_index(
         unemployment_rate=unemployment,
@@ -2541,12 +2857,12 @@ def compute_insights(
 
     # -- Salary competitiveness --
     bls = salary_data.get("bls_percentiles", {})
-    market_median = bls.get("median", 0)
+    market_median = bls.get("median") or 0
     if not market_median:
-        market_median = salary_data.get("median_salary", 0)
+        market_median = salary_data.get("median_salary") or 0
     if not market_median:
         # Try extracting from salary_range string
-        sr = salary_data.get("salary_range", "")
+        sr = salary_data.get("salary_range") or ""
         if isinstance(sr, str) and " - " in sr:
             try:
                 parts = sr.replace("$", "").replace(",", "").split(" - ")
@@ -2576,15 +2892,14 @@ def compute_insights(
     peak_days = _days_until_next_peak(norm_industry)
     if peak_days is not None:
         insights["days_until_next_peak_hiring"] = peak_days
-        insights["peak_hiring_months"] = _INDUSTRY_PEAK_MONTHS.get(
-            norm_industry, [])
+        insights["peak_hiring_months"] = _INDUSTRY_PEAK_MONTHS.get(norm_industry, [])
 
     # -- v3: Collar intelligence insight --
     collar_data = (context.collar_data if context else None) or {}
     if collar_data:
-        insights["collar_type"] = collar_data.get("collar_type", "")
-        insights["collar_confidence"] = collar_data.get("confidence", 0)
-        insights["collar_strategy"] = collar_data.get("channel_strategy", "")
+        insights["collar_type"] = collar_data.get("collar_type") or ""
+        insights["collar_confidence"] = collar_data.get("confidence") or 0
+        insights["collar_strategy"] = collar_data.get("channel_strategy") or ""
 
     # -- v3: Trend engine insight --
     ad_bench = (context.ad_benchmarks_data if context else None) or {}
@@ -2592,14 +2907,13 @@ def compute_insights(
         trend_summary = ad_bench.get("trend_summary", {})
         if trend_summary:
             insights["cpc_trend_direction"] = trend_summary.get(
-                "trend_direction", "stable")
-            insights["cpc_trend_pct_yoy"] = trend_summary.get(
-                "trend_pct_yoy", 0)
+                "trend_direction", "stable"
+            )
+            insights["cpc_trend_pct_yoy"] = trend_summary.get("trend_pct_yoy", 0)
         seasonal = ad_bench.get("seasonal_advice", {})
         if seasonal:
             insights["seasonal_factor"] = seasonal.get("seasonal_factor", 1.0)
-            insights["seasonal_recommendation"] = seasonal.get(
-                "recommendation", "")
+            insights["seasonal_recommendation"] = seasonal.get("recommendation", "")
 
     # -- v3: Hiring trends insight --
     trends_data = (context.hiring_trends_data if context else None) or {}
@@ -2611,8 +2925,18 @@ def compute_insights(
         if assessment:
             insights["market_assessment"] = assessment
 
-    data_count = sum(1 for d in [salary_data, market_data, location_data,
-                                  collar_data, ad_bench, trends_data] if d)
+    data_count = sum(
+        1
+        for d in [
+            salary_data,
+            market_data,
+            location_data,
+            collar_data,
+            ad_bench,
+            trends_data,
+        ]
+        if d
+    )
     insights["confidence"] = min(0.95, 0.3 + data_count * 0.12)
     insights["source"] = "Computed Insights Layer (v3)"
 
@@ -2623,11 +2947,15 @@ def compute_insights(
 # BUDGET ALLOCATION (v2: session context integration)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def enrich_budget(budget: float, roles: List[Dict], locations: List[Dict],
-                  industry: str = "",
-                  knowledge_base: Optional[Dict] = None,
-                  context: Optional[EnrichmentContext] = None,
-                  ) -> Dict[str, Any]:
+
+def enrich_budget(
+    budget: float,
+    roles: List[Dict],
+    locations: List[Dict],
+    industry: str = "",
+    knowledge_base: Optional[Dict] = None,
+    context: Optional[EnrichmentContext] = None,
+) -> Dict[str, Any]:
     """Calculate budget allocation using session context + cached data.
 
     v3: Integrates collar intelligence for collar-weighted allocation blending
@@ -2648,17 +2976,15 @@ def enrich_budget(budget: float, roles: List[Dict], locations: List[Dict],
     if context:
         ctx_salary = context.salary_data
         if ctx_salary:
-            role_key = ctx_salary.get("role", "")
+            role_key = ctx_salary.get("role") or ""
             if role_key:
-                synthesized.setdefault(
-                    "salary_intelligence", {})[role_key] = ctx_salary
+                synthesized.setdefault("salary_intelligence", {})[role_key] = ctx_salary
 
         ctx_market = context.market_data
         if ctx_market:
-            role_key = ctx_market.get("role", "")
+            role_key = ctx_market.get("role") or ""
             if role_key:
-                synthesized.setdefault(
-                    "job_market_demand", {})[role_key] = ctx_market
+                synthesized.setdefault("job_market_demand", {})[role_key] = ctx_market
 
         ctx_competitive = context.competitive_data
         if ctx_competitive:
@@ -2683,23 +3009,23 @@ def enrich_budget(budget: float, roles: List[Dict], locations: List[Dict],
 
     # Supplement with cached data for roles/locations not in context
     for r in roles:
-        title = r.get("title", "")
+        title = r.get("title") or ""
         if not title:
             continue
         if title not in synthesized.get("salary_intelligence", {}):
             cached_sal = _cache_get("salary", title)
             if cached_sal:
-                synthesized.setdefault(
-                    "salary_intelligence", {})[title] = cached_sal
+                synthesized.setdefault("salary_intelligence", {})[title] = cached_sal
 
         for loc in locations:
-            loc_str = loc.get("city", "")
+            loc_str = loc.get("city") or ""
             ck = f"{title}:{loc_str}"
             if title not in synthesized.get("job_market_demand", {}):
                 cached_demand = _cache_get("market_demand", ck)
                 if cached_demand:
-                    synthesized.setdefault(
-                        "job_market_demand", {})[title] = cached_demand
+                    synthesized.setdefault("job_market_demand", {})[
+                        title
+                    ] = cached_demand
 
     # v3: Collar-weighted channel allocation
     channel_pcts = _get_collar_weighted_channels(roles, industry)
@@ -2718,7 +3044,7 @@ def enrich_budget(budget: float, roles: List[Dict], locations: List[Dict],
             benchmarks = te.get_all_platform_benchmarks(
                 industry=norm_ind,
                 collar_type="mixed",
-                location=locations[0].get("city", "") if locations else "",
+                location=locations[0].get("city") or "" if locations else "",
             )
             if benchmarks:
                 synthesized["trend_benchmarks"] = benchmarks
@@ -2737,8 +3063,7 @@ def enrich_budget(budget: float, roles: List[Dict], locations: List[Dict],
         )
         # Add confidence based on data availability
         data_sources = len(synthesized)
-        result["confidence"] = round(
-            min(0.95, 0.50 + data_sources * 0.10), 2)
+        result["confidence"] = round(min(0.95, 0.50 + data_sources * 0.10), 2)
         result["data_freshness"] = "computed"
         sources = []
         if context:
@@ -2767,7 +3092,8 @@ def enrich_budget(budget: float, roles: List[Dict], locations: List[Dict],
 
 
 def _get_collar_weighted_channels(
-    roles: List[Dict], industry: str = "",
+    roles: List[Dict],
+    industry: str = "",
 ) -> Dict[str, int]:
     """v3: Compute collar-weighted channel allocation percentages.
 
@@ -2790,16 +3116,18 @@ def _get_collar_weighted_channels(
         # Classify all roles and build weighted input
         role_list_for_blend = []
         for r in roles:
-            title = r.get("title", "")
+            title = r.get("title") or ""
             count = r.get("openings", r.get("count", 1))
             if not title:
                 continue
             collar_result = ci.classify_collar(title, industry)
-            role_list_for_blend.append({
-                "role": title,
-                "collar_type": collar_result.get("collar_type", "white_collar"),
-                "count": int(count) if count else 1,
-            })
+            role_list_for_blend.append(
+                {
+                    "role": title,
+                    "collar_type": collar_result.get("collar_type", "white_collar"),
+                    "count": int(count) if count else 1,
+                }
+            )
 
         if not role_list_for_blend:
             raise ValueError("No roles classified")
@@ -2833,6 +3161,7 @@ def _get_collar_weighted_channels(
 # ADDITIONAL RESEARCH.PY ACCESSORS (thin wrappers for Nova tools)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def enrich_hiring_regulations(locations: List[str]) -> List:
     """Hiring regulations from research.py.  Returns list of regulation dicts."""
     res = _lazy_research()
@@ -2855,15 +3184,21 @@ def enrich_seasonal(industry: str) -> Dict[str, Any]:
     return {}
 
 
-def enrich_campus(locations: List[str], roles: Optional[List[str]] = None,
-                  industry: str = "") -> List:
+def enrich_campus(
+    locations: List[str], roles: Optional[List[str]] = None, industry: str = ""
+) -> List:
     """Campus recruiting recommendations from research.py."""
     res = _lazy_research()
     if res:
         try:
-            return res.get_campus_recruiting_recommendations(
-                locations, roles, industry,
-            ) or []
+            return (
+                res.get_campus_recruiting_recommendations(
+                    locations,
+                    roles,
+                    industry,
+                )
+                or []
+            )
         except Exception as e:
             logger.debug("enrich_campus failed: %s", e)
     return []
@@ -2891,8 +3226,7 @@ def enrich_platform_audiences(industry: str) -> Dict[str, Any]:
     return {}
 
 
-def enrich_global_supply(locations: List[str],
-                         industry: str = "") -> Dict[str, Any]:
+def enrich_global_supply(locations: List[str], industry: str = "") -> Dict[str, Any]:
     """Global supply data from research.py."""
     res = _lazy_research()
     if res:
@@ -2903,8 +3237,7 @@ def enrich_global_supply(locations: List[str],
     return {}
 
 
-def enrich_educational_partners(locations: List[str],
-                                industry: str = "") -> List:
+def enrich_educational_partners(locations: List[str], industry: str = "") -> List:
     """Educational partners from research.py."""
     res = _lazy_research()
     if res:
@@ -2915,8 +3248,7 @@ def enrich_educational_partners(locations: List[str],
     return []
 
 
-def enrich_radio_podcasts(locations: List[str],
-                          industry: str = "") -> List:
+def enrich_radio_podcasts(locations: List[str], industry: str = "") -> List:
     """Radio and podcast advertising data from research.py."""
     res = _lazy_research()
     if res:

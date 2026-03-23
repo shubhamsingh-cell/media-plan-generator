@@ -539,17 +539,17 @@ def calculate_channel_efficiency(
 
     Returns list of dicts with efficiency metrics per channel.
     """
-    total_spend = sum(r.get("spend", 0) for r in actual_data)
-    total_hires = sum(r.get("hires", 0) for r in actual_data)
-    total_apps = sum(r.get("applications", 0) for r in actual_data)
+    total_spend = sum(r.get("spend") or 0 for r in actual_data)
+    total_hires = sum(r.get("hires") or 0 for r in actual_data)
+    total_apps = sum(r.get("applications") or 0 for r in actual_data)
 
     results = []
     for rec in actual_data:
-        spend = rec.get("spend", 0)
-        clicks = rec.get("clicks", 0)
-        apps = rec.get("applications", 0)
-        hires = rec.get("hires", 0)
-        impressions = rec.get("impressions", 0)
+        spend = rec.get("spend") or 0
+        clicks = rec.get("clicks") or 0
+        apps = rec.get("applications") or 0
+        hires = rec.get("hires") or 0
+        impressions = rec.get("impressions") or 0
 
         eff: Dict[str, Any] = {
             "channel": rec["channel"],
@@ -560,10 +560,10 @@ def calculate_channel_efficiency(
             "clicks": clicks,
             "applications": apps,
             "hires": hires,
-            "cpc": rec.get("cpc", 0),
-            "cpa": rec.get("cpa", 0),
-            "cph": rec.get("cph", 0),
-            "ctr": rec.get("ctr", 0),
+            "cpc": rec.get("cpc") or 0,
+            "cpa": rec.get("cpa") or 0,
+            "cph": rec.get("cph") or 0,
+            "ctr": rec.get("ctr") or 0,
         }
 
         # Apply rate (clicks -> applications)
@@ -626,7 +626,7 @@ def generate_recommendations(
 
     # Sort channels by efficiency score
     sorted_channels = sorted(
-        comparison_results, key=lambda x: x.get("efficiency_score", 0), reverse=True
+        comparison_results, key=lambda x: x.get("efficiency_score") or 0, reverse=True
     )
 
     recommendations = []
@@ -652,7 +652,7 @@ def generate_recommendations(
                 "action": "INCREASE",
                 "priority": "high",
                 "reason": f"{channel_name} is outperforming benchmarks (Score: {score}/100, Grade: {grade}). "
-                f"CPC is {abs(cpc_var.get('variance_pct', 0)):.0f}% {'below' if cpc_var.get('is_favorable') else 'above'} benchmark.",
+                f"CPC is {abs(cpc_var.get('variance_pct') or 0):.0f}% {'below' if cpc_var.get('is_favorable') else 'above'} benchmark.",
                 "suggestion": f"Increase budget allocation to {channel_name} by 15-25% to capitalize on strong performance.",
                 "icon": "trending_up",
             }
@@ -689,7 +689,7 @@ def generate_recommendations(
                 "action": "DECREASE",
                 "priority": "high",
                 "reason": f"{channel_name} is underperforming benchmarks (Score: {score}/100, Grade: {grade}). "
-                f"CPA is {abs(cpa_var.get('variance_pct', 0)):.0f}% above benchmark.",
+                f"CPA is {abs(cpa_var.get('variance_pct') or 0):.0f}% above benchmark.",
                 "suggestion": f"Reduce {channel_name} budget by 20-30% and reallocate to better-performing channels.",
                 "icon": "trending_down",
             }
@@ -757,7 +757,7 @@ def _compute_reallocation(
     total_actual_spend = 0.0
     for ch in sorted_channels:
         actual = ch.get("actual", {})
-        spend = actual.get("spend", 0)
+        spend = actual.get("spend") or 0
         current[ch["channel"]] = spend
         total_actual_spend += spend
 
@@ -834,11 +834,11 @@ def generate_performance_scorecard(
         return {"grade": "N/A", "score": 0, "metrics": {}, "channel_grades": []}
 
     # Aggregate metrics
-    total_spend = sum(r.get("spend", 0) for r in actual_data)
-    total_clicks = sum(r.get("clicks", 0) for r in actual_data)
-    total_impressions = sum(r.get("impressions", 0) for r in actual_data)
-    total_applications = sum(r.get("applications", 0) for r in actual_data)
-    total_hires = sum(r.get("hires", 0) for r in actual_data)
+    total_spend = sum(r.get("spend") or 0 for r in actual_data)
+    total_clicks = sum(r.get("clicks") or 0 for r in actual_data)
+    total_impressions = sum(r.get("impressions") or 0 for r in actual_data)
+    total_applications = sum(r.get("applications") or 0 for r in actual_data)
+    total_hires = sum(r.get("hires") or 0 for r in actual_data)
 
     overall_cpc = round(total_spend / total_clicks, 2) if total_clicks > 0 else 0
     overall_cpa = (
@@ -1018,9 +1018,9 @@ def generate_performance_excel(
 
     scorecard = report_data.get("scorecard", {})
     metrics = scorecard.get("metrics", {})
-    comparisons = report_data.get("comparisons", [])
+    comparisons = report_data.get("comparisons") or []
     recommendations_data = report_data.get("recommendations", {})
-    efficiency = report_data.get("efficiency", [])
+    efficiency = report_data.get("efficiency") or []
 
     # ── Helper ─────────────────────────────────────────────────────────
     def _write_section_header(ws, row, title, col_start=COL_START, col_end=8):
@@ -1099,7 +1099,7 @@ def generate_performance_excel(
 
     ws1.cell(row=row, column=COL_START + 2, value="Score").font = f_hero_label
     ws1.cell(
-        row=row, column=COL_START + 3, value=f"{scorecard.get('score', 0)}/100"
+        row=row, column=COL_START + 3, value=f"{scorecard.get('score') or 0}/100"
     ).font = f_metric_value
     row += 2
 
@@ -1113,12 +1113,12 @@ def generate_performance_excel(
         "Overall CPA",
     ]
     metric_values = [
-        f"${metrics.get('total_spend', 0):,.2f}",
-        f"{metrics.get('total_clicks', 0):,}",
-        f"{metrics.get('total_applications', 0):,}",
-        f"{metrics.get('total_hires', 0):,}",
-        f"${metrics.get('overall_cpc', 0):.2f}",
-        f"${metrics.get('overall_cpa', 0):.2f}",
+        f"${metrics.get('total_spend') or 0:,.2f}",
+        f"{metrics.get('total_clicks') or 0:,}",
+        f"{metrics.get('total_applications') or 0:,}",
+        f"{metrics.get('total_hires') or 0:,}",
+        f"${metrics.get('overall_cpc') or 0:.2f}",
+        f"${metrics.get('overall_cpa') or 0:.2f}",
     ]
     for i, (label, val) in enumerate(zip(metric_labels, metric_values)):
         col = COL_START + i
@@ -1138,13 +1138,13 @@ def generate_performance_excel(
         ["Channel", "Grade", "Score", "CPC Variance", "CPA Variance", "CTR Variance"],
     )
     for comp in comparisons:
-        ch = comp.get("channel", "")
+        ch = comp.get("channel") or ""
         grade = comp.get("grade", "C")
-        score_val = comp.get("efficiency_score", 0)
+        score_val = comp.get("efficiency_score") or 0
         vars_ = comp.get("variances", {})
-        cpc_v = vars_.get("cpc", {}).get("variance_pct", 0)
-        cpa_v = vars_.get("cpa", {}).get("variance_pct", 0)
-        ctr_v = vars_.get("ctr", {}).get("variance_pct", 0)
+        cpc_v = vars_.get("cpc", {}).get("variance_pct") or 0
+        cpa_v = vars_.get("cpa", {}).get("variance_pct") or 0
+        ctr_v = vars_.get("ctr", {}).get("variance_pct") or 0
 
         def _var_str(v, invert=False):
             arrow = "+" if v > 0 else ""
@@ -1208,20 +1208,20 @@ def generate_performance_excel(
             "CTR",
         ],
     )
-    for rec in report_data.get("actual_data", []):
+    for rec in report_data.get("actual_data") or []:
         row = _write_table_row(
             ws2,
             row,
             [
-                rec.get("channel", ""),
-                f"${rec.get('spend', 0):,.2f}",
-                f"{rec.get('clicks', 0):,.0f}",
-                f"{rec.get('impressions', 0):,.0f}",
-                f"{rec.get('applications', 0):,.0f}",
-                f"{rec.get('hires', 0):,.0f}",
-                f"${rec.get('cpc', 0):.2f}",
-                f"${rec.get('cpa', 0):.2f}",
-                f"{rec.get('ctr', 0) * 100:.2f}%",
+                rec.get("channel") or "",
+                f"${rec.get('spend') or 0:,.2f}",
+                f"{rec.get('clicks') or 0:,.0f}",
+                f"{rec.get('impressions') or 0:,.0f}",
+                f"{rec.get('applications') or 0:,.0f}",
+                f"{rec.get('hires') or 0:,.0f}",
+                f"${rec.get('cpc') or 0:.2f}",
+                f"${rec.get('cpa') or 0:.2f}",
+                f"{rec.get('ctr') or 0 * 100:.2f}%",
             ],
         )
 
@@ -1242,7 +1242,7 @@ def generate_performance_excel(
         ],
     )
     for comp in comparisons:
-        ch = comp.get("channel", "")
+        ch = comp.get("channel") or ""
         vars_ = comp.get("variances", {})
         grade = comp.get("grade", "C")
         row = _write_table_row(
@@ -1250,12 +1250,12 @@ def generate_performance_excel(
             row,
             [
                 ch,
-                f"${vars_.get('cpc', {}).get('actual', 0):.2f}",
-                f"${vars_.get('cpc', {}).get('benchmark', 0):.2f}",
-                f"${vars_.get('cpa', {}).get('actual', 0):.2f}",
-                f"${vars_.get('cpa', {}).get('benchmark', 0):.2f}",
-                f"{vars_.get('ctr', {}).get('actual', 0) * 100:.2f}%",
-                f"{vars_.get('ctr', {}).get('benchmark', 0) * 100:.2f}%",
+                f"${vars_.get('cpc', {}).get('actual') or 0:.2f}",
+                f"${vars_.get('cpc', {}).get('benchmark') or 0:.2f}",
+                f"${vars_.get('cpa', {}).get('actual') or 0:.2f}",
+                f"${vars_.get('cpa', {}).get('benchmark') or 0:.2f}",
+                f"{vars_.get('ctr', {}).get('actual') or 0 * 100:.2f}%",
+                f"{vars_.get('ctr', {}).get('benchmark') or 0 * 100:.2f}%",
                 grade,
             ],
             fonts=[f_body_bold] + [f_body] * 6 + [_grade_font(grade)],
@@ -1279,16 +1279,16 @@ def generate_performance_excel(
     row = _write_section_header(ws3, row, "OPTIMIZATION RECOMMENDATIONS", col_end=6)
     row += 1
     ws3.cell(
-        row=row, column=COL_START, value=recommendations_data.get("summary", "")
+        row=row, column=COL_START, value=recommendations_data.get("summary") or ""
     ).font = f_subsection
     row += 2
 
     row = _write_table_header(
         ws3, row, ["Channel", "Action", "Priority", "Reason", "Suggestion"]
     )
-    for rec in recommendations_data.get("recommendations", []):
-        action = rec.get("action", "")
-        priority = rec.get("priority", "")
+    for rec in recommendations_data.get("recommendations") or []:
+        action = rec.get("action") or ""
+        priority = rec.get("priority") or ""
         action_font = (
             f_green
             if action == "INCREASE"
@@ -1298,11 +1298,11 @@ def generate_performance_excel(
             ws3,
             row,
             [
-                rec.get("channel", ""),
+                rec.get("channel") or "",
                 action,
                 priority.upper(),
-                rec.get("reason", ""),
-                rec.get("suggestion", ""),
+                rec.get("reason") or "",
+                rec.get("suggestion") or "",
             ],
             fonts=[f_body_bold, action_font, f_body, f_body, f_body],
         )
@@ -1318,17 +1318,17 @@ def generate_performance_excel(
             ["Channel", "Current %", "Recommended %", "Change", "Recommended Spend"],
         )
         for ch_name, alloc in realloc.items():
-            change = alloc.get("change_pct", 0)
+            change = alloc.get("change_pct") or 0
             change_font = f_green if change > 0 else (f_red if change < -5 else f_body)
             row = _write_table_row(
                 ws3,
                 row,
                 [
                     ch_name,
-                    f"{alloc.get('current_pct', 0):.1f}%",
-                    f"{alloc.get('recommended_pct', 0):.1f}%",
+                    f"{alloc.get('current_pct') or 0:.1f}%",
+                    f"{alloc.get('recommended_pct') or 0:.1f}%",
                     f"{'+' if change > 0 else ''}{change:.1f}%",
-                    f"${alloc.get('recommended_spend', 0):,.2f}",
+                    f"${alloc.get('recommended_spend') or 0:,.2f}",
                 ],
                 fonts=[f_body_bold, f_body, f_body, change_font, f_body],
             )
@@ -1337,7 +1337,7 @@ def generate_performance_excel(
     ws3.cell(
         row=row,
         column=COL_START,
-        value=f"Seasonal Insight: {recommendations_data.get('seasonal_advice', '')}",
+        value=f"Seasonal Insight: {recommendations_data.get('seasonal_advice') or ''}",
     ).font = f_footnote
 
     # ══════════════════════════════════════════════════════════════════
@@ -1356,9 +1356,9 @@ def generate_performance_excel(
     )
     row += 1
 
-    total_spend = metrics.get("total_spend", 0)
-    total_apps = metrics.get("total_applications", 0)
-    total_hires = metrics.get("total_hires", 0)
+    total_spend = metrics.get("total_spend") or 0
+    total_apps = metrics.get("total_applications") or 0
+    total_hires = metrics.get("total_hires") or 0
 
     # Estimate improvement from reallocation
     improvement_factor = 1.15  # Conservative 15% improvement estimate
@@ -1390,15 +1390,15 @@ def generate_performance_excel(
         ),
         (
             "CPA",
-            f"${metrics.get('overall_cpa', 0):.2f}",
+            f"${metrics.get('overall_cpa') or 0:.2f}",
             f"${proj_cpa:.2f}",
-            f"-${metrics.get('overall_cpa', 0) - proj_cpa:.2f}",
+            f"-${metrics.get('overall_cpa') or 0 - proj_cpa:.2f}",
         ),
         (
             "CPH",
-            f"${metrics.get('overall_cph', 0):.2f}",
+            f"${metrics.get('overall_cph') or 0:.2f}",
             f"${proj_cph:.2f}",
-            f"-${metrics.get('overall_cph', 0) - proj_cph:.2f}",
+            f"-${metrics.get('overall_cph') or 0 - proj_cph:.2f}",
         ),
     ]
     for label, current_val, proj_val, improvement in projections:
@@ -1481,9 +1481,9 @@ def generate_performance_ppt(
 
     scorecard = report_data.get("scorecard", {})
     metrics = scorecard.get("metrics", {})
-    comparisons = report_data.get("comparisons", [])
+    comparisons = report_data.get("comparisons") or []
     recommendations_data = report_data.get("recommendations", {})
-    efficiency = report_data.get("efficiency", [])
+    efficiency = report_data.get("efficiency") or []
 
     def _add_bg(slide, color=OFF_WHITE):
         bg = slide.background
@@ -1654,7 +1654,7 @@ def generate_performance_ppt(
         Inches(3.2),
         Inches(2.5),
         Inches(0.4),
-        f"Score: {scorecard.get('score', 0)}/100",
+        f"Score: {scorecard.get('score') or 0}/100",
         FONT_BODY,
         14,
         DARK_TEXT,
@@ -1664,12 +1664,12 @@ def generate_performance_ppt(
 
     # Metric cards
     metric_cards = [
-        ("Total Spend", f"${metrics.get('total_spend', 0):,.0f}"),
-        ("Applications", f"{metrics.get('total_applications', 0):,}"),
-        ("Hires", f"{metrics.get('total_hires', 0):,}"),
-        ("Overall CPC", f"${metrics.get('overall_cpc', 0):.2f}"),
-        ("Overall CPA", f"${metrics.get('overall_cpa', 0):.2f}"),
-        ("Overall CTR", f"{metrics.get('overall_ctr', 0) * 100:.2f}%"),
+        ("Total Spend", f"${metrics.get('total_spend') or 0:,.0f}"),
+        ("Applications", f"{metrics.get('total_applications') or 0:,}"),
+        ("Hires", f"{metrics.get('total_hires') or 0:,}"),
+        ("Overall CPC", f"${metrics.get('overall_cpc') or 0:.2f}"),
+        ("Overall CPA", f"${metrics.get('overall_cpa') or 0:.2f}"),
+        ("Overall CTR", f"{metrics.get('overall_ctr') or 0 * 100:.2f}%"),
     ]
 
     for i, (label, value) in enumerate(metric_cards):
@@ -1703,7 +1703,7 @@ def generate_performance_ppt(
         )
 
     # Bottom insight
-    summary = recommendations_data.get("summary", "")
+    summary = recommendations_data.get("summary") or ""
     _add_text_box(
         slide2,
         Inches(0.8),
@@ -1782,13 +1782,13 @@ def generate_performance_ppt(
         g = comp.get("grade", "C")
 
         row_data = [
-            comp.get("channel", ""),
-            f"${cpc_v.get('actual', 0):.2f}",
-            f"${cpc_v.get('benchmark', 0):.2f}",
-            f"{'+' if cpc_v.get('variance_pct', 0) > 0 else ''}{cpc_v.get('variance_pct', 0):.1f}%",
-            f"${cpa_v.get('actual', 0):.2f}",
-            f"${cpa_v.get('benchmark', 0):.2f}",
-            f"{'+' if cpa_v.get('variance_pct', 0) > 0 else ''}{cpa_v.get('variance_pct', 0):.1f}%",
+            comp.get("channel") or "",
+            f"${cpc_v.get('actual') or 0:.2f}",
+            f"${cpc_v.get('benchmark') or 0:.2f}",
+            f"{'+' if cpc_v.get('variance_pct') or 0 > 0 else ''}{cpc_v.get('variance_pct') or 0:.1f}%",
+            f"${cpa_v.get('actual') or 0:.2f}",
+            f"${cpa_v.get('benchmark') or 0:.2f}",
+            f"{'+' if cpa_v.get('variance_pct') or 0 > 0 else ''}{cpa_v.get('variance_pct') or 0:.1f}%",
             g,
         ]
 
@@ -1804,9 +1804,9 @@ def generate_performance_ppt(
             # Color code variance columns
             if j in (3, 6):
                 v_pct = (
-                    cpc_v.get("variance_pct", 0)
+                    cpc_v.get("variance_pct") or 0
                     if j == 3
-                    else cpa_v.get("variance_pct", 0)
+                    else cpa_v.get("variance_pct") or 0
                 )
                 if v_pct < -5:
                     cell.fill.solid()
@@ -1852,7 +1852,7 @@ def generate_performance_ppt(
     _add_shape(slide4, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
     # Show efficiency data as cards
-    eff_sorted = sorted(efficiency, key=lambda x: x.get("roi_score", 0), reverse=True)
+    eff_sorted = sorted(efficiency, key=lambda x: x.get("roi_score") or 0, reverse=True)
     max_cards = min(len(eff_sorted), 6)
 
     for i, eff_rec in enumerate(eff_sorted[:max_cards]):
@@ -1878,7 +1878,7 @@ def generate_performance_ppt(
             top + Inches(0.15),
             Inches(2.8),
             Inches(0.35),
-            eff_rec.get("channel", ""),
+            eff_rec.get("channel") or "",
             FONT_TITLE,
             14,
             NAVY,
@@ -1900,10 +1900,10 @@ def generate_performance_ppt(
 
         # Metrics
         eff_metrics = [
-            f"Spend: ${eff_rec.get('spend', 0):,.0f} ({eff_rec.get('spend_pct', 0):.0f}%)",
-            f"CPC: ${eff_rec.get('cpc', 0):.2f}  |  CPA: ${eff_rec.get('cpa', 0):.2f}",
-            f"Apply Rate: {eff_rec.get('apply_rate', 0) * 100:.1f}%  |  Hire Rate: {eff_rec.get('hire_rate', 0) * 100:.1f}%",
-            f"ROI Score: {eff_rec.get('roi_score', 0):.0f}/100",
+            f"Spend: ${eff_rec.get('spend') or 0:,.0f} ({eff_rec.get('spend_pct') or 0:.0f}%)",
+            f"CPC: ${eff_rec.get('cpc') or 0:.2f}  |  CPA: ${eff_rec.get('cpa') or 0:.2f}",
+            f"Apply Rate: {eff_rec.get('apply_rate') or 0 * 100:.1f}%  |  Hire Rate: {eff_rec.get('hire_rate') or 0 * 100:.1f}%",
+            f"ROI Score: {eff_rec.get('roi_score') or 0:.0f}/100",
         ]
         for m_idx, m_text in enumerate(eff_metrics):
             _add_text_box(
@@ -1939,11 +1939,11 @@ def generate_performance_ppt(
     )
     _add_shape(slide5, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
-    recs = recommendations_data.get("recommendations", [])
+    recs = recommendations_data.get("recommendations") or []
     max_recs = min(len(recs), 6)
 
     for i, rec in enumerate(recs[:max_recs]):
-        action = rec.get("action", "")
+        action = rec.get("action") or ""
         top = Inches(1.4 + i * 0.9)
 
         # Action color
@@ -1992,7 +1992,7 @@ def generate_performance_ppt(
             top + Inches(0.08),
             Inches(2),
             Inches(0.35),
-            rec.get("channel", ""),
+            rec.get("channel") or "",
             FONT_TITLE,
             12,
             NAVY,
@@ -2006,7 +2006,7 @@ def generate_performance_ppt(
             top + Inches(0.38),
             Inches(10),
             Inches(0.35),
-            rec.get("suggestion", ""),
+            rec.get("suggestion") or "",
             FONT_BODY,
             9,
             MUTED_TEXT,
@@ -2019,7 +2019,7 @@ def generate_performance_ppt(
         Inches(6.3),
         Inches(11.5),
         Inches(0.5),
-        f"Seasonal Insight: {recommendations_data.get('seasonal_advice', '')}",
+        f"Seasonal Insight: {recommendations_data.get('seasonal_advice') or ''}",
         FONT_BODY,
         10,
         TEAL,
@@ -2084,7 +2084,7 @@ def analyze_campaign(
         efficiency = calculate_channel_efficiency(actual_data)
 
         # 5. Recommendations
-        total_spend = sum(r.get("spend", 0) for r in actual_data)
+        total_spend = sum(r.get("spend") or 0 for r in actual_data)
         if total_budget <= 0:
             total_budget = total_spend
         recommendations = generate_recommendations(comparisons, total_budget)

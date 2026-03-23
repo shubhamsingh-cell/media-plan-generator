@@ -25,7 +25,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from openpyxl import Workbook
 from openpyxl.styles import (
-    Font, PatternFill, Alignment, Border, Side,
+    Font,
+    PatternFill,
+    Alignment,
+    Border,
+    Side,
 )
 from openpyxl.utils import get_column_letter
 
@@ -72,14 +76,26 @@ _FONT_METRIC_VALUE = Font(name="Calibri", bold=True, size=14, color=NAVY)
 _FONT_GRADE_LARGE = Font(name="Calibri", bold=True, size=36, color=WHITE)
 
 _FILL_NAVY = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
-_FILL_SAPPHIRE = PatternFill(start_color=SAPPHIRE, end_color=SAPPHIRE, fill_type="solid")
-_FILL_BLUE_LIGHT = PatternFill(start_color=BLUE_LIGHT, end_color=BLUE_LIGHT, fill_type="solid")
-_FILL_BLUE_PALE = PatternFill(start_color=BLUE_PALE, end_color=BLUE_PALE, fill_type="solid")
-_FILL_OFF_WHITE = PatternFill(start_color=OFF_WHITE, end_color=OFF_WHITE, fill_type="solid")
+_FILL_SAPPHIRE = PatternFill(
+    start_color=SAPPHIRE, end_color=SAPPHIRE, fill_type="solid"
+)
+_FILL_BLUE_LIGHT = PatternFill(
+    start_color=BLUE_LIGHT, end_color=BLUE_LIGHT, fill_type="solid"
+)
+_FILL_BLUE_PALE = PatternFill(
+    start_color=BLUE_PALE, end_color=BLUE_PALE, fill_type="solid"
+)
+_FILL_OFF_WHITE = PatternFill(
+    start_color=OFF_WHITE, end_color=OFF_WHITE, fill_type="solid"
+)
 _FILL_WHITE = PatternFill(start_color=WHITE, end_color=WHITE, fill_type="solid")
 _FILL_GREEN = PatternFill(start_color=GREEN, end_color=GREEN, fill_type="solid")
-_FILL_GREEN_BG = PatternFill(start_color=GREEN_BG, end_color=GREEN_BG, fill_type="solid")
-_FILL_AMBER_BG = PatternFill(start_color=AMBER_BG, end_color=AMBER_BG, fill_type="solid")
+_FILL_GREEN_BG = PatternFill(
+    start_color=GREEN_BG, end_color=GREEN_BG, fill_type="solid"
+)
+_FILL_AMBER_BG = PatternFill(
+    start_color=AMBER_BG, end_color=AMBER_BG, fill_type="solid"
+)
 _FILL_RED_BG = PatternFill(start_color=RED_BG, end_color=RED_BG, fill_type="solid")
 
 _ALIGN_WRAP = Alignment(wrap_text=True, vertical="top")
@@ -98,30 +114,76 @@ _BORDER_BOTTOM_SAPPHIRE = Border(bottom=Side(style="medium", color=SAPPHIRE))
 
 # Content column range (B=2 through H=8)
 COL_START = 2  # column B
-COL_END = 8    # column H
+COL_END = 8  # column H
 COL_SPAN = COL_END - COL_START + 1  # 7 columns
 
 # ---------------------------------------------------------------------------
 # Industry Niche Channels
 # ---------------------------------------------------------------------------
 INDUSTRY_NICHE_CHANNELS: Dict[str, List[str]] = {
-    "healthcare_medical": ["Health eCareers", "Vivian Health", "Nurse.com", "PracticeLink", "JAMA Career Center"],
-    "tech_engineering": ["GitHub Jobs", "Stack Overflow", "Wellfound (AngelList)", "Dice", "HackerRank"],
-    "blue_collar_trades": ["TradeHounds", "iHire", "Jobcase", "WorkStep", "Skilled Workers Agency"],
-    "finance_banking": ["eFinancialCareers", "Wall Street Oasis", "Financial Job Network"],
-    "aerospace_defense": ["ClearedJobs.Net", "ClearanceJobs", "Military.com", "USAJOBS", "Hire Heroes USA"],
-    "logistics_supply_chain": ["CDLjobs.com", "TruckingJobs.com", "WarehouseJobs.com", "Supply Chain Online"],
-    "pharma_biotech": ["BioSpace", "MedReps", "Science Careers (AAAS)", "Nature Careers"],
+    "healthcare_medical": [
+        "Health eCareers",
+        "Vivian Health",
+        "Nurse.com",
+        "PracticeLink",
+        "JAMA Career Center",
+    ],
+    "tech_engineering": [
+        "GitHub Jobs",
+        "Stack Overflow",
+        "Wellfound (AngelList)",
+        "Dice",
+        "HackerRank",
+    ],
+    "blue_collar_trades": [
+        "TradeHounds",
+        "iHire",
+        "Jobcase",
+        "WorkStep",
+        "Skilled Workers Agency",
+    ],
+    "finance_banking": [
+        "eFinancialCareers",
+        "Wall Street Oasis",
+        "Financial Job Network",
+    ],
+    "aerospace_defense": [
+        "ClearedJobs.Net",
+        "ClearanceJobs",
+        "Military.com",
+        "USAJOBS",
+        "Hire Heroes USA",
+    ],
+    "logistics_supply_chain": [
+        "CDLjobs.com",
+        "TruckingJobs.com",
+        "WarehouseJobs.com",
+        "Supply Chain Online",
+    ],
+    "pharma_biotech": [
+        "BioSpace",
+        "MedReps",
+        "Science Careers (AAAS)",
+        "Nature Careers",
+    ],
     "retail_consumer": ["RetailGigs", "Snagajob", "Wonolo", "Instawork"],
     "hospitality_travel": ["Hcareers", "Poached", "Culinary Agents", "Harri"],
     "education": ["HigherEdJobs", "SchoolSpring", "K12JobSpot", "Chronicle Vitae"],
     "energy_utilities": ["EnergyJobline", "Rigzone", "Power Magazine Careers"],
     "insurance": ["Insurance Jobs", "The Institutes", "InsuranceJobs.com"],
-    "construction_real_estate": ["ConstructionJobs.com", "iHireConstruction", "Built Hire"],
+    "construction_real_estate": [
+        "ConstructionJobs.com",
+        "iHireConstruction",
+        "Built Hire",
+    ],
     "automotive": ["AutoJobs.com", "AutomotiveCrossing", "Automotive News Careers"],
     "food_beverage": ["Poached", "Culinary Agents", "RestaurantJobs.com"],
     "media_entertainment": ["MediaBistro", "ProductionHub", "Mandy.com", "Staff Me Up"],
-    "telecommunications": ["WirelessEstimator", "FierceTelecom Jobs", "Light Reading Careers"],
+    "telecommunications": [
+        "WirelessEstimator",
+        "FierceTelecom Jobs",
+        "Light Reading Careers",
+    ],
     "mental_health": ["Psychology Today Jobs", "SAMHSA Jobs", "APA PsycCareers"],
     "maritime_marine": ["Maritime Jobs", "Rigzone", "Sea Career"],
 }
@@ -132,15 +194,40 @@ INDUSTRY_NICHE_CHANNELS: Dict[str, List[str]] = {
 # ---------------------------------------------------------------------------
 INDUSTRY_CHANNEL_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
     "healthcare_medical": {
-        "preferred": ["health", "nurse", "medical", "clinical", "vivian", "doximity", "practicelink"],
+        "preferred": [
+            "health",
+            "nurse",
+            "medical",
+            "clinical",
+            "vivian",
+            "doximity",
+            "practicelink",
+        ],
         "excluded_keywords": ["developer", "github", "stack overflow", "hacker"],
     },
     "tech_engineering": {
-        "preferred": ["tech", "engineer", "developer", "github", "stack overflow", "dice", "wellfound", "hacker"],
+        "preferred": [
+            "tech",
+            "engineer",
+            "developer",
+            "github",
+            "stack overflow",
+            "dice",
+            "wellfound",
+            "hacker",
+        ],
         "excluded_keywords": ["nurse", "clinical", "medical staffing"],
     },
     "blue_collar_trades": {
-        "preferred": ["trade", "jobcase", "workstep", "hourly", "skilled", "warehouse", "cdl"],
+        "preferred": [
+            "trade",
+            "jobcase",
+            "workstep",
+            "hourly",
+            "skilled",
+            "warehouse",
+            "cdl",
+        ],
         "excluded_keywords": ["executive search", "c-suite"],
     },
     "finance_banking": {
@@ -152,11 +239,25 @@ INDUSTRY_CHANNEL_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
         "excluded_keywords": ["executive search", "c-suite", "clinical"],
     },
     "logistics_supply_chain": {
-        "preferred": ["logistics", "cdl", "trucking", "warehouse", "supply chain", "driver"],
+        "preferred": [
+            "logistics",
+            "cdl",
+            "trucking",
+            "warehouse",
+            "supply chain",
+            "driver",
+        ],
         "excluded_keywords": ["clinical", "nurse", "executive search"],
     },
     "hospitality_travel": {
-        "preferred": ["hospitality", "hcareers", "poached", "culinary", "harri", "hotel"],
+        "preferred": [
+            "hospitality",
+            "hcareers",
+            "poached",
+            "culinary",
+            "harri",
+            "hotel",
+        ],
         "excluded_keywords": ["clinical", "developer", "github"],
     },
     "pharma_biotech": {
@@ -164,18 +265,38 @@ INDUSTRY_CHANNEL_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
         "excluded_keywords": ["warehouse", "trucking"],
     },
     "aerospace_defense": {
-        "preferred": ["cleared", "clearance", "military", "defense", "usajobs", "aerospace"],
+        "preferred": [
+            "cleared",
+            "clearance",
+            "military",
+            "defense",
+            "usajobs",
+            "aerospace",
+        ],
         "excluded_keywords": ["retail", "food service"],
     },
     "education": {
-        "preferred": ["education", "highered", "schoolspring", "k12", "academic", "teaching"],
+        "preferred": [
+            "education",
+            "highered",
+            "schoolspring",
+            "k12",
+            "academic",
+            "teaching",
+        ],
         "excluded_keywords": ["warehouse", "trucking", "clinical"],
     },
 }
 
 ROLE_CHANNEL_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
     "executive": {
-        "preferred": ["executive search", "linkedin", "c-suite", "board", "spencer stuart"],
+        "preferred": [
+            "executive search",
+            "linkedin",
+            "c-suite",
+            "board",
+            "spencer stuart",
+        ],
         "excluded_keywords": ["hourly", "snagajob", "warehouse", "entry level"],
     },
     "professional": {
@@ -200,6 +321,7 @@ ROLE_CHANNEL_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
 # ═══════════════════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _safe_num(val: Any, default: float = 0.0) -> float:
     """Safely convert a value to float."""
@@ -288,7 +410,7 @@ def _flatten_value(val: Any, max_depth: int = 3) -> str:
 
 def _get_roles(data: dict) -> List[str]:
     """Extract normalized role strings from data dict."""
-    roles_raw = data.get("target_roles") or data.get("roles", [])
+    roles_raw = data.get("target_roles") or data.get("roles") or []
     if isinstance(roles_raw, str):
         return [r.strip() for r in roles_raw.split(",") if r.strip()]
     roles = []
@@ -302,7 +424,7 @@ def _get_roles(data: dict) -> List[str]:
 
 def _get_locations(data: dict) -> List[str]:
     """Extract location strings from data dict."""
-    locs = data.get("locations", [])
+    locs = data.get("locations") or []
     if isinstance(locs, str):
         return [locs]
     if isinstance(locs, list):
@@ -312,7 +434,7 @@ def _get_locations(data: dict) -> List[str]:
 
 def _get_budget_numeric(data: dict) -> float:
     """Parse budget from data dict to numeric value."""
-    budget_raw = data.get("budget") or data.get("budget_range", "")
+    budget_raw = data.get("budget") or data.get("budget_range") or ""
     return parse_budget(budget_raw, default=100_000.0) if budget_raw else 100_000.0
 
 
@@ -385,13 +507,43 @@ def _detect_role_type(roles: List[str]) -> str:
     if not roles:
         return "professional"
     combined = " ".join(r.lower() for r in roles)
-    if any(kw in combined for kw in ["nurse", "physician", "clinical", "medical", "therapist", "rn ", "lpn", "cna"]):
+    if any(
+        kw in combined
+        for kw in [
+            "nurse",
+            "physician",
+            "clinical",
+            "medical",
+            "therapist",
+            "rn ",
+            "lpn",
+            "cna",
+        ]
+    ):
         return "clinical"
-    if any(kw in combined for kw in ["ceo", "cfo", "vp ", "director", "chief", "president", "executive"]):
+    if any(
+        kw in combined
+        for kw in ["ceo", "cfo", "vp ", "director", "chief", "president", "executive"]
+    ):
         return "executive"
-    if any(kw in combined for kw in ["warehouse", "driver", "assembler", "operator", "laborer", "mechanic", "technician", "welder"]):
+    if any(
+        kw in combined
+        for kw in [
+            "warehouse",
+            "driver",
+            "assembler",
+            "operator",
+            "laborer",
+            "mechanic",
+            "technician",
+            "welder",
+        ]
+    ):
         return "hourly"
-    if any(kw in combined for kw in ["plumber", "electrician", "carpenter", "hvac", "mason", "welder"]):
+    if any(
+        kw in combined
+        for kw in ["plumber", "electrician", "carpenter", "hvac", "mason", "welder"]
+    ):
         return "trades"
     return "professional"
 
@@ -399,6 +551,7 @@ def _detect_role_type(roles: List[str]) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 # WORKSHEET HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _set_column_widths(ws, widths: Dict[int, float]):
     """Set column widths. Key = 1-based column number."""
@@ -411,8 +564,10 @@ def _write_section_header(ws, row: int, title: str) -> int:
     Returns the row AFTER the header (header row + 1).
     """
     ws.merge_cells(
-        start_row=row, start_column=COL_START,
-        end_row=row, end_column=COL_END,
+        start_row=row,
+        start_column=COL_START,
+        end_row=row,
+        end_column=COL_END,
     )
     cell = ws.cell(row=row, column=COL_START, value=title.upper())
     cell.font = _FONT_SECTION
@@ -428,8 +583,10 @@ def _write_subsection_header(ws, row: int, title: str) -> int:
     Returns the row AFTER the header (header row + 1).
     """
     ws.merge_cells(
-        start_row=row, start_column=COL_START,
-        end_row=row, end_column=COL_END,
+        start_row=row,
+        start_column=COL_START,
+        end_row=row,
+        end_column=COL_END,
     )
     cell = ws.cell(row=row, column=COL_START, value=title)
     cell.font = _FONT_SUBSECTION
@@ -439,9 +596,13 @@ def _write_subsection_header(ws, row: int, title: str) -> int:
     return row + 1
 
 
-def _write_table_header(ws, row: int, headers: List[str],
-                        col_start: int = COL_START,
-                        fill: PatternFill = None) -> int:
+def _write_table_header(
+    ws,
+    row: int,
+    headers: List[str],
+    col_start: int = COL_START,
+    fill: PatternFill = None,
+) -> int:
     """Write a table header row. Returns the next row."""
     use_fill = fill or _FILL_SAPPHIRE
     use_font = _FONT_TABLE_HEADER if fill is None else _FONT_TABLE_HEADER_ALT
@@ -457,19 +618,25 @@ def _write_table_header(ws, row: int, headers: List[str],
     return row + 1
 
 
-def _write_table_row(ws, row: int, values: List[Any],
-                     col_start: int = COL_START,
-                     alternate: bool = False,
-                     fonts: List[Optional[Font]] = None,
-                     fills: List[Optional[PatternFill]] = None,
-                     aligns: List[Optional[Alignment]] = None) -> int:
+def _write_table_row(
+    ws,
+    row: int,
+    values: List[Any],
+    col_start: int = COL_START,
+    alternate: bool = False,
+    fonts: List[Optional[Font]] = None,
+    fills: List[Optional[PatternFill]] = None,
+    aligns: List[Optional[Alignment]] = None,
+) -> int:
     """Write a single table data row. Returns the next row."""
     row_fill = _FILL_BLUE_PALE if alternate else _FILL_WHITE
     for i, val in enumerate(values):
         cell = ws.cell(row=row, column=col_start + i, value=val)
-        cell.font = (fonts[i] if fonts and i < len(fonts) and fonts[i] else _FONT_BODY)
-        cell.fill = (fills[i] if fills and i < len(fills) and fills[i] else row_fill)
-        cell.alignment = (aligns[i] if aligns and i < len(aligns) and aligns[i] else _ALIGN_WRAP)
+        cell.font = fonts[i] if fonts and i < len(fonts) and fonts[i] else _FONT_BODY
+        cell.fill = fills[i] if fills and i < len(fills) and fills[i] else row_fill
+        cell.alignment = (
+            aligns[i] if aligns and i < len(aligns) and aligns[i] else _ALIGN_WRAP
+        )
         cell.border = _BORDER_THIN
     return row + 1
 
@@ -492,23 +659,28 @@ def _write_metric_card(ws, row: int, col: int, label: str, value: str):
     cell_lbl.alignment = _ALIGN_CENTER
     cell_lbl.border = _BORDER_THIN
     if col + 1 <= COL_END:
-        ws.merge_cells(start_row=row + 1, start_column=col, end_row=row + 1, end_column=col + 1)
+        ws.merge_cells(
+            start_row=row + 1, start_column=col, end_row=row + 1, end_column=col + 1
+        )
 
 
-def _write_kv_row(ws, row: int, key: str, value: str,
-                  col_start: int = COL_START) -> int:
+def _write_kv_row(
+    ws, row: int, key: str, value: str, col_start: int = COL_START
+) -> int:
     """Write a key-value pair spanning 2 + 5 columns. Returns next row."""
     # Key cell (B:C)
-    ws.merge_cells(start_row=row, start_column=col_start,
-                   end_row=row, end_column=col_start + 1)
+    ws.merge_cells(
+        start_row=row, start_column=col_start, end_row=row, end_column=col_start + 1
+    )
     cell_k = ws.cell(row=row, column=col_start, value=key)
     cell_k.font = _FONT_BODY_BOLD
     cell_k.alignment = _ALIGN_LEFT
     cell_k.border = _BORDER_THIN
     cell_k.fill = _FILL_OFF_WHITE
     # Value cell (D:H)
-    ws.merge_cells(start_row=row, start_column=col_start + 2,
-                   end_row=row, end_column=COL_END)
+    ws.merge_cells(
+        start_row=row, start_column=col_start + 2, end_row=row, end_column=COL_END
+    )
     cell_v = ws.cell(row=row, column=col_start + 2, value=value)
     cell_v.font = _FONT_BODY
     cell_v.alignment = _ALIGN_WRAP
@@ -519,8 +691,10 @@ def _write_kv_row(ws, row: int, key: str, value: str,
 def _write_footnote(ws, row: int, text: str) -> int:
     """Write a footnote row spanning full width. Returns next row."""
     ws.merge_cells(
-        start_row=row, start_column=COL_START,
-        end_row=row, end_column=COL_END,
+        start_row=row,
+        start_column=COL_START,
+        end_row=row,
+        end_column=COL_END,
     )
     cell = ws.cell(row=row, column=COL_START, value=text)
     cell.font = _FONT_FOOTNOTE
@@ -531,9 +705,10 @@ def _write_footnote(ws, row: int, text: str) -> int:
 def _write_attribution_footer(ws, row: int) -> int:
     """Write data attribution footer. Returns next row."""
     row = _write_footnote(
-        ws, row,
+        ws,
+        row,
         f"Generated by Nova AI Media Plan Generator | {datetime.date.today().strftime('%B %d, %Y')} | "
-        "Data from BLS, Census, SEC EDGAR, O*NET, Google Ads, Meta, LinkedIn, and 15+ additional APIs"
+        "Data from BLS, Census, SEC EDGAR, O*NET, Google Ads, Meta, LinkedIn, and 15+ additional APIs",
     )
     return row
 
@@ -541,6 +716,7 @@ def _write_attribution_footer(ws, row: int) -> int:
 # ═══════════════════════════════════════════════════════════════════════════════
 # CHANNEL VETTING FUNCTION
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def vet_channels(
     channels: List[Dict[str, Any]],
@@ -565,24 +741,24 @@ def vet_channels(
         return []
 
     ind_reqs = INDUSTRY_CHANNEL_REQUIREMENTS.get(industry, {})
-    ind_preferred = [kw.lower() for kw in ind_reqs.get("preferred", [])]
-    ind_excluded = [kw.lower() for kw in ind_reqs.get("excluded_keywords", [])]
+    ind_preferred = [kw.lower() for kw in ind_reqs.get("preferred") or []]
+    ind_excluded = [kw.lower() for kw in ind_reqs.get("excluded_keywords") or []]
 
     role_type = _detect_role_type(roles)
     role_reqs = ROLE_CHANNEL_REQUIREMENTS.get(role_type, {})
-    role_preferred = [kw.lower() for kw in role_reqs.get("preferred", [])]
-    role_excluded = [kw.lower() for kw in role_reqs.get("excluded_keywords", [])]
+    role_preferred = [kw.lower() for kw in role_reqs.get("preferred") or []]
+    role_excluded = [kw.lower() for kw in role_reqs.get("excluded_keywords") or []]
 
     # Deduplicate by normalized name
     seen_names = set()
     deduped = []
     for ch in channels:
-        name = ch.get("name", "") if isinstance(ch, dict) else str(ch)
+        name = ch.get("name") or "" if isinstance(ch, dict) else str(ch)
         # Strip common suffixes BEFORE removing non-alphanumeric chars
         norm_name = name.lower().strip()
         for suffix in [".com", ".net", ".org", ".io", " jobs", " job"]:
             norm_name = norm_name.replace(suffix, "")
-        norm_name = re.sub(r'[^a-z0-9]', '', norm_name)
+        norm_name = re.sub(r"[^a-z0-9]", "", norm_name)
         if norm_name and norm_name not in seen_names:
             seen_names.add(norm_name)
             if isinstance(ch, dict):
@@ -593,16 +769,56 @@ def vet_channels(
     # Detect if locations are US-only
     location_lower = " ".join(loc.lower() for loc in locations)
     _us_states = {
-        "california", "new york", "texas", "florida", "illinois", "ohio",
-        "georgia", "michigan", "pennsylvania", "virginia", "washington",
-        "arizona", "massachusetts", "colorado", "minnesota", "oregon",
-        "nevada", "tennessee", "indiana", "north carolina", "south carolina",
-        "new jersey", "maryland", "missouri", "wisconsin", "connecticut",
-        "iowa", "utah", "kansas", "kentucky", "louisiana", "alabama",
-        "oklahoma", "nebraska", "mississippi", "arkansas", "montana",
-        "new mexico", "new hampshire", "idaho", "hawaii", "maine",
-        "rhode island", "delaware", "south dakota", "north dakota",
-        "alaska", "vermont", "wyoming", "west virginia",
+        "california",
+        "new york",
+        "texas",
+        "florida",
+        "illinois",
+        "ohio",
+        "georgia",
+        "michigan",
+        "pennsylvania",
+        "virginia",
+        "washington",
+        "arizona",
+        "massachusetts",
+        "colorado",
+        "minnesota",
+        "oregon",
+        "nevada",
+        "tennessee",
+        "indiana",
+        "north carolina",
+        "south carolina",
+        "new jersey",
+        "maryland",
+        "missouri",
+        "wisconsin",
+        "connecticut",
+        "iowa",
+        "utah",
+        "kansas",
+        "kentucky",
+        "louisiana",
+        "alabama",
+        "oklahoma",
+        "nebraska",
+        "mississippi",
+        "arkansas",
+        "montana",
+        "new mexico",
+        "new hampshire",
+        "idaho",
+        "hawaii",
+        "maine",
+        "rhode island",
+        "delaware",
+        "south dakota",
+        "north dakota",
+        "alaska",
+        "vermont",
+        "wyoming",
+        "west virginia",
     }
 
     def _is_us_location(loc_str: str) -> bool:
@@ -617,7 +833,7 @@ def vet_channels(
 
     vetted = []
     for ch in deduped:
-        name = ch.get("name", "")
+        name = ch.get("name") or ""
         name_lower = name.lower()
 
         # Check exclusions -- remove if channel matches industry OR role exclusions
@@ -650,14 +866,24 @@ def vet_channels(
                 break
 
         # Major boards always get a baseline boost (broad fit)
-        major_boards = ["indeed", "linkedin", "glassdoor", "ziprecruiter", "google", "meta", "facebook"]
+        major_boards = [
+            "indeed",
+            "linkedin",
+            "glassdoor",
+            "ziprecruiter",
+            "google",
+            "meta",
+            "facebook",
+        ]
         if any(mb in name_lower for mb in major_boards):
             score = max(score, 0.65)
 
         # Niche board for the industry = excellent
         niche_for_industry = INDUSTRY_NICHE_CHANNELS.get(industry, [])
-        if any(niche.lower() in name_lower or name_lower in niche.lower()
-               for niche in niche_for_industry):
+        if any(
+            niche.lower() in name_lower or name_lower in niche.lower()
+            for niche in niche_for_industry
+        ):
             score = max(score, 0.85)
 
         # Determine fit label
@@ -674,13 +900,14 @@ def vet_channels(
         vetted.append(ch_copy)
 
     # Sort by fit_score descending
-    vetted.sort(key=lambda x: x.get("fit_score", 0), reverse=True)
+    vetted.sort(key=lambda x: x.get("fit_score") or 0, reverse=True)
     return vetted
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SOURCE CONFIDENCE / BIAS ASSESSMENT
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def assess_source_bias(source_name: str) -> Dict[str, Any]:
     """Categorize a data source and assess potential bias.
@@ -701,11 +928,32 @@ def assess_source_bias(source_name: str) -> Dict[str, Any]:
 
     # Government / Academic (highest trust)
     gov_academic_keywords = [
-        "bls", "bureau of labor", "census", "acs", "o*net", "onet",
-        "careeronestop", "fred", "imf", "world bank", "worldbank",
-        "sec", "edgar", "usda", "nih", "cdc", "shrm", "university",
-        "academic", "aaas", "government", "federal", "datausa",
-        "geonames", "rest countries", "restcountries",
+        "bls",
+        "bureau of labor",
+        "census",
+        "acs",
+        "o*net",
+        "onet",
+        "careeronestop",
+        "fred",
+        "imf",
+        "world bank",
+        "worldbank",
+        "sec",
+        "edgar",
+        "usda",
+        "nih",
+        "cdc",
+        "shrm",
+        "university",
+        "academic",
+        "aaas",
+        "government",
+        "federal",
+        "datausa",
+        "geonames",
+        "rest countries",
+        "restcountries",
     ]
     if any(kw in name for kw in gov_academic_keywords):
         return {
@@ -716,9 +964,20 @@ def assess_source_bias(source_name: str) -> Dict[str, Any]:
 
     # Industry Analyst
     analyst_keywords = [
-        "gartner", "forrester", "deloitte", "mckinsey", "bain",
-        "bcg", "korn ferry", "mercer", "aon", "pwc",
-        "ernst & young", "ey ", "kpmg", "accenture",
+        "gartner",
+        "forrester",
+        "deloitte",
+        "mckinsey",
+        "bain",
+        "bcg",
+        "korn ferry",
+        "mercer",
+        "aon",
+        "pwc",
+        "ernst & young",
+        "ey ",
+        "kpmg",
+        "accenture",
     ]
     if any(kw in name for kw in analyst_keywords):
         return {
@@ -729,10 +988,22 @@ def assess_source_bias(source_name: str) -> Dict[str, Any]:
 
     # Platform / Publisher (may promote their own platform)
     platform_keywords = [
-        "indeed", "linkedin", "glassdoor", "ziprecruiter", "monster",
-        "careerbuilder", "google ads", "google trends", "meta ads",
-        "facebook ads", "bing ads", "tiktok ads", "snap ads",
-        "clearbit", "wikipedia", "teleport",
+        "indeed",
+        "linkedin",
+        "glassdoor",
+        "ziprecruiter",
+        "monster",
+        "careerbuilder",
+        "google ads",
+        "google trends",
+        "meta ads",
+        "facebook ads",
+        "bing ads",
+        "tiktok ads",
+        "snap ads",
+        "clearbit",
+        "wikipedia",
+        "teleport",
     ]
     if any(kw in name for kw in platform_keywords):
         return {
@@ -743,9 +1014,19 @@ def assess_source_bias(source_name: str) -> Dict[str, Any]:
 
     # Vendor / Marketer
     vendor_keywords = [
-        "appcast", "recruitics", "icims", "phenom", "radancy",
-        "pandologic", "talroo", "programmatic", "vendor", "marketer",
-        "recruitology", "nexxt", "jovian",
+        "appcast",
+        "recruitics",
+        "icims",
+        "phenom",
+        "radancy",
+        "pandologic",
+        "talroo",
+        "programmatic",
+        "vendor",
+        "marketer",
+        "recruitology",
+        "nexxt",
+        "jovian",
     ]
     if any(kw in name for kw in vendor_keywords):
         return {
@@ -775,25 +1056,30 @@ def assess_source_bias(source_name: str) -> Dict[str, Any]:
 # SHEET 1: EXECUTIVE SUMMARY
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
-                                   load_kb_fn=None, classify_tier_fn=None):
+
+def _build_sheet_executive_summary(
+    ws, data: dict, research_mod=None, load_kb_fn=None, classify_tier_fn=None
+):
     """Build Sheet 1: Executive Summary."""
     ws.title = "Executive Summary"
     ws.sheet_properties.tabColor = SAPPHIRE
 
     # Column widths
-    _set_column_widths(ws, {
-        1: 3,    # A: margin
-        2: 18,   # B
-        3: 18,   # C
-        4: 18,   # D
-        5: 18,   # E
-        6: 18,   # F
-        7: 18,   # G
-        8: 18,   # H
-        9: 14,   # I: CPA column (budget allocation table extends to 9 cols)
-        10: 14,  # J: ROI Score column
-    })
+    _set_column_widths(
+        ws,
+        {
+            1: 3,  # A: margin
+            2: 18,  # B
+            3: 18,  # C
+            4: 18,  # D
+            5: 18,  # E
+            6: 18,  # F
+            7: 18,  # G
+            8: 18,  # H
+            9: 14,  # I: CPA column (budget allocation table extends to 9 cols)
+            10: 14,  # J: ROI Score column
+        },
+    )
 
     client_name = data.get("client_name", "Client")
     industry = data.get("industry", "general_entry_level")
@@ -802,15 +1088,15 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
     roles = _get_roles(data)
     budget_num = _get_budget_numeric(data)
     duration = data.get("campaign_duration", "Not specified")
-    hire_volume = data.get("hire_volume", "")
+    hire_volume = data.get("hire_volume") or ""
     work_env = data.get("work_environment", "hybrid")
 
     budget_alloc = data.get("_budget_allocation", {})
     total_proj = budget_alloc.get("total_projected", {})
     sufficiency = budget_alloc.get("sufficiency", {})
     channel_allocs = budget_alloc.get("channel_allocations", {})
-    warnings = budget_alloc.get("warnings", [])
-    recommendations = budget_alloc.get("recommendations", [])
+    warnings = budget_alloc.get("warnings") or []
+    recommendations = budget_alloc.get("recommendations") or []
 
     synthesized = data.get("_synthesized", {})
     enriched = data.get("_enriched", {})
@@ -820,19 +1106,27 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
 
     # ── 1. Campaign Overview ──
     # Hero banner
-    ws.merge_cells(start_row=row, start_column=COL_START, end_row=row, end_column=COL_END)
-    hero_cell = ws.cell(row=row, column=COL_START,
-                        value=f"Recruitment Media Plan: {client_name}")
+    ws.merge_cells(
+        start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+    )
+    hero_cell = ws.cell(
+        row=row, column=COL_START, value=f"Recruitment Media Plan: {client_name}"
+    )
     hero_cell.font = _FONT_HERO
     hero_cell.alignment = _ALIGN_LEFT
     ws.row_dimensions[row].height = 36
     row += 1
 
     # Subtitle
-    ws.merge_cells(start_row=row, start_column=COL_START, end_row=row, end_column=COL_END)
-    sub_cell = ws.cell(row=row, column=COL_START,
-                       value=f"{industry_label} | {work_env.title()} | "
-                             f"Generated {datetime.date.today().strftime('%B %d, %Y')}")
+    ws.merge_cells(
+        start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+    )
+    sub_cell = ws.cell(
+        row=row,
+        column=COL_START,
+        value=f"{industry_label} | {work_env.title()} | "
+        f"Generated {datetime.date.today().strftime('%B %d, %Y')}",
+    )
     sub_cell.font = _FONT_FOOTNOTE
     sub_cell.alignment = _ALIGN_LEFT
     row += 2
@@ -873,13 +1167,43 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
 
         # Merge company_intel and company_profile, preferring company_intel
         display_fields = [
-            ("Industry", company_intel.get("industry", company_profile.get("industry", industry_label))),
-            ("Size", company_intel.get("size", company_profile.get("size", ""))),
-            ("Employer Brand", company_intel.get("employer_brand", company_profile.get("employer_brand", ""))),
-            ("Hiring Channels", company_intel.get("hiring_channels", company_profile.get("hiring_channels", ""))),
-            ("Known Strategies", company_intel.get("known_strategies", company_profile.get("known_strategies", ""))),
-            ("Glassdoor Rating", company_intel.get("glassdoor_rating", company_profile.get("glassdoor_rating", ""))),
-            ("Talent Focus", company_intel.get("talent_focus", company_profile.get("talent_focus", ""))),
+            (
+                "Industry",
+                company_intel.get(
+                    "industry", company_profile.get("industry", industry_label)
+                ),
+            ),
+            ("Size", company_intel.get("size", company_profile.get("size") or "")),
+            (
+                "Employer Brand",
+                company_intel.get(
+                    "employer_brand", company_profile.get("employer_brand") or ""
+                ),
+            ),
+            (
+                "Hiring Channels",
+                company_intel.get(
+                    "hiring_channels", company_profile.get("hiring_channels") or ""
+                ),
+            ),
+            (
+                "Known Strategies",
+                company_intel.get(
+                    "known_strategies", company_profile.get("known_strategies") or ""
+                ),
+            ),
+            (
+                "Glassdoor Rating",
+                company_intel.get(
+                    "glassdoor_rating", company_profile.get("glassdoor_rating") or ""
+                ),
+            ),
+            (
+                "Talent Focus",
+                company_intel.get(
+                    "talent_focus", company_profile.get("talent_focus") or ""
+                ),
+            ),
         ]
         for key, val in display_fields:
             val_str = _flatten_value(val) if val else ""
@@ -893,8 +1217,8 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
     # Hero metrics row: Total Budget | Projected Hires | Cost/Hire
     hero_metrics = [
         ("Total Budget", _fmt_currency(budget_num)),
-        ("Projected Hires", _fmt_number(total_proj.get("hires", 0))),
-        ("Cost / Hire", _fmt_currency(total_proj.get("cost_per_hire", 0))),
+        ("Projected Hires", _fmt_number(total_proj.get("hires") or 0)),
+        ("Cost / Hire", _fmt_currency(total_proj.get("cost_per_hire") or 0)),
     ]
     for idx, (label, value) in enumerate(hero_metrics):
         col = COL_START + idx * 2
@@ -902,12 +1226,19 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
     row += 3  # 2-row cards + gap
 
     # Sufficiency grade
-    grade_str = sufficiency.get("grade", "")
-    grade_msg = sufficiency.get("message", sufficiency.get("budget_reality_check", {}).get("message", ""))
+    grade_str = sufficiency.get("grade") or ""
+    grade_msg = sufficiency.get(
+        "message", sufficiency.get("budget_reality_check", {}).get("message") or ""
+    )
     if grade_str:
-        ws.merge_cells(start_row=row, start_column=COL_START, end_row=row, end_column=COL_END)
-        cell = ws.cell(row=row, column=COL_START,
-                       value=f"Budget Sufficiency: {grade_str} -- {grade_msg}")
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+        )
+        cell = ws.cell(
+            row=row,
+            column=COL_START,
+            value=f"Budget Sufficiency: {grade_str} -- {grade_msg}",
+        )
         cell.font = _FONT_BODY_BOLD
         cell.alignment = _ALIGN_LEFT
         if "A" in str(grade_str) or "B" in str(grade_str):
@@ -922,8 +1253,17 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
 
     # Channel allocation table
     if channel_allocs:
-        headers = ["Channel", "%", "Amount", "Proj. Clicks", "Proj. Apps",
-                    "Proj. Hires", "CPC", "CPA", "ROI Score"]
+        headers = [
+            "Channel",
+            "%",
+            "Amount",
+            "Proj. Clicks",
+            "Proj. Apps",
+            "Proj. Hires",
+            "CPC",
+            "CPA",
+            "ROI Score",
+        ]
         row_h = row
         for i, h in enumerate(headers):
             cell = ws.cell(row=row_h, column=COL_START + i, value=h)
@@ -936,20 +1276,22 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
 
         sorted_channels = sorted(
             channel_allocs.items(),
-            key=lambda x: x[1].get("dollar_amount", x[1].get("dollars", 0)),
+            key=lambda x: x[1].get("dollar_amount", x[1].get("dollars") or 0),
             reverse=True,
         )
         for idx, (ch_name, ch_data) in enumerate(sorted_channels[:15]):
             values = [
                 ch_name,
-                f"{_safe_num(ch_data.get('percentage', 0)):.1f}%",
-                _fmt_currency(ch_data.get("dollar_amount", ch_data.get("dollars", 0))),
-                _fmt_number(ch_data.get("projected_clicks", 0)),
-                _fmt_number(ch_data.get("projected_applications", 0)),
-                _fmt_number(ch_data.get("projected_hires", 0)),
-                _fmt_currency(ch_data.get("cpc", 0), show_cents=True),
-                _fmt_currency(ch_data.get("cpa", 0), show_cents=True),
-                str(ch_data.get("roi_score", "")),
+                f"{_safe_num(ch_data.get('percentage') or 0):.1f}%",
+                _fmt_currency(
+                    ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
+                ),
+                _fmt_number(ch_data.get("projected_clicks") or 0),
+                _fmt_number(ch_data.get("projected_applications") or 0),
+                _fmt_number(ch_data.get("projected_hires") or 0),
+                _fmt_currency(ch_data.get("cpc") or 0, show_cents=True),
+                _fmt_currency(ch_data.get("cpa") or 0, show_cents=True),
+                str(ch_data.get("roi_score") or ""),
             ]
             for i, val in enumerate(values):
                 cell = ws.cell(row=row, column=COL_START + i, value=val)
@@ -966,7 +1308,9 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
     if load_kb_fn:
         try:
             kb = load_kb_fn()
-            kb_benchmarks = kb.get("recruitment_benchmarks", {}).get("industry_benchmarks", {})
+            kb_benchmarks = kb.get("recruitment_benchmarks", {}).get(
+                "industry_benchmarks", {}
+            )
             if not kb_benchmarks:
                 # Try alternative paths
                 kb_benchmarks = kb.get("benchmarks", {})
@@ -980,18 +1324,49 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
         def _detect_region(loc: str) -> str:
             loc_lower = loc.lower()
             us_indicators = [
-                "united states", "usa", "california", "new york", "texas",
-                "florida", "chicago", "los angeles", "houston", "phoenix",
+                "united states",
+                "usa",
+                "california",
+                "new york",
+                "texas",
+                "florida",
+                "chicago",
+                "los angeles",
+                "houston",
+                "phoenix",
             ]
             if any(kw in loc_lower for kw in us_indicators):
                 return "North America"
-            eu_indicators = ["uk", "united kingdom", "germany", "france", "spain", "italy", "netherlands", "europe"]
+            eu_indicators = [
+                "uk",
+                "united kingdom",
+                "germany",
+                "france",
+                "spain",
+                "italy",
+                "netherlands",
+                "europe",
+            ]
             if any(kw in loc_lower for kw in eu_indicators):
                 return "Europe"
-            apac_indicators = ["india", "china", "japan", "singapore", "australia", "asia", "pacific"]
+            apac_indicators = [
+                "india",
+                "china",
+                "japan",
+                "singapore",
+                "australia",
+                "asia",
+                "pacific",
+            ]
             if any(kw in loc_lower for kw in apac_indicators):
                 return "APAC"
-            latam_indicators = ["brazil", "mexico", "colombia", "argentina", "latin america"]
+            latam_indicators = [
+                "brazil",
+                "mexico",
+                "colombia",
+                "argentina",
+                "latin america",
+            ]
             if any(kw in loc_lower for kw in latam_indicators):
                 return "LATAM"
             return "North America"  # default
@@ -999,16 +1374,20 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
         client_regions = list(set(_detect_region(loc) for loc in locations))
 
         # Try to find industry-specific benchmarks
-        ind_bench = kb_benchmarks.get(industry, kb_benchmarks.get("general_entry_level", {}))
+        ind_bench = kb_benchmarks.get(
+            industry, kb_benchmarks.get("general_entry_level", {})
+        )
         if isinstance(ind_bench, dict):
             row = _write_subsection_header(
-                ws, row, f"Industry Benchmarks: {industry_label}")
+                ws, row, f"Industry Benchmarks: {industry_label}"
+            )
 
             # If benchmarks have regional breakdown, filter to client regions
             regional = ind_bench.get("regional", ind_bench.get("by_region", {}))
             if regional and isinstance(regional, dict):
                 filtered_regional = {
-                    k: v for k, v in regional.items()
+                    k: v
+                    for k, v in regional.items()
                     if any(r.lower() in k.lower() for r in client_regions)
                 }
                 if filtered_regional:
@@ -1018,10 +1397,18 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
                         if isinstance(rdata, dict):
                             values = [
                                 region,
-                                _flatten_value(rdata.get("cpa", rdata.get("cost_per_application", ""))),
-                                _flatten_value(rdata.get("cpc", rdata.get("cost_per_click", ""))),
-                                _flatten_value(rdata.get("cph", rdata.get("cost_per_hire", ""))),
-                                _flatten_value(rdata.get("apply_rate", "")),
+                                _flatten_value(
+                                    rdata.get(
+                                        "cpa", rdata.get("cost_per_application") or ""
+                                    )
+                                ),
+                                _flatten_value(
+                                    rdata.get("cpc", rdata.get("cost_per_click") or "")
+                                ),
+                                _flatten_value(
+                                    rdata.get("cph", rdata.get("cost_per_hire") or "")
+                                ),
+                                _flatten_value(rdata.get("apply_rate") or ""),
                             ]
                         else:
                             values = [region, _flatten_value(rdata), "", "", ""]
@@ -1032,7 +1419,9 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
                     if key not in ("regional", "by_region", "metadata"):
                         val_str = _flatten_value(val)
                         if val_str:
-                            row = _write_kv_row(ws, row, key.replace("_", " ").title(), val_str)
+                            row = _write_kv_row(
+                                ws, row, key.replace("_", " ").title(), val_str
+                            )
         row += 1
 
     # ── 5. Key Recommendations ──
@@ -1042,11 +1431,12 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
     if tier_groups:
         for tier_name, tier_data in tier_groups.items():
             tier_info = tier_data.get("tier_info", {})
-            tier_roles = tier_data.get("roles", [])
-            strategy = tier_info.get("sourcing_strategy", "")
+            tier_roles = tier_data.get("roles") or []
+            strategy = tier_info.get("sourcing_strategy") or ""
             if strategy and tier_roles:
                 all_recommendations.append(
-                    f"{tier_name} roles ({', '.join(tier_roles[:3])}): {strategy}")
+                    f"{tier_name} roles ({', '.join(tier_roles[:3])}): {strategy}"
+                )
 
     if all_recommendations or warnings:
         row = _write_section_header(ws, row, "Key Recommendations")
@@ -1054,8 +1444,12 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
         if warnings:
             row = _write_subsection_header(ws, row, "Warnings")
             for w in warnings[:5]:
-                ws.merge_cells(start_row=row, start_column=COL_START,
-                               end_row=row, end_column=COL_END)
+                ws.merge_cells(
+                    start_row=row,
+                    start_column=COL_START,
+                    end_row=row,
+                    end_column=COL_END,
+                )
                 cell = ws.cell(row=row, column=COL_START, value=f"  {w}")
                 cell.font = Font(name="Calibri", size=10, color=RED)
                 cell.fill = _FILL_RED_BG
@@ -1066,10 +1460,13 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
         if all_recommendations:
             row = _write_subsection_header(ws, row, "Recommendations")
             for idx, rec in enumerate(all_recommendations[:8]):
-                ws.merge_cells(start_row=row, start_column=COL_START,
-                               end_row=row, end_column=COL_END)
-                cell = ws.cell(row=row, column=COL_START,
-                               value=f"  {idx + 1}. {rec}")
+                ws.merge_cells(
+                    start_row=row,
+                    start_column=COL_START,
+                    end_row=row,
+                    end_column=COL_END,
+                )
+                cell = ws.cell(row=row, column=COL_START, value=f"  {idx + 1}. {rec}")
                 cell.font = _FONT_BODY
                 cell.alignment = _ALIGN_WRAP
                 cell.fill = _FILL_BLUE_PALE if idx % 2 else _FILL_WHITE
@@ -1083,14 +1480,25 @@ def _build_sheet_executive_summary(ws, data: dict, research_mod=None,
 # SHEET 2: CHANNELS & CHANNEL STRATEGY
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
     """Build Sheet 2: Channels & Channel Strategy."""
     ws.title = "Channels & Strategy"
     ws.sheet_properties.tabColor = SAPPHIRE
 
-    _set_column_widths(ws, {
-        1: 3, 2: 22, 3: 14, 4: 14, 5: 14, 6: 14, 7: 14, 8: 18,
-    })
+    _set_column_widths(
+        ws,
+        {
+            1: 3,
+            2: 22,
+            3: 14,
+            4: 14,
+            5: 14,
+            6: 14,
+            7: 14,
+            8: 18,
+        },
+    )
 
     industry = data.get("industry", "general_entry_level")
     industry_label = _get_industry_label(industry)
@@ -1112,34 +1520,45 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
         # Top channels sorted by budget allocation
         sorted_channels = sorted(
             channel_allocs.items(),
-            key=lambda x: x[1].get("dollar_amount", x[1].get("dollars", 0)),
+            key=lambda x: x[1].get("dollar_amount", x[1].get("dollars") or 0),
             reverse=True,
         )
 
-        headers = ["Channel", "Budget %", "Amount", "Category", "CPC",
-                    "Confidence", "Fit"]
+        headers = [
+            "Channel",
+            "Budget %",
+            "Amount",
+            "Category",
+            "CPC",
+            "Confidence",
+            "Fit",
+        ]
         row = _write_table_header(ws, row, headers)
 
         for idx, (ch_name, ch_data) in enumerate(sorted_channels[:15]):
-            roi = ch_data.get("roi_score", "")
+            roi = ch_data.get("roi_score") or ""
             confidence = ch_data.get("confidence", "medium")
-            category = ch_data.get("category", "")
+            category = ch_data.get("category") or ""
 
             values = [
                 ch_name,
-                f"{_safe_num(ch_data.get('percentage', 0)):.1f}%",
-                _fmt_currency(ch_data.get("dollar_amount", ch_data.get("dollars", 0))),
+                f"{_safe_num(ch_data.get('percentage') or 0):.1f}%",
+                _fmt_currency(
+                    ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
+                ),
                 category.replace("_", " ").title() if category else "",
-                _fmt_currency(ch_data.get("cpc", 0), show_cents=True),
+                _fmt_currency(ch_data.get("cpc") or 0, show_cents=True),
                 confidence.title() if isinstance(confidence, str) else str(confidence),
                 roi if isinstance(roi, str) else str(roi),
             ]
             row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
     else:
-        ws.merge_cells(start_row=row, start_column=COL_START,
-                       end_row=row, end_column=COL_END)
-        ws.cell(row=row, column=COL_START,
-                value="No channel allocation data available.").font = _FONT_BODY
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+        )
+        ws.cell(
+            row=row, column=COL_START, value="No channel allocation data available."
+        ).font = _FONT_BODY
         row += 1
 
     row += 2
@@ -1152,18 +1571,26 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
 
     # From channel allocations
     for ch_name, ch_data in channel_allocs.items():
-        raw_channels.append({
-            "name": ch_name,
-            "category": ch_data.get("category", ""),
-            "budget_pct": ch_data.get("percentage", 0),
-            "cpc": ch_data.get("cpc", 0),
-        })
+        raw_channels.append(
+            {
+                "name": ch_name,
+                "category": ch_data.get("category") or "",
+                "budget_pct": ch_data.get("percentage") or 0,
+                "cpc": ch_data.get("cpc") or 0,
+            }
+        )
 
     # From channels DB (add channels not already in allocations)
     alloc_names_lower = {n.lower() for n in channel_allocs.keys()}
     if isinstance(channels_db, dict):
-        for cat_key in ["traditional", "non_traditional", "programmatic",
-                        "social_media", "niche", "regional"]:
+        for cat_key in [
+            "traditional",
+            "non_traditional",
+            "programmatic",
+            "social_media",
+            "niche",
+            "regional",
+        ]:
             cat_channels = channels_db.get(cat_key, {})
             if isinstance(cat_channels, dict):
                 for ch_name, ch_info in cat_channels.items():
@@ -1174,7 +1601,11 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                         raw_channels.append(entry)
             elif isinstance(cat_channels, list):
                 for ch_item in cat_channels:
-                    ch_name = ch_item.get("name", str(ch_item)) if isinstance(ch_item, dict) else str(ch_item)
+                    ch_name = (
+                        ch_item.get("name", str(ch_item))
+                        if isinstance(ch_item, dict)
+                        else str(ch_item)
+                    )
                     if ch_name.lower() not in alloc_names_lower:
                         entry = {"name": ch_name, "category": cat_key}
                         if isinstance(ch_item, dict):
@@ -1185,37 +1616,68 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
     vetted = vet_channels(raw_channels, industry, roles, locations)
 
     if vetted:
-        headers = ["Channel", "Category", "Fit", "CPC", "Budget %",
-                    "Notes", "Fit Score"]
+        headers = [
+            "Channel",
+            "Category",
+            "Fit",
+            "CPC",
+            "Budget %",
+            "Notes",
+            "Fit Score",
+        ]
         row = _write_table_header(ws, row, headers)
 
         for idx, ch in enumerate(vetted[:20]):  # cap at 20
             fit = ch.get("fit", "Fair")
             fit_score = ch.get("fit_score", 0.5)
-            notes = ch.get("description", ch.get("notes", ""))
+            notes = ch.get("description", ch.get("notes") or "")
             if isinstance(notes, dict):
                 notes = _flatten_value(notes)
 
             values = [
-                ch.get("name", ""),
-                ch.get("category", "").replace("_", " ").title(),
+                ch.get("name") or "",
+                ch.get("category") or "".replace("_", " ").title(),
                 fit,
-                _fmt_currency(ch.get("cpc", 0), show_cents=True) if ch.get("cpc") else "",
-                f"{_safe_num(ch.get('budget_pct', 0)):.1f}%" if ch.get("budget_pct") else "",
+                (
+                    _fmt_currency(ch.get("cpc") or 0, show_cents=True)
+                    if ch.get("cpc")
+                    else ""
+                ),
+                (
+                    f"{_safe_num(ch.get('budget_pct') or 0):.1f}%"
+                    if ch.get("budget_pct")
+                    else ""
+                ),
                 notes[:80] if notes else "",
                 f"{fit_score:.2f}",
             ]
 
             # Custom fills for fit column
-            fit_fills = [None, None, _fit_fill(fit), None, None, None, _fit_score_fill(fit_score)]
+            fit_fills = [
+                None,
+                None,
+                _fit_fill(fit),
+                None,
+                None,
+                None,
+                _fit_score_fill(fit_score),
+            ]
             fit_fonts = [None, None, None, None, None, None, _fit_score_font(fit_score)]
-            row = _write_table_row(ws, row, values, alternate=idx % 2 == 1,
-                                   fills=fit_fills, fonts=fit_fonts)
+            row = _write_table_row(
+                ws,
+                row,
+                values,
+                alternate=idx % 2 == 1,
+                fills=fit_fills,
+                fonts=fit_fonts,
+            )
     else:
-        ws.merge_cells(start_row=row, start_column=COL_START,
-                       end_row=row, end_column=COL_END)
-        ws.cell(row=row, column=COL_START,
-                value="No vetted channels available.").font = _FONT_BODY
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+        )
+        ws.cell(
+            row=row, column=COL_START, value="No vetted channels available."
+        ).font = _FONT_BODY
         row += 1
 
     row += 2
@@ -1229,8 +1691,9 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
         # Build headers dynamically -- exclude ROI Projection
         # Include Audience Reach only if at least one platform has non-zero reach
         has_reach = any(
-            _safe_num(p.get("audience_reach", p.get("estimated_reach", 0))) > 0
-            for p in ad_platforms.values() if isinstance(p, dict)
+            _safe_num(p.get("audience_reach", p.get("estimated_reach") or 0)) > 0
+            for p in ad_platforms.values()
+            if isinstance(p, dict)
         )
 
         headers = ["Platform", "CPC", "CPM", "CPA", "Fit Score"]
@@ -1242,18 +1705,30 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
         for idx, (plat_key, plat_data) in enumerate(ad_platforms.items()):
             if not isinstance(plat_data, dict):
                 continue
-            plat_name = plat_data.get("platform_name", plat_key.replace("_", " ").title())
-            fit_score = _safe_num(plat_data.get("fit_score", 0))
+            plat_name = plat_data.get(
+                "platform_name", plat_key.replace("_", " ").title()
+            )
+            fit_score = _safe_num(plat_data.get("fit_score") or 0)
 
             values = [
                 plat_name,
-                _fmt_currency(plat_data.get("avg_cpc", plat_data.get("cpc", 0)), show_cents=True),
-                _fmt_currency(plat_data.get("avg_cpm", plat_data.get("cpm", 0)), show_cents=True),
-                _fmt_currency(plat_data.get("avg_cpa", plat_data.get("cpa", 0)), show_cents=True),
+                _fmt_currency(
+                    plat_data.get("avg_cpc", plat_data.get("cpc") or 0), show_cents=True
+                ),
+                _fmt_currency(
+                    plat_data.get("avg_cpm", plat_data.get("cpm") or 0), show_cents=True
+                ),
+                _fmt_currency(
+                    plat_data.get("avg_cpa", plat_data.get("cpa") or 0), show_cents=True
+                ),
             ]
 
             if has_reach:
-                reach = _safe_num(plat_data.get("audience_reach", plat_data.get("estimated_reach", 0)))
+                reach = _safe_num(
+                    plat_data.get(
+                        "audience_reach", plat_data.get("estimated_reach") or 0
+                    )
+                )
                 values.append(_fmt_number(reach) if reach > 0 else "")
 
             values.append(f"{fit_score:.2f}")
@@ -1265,13 +1740,21 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             row_fills[fit_col_idx] = _fit_score_fill(fit_score)
             row_fonts[fit_col_idx] = _fit_score_font(fit_score)
 
-            row = _write_table_row(ws, row, values, alternate=idx % 2 == 1,
-                                   fills=row_fills, fonts=row_fonts)
+            row = _write_table_row(
+                ws,
+                row,
+                values,
+                alternate=idx % 2 == 1,
+                fills=row_fills,
+                fonts=row_fonts,
+            )
     else:
-        ws.merge_cells(start_row=row, start_column=COL_START,
-                       end_row=row, end_column=COL_END)
-        ws.cell(row=row, column=COL_START,
-                value="No ad platform analysis data available.").font = _FONT_BODY
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+        )
+        ws.cell(
+            row=row, column=COL_START, value="No ad platform analysis data available."
+        ).font = _FONT_BODY
         row += 1
 
     row += 2
@@ -1301,21 +1784,32 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
 # SHEET 3: MARKET INTELLIGENCE
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     """Build Sheet 3: Market Intelligence."""
     ws.title = "Market Intelligence"
     ws.sheet_properties.tabColor = SAPPHIRE
 
-    _set_column_widths(ws, {
-        1: 3, 2: 22, 3: 16, 4: 16, 5: 14, 6: 14, 7: 14, 8: 18,
-    })
+    _set_column_widths(
+        ws,
+        {
+            1: 3,
+            2: 22,
+            3: 16,
+            4: 16,
+            5: 14,
+            6: 14,
+            7: 14,
+            8: 18,
+        },
+    )
 
     industry = data.get("industry", "general_entry_level")
     industry_label = _get_industry_label(industry)
     locations = _get_locations(data)
     roles = _get_roles(data)
     client_name = data.get("client_name", "Client")
-    competitors = data.get("competitors", [])
+    competitors = data.get("competitors") or []
     if isinstance(competitors, str):
         competitors = [c.strip() for c in competitors.split(",") if c.strip()]
 
@@ -1330,7 +1824,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     labour_data = {}
     if research_mod:
         try:
-            labour_data = research_mod.get_labour_market_intelligence(industry, locations)
+            labour_data = research_mod.get_labour_market_intelligence(
+                industry, locations
+            )
         except Exception as exc:
             logger.warning("Labour market intelligence lookup failed: %s", exc)
 
@@ -1340,11 +1836,14 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     if national:
         row = _write_subsection_header(ws, row, "National Economic Snapshot")
         display_fields = [
-            ("Unemployment Rate", national.get("unemployment_rate", "")),
-            ("Job Openings", national.get("job_openings", "")),
-            ("Hires Rate", national.get("hires_rate", "")),
-            ("Quits Rate", national.get("quits_rate", "")),
-            ("Labor Force Participation", national.get("labor_force_participation", "")),
+            ("Unemployment Rate", national.get("unemployment_rate") or ""),
+            ("Job Openings", national.get("job_openings") or ""),
+            ("Hires Rate", national.get("hires_rate") or ""),
+            ("Quits Rate", national.get("quits_rate") or ""),
+            (
+                "Labor Force Participation",
+                national.get("labor_force_participation") or "",
+            ),
         ]
         for key, val in display_fields:
             val_str = _flatten_value(val)
@@ -1364,7 +1863,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         row += 1
 
     # Location contexts from labour market data
-    loc_contexts = labour_data.get("location_contexts", [])
+    loc_contexts = labour_data.get("location_contexts") or []
     if loc_contexts:
         row = _write_subsection_header(ws, row, "Location Economic Context")
         headers = ["Location", "Country", "Unemployment", "Median Salary", "Context"]
@@ -1372,11 +1871,11 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         for idx, lc in enumerate(loc_contexts):
             if isinstance(lc, dict):
                 values = [
-                    lc.get("location", ""),
-                    lc.get("country", ""),
-                    _flatten_value(lc.get("unemployment_rate", "")),
-                    _flatten_value(lc.get("median_salary", "")),
-                    lc.get("context_note", "")[:80],
+                    lc.get("location") or "",
+                    lc.get("country") or "",
+                    _flatten_value(lc.get("unemployment_rate") or ""),
+                    _flatten_value(lc.get("median_salary") or ""),
+                    lc.get("context_note") or ""[:80],
                 ]
                 row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
         row += 1
@@ -1389,8 +1888,14 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     loc_profiles = synthesized.get("location_profiles", {})
     loc_demographics = enriched.get("location_demographics", {})
 
-    headers = ["Location", "Country", "Population", "Unemployment",
-               "Median Income", "Key Industries"]
+    headers = [
+        "Location",
+        "Country",
+        "Population",
+        "Unemployment",
+        "Median Income",
+        "Key Industries",
+    ]
     row = _write_table_header(ws, row, headers)
 
     for idx, loc in enumerate(locations):
@@ -1411,14 +1916,17 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             if isinstance(loc_demographics, dict):
                 for demo_key, demo_data in loc_demographics.items():
                     if isinstance(demo_data, dict) and (
-                        loc.lower() in demo_key.lower() or demo_key.lower() in loc.lower()
+                        loc.lower() in demo_key.lower()
+                        or demo_key.lower() in loc.lower()
                     ):
                         loc_data = demo_data
                         break
             elif isinstance(loc_demographics, list):
                 for demo_item in loc_demographics:
                     if isinstance(demo_item, dict):
-                        demo_loc = demo_item.get("location", demo_item.get("name", ""))
+                        demo_loc = demo_item.get(
+                            "location", demo_item.get("name") or ""
+                        )
                         if loc.lower() in str(demo_loc).lower():
                             loc_data = demo_item
                             break
@@ -1431,27 +1939,48 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 loc_data = {}
 
         # Extract values with fallback chain
-        country = loc_data.get("country", "")
+        country = loc_data.get("country") or ""
         if not country:
             # Try to infer from location string
             parts = loc.split(",")
             country = parts[-1].strip() if len(parts) > 1 else "United States"
 
-        population = loc_data.get("population", loc_data.get("pop", ""))
-        unemployment = loc_data.get("unemployment", loc_data.get("unemployment_rate", ""))
-        median_income = loc_data.get("median_income", loc_data.get("median_salary",
-                                     loc_data.get("median_household_income", "")))
-        key_industries = loc_data.get("key_industries", loc_data.get("major_employers",
-                                      loc_data.get("top_industries", "")))
+        population = loc_data.get("population", loc_data.get("pop") or "")
+        unemployment = loc_data.get(
+            "unemployment", loc_data.get("unemployment_rate") or ""
+        )
+        median_income = loc_data.get(
+            "median_income",
+            loc_data.get(
+                "median_salary", loc_data.get("median_household_income") or ""
+            ),
+        )
+        key_industries = loc_data.get(
+            "key_industries",
+            loc_data.get("major_employers", loc_data.get("top_industries") or ""),
+        )
 
-        pop_str = _fmt_number(population) if isinstance(population, (int, float)) else _flatten_value(population)
+        pop_str = (
+            _fmt_number(population)
+            if isinstance(population, (int, float))
+            else _flatten_value(population)
+        )
         unemp_str = _flatten_value(unemployment)
-        income_str = (_fmt_currency(median_income) if isinstance(median_income, (int, float))
-                      else _flatten_value(median_income))
+        income_str = (
+            _fmt_currency(median_income)
+            if isinstance(median_income, (int, float))
+            else _flatten_value(median_income)
+        )
         industry_str = _flatten_value(key_industries)
 
-        values = [loc, country, pop_str or "N/A", unemp_str or "N/A",
-                  income_str or "N/A", industry_str[:80] if industry_str else "N/A"]
+        values = [
+            loc,
+            country,
+            pop_str or "N/A",
+            unemp_str or "N/A",
+            income_str or "N/A",
+            industry_str[:80] if industry_str else "N/A",
+        ]
 
         row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
 
@@ -1471,14 +2000,20 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
         # Merge from sec_data and company_profile
         if isinstance(sec_data, dict):
-            profile_fields.update({
-                "Company Name": sec_data.get("name", sec_data.get("company_name", client_name)),
-                "CIK": sec_data.get("cik", ""),
-                "SIC Code": sec_data.get("sic", sec_data.get("sic_code", "")),
-                "SIC Description": sec_data.get("sic_description", ""),
-                "State": sec_data.get("state", sec_data.get("state_of_incorporation", "")),
-                "Fiscal Year End": sec_data.get("fiscal_year_end", ""),
-            })
+            profile_fields.update(
+                {
+                    "Company Name": sec_data.get(
+                        "name", sec_data.get("company_name", client_name)
+                    ),
+                    "CIK": sec_data.get("cik") or "",
+                    "SIC Code": sec_data.get("sic", sec_data.get("sic_code") or ""),
+                    "SIC Description": sec_data.get("sic_description") or "",
+                    "State": sec_data.get(
+                        "state", sec_data.get("state_of_incorporation") or ""
+                    ),
+                    "Fiscal Year End": sec_data.get("fiscal_year_end") or "",
+                }
+            )
 
         if isinstance(company_profile, dict):
             for k, v in company_profile.items():
@@ -1492,30 +2027,37 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         row += 1
 
     # Competitors table
-    comp_analysis = comp_intel.get("competitors", comp_intel.get("competitor_analysis", []))
+    comp_analysis = comp_intel.get(
+        "competitors", comp_intel.get("competitor_analysis") or []
+    )
     if not comp_analysis and competitors:
         # Build minimal competitor entries from names list
         comp_analysis = [{"name": c} for c in competitors]
 
     if comp_analysis:
         row = _write_subsection_header(ws, row, "Competitor Analysis")
-        headers = ["Name", "Industry", "Size", "Hiring Activity",
-                    "Overlap Score"]
+        headers = ["Name", "Industry", "Size", "Hiring Activity", "Overlap Score"]
         row = _write_table_header(ws, row, headers)
 
         comp_list = comp_analysis if isinstance(comp_analysis, list) else []
         if isinstance(comp_analysis, dict):
-            comp_list = [{"name": k, **v} if isinstance(v, dict) else {"name": k}
-                         for k, v in comp_analysis.items()]
+            comp_list = [
+                {"name": k, **v} if isinstance(v, dict) else {"name": k}
+                for k, v in comp_analysis.items()
+            ]
 
         for idx, comp in enumerate(comp_list[:10]):
             if isinstance(comp, dict):
                 values = [
-                    comp.get("name", comp.get("company", "")),
-                    _flatten_value(comp.get("industry", "")),
-                    _flatten_value(comp.get("size", comp.get("employee_count", ""))),
-                    _flatten_value(comp.get("hiring_activity", comp.get("hiring_channels", ""))),
-                    _flatten_value(comp.get("overlap_score", comp.get("overlap", ""))),
+                    comp.get("name", comp.get("company") or ""),
+                    _flatten_value(comp.get("industry") or ""),
+                    _flatten_value(comp.get("size", comp.get("employee_count") or "")),
+                    _flatten_value(
+                        comp.get("hiring_activity", comp.get("hiring_channels") or "")
+                    ),
+                    _flatten_value(
+                        comp.get("overlap_score", comp.get("overlap") or "")
+                    ),
                 ]
             elif isinstance(comp, str):
                 values = [comp, "", "", "", ""]
@@ -1526,11 +2068,12 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         row += 1
 
     # Market positioning summary
-    market_pos = comp_intel.get("market_positioning", comp_intel.get("summary", ""))
+    market_pos = comp_intel.get("market_positioning", comp_intel.get("summary") or "")
     if market_pos:
         row = _write_subsection_header(ws, row, "Market Positioning")
-        ws.merge_cells(start_row=row, start_column=COL_START,
-                       end_row=row, end_column=COL_END)
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+        )
         cell = ws.cell(row=row, column=COL_START, value=_flatten_value(market_pos))
         cell.font = _FONT_BODY
         cell.alignment = _ALIGN_WRAP
@@ -1544,8 +2087,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     if salary_intel:
         row = _write_section_header(ws, row, "Salary Intelligence")
 
-        headers = ["Role", "Min", "P25", "Median", "P75", "Max",
-                    "Confidence"]
+        headers = ["Role", "Min", "P25", "Median", "P75", "Max", "Confidence"]
         row = _write_table_header(ws, row, headers)
 
         salary_items = salary_intel
@@ -1557,39 +2099,50 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 salary_items = {"All Roles": salary_intel}
 
         for idx, (role_key, sal_data) in enumerate(
-            salary_items.items() if isinstance(salary_items, dict)
+            salary_items.items()
+            if isinstance(salary_items, dict)
             else enumerate(salary_items)
         ):
             if isinstance(sal_data, dict):
                 role_name = sal_data.get("role", sal_data.get("title", role_key))
-                confidence = _safe_num(sal_data.get("confidence", sal_data.get("confidence_score", 0.5)))
+                confidence = _safe_num(
+                    sal_data.get("confidence", sal_data.get("confidence_score", 0.5))
+                )
                 is_low_conf = confidence < 0.5
 
                 values = [
                     role_name if isinstance(role_name, str) else str(role_name),
-                    _fmt_currency(sal_data.get("min", sal_data.get("p10", 0))),
-                    _fmt_currency(sal_data.get("p25", 0)),
-                    _fmt_currency(sal_data.get("median", sal_data.get("p50", 0))),
-                    _fmt_currency(sal_data.get("p75", 0)),
-                    _fmt_currency(sal_data.get("max", sal_data.get("p90", 0))),
+                    _fmt_currency(sal_data.get("min", sal_data.get("p10") or 0)),
+                    _fmt_currency(sal_data.get("p25") or 0),
+                    _fmt_currency(sal_data.get("median", sal_data.get("p50") or 0)),
+                    _fmt_currency(sal_data.get("p75") or 0),
+                    _fmt_currency(sal_data.get("max", sal_data.get("p90") or 0)),
                     f"{confidence:.0%}",
                 ]
 
                 # Highlight low-confidence rows
                 row_fill = _FILL_AMBER_BG if is_low_conf else None
                 fills_list = [row_fill] * len(values) if is_low_conf else None
-                conf_font = [None] * 6 + [_grade_font(
-                    "C" if confidence >= 0.5 else "D"
-                )]
+                conf_font = [None] * 6 + [
+                    _grade_font("C" if confidence >= 0.5 else "D")
+                ]
 
-                row = _write_table_row(ws, row, values, alternate=idx % 2 == 1,
-                                       fills=fills_list, fonts=conf_font)
+                row = _write_table_row(
+                    ws,
+                    row,
+                    values,
+                    alternate=idx % 2 == 1,
+                    fills=fills_list,
+                    fonts=conf_font,
+                )
 
         # Sources footnote
         sources = set()
-        for sal_data in (salary_intel.values() if isinstance(salary_intel, dict) else []):
+        for sal_data in (
+            salary_intel.values() if isinstance(salary_intel, dict) else []
+        ):
             if isinstance(sal_data, dict):
-                src = sal_data.get("sources", sal_data.get("source", ""))
+                src = sal_data.get("sources", sal_data.get("source") or "")
                 if src:
                     if isinstance(src, list):
                         sources.update(src)
@@ -1606,8 +2159,14 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     if market_demand:
         row = _write_section_header(ws, row, "Market Demand by Role")
 
-        headers = ["Role", "Postings", "Talent Pool", "Competition",
-                    "Temperature", "Trend"]
+        headers = [
+            "Role",
+            "Postings",
+            "Talent Pool",
+            "Competition",
+            "Temperature",
+            "Trend",
+        ]
         row = _write_table_header(ws, row, headers)
 
         demand_items = market_demand
@@ -1617,18 +2176,29 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             demand_items = {"All": market_demand}
 
         for idx, (role_key, demand) in enumerate(
-            demand_items.items() if isinstance(demand_items, dict)
+            demand_items.items()
+            if isinstance(demand_items, dict)
             else enumerate(demand_items)
         ):
             if isinstance(demand, dict):
                 role_name = demand.get("role", demand.get("title", role_key))
                 values = [
                     role_name if isinstance(role_name, str) else str(role_name),
-                    _fmt_number(demand.get("postings", demand.get("job_postings", 0))),
-                    _fmt_number(demand.get("talent_pool", demand.get("supply", 0))),
-                    _flatten_value(demand.get("competition", demand.get("competition_level", ""))),
-                    _flatten_value(demand.get("temperature", demand.get("market_temperature", ""))),
-                    _flatten_value(demand.get("trend", demand.get("trend_direction", ""))),
+                    _fmt_number(
+                        demand.get("postings", demand.get("job_postings") or 0)
+                    ),
+                    _fmt_number(demand.get("talent_pool", demand.get("supply") or 0)),
+                    _flatten_value(
+                        demand.get("competition", demand.get("competition_level") or "")
+                    ),
+                    _flatten_value(
+                        demand.get(
+                            "temperature", demand.get("market_temperature") or ""
+                        )
+                    ),
+                    _flatten_value(
+                        demand.get("trend", demand.get("trend_direction") or "")
+                    ),
                 ]
                 row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
 
@@ -1654,7 +2224,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         continue
                     val_str = _flatten_value(v)
                     if val_str:
-                        row = _write_kv_row(ws, row, k.replace("_", " ").title(), val_str)
+                        row = _write_kv_row(
+                            ws, row, k.replace("_", " ").title(), val_str
+                        )
                 row += 1
 
             elif isinstance(section_val, list):
@@ -1662,10 +2234,15 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 for item in section_val[:8]:
                     val_str = _flatten_value(item)
                     if val_str:
-                        ws.merge_cells(start_row=row, start_column=COL_START,
-                                       end_row=row, end_column=COL_END)
-                        cell = ws.cell(row=row, column=COL_START,
-                                       value=f"  - {val_str}")
+                        ws.merge_cells(
+                            start_row=row,
+                            start_column=COL_START,
+                            end_row=row,
+                            end_column=COL_END,
+                        )
+                        cell = ws.cell(
+                            row=row, column=COL_START, value=f"  - {val_str}"
+                        )
                         cell.font = _FONT_BODY
                         cell.alignment = _ALIGN_WRAP
                         row += 1
@@ -1682,14 +2259,25 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 # SHEET 4: SOURCES & DATA CONFIDENCE
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _build_sheet_sources(ws, data: dict):
     """Build Sheet 4: Sources & Data Confidence."""
     ws.title = "Sources & Confidence"
     ws.sheet_properties.tabColor = SAPPHIRE
 
-    _set_column_widths(ws, {
-        1: 3, 2: 22, 3: 14, 4: 14, 5: 14, 6: 14, 7: 14, 8: 18,
-    })
+    _set_column_widths(
+        ws,
+        {
+            1: 3,
+            2: 22,
+            3: 14,
+            4: 14,
+            5: 14,
+            6: 14,
+            7: 14,
+            8: 18,
+        },
+    )
 
     synthesized = data.get("_synthesized", {})
     enriched = data.get("_enriched", {})
@@ -1702,34 +2290,48 @@ def _build_sheet_sources(ws, data: dict):
     # ── 1. Overall Confidence Grade ──
     row = _write_section_header(ws, row, "Data Confidence Assessment")
 
-    overall_score = _safe_num(confidence_scores.get("overall",
-                              confidence_scores.get("overall_confidence", 0.5)))
+    overall_score = _safe_num(
+        confidence_scores.get(
+            "overall", confidence_scores.get("overall_confidence", 0.5)
+        )
+    )
     overall_grade = _grade_from_score(overall_score)
 
     # Large grade display
-    ws.merge_cells(start_row=row, start_column=COL_START,
-                   end_row=row + 2, end_column=COL_START + 1)
+    ws.merge_cells(
+        start_row=row, start_column=COL_START, end_row=row + 2, end_column=COL_START + 1
+    )
     grade_cell = ws.cell(row=row, column=COL_START, value=overall_grade)
     grade_cell.font = _FONT_GRADE_LARGE
     if overall_grade in ("A", "B"):
-        grade_cell.fill = PatternFill(start_color=GREEN, end_color=GREEN, fill_type="solid")
+        grade_cell.fill = PatternFill(
+            start_color=GREEN, end_color=GREEN, fill_type="solid"
+        )
     elif overall_grade == "C":
-        grade_cell.fill = PatternFill(start_color=AMBER, end_color=AMBER, fill_type="solid")
+        grade_cell.fill = PatternFill(
+            start_color=AMBER, end_color=AMBER, fill_type="solid"
+        )
     else:
         grade_cell.fill = PatternFill(start_color=RED, end_color=RED, fill_type="solid")
     grade_cell.alignment = _ALIGN_CENTER
 
     # Grade description next to it
-    ws.merge_cells(start_row=row, start_column=COL_START + 2,
-                   end_row=row, end_column=COL_END)
-    desc_cell = ws.cell(row=row, column=COL_START + 2,
-                        value=f"Overall Confidence: {overall_score:.0%}")
+    ws.merge_cells(
+        start_row=row, start_column=COL_START + 2, end_row=row, end_column=COL_END
+    )
+    desc_cell = ws.cell(
+        row=row, column=COL_START + 2, value=f"Overall Confidence: {overall_score:.0%}"
+    )
     desc_cell.font = _FONT_HERO
     desc_cell.alignment = _ALIGN_LEFT
 
-    ws.merge_cells(start_row=row + 1, start_column=COL_START + 2,
-                   end_row=row + 1, end_column=COL_END)
-    quality_msg = data_quality.get("message", data_quality.get("summary", ""))
+    ws.merge_cells(
+        start_row=row + 1,
+        start_column=COL_START + 2,
+        end_row=row + 1,
+        end_column=COL_END,
+    )
+    quality_msg = data_quality.get("message", data_quality.get("summary") or "")
     if not quality_msg:
         if overall_grade in ("A", "B"):
             quality_msg = "High-quality data from multiple verified sources"
@@ -1745,8 +2347,9 @@ def _build_sheet_sources(ws, data: dict):
     row += 4
 
     # ── 2. Per-Section Confidence ──
-    section_scores = confidence_scores.get("sections",
-                     confidence_scores.get("per_section", {}))
+    section_scores = confidence_scores.get(
+        "sections", confidence_scores.get("per_section", {})
+    )
 
     if section_scores and isinstance(section_scores, dict):
         row = _write_section_header(ws, row, "Per-Section Confidence")
@@ -1756,8 +2359,12 @@ def _build_sheet_sources(ws, data: dict):
 
         for idx, (section, score_data) in enumerate(section_scores.items()):
             if isinstance(score_data, dict):
-                score = _safe_num(score_data.get("score", score_data.get("confidence", 0)))
-                sources = score_data.get("sources", score_data.get("data_sources", []))
+                score = _safe_num(
+                    score_data.get("score", score_data.get("confidence") or 0)
+                )
+                sources = score_data.get(
+                    "sources", score_data.get("data_sources") or []
+                )
                 sources_str = _flatten_value(sources) if sources else ""
             elif isinstance(score_data, (int, float)):
                 score = float(score_data)
@@ -1777,8 +2384,14 @@ def _build_sheet_sources(ws, data: dict):
             g_font = _grade_font(grade)
             fills_list = [None, None, grade_f, None]
             fonts_list = [None, None, g_font, None]
-            row = _write_table_row(ws, row, values, alternate=idx % 2 == 1,
-                                   fills=fills_list, fonts=fonts_list)
+            row = _write_table_row(
+                ws,
+                row,
+                values,
+                alternate=idx % 2 == 1,
+                fills=fills_list,
+                fonts=fonts_list,
+            )
 
     row += 2
 
@@ -1798,12 +2411,25 @@ def _build_sheet_sources(ws, data: dict):
 
     # From known API sources used in the pipeline
     known_sources = [
-        "BLS OES", "US Census ACS", "O*NET", "SEC EDGAR",
-        "Google Ads API", "Meta Marketing API", "LinkedIn Marketing API",
-        "Bing Ads API", "TikTok Marketing API", "Google Trends",
-        "DataUSA", "GeoNames", "World Bank", "IMF",
-        "Clearbit", "Wikipedia", "CareerOneStop API",
-        "Joveo Campaign Data", "Appcast Benchmark 2026",
+        "BLS OES",
+        "US Census ACS",
+        "O*NET",
+        "SEC EDGAR",
+        "Google Ads API",
+        "Meta Marketing API",
+        "LinkedIn Marketing API",
+        "Bing Ads API",
+        "TikTok Marketing API",
+        "Google Trends",
+        "DataUSA",
+        "GeoNames",
+        "World Bank",
+        "IMF",
+        "Clearbit",
+        "Wikipedia",
+        "CareerOneStop API",
+        "Joveo Campaign Data",
+        "Appcast Benchmark 2026",
     ]
     all_sources.update(known_sources)
 
@@ -1836,8 +2462,9 @@ def _build_sheet_sources(ws, data: dict):
                 conf_fill = _FILL_RED_BG
 
             fills_list = [None, None, conf_fill, None]
-            row = _write_table_row(ws, row, values, alternate=idx % 2 == 1,
-                                   fills=fills_list)
+            row = _write_table_row(
+                ws, row, values, alternate=idx % 2 == 1, fills=fills_list
+            )
 
     row += 2
 
@@ -1851,8 +2478,8 @@ def _build_sheet_sources(ws, data: dict):
         for idx, (api_key, api_status) in enumerate(enrichment_summary.items()):
             if isinstance(api_status, dict):
                 status = api_status.get("status", "unknown")
-                records = api_status.get("records", api_status.get("count", ""))
-                notes = api_status.get("error", api_status.get("message", ""))
+                records = api_status.get("records", api_status.get("count") or "")
+                notes = api_status.get("error", api_status.get("message") or "")
             elif isinstance(api_status, bool):
                 status = "success" if api_status else "failed"
                 records = ""
@@ -1879,16 +2506,25 @@ def _build_sheet_sources(ws, data: dict):
 
             status_fill = _FILL_GREEN_BG if is_success else _FILL_RED_BG
             fills_list = [None, status_fill, None, None]
-            status_font = Font(name="Calibri", bold=True, size=10,
-                               color=GREEN if is_success else RED)
+            status_font = Font(
+                name="Calibri", bold=True, size=10, color=GREEN if is_success else RED
+            )
             fonts_list = [None, status_font, None, None]
-            row = _write_table_row(ws, row, values, alternate=idx % 2 == 1,
-                                   fills=fills_list, fonts=fonts_list)
+            row = _write_table_row(
+                ws,
+                row,
+                values,
+                alternate=idx % 2 == 1,
+                fills=fills_list,
+                fonts=fonts_list,
+            )
     else:
-        ws.merge_cells(start_row=row, start_column=COL_START,
-                       end_row=row, end_column=COL_END)
-        ws.cell(row=row, column=COL_START,
-                value="No API enrichment summary available.").font = _FONT_BODY
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+        )
+        ws.cell(
+            row=row, column=COL_START, value="No API enrichment summary available."
+        ).font = _FONT_BODY
         row += 1
 
     row += 2
@@ -1897,17 +2533,25 @@ def _build_sheet_sources(ws, data: dict):
     row = _write_section_header(ws, row, "Methodology & Data Hierarchy")
 
     methodology_items = [
-        ("Priority 1: Client Data",
-         "Client-provided data (uploaded briefs, historical campaign data) takes highest precedence."),
-        ("Priority 2: Live APIs",
-         "Real-time data from 25+ APIs (BLS, Census, SEC, Google Ads, Meta, LinkedIn, etc.) "
-         "provides current market signals."),
-        ("Priority 3: KB Benchmarks",
-         "Knowledge base benchmarks (Appcast 2026, Google Ads 2025, industry reports) provide "
-         "validated baseline data."),
-        ("Priority 4: Embedded Fallbacks",
-         "Curated fallback data embedded in the research module ensures coverage when APIs "
-         "are unavailable."),
+        (
+            "Priority 1: Client Data",
+            "Client-provided data (uploaded briefs, historical campaign data) takes highest precedence.",
+        ),
+        (
+            "Priority 2: Live APIs",
+            "Real-time data from 25+ APIs (BLS, Census, SEC, Google Ads, Meta, LinkedIn, etc.) "
+            "provides current market signals.",
+        ),
+        (
+            "Priority 3: KB Benchmarks",
+            "Knowledge base benchmarks (Appcast 2026, Google Ads 2025, industry reports) provide "
+            "validated baseline data.",
+        ),
+        (
+            "Priority 4: Embedded Fallbacks",
+            "Curated fallback data embedded in the research module ensures coverage when APIs "
+            "are unavailable.",
+        ),
     ]
 
     for key, desc in methodology_items:
@@ -1916,14 +2560,16 @@ def _build_sheet_sources(ws, data: dict):
     row += 1
 
     # Data quality note
-    ws.merge_cells(start_row=row, start_column=COL_START,
-                   end_row=row, end_column=COL_END)
+    ws.merge_cells(
+        start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+    )
     note_cell = ws.cell(
-        row=row, column=COL_START,
+        row=row,
+        column=COL_START,
         value="Note: Job boards and recruitment marketing vendors are flagged as "
-              "'Potential Conflict of Interest' with lower confidence weighting. "
-              "Academic and government sources (BLS, Census, SHRM) receive "
-              "'Independent / High Trust' classification."
+        "'Potential Conflict of Interest' with lower confidence weighting. "
+        "Academic and government sources (BLS, Census, SHRM) receive "
+        "'Independent / High Trust' classification.",
     )
     note_cell.font = _FONT_FOOTNOTE
     note_cell.alignment = _ALIGN_WRAP
@@ -1944,6 +2590,7 @@ def _build_sheet_sources(ws, data: dict):
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN GENERATOR FUNCTION
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def generate_excel_v2(
     data: dict,
@@ -2004,7 +2651,11 @@ def generate_excel_v2(
         for role, tier_info in role_tiers.items():
             tier_name = tier_info.get("tier", "Professional")
             if tier_name not in tier_groups:
-                tier_groups[tier_name] = {"count": 0, "roles": [], "tier_info": tier_info}
+                tier_groups[tier_name] = {
+                    "count": 0,
+                    "roles": [],
+                    "tier_info": tier_info,
+                }
             tier_groups[tier_name]["count"] += 1
             tier_groups[tier_name]["roles"].append(role)
         data["_tier_groups"] = tier_groups
@@ -2026,7 +2677,7 @@ def generate_excel_v2(
     wb.properties.subject = f"AI-generated recruitment media plan for {client_name}"
     wb.properties.keywords = (
         f"recruitment media plan, "
-        f"{data.get('industry', '').replace('_', ' ').title()}, "
+        f"{data.get('industry') or ''.replace('_', ' ').title()}, "
         "job advertising"
     )
     wb.properties.description = (
@@ -2040,7 +2691,8 @@ def generate_excel_v2(
     ws1 = wb.active  # Use the default first sheet
     try:
         _build_sheet_executive_summary(
-            ws1, data,
+            ws1,
+            data,
             research_mod=research_mod,
             load_kb_fn=load_kb_fn,
             classify_tier_fn=classify_tier_fn,
@@ -2048,35 +2700,40 @@ def generate_excel_v2(
     except Exception as exc:
         logger.error("Sheet 1 (Executive Summary) failed: %s", exc, exc_info=True)
         ws1.title = "Executive Summary"
-        ws1.cell(row=2, column=2,
-                 value=f"Error generating Executive Summary: {exc}").font = _FONT_BODY
+        ws1.cell(
+            row=2, column=2, value=f"Error generating Executive Summary: {exc}"
+        ).font = _FONT_BODY
 
     # ── Sheet 2: Channels & Strategy ──
     ws2 = wb.create_sheet()
     try:
         _build_sheet_channels(
-            ws2, data,
+            ws2,
+            data,
             research_mod=research_mod,
             load_kb_fn=load_kb_fn,
         )
     except Exception as exc:
         logger.error("Sheet 2 (Channels & Strategy) failed: %s", exc, exc_info=True)
         ws2.title = "Channels & Strategy"
-        ws2.cell(row=2, column=2,
-                 value=f"Error generating Channels sheet: {exc}").font = _FONT_BODY
+        ws2.cell(
+            row=2, column=2, value=f"Error generating Channels sheet: {exc}"
+        ).font = _FONT_BODY
 
     # ── Sheet 3: Market Intelligence ──
     ws3 = wb.create_sheet()
     try:
         _build_sheet_market_intelligence(
-            ws3, data,
+            ws3,
+            data,
             research_mod=research_mod,
         )
     except Exception as exc:
         logger.error("Sheet 3 (Market Intelligence) failed: %s", exc, exc_info=True)
         ws3.title = "Market Intelligence"
-        ws3.cell(row=2, column=2,
-                 value=f"Error generating Market Intelligence sheet: {exc}").font = _FONT_BODY
+        ws3.cell(
+            row=2, column=2, value=f"Error generating Market Intelligence sheet: {exc}"
+        ).font = _FONT_BODY
 
     # ── Sheet 4: Sources & Confidence ──
     ws4 = wb.create_sheet()
@@ -2085,8 +2742,9 @@ def generate_excel_v2(
     except Exception as exc:
         logger.error("Sheet 4 (Sources & Confidence) failed: %s", exc, exc_info=True)
         ws4.title = "Sources & Confidence"
-        ws4.cell(row=2, column=2,
-                 value=f"Error generating Sources sheet: {exc}").font = _FONT_BODY
+        ws4.cell(
+            row=2, column=2, value=f"Error generating Sources sheet: {exc}"
+        ).font = _FONT_BODY
 
     # ── Write to bytes ──
     output = io.BytesIO()

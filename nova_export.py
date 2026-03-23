@@ -97,8 +97,8 @@ def export_conversation_html(
         "export_date",
         datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
     )
-    session_id = metadata.get("session_id", "")
-    client_name = metadata.get("client_name", "")
+    session_id = metadata.get("session_id") or ""
+    client_name = metadata.get("client_name") or ""
 
     # Build subtitle line
     subtitle_parts = []
@@ -113,9 +113,9 @@ def export_conversation_html(
     messages_html_parts = []
     for msg in conversation_history:
         role = msg.get("role", "user")
-        content = msg.get("content", "")
-        timestamp = msg.get("timestamp", "")
-        sources = msg.get("sources", [])
+        content = msg.get("content") or ""
+        timestamp = msg.get("timestamp") or ""
+        sources = msg.get("sources") or []
         confidence = msg.get("confidence")
 
         is_user = role == "user"
@@ -138,23 +138,21 @@ def export_conversation_html(
                 pass
         meta_html = ""
         if meta_parts:
-            meta_html = (
-                f'<div class="msg-meta">{" &middot; ".join(meta_parts)}</div>'
-            )
+            meta_html = f'<div class="msg-meta">{" &middot; ".join(meta_parts)}</div>'
 
         # Sources
         sources_html = ""
         if sources and not is_user:
             src_items = "".join(
-                f'<span class="msg-source">{_safe(str(s))}</span>'
-                for s in sources[:5]
+                f'<span class="msg-source">{_safe(str(s))}</span>' for s in sources[:5]
             )
             sources_html = f'<div class="msg-sources">{src_items}</div>'
 
         # Escape content -- preserve basic newlines
         safe_content = _safe(content).replace("\n", "<br>")
 
-        messages_html_parts.append(f"""
+        messages_html_parts.append(
+            f"""
         <div class="msg-row" style="align-self: {align};">
           <div class="msg-label">{role_label}</div>
           <div class="msg-bubble {bg_class}">
@@ -163,7 +161,8 @@ def export_conversation_html(
             {meta_html}
           </div>
         </div>
-        """)
+        """
+        )
 
     messages_html = "\n".join(messages_html_parts)
     msg_count = len(conversation_history)
@@ -426,8 +425,8 @@ def export_conversation_text(
         "export_date",
         datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
     )
-    session_id = metadata.get("session_id", "")
-    client_name = metadata.get("client_name", "")
+    session_id = metadata.get("session_id") or ""
+    client_name = metadata.get("client_name") or ""
 
     lines = ["# Nova AI Conversation Export"]
     lines.append(f"Date: {export_date}")
@@ -440,8 +439,8 @@ def export_conversation_text(
 
     for msg in conversation_history:
         role = msg.get("role", "user")
-        content = msg.get("content", "")
-        timestamp = msg.get("timestamp", "")
+        content = msg.get("content") or ""
+        timestamp = msg.get("timestamp") or ""
 
         # Strip HTML from content if present
         clean_content = _strip_html(content) if "<" in content else content

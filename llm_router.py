@@ -72,10 +72,10 @@ TASK_STRUCTURED = "structured"
 TASK_CONVERSATIONAL = "conversational"
 TASK_COMPLEX = "complex"
 TASK_CODE = "code"
-TASK_VERIFICATION = "verification"    # Fact-checking, grounding verification
-TASK_RESEARCH = "research"            # Market research, geopolitical analysis
-TASK_NARRATIVE = "narrative"          # Long-form text, executive summaries
-TASK_BATCH = "batch"                  # High-throughput, latency-tolerant
+TASK_VERIFICATION = "verification"  # Fact-checking, grounding verification
+TASK_RESEARCH = "research"  # Market research, geopolitical analysis
+TASK_NARRATIVE = "narrative"  # Long-form text, executive summaries
+TASK_BATCH = "batch"  # High-throughput, latency-tolerant
 
 # Provider IDs
 GEMINI = "gemini"
@@ -95,8 +95,8 @@ CLAUDE_OPUS = "claude_opus"
 # Global timeout budget: max total wall-clock seconds for the entire call_llm()
 # fallback loop.  Individual per-provider timeouts are dynamically capped to the
 # remaining budget so the caller never waits longer than this.
-GLOBAL_TIMEOUT_BUDGET = 60.0           # seconds
-_MIN_REMAINING_BUDGET = 5.0            # don't start a new attempt with < 5s left
+GLOBAL_TIMEOUT_BUDGET = 60.0  # seconds
+_MIN_REMAINING_BUDGET = 5.0  # don't start a new attempt with < 5s left
 
 # Provider configs: endpoint, model, auth header, rate limits
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
@@ -269,14 +269,126 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 #   Claude Sonnet: complex multi-step tool_use chains
 #   Claude Opus 4.6: last resort, highest quality
 TASK_ROUTING: Dict[str, List[str]] = {
-    TASK_STRUCTURED:     [GEMINI, MISTRAL, NVIDIA_NIM, GROQ, CEREBRAS, OPENROUTER, XAI, SAMBANOVA, CLOUDFLARE, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_CONVERSATIONAL: [GROQ, CEREBRAS, GEMINI, MISTRAL, OPENROUTER, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_COMPLEX:        [SAMBANOVA, OPENROUTER, GROQ, CEREBRAS, GEMINI, MISTRAL, XAI, NVIDIA_NIM, CLOUDFLARE, CLAUDE_HAIKU, CLAUDE, GPT4O, CLAUDE_OPUS],
-    TASK_CODE:           [GEMINI, MISTRAL, NVIDIA_NIM, GROQ, CEREBRAS, OPENROUTER, XAI, SAMBANOVA, CLOUDFLARE, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_VERIFICATION:   [GEMINI, MISTRAL, GROQ, CEREBRAS, NVIDIA_NIM, OPENROUTER, XAI, SAMBANOVA, CLOUDFLARE, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_RESEARCH:       [XAI, OPENROUTER, SAMBANOVA, GEMINI, GROQ, CEREBRAS, MISTRAL, NVIDIA_NIM, CLOUDFLARE, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_NARRATIVE:      [GROQ, OPENROUTER, GEMINI, CEREBRAS, MISTRAL, XAI, SAMBANOVA, NVIDIA_NIM, CLOUDFLARE, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
-    TASK_BATCH:          [CLOUDFLARE, CEREBRAS, GROQ, GEMINI, MISTRAL, NVIDIA_NIM, OPENROUTER, XAI, SAMBANOVA, CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS],
+    TASK_STRUCTURED: [
+        GEMINI,
+        MISTRAL,
+        NVIDIA_NIM,
+        GROQ,
+        CEREBRAS,
+        OPENROUTER,
+        XAI,
+        SAMBANOVA,
+        CLOUDFLARE,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    TASK_CONVERSATIONAL: [
+        GROQ,
+        CEREBRAS,
+        GEMINI,
+        MISTRAL,
+        OPENROUTER,
+        XAI,
+        SAMBANOVA,
+        NVIDIA_NIM,
+        CLOUDFLARE,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    TASK_COMPLEX: [
+        SAMBANOVA,
+        OPENROUTER,
+        GROQ,
+        CEREBRAS,
+        GEMINI,
+        MISTRAL,
+        XAI,
+        NVIDIA_NIM,
+        CLOUDFLARE,
+        CLAUDE_HAIKU,
+        CLAUDE,
+        GPT4O,
+        CLAUDE_OPUS,
+    ],
+    TASK_CODE: [
+        GEMINI,
+        MISTRAL,
+        NVIDIA_NIM,
+        GROQ,
+        CEREBRAS,
+        OPENROUTER,
+        XAI,
+        SAMBANOVA,
+        CLOUDFLARE,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    TASK_VERIFICATION: [
+        GEMINI,
+        MISTRAL,
+        GROQ,
+        CEREBRAS,
+        NVIDIA_NIM,
+        OPENROUTER,
+        XAI,
+        SAMBANOVA,
+        CLOUDFLARE,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    TASK_RESEARCH: [
+        XAI,
+        OPENROUTER,
+        SAMBANOVA,
+        GEMINI,
+        GROQ,
+        CEREBRAS,
+        MISTRAL,
+        NVIDIA_NIM,
+        CLOUDFLARE,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    TASK_NARRATIVE: [
+        GROQ,
+        OPENROUTER,
+        GEMINI,
+        CEREBRAS,
+        MISTRAL,
+        XAI,
+        SAMBANOVA,
+        NVIDIA_NIM,
+        CLOUDFLARE,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    TASK_BATCH: [
+        CLOUDFLARE,
+        CEREBRAS,
+        GROQ,
+        GEMINI,
+        MISTRAL,
+        NVIDIA_NIM,
+        OPENROUTER,
+        XAI,
+        SAMBANOVA,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
 }
 
 # Keywords for task classification
@@ -320,6 +432,7 @@ _BATCH_KEYWORDS = re.compile(
 # ═══════════════════════════════════════════════════════════════════════════════
 # CIRCUIT BREAKER + RATE TRACKER (per provider)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class _ProviderState:
     """Thread-safe state tracker for a single LLM provider."""
@@ -392,12 +505,16 @@ class _ProviderState:
                 self.circuit_open_until = time.time() + self.circuit_cooldown
                 logger.warning(
                     "LLM Router: Circuit breaker OPEN for %s (cooldown %.0fs)",
-                    self.provider_id, self.circuit_cooldown,
+                    self.provider_id,
+                    self.circuit_cooldown,
                 )
                 # Alert via email when circuit breaker opens
                 try:
                     from email_alerts import send_circuit_breaker_alert
-                    send_circuit_breaker_alert(self.provider_id, self.consecutive_failures)
+
+                    send_circuit_breaker_alert(
+                        self.provider_id, self.consecutive_failures
+                    )
                 except Exception:
                     pass  # email alerts are best-effort
 
@@ -407,12 +524,12 @@ class _ProviderState:
         with self.lock:
             self.minute_calls = [t for t in self.minute_calls if now - t < 60]
             self.day_calls = [t for t in self.day_calls if now - t < 86400]
-            avg_latency = (
-                self.total_latency_ms / max(1, self.total_calls - self.total_failures)
+            avg_latency = self.total_latency_ms / max(
+                1, self.total_calls - self.total_failures
             )
             return {
                 "provider": self.provider_id,
-                "name": PROVIDER_CONFIG.get(self.provider_id, {}).get("name", ""),
+                "name": PROVIDER_CONFIG.get(self.provider_id, {}).get("name") or "",
                 "total_calls": self.total_calls,
                 "total_failures": self.total_failures,
                 "calls_this_minute": len(self.minute_calls),
@@ -433,6 +550,7 @@ _provider_states: Dict[str, _ProviderState] = {
 # TASK CLASSIFICATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def classify_task(query: str) -> str:
     """Classify a user query into a task type for provider routing.
 
@@ -445,13 +563,14 @@ def classify_task(query: str) -> str:
         # New specialised types are checked alongside the originals;
         # specificity is handled via the boost multipliers.
         scores = {
-            TASK_VERIFICATION: len(_VERIFICATION_KEYWORDS.findall(q)) * 2.0,  # boost: most specific
-            TASK_RESEARCH:     len(_RESEARCH_KEYWORDS.findall(q)) * 2.0,
-            TASK_NARRATIVE:    len(_NARRATIVE_KEYWORDS.findall(q)) * 1.8,
-            TASK_BATCH:        len(_BATCH_KEYWORDS.findall(q)) * 1.8,
-            TASK_STRUCTURED:   len(_STRUCTURED_KEYWORDS.findall(q)),
-            TASK_COMPLEX:      len(_COMPLEX_KEYWORDS.findall(q)) * 1.5,  # boost complex
-            TASK_CODE:         len(_CODE_KEYWORDS.findall(q)),
+            TASK_VERIFICATION: len(_VERIFICATION_KEYWORDS.findall(q))
+            * 2.0,  # boost: most specific
+            TASK_RESEARCH: len(_RESEARCH_KEYWORDS.findall(q)) * 2.0,
+            TASK_NARRATIVE: len(_NARRATIVE_KEYWORDS.findall(q)) * 1.8,
+            TASK_BATCH: len(_BATCH_KEYWORDS.findall(q)) * 1.8,
+            TASK_STRUCTURED: len(_STRUCTURED_KEYWORDS.findall(q)),
+            TASK_COMPLEX: len(_COMPLEX_KEYWORDS.findall(q)) * 1.5,  # boost complex
+            TASK_CODE: len(_CODE_KEYWORDS.findall(q)),
             TASK_CONVERSATIONAL: 0,
         }
         best = max(scores, key=scores.get)
@@ -462,7 +581,9 @@ def classify_task(query: str) -> str:
         return TASK_CONVERSATIONAL
 
 
-def select_provider(task_type: str, exclude: Optional[List[str]] = None) -> Optional[str]:
+def select_provider(
+    task_type: str, exclude: Optional[List[str]] = None
+) -> Optional[str]:
     """Select the best available provider for a task type.
 
     Follows the priority order for the task type, skipping providers
@@ -478,7 +599,7 @@ def select_provider(task_type: str, exclude: Optional[List[str]] = None) -> Opti
             continue
         # Check API key exists
         config = PROVIDER_CONFIG.get(pid, {})
-        env_key = config.get("env_key", "")
+        env_key = config.get("env_key") or ""
         if not os.environ.get(env_key, "").strip():
             continue
         # Check availability
@@ -493,6 +614,7 @@ def select_provider(task_type: str, exclude: Optional[List[str]] = None) -> Opti
 # API CALL ADAPTERS (normalize request/response across providers)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _build_gemini_request(
     messages: List[Dict],
     system_prompt: str,
@@ -500,7 +622,7 @@ def _build_gemini_request(
     tools: Optional[List[Dict]] = None,
 ) -> Tuple[str, Dict[str, str], bytes]:
     """Build a Gemini API request."""
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    api_key = os.environ.get("GEMINI_API_KEY") or "".strip()
     config = PROVIDER_CONFIG[GEMINI]
     url = f"{config['endpoint']}?key={api_key}"
 
@@ -508,7 +630,7 @@ def _build_gemini_request(
     contents = []
     for msg in messages:
         role = "model" if msg["role"] == "assistant" else "user"
-        text = msg.get("content", "")
+        text = msg.get("content") or ""
         if isinstance(text, str):
             contents.append({"role": role, "parts": [{"text": text}]})
 
@@ -542,12 +664,12 @@ def _convert_tools_anthropic_to_openai(tools: List[Dict]) -> List[Dict]:
     """
     openai_tools = []
     for tool in tools:
-        name = tool.get("name", "")
+        name = tool.get("name") or ""
         if not name:
             continue
         fn: Dict[str, Any] = {
             "name": name,
-            "description": tool.get("description", ""),
+            "description": tool.get("description") or "",
         }
         # Anthropic uses 'input_schema', OpenAI uses 'parameters'
         schema = tool.get("input_schema") or tool.get("parameters")
@@ -579,15 +701,17 @@ def _build_openai_request(
 
     for msg in messages:
         role = msg.get("role", "user")
-        content = msg.get("content", "")
+        content = msg.get("content") or ""
 
         # Pass through tool result messages as-is (role="tool")
         if role == "tool":
-            api_messages.append({
-                "role": "tool",
-                "tool_call_id": msg.get("tool_call_id", ""),
-                "content": str(msg.get("content", "")),
-            })
+            api_messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": msg.get("tool_call_id") or "",
+                    "content": str(msg.get("content") or ""),
+                }
+            )
         # Pass through assistant messages that contain tool_calls
         elif role == "assistant" and msg.get("tool_calls"):
             assistant_msg: Dict[str, Any] = {"role": "assistant"}
@@ -649,7 +773,7 @@ def _build_anthropic_request(
     api_messages = []
     for msg in messages:
         role = msg.get("role", "user")
-        content = msg.get("content", "")
+        content = msg.get("content") or ""
         if role in ("user", "assistant") and isinstance(content, str) and content:
             api_messages.append({"role": role, "content": content})
 
@@ -676,17 +800,17 @@ def _build_anthropic_request(
 def _parse_gemini_response(resp_data: Dict) -> Dict[str, Any]:
     """Parse Gemini API response to normalized format."""
     try:
-        candidates = resp_data.get("candidates", [])
+        candidates = resp_data.get("candidates") or []
         if not candidates:
             return {"text": "", "error": "No candidates in response"}
         content = candidates[0].get("content", {})
-        parts = content.get("parts", [])
-        text = " ".join(p.get("text", "") for p in parts if "text" in p)
+        parts = content.get("parts") or []
+        text = " ".join(p.get("text") or "" for p in parts if "text" in p)
         usage = resp_data.get("usageMetadata", {})
         return {
             "text": text.strip(),
-            "input_tokens": usage.get("promptTokenCount", 0),
-            "output_tokens": usage.get("candidatesTokenCount", 0),
+            "input_tokens": usage.get("promptTokenCount") or 0,
+            "output_tokens": usage.get("candidatesTokenCount") or 0,
             "model": "gemini-2.0-flash",
             "stop_reason": candidates[0].get("finishReason", "STOP"),
         }
@@ -704,18 +828,18 @@ def _parse_openai_response(resp_data: Dict) -> Dict[str, Any]:
         - stop_reason: "tool_calls" (indicating tools need to be executed)
     """
     try:
-        choices = resp_data.get("choices", [])
+        choices = resp_data.get("choices") or []
         if not choices:
             return {"text": "", "error": "No choices in response"}
         message = choices[0].get("message", {})
-        text = message.get("content", "") or ""
+        text = message.get("content") or "" or ""
         usage = resp_data.get("usage", {})
 
         result: Dict[str, Any] = {
             "text": text.strip(),
-            "input_tokens": usage.get("prompt_tokens", 0),
-            "output_tokens": usage.get("completion_tokens", 0),
-            "model": resp_data.get("model", ""),
+            "input_tokens": usage.get("prompt_tokens") or 0,
+            "output_tokens": usage.get("completion_tokens") or 0,
+            "model": resp_data.get("model") or "",
             "stop_reason": choices[0].get("finish_reason", "stop"),
         }
 
@@ -734,21 +858,21 @@ def _parse_openai_response(resp_data: Dict) -> Dict[str, Any]:
 def _parse_anthropic_response(resp_data: Dict) -> Dict[str, Any]:
     """Parse Anthropic API response to normalized format."""
     try:
-        content_blocks = resp_data.get("content", [])
+        content_blocks = resp_data.get("content") or []
         text_parts = []
         for block in content_blocks:
             if block.get("type") == "text":
-                text_parts.append(block.get("text", ""))
+                text_parts.append(block.get("text") or "")
         usage = resp_data.get("usage", {})
         return {
             "text": " ".join(text_parts).strip(),
-            "input_tokens": usage.get("input_tokens", 0),
-            "output_tokens": usage.get("output_tokens", 0),
-            "model": resp_data.get("model", ""),
+            "input_tokens": usage.get("input_tokens") or 0,
+            "output_tokens": usage.get("output_tokens") or 0,
+            "model": resp_data.get("model") or "",
             "stop_reason": resp_data.get("stop_reason", "end_turn"),
             # Preserve raw for tool_use compatibility
             "raw_content": content_blocks,
-            "raw_stop_reason": resp_data.get("stop_reason", ""),
+            "raw_stop_reason": resp_data.get("stop_reason") or "",
         }
     except Exception as e:
         return {"text": "", "error": str(e)}
@@ -757,6 +881,7 @@ def _parse_anthropic_response(resp_data: Dict) -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN ROUTER FUNCTION
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def call_llm(
     messages: List[Dict],
@@ -816,8 +941,11 @@ def call_llm(
         result["task_type"] = task_type
         result["fallback_used"] = False
         result["attempts"] = [
-            {"provider": force_provider, "status": "success" if result.get("text") else "failed",
-             "latency_ms": result.get("latency_ms", 0)}
+            {
+                "provider": force_provider,
+                "status": "success" if result.get("text") else "failed",
+                "latency_ms": result.get("latency_ms") or 0,
+            }
         ]
         return result
 
@@ -841,7 +969,8 @@ def call_llm(
         if elapsed > GLOBAL_TIMEOUT_BUDGET:
             logger.warning(
                 "LLM Router: global timeout budget (%.1fs) exceeded after %d attempts",
-                GLOBAL_TIMEOUT_BUDGET, attempt_num,
+                GLOBAL_TIMEOUT_BUDGET,
+                attempt_num,
             )
             break
         remaining = GLOBAL_TIMEOUT_BUDGET - elapsed
@@ -859,7 +988,7 @@ def call_llm(
                 if pid in excluded:
                     continue
                 config = PROVIDER_CONFIG.get(pid, {})
-                env_key = config.get("env_key", "")
+                env_key = config.get("env_key") or ""
                 if not os.environ.get(env_key, "").strip():
                     continue
                 state = _provider_states.get(pid)
@@ -872,18 +1001,24 @@ def call_llm(
             break
 
         result = _call_single_provider(
-            provider, messages, system_prompt, max_tokens, tools,
+            provider,
+            messages,
+            system_prompt,
+            max_tokens,
+            tools,
             timeout_override=remaining,
         )
         _has_response = bool(
             result.get("text") or result.get("raw_content") or result.get("tool_calls")
         )
-        attempts.append({
-            "provider": provider,
-            "status": "success" if _has_response else "failed",
-            "latency_ms": result.get("latency_ms", 0),
-            "error": result.get("error", ""),
-        })
+        attempts.append(
+            {
+                "provider": provider,
+                "status": "success" if _has_response else "failed",
+                "latency_ms": result.get("latency_ms") or 0,
+                "error": result.get("error") or "",
+            }
+        )
 
         if _has_response:
             result["task_type"] = task_type
@@ -895,7 +1030,9 @@ def call_llm(
         excluded.append(provider)
         logger.warning(
             "LLM Router: %s failed (attempt %d), trying next provider. Error: %s",
-            provider, attempt_num + 1, result.get("error", "unknown"),
+            provider,
+            attempt_num + 1,
+            result.get("error", "unknown"),
         )
 
     # All providers failed
@@ -933,7 +1070,7 @@ def _call_single_provider(
         return {"text": "", "provider": provider_id, "error": "Unknown provider"}
 
     state = _provider_states.get(provider_id)
-    api_style = config.get("api_style", "")
+    api_style = config.get("api_style") or ""
     timeout = config.get("timeout", 30)
     if timeout_override is not None:
         timeout = min(timeout, timeout_override)
@@ -953,7 +1090,11 @@ def _call_single_provider(
                 messages, system_prompt, max_tokens, tools, provider_id=provider_id
             )
         else:
-            return {"text": "", "provider": provider_id, "error": f"Unknown API style: {api_style}"}
+            return {
+                "text": "",
+                "provider": provider_id,
+                "error": f"Unknown API style: {api_style}",
+            }
 
         # Record call attempt
         if state:
@@ -982,15 +1123,17 @@ def _call_single_provider(
                 state.record_success(latency_ms)
             logger.info(
                 "LLM Router: %s responded in %.0fms (in=%d, out=%d)",
-                provider_id, latency_ms,
-                parsed.get("input_tokens", 0), parsed.get("output_tokens", 0),
+                provider_id,
+                latency_ms,
+                parsed.get("input_tokens") or 0,
+                parsed.get("output_tokens") or 0,
             )
         else:
             if state:
                 state.record_failure()
 
         parsed["provider"] = provider_id
-        parsed["provider_name"] = config.get("name", "")
+        parsed["provider_name"] = config.get("name") or ""
         parsed["latency_ms"] = latency_ms
         return parsed
 
@@ -1008,7 +1151,7 @@ def _call_single_provider(
         return {
             "text": "",
             "provider": provider_id,
-            "provider_name": config.get("name", ""),
+            "provider_name": config.get("name") or "",
             "error": f"HTTP {http_err.code}: {error_body[:200]}",
             "latency_ms": 0,
         }
@@ -1019,7 +1162,7 @@ def _call_single_provider(
         return {
             "text": "",
             "provider": provider_id,
-            "provider_name": config.get("name", ""),
+            "provider_name": config.get("name") or "",
             "error": str(exc),
             "latency_ms": 0,
         }
@@ -1029,26 +1172,35 @@ def _call_single_provider(
 # STATUS & DIAGNOSTICS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def get_router_status() -> Dict[str, Any]:
     """Return status of all providers and routing configuration."""
     providers = {}
     for pid in PROVIDER_CONFIG:
         config = PROVIDER_CONFIG[pid]
         state = _provider_states.get(pid)
-        has_key = bool(os.environ.get(config.get("env_key", ""), "").strip())
+        has_key = bool(os.environ.get(config.get("env_key") or "", "").strip())
         providers[pid] = {
-            "name": config.get("name", ""),
+            "name": config.get("name") or "",
             "configured": has_key,
-            "api_style": config.get("api_style", ""),
-            "model": config.get("model", ""),
+            "api_style": config.get("api_style") or "",
+            "model": config.get("model") or "",
             **(state.get_stats() if state else {}),
         }
 
     return {
         "providers": providers,
         "routing": TASK_ROUTING,
-        "task_types": [TASK_STRUCTURED, TASK_CONVERSATIONAL, TASK_COMPLEX, TASK_CODE,
-                       TASK_VERIFICATION, TASK_RESEARCH, TASK_NARRATIVE, TASK_BATCH],
+        "task_types": [
+            TASK_STRUCTURED,
+            TASK_CONVERSATIONAL,
+            TASK_COMPLEX,
+            TASK_CODE,
+            TASK_VERIFICATION,
+            TASK_RESEARCH,
+            TASK_NARRATIVE,
+            TASK_BATCH,
+        ],
     }
 
 
@@ -1057,7 +1209,7 @@ def get_provider_health() -> Dict[str, bool]:
     result = {}
     for pid in PROVIDER_CONFIG:
         config = PROVIDER_CONFIG[pid]
-        has_key = bool(os.environ.get(config.get("env_key", ""), "").strip())
+        has_key = bool(os.environ.get(config.get("env_key") or "", "").strip())
         state = _provider_states.get(pid)
         available = has_key and (state.is_available() if state else False)
         result[pid] = available
@@ -1104,5 +1256,5 @@ if __name__ == "__main__":
                 query_text=query,
             )
             print(f"Provider: {result.get('provider_name', 'N/A')}")
-            print(f"Latency: {result.get('latency_ms', 0):.0f}ms")
-            print(f"Response: {result.get('text', '')[:500]}")
+            print(f"Latency: {result.get('latency_ms') or 0:.0f}ms")
+            print(f"Response: {result.get('text') or ''[:500]}")
